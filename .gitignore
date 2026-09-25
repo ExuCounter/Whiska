@@ -1,1 +1,18 @@
 handoffs/
+worktrees/
+
+# Mouse identity marker, minted lazily by the CLI (ADR-0002). Gitignored for the
+# same reason .herdr-worktree-meta is: it identifies this worktree, not the repo.
+.whiska-mouse
+.herdr-worktree-meta
+
+# Elixir / mix
+/_build/
+/cover/
+/deps/
+/doc/
+/.fetch
+erl_crash.dump
+*.ez
+/whiska
+*.beam
