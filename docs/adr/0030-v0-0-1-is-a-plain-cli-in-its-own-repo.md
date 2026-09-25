@@ -14,6 +14,11 @@ Two defaults were deliberately reversed to get here:
 - **CLI, not owl.** The full design is one supervised process per machine (ADR-0001), but
   that is explicitly not part of this slice.
 
+The escript stays Elixir for this slice only. Its ~171 ms cold start is paid on every tool
+call, which is survivable while testing and not while living in — see ADR-0033, which moves
+the hook client to a native binary at the point the owl takes over its database and
+id-minting work.
+
 ## Consequences
 
 Storage uses real `Ecto.Migration` + SQLite from day one — the same technology the owl will

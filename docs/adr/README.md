@@ -60,6 +60,10 @@ individually citable decisions.
 - [0030](0030-v0-0-1-is-a-plain-cli-in-its-own-repo.md) — v0.0.1 is a plain CLI in its own repo, not the owl
 - [0031](0031-mocking-is-confined-to-the-herdr-boundary.md) — Mocking is confined to the herdr boundary
 
+## Performance
+
+- [0033](0033-the-hook-client-is-native-not-elixir.md) — The hook client is a native binary, not Elixir
+
 ## Proposed, not committed
 
 - [0032](0032-pr-opening-and-merge-tracking.md) — PR opening and merge tracking
