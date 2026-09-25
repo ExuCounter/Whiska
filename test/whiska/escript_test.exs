@@ -124,20 +124,10 @@ defmodule Whiska.EscriptTest do
     assert out =~ ~s("permissionDecision":"deny")
   end
 
-  @tag :needs_nif
-  test "opens a real SQLite house", %{main: main, worktree: worktree} do
-    # EXCLUDED BY DEFAULT, AND FAILING ON PURPOSE UNTIL PACKAGING IS DECIDED.
-    #
-    # `mix escript.build` produces a zip archive with no priv directory, so
-    # exqlite's 1.6 MB `sqlite3_nif.so` cannot travel inside the binary. The
-    # escript resolves `:code.priv_dir(:exqlite)` to a path *inside itself* and
-    # dlopen fails. This is an escript limitation, not a bug in this code: the
-    # identical code opens the database, migrates both tables and writes the
-    # mouse row correctly when built with `mix release`.
-    #
-    # ADR-0030 calls for `mix escript.build` AND real Ecto + SQLite, and those
-    # two cannot both hold. Flagged rather than worked around, per CLAUDE.md.
-    # Run with: mix test --include needs_nif
+  test "opens a real SQLite house from the single-file binary", %{main: main, worktree: worktree} do
+    # The escript carries SQLite's native library as embedded bytes and unpacks
+    # it on first run (Whiska.BundledNIF) — an escript archive has no priv
+    # directory, and native code cannot be loaded out of a zip regardless.
     {_, 0} = hook(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}}, worktree)
 
     assert File.exists?(Path.join(main, ".git/whiska/whiska.db"))

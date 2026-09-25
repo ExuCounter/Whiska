@@ -74,9 +74,21 @@ Measured on the development machine (Apple silicon, macOS 25.4, OTP 28, Elixir 1
 | What runs | Per invocation |
 |---|---|
 | Bare `elixir -e ':ok'` | 177 ms |
-| `whiska --version` — escript boot floor | **135 ms** |
-| The SQLite work alone (open, migrate, upsert), warm VM | 1.7 ms |
+| `whiska --version` — escript boot floor | 126 ms |
+| **`whiska hook pre-tool-use` — the real job, SQLite included** | **~220 ms** |
+| First run ever, which also unpacks the bundled SQLite library | 627 ms, once |
 
-The cost is BEAM boot, essentially all of it; Ecto and SQLite add single-digit
-milliseconds on top. This is why ADR-0033 moves the hook client to a native binary when
-the owl arrives — and why it deliberately does not do so now.
+Roughly 126 ms of that is the BEAM booting before any code runs, and the rest is
+loading Ecto, db_connection and exqlite. The SQLite work itself — open, migrate, upsert —
+is under 2 ms. Nothing inside the program can remove the first 126 ms, which is why
+ADR-0033 moves the hook client to a native binary when the owl arrives, and why the
+narrow matcher above matters more than it looks: `Read`, `Grep` and `Glob` never pay it.
+
+### Why the binary is 3 MB
+
+An escript is a zip archive. It carries no `priv/` directories, and native code cannot be
+`dlopen`ed out of a zip in any case — so SQLite's 1.6 MB native library travels as bytes
+embedded in `Whiska.BundledNIF` and is unpacked to `~/.cache/whiska/exqlite-<vsn>/` on
+first run. That is the only reason ADR-0030's "single binary" and ADR-0028's "real
+SQLite" can both hold. It is scaffolding with a known end: when ADR-0033's native hook
+client arrives, the hook stops touching storage entirely and this module is deleted whole.

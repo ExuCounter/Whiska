@@ -31,7 +31,12 @@ defmodule Whiska.Storage do
     path = database_path(main_checkout)
     File.mkdir_p!(Path.dirname(path))
 
-    with {:ok, _} <- Application.ensure_all_started(:ecto_sql),
+    # An escript cannot ship SQLite's native library inside itself; see
+    # Whiska.BundledNIF for the whole story. Has to happen before anything
+    # touches Exqlite, since the NIF loads when its module first loads.
+
+    with {:ok, _} <- Whiska.BundledNIF.ensure_loadable(),
+         {:ok, _} <- Application.ensure_all_started(:ecto_sql),
          {:ok, _} <- Application.ensure_all_started(:ecto_sqlite3),
          {:ok, pid} <- Repo.start_link(repo_opts(path)) do
       migrate()
