@@ -182,4 +182,83 @@ defmodule Whiska.ShellTest do
       assert "lib/" in paths
     end
   end
+
+  # The describes below are the false denials found by reading the module against
+  # real shell usage. Most are the same underlying mistake: matching a regex
+  # against the raw command string, which cannot tell an operator from an
+  # ordinary character inside a quoted argument.
+
+  describe "quoting — an operator inside quotes is not an operator" do
+    test "alternation in a quoted regex does not split the command" do
+      refute Shell.mutating?(~S[rg "foo|bar" lib/])
+      refute Shell.mutating?(~S[rg 'foo|bar' lib/])
+    end
+
+    test "a fat arrow in a search pattern is not a redirect" do
+      refute Shell.mutating?(~S[grep -r "=>" lib/])
+      refute Shell.mutating?(~S[git log --grep="fix > bug"])
+    end
+
+    test "a semicolon or ampersand inside quotes does not split the command" do
+      refute Shell.mutating?(~S[rg "a;b" lib/])
+      refute Shell.mutating?(~S[rg "a && b" lib/])
+    end
+
+    test "but a real redirect outside quotes still writes" do
+      assert Shell.mutating?(~S[rg "foo|bar" lib/ > out.txt])
+    end
+
+    test "a substitution is literal in single quotes and live in double" do
+      refute Shell.mutating?(~S[grep '$(rm -rf /)' lib/])
+      assert Shell.mutating?(~S[echo "$(rm -rf lib)"])
+    end
+  end
+
+  describe "find — judged by its action, not by the letters in a flag" do
+    test "an -exec running a read-only command reads" do
+      refute Shell.mutating?(~S[find . -name '*.ex' -exec grep -l foo {} \;])
+    end
+
+    test "an -exec running a mutating command mutates" do
+      assert Shell.mutating?(~S[find . -name '*.tmp' -exec rm {} \;])
+    end
+
+    test "-delete mutates" do
+      assert Shell.mutating?(~S[find . -name '*.tmp' -delete])
+    end
+
+    # The escaped `\;` that ends an -exec clause has to be recognised as a
+    # terminator, or everything after the first clause goes unread — and an
+    # unread clause is reported read-only, which is the direction ADR-0034
+    # exists to prevent.
+    test "a later -exec clause is still judged" do
+      assert Shell.mutating?(~S[find . -exec grep -l foo {} \; -exec rm {} \;])
+    end
+  end
+
+  describe "a keyword as an argument is not a keyword" do
+    test "searching for the word exec or eval reads" do
+      refute Shell.mutating?("grep -rn exec lib/")
+      refute Shell.mutating?("cat lib/eval.ex")
+    end
+  end
+
+  describe "awk, which reads unless its program writes" do
+    test "a printing program reads" do
+      refute Shell.mutating?(~S[awk '{print $1}' data.txt])
+    end
+
+    test "a program that redirects or shells out mutates" do
+      assert Shell.mutating?(~S[awk '{print > "out.txt"}' data.txt])
+      assert Shell.mutating?(~S[awk 'BEGIN{system("rm -rf /")}'])
+    end
+  end
+
+  describe "read-only tools that were missing from the allowlist" do
+    for command <- ["shasum -a 256 mix.exs", "ps aux", "od -c mix.exs", "id -u"] do
+      test "#{command}" do
+        refute Shell.mutating?(unquote(command))
+      end
+    end
+  end
 end

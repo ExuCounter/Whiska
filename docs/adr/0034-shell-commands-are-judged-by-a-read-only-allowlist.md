@@ -36,6 +36,21 @@ whole, rather than trying to read their flags.
 denial until someone adds it. That is accepted: the failure is visible, recoverable, and
 lands on a mouse rather than silently letting a write through.
 
+**Quoting is read before operators are.** Operators are located against a masked copy of
+the command, in which quoted spans and backslash-escaped characters are replaced by filler
+of the same byte length. A `>` or a `|` inside a search pattern is an ordinary character,
+not a redirect or a pipe — without the mask, `rg "foo|bar" lib/` and `grep -r "=>" lib/`
+are both denied, and in an Elixir repo the second is routine. Judgment is likewise made on
+tokens rather than on the raw string, so a flag or filename that merely contains `exec` or
+`eval` is not mistaken for the command.
+
+**`find` and `awk` are judged like `git`, per what they actually do.** `find` is read-only
+until an action writes (`-delete`) or runs something (`-exec`, `-execdir`, `-ok`), and the
+command after `-exec` is then judged on its own — which lets a read-only sweep through
+while `find . -exec rm {} \;` stays denied. `awk` is read-only unless its program
+redirects with `>`, calls `system()`, or pipes its output, all of which sit inside a
+quoted argument where the mask deliberately hides them from the redirect check.
+
 ## How a mouse gets its mode
 
 `Mouse.mode` existed from v0.0.1 but nothing wrote it, so sniff enforcement would have

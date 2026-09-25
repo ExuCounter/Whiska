@@ -19,39 +19,78 @@ defmodule Whiska.Shell do
   This is not a shell parser and does not try to be. It splits on the operators
   that separate commands, steps over leading environment assignments, and checks
   each resulting head word against a list of commands known to be read-only.
-  Anything involving substitution, `eval`, or a nested shell is refused outright
-  rather than guessed at.
+  A substitution or a nested shell is refused outright rather than guessed at.
+
+  ## Quoting
+
+  Operators are located against a *masked* copy of the command, in which the
+  contents of quoted spans and backslash-escaped characters are replaced by a
+  neutral filler of the same byte length. Without that step a `>` or a `|`
+  inside an ordinary search pattern reads as a redirect or a pipe, and
+  `rg "foo|bar" lib/` — or, in this repo, `grep -r "=>" lib/` — is denied. That
+  is a false denial of the kind ADR-0034 warns trains a mouse to work around the
+  hook, and the mask is what prevents it. The mask preserves byte offsets, so
+  the operator positions it reports index into the original string.
+
+  Judgment is made on *tokens*, never on the raw string, for the same reason:
+  `\\bexec\\b` matched against raw text cannot tell `exec rm file` from
+  `find . -exec grep …`, and cannot tell either from `grep -rn exec lib/`.
   """
 
   # Commands that cannot modify the filesystem. Deliberately conservative: a
   # command missing from this list is denied, which is recoverable, whereas a
-  # mutating command wrongly added to it is not.
+  # mutating command wrongly added to it is not. Per ADR-0034 this list is
+  # accepted maintenance — a read-only tool missing from it is a visible,
+  # recoverable failure.
   @read_only ~w(
     ls cat head tail wc nl tac seq echo printf pwd whoami hostname uname date
     grep egrep fgrep rg ag find fd file stat du df tree
-    sort uniq cut tr column comm join paste fold
+    sort uniq cut tr column comm join paste fold rev
     diff cmp jq yq xmllint
     which type command basename dirname realpath readlink
     env printenv true false test man help less more
+    shasum md5sum sha1sum sha256sum cksum od strings xxd
+    ps id groups nproc arch sleep expr tty locale
   )
 
   # `git` is read-only or not depending on its subcommand, and only these are
   # unambiguously read-only. Everything else — including `branch`, `tag`,
   # `stash`, `config`, `remote` and `worktree`, each of which has mutating
-  # forms — is treated as mutating.
+  # forms — is treated as mutating (ADR-0034).
   @read_only_git ~w(
     log diff status show blame rev-parse rev-list ls-files ls-tree ls-remote
     describe shortlog whatchanged cat-file reflog grep annotate count-objects
   )
 
-  # Constructs whose real behaviour is hidden from a non-parser: another shell,
-  # a substitution, or a command built at runtime.
-  @opaque_constructs [~r/\$\(/, ~r/`/, ~r/\beval\b/, ~r/\bexec\b/, ~r/\bxargs\b/]
-  @nested_shells ~w(bash sh zsh fish dash ksh)
+  # `find` is read-only until one of its actions writes or runs something. The
+  # command after `-exec` is judged on its own, which is what lets the common
+  # read-only sweep through while `-exec rm` is still caught.
+  @find_writing_actions ~w(-delete -fls -fprint -fprint0 -fprintf)
+  @find_exec_actions ~w(-exec -execdir -ok -okdir)
+  # `~S` deliberately: written as a plain string, the `\;` is an unrecognised
+  # escape that collapses to a bare `;`, and the terminator silently stops
+  # matching the token `find` actually receives.
+  @find_exec_terminators [";", ~S(\;), "+"]
+
+  @awk_commands ~w(awk gawk mawk)
+
+  # An `awk` program is a program: it can redirect with `>` or shell out with
+  # `system()`. Those live inside a quoted argument, where the mask deliberately
+  # hides them from the redirect check, so they are looked for here instead.
+  @awk_writes [~r/>/, ~r/\bsystem\s*\(/, ~r/\bprint[a-z]*\s*\|/]
+
+  # A command built at runtime cannot be read at all. Judged against a mask that
+  # keeps double-quoted content visible, since `"$(…)"` still substitutes while
+  # `'$(…)'` is literal.
+  @substitution ~r/\$\(|`/
 
   # A `>` that is not followed by `&` writes to a file. `2>&1` and `1>&2`
   # duplicate a descriptor and create nothing.
   @writing_redirect ~r/>(?!&)/
+
+  # The operators that end one command and begin another. An `&` preceded by `>`
+  # is part of a descriptor duplication, not a separator.
+  @separators ~r/;|\n|&&|\|\||\||(?<!>)&/
 
   @doc """
   Does this command change anything on disk?
@@ -65,8 +104,8 @@ defmodule Whiska.Shell do
 
     cond do
       trimmed == "" -> false
-      opaque?(trimmed) -> true
-      Regex.match?(@writing_redirect, trimmed) -> true
+      Regex.match?(@substitution, mask(trimmed, :keep_double)) -> true
+      Regex.match?(@writing_redirect, mask(trimmed, :mask_double)) -> true
       true -> trimmed |> segments() |> Enum.any?(&segment_mutates?/1)
     end
   end
@@ -87,31 +126,41 @@ defmodule Whiska.Shell do
     |> Enum.uniq()
   end
 
-  defp opaque?(command) do
-    Enum.any?(@opaque_constructs, &Regex.match?(&1, command)) or
-      Enum.any?(@nested_shells, &Regex.match?(~r/\b#{&1}\s+-[a-z]*c\b/, command))
-  end
-
-  # A file-descriptor duplication (`2>&1`, `1>&2`, `>&2`) contains an `&` that
-  # would otherwise look like a command separator, leaving a stray `1` behind
-  # that reads as an unknown command. Drop them before splitting.
-  @fd_duplication ~r/\d*>&\d+/
-
-  # Split on the operators that end one command and begin another.
   defp segments(command) do
     command
-    |> String.replace(@fd_duplication, " ")
-    |> String.split(~r/;|\n|&&|\|\||\||&/, trim: true)
+    |> split_on_unquoted(@separators)
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))
   end
 
+  # Locate separators in the masked copy, then slice the *original* at those
+  # offsets. The mask is byte-for-byte the same length, so the offsets line up.
+  defp split_on_unquoted(command, regex) do
+    masked = mask(command, :mask_double)
+
+    {parts, pos} =
+      regex
+      |> Regex.scan(masked, return: :index)
+      |> Enum.reduce({[], 0}, fn [{start, len}], {acc, pos} ->
+        {[binary_part(command, pos, start - pos) | acc], start + len}
+      end)
+
+    Enum.reverse([binary_part(command, pos, byte_size(command) - pos) | parts])
+  end
+
   defp segment_mutates?(segment) do
-    case segment |> tokenize() |> drop_env_assignments() do
-      [] -> false
-      ["git" | rest] -> git_mutates?(rest)
-      ["sed" | rest] -> Enum.any?(rest, &(&1 in ["-i", "--in-place"] or &1 =~ ~r/^-i/))
-      [head | _] -> Path.basename(head) not in @read_only
+    case segment |> tokenize() |> Enum.map(&unquote_token/1) |> drop_env_assignments() do
+      [] ->
+        false
+
+      [head | rest] ->
+        case Path.basename(head) do
+          "git" -> git_mutates?(rest)
+          "sed" -> Enum.any?(rest, &(&1 in ["-i", "--in-place"] or &1 =~ ~r/^-i/))
+          "find" -> find_mutates?(rest)
+          awk when awk in @awk_commands -> awk_mutates?(rest)
+          other -> other not in @read_only
+        end
     end
   end
 
@@ -130,6 +179,28 @@ defmodule Whiska.Shell do
   end
 
   defp git_mutates?([]), do: true
+
+  defp find_mutates?(args) do
+    Enum.any?(args, &(&1 in @find_writing_actions)) or find_exec_mutates?(args)
+  end
+
+  defp find_exec_mutates?(args) do
+    case Enum.drop_while(args, &(&1 not in @find_exec_actions)) do
+      [] ->
+        false
+
+      [_action | rest] ->
+        {command, tail} = Enum.split_while(rest, &(&1 not in @find_exec_terminators))
+        exec_mutates?(command) or find_exec_mutates?(Enum.drop(tail, 1))
+    end
+  end
+
+  defp exec_mutates?([]), do: true
+  defp exec_mutates?([head | _]), do: Path.basename(head) not in @read_only
+
+  defp awk_mutates?(args) do
+    Enum.any?(args, fn arg -> Enum.any?(@awk_writes, &Regex.match?(&1, arg)) end)
+  end
 
   defp drop_env_assignments(tokens) do
     Enum.drop_while(tokens, &Regex.match?(~r/^[A-Za-z_][A-Za-z0-9_]*=/, &1))
@@ -169,4 +240,49 @@ defmodule Whiska.Shell do
       true -> false
     end
   end
+
+  # Replace the contents of quoted spans, and any backslash-escaped character,
+  # with filler of identical byte length. `:keep_double` leaves double-quoted
+  # content visible, because a substitution still runs inside double quotes.
+  defp mask(command, double) do
+    command
+    |> String.graphemes()
+    |> mask_graphemes(:outside, double, [])
+    |> Enum.reverse()
+    |> IO.iodata_to_binary()
+  end
+
+  defp mask_graphemes([], _state, _double, acc), do: acc
+
+  defp mask_graphemes(["\\", char | rest], state, double, acc) when state != :single,
+    do: mask_graphemes(rest, state, double, [filler(char), filler("\\") | acc])
+
+  defp mask_graphemes(["\\"], state, double, acc) when state != :single,
+    do: mask_graphemes([], state, double, [filler("\\") | acc])
+
+  defp mask_graphemes(["'" | rest], :outside, double, acc),
+    do: mask_graphemes(rest, :single, double, ["'" | acc])
+
+  defp mask_graphemes(["'" | rest], :single, double, acc),
+    do: mask_graphemes(rest, :outside, double, ["'" | acc])
+
+  defp mask_graphemes(["\"" | rest], :outside, double, acc),
+    do: mask_graphemes(rest, :double, double, ["\"" | acc])
+
+  defp mask_graphemes(["\"" | rest], :double, double, acc),
+    do: mask_graphemes(rest, :outside, double, ["\"" | acc])
+
+  defp mask_graphemes([char | rest], :single, double, acc),
+    do: mask_graphemes(rest, :single, double, [filler(char) | acc])
+
+  defp mask_graphemes([char | rest], :double, :mask_double, acc),
+    do: mask_graphemes(rest, :double, :mask_double, [filler(char) | acc])
+
+  defp mask_graphemes([char | rest], :double, :keep_double, acc),
+    do: mask_graphemes(rest, :double, :keep_double, [char | acc])
+
+  defp mask_graphemes([char | rest], :outside, double, acc),
+    do: mask_graphemes(rest, :outside, double, [char | acc])
+
+  defp filler(grapheme), do: String.duplicate("x", byte_size(grapheme))
 end
