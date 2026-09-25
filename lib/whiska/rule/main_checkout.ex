@@ -14,18 +14,22 @@ defmodule Whiska.Rule.MainCheckout do
   `MultiEdit` (`file_path`) and `NotebookEdit` (`notebook_path`). Resolving those
   is exact, so the rule never produces a false denial.
 
-  ## Known hole, recorded on purpose
+  ## Bash
 
-  `Bash` is **not** policed in this slice. `sed -i`, `cat > file`, and
-  `git -C <main-checkout>` can all still reach the main checkout. Deciding
-  mutating-vs-reading for an arbitrary shell string is precisely the judgment
-  sniff mode needs (ADR-0018), and sniff mode is deliberately the next slice
-  (ADR-0030). It gets built once, properly, there — rather than badly here and
-  rewritten there. An exact rule with zero false denials is worth more than a
-  fuzzy one that trains the user to ignore it.
+  `Bash` is policed too, but only when a command is **both** mutating and names a
+  path resolving into the main checkout. Gating on mutation is what makes this
+  tolerable: `cat <main>/CONTEXT.md` and `grep -r <main>` stay allowed, while
+  `sed -i`, a redirect, and `git -C <main> commit` do not. A plain substring
+  match on the main-checkout path would have denied the reads too, which is the
+  kind of false denial that trains people to ignore a hook.
 
-  Reads are not policed either, and should not be: the rule is about containment
-  of *changes*, not a sandbox.
+  The mutation judgment is `Whiska.Shell`'s, and it errs towards "mutating"
+  whenever it cannot read a command confidently. Here that costs a false denial
+  on an exotic-but-harmless command that happens to mention the main checkout —
+  rare enough to be worth the containment.
+
+  Reads are never policed, in any tool: the rule is about containment of
+  *changes*, not a sandbox.
 
   ## No carve-out in v0.0.1
 
@@ -38,6 +42,7 @@ defmodule Whiska.Rule.MainCheckout do
   """
 
   alias Whiska.Layout
+  alias Whiska.Shell
 
   @path_keys %{
     "Write" => "file_path",
@@ -56,6 +61,26 @@ defmodule Whiska.Rule.MainCheckout do
   Code's own permission machinery to have the final say.
   """
   @spec decide(String.t(), map(), Layout.t()) :: decision()
+  def decide("Bash", tool_input, %Layout{} = layout) do
+    command = Map.get(tool_input, "command", "")
+
+    # Reads of the main checkout are fine; only a command that can change
+    # something there is a containment breach.
+    if Shell.mutating?(command) do
+      command
+      |> Shell.paths()
+      |> Enum.map(&resolve(&1, layout))
+      |> Enum.find_value(:allow, fn target ->
+        case judge(target, layout) do
+          {:deny, _} = denial -> denial
+          :allow -> nil
+        end
+      end)
+    else
+      :allow
+    end
+  end
+
   def decide(tool_name, tool_input, %Layout{} = layout) do
     with {:ok, key} <- Map.fetch(@path_keys, tool_name),
          {:ok, raw} when is_binary(raw) <- Map.fetch(tool_input, key) do

@@ -168,4 +168,119 @@ defmodule Whiska.Hook.PreToolUseTest do
       assert stderr =~ "whiska"
     end
   end
+
+  describe "mode drives which rule applies (ADR-0018)" do
+    defp set_mode(main, worktree, mode) do
+      # The hook itself mints the id on first run; reuse it.
+      run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
+      {:ok, mouse_id} = Marker.read_or_mint(worktree)
+      {:ok, handle} = Storage.open(main)
+      {:ok, _} = Storage.set_mode(mouse_id, mode)
+      Storage.close(handle)
+      mouse_id
+    end
+
+    test "a build mouse may edit inside its own worktree", %{main: main, worktree: worktree} do
+      set_mode(main, worktree, "build")
+
+      assert :allow =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+               })
+    end
+
+    test "a sniff mouse may not edit even inside its own worktree", %{
+      main: main,
+      worktree: worktree
+    } do
+      set_mode(main, worktree, "sniff")
+
+      assert {:deny, reason} =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+               })
+
+      assert reason =~ "sniff"
+    end
+
+    test "a sniff mouse may still read and run read-only commands", %{
+      main: main,
+      worktree: worktree
+    } do
+      set_mode(main, worktree, "sniff")
+
+      assert :allow =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Read",
+                 "tool_input" => %{"file_path" => "x"}
+               })
+
+      assert :allow =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Bash",
+                 "tool_input" => %{"command" => "git log"}
+               })
+    end
+
+    test "a sniff mouse is denied a mutating command", %{main: main, worktree: worktree} do
+      set_mode(main, worktree, "sniff")
+
+      assert {:deny, _} =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Bash",
+                 "tool_input" => %{"command" => "rm -rf lib"}
+               })
+    end
+
+    test "sniff is checked before worktree containment, so its reason is the one shown",
+         %{main: main, worktree: worktree} do
+      set_mode(main, worktree, "sniff")
+
+      {:deny, reason} =
+        run(%{
+          "cwd" => worktree,
+          "tool_name" => "Write",
+          "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+        })
+
+      # Both rules would deny this. The sniff one explains the real reason.
+      assert reason =~ "sniff"
+    end
+
+    test "an unreadable mode degrades to build, loudly, and containment still holds",
+         %{main: main, worktree: worktree} do
+      File.rm_rf!(Path.join(main, ".git"))
+      File.write!(Path.join(main, ".git"), "gitdir: nowhere")
+
+      stderr =
+        capture_io(:stderr, fn ->
+          # Containment is pure path arithmetic and needs no database.
+          assert {:deny, reason} =
+                   run(%{
+                     "cwd" => worktree,
+                     "tool_name" => "Write",
+                     "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+                   })
+
+          refute reason =~ "sniff"
+
+          # ...and an edit inside the worktree is allowed rather than blocked.
+          assert :allow =
+                   run(%{
+                     "cwd" => worktree,
+                     "tool_name" => "Write",
+                     "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+                   })
+        end)
+
+      assert stderr =~ "whiska"
+    end
+  end
 end

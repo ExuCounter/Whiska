@@ -75,4 +75,38 @@ defmodule Whiska.CLITest do
       assert stderr =~ "Usage"
     end
   end
+
+  describe "whiska mode" do
+    test "reports build for a fresh mouse", %{worktree: worktree} do
+      out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
+      assert out =~ "build"
+    end
+
+    test "switches a mouse to sniff and back", %{worktree: worktree} do
+      capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)
+      out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
+      assert out =~ "sniff"
+
+      capture_io(fn -> assert CLI.run(["mode", "build"], worktree) == 0 end)
+      out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
+      assert out =~ "build"
+    end
+
+    test "mints the mouse if it has never been seen", %{worktree: worktree} do
+      refute File.exists?(Whiska.Marker.path(worktree))
+      capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)
+      assert File.exists?(Whiska.Marker.path(worktree))
+    end
+
+    test "refuses a mode that is not build or sniff", %{worktree: worktree} do
+      stderr = capture_io(:stderr, fn -> assert CLI.run(["mode", "lurk"], worktree) == 1 end)
+      assert stderr =~ "build"
+      assert stderr =~ "sniff"
+    end
+
+    test "explains itself when run outside a worktree", %{main: main} do
+      stderr = capture_io(:stderr, fn -> assert CLI.run(["mode"], main) == 1 end)
+      assert stderr =~ "worktree"
+    end
+  end
 end

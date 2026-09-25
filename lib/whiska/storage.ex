@@ -19,6 +19,11 @@ defmodule Whiska.Storage do
 
   @migrations [{1, Whiska.Migrations.V001CreateMiceAndQuestions}]
 
+  @modes ~w(build sniff)
+
+  @doc "The modes a mouse can be in (ADR-0018)."
+  def modes, do: @modes
+
   @doc "Where this repo's house lives."
   @spec database_path(Path.t()) :: Path.t()
   def database_path(main_checkout), do: Path.join(main_checkout, ".git/whiska/whiska.db")
@@ -107,6 +112,45 @@ defmodule Whiska.Storage do
     existing
     |> Ecto.Changeset.change(Map.take(attrs, [:path, :branch, :pane]))
     |> Repo.update()
+  end
+
+  @doc """
+  This mouse's mode.
+
+  Read by the sniff rule on every invocation (ADR-0018). Returns
+  `{:error, :no_such_mouse}` rather than guessing, so the caller decides what an
+  unreadable mode means — see `Whiska.Hook.PreToolUse`, which treats it as
+  `build` and says so loudly.
+  """
+  @spec mode(String.t()) :: {:ok, String.t()} | {:error, :no_such_mouse}
+  def mode(mouse_id) do
+    case Repo.get(Mouse, mouse_id) do
+      nil -> {:error, :no_such_mouse}
+      mouse -> {:ok, mouse.mode}
+    end
+  end
+
+  @doc """
+  Move a mouse between build and sniff.
+
+  The mode lives here rather than in the marker file so it stays keyed to
+  `mouse_id` — a renamed branch or a moved worktree does not disturb it — and so
+  the marker stays the bare opaque id ADR-0002 describes.
+  """
+  @spec set_mode(String.t(), String.t()) ::
+          {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}
+  def set_mode(_mouse_id, mode) when mode not in @modes, do: {:error, :invalid_mode}
+
+  def set_mode(mouse_id, mode) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      mouse ->
+        mouse
+        |> Ecto.Changeset.change(%{mode: mode})
+        |> Repo.update()
+    end
   end
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)

@@ -146,4 +146,72 @@ defmodule Whiska.EscriptTest do
     assert status == 0
     assert String.trim(out) == "0.0.1"
   end
+
+  test "whiska mode switches enforcement, end to end", %{worktree: worktree} do
+    # build mouse: an edit inside its own worktree is fine
+    {out, 0} =
+      hook(
+        %{
+          "cwd" => worktree,
+          "tool_name" => "Write",
+          "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+        },
+        worktree
+      )
+
+    assert out == ""
+
+    {_, 0} = System.cmd(@binary, ["mode", "sniff"], cd: worktree, stderr_to_stdout: true)
+
+    # sniff mouse: the same edit is now denied
+    {out, 0} =
+      hook(
+        %{
+          "cwd" => worktree,
+          "tool_name" => "Write",
+          "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+        },
+        worktree
+      )
+
+    assert out =~ ~s("permissionDecision":"deny")
+    assert out =~ "sniff"
+
+    # ...but reading still works
+    {out, 0} =
+      hook(
+        %{"cwd" => worktree, "tool_name" => "Bash", "tool_input" => %{"command" => "git log"}},
+        worktree
+      )
+
+    assert out == ""
+  end
+
+  test "a build mouse cannot sed into the main checkout", %{main: main, worktree: worktree} do
+    {out, 0} =
+      hook(
+        %{
+          "cwd" => worktree,
+          "tool_name" => "Bash",
+          "tool_input" => %{"command" => "sed -i '' s/a/b/ #{main}/CONTEXT.md"}
+        },
+        worktree
+      )
+
+    assert out =~ ~s("permissionDecision":"deny")
+  end
+
+  test "but it can still read the main checkout", %{main: main, worktree: worktree} do
+    {out, 0} =
+      hook(
+        %{
+          "cwd" => worktree,
+          "tool_name" => "Bash",
+          "tool_input" => %{"command" => "cat #{main}/CONTEXT.md"}
+        },
+        worktree
+      )
+
+    assert out == ""
+  end
 end

@@ -115,20 +115,76 @@ defmodule Whiska.Rule.MainCheckoutTest do
     end
   end
 
-  describe "tools this slice deliberately does not police" do
-    test "allows Bash even when the command names the main checkout", %{
+  describe "Bash reaching into the main checkout (ADR-0013)" do
+    test "denies a mutating command that names the main checkout", %{main: main, layout: layout} do
+      input = %{"command" => "sed -i '' s/a/b/ #{main}/CONTEXT.md"}
+
+      assert {:deny, reason} = MainCheckout.decide("Bash", input, layout)
+      assert reason =~ "main checkout"
+    end
+
+    test "denies a redirect into the main checkout", %{main: main, layout: layout} do
+      input = %{"command" => "echo boom > #{main}/lib/leak.ex"}
+
+      assert {:deny, _} = MainCheckout.decide("Bash", input, layout)
+    end
+
+    test "denies git -C pointed at the main checkout", %{main: main, layout: layout} do
+      input = %{"command" => "git -C #{main} commit -am wip"}
+
+      assert {:deny, _} = MainCheckout.decide("Bash", input, layout)
+    end
+
+    test "ALLOWS reading the main checkout — the rule contains changes, not reads", %{
       main: main,
       layout: layout
     } do
-      # KNOWN HOLE, accepted for v0.0.1: `sed -i`, `cat >`, `git -C <main>` can
-      # still reach the main checkout. Deciding mutating-vs-reading for an
-      # arbitrary shell string is the same judgment sniff mode needs (ADR-0018),
-      # and it gets built once, there, rather than badly here.
-      input = %{"command" => "sed -i '' s/a/b/ #{main}/CONTEXT.md"}
+      assert :allow =
+               MainCheckout.decide("Bash", %{"command" => "cat #{main}/CONTEXT.md"}, layout)
 
-      assert :allow = MainCheckout.decide("Bash", input, layout)
+      assert :allow =
+               MainCheckout.decide("Bash", %{"command" => "grep -rn foo #{main}/lib"}, layout)
+
+      assert :allow =
+               MainCheckout.decide("Bash", %{"command" => "git -C #{main} log --oneline"}, layout)
     end
 
+    test "allows a mutating command confined to the mouse's own worktree", %{
+      worktree: worktree,
+      layout: layout
+    } do
+      assert :allow =
+               MainCheckout.decide("Bash", %{"command" => "rm -rf #{worktree}/_build"}, layout)
+
+      assert :allow = MainCheckout.decide("Bash", %{"command" => "mix format"}, layout)
+      assert :allow = MainCheckout.decide("Bash", %{"command" => "git commit -am wip"}, layout)
+    end
+
+    test "allows a mutating command aimed outside the repo entirely", %{layout: layout} do
+      assert :allow =
+               MainCheckout.decide("Bash", %{"command" => "rm /tmp/whiska-scratch"}, layout)
+    end
+
+    test "resolves a relative path against the worktree before judging", %{layout: layout} do
+      assert {:deny, _} =
+               MainCheckout.decide(
+                 "Bash",
+                 %{"command" => "sed -i '' s/a/b/ ../../CONTEXT.md"},
+                 layout
+               )
+
+      assert :allow =
+               MainCheckout.decide("Bash", %{"command" => "sed -i '' s/a/b/ lib/mine.ex"}, layout)
+    end
+
+    test "denies a sibling worktree", %{main: main, layout: layout} do
+      input = %{"command" => "rm -rf #{main}/worktrees/other-branch/lib"}
+
+      assert {:deny, _} = MainCheckout.decide("Bash", input, layout)
+    end
+  end
+
+  describe "tools this slice deliberately does not police" do
     test "allows reads of the main checkout", %{main: main, layout: layout} do
       assert :allow =
                MainCheckout.decide(

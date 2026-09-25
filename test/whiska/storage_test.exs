@@ -151,4 +151,52 @@ defmodule Whiska.StorageTest do
       end
     end
   end
+
+  describe "set_mode/2 and mode/1 (ADR-0018)" do
+    setup %{main: main} do
+      {:ok, handle} = Storage.open(main)
+      on_exit(fn -> Storage.close(handle) end)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
+      :ok
+    end
+
+    test "a mouse starts in build mode" do
+      assert Storage.mode("m1") == {:ok, "build"}
+    end
+
+    test "switches a mouse to sniff" do
+      assert {:ok, mouse} = Storage.set_mode("m1", "sniff")
+      assert mouse.mode == "sniff"
+      assert Storage.mode("m1") == {:ok, "sniff"}
+    end
+
+    test "switches back to build" do
+      {:ok, _} = Storage.set_mode("m1", "sniff")
+      {:ok, _} = Storage.set_mode("m1", "build")
+
+      assert Storage.mode("m1") == {:ok, "build"}
+    end
+
+    test "refuses a mode that is not build or sniff" do
+      assert {:error, :invalid_mode} = Storage.set_mode("m1", "lurk")
+      assert Storage.mode("m1") == {:ok, "build"}
+    end
+
+    test "refuses to set the mode of a mouse that does not exist" do
+      assert {:error, :no_such_mouse} = Storage.set_mode("ghost", "sniff")
+    end
+
+    test "routine bookkeeping never clobbers the mode" do
+      # The hook calls record_mouse on every invocation to refresh the labels;
+      # that must not quietly reset a sniff mouse to build.
+      {:ok, _} = Storage.set_mode("m1", "sniff")
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/moved", branch: "renamed"})
+
+      assert Storage.mode("m1") == {:ok, "sniff"}
+    end
+
+    test "reports an unknown mouse rather than guessing a mode" do
+      assert Storage.mode("ghost") == {:error, :no_such_mouse}
+    end
+  end
 end

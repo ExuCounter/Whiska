@@ -23,6 +23,7 @@ defmodule Whiska.Hook.PreToolUse do
   alias Whiska.Layout
   alias Whiska.Marker
   alias Whiska.Rule.MainCheckout
+  alias Whiska.Rule.Sniff
   alias Whiska.Storage
 
   @type decision :: :allow | {:deny, String.t()}
@@ -35,8 +36,7 @@ defmodule Whiska.Hook.PreToolUse do
     with {:ok, payload} when is_map(payload) <- decode(raw_payload),
          {:ok, cwd} <- fetch_cwd(payload),
          {:ok, layout} <- Layout.resolve(cwd) do
-      remember(layout)
-      MainCheckout.decide(tool_name(payload), tool_input(payload), layout)
+      decide(tool_name(payload), tool_input(payload), layout, remember(layout))
     else
       _ -> :allow
     end
@@ -60,6 +60,17 @@ defmodule Whiska.Hook.PreToolUse do
         "permissionDecisionReason" => reason
       }
     })
+  end
+
+  # Sniff runs first, and deliberately so. When a sniff mouse edits the main
+  # checkout both rules would fire, and "you are in sniff mode" is the reason
+  # that actually explains what happened; "that path is outside your worktree"
+  # would send it to fix the wrong thing.
+  defp decide(tool_name, tool_input, layout, mode) do
+    case Sniff.decide(tool_name, tool_input, mode) do
+      {:deny, _} = denial -> denial
+      :allow -> MainCheckout.decide(tool_name, tool_input, layout)
+    end
   end
 
   defp decode(raw) do
@@ -96,10 +107,21 @@ defmodule Whiska.Hook.PreToolUse do
   # with it. Letting that reach the entry point would turn a storage problem into
   # "every tool call in this session dies", which is exactly the failure the rule
   # is supposed to be independent of.
+  @default_mode "build"
+
   defp remember(layout) do
-    case Marker.read_or_mint(layout.worktree_root) do
-      {:ok, mouse_id} -> isolated(fn -> record(layout, mouse_id) end)
-      {:error, reason} -> warn("could not mint a mouse_id (#{inspect(reason)})")
+    with {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
+         {:ok, mode} <- isolated(fn -> record(layout, mouse_id) end) do
+      mode
+    else
+      other ->
+        # Falling back to build rather than sniff is deliberate. build is the
+        # default and the common case; assuming sniff would block every edit in
+        # ordinary work over a database hiccup. This degrades sniff to build,
+        # never to unprotected — worktree containment is pure path arithmetic
+        # and does not consult the database at all.
+        warn("could not read this mouse's mode (#{inspect(other)}) — assuming #{@default_mode}")
+        @default_mode
     end
   end
 
@@ -112,31 +134,35 @@ defmodule Whiska.Hook.PreToolUse do
             path: layout.worktree_root,
             branch: layout.branch_label
           })
+
+          Storage.mode(mouse_id)
         after
           Storage.close(handle)
         end
 
       other ->
-        warn("could not open this repo's house (#{inspect(other)}) — the rule still applies")
+        other
     end
   end
 
   @isolation_timeout 5_000
 
   defp isolated(work) do
-    {pid, ref} = spawn_monitor(work)
+    parent = self()
+    {pid, ref} = spawn_monitor(fn -> send(parent, {__MODULE__, self(), work.()}) end)
 
     receive do
-      {:DOWN, ^ref, :process, ^pid, :normal} ->
-        :ok
+      {__MODULE__, ^pid, result} ->
+        Process.demonitor(ref, [:flush])
+        result
 
       {:DOWN, ^ref, :process, ^pid, reason} ->
-        warn("bookkeeping failed (#{inspect(reason)}) — the rule still applies")
+        {:error, reason}
     after
       @isolation_timeout ->
         Process.demonitor(ref, [:flush])
         Process.exit(pid, :kill)
-        warn("bookkeeping timed out — the rule still applies")
+        {:error, :timeout}
     end
   end
 

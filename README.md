@@ -16,7 +16,7 @@ contact with herdr at all. Those arrive in later slices.
 
 ```
 mix deps.get
-mix test          # 68 tests
+mix test          # 175 tests
 mix escript.build # produces ./whiska
 ```
 
@@ -31,16 +31,37 @@ On the first invocation inside a worktree it mints an opaque `mouse_id`, writes 
 `.whiska-mouse` at the worktree root (ADR-0002), and records the mouse in this repo's
 house at `<main-checkout>/.git/whiska/whiska.db`.
 
-**The one enforced rule:** a mouse may not edit the main checkout (ADR-0013). Only tools
-that name a literal target path are policed — `Write`, `Edit`, `MultiEdit` (`file_path`)
-and `NotebookEdit` (`notebook_path`) — so the rule never produces a false denial.
+### The enforced rules
 
-**Known hole, recorded on purpose:** `Bash` is not policed in this slice, so `sed -i`,
-`cat > file` and `git -C <main-checkout>` can still reach the main checkout. Deciding
-mutating-vs-reading for an arbitrary shell string is the same judgment sniff mode needs
-(ADR-0018), and it gets built once, properly, in that slice rather than badly here.
-Reads are not policed either, and should not be — the rule is about containing *changes*,
-not a sandbox.
+**A build mouse may not change anything outside its own worktree** (ADR-0013). That
+covers `Write`, `Edit`, `MultiEdit` and `NotebookEdit` by their literal target path, and
+`Bash` when a command is *both* mutating *and* names a path resolving into the main
+checkout — so `sed -i`, a redirect, and `git -C <main> commit` are denied while
+`cat <main>/CONTEXT.md` and `grep -r <main>` are not.
+
+**A sniff mouse may not change anything at all** (ADR-0018), including inside its own
+worktree — every edit tool is denied outright, and so is any mutating shell command.
+Reading is untouched: `Read`, `Grep`, `Glob`, and read-only commands like `git log`,
+`git diff` and `grep` all work.
+
+Reads are never policed in any mode. The rules contain *changes*; they are not a sandbox.
+
+Whether a shell command counts as mutating is decided by a read-only allowlist, with
+anything unreadable — `eval`, a substitution, a nested `bash -c`, an unknown binary —
+treated as mutating. ADR-0034 explains why that direction, and what it costs.
+
+### Modes
+
+```
+whiska mode           # what is this mouse?
+whiska mode sniff     # investigation only, writes nothing
+whiska mode build     # back to making changes
+```
+
+Run inside a worktree. The mode is stored in the house keyed by `mouse_id`, so renaming
+the branch or moving the folder does not disturb it. If the mode cannot be read, Whiska
+assumes `build` and says so on stderr — worktree containment is pure path arithmetic and
+keeps working regardless.
 
 ### Installing the hook
 
