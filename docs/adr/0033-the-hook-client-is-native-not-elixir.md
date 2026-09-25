@@ -15,6 +15,9 @@ Elixir 1.19.0):
 | A tiny native binary (200 runs) | 1.45 ms |
 | A 35-line C hook doing the real v0.0.1 decision, payload piped in (500 runs) | **2.06 ms** |
 
+The prototype and a reproduction script are parked at
+`docs/spikes/2026-09-25-hook-latency/`.
+
 85× on the thing that runs most often. At 171 ms, a session making a thousand tool calls
 spends nearly three minutes doing nothing but starting the VM — invisible as any single
 pause, felt only as the mouse being generally sluggish.
