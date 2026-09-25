@@ -12,6 +12,7 @@ individually citable decisions.
 - [0020](0020-mice-stay-herdr-panes.md) — Mice stay herdr panes; Whiska never owns Claude Code directly
 - [0017](0017-judgment-lives-in-claude-md.md) — All judgment lives in CLAUDE.md; Whiska stays dumb
 - [0016](0016-hooks-and-rules-are-per-project.md) — Hooks and rules are per-project, not global
+- [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
 
 ## Identity and security
 

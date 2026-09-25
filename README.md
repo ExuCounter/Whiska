@@ -68,7 +68,8 @@ keeps working regardless.
 ```
 cd your-repo
 /path/to/whiska init
-git add .claude/settings.json && git commit -m "chore: enable whiska"
+git add .claude/settings.json .claude/hooks/whiska.sh
+git commit -m "chore: enable whiska"
 ```
 
 `whiska init` writes the hook into the repo's own `.claude/settings.json` (ADR-0016), so
@@ -86,7 +87,7 @@ What it writes, and why each part is the way it is:
         "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
         "hooks": [{
           "type": "command",
-          "command": "/…/erlang/28.1.1/bin/escript /…/whiska hook pre-tool-use"
+          "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska.sh\""
         }]
       }
     ]
@@ -99,14 +100,25 @@ What it writes, and why each part is the way it is:
   the main checkout; without it, both rules would silently never fire. `Read`, `Grep` and
   `Glob` are left out on purpose: they are a large share of all tool calls, can never be
   denied, and ADR-0033 is blunt that not running at all beats running fast.
-- **The Erlang runtime is named absolutely.** A `mix escript.build` binary starts with
-  `#!/usr/bin/env escript`, so it only runs when `escript` is on `PATH` — and a hook does
-  not necessarily inherit your shell's. With a version manager it is not found at all
-  (`env: escript: No such file or directory`). `init` uses `:code.root_dir/0`, the runtime
-  the binary is already running on, so the path is exact rather than guessed. Re-run
-  `init` after an Erlang upgrade.
-- **No `bash -c` wrapper.** Spawning a shell to spawn the real thing costs about 4 ms,
-  more than twice what ADR-0033's eventual native hook will cost in total.
+- **Nothing in the committed file is specific to your machine** (ADR-0035). It names only
+  `.claude/hooks/whiska.sh`, a shim `init` writes beside it. An earlier version baked two
+  absolute paths — the Erlang runtime and the binary — straight into the command, which
+  pinned the file to one home directory and one Erlang version, and put a username into a
+  shared repo. Check both files in.
+- **The shim resolves the runtime when the hook fires**, not when `init` runs. A
+  `mix escript.build` binary starts with `#!/usr/bin/env escript`, so it only runs when
+  `escript` is on `PATH` — and a hook does not necessarily inherit your shell's. With a
+  version manager it is not found at all (`env: escript: No such file or directory`). The
+  shim looks on `PATH`, then asks `asdf`; `WHISKA_BIN` and `WHISKA_ESCRIPT` override both.
+  No need to re-run `init` after an Erlang upgrade.
+- **The shim fails open.** If Whiska is not installed it complains on stderr and allows the
+  call, rather than denying every tool call in the session — the same trade
+  `Whiska.Hook.PreToolUse` makes on a malformed payload.
+- **The extra process is free at this size.** Wrapping the call in a shell costs about
+  5 ms, which was the original reason not to. Measured against the real hook it is noise:
+  214.5 ms unwrapped versus 204.7 ms wrapped, over 20 runs each — both dominated by BEAM
+  boot. ADR-0033's native hook is the thing that will care, and by then the shim is what
+  lets `settings.json` stay untouched while the binary behind it changes.
 
 ### Cold start
 

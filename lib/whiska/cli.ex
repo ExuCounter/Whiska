@@ -81,9 +81,13 @@ defmodule Whiska.CLI do
 
   defp init(repo_root) do
     path = Path.join(repo_root, ".claude/settings.json")
+    shim = Path.join(repo_root, Install.shim_path())
 
     with {:ok, settings} <- read_settings(path),
-         merged = Install.merge(settings, whiska_path()),
+         merged = Install.merge(settings),
+         :ok <- File.mkdir_p(Path.dirname(shim)),
+         :ok <- File.write(shim, Install.shim()),
+         :ok <- File.chmod(shim, 0o755),
          :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- File.write(path, JSON.encode!(merged) |> reformat()) do
       say(
@@ -91,11 +95,16 @@ defmodule Whiska.CLI do
         Wrote Whiska's PreToolUse hook to .claude/settings.json.
 
           matcher: #{Install.matcher()}
-          command: #{Install.command(whiska_path())}
+          command: #{Install.command()}
 
-        Check it into git so the rules travel with the repo (ADR-0016):
+        The shim it calls went to #{Install.shim_path()}. That is where the Whiska
+        binary and the Erlang runtime get resolved, when the hook fires — so
+        neither file names anything specific to this machine.
 
-          git add .claude/settings.json && git commit -m "chore: enable whiska"
+        Check both into git so the rules travel with the repo (ADR-0016):
+
+          git add .claude/settings.json #{Install.shim_path()}
+          git commit -m "chore: enable whiska"
         """
         |> String.trim()
       )
@@ -167,22 +176,6 @@ defmodule Whiska.CLI do
   end
 
   defp encode_pretty(value, _indent), do: JSON.encode!(value)
-
-  # Where this very binary lives. Inside an escript that is the script itself;
-  # under `mix run` there is no script, so fall back to something obvious enough
-  # that a person notices they need to fix it.
-  defp whiska_path do
-    case :escript.script_name() do
-      name when is_list(name) or is_binary(name) ->
-        path = to_string(name)
-        if path == "", do: "/path/to/whiska", else: Path.expand(path)
-
-      _ ->
-        "/path/to/whiska"
-    end
-  rescue
-    _ -> "/path/to/whiska"
-  end
 
   # Every mouse-scoped command needs the same three things: where we are, who
   # this mouse is, and an open house. `whiska mode` run in a worktree Whiska has

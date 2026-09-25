@@ -118,7 +118,7 @@ defmodule Whiska.CLITest do
       assert [entry] = settings["hooks"]["PreToolUse"]
       assert entry["matcher"] == Whiska.Install.matcher()
       assert [%{"command" => command}] = entry["hooks"]
-      assert command =~ "hook pre-tool-use"
+      assert command == Whiska.Install.command()
     end
 
     test "preserves settings that are already there", %{main: main} do
@@ -174,6 +174,55 @@ defmodule Whiska.CLITest do
 
       assert out =~ ".claude/settings.json"
       assert out =~ "git add"
+    end
+
+    test "writes the shim script and makes it executable", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      shim = Path.join(main, Whiska.Install.shim_path())
+
+      assert File.exists?(shim), "init must write #{Whiska.Install.shim_path()}"
+      assert File.read!(shim) == Whiska.Install.shim()
+
+      mode = File.stat!(shim).mode
+      assert Bitwise.band(mode, 0o100) != 0, "the shim has to be executable to run"
+    end
+
+    test "leaves nothing about this machine in the file that gets committed", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      raw = File.read!(Path.join(main, ".claude/settings.json"))
+
+      refute raw =~ System.user_home!()
+      refute raw =~ "escript"
+    end
+
+    test "migrates a settings file that still names a machine path", %{main: main} do
+      File.mkdir_p!(Path.join(main, ".claude"))
+
+      File.write!(
+        Path.join(main, ".claude/settings.json"),
+        JSON.encode!(%{
+          "hooks" => %{
+            "PreToolUse" => [
+              %{
+                "matcher" => Whiska.Install.matcher(),
+                "hooks" => [
+                  %{"type" => "command", "command" => "/Users/someone/whiska hook pre-tool-use"}
+                ]
+              }
+            ]
+          }
+        })
+      )
+
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      raw = File.read!(Path.join(main, ".claude/settings.json"))
+      refute raw =~ "/Users/someone"
+
+      settings = JSON.decode!(raw)
+      assert [_only_one] = settings["hooks"]["PreToolUse"]
     end
   end
 end

@@ -2,14 +2,25 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Bash",
         "hooks": [
           {
-            "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-push-reflect.sh\"",
-            "timeout": 5
+            "timeout": 5,
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash"
       }
     ]
   }
