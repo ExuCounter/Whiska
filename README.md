@@ -57,7 +57,23 @@ not a sandbox.
 }
 ```
 
-Two details in there are deliberate, both from ADR-0033:
+If `escript` is on your `PATH` via a version manager (asdf, mise, kerl), spell out the
+absolute path to the real `escript` binary instead of relying on the shim:
+
+```json
+"command": "/Users/you/.asdf/installs/erlang/28.1.1/bin/escript /path/to/whiska hook pre-tool-use"
+```
+
+This matters more than it looks. A `whiska` built by `mix escript.build` starts with
+`#!/usr/bin/env escript`, so it only runs if `escript` is findable on `PATH` — and a hook
+does not necessarily inherit your interactive shell's `PATH`. With a stripped environment
+the shim version fails outright (`env: escript: No such file or directory`) while the
+absolute path works. It is also ~12 ms faster, since an asdf shim is itself a bash script.
+The cost is that the Erlang version is baked into the path, so re-point it after an Erlang
+upgrade. A `mix release` bundles its own Erlang runtime and sidesteps this entirely, which
+is what the eventual `brew install whiska` of ADR-0001 will ship.
+
+Two more details in there are deliberate, both from ADR-0033:
 
 - **The matcher is narrow, not `*`.** `Read`, `Grep` and `Glob` are a large share of all
   tool calls and none of them can trip this rule. Not running at all beats running fast.
