@@ -9,6 +9,7 @@ defmodule Whiska.CLI do
   """
 
   alias Whiska.Hook.PreToolUse
+  alias Whiska.Install
   alias Whiska.Layout
   alias Whiska.Marker
   alias Whiska.Storage
@@ -21,6 +22,10 @@ defmodule Whiska.CLI do
     hook pre-tool-use    Decide one Claude Code PreToolUse event. Reads the
                          event payload as JSON on stdin; prints a deny decision
                          as JSON on stdout, or nothing at all to allow.
+
+    init                 Write Whiska's PreToolUse hook into this repo's own
+                         .claude/settings.json, so the rules travel with the
+                         repo. Safe to re-run.
 
     mode                 Print this mouse's mode.
     mode build|sniff     Set it. A build mouse makes changes, confined to its
@@ -47,6 +52,8 @@ defmodule Whiska.CLI do
 
   def run(["hook", "pre-tool-use"], _cwd), do: hook()
 
+  def run(["init"], cwd), do: init(cwd || File.cwd!())
+
   def run(["mode"], cwd), do: with_mouse(cwd, &show_mode/2)
 
   def run(["mode", mode], cwd) when mode in ["build", "sniff"],
@@ -70,6 +77,111 @@ defmodule Whiska.CLI do
   defp say(message) do
     IO.puts(message)
     0
+  end
+
+  defp init(repo_root) do
+    path = Path.join(repo_root, ".claude/settings.json")
+
+    with {:ok, settings} <- read_settings(path),
+         merged = Install.merge(settings, whiska_path()),
+         :ok <- File.mkdir_p(Path.dirname(path)),
+         :ok <- File.write(path, JSON.encode!(merged) |> reformat()) do
+      say(
+        """
+        Wrote Whiska's PreToolUse hook to .claude/settings.json.
+
+          matcher: #{Install.matcher()}
+          command: #{Install.command(whiska_path())}
+
+        Check it into git so the rules travel with the repo (ADR-0016):
+
+          git add .claude/settings.json && git commit -m "chore: enable whiska"
+        """
+        |> String.trim()
+      )
+    else
+      {:error, :unparseable} ->
+        IO.puts(
+          :stderr,
+          """
+          whiska: could not parse #{path}.
+
+          Refusing to touch it rather than overwrite settings that might matter.
+          Fix the JSON, or move the file aside, and run this again.
+          """
+          |> String.trim()
+        )
+
+        1
+
+      {:error, reason} ->
+        IO.puts(:stderr, "whiska: could not write #{path} (#{inspect(reason)}).")
+        1
+    end
+  end
+
+  # A missing file is a fresh install; an unreadable one is not, and must never
+  # be silently replaced.
+  defp read_settings(path) do
+    case File.read(path) do
+      {:error, :enoent} ->
+        {:ok, %{}}
+
+      {:ok, raw} ->
+        case JSON.decode(raw) do
+          {:ok, settings} when is_map(settings) -> {:ok, settings}
+          _ -> {:error, :unparseable}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # This file is meant to be read and reviewed in a diff before being committed,
+  # so it is not left as one long line.
+  defp reformat(json) do
+    case JSON.decode(json) do
+      {:ok, decoded} -> encode_pretty(decoded, 0) <> "\n"
+      _ -> json
+    end
+  end
+
+  defp encode_pretty(value, indent) when is_map(value) and map_size(value) > 0 do
+    pad = String.duplicate("  ", indent + 1)
+
+    inner =
+      value
+      |> Enum.sort_by(&elem(&1, 0))
+      |> Enum.map_join(",\n", fn {k, v} ->
+        "#{pad}#{JSON.encode!(k)}: #{encode_pretty(v, indent + 1)}"
+      end)
+
+    "{\n" <> inner <> "\n" <> String.duplicate("  ", indent) <> "}"
+  end
+
+  defp encode_pretty(value, indent) when is_list(value) and value != [] do
+    pad = String.duplicate("  ", indent + 1)
+    inner = Enum.map_join(value, ",\n", &(pad <> encode_pretty(&1, indent + 1)))
+    "[\n" <> inner <> "\n" <> String.duplicate("  ", indent) <> "]"
+  end
+
+  defp encode_pretty(value, _indent), do: JSON.encode!(value)
+
+  # Where this very binary lives. Inside an escript that is the script itself;
+  # under `mix run` there is no script, so fall back to something obvious enough
+  # that a person notices they need to fix it.
+  defp whiska_path do
+    case :escript.script_name() do
+      name when is_list(name) or is_binary(name) ->
+        path = to_string(name)
+        if path == "", do: "/path/to/whiska", else: Path.expand(path)
+
+      _ ->
+        "/path/to/whiska"
+    end
+  rescue
+    _ -> "/path/to/whiska"
   end
 
   # Every mouse-scoped command needs the same three things: where we are, who

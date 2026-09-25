@@ -16,7 +16,7 @@ contact with herdr at all. Those arrive in later slices.
 
 ```
 mix deps.get
-mix test          # 175 tests
+mix test          # 191 tests
 mix escript.build # produces ./whiska
 ```
 
@@ -65,43 +65,48 @@ keeps working regardless.
 
 ### Installing the hook
 
+```
+cd your-repo
+/path/to/whiska init
+git add .claude/settings.json && git commit -m "chore: enable whiska"
+```
+
+`whiska init` writes the hook into the repo's own `.claude/settings.json` (ADR-0016), so
+the rules travel with the repo: anyone who clones it and has Whiska installed gets the
+same enforcement. It is safe to re-run, leaves unrelated settings and other people's
+hooks alone, and refuses rather than overwriting a settings file it cannot parse.
+
+What it writes, and why each part is the way it is:
+
 ```json
 {
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
-        "hooks": [{ "type": "command", "command": "/absolute/path/to/whiska hook pre-tool-use" }]
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
+        "hooks": [{
+          "type": "command",
+          "command": "/…/erlang/28.1.1/bin/escript /…/whiska hook pre-tool-use"
+        }]
       }
     ]
   }
 }
 ```
 
-If `escript` is on your `PATH` via a version manager (asdf, mise, kerl), spell out the
-absolute path to the real `escript` binary instead of relying on the shim:
-
-```json
-"command": "/Users/you/.asdf/installs/erlang/28.1.1/bin/escript /path/to/whiska hook pre-tool-use"
-```
-
-This matters more than it looks. A `whiska` built by `mix escript.build` starts with
-`#!/usr/bin/env escript`, so it only runs if `escript` is findable on `PATH` — and a hook
-does not necessarily inherit your interactive shell's `PATH`. With a stripped environment
-the shim version fails outright (`env: escript: No such file or directory`) while the
-absolute path works. It is also ~12 ms faster, since an asdf shim is itself a bash script.
-The cost is that the Erlang version is baked into the path, so re-point it after an Erlang
-upgrade. A `mix release` bundles its own Erlang runtime and sidesteps this entirely, which
-is what the eventual `brew install whiska` of ADR-0001 will ship.
-
-Two more details in there are deliberate, both from ADR-0033:
-
-- **The matcher is narrow, not `*`.** `Read`, `Grep` and `Glob` are a large share of all
-  tool calls and none of them can trip this rule. Not running at all beats running fast.
-  `Bash` joins the list when push detection and sniff mode need it.
-- **No `bash` wrapper.** The command points straight at the binary. Spawning `bash` to
-  spawn the real thing costs ~4 ms — more than twice what the entire hook will cost once
-  ADR-0033's native client replaces this one.
+- **The matcher lists exactly the tools a rule can deny** — no `*`. `Bash` belongs there
+  now that sniff mode denies mutating commands and containment denies ones reaching into
+  the main checkout; without it, both rules would silently never fire. `Read`, `Grep` and
+  `Glob` are left out on purpose: they are a large share of all tool calls, can never be
+  denied, and ADR-0033 is blunt that not running at all beats running fast.
+- **The Erlang runtime is named absolutely.** A `mix escript.build` binary starts with
+  `#!/usr/bin/env escript`, so it only runs when `escript` is on `PATH` — and a hook does
+  not necessarily inherit your shell's. With a version manager it is not found at all
+  (`env: escript: No such file or directory`). `init` uses `:code.root_dir/0`, the runtime
+  the binary is already running on, so the path is exact rather than guessed. Re-run
+  `init` after an Erlang upgrade.
+- **No `bash -c` wrapper.** Spawning a shell to spawn the real thing costs about 4 ms,
+  more than twice what ADR-0033's eventual native hook will cost in total.
 
 ### Cold start
 

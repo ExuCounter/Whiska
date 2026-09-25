@@ -109,4 +109,71 @@ defmodule Whiska.CLITest do
       assert stderr =~ "worktree"
     end
   end
+
+  describe "whiska init" do
+    test "writes the hook into a repo with no settings yet", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      settings = JSON.decode!(File.read!(Path.join(main, ".claude/settings.json")))
+      assert [entry] = settings["hooks"]["PreToolUse"]
+      assert entry["matcher"] == Whiska.Install.matcher()
+      assert [%{"command" => command}] = entry["hooks"]
+      assert command =~ "hook pre-tool-use"
+    end
+
+    test "preserves settings that are already there", %{main: main} do
+      File.mkdir_p!(Path.join(main, ".claude"))
+
+      File.write!(
+        Path.join(main, ".claude/settings.json"),
+        JSON.encode!(%{
+          "model" => "opus",
+          "hooks" => %{
+            "PostToolUse" => [%{"matcher" => "Bash", "hooks" => [%{"command" => "mine.sh"}]}]
+          }
+        })
+      )
+
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      settings = JSON.decode!(File.read!(Path.join(main, ".claude/settings.json")))
+      assert settings["model"] == "opus"
+      assert [%{"matcher" => "Bash"}] = settings["hooks"]["PostToolUse"]
+      assert [_whiska] = settings["hooks"]["PreToolUse"]
+    end
+
+    test "is safe to re-run", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+      first = File.read!(Path.join(main, ".claude/settings.json"))
+
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      assert File.read!(Path.join(main, ".claude/settings.json")) == first
+    end
+
+    test "writes readable JSON a human can review before committing it", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+      raw = File.read!(Path.join(main, ".claude/settings.json"))
+
+      assert raw =~ "\n", "settings.json should be formatted, not one long line"
+      assert String.ends_with?(raw, "\n")
+    end
+
+    test "refuses rather than destroying a settings file it cannot parse", %{main: main} do
+      File.mkdir_p!(Path.join(main, ".claude"))
+      File.write!(Path.join(main, ".claude/settings.json"), "{ this is not json")
+
+      stderr = capture_io(:stderr, fn -> assert CLI.run(["init"], main) == 1 end)
+
+      assert stderr =~ "could not"
+      assert File.read!(Path.join(main, ".claude/settings.json")) == "{ this is not json"
+    end
+
+    test "tells you what it did and what to do next", %{main: main} do
+      out = capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      assert out =~ ".claude/settings.json"
+      assert out =~ "git add"
+    end
+  end
 end
