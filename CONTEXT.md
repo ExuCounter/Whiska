@@ -30,12 +30,13 @@ folder path; both of those can change without the mouse_id changing.
 **Question**:
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
-**unmarked** question: delivered like any other, recorded as having arrived unmarked. The
-one exception is a `done` report: it's closed on arrival, never delivered, never answered
-— a question in name and storage only, not in behavior. A question is **open** while it
-waits in the queue, **sent** once delivered and waiting for its answer, then **answered**;
-**superseded** when its own mouse asked a newer one, **closed** by hand or as a `done`
-report, **orphaned** when nothing can act on it (its mouse died, its worktree is gone).
+**unmarked** question: delivered like any other, recorded as having arrived unmarked. A
+`done` report is delivered like any other too, told as "finished" with no reply offered,
+and closed the moment it is sent — it is never answered and never holds the delivery
+slot. A question is **open** while it waits in the queue, **sent** once delivered and
+waiting for its answer, then **answered**; **superseded** when its own mouse asked a
+newer one, **closed** by hand or as a `done` report once told, **orphaned** when nothing
+can act on it (its mouse died, its worktree is gone).
 _Avoid_: report, event (as the table/record name)
 
 **Main session**:
@@ -47,7 +48,8 @@ _Avoid_: primary, parent, captain
 **Delivery**:
 The owl typing one question's line into the main session — only when that pane is idle
 and no other question is already sent. A queue, not a batch: the next question goes when
-the previous one is answered (or superseded, or closed) and the session is idle again.
+the previous one is answered (or superseded, or closed — a `done` report closes itself on
+sending) and the session is idle again.
 What is typed is a one-line pointer with the id; the full text is `whiska questions <id>`.
 _Avoid_: notify, ping, relay (the old bash mechanism), push
 

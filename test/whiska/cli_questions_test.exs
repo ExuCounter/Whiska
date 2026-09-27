@@ -76,6 +76,16 @@ defmodule Whiska.CLIQuestionsTest do
     end
   end
 
+  # The owl is found in the real process table (ADR-0031 fakes only herdr), so
+  # the CLI tests accept either state and pin the rest; the owl's own logic is
+  # tested in Whiska.StatuslineTest with `:owl_pids` pinned.
+  @owl ~r/\A🦉 (watching|owl down · 0 waiting)/
+
+  defp after_owl(out) do
+    assert out =~ @owl
+    String.replace(out, @owl, "")
+  end
+
   describe "whiska statusline" do
     test "prints the segment and nothing else", %{main: main} do
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
@@ -86,7 +96,7 @@ defmodule Whiska.CLIQuestionsTest do
       end)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
-      assert out == "🐱 2 questions waiting\n"
+      assert after_owl(out) == " · 🐱 2 questions waiting\n"
     end
 
     test "counts the mice herdr sees in this repo's worktrees", %{main: main, worktree: worktree} do
@@ -95,7 +105,7 @@ defmodule Whiska.CLIQuestionsTest do
       end)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
-      assert out == "🐭 1 mouse\n"
+      assert after_owl(out) == " · 🐭 1 mouse\n"
     end
 
     test "reads the same house from a worktree", %{main: main, worktree: worktree} do
@@ -103,13 +113,13 @@ defmodule Whiska.CLIQuestionsTest do
       seed(main, fn -> ask("[worktree-status: needs-decision] pick one") end)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], worktree) == 0 end)
-      assert out == "🐱 feat-a: pick one\n"
+      assert after_owl(out) == " · 🐱 feat-a: pick one\n"
     end
 
-    test "prints nothing when nothing is waiting, so the line stays clean", %{main: main} do
+    test "prints only the owl when nothing is waiting (ADR-0027 addendum)", %{main: main} do
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
-      assert out == ""
+      assert after_owl(out) == "\n"
     end
 
     test "prints nothing outside a checkout, and still exits 0", %{root: root} do

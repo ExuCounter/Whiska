@@ -125,6 +125,7 @@ defmodule Whiska.Questions do
   @doc "What the mouse did, as words: asked, or merely stopped (ADR-0009)."
   @spec verb(String.t()) :: String.t()
   def verb("unmarked"), do: "stopped without saying why"
+  def verb("done"), do: "finished"
   def verb(_), do: "needs a decision"
 
   @doc "Where a question stands: its status, with the time it was delivered when sent."
@@ -138,10 +139,12 @@ defmodule Whiska.Questions do
   defp branch(%Question{mouse_id: mouse_id}), do: mouse_id
 
   @doc """
-  The questions part of the statusline, with the owl in front: detail when
-  there is exactly one thing, a count otherwise (ADR-0027). Empty when nothing
-  is waiting, so the line stays clean. `Whiska.Statusline` composes the whole
-  line from the two segments below.
+  The questions part of the statusline, with the owl in front when the doorstep
+  says it has stopped collecting: detail when there is exactly one thing, a
+  count otherwise (ADR-0027). Empty when nothing is waiting. `Whiska.Statusline`
+  composes the whole line around `questions_segment/1`, and derives the owl's
+  state from the process table as well as `doorstep_stale`, so its owl segment
+  is its own.
   """
   @spec statusline(summary()) :: String.t()
   def statusline(summary) do
@@ -151,9 +154,9 @@ defmodule Whiska.Questions do
   end
 
   @doc """
-  An owl that is not collecting, or nil. Reported before anything else, because
-  delivery cannot report its own outage and this line is the one signal that
-  still works.
+  An owl that is not collecting, as the doorstep alone can tell, or nil.
+  Reported before anything else, because delivery cannot report its own outage
+  and this line is the one signal that still works.
   """
   @spec owl_segment(summary()) :: String.t() | nil
   def owl_segment(%{doorstep: doorstep, doorstep_stale: true}),

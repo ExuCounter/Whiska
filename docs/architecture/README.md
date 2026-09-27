@@ -24,7 +24,9 @@ questions, orphaned ones apart, and what is still on the doorstep — with the
 and `whiska doctor`, which checks all of the above for one repo and never repairs
 (ADR-0038). Then the statusline's mouse count and its "elsewhere" segment — mice here and
 whiskas elsewhere both found through herdr's pane list, each other house read directly
-until the global socket exists (ADR-0027, ADR-0025 addenda). 479 tests.
+until the global socket exists (ADR-0027, ADR-0025 addenda). Then the owl's state shown
+always — watching, or down with the doorstep count — and a whiska headcount when there is
+more than one (ADR-0027, second addendum). 488 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `launchd` supervision and `whiska stop`; push approval; `checks.yml`; the

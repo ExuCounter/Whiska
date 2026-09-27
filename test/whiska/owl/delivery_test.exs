@@ -338,10 +338,8 @@ defmodule Whiska.Owl.DeliveryTest do
       assert_receive {:prompted, @main_pane, _}, @wait * 3
     end
 
-    test "a done report supersedes the mouse's earlier questions but is never delivered", %{
-      main: main,
-      a: a
-    } do
+    test "a done report supersedes the mouse's earlier questions and is delivered as finished, closed the moment it is sent (ADR-0009)",
+         %{main: main, a: a} do
       main_is("idle")
       expect_prompts()
       house = open(main)
@@ -350,14 +348,50 @@ defmodule Whiska.Owl.DeliveryTest do
       House.collect(house)
       assert_receive {:prompted, @main_pane, _}, @wait * 3
 
-      leave(main, a, "[worktree-status: done]")
+      leave(main, a, "Merged it.\n[worktree-status: done]")
       House.collect(house)
-      refute_receive {:prompted, _, _}, @wait * 2
+      assert_receive {:prompted, @main_pane, text}, @wait * 3
+      assert text =~ "#2"
+      assert text =~ "finished"
+      refute text =~ "whiska reply"
 
       in_house(house, fn ->
         assert Storage.question(1).status == "superseded"
         assert Storage.question(2).status == "closed"
+        assert Storage.sent() == nil
       end)
+    end
+
+    test "a done report never holds the slot: the next question goes out behind it", %{
+      main: main,
+      a: a
+    } do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      leave(main, a, "[worktree-status: done]")
+
+      {:ok, _} =
+        Doorstep.leave(main, %Entry{
+          mouse_id: "mb",
+          branch: "feat-b",
+          worktree_root: b,
+          stamped_at: DateTime.utc_now(),
+          text: "[worktree-status: needs-decision] pick one"
+        })
+
+      House.collect(house)
+
+      assert_receive {:prompted, @main_pane, first}, @wait * 3
+      assert first =~ "finished"
+
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, second}, @wait * 3
+      assert second =~ "needs a decision"
     end
   end
 

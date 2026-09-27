@@ -27,8 +27,9 @@ defmodule Whiska.Owl.House do
   Three triggers, only one of them a timer: a mouse pane going idle, opening the
   house, and a slow backstop. Each one reads the doorstep, records every entry as
   a question — classified by its marker alone (ADR-0009) — and marks the entry
-  collected. A `done` report is closed on arrival; an entry whose worktree is no
-  longer on disk is recorded as orphaned rather than delivered. Whatever a mouse
+  collected. A `done` report is delivered like any other and closed the moment
+  it is sent; an entry whose worktree is no longer on disk is recorded as
+  orphaned rather than delivered. Whatever a mouse
   leaves supersedes its own earlier open or sent questions: it has moved past
   them, and an answer could no longer land.
 
@@ -365,12 +366,9 @@ defmodule Whiska.Owl.House do
   defp collect_entry(state, file, entry) do
     kind = Marker.classify(entry.text)
 
-    status =
-      cond do
-        kind == "done" -> "closed"
-        not File.dir?(entry.worktree_root) -> "orphaned"
-        true -> "open"
-      end
+    # A done report is open like any other and delivered in its turn
+    # (ADR-0009); it is closed the moment it is sent, in send_question/3.
+    status = if File.dir?(entry.worktree_root), do: "open", else: "orphaned"
 
     with {:ok, _} <-
            Storage.record_mouse(%{
@@ -468,6 +466,7 @@ defmodule Whiska.Owl.House do
     case state.herdr.prompt(state.socket, state.main_pane, line) do
       :ok ->
         {:ok, _} = Storage.mark_sent(question.id)
+        settle_report(question)
         %{state | warned: MapSet.new()}
 
       {:error, reason} ->
@@ -476,6 +475,11 @@ defmodule Whiska.Owl.House do
         state
     end
   end
+
+  # A done report is told once and never waits for an answer: closing it as
+  # soon as it is sent frees ADR-0008's one slot for the next question.
+  defp settle_report(%Question{kind: "done", id: id}), do: {:ok, _} = Storage.close_question(id)
+  defp settle_report(_question), do: :ok
 
   defp branch_of(mouse_id) do
     case Storage.mouse(mouse_id) do

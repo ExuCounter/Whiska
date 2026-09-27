@@ -1,4 +1,4 @@
-# A missing marker means deliver; `done` is how a mouse opts out
+# A missing marker means deliver; `done` is delivered too, and never waits for an answer
 
 When a mouse finishes a turn, Whiska classifies the message purely by the marker the mouse
 itself wrote. No heuristics, no extra filtering, no model reading the text to decide. This
@@ -14,7 +14,8 @@ heard.**
 
 - **No marker at all → deliver.** The mouse stopped and did not say why; that is worth
   interrupting for.
-- **`done` → recorded, never delivered.** The explicit opt-out, unchanged in behaviour.
+- **`done` → delivered, then closed at once.** Told as "finished", with no reply offered
+  (revised 2026-09-27; see below — it was "recorded, never delivered" before).
 - **`needs-decision` → delivered.** Still valid, now redundant, since absence says the
   same thing.
 
@@ -47,8 +48,22 @@ invisible character is the thing under investigation. Deliberately an environmen
 and not a "debug mode": *mode* already means a mouse's build-or-sniff state (ADR-0018), and
 one word for two unrelated things is what `CONTEXT.md` exists to prevent.
 
-**A `done` report remains a question in name and storage only**: closed on arrival, never
-delivered, never answered.
+**A `done` report is delivered like any other question, and closed the moment it is
+sent.** This revises the original decision, which closed it on arrival and never delivered
+it. In practice that meant a finished mouse vanished: its whole final report sat in the
+house, readable only by someone who already knew to run `whiska questions <id>`, and the
+person learned a branch was ready by going to look. The marker rule in `CLAUDE.md` asks
+mice to write the complete report in the body precisely so that it is read, and a report
+nobody is told about is a report nobody reads.
+
+So `done` now enters the queue and is typed into the main session in its turn, as `🐱
+whiska #N · feat-x finished · read: whiska questions N`, with no `answer:` command. It
+does not wait for a reply: the owl closes it as soon as the prompt lands, so it never
+holds ADR-0008's one delivery slot. That keeps one code path — a `done` is a question in
+storage and in delivery, differing only in the verb and in what happens after it is
+sent — rather than a second "notice" kind with its own rules, which is the trade the
+unmarked case already made above. `done` is still the marker for "nothing needed from
+you": it changes the line's verb and drops the reply, not whether you hear about it.
 
 **Recording that an entry arrived unmarked is deliberate.** It is the evidence that shows
 which mice forget and how often, and therefore whether the invisible-character marker is

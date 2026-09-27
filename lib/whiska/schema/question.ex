@@ -2,8 +2,8 @@ defmodule Whiska.Schema.Question do
   @moduledoc """
   A message a mouse sends when it finishes a turn.
 
-  Most enter the delivery queue and wait for an answer; a `done` report is closed
-  on arrival and never delivered (see CONTEXT.md). Answers are keyed to a
+  Most enter the delivery queue and wait for an answer; a `done` report is
+  delivered too, then closed at once instead of waiting (see CONTEXT.md). Answers are keyed to a
   question's id rather than a branch (ADR-0005), which is what stops an answer
   landing on whichever question Whiska happened to guess.
 
@@ -14,7 +14,7 @@ defmodule Whiska.Schema.Question do
   use Ecto.Schema
 
   # `open` waits in the queue; `sent` has been delivered and waits for its
-  # answer (ADR-0008). `closed` is a `done` report closed on arrival (ADR-0009),
+  # answer (ADR-0008). `closed` is a `done` report closed once sent (ADR-0009),
   # or a question closed by hand. `orphaned` is a question nothing can act on
   # any more — its mouse died (ADR-0026) or its worktree is gone (ADR-0036).
   # `superseded` is a question its own mouse moved past by asking a newer one.

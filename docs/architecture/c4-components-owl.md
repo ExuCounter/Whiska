@@ -62,9 +62,11 @@ marker's meaning, so a mouse that drops it is not misread as having said nothing
 the owl reads the marker on collection. That keeps the writer dumb and puts the one piece
 of judgment on the side that can be changed without touching every mouse's `settings.json`.
 
-**A `done` report is closed on arrival** — status `closed`, never delivered, never
-answered. An entry whose worktree is gone is `orphaned`: recorded, surfaced, never
-interrupting, because there is nowhere to reply and nothing left to change.
+**A `done` report is delivered and then closed at once** — typed as "finished" with no
+reply command, and closed as soon as the prompt lands so it never holds the delivery
+slot (ADR-0009, revised 2026-09-27). An entry whose worktree is gone is `orphaned`:
+recorded, surfaced, never interrupting, because there is nowhere to reply and nothing
+left to change.
 
 **Dead mice are marked, not deleted.** `pane.closed` or `pane.exited` on a known mouse
 pane stamps `died_at` (the V002 migration's one column) and cascades that mouse's open

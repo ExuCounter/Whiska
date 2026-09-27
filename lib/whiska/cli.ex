@@ -58,10 +58,11 @@ defmodule Whiska.CLI do
                          question in full.
 
     statusline           Print the one segment the project statusline appends:
-                         whether the owl has stopped collecting, how many mice
-                         are alive here, one open question in detail or a count
-                         for more, and which other whiska on this machine has
-                         something waiting. Nothing when nothing is waiting.
+                         whether the owl is watching or down (always), how many
+                         whiskas are on this machine when more than one, how
+                         many mice are alive here, one open question in detail
+                         or a count for more, and which other whiska has
+                         something waiting.
 
     reply <id> <text>    Answer a question. The text is typed into that
                          mouse's pane, and the question is marked answered.

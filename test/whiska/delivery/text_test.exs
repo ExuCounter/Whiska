@@ -16,6 +16,17 @@ defmodule Whiska.Delivery.TextTest do
     )
   end
 
+  test "a done report says the mouse finished, and offers no reply (ADR-0009)" do
+    q = question(kind: "done", text: "Merged and pushed.\n[worktree-status: done]")
+    line = Text.compose(q, "feat-a", 0, [])
+
+    assert line =~ "#12"
+    assert line =~ "feat-a finished"
+    assert line =~ "whiska questions 12"
+    refute line =~ "whiska reply"
+    refute line =~ "needs a decision"
+  end
+
   test "names the question id, the branch, that it needs a decision, and how to read and answer" do
     q =
       question(text: "Which db?\n[worktree-status: needs-decision] 3 questions ready, see above")
