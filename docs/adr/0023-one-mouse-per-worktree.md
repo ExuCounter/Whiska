@@ -16,3 +16,15 @@ for that `mouse_id`.
 
 The signal built for security turns out to be exactly the signal needed for this, so the
 rule costs nothing extra to enforce.
+
+## Taking over as main session is a handoff, not a theft
+
+The same refusal shape covers a second `whiska start` for a repo that already has a main
+session: refuse, and name the pane that already holds it, with an explicit override.
+
+When the override is used, the role transfers **and the old pane is told it has been
+released.** Silently demoting it would leave a terminal that looks alive and receives
+nothing — the same silent failure this design rejects everywhere else. Requiring
+`whiska stop` in the old pane first was considered and rejected as merely annoying: that
+pane is often on a machine the person has walked away from, or a session they already
+closed.

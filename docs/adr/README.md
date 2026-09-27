@@ -31,7 +31,8 @@ individually citable decisions.
 
 - [0005](0005-answers-are-keyed-to-a-question-id.md) — Answers are keyed to a question id, not a branch
 - [0008](0008-delivery-is-a-queue-not-a-batch.md) — Delivery is a queue, not a batch
-- [0009](0009-classification-is-the-mouses-own-marker.md) — A question's kind is the mouse's own marker, with no filtering on top
+- [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep; the hook never opens a socket
+- [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is how a mouse opts out
 
 ## Enforcement, checks and push
 

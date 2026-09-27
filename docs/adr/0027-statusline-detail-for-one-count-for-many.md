@@ -18,3 +18,21 @@ same idea as a terminal spinner — no push from Whiska and no hook into Claude 
 internals, which firstmate does via an undocumented drawing API and which is not worth the
 fragility. How smooth it looks depends on how often Claude Code calls the statusline
 script, which is not confirmed.
+
+## The statusline is also where "the owl is down" belongs
+
+Delivery cannot report its own outage: if the owl is not answering, the channel that would
+carry the message is the channel that is broken. The statusline is the only signal that
+still works, because it runs in the main session's own process rather than the owl's.
+
+It costs nothing extra. The script already has to ask the owl for its counts, so the
+absence of an answer *is* the signal, and it falls back to reading the doorstep count off
+disk — which works precisely because the doorstep is a directory of files and not a socket
+(ADR-0036):
+
+```
+🦉 owl down · 4 waiting
+```
+
+This does not replace the doorstep, and the two must not be confused. The doorstep keeps
+the message; the statusline tells the person. Each does only its own job.

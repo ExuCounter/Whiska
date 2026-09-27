@@ -15,3 +15,27 @@ window only affects what the first notification says, never what eventually arri
 
 An earlier framing of this as "batching" was wrong and was corrected: it is a queue with
 one narrow exception.
+
+## When the idle signal is unavailable, deliver anyway
+
+The gate depends on knowing whether the main session is idle. herdr reports this from a
+real Claude Code hook rather than by reading the screen — `herdr-agent-state.sh`, bound to
+`SessionStart` and `Stop` — and exposes `agent` and `agent_status` as separate fields. That
+separation is what makes the failure case unambiguous:
+
+| herdr reports | meaning | delivery |
+|---|---|---|
+| `claude` + `idle` | free | deliver |
+| `claude` + `working` | mid-turn | hold — the normal case |
+| `claude` + `unknown` | the integration is broken | **deliver anyway, and say so** |
+| no agent | the main session's pane is not running Claude | a dead pane, not a busy one |
+
+Holding on `unknown` was rejected. If the integration is broken there is no idle signal to
+gate on, so holding is not caution — it is choosing silence, and the person would never
+learn why the mice went quiet. Delivering interrupts at a slightly rude moment and carries
+its own explanation, which is self-diagnosing.
+
+A startup check in `whiska start` was considered and rejected as well. It fires once, so it
+catches the least likely moment (a machine that was already broken) and misses the likely
+one (herdr updated mid-session, leaving the hook stale). Keying on `claude` + `unknown`
+detects the real fault at the moment it matters, with no new machinery.

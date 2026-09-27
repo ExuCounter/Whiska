@@ -62,3 +62,10 @@ the owl. `whiska stop` shuts it: socket closed, sweep stopped, supervision dropp
 house itself, its database and its mouse records, is untouched either way.
 _Avoid_: creating/destroying, starting/tearing down a house (those describe the house,
 not its lights)
+
+**Doorstep**:
+Where a mouse leaves a question for the owl: a directory in the house, holding entries the
+owl has not collected yet. A mouse always leaves its question here and never hands it over
+directly, so whether the owl is awake changes nothing about what the mouse does.
+_Avoid_: spool, outbox, queue (the delivery queue is a different thing — the doorstep is
+what a question sits on before it ever reaches that queue), larder, inbox
