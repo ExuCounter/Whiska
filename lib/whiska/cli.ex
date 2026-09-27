@@ -10,6 +10,8 @@ defmodule Whiska.CLI do
 
   alias Whiska.Hook.PreToolUse
   alias Whiska.Hook.Stop
+  alias Whiska.Doctor
+  alias Whiska.Doctor.Report
   alias Whiska.Herdr
   alias Whiska.Install
   alias Whiska.Layout
@@ -62,6 +64,12 @@ defmodule Whiska.CLI do
 
     mice                 List what is alive in this repo's house: one line per
                          mouse — branch, mode, what its pane is doing, uptime.
+
+    doctor               Is Whiska working for this repo right now? Checks the
+                         binary, runtime, herdr, owl, this repo's hooks and
+                         shim (by running them), its house, doorstep and mice.
+                         Prints a fix for each finding; changes nothing. Exits
+                         1 if anything failed.
 
     mode                 Print this mouse's mode.
     mode build|sniff     Set it. A build mouse makes changes, confined to its
@@ -118,6 +126,25 @@ defmodule Whiska.CLI do
   def run(["close", id], cwd), do: with_question(cwd, id, &close/1)
 
   def run(["mice"], cwd), do: mice(cwd || File.cwd!())
+
+  def run(["doctor"], cwd) do
+    cwd = cwd || File.cwd!()
+
+    case main_checkout(cwd) do
+      {:ok, main} ->
+        report = Doctor.run(main)
+        IO.puts(Report.render(report))
+        Report.exit_status(report)
+
+      :error ->
+        IO.puts(
+          :stderr,
+          "whiska: #{cwd} is not a git checkout, and not inside a worktree of one."
+        )
+
+        1
+    end
+  end
 
   def run(["mode"], cwd), do: with_mouse(cwd, &show_mode/2)
 

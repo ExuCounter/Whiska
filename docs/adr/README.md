@@ -57,6 +57,7 @@ individually citable decisions.
 - [0021](0021-no-whiska-spawn-command.md) — No `whiska spawn` command — spawning happens through a conversation
 - [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash
 - [0027](0027-statusline-detail-for-one-count-for-many.md) — Statusline shows detail for one thing, a count for many
+- [0038](0038-the-doctor-checks-and-probes-it-never-repairs.md) — The doctor checks and probes; it never repairs
 
 ## Process
 

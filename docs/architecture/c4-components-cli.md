@@ -1,6 +1,7 @@
-# Component Diagram — the `whiska` CLI (v0.0.1)
+# Component Diagram — the `whiska` CLI
 
-Level 3 for the escript — the hooks, `init`, `mode`, and the command that boots the owl.
+Level 3 for the escript — the hooks, `init`, `mode`, `doctor`, the delivery-side commands
+(`start`, `questions`, `reply`, `close`, `mice`), and the command that boots the owl.
 Every module here exists in `lib/whiska/` with a test beside it in `test/whiska/`. The
 owl's own internals are a separate diagram: [c4-components-owl.md](c4-components-owl.md).
 
@@ -11,7 +12,7 @@ C4Component
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
 
   Container_Boundary(cli, "whiska escript") {
-    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / owl")
+    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / owl")
     Component(hook, "Hook.PreToolUse", "decision", "One tool call in, one decision out")
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
     Component(layout, "Layout", "path arithmetic", "Finds worktree root and main checkout")
@@ -21,6 +22,7 @@ C4Component
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
     Component(install, "Install", "pure merge", "Writes the hook into .claude/settings.json")
+    Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live")
     Component(nif, "BundledNIF", "scaffolding", "Unpacks SQLite's native library from the escript")
   }
 
@@ -33,6 +35,11 @@ C4Component
   Rel(stop, doorstep, "Writes one entry, then exits")
   Rel(main, hook, "Delegates the hook command")
   Rel(main, install, "Delegates init")
+  Rel(main, doctor, "Delegates doctor")
+  Rel(doctor, shim, "Runs each hook with a no-op payload", "outside any worktree")
+  Rel(doctor, install, "Compares the shim and hook commands with what init writes")
+  Rel(doctor, storage, "Opens the house; reads main session, questions, mice")
+  Rel(doctor, doorstep, "Counts what is waiting")
   Rel(hook, layout, "Resolves where this call is")
   Rel(hook, markerm, "Gets the mouse_id")
   Rel(hook, mainrule, "Asks for a decision")
@@ -79,6 +86,14 @@ out the house, writes the whole final message to the doorstep and exits — unco
 Elixir despite ADR-0033 saying hooks go native, and that is written down in the ADR rather
 than drifted into: the measurement there is about the per-tool-call path, and `Stop` fires
 once per turn.
+
+**`Doctor` checks and never repairs, and probes rather than inspects (ADR-0038).** It
+runs the repo's committed shim for both hooks with a payload whose `cwd` is outside any
+worktree, so the whole resolution path runs and nothing is written; it compares the
+shim byte for byte with what `Install` writes, because the old no-argument shim passes
+the probe silently; and it asks herdr about the recorded main session with the same call
+the delivery gate uses. Every finding prints its fix. `fail` means a mouse's question
+here would be lost or never written; `warn` means degraded but nothing lost.
 
 **`BundledNIF` is scaffolding with a known end.** An escript is a zip with no `priv/`,
 and native code cannot be `dlopen`ed out of a zip — so SQLite's 1.6 MB library travels as

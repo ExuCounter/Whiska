@@ -132,6 +132,47 @@ the branch or moving the folder does not disturb it. If the mode cannot be read,
 assumes `build` and says so on stderr — worktree containment is pure path arithmetic and
 keeps working regardless.
 
+### Is it working? `whiska doctor`
+
+```
+whiska doctor         # from the main checkout or any worktree of it
+```
+
+Delivery only happens when the owl is up and a main session is recorded and idle, and
+nothing yet tells you when one of those is not true — the statusline (ADR-0027) is
+still unbuilt. From the main terminal a broken pipe and a quiet fleet look the same. The
+doctor is what you run when the mice have gone quiet, to learn which silence you are in
+(ADR-0038). It checks this repo's prerequisites (binary, runtime, herdr, owl), its hooks
+and shim — **by running them**, through the committed shim with a payload outside any
+worktree, so nothing is minted or left behind — then its house, its doorstep, its main
+session and question queue, and whether each mouse record still matches a real worktree
+and a live herdr pane.
+
+It never repairs. Every failing line carries the command that fixes it. `FAIL` means a
+question from a mouse here would be lost or never written; `warn` means degraded but
+nothing lost. Exit status is 1 on any failure, 0 otherwise.
+
+```
+whiska doctor — myrepo (/Users/me/projects/myrepo)
+
+  warn  binary      /Users/me/.local/bin/whiska — not on PATH; the shim falls back here
+                    fix: export PATH="$HOME/.local/bin:$PATH"
+  ok    runtime     /Users/me/.asdf/installs/erlang/28.1.1/bin/escript
+  ok    herdr       reachable at /Users/me/.config/herdr/herdr.sock (12 panes)
+  warn  owl         not running — nothing collects the doorstep
+                    fix: whiska owl
+  FAIL  Stop        not wired — mice here cannot leave questions
+                    fix: whiska init
+  ok    house       /Users/me/projects/myrepo/.git/whiska/whiska.db, schema v3
+  ok    doorstep    nothing waiting
+  warn  main session  not recorded — nothing is delivered until it is
+                    fix: whiska start  (from the main checkout's pane)
+  ok    questions   none waiting
+  ok    mice        feat-thing: live pane w1:p3
+
+1 failed, 3 warnings.
+```
+
 ### Installing the hooks
 
 ```
