@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Whiska's PreToolUse hook.
+# Whiska's hooks. Takes the hook's name - pre-tool-use or stop - and hands
+# the payload on stdin to `whiska hook <name>`.
 #
 # Written by `whiska init` and checked into the repo so the rules travel with
 # it (ADR-0016). Everything machine-specific is resolved here, when the hook
@@ -56,12 +57,12 @@ if [ -z "$escript_bin" ]; then
 fi
 
 if [ -n "$escript_bin" ]; then
-  exec "$escript_bin" "$whiska_bin" hook pre-tool-use
+  exec "$escript_bin" "$whiska_bin" hook "$@"
 fi
 
 # No runtime anywhere. Whiska may be a native binary that needs none
 # (ADR-0033), so try it directly - and fail open if that does not work.
-if ! "$whiska_bin" hook pre-tool-use; then
+if ! "$whiska_bin" hook "$@"; then
   echo "whiska: could not run $whiska_bin - allowing the call" >&2
 fi
 exit 0
