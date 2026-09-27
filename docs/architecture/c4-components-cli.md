@@ -23,7 +23,7 @@ C4Component
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
     Component(install, "Install", "pure merge", "Writes the hooks, the statusline and the skills into .claude/")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
-    Component(statusline, "Statusline", "one line", "Owl, mice here, questions here, whiskas waiting elsewhere")
+    Component(statusline, "Statusline", "one line", "Owl always, whiskas headcount, mice here, questions here, whiskas waiting elsewhere")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live")
     Component(nif, "BundledNIF", "scaffolding", "Unpacks SQLite's native library from the escript")
   }
@@ -31,6 +31,7 @@ C4Component
   ContainerDb(db, "House database", "SQLite", "mice and questions")
   Container_Ext(doorstep, "Doorstep", "directory", "Uncollected entries")
   System_Ext(herdr, "herdr", "pane list")
+  Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
 
   Rel(shim, main, "Execs", "JSON on stdin")
   Rel(main, stop, "Delegates the stop hook")
@@ -41,7 +42,9 @@ C4Component
   Rel(main, questions, "Delegates questions")
   Rel(main, statusline, "Delegates statusline")
   Rel(statusline, questions, "Reads this house's summary, and every other whiska's")
-  Rel(statusline, herdr, "Lists panes: mice here, whiskas elsewhere")
+  Rel(statusline, herdr, "Lists panes: mice here, whiskas here and elsewhere")
+  Rel(statusline, owl, "Is it running? Same probe as the doctor", "process table")
+  Rel(doctor, owl, "Is it running?", "process table")
   Rel(questions, storage, "Opens the house read-only")
   Rel(questions, doorstep, "Counts what is uncollected, and how stale")
   Rel(main, doctor, "Delegates doctor")
@@ -92,11 +95,15 @@ confused with `exec rm`. Substitutions and nested shells are refused outright.
 **`Questions` is read by two commands so they cannot disagree** (ADR-0027). `whiska
 questions` renders the whole summary; `Statusline` renders one segment of it — detail
 for exactly one open question, a count for more — and composes the rest of the line
-around it from one herdr pane list: the mice alive in this repo's worktrees, and the
-other whiskas on the machine whose houses (read the same way) have something waiting. Orphaned questions are listed
-but never counted (ADR-0036). The doorstep is the one source the database cannot see:
-an entry uncollected past the owl's backstop is the "owl down" signal, derived from age
-until the owl answers a socket. Nothing here writes or collects.
+around it from one herdr pane list: the whiskas on the machine when there is more than
+one, the mice alive in this repo's worktrees, and the other whiskas whose houses (read
+the same way) have something waiting. Orphaned questions are listed but never counted
+(ADR-0036). The owl's state comes first and is always shown — `🦉 watching` or `🦉 owl
+down · N waiting` — because a blank line could not be told apart from a broken Whiska
+(ADR-0027, second addendum). Up means found in the process table, the probe the doctor
+uses (`Whiska.Owl.pids/0`), and collecting: the doorstep is the one source the database
+cannot see, and an entry uncollected past the owl's backstop still means down, until the
+owl answers a socket. Nothing here writes or collects.
 
 **`Hook.Stop` never opens a socket, and never classifies.** It reads the payload, works
 out the house, writes the whole final message to the doorstep and exits — unconditionally

@@ -40,6 +40,32 @@ defmodule Whiska.Owl do
     Supervisor.init(children, strategy: :rest_for_one)
   end
 
+  @doc """
+  The pids of the owls running on this machine, from the process table.
+
+  No pidfile and no global socket yet (ADR-0025 is unbuilt), so the process
+  table is the only place to look. Shared by `whiska doctor` and the
+  statusline so the two cannot disagree about whether the owl is up. When the
+  owl's socket exists this asks it instead, and learns which houses are open
+  for free.
+  """
+  @spec pids() :: [pos_integer()]
+  def pids do
+    case System.cmd("pgrep", ["-f", "whiska owl"], stderr_to_stdout: true) do
+      {out, 0} -> out |> String.split() |> Enum.flat_map(&pid/1)
+      _ -> []
+    end
+  rescue
+    ErlangError -> []
+  end
+
+  defp pid(s) do
+    case Integer.parse(s) do
+      {n, ""} -> [n]
+      _ -> []
+    end
+  end
+
   @doc "Open a house, or return the one already open for that checkout."
   @spec open_house(Path.t()) :: {:ok, pid()} | {:error, term()}
   def open_house(main_checkout) do

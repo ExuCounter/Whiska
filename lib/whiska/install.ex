@@ -151,10 +151,12 @@ defmodule Whiska.Install do
                      #!/usr/bin/env bash
                      # Whiska's project statusline (ADR-0027). A project-level statusLine
                      # replaces the global one rather than merging with it, so this runs your
-                     # global statusline first and appends one line: whether the owl has stopped
-                     # collecting, the mice alive here, one open question in detail or a
-                     # count for more, and which other whiska on this machine has something
-                     # waiting. Nothing is appended when nothing waits.
+                     # global statusline first and appends one line: whether the owl is
+                     # watching or down (always, so a blank line never passes for a working
+                     # Whiska), how many whiskas are on this machine when there is more than
+                     # one, the mice alive here, one open question in detail or a count for
+                     # more, and which other whiska has something waiting. Only the owl is
+                     # shown when nothing waits.
                      #
                      # Written by `whiska init`. The binary and runtime are resolved the same
                      # way the hook shim resolves them, at run time, never baked in here.

@@ -62,6 +62,17 @@ defmodule Whiska.InstallStatuslineTest do
     test "never recurses into itself if the global statusline is this script" do
       assert Install.statusline_script() =~ Path.basename(Install.statusline_path())
     end
+
+    test "its header says the owl's state is always shown (ADR-0027 addendum)" do
+      script = Install.statusline_script()
+      assert script =~ "watching"
+      assert script =~ "how many whiskas"
+      refute script =~ "Nothing is appended when nothing waits"
+    end
+
+    test "the committed script in this repo is what init writes today" do
+      assert File.read!(Install.statusline_path()) == Install.statusline_script()
+    end
   end
 
   describe "skills/0 — one slash command per command (ADR-0022)" do

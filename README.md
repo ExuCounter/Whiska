@@ -111,20 +111,26 @@ read one summary (`Whiska.Questions`), so they cannot disagree about what is wai
 
 `whiska init` also installs a project statusline (ADR-0027) and the `/whiska-questions`
 slash command (ADR-0022). The statusline runs your global statusline first and appends
-one line, each part following the same one-or-many rule and absent when it has nothing
-to say:
+one line. The owl's state is always there, so a blank line never passes for a working
+Whiska; every other part follows the same one-or-many rule and is absent when it has
+nothing to say:
 
 ```
-🦉 owl down · 2 waiting · 🐭 2 mice · 🐱 3 questions waiting · ⚡ api-service waiting
+🦉 watching
+🦉 watching · 🐈 3 whiskas · 🐭 2 mice · 🐱 3 questions waiting · ⚡ api-service waiting
+🦉 owl down · 2 waiting
 ```
 
-`🦉` means doorstep entries have sat uncollected past the owl's backstop. `🐭` counts
-the worktrees of this repo with a live agent pane, as herdr sees them. `🐱` is one open
-question in detail (`🐱 feat-auth: pick a cache TTL`) or a count. `⚡` is the other
-whiskas on this machine — live sessions in a repo root that has a house — with something
-waiting: one is named, several become `⚡ 3 whiskas waiting elsewhere`. Until the owl's
-global socket exists, that last part comes from herdr's pane list and a direct read of
-each other house (ADR-0025 addendum).
+`🦉 watching` means the owl is running and collecting; `🦉 owl down · N waiting` means it
+is not — no owl process, or doorstep entries sat uncollected past its backstop — with the
+doorstep count. `🐈` is how many whiskas are on this machine — live sessions in a repo
+root that has a house, this one included — shown only when there is more than one. `🐭`
+counts the worktrees of this repo with a live agent pane, as herdr sees them. `🐱` is one
+open question in detail (`🐱 feat-auth: pick a cache TTL`) or a count. `⚡` is the other
+whiskas with something waiting: one is named, several become `⚡ 3 whiskas waiting
+elsewhere`. Until the owl's global socket exists, the whiskas come from herdr's pane list
+and a direct read of each other house (ADR-0025 addendum), and the owl is found in the
+process table, the same way `whiska doctor` finds it.
 
 ### What it does
 
@@ -176,8 +182,8 @@ whiska doctor         # from the main checkout or any worktree of it
 ```
 
 Delivery only happens when the owl is up and a main session is recorded and idle, and
-the statusline (ADR-0027) only tells you when the owl has stopped collecting. From
-the main terminal a broken pipe and a quiet fleet look the same. The
+the statusline (ADR-0027) only tells you whether the owl is watching. From
+the main terminal a broken pipe and a quiet fleet look much the same. The
 doctor is what you run when the mice have gone quiet, to learn which silence you are in
 (ADR-0038). It checks this repo's prerequisites (binary, runtime, herdr, owl), its hooks
 and shim — **by running them**, through the committed shim with a payload outside any

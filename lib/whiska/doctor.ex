@@ -58,7 +58,7 @@ defmodule Whiska.Doctor do
   @spec run(Path.t(), keyword()) :: Report.t()
   def run(main_checkout, opts \\ []) do
     env = Keyword.get(opts, :env, System.get_env())
-    owl_pids = Keyword.get(opts, :owl_pids, &owl_pids/0)
+    owl_pids = Keyword.get(opts, :owl_pids, &Whiska.Owl.pids/0)
     herdr = Keyword.get(opts, :herdr, Herdr.impl())
     now = DateTime.utc_now()
 
@@ -177,25 +177,6 @@ defmodule Whiska.Doctor do
   @spec owl([pos_integer()]) :: Check.t()
   def owl([]), do: Check.warn("owl", "not running — nothing collects the doorstep", @owl)
   def owl(pids), do: Check.ok("owl", "running (pid #{Enum.join(pids, ", ")})")
-
-  # No pidfile and no global socket yet (ADR-0025 is unbuilt), so the process
-  # table is the only place to look. When the owl's socket exists this asks it
-  # instead, and learns which houses are open for free.
-  defp owl_pids do
-    case System.cmd("pgrep", ["-f", "whiska owl"], stderr_to_stdout: true) do
-      {out, 0} -> out |> String.split() |> Enum.flat_map(&pid/1)
-      _ -> []
-    end
-  rescue
-    ErlangError -> []
-  end
-
-  defp pid(s) do
-    case Integer.parse(s) do
-      {n, ""} -> [n]
-      _ -> []
-    end
-  end
 
   # -- this repo's hooks -------------------------------------------------------
 

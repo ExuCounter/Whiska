@@ -54,9 +54,11 @@ C4Container
 
 **`whiska-statusline.sh` is the second committed script** (ADR-0027). A project-level
 `statusLine` replaces the global one, so the script runs the global command first and
-appends the line `whiska statusline` prints: the owl, the mice here, the questions here,
-and the whiskas elsewhere with something waiting — the last two from herdr's pane list
-and a direct read of each other house (ADR-0025 addendum). It shares the shim's binary-and-runtime
+appends the line `whiska statusline` prints: the owl's state, always, so a blank line
+never passes for a working Whiska; the whiskas on the machine when there is more than
+one; the mice here; the questions here; and the whiskas elsewhere with something waiting
+— the whiskas and mice from herdr's pane list and a direct read of each other house
+(ADR-0025 addendum), the owl from the process table. It shares the shim's binary-and-runtime
 lookup, generated from the same source, so the two cannot drift. Claude Code sets no
 `CLAUDE_PROJECT_DIR` for statusline commands, so the committed command falls back to a
 path relative to the project directory.
