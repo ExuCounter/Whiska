@@ -393,4 +393,14 @@ defmodule Whiska.Storage do
 
   @doc false
   def all(schema), do: Repo.all(from(s in schema, order_by: s.mouse_id))
+
+  @doc "The newest migration this build knows — what a freshly opened house is at."
+  @spec latest_schema_version() :: pos_integer()
+  def latest_schema_version, do: @migrations |> Enum.map(&elem(&1, 0)) |> Enum.max()
+
+  @doc "The highest migration this house has applied — what `whiska doctor` reports."
+  @spec schema_version() :: non_neg_integer()
+  def schema_version do
+    Repo |> Ecto.Migrator.migrated_versions() |> Enum.max(fn -> 0 end)
+  end
 end

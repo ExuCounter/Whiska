@@ -8,34 +8,28 @@ an ADR disagree, the ADR wins.
 |---|---|---|
 | 1 | [c4-context.md](c4-context.md) | Whiska between the person, Claude Code, herdr, git and launchd |
 | 2 | [c4-containers.md](c4-containers.md) | Built against designed, as two boundaries |
-| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init, mode, questions, the statusline |
+| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init, mode, questions, statusline, doctor, the delivery-side commands |
 | 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification |
-| — | [c4-dynamic-pretooluse.md](c4-dynamic-pretooluse.md) | One tool-call decision, end to end. **Built.** |
-| — | [c4-dynamic-question-delivery.md](c4-dynamic-question-delivery.md) | Doorstep → collection → delivery. **Half built.** |
-| 4 | [c4-deployment.md](c4-deployment.md) | One machine: panes, files, and the sockets to come |
-
-## The one line to carry away
-
-Whiska owns **identity, rules and routing**. It does not own terminals or Claude Code
-processes — herdr does, and is unchanged by this project (ADR-0020). Judgment belongs to
-the mouse and to the person; Whiska stays dumb (ADR-0009, ADR-0017).
-
-## Built versus designed
-
-**Built.** v0.0.1's plumbing — mouse identity as a marker file, a per-repo SQLite house,
+| — | [c4-dynamic-pretooluse.md](c4-dynamic-pretooluse.md) | One tool-call decision, end to end. **Built.** v0.0.1's plumbing — mouse identity as a marker file, a per-repo SQLite house,
 worktree containment and sniff mode enforced through `PreToolUse` (ADR-0030). Then the
 owl slice: the owl supervisor with one independently supervised house per project, each
 house's herdr subscription and pane discovery, the doorstep and the `Stop` hook that
-writes to it, collection on idle, and dead-mouse marking (ADR-0001, ADR-0036, ADR-0026). Then `whiska questions` and the
-project statusline `whiska init` installs, both reading one summary of the house — open
-and sent questions, orphaned ones apart, and what is still on the doorstep — with the
-`/whiska-questions` slash command beside them (ADR-0027, ADR-0022). 423 tests.
+writes to it, collection on idle, and dead-mouse marking (ADR-0001, ADR-0036, ADR-0026).
+Then delivery: `whiska start` recording the main session, the idle-gated queue that types
+one question at a time into it, `reply` and `close`, and a newer question superseding its
+mouse's earlier ones (ADR-0008, ADR-0037). Then `whiska questions` and the project
+statusline `whiska init` installs, both reading one summary of the house — open and sent
+questions, orphaned ones apart, and what is still on the doorstep — with the
+`/whiska-questions` slash command beside them (ADR-0027, ADR-0022). Then `whiska mice`,
+and `whiska doctor`, which checks all of the above for one repo and never repairs
+(ADR-0038). 471 tests.
 
-**Designed, decided, not yet written.** Delivery to the main session and its idle gate
-(ADR-0008); the per-repo and global sockets (ADR-0024, ADR-0025); `launchd` supervision
-and `whiska start`/`stop`; push approval; `checks.yml`; the statusline's mouse count and
-one-mouse excerpt, and its "elsewhere" segment over the global socket; cross-repo
-commands. The owl runs in the foreground meanwhile.
+**Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
+ADR-0025); `launchd` supervision and `whiska stop`; push approval; `checks.yml`; the
+statusline's mouse count and one-mouse excerpt, its "elsewhere" segment over the global
+socket, and its "owl down" fallback (ADR-0027); cross-repo commands. The owl runs in the
+foreground meanwhile, and the doctor finds it through the process table until the global
+socket exists.
 
 ## Regenerating
 
