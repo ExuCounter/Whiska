@@ -60,6 +60,9 @@ defmodule Whiska.CLI do
     close <id>           Settle a question by hand, with no answer — for one
                          you dealt with some other way.
 
+    mice                 List what is alive in this repo's house: one line per
+                         mouse — branch, mode, what its pane is doing, uptime.
+
     mode                 Print this mouse's mode.
     mode build|sniff     Set it. A build mouse makes changes, confined to its
                          own worktree. A sniff mouse investigates and reports,
@@ -113,6 +116,8 @@ defmodule Whiska.CLI do
     do: with_question(cwd, id, &reply(&1, Enum.join([first | rest], " ")))
 
   def run(["close", id], cwd), do: with_question(cwd, id, &close/1)
+
+  def run(["mice"], cwd), do: mice(cwd || File.cwd!())
 
   def run(["mode"], cwd), do: with_mouse(cwd, &show_mode/2)
 
@@ -274,6 +279,29 @@ defmodule Whiska.CLI do
 
       other ->
         IO.puts(:stderr, "whiska: could not reach this repo's house (#{inspect(other)}).")
+        1
+    end
+  end
+
+  # Runs from the main checkout or any worktree; both name the same house.
+  defp mice(cwd) do
+    case main_checkout(cwd) do
+      {:ok, main} ->
+        case Whiska.Mice.list(main) do
+          {:ok, rows} ->
+            say(Whiska.Mice.render(rows))
+
+          {:error, reason} ->
+            IO.puts(:stderr, "whiska: could not reach this repo's house (#{inspect(reason)}).")
+            1
+        end
+
+      :error ->
+        IO.puts(
+          :stderr,
+          "whiska: #{cwd} is not a git checkout, and not inside a worktree of one."
+        )
+
         1
     end
   end
