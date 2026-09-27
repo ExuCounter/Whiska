@@ -50,6 +50,36 @@ mode, sniff mode. Use those names in code, comments, commit messages, and conver
 Don't invent synonyms, and don't reach for the `_Avoid_` words listed under each term;
 they are listed because they were rejected for a reason.
 
+## Keep the architecture diagrams honest
+
+`docs/architecture/` holds C4 diagrams of the system — context, containers, components,
+two flows, deployment. They are a *view* onto `CONTEXT.md` and the ADRs, never a third
+source of truth: where a diagram and an ADR disagree, the ADR wins and the diagram is the
+thing that is wrong.
+
+**If the architecture moves, the diagram moves in the same piece of work** — same rule as
+an ADR, for the same reason. A stale diagram is worse than none. The architecture has
+moved when any of these is true:
+
+- A new container, component or stored thing exists, or one is gone.
+- A boundary moved — something changed which process, socket or file it lives behind.
+- A documented flow reordered, gained a step, or lost one.
+- A piece crossed from "designed, not built" to built. `docs/architecture/README.md`
+  keeps that split, and it is the part that rots fastest.
+
+A change that touches none of those is a normal outcome. Say so in one line rather than
+editing a diagram to look busy.
+
+### Mermaid, specifically
+
+The diagrams must actually render. Two traps that have already been hit:
+
+- **`C4Dynamic` numbers its own relationships**, in declaration order. Never write `"1. "`
+  into a `Rel` label — it renders as `1. 1.`. Order the `Rel` lines to be the flow, and
+  let the prose's step numbers follow them.
+- **No angle brackets in a label.** `<branch>` inside a quoted label is eaten as an HTML
+  tag. Describe the shape in words, and keep the literal path in the prose underneath.
+
 ## Run `domain-modeling` when you finish a feature
 
 Not while building — when the work is done and green. Ask two questions:
