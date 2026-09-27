@@ -261,4 +261,22 @@ defmodule Whiska.ShellTest do
       end
     end
   end
+
+  describe "shell builtins that only move around" do
+    # Found by running the installed hook: `cd <main> && git status` was denied
+    # from inside a worktree. `cd` changes no file, but it was missing from the
+    # allowlist, so the segment read as mutating and the rule saw a command that
+    # both mutated and named the main checkout.
+    test "cd reads" do
+      refute Shell.mutating?("cd /tmp")
+      refute Shell.mutating?("cd /tmp && git status")
+      refute Shell.mutating?("pushd /tmp")
+      refute Shell.mutating?("popd")
+    end
+
+    test "but cd does not launder what follows it" do
+      assert Shell.mutating?("cd /tmp && rm -rf x")
+      assert Shell.mutating?("cd /tmp && touch x")
+    end
+  end
 end

@@ -49,6 +49,7 @@ defmodule Whiska.Shell do
     diff cmp jq yq xmllint
     which type command basename dirname realpath readlink
     env printenv true false test man help less more
+    cd pushd popd dirs
     shasum md5sum sha1sum sha256sum cksum od strings xxd
     ps id groups nproc arch sleep expr tty locale
   )
