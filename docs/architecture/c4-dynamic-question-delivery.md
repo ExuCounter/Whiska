@@ -49,7 +49,9 @@ path that differs between a healthy machine and a broken one.
 ## Step 2 — collection is event-driven, not a sweep
 
 herdr reporting a mouse idle is what triggers collection of that house; opening the house
-collects too, and a slow timer is only a backstop. Because
+collects too, and a slow timer is only a backstop. An idle collection that finds the
+doorstep empty — the mouse's `Stop` hook may still be writing — looks again after 2 s and
+5 s, and stops as soon as anything is found. Because
 `pane.agent_status_changed` can only be subscribed per pane id, the house first matches
 each pane's `cwd` to a mouse's worktree to learn which panes are its own. Collection reads and marks — it never deletes and never touches the
 worktree (ADR-0007).

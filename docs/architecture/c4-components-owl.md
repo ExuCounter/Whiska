@@ -52,8 +52,9 @@ subscription whenever that set changes. A dropped connection is retried with a w
 kept being retried while herdr is down.
 
 **Three collection triggers, only one a timer.** A mouse pane going idle, the house
-opening, and a slow backstop. Collection reads and marks; it never deletes and never
-touches the worktree (ADR-0007).
+opening, and a slow backstop. An idle collection that finds nothing retries after 2 s and
+5 s, since the idle event can beat the mouse's `Stop` hook to the doorstep. Collection
+reads and marks; it never deletes and never touches the worktree (ADR-0007).
 
 **Classification is the marker and nothing else** (ADR-0009). `Whiska.Question.Marker`
 scans for `[worktree-status: …]` and maps it to `done`, `needs-decision` or `unmarked`;

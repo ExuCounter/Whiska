@@ -76,6 +76,14 @@ updates.
 Latency was never the constraint anyway: ADR-0008 deliberately holds the first question of
 a round for 8 seconds to get an accurate count.
 
+*Note, 2026-09-27.* The hook race turned out to cost a full backstop in practice: a done
+report written seconds after the idle event waited the whole minute before it was seen.
+The idle trigger now retries: when it reads an empty doorstep, the house looks again after
+2 s and once more after 5 s, and stops as soon as any collection finds something. A second
+idle event while those retries are pending adds none. The doorstep is still the only
+channel, and the backstop is still the last resort — the retries only shorten the common
+case.
+
 **The subscription is per pane, so the house has to know its panes.** Checked against herdr
 0.8.2 when this was built: `pane.agent_status_changed` can only be subscribed for a named
 `pane_id` (no wildcard), while `pane.closed`, `pane.exited` and `pane.agent_detected` are
