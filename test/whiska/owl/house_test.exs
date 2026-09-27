@@ -284,6 +284,94 @@ defmodule Whiska.Owl.HouseTest do
 
       assert Doorstep.waiting(main) == []
     end
+
+    defp idle(house, pane_id \\ "w1:p1") do
+      send(
+        house,
+        {:herdr_event, "pane_agent_status_changed",
+         %{"pane_id" => pane_id, "agent_status" => "idle"}}
+      )
+
+      House.sync(house)
+    end
+
+    defp retry_timer(house), do: :sys.get_state(house).retry_timer
+
+    # The two Stop hooks race (ADR-0036): herdr's idle event can reach the owl
+    # before Whiska's hook has finished writing the entry.
+    test "an entry written just after the idle event is collected on a retry, not the backstop",
+         %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, retry_ms: [30, 100], id: :retry_house)
+
+      idle(house)
+      assert Doorstep.waiting(main) == []
+      leave(main, "ma", a, "Merged.\n[worktree-status: done]")
+
+      Process.sleep(80)
+      House.sync(house)
+
+      assert Doorstep.waiting(main) == []
+      in_house(house, fn -> assert [%Question{kind: "done"}] = Storage.all(Question) end)
+    end
+
+    test "the second retry catches what the first one missed", %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, retry_ms: [30, 60], id: :retry_house)
+
+      idle(house)
+      Process.sleep(45)
+      leave(main, "ma", a, "[worktree-status: done]")
+
+      Process.sleep(80)
+      House.sync(house)
+
+      assert Doorstep.waiting(main) == []
+    end
+
+    test "retries stop as soon as a collection finds something", %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, retry_ms: [30, 60_000], id: :retry_house)
+
+      idle(house)
+      assert retry_timer(house) != nil
+      leave(main, "ma", a, "[worktree-status: done]")
+
+      Process.sleep(60)
+      House.sync(house)
+
+      assert Doorstep.waiting(main) == []
+      assert retry_timer(house) == nil
+    end
+
+    test "an idle event that finds something never schedules a retry", %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, retry_ms: [60_000], id: :retry_house)
+      leave(main, "ma", a, "[worktree-status: done]")
+
+      idle(house)
+
+      assert Doorstep.waiting(main) == []
+      assert retry_timer(house) == nil
+    end
+
+    test "a second idle event while a retry is pending does not pile up timers", %{main: main} do
+      house = open(main, backstop_ms: 60_000, retry_ms: [60_000, 60_000], id: :retry_house)
+
+      idle(house)
+      first = retry_timer(house)
+      assert first != nil
+
+      idle(house)
+      assert retry_timer(house) == first
+    end
+
+    test "the retry delays run out without finding anything, and the house is left clean",
+         %{main: main} do
+      house = open(main, backstop_ms: 60_000, retry_ms: [20, 20], id: :retry_house)
+
+      idle(house)
+      Process.sleep(100)
+      House.sync(house)
+
+      assert retry_timer(house) == nil
+    end
   end
 
   describe "dead mice (ADR-0026)" do

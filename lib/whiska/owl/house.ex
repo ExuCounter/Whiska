@@ -27,7 +27,14 @@ defmodule Whiska.Owl.House do
   Three triggers, only one of them a timer: a mouse pane going idle, opening the
   house, and a slow backstop. Each one reads the doorstep, records every entry as
   a question — classified by its marker alone (ADR-0009) — and marks the entry
-  collected. A `done` report is delivered like any other and closed the moment
+  collected.
+
+  The idle trigger races Whiska's own `Stop` hook — Claude Code runs the two in
+  no fixed order — so herdr's idle event can arrive before the entry is on the
+  doorstep. When an idle collection finds nothing, the house looks again after
+  each delay in `retry_ms` (2 s, then 5 s) and stops as soon as any collection
+  finds something. One idle event's retries are never stacked on another's; the
+  backstop stays the last resort. A `done` report is delivered like any other and closed the moment
   it is sent; an entry whose worktree is no longer on disk is recorded as
   orphaned rather than delivered. Whatever a mouse
   leaves supersedes its own earlier open or sent questions: it has moved past
@@ -70,6 +77,7 @@ defmodule Whiska.Owl.House do
   @default_backstop_ms 60_000
   @default_resubscribe_ms 5_000
   @default_round_wait_ms 8_000
+  @default_retry_ms [2_000, 5_000]
 
   defstruct [
     :main_checkout,
@@ -79,10 +87,13 @@ defmodule Whiska.Owl.House do
     :backstop_ms,
     :resubscribe_ms,
     :round_wait_ms,
+    :retry_ms,
     subscription: nil,
     panes: %{},
     main_pane: nil,
     round_timer: nil,
+    retry_timer: nil,
+    retries_left: [],
     warned: MapSet.new()
   ]
 
@@ -93,7 +104,8 @@ defmodule Whiska.Owl.House do
 
   Options: `:main_checkout` (required), `:herdr_socket` (defaults to
   `HERDR_SOCKET_PATH`), `:backstop_ms`, `:resubscribe_ms`, `:round_wait_ms`,
-  `:name`.
+  `:retry_ms` (the delays, in order, of the re-collections after an idle event
+  that found nothing), `:name`.
   """
   def start_link(opts) do
     {name, opts} = Keyword.pop(opts, :name)
@@ -139,6 +151,7 @@ defmodule Whiska.Owl.House do
           backstop_ms: Keyword.get(opts, :backstop_ms, @default_backstop_ms),
           resubscribe_ms: Keyword.get(opts, :resubscribe_ms, @default_resubscribe_ms),
           round_wait_ms: Keyword.get(opts, :round_wait_ms, @default_round_wait_ms),
+          retry_ms: Keyword.get(opts, :retry_ms, @default_retry_ms),
           main_pane: Storage.main_pane()
         }
 
@@ -194,7 +207,7 @@ defmodule Whiska.Owl.House do
 
       %{"pane_id" => pane_id, "agent_status" => "idle"} ->
         if Map.has_key?(state.panes, pane_id),
-          do: {:noreply, collect_now(state)},
+          do: {:noreply, collect_after_idle(state)},
           else: {:noreply, state}
 
       _ ->
@@ -235,6 +248,15 @@ defmodule Whiska.Owl.House do
 
   def handle_info(:round_over, state) do
     {:noreply, deliver(%{state | round_timer: nil})}
+  end
+
+  def handle_info(:retry_collect, state) do
+    state = %{state | retry_timer: nil}
+
+    case collect_and_count(state) do
+      {0, state} -> {:noreply, schedule_retry(state)}
+      {_found, state} -> {:noreply, state}
+    end
   end
 
   # The subscription process ending normally has already been announced by its
@@ -337,6 +359,30 @@ defmodule Whiska.Owl.House do
 
   defp collect_now(state), do: state |> collect_and_count() |> elem(1)
 
+  # The idle trigger. An empty doorstep here usually means Whiska's Stop hook
+  # has not finished writing yet, so look again shortly — unless retries from
+  # an earlier idle event are already pending, in which case they will.
+  defp collect_after_idle(state) do
+    case collect_and_count(state) do
+      {0, %{retry_timer: nil} = state} -> schedule_retry(%{state | retries_left: state.retry_ms})
+      {_found, state} -> state
+    end
+  end
+
+  defp schedule_retry(%{retries_left: []} = state), do: state
+
+  defp schedule_retry(%{retries_left: [delay | rest]} = state) do
+    %{state | retry_timer: Process.send_after(self(), :retry_collect, delay), retries_left: rest}
+  end
+
+  # Anything found, by any trigger, is what the retries were waiting for.
+  defp stop_retries(%{retry_timer: nil} = state), do: %{state | retries_left: []}
+
+  defp stop_retries(%{retry_timer: timer} = state) do
+    Process.cancel_timer(timer)
+    %{state | retry_timer: nil, retries_left: []}
+  end
+
   # Collect the doorstep, then decide how delivery follows. A fresh round —
   # nothing was open and nothing is out — earns the one wait ADR-0008 allows;
   # anything else is attempted at once, and the gate decides.
@@ -351,9 +397,9 @@ defmodule Whiska.Owl.House do
     state =
       cond do
         collected == 0 -> state
-        state.round_timer != nil -> state
-        fresh_round? -> start_round(state)
-        true -> deliver(state)
+        state.round_timer != nil -> stop_retries(state)
+        fresh_round? -> state |> stop_retries() |> start_round()
+        true -> state |> stop_retries() |> deliver()
       end
 
     {collected, state}
