@@ -34,6 +34,21 @@ is the mirror image: a question can outlive the mouse that wrote it, and the owl
 one about a branch that no longer exists. That state already has a name (ADR-0026 treats
 dead mice as a distinct, expected case) rather than being a new problem.
 
+**A stale entry is recorded, not delivered.** On drain, an entry whose worktree is no
+longer on disk stays in the house and surfaces in `whiska questions`, but never interrupts.
+This does not contradict the loud-over-quiet rule applied everywhere else here: that rule
+protects against missing something *actionable*, and a question with no worktree and no
+pane cannot be acted on — there is nowhere to reply and nothing left to change. Nothing is
+lost either way, since ADR-0007 keeps everything.
+
+An entry whose worktree still exists *is* delivered even if its mouse is dead, because the
+answer remains actionable: `whiska reopen <branch>` starts a fresh pane on that worktree
+and delivers the saved question as its first message, and a push approval needs no mouse at
+all — ADR-0011 has Whiska run the push itself.
+
+The case is rare by construction: it requires the owl to be down *and* a worktree to be
+dropped inside that same window.
+
 `.git/whiska/` is also gitignored by construction, which is why the database lives there;
 a worktree doorstep would need its own ignore entry.
 

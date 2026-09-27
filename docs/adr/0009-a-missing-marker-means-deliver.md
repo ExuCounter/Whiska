@@ -42,6 +42,11 @@ with an invisible Unicode character so it never appears when reading the transcr
 risk flagged originally — that a model will not reliably emit it — now costs an unwanted
 ping rather than silence, which is a cost worth paying rather than a hole.
 
+`WHISKA_DEBUG=1` renders the marker visibly and logs what the hook read, for the times the
+invisible character is the thing under investigation. Deliberately an environment variable
+and not a "debug mode": *mode* already means a mouse's build-or-sniff state (ADR-0018), and
+one word for two unrelated things is what `CONTEXT.md` exists to prevent.
+
 **A `done` report remains a question in name and storage only**: closed on arrival, never
 delivered, never answered.
 
