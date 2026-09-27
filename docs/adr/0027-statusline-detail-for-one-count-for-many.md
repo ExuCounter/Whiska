@@ -36,3 +36,23 @@ disk — which works precisely because the doorstep is a directory of files and 
 
 This does not replace the doorstep, and the two must not be confused. The doorstep keeps
 the message; the statusline tells the person. Each does only its own job.
+
+## Addendum (2026-09-27): what the built line says, and where the mice come from
+
+The line as built, each segment following the same one-or-many rule, in this order:
+
+```
+🦉 owl down · 4 waiting · 🐭 2 mice · 🐱 2 questions waiting · ⚡ api-service waiting
+```
+
+- **Mice** are counted from herdr, not from the house: the worktrees of this repo with a
+  live agent pane in them, one per worktree (ADR-0023). The house's `died_at` is only
+  set while the owl runs, and the statusline is precisely the thing that must keep
+  working when the owl is down. The one-mouse excerpt is still unbuilt — nothing
+  captures the last tool call yet — so one mouse reads `🐭 1 mouse`.
+- **Questions** say "questions waiting" rather than "open", so the number cannot be
+  read as anything else. One question is still shown in detail.
+- **Elsewhere** is the spec's `⚡` segment, and it is about *whiskas with something
+  waiting*, not a headcount of sessions: one is named by its repo folder, several become
+  `⚡ 3 whiskas waiting elsewhere`, none adds nothing. A whiska is a live agent pane in a
+  repo root that has a house. How they are found is ADR-0025's addendum.

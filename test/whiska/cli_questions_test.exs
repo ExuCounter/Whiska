@@ -6,11 +6,16 @@ defmodule Whiska.CLIQuestionsTest do
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
+  import Mox
 
   alias Whiska.CLI
+  alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
   alias Whiska.Storage
+
+  setup :set_mox_global
+  setup :verify_on_exit!
 
   setup do
     root = Path.join(System.tmp_dir!(), "whiska-cliq-#{System.unique_integer([:positive])}")
@@ -73,16 +78,28 @@ defmodule Whiska.CLIQuestionsTest do
 
   describe "whiska statusline" do
     test "prints the segment and nothing else", %{main: main} do
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
       seed(main, fn ->
         ask("a")
         ask("b")
       end)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
-      assert out == "🐱 2 open\n"
+      assert out == "🐱 2 questions waiting\n"
+    end
+
+    test "counts the mice herdr sees in this repo's worktrees", %{main: main, worktree: worktree} do
+      stub(Herdr, :list_panes, fn _ ->
+        {:ok, [%{pane_id: "p1", cwd: worktree, agent: "claude", agent_status: "working"}]}
+      end)
+
+      out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
+      assert out == "🐭 1 mouse\n"
     end
 
     test "reads the same house from a worktree", %{main: main, worktree: worktree} do
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
       seed(main, fn -> ask("[worktree-status: needs-decision] pick one") end)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], worktree) == 0 end)
@@ -90,6 +107,7 @@ defmodule Whiska.CLIQuestionsTest do
     end
 
     test "prints nothing when nothing is waiting, so the line stays clean", %{main: main} do
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
       assert out == ""
     end

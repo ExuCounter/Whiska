@@ -23,12 +23,14 @@ C4Component
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
     Component(install, "Install", "pure merge", "Writes the hooks, the statusline and the skills into .claude/")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
+    Component(statusline, "Statusline", "one line", "Owl, mice here, questions here, whiskas waiting elsewhere")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live")
     Component(nif, "BundledNIF", "scaffolding", "Unpacks SQLite's native library from the escript")
   }
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
   Container_Ext(doorstep, "Doorstep", "directory", "Uncollected entries")
+  System_Ext(herdr, "herdr", "pane list")
 
   Rel(shim, main, "Execs", "JSON on stdin")
   Rel(main, stop, "Delegates the stop hook")
@@ -36,7 +38,10 @@ C4Component
   Rel(stop, doorstep, "Writes one entry, then exits")
   Rel(main, hook, "Delegates the hook command")
   Rel(main, install, "Delegates init")
-  Rel(main, questions, "questions and statusline share one summary")
+  Rel(main, questions, "Delegates questions")
+  Rel(main, statusline, "Delegates statusline")
+  Rel(statusline, questions, "Reads this house's summary, and every other whiska's")
+  Rel(statusline, herdr, "Lists panes: mice here, whiskas elsewhere")
   Rel(questions, storage, "Opens the house read-only")
   Rel(questions, doorstep, "Counts what is uncollected, and how stale")
   Rel(main, doctor, "Delegates doctor")
@@ -85,8 +90,10 @@ redirect, and it judges on tokens rather than raw text so `find . -exec grep …
 confused with `exec rm`. Substitutions and nested shells are refused outright.
 
 **`Questions` is read by two commands so they cannot disagree** (ADR-0027). `whiska
-questions` renders the whole summary; `whiska statusline` renders one segment of it —
-detail for exactly one open question, a count for more. Orphaned questions are listed
+questions` renders the whole summary; `Statusline` renders one segment of it — detail
+for exactly one open question, a count for more — and composes the rest of the line
+around it from one herdr pane list: the mice alive in this repo's worktrees, and the
+other whiskas on the machine whose houses (read the same way) have something waiting. Orphaned questions are listed
 but never counted (ADR-0036). The doorstep is the one source the database cannot see:
 an entry uncollected past the owl's backstop is the "owl down" signal, derived from age
 until the owl answers a socket. Nothing here writes or collects.

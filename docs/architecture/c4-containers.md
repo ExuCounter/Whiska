@@ -34,6 +34,7 @@ C4Container
   Rel(statusline, cli, "Runs whiska statusline on every refresh", "JSON on stdin")
   Rel(cli, db, "questions and statusline read the house")
   Rel(cli, doorstep, "questions and statusline count what is uncollected")
+  Rel(cli, herdr, "mice and statusline list panes")
   Rel(herdr, shim, "PreToolUse and Stop fire in a mouse's session")
   Rel(shim, cli, "Execs with the payload on stdin", "JSON")
   Rel(cli, marker, "Reads, minting one on first use")
@@ -53,7 +54,9 @@ C4Container
 
 **`whiska-statusline.sh` is the second committed script** (ADR-0027). A project-level
 `statusLine` replaces the global one, so the script runs the global command first and
-appends the segment `whiska statusline` prints. It shares the shim's binary-and-runtime
+appends the line `whiska statusline` prints: the owl, the mice here, the questions here,
+and the whiskas elsewhere with something waiting — the last two from herdr's pane list
+and a direct read of each other house (ADR-0025 addendum). It shares the shim's binary-and-runtime
 lookup, generated from the same source, so the two cannot drift. Claude Code sets no
 `CLAUDE_PROJECT_DIR` for statusline commands, so the committed command falls back to a
 path relative to the project directory.

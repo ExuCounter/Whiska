@@ -138,25 +138,34 @@ defmodule Whiska.Questions do
   defp branch(%Question{mouse_id: mouse_id}), do: mouse_id
 
   @doc """
-  The statusline segment: detail when there is exactly one thing, a count
-  otherwise (ADR-0027). Empty when nothing is waiting, so the line stays clean.
-
-  An owl that is not collecting is reported first, because delivery cannot
-  report its own outage and this line is the one signal that still works.
+  The questions part of the statusline, with the owl in front: detail when
+  there is exactly one thing, a count otherwise (ADR-0027). Empty when nothing
+  is waiting, so the line stays clean. `Whiska.Statusline` composes the whole
+  line from the two segments below.
   """
   @spec statusline(summary()) :: String.t()
-  def statusline(%{open: open, doorstep: doorstep, doorstep_stale: stale}) do
-    owl = if stale, do: "🦉 owl down · #{doorstep} waiting"
-
-    cats =
-      case open do
-        [] -> nil
-        [one] -> "🐱 " <> single(one)
-        many -> "🐱 #{length(many)} open"
-      end
-
-    [owl, cats] |> Enum.reject(&is_nil/1) |> Enum.join(" · ")
+  def statusline(summary) do
+    [owl_segment(summary), questions_segment(summary)]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" · ")
   end
+
+  @doc """
+  An owl that is not collecting, or nil. Reported before anything else, because
+  delivery cannot report its own outage and this line is the one signal that
+  still works.
+  """
+  @spec owl_segment(summary()) :: String.t() | nil
+  def owl_segment(%{doorstep: doorstep, doorstep_stale: true}),
+    do: "🦉 owl down · #{doorstep} waiting"
+
+  def owl_segment(_), do: nil
+
+  @doc "One open question in detail, several as a count, none as nil."
+  @spec questions_segment(summary()) :: String.t() | nil
+  def questions_segment(%{open: []}), do: nil
+  def questions_segment(%{open: [one]}), do: "🐱 " <> single(one)
+  def questions_segment(%{open: many}), do: "🐱 #{length(many)} questions waiting"
 
   defp single(question) do
     case Marker.pointer(question.text) do
