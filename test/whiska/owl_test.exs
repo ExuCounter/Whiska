@@ -1,0 +1,79 @@
+defmodule Whiska.OwlTest do
+  @moduledoc "The one owl: opening and shutting houses inside it (ADR-0001, ADR-0003)."
+  use ExUnit.Case, async: false
+
+  import Mox
+
+  alias Whiska.Herdr.Mock, as: Herdr
+  alias Whiska.Owl
+  alias Whiska.Storage
+
+  setup :set_mox_global
+  setup :verify_on_exit!
+
+  setup do
+    root = Path.join(System.tmp_dir!(), "whiska-owl-#{System.unique_integer([:positive])}")
+    a = Path.join(root, "alpha")
+    b = Path.join(root, "beta")
+    File.mkdir_p!(Path.join(a, ".git"))
+    File.mkdir_p!(Path.join(b, ".git"))
+    on_exit(fn -> File.rm_rf!(root) end)
+
+    stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+    stub(Herdr, :subscribe, fn _, _, _ -> {:ok, spawn(fn -> receive do: (:stop -> :ok) end)} end)
+
+    start_supervised!({Owl, herdr_socket: "/fake/herdr.sock"})
+    {:ok, a: a, b: b}
+  end
+
+  test "starts with no house open" do
+    assert Owl.open_houses() == []
+  end
+
+  test "opens a house per repo and lists them", %{a: a, b: b} do
+    assert {:ok, pid_a} = Owl.open_house(a)
+    assert {:ok, pid_b} = Owl.open_house(b)
+    assert pid_a != pid_b
+    assert Enum.sort(Owl.open_houses()) == Enum.sort([a, b])
+  end
+
+  test "opening an already-open house is a no-op that names the same house", %{a: a} do
+    {:ok, pid} = Owl.open_house(a)
+    assert {:ok, ^pid} = Owl.open_house(a)
+    assert Owl.open_houses() == [a]
+  end
+
+  test "finds an open house by its main checkout", %{a: a} do
+    {:ok, pid} = Owl.open_house(a)
+    assert Owl.house(a) == {:ok, pid}
+    assert Owl.house("/nowhere") == {:error, :shut}
+  end
+
+  test "shutting a house leaves it on disk and the others open", %{a: a, b: b} do
+    {:ok, pid} = Owl.open_house(a)
+    {:ok, _} = Owl.open_house(b)
+    ref = Process.monitor(pid)
+
+    assert :ok = Owl.shut_house(a)
+
+    assert_receive {:DOWN, ^ref, :process, ^pid, _}
+    assert Owl.open_houses() == [b]
+    assert File.exists?(Storage.database_path(a))
+  end
+
+  test "shutting a house that is not open says so", %{a: a} do
+    assert {:error, :shut} = Owl.shut_house(a)
+  end
+
+  test "a house that crashes is reopened by the owl", %{a: a} do
+    {:ok, pid} = Owl.open_house(a)
+    ref = Process.monitor(pid)
+    Process.exit(pid, :kill)
+    assert_receive {:DOWN, ^ref, :process, ^pid, :killed}
+
+    # Give the supervisor a moment to restart it.
+    Process.sleep(50)
+    assert {:ok, new} = Owl.house(a)
+    assert new != pid
+  end
+end

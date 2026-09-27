@@ -10,6 +10,10 @@ defmodule Whiska.Herdr.Socket do
     the connection stays open, streaming one `{"event": ..., "data": ...}` line
     per event. That connection is held by a process of its own, which forwards
     events to the listener and dies when herdr hangs up.
+
+  Lines are assembled by hand rather than with `packet: :line`: a `pane.list`
+  reply from a busy herdr runs past 64 KB, and the line packet mode hands back
+  a truncated line once its buffer fills.
   """
 
   @behaviour Whiska.Herdr
@@ -75,15 +79,15 @@ defmodule Whiska.Herdr.Socket do
     end
   end
 
-  defp stream(conn, listener) do
-    case :gen_tcp.recv(conn, 0) do
-      {:ok, line} ->
+  defp stream(conn, listener, rest \\ "") do
+    case recv_line(conn, rest, :infinity) do
+      {:ok, line, rest} ->
         case JSON.decode(line) do
           {:ok, %{"event" => name, "data" => data}} -> send(listener, {:herdr_event, name, data})
           _ -> :ok
         end
 
-        stream(conn, listener)
+        stream(conn, listener, rest)
 
       {:error, reason} ->
         # Linked to the listener so it cannot outlive the house — which means
@@ -125,12 +129,26 @@ defmodule Whiska.Herdr.Socket do
   end
 
   defp read_line(conn) do
-    with {:ok, line} <- :gen_tcp.recv(conn, 0, @reply_timeout) do
+    with {:ok, line, _rest} <- recv_line(conn, "", @reply_timeout) do
       case JSON.decode(line) do
         {:ok, %{"error" => error}} -> {:error, {:herdr, error}}
         {:ok, reply} -> {:ok, reply}
         {:error, reason} -> {:error, {:bad_json, reason}}
       end
+    end
+  end
+
+  # One complete line, however many reads it takes; whatever followed the
+  # newline is handed back for the next call.
+  defp recv_line(conn, buffer, timeout) do
+    case :binary.split(buffer, "\n") do
+      [line, rest] ->
+        {:ok, line, rest}
+
+      [_] ->
+        with {:ok, chunk} <- :gen_tcp.recv(conn, 0, timeout) do
+          recv_line(conn, buffer <> chunk, timeout)
+        end
     end
   end
 

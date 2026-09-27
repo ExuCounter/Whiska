@@ -47,11 +47,15 @@ defmodule Whiska.Install do
 
   @shim_path ".claude/hooks/whiska.sh"
 
-  @command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}"|
+  # The shim takes the hook's name as its argument, so one committed script
+  # serves every hook Whiska registers.
+  @command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" pre-tool-use|
+  @stop_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" stop|
 
   @shim """
   #!/usr/bin/env bash
-  # Whiska's PreToolUse hook.
+  # Whiska's hooks. Takes the hook's name - pre-tool-use or stop - and hands
+  # the payload on stdin to `whiska hook <name>`.
   #
   # Written by `whiska init` and checked into the repo so the rules travel with
   # it (ADR-0016). Everything machine-specific is resolved here, when the hook
@@ -109,12 +113,12 @@ defmodule Whiska.Install do
   fi
 
   if [ -n "$escript_bin" ]; then
-    exec "$escript_bin" "$whiska_bin" hook pre-tool-use
+    exec "$escript_bin" "$whiska_bin" hook "$@"
   fi
 
   # No runtime anywhere. Whiska may be a native binary that needs none
   # (ADR-0033), so try it directly - and fail open if that does not work.
-  if ! "$whiska_bin" hook pre-tool-use; then
+  if ! "$whiska_bin" hook "$@"; then
     echo "whiska: could not run $whiska_bin - allowing the call" >&2
   fi
   exit 0
@@ -138,6 +142,15 @@ defmodule Whiska.Install do
   def command, do: @command
 
   @doc """
+  The Stop hook command: the same shim, told it is a `stop`.
+
+  This is the doorstep writer (ADR-0036). No matcher — a Stop hook has no tool
+  to match on; it fires on every finished turn.
+  """
+  @spec stop_command() :: String.t()
+  def stop_command, do: @stop_command
+
+  @doc """
   The shim script's contents.
 
   Resolves the binary and the Erlang runtime when the hook fires, and allows the
@@ -157,27 +170,35 @@ defmodule Whiska.Install do
   """
   @spec merge(map()) :: map()
   def merge(settings) when is_map(settings) do
-    entry = %{
+    pre_tool_use = %{
       "matcher" => @matcher,
       "hooks" => [%{"type" => "command", "command" => @command}]
     }
 
-    existing = get_in(settings, ["hooks", "PreToolUse"]) || []
-    others = Enum.reject(existing, &ours?/1)
+    stop = %{"hooks" => [%{"type" => "command", "command" => @stop_command}]}
 
     settings
     |> Map.put_new("hooks", %{})
-    |> put_in(["hooks", "PreToolUse"], others ++ [entry])
+    |> put_ours("PreToolUse", pre_tool_use)
+    |> put_ours("Stop", stop)
   end
 
-  # Ours is whatever runs a `whiska ... hook pre-tool-use`, or the shim that does
-  # it for us — whatever matcher it was registered with. Matching on the matcher
-  # would fail to recognise an entry written by an older version and would stack
-  # a duplicate beside it.
+  defp put_ours(settings, event, entry) do
+    existing = get_in(settings, ["hooks", event]) || []
+    others = Enum.reject(existing, &ours?/1)
+    put_in(settings, ["hooks", event], others ++ [entry])
+  end
+
+  # Ours is whatever runs a `whiska ... hook ...`, or the shim that does it for
+  # us — whatever matcher it was registered with, and whether or not the shim
+  # took an argument when it was written. Matching on the matcher would fail to
+  # recognise an entry written by an older version and would stack a duplicate
+  # beside it.
   defp ours?(%{"hooks" => hooks}) when is_list(hooks) do
     Enum.any?(hooks, fn
       %{"command" => command} when is_binary(command) ->
-        String.contains?(command, "hook pre-tool-use") or
+        String.contains?(command, "whiska hook") or
+          String.contains?(command, "hook pre-tool-use") or
           String.contains?(command, @shim_path)
 
       _ ->

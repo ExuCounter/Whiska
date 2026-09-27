@@ -76,6 +76,16 @@ updates.
 Latency was never the constraint anyway: ADR-0008 deliberately holds the first question of
 a round for 8 seconds to get an accurate count.
 
+**The subscription is per pane, so the house has to know its panes.** Checked against herdr
+0.8.2 when this was built: `pane.agent_status_changed` can only be subscribed for a named
+`pane_id` (no wildcard), while `pane.closed`, `pane.exited` and `pane.agent_detected` are
+global. So a house finds each mouse's pane by matching the pane's `cwd` to the mouse's
+worktree path — at open, and again whenever herdr reports a new agent pane — records it on
+the mouse (the first thing that ever fills ADR-0006's `pane` column), and reopens its
+subscription whenever that set changes. A mouse with no pane anywhere is a dead mouse
+(ADR-0026). herdr's own Claude integration has since stopped reporting `Stop` and detects
+idleness itself; the event still arrives, so the trigger table above stands.
+
 ## Considered options
 
 **Auto-start the owl on demand.** `launchd` socket activation would start the owl when a

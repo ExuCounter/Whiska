@@ -7,18 +7,46 @@ isolated git worktrees.
 **house**, **owl**, **build/sniff mode**. `docs/adr/` records why things are the way they
 are, and those decisions are binding.
 
-## Status: v0.0.1 — the first real slice
+## Status: the owl's first slice
 
-The smallest end-to-end piece that proves the core plumbing: identity, storage, one
-enforced rule (ADR-0030). This is a plain CLI, **not** the owl — no supervision tree, no
-long-running process, no cross-repo commands, no `checks.yml`, no push approval, and no
-contact with herdr at all. Those arrive in later slices.
+v0.0.1 proved the plumbing — identity, storage, one enforced rule (ADR-0030). This slice
+adds the owl (ADR-0001): a house per repo, its herdr subscription, and doorstep collection
+(ADR-0036). Not yet: delivery to the main session (ADR-0008), `launchd` supervision,
+`whiska start`/`stop` over a socket, cross-repo commands, `checks.yml`, push approval.
 
 ```
 mix deps.get
-mix test          # 191 tests
+mix test          # 307 tests
 mix escript.build # produces ./whiska
 ```
+
+### The owl, the house, the doorstep
+
+```
+whiska owl            # run the owl in the foreground, house open for this repo
+whiska owl ~/a ~/b    # ...or for each repo named (a worktree path names its repo)
+```
+
+When a mouse finishes a turn, its `Stop` hook (`whiska hook stop`, installed by
+`whiska init`) writes the whole final message to the repo's **doorstep** —
+`<main-checkout>/.git/whiska/doorstep/`, one JSON file per entry, stamped with `mouse_id`,
+branch and time. It never opens a socket, so whether the owl is running changes nothing
+about what the mouse does (ADR-0036).
+
+The owl **collects** the doorstep when herdr reports that mouse's pane idle, when a house
+opens, and on a slow backstop timer. Each entry becomes a question, classified by its
+marker alone (ADR-0009): `[worktree-status: needs-decision]` → open; `done` → closed on
+arrival; no marker → `unmarked`, and open — forgetting the marker makes noise rather than
+silence. An entry whose worktree is gone is recorded as `orphaned`. Collected entries are
+renamed `.collected`, never deleted (ADR-0007), so `ls *.json` on the doorstep is exactly
+what is still waiting.
+
+The house finds each mouse's herdr pane by its `cwd`, records it, and subscribes to that
+pane's status changes; a pane that closes or exits marks its mouse dead and orphans its
+open questions (ADR-0026). Nothing on disk is ever touched.
+
+herdr is the one boundary with a fake behind it in tests (`Whiska.Herdr`, ADR-0031); the
+real client is checked against an in-test server speaking herdr's wire protocol.
 
 ### What it does
 
@@ -63,7 +91,7 @@ the branch or moving the folder does not disturb it. If the mode cannot be read,
 assumes `build` and says so on stderr — worktree containment is pure path arithmetic and
 keeps working regardless.
 
-### Installing the hook
+### Installing the hooks
 
 ```
 cd your-repo
@@ -87,7 +115,15 @@ What it writes, and why each part is the way it is:
         "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
         "hooks": [{
           "type": "command",
-          "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska.sh\""
+          "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska.sh\" pre-tool-use"
+        }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska.sh\" stop"
         }]
       }
     ]

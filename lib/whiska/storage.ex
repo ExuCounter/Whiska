@@ -1,11 +1,12 @@
 defmodule Whiska.Storage do
   @moduledoc """
-  Opening this house's database, for the length of one CLI invocation.
+  Opening this house's database — for one CLI invocation, or for as long as the
+  owl keeps the house open.
 
-  v0.0.1 is not the owl (ADR-0030): there is no supervision tree and nothing stays
-  open. Every hook invocation opens the SQLite file, migrates it if needed, makes
-  its decision and exits. The file itself is permanent — a house exists from the
-  first invocation onwards and is never destroyed (ADR-0003, ADR-0007).
+  A hook invocation opens the SQLite file, migrates it if needed, does its one
+  job and exits (ADR-0030); an open house (`Whiska.Owl.House`) holds it for its
+  whole life. The file itself is permanent — a house exists from the first
+  invocation onwards and is never destroyed (ADR-0003, ADR-0007).
 
   The database sits under the **main checkout's** `.git/`, which every worktree
   shares, so all of a repo's mice land in one house rather than one per worktree.
@@ -36,9 +37,10 @@ defmodule Whiska.Storage do
   Open the house, creating and migrating it if this is its first invocation.
 
   The owl keeps many houses open at once (ADR-0001), each on its own Repo
-  instance, so `name:` picks the instance. The calling process is pointed at
-  it (`point_at/1`); every house process opens its own and never has to think about
-  it again. The CLI leaves the default, and there is one house per VM.
+  instance, so `name:` picks the instance — `nil` for an unnamed one, addressed
+  by pid. The calling process is pointed at it (`point_at/1`); every house
+  process opens its own and never has to think about it again. The CLI leaves
+  the default, and there is one house per VM.
   """
   @spec open(Path.t(), keyword()) :: {:ok, pid()} | {:error, term()}
   def open(main_checkout, opts \\ []) do
@@ -54,7 +56,7 @@ defmodule Whiska.Storage do
          {:ok, _} <- Application.ensure_all_started(:ecto_sql),
          {:ok, _} <- Application.ensure_all_started(:ecto_sqlite3),
          {:ok, pid} <- Repo.start_link([name: name] ++ repo_opts(path)) do
-      point_at(name)
+      point_at(name || pid)
       migrate()
       {:ok, pid}
     end

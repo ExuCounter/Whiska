@@ -58,6 +58,14 @@ a floor, not the figure.
 **The project carries two languages** from the owl slice onward — more toolchain, more to
 build and ship in the brew formula. Accepted knowingly.
 
+**The `Stop` hook is Elixir for now, on the same terms as v0.0.1's `PreToolUse`.** The owl
+slice added `whiska hook stop` to the escript rather than writing it natively first. The
+measurement above is about the per-tool-call path; `Stop` fires once per turn, so its
+~200 ms is paid a few times a minute, not a thousand times a session. Its final shape —
+read the payload, write one file (ADR-0036) — is the same few dozen lines in C whenever
+the native binary is written, and ADR-0035's shim means `settings.json` will not change
+when it is. Decided deliberately, not drifted into.
+
 **Two cheap wins that apply regardless of language**, worth taking when the hook is
 installed for real:
 

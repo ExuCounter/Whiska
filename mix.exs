@@ -13,9 +13,9 @@ defmodule Whiska.MixProject do
     ]
   end
 
-  # v0.0.1 is a plain CLI, not the owl (ADR-0030): no supervision tree, no
-  # long-running process. The PreToolUse hook invokes the escript fresh on every
-  # tool call, it opens SQLite, makes one decision, and exits.
+  # No `mod:` on purpose. The same escript serves the hooks — invoked fresh per
+  # event, exiting at once (ADR-0030) — and the owl, which `whiska owl` starts
+  # explicitly. Starting the owl on every hook call would be the wrong default.
   def application do
     [extra_applications: [:logger]]
   end

@@ -96,6 +96,29 @@ defmodule Whiska.Herdr.SocketTest do
              ]
     end
 
+    test "reads a reply longer than any single socket buffer" do
+      # A real herdr with fifty-odd panes answers pane.list with well over
+      # 64 KB on one line. Caught live: `packet: :line` hands back a truncated
+      # line past its buffer, which parsed as unexpected end of JSON.
+      {path, fake} = start_fake()
+      long_cwd = String.duplicate("/some/long/directory/name", 20)
+
+      panes =
+        for i <- 1..500,
+            do: %{
+              "pane_id" => "w#{i}:p1",
+              "cwd" => long_cwd,
+              "agent" => "claude",
+              "agent_status" => "idle"
+            }
+
+      send(fake, {:fake_reply, %{"type" => "pane_list", "panes" => panes}})
+
+      assert {:ok, got} = Socket.list_panes(path)
+      assert length(got) == 500
+      assert List.last(got).pane_id == "w500:p1"
+    end
+
     test "reports a socket nobody is listening on" do
       assert {:error, _} = Socket.list_panes("/nonexistent/herdr.sock")
     end

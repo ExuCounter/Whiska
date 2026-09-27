@@ -2,13 +2,15 @@ defmodule Whiska.CLI do
   @moduledoc """
   The `whiska` binary.
 
-  v0.0.1 is a plain CLI built with `mix escript.build`, not the owl (ADR-0030).
-  The `PreToolUse` hook invokes it fresh on every tool call: it opens SQLite,
-  makes one decision, and exits. No supervision tree — that arrives with the owl
-  in a later slice (ADR-0001).
+  Built with `mix escript.build`. The hooks invoke it fresh per event (ADR-0030):
+  `PreToolUse` opens SQLite, makes one decision, and exits; `Stop` writes one
+  doorstep entry and exits. `whiska owl` is the other half — the one supervised
+  process per machine (ADR-0001), run in the foreground for now.
   """
 
   alias Whiska.Hook.PreToolUse
+  alias Whiska.Hook.Stop
+  alias Whiska.Herdr
   alias Whiska.Install
   alias Whiska.Layout
   alias Whiska.Marker
@@ -22,6 +24,15 @@ defmodule Whiska.CLI do
     hook pre-tool-use    Decide one Claude Code PreToolUse event. Reads the
                          event payload as JSON on stdin; prints a deny decision
                          as JSON on stdout, or nothing at all to allow.
+
+    hook stop            Leave a finished turn's message on this repo's
+                         doorstep for the owl to collect. Reads the Stop
+                         payload on stdin. Never opens a socket.
+
+    owl [<repo>...]      Run the owl in the foreground with a house open for
+                         each repo named (default: the one you are in).
+                         Collects each house's doorstep when herdr reports a
+                         mouse idle, at startup, and on a slow backstop.
 
     init                 Write Whiska's PreToolUse hook into this repo's own
                          .claude/settings.json, so the rules travel with the
@@ -51,6 +62,21 @@ defmodule Whiska.CLI do
   def run(argv, cwd \\ nil)
 
   def run(["hook", "pre-tool-use"], _cwd), do: hook()
+
+  def run(["hook", "stop"], _cwd) do
+    stdin() |> Stop.run()
+    0
+  end
+
+  def run(["owl" | repos], cwd) do
+    case start_owl(repos, cwd || File.cwd!()) do
+      {:ok, _} ->
+        Process.sleep(:infinity)
+
+      {:error, _} ->
+        1
+    end
+  end
 
   def run(["init"], cwd), do: init(cwd || File.cwd!())
 
@@ -240,11 +266,107 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp hook do
+  @doc """
+  Start the owl with a house open for each repo. Prints what it opened.
+
+  A repo may be named by its main checkout or by any worktree under it; both
+  open the same house. Split out from `run/2` so the CLI can be tested without
+  the foreground wait.
+  """
+  @spec start_owl([Path.t()], Path.t()) :: {:ok, pid()} | {:error, term()}
+  def start_owl(repos, cwd \\ File.cwd!()) do
+    repos = if repos == [], do: [cwd], else: repos
+
+    with {:ok, houses} <- resolve_houses(repos),
+         {:ok, owl} <- start_owl_process() do
+      Enum.each(houses, &({:ok, _} = Whiska.Owl.open_house(&1)))
+
+      say(
+        "Opened #{length(houses)} #{if length(houses) == 1, do: "house", else: "houses"}:\n" <>
+          Enum.map_join(houses, "\n", &"  #{Path.basename(&1)}  (#{&1})") <>
+          "\n\nCollecting doorsteps. Ctrl-C to shut them all; nothing on disk is touched."
+      )
+
+      {:ok, owl}
+    end
+  end
+
+  @doc "Stop a running owl, shutting every house. For tests and for `whiska stop`, later."
+  @spec stop_owl() :: :ok
+  def stop_owl do
+    case Process.whereis(Whiska.Owl) do
+      nil -> :ok
+      pid -> Supervisor.stop(pid)
+    end
+  end
+
+  defp start_owl_process do
+    if Herdr.socket_path() == nil do
+      IO.puts(
+        :stderr,
+        "whiska: HERDR_SOCKET_PATH is not set — herdr events will not arrive; " <>
+          "collection falls back to the backstop timer alone."
+      )
+    end
+
+    case Whiska.Owl.start_link() do
+      {:ok, pid} ->
+        # The owl outlives whoever started it — the CLI's main process only
+        # sleeps, and a test process should not take the owl down with it.
+        Process.unlink(pid)
+        {:ok, pid}
+
+      {:error, {:already_started, pid}} ->
+        {:ok, pid}
+
+      {:error, reason} ->
+        IO.puts(:stderr, "whiska: could not start the owl (#{inspect(reason)}).")
+        {:error, reason}
+    end
+  end
+
+  defp resolve_houses(repos) do
+    Enum.reduce_while(repos, {:ok, []}, fn repo, {:ok, acc} ->
+      case main_checkout(repo) do
+        {:ok, main} ->
+          {:cont, {:ok, Enum.uniq(acc ++ [main])}}
+
+        :error ->
+          IO.puts(
+            :stderr,
+            "whiska: #{repo} is not a git checkout, and not inside a worktree of one."
+          )
+
+          {:halt, {:error, {:not_a_repo, repo}}}
+      end
+    end)
+  end
+
+  defp main_checkout(repo) do
+    path = Path.expand(repo)
+
+    cond do
+      match?({:ok, _}, Layout.resolve(path)) ->
+        {:ok, layout} = Layout.resolve(path)
+        {:ok, layout.main_checkout}
+
+      File.exists?(Path.join(path, ".git")) ->
+        {:ok, path}
+
+      true ->
+        :error
+    end
+  end
+
+  defp stdin do
     case IO.read(:stdio, :eof) do
       payload when is_binary(payload) -> payload
       _ -> ""
     end
+  end
+
+  defp hook do
+    stdin()
     |> PreToolUse.run()
     |> PreToolUse.encode()
     |> emit()

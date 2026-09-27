@@ -57,7 +57,7 @@ defmodule Whiska.InstallTest do
       shim = Install.shim()
 
       assert shim =~ "command -v escript"
-      assert shim =~ "hook pre-tool-use"
+      assert shim =~ ~s(hook "$@")
     end
 
     test "can be pointed elsewhere without editing it" do
@@ -211,7 +211,7 @@ defmodule Whiska.InstallTest do
       escript = stub(tmp, "escript", ~s|#!/bin/sh\necho "RAN $*"\n|)
 
       {out, status} =
-        System.cmd("bash", [shim],
+        System.cmd("bash", [shim, "pre-tool-use"],
           env: [{"WHISKA_BIN", whiska}, {"WHISKA_ESCRIPT", escript}, {"PATH", @stripped_path}],
           stderr_to_stdout: true
         )
