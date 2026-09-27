@@ -58,9 +58,10 @@ defmodule Whiska.CLI do
                          question in full.
 
     statusline           Print the one segment the project statusline appends:
-                         detail for one open question, a count for more, and
-                         whether the owl has stopped collecting. Nothing when
-                         nothing is waiting.
+                         whether the owl has stopped collecting, how many mice
+                         are alive here, one open question in detail or a count
+                         for more, and which other whiska on this machine has
+                         something waiting. Nothing when nothing is waiting.
 
     reply <id> <text>    Answer a question. The text is typed into that
                          mouse's pane, and the question is marked answered.
@@ -605,8 +606,8 @@ defmodule Whiska.CLI do
   # problem here must not break the line it is appended to.
   defp statusline(cwd) do
     with {:ok, main} <- main_checkout(cwd),
-         {:ok, summary} <- Questions.summary(main),
-         segment when segment != "" <- Questions.statusline(summary) do
+         {:ok, summary} <- Whiska.Statusline.summary(main),
+         segment when segment != "" <- Whiska.Statusline.render(summary) do
       IO.puts(segment)
     end
 

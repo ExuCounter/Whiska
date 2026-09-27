@@ -22,12 +22,14 @@ statusline `whiska init` installs, both reading one summary of the house — ope
 questions, orphaned ones apart, and what is still on the doorstep — with the
 `/whiska-questions` slash command beside them (ADR-0027, ADR-0022). Then `whiska mice`,
 and `whiska doctor`, which checks all of the above for one repo and never repairs
-(ADR-0038). 471 tests.
+(ADR-0038). Then the statusline's mouse count and its "elsewhere" segment — mice here and
+whiskas elsewhere both found through herdr's pane list, each other house read directly
+until the global socket exists (ADR-0027, ADR-0025 addenda). 479 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `launchd` supervision and `whiska stop`; push approval; `checks.yml`; the
-statusline's mouse count and one-mouse excerpt, its "elsewhere" segment over the global
-socket, and its "owl down" fallback (ADR-0027); cross-repo commands. The owl runs in the
+statusline's one-mouse excerpt and its "elsewhere" segment *over the global socket*
+(ADR-0027); cross-repo commands. The owl runs in the
 foreground meanwhile, and the doctor finds it through the process table until the global
 socket exists.
 

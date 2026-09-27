@@ -161,7 +161,7 @@ defmodule Whiska.QuestionsTest do
       end)
 
       {:ok, summary} = Questions.summary(main)
-      assert Questions.statusline(summary) == "🐱 3 open"
+      assert Questions.statusline(summary) == "🐱 3 questions waiting"
     end
 
     test "orphaned questions never count", %{main: main} do
