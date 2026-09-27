@@ -56,10 +56,11 @@ _Avoid_: subtree (means a git subtree and an OTP supervision subtree — both wr
 here), slice, partition
 
 **Open house / shut house**:
-Whether the owl is currently keeping a house's lights on. `whiska start` opens a house
-— its socket starts listening, its sweep timer runs, it gets its own supervision inside
-the owl. `whiska stop` shuts it: socket closed, sweep stopped, supervision dropped. The
-house itself, its database and its mouse records, is untouched either way.
+Whether the owl is currently keeping a house's lights on. `whiska start` opens a house —
+its socket starts listening, it subscribes to herdr, collection begins, and it gets its own
+supervision inside the owl. `whiska stop` shuts it: socket closed, collection stopped,
+supervision dropped. The house itself, its database and its mouse records, is untouched
+either way.
 _Avoid_: creating/destroying, starting/tearing down a house (those describe the house,
 not its lights)
 
@@ -69,3 +70,10 @@ owl has not collected yet. A mouse always leaves its question here and never han
 directly, so whether the owl is awake changes nothing about what the mouse does.
 _Avoid_: spool, outbox, queue (the delivery queue is a different thing — the doorstep is
 what a question sits on before it ever reaches that queue), larder, inbox
+
+**Collection**:
+The owl taking what a mouse left on the doorstep. Overwhelmingly event-driven — herdr
+reports a mouse has gone idle and the owl collects that house then — with a slow timer only
+as a backstop. Collection reads and marks; it never deletes and never touches the worktree.
+_Avoid_: sweep (it implies tidying up, which is precisely what this must not do), poll,
+drain, scan

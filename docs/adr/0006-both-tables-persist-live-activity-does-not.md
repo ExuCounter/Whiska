@@ -1,7 +1,7 @@
 # Both Mouse and Question are persisted; live activity is memory-only
 
 `Question` obviously needs to survive a restart. `Mouse` does too, and that is less
-obvious: the startup sweep checks whether each mouse's pane still exists, which only
+obvious: startup reconciliation checks whether each mouse's pane still exists, which only
 works if `pane` and `path` survive the restart in the first place. Without that, `reply`
 and `diff` would silently break for every live mouse until something rediscovered them —
 and nothing currently would. So both tables live in SQLite.

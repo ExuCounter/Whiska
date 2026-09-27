@@ -5,7 +5,7 @@ mouse records survive on disk and come back on the next `whiska start` — so th
 left the surviving data belonging to nothing between runs. We decided a **house** is the
 project's permanent home (its database, its mouse records, its identity), and that
 starting and stopping only change whether it is **open** or **shut**: whether its socket
-is listening, its sweep timer running, and its supervision live inside the owl.
+is listening, its collection running, and its supervision live inside the owl.
 
 ## Considered options
 

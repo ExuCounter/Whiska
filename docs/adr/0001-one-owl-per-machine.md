@@ -6,7 +6,7 @@ long-running service cleanly rather than N processes appearing and disappearing 
 are opened and closed, and it made both "stop just this repo" and "show what's waiting
 on me across every project" awkward to build. We went instead with a single supervised
 binary — the **owl** — in which every repo gets its own **house**: its own Unix socket,
-its own SQLite connection, its own sweep timer, supervised independently inside the one
+its own SQLite connection, its own collection, supervised independently inside the one
 process.
 
 ## Consequences

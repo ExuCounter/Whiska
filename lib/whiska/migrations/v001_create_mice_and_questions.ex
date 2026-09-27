@@ -33,7 +33,7 @@ defmodule Whiska.Migrations.V001CreateMiceAndQuestions do
       add(:answer, :text)
     end
 
-    # Delivery walks a house's open questions (ADR-0008) and the sweep cascades a
+    # Delivery walks a house's open questions (ADR-0008) and collection cascades a
     # dead mouse's open questions to orphaned (ADR-0007); both read this way.
     create(index(:questions, [:mouse_id]))
     create(index(:questions, [:status]))

@@ -1,10 +1,15 @@
 # Dead mice and stuck mice are separate problems needing separate mechanisms
 
-**Dead** means the pane itself is gone — closed or crashed. That is a clean yes/no, so a
-periodic sweep every few minutes can catch it by asking herdr whether each `Mouse` row's
-pane still exists. The sweep walks mice, not questions, since several questions can share
-one dead pane and there is no reason to ask herdr the same thing twice. The same sweep runs
-once immediately on startup, which covers restart recovery for free.
+**Dead** means the pane itself is gone — closed or crashed. That is a clean yes/no, and
+herdr reports it without being asked: its socket API emits `pane_closed` and `pane_exited`,
+so the owl subscribes rather than polling. An earlier version of this decision had a
+periodic sweep asking herdr whether each `Mouse` row's pane still existed; that was written
+before anyone checked whether herdr would simply say so. It will.
+
+The owl still reconciles against herdr on startup, which covers anything that died while it
+was down, and a slow backstop catches a dropped subscription. Reconciliation walks mice,
+not questions, since several questions can share one dead pane and there is no reason to
+ask herdr the same thing twice.
 
 **Stuck** means the pane is alive and Claude Code is running, but nothing is progressing.
 That is invisible to the same check, because the pane genuinely does exist. Detection

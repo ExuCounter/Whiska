@@ -10,7 +10,7 @@ decision made.
   and the statusline count, but the row stays — which is what lets `whiska reopen` update
   that same row's `pane` column and carry its whole question history along, since
   everything was always keyed by `mouse_id` and never by the pane.
-- **The sweep never touches disk.** It only marks state in the database; the worktree
+- **Collection never touches disk.** It only marks state in the database; the worktree
   folder stays exactly where it is.
 
 ## Consequences

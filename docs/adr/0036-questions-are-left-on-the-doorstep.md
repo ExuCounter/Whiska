@@ -9,7 +9,7 @@ one person it cannot reach.
 
 So the hook does not connect at all. **It writes the question to the house's doorstep and
 exits — every time, unconditionally, whether or not the owl is running.** The owl drains
-the doorstep when it next sweeps that house.
+the doorstep; the owl collects it when herdr reports that mouse has gone idle.
 
 The doorstep is a directory in the house, `<main-checkout>/.git/whiska/doorstep/`, beside
 the database. Each entry is stamped with `mouse_id`, branch label and timestamp.
@@ -52,12 +52,29 @@ dropped inside that same window.
 `.git/whiska/` is also gitignored by construction, which is why the database lives there;
 a worktree doorstep would need its own ignore entry.
 
-**The owl finds entries by sweeping, not by being told.** ADR-0001 already gives every
-house a sweep timer, so draining is one more thing it does and no new machinery is
-introduced. The cost is latency — a question waits up to one tick. This is acceptable
-because instant delivery was never the goal: ADR-0008 deliberately holds the first question
-of a round for 8 seconds to get an accurate count. The tick should be short (~5s), which is
-cheap for an otherwise idle process.
+**Collection is event-driven; the timer is only a backstop.** Whiska's `Stop` hook is not
+the only one that fires when a mouse ends a turn — herdr's own `herdr-agent-state.sh` fires
+too, marking the pane idle and emitting `pane.agent_status_changed`. The owl subscribes to
+that, so it is told a mouse has stopped at the exact moment there is something to collect,
+and reads that house's doorstep then. It is not polling for work; it is being woken.
+
+Three triggers, and only one is a timer:
+
+| Trigger | Role |
+|---|---|
+| `pane.agent_status_changed` → idle | primary — collect that house's doorstep now |
+| owl startup | collects whatever landed while it was down |
+| slow timer (~1 min) | backstop only |
+
+The backstop cannot be dropped, and startup-only is not sufficient, for three reasons. The
+two `Stop` hooks race — Claude Code does not order them, so herdr's event can arrive before
+Whiska's hook has finished writing, and the owl would read an empty doorstep. herdr can be
+down while the owl is up, in which case no events arrive at all and entries would sit
+uncollected until the next restart. And subscriptions drop when herdr restarts on its own
+updates.
+
+Latency was never the constraint anyway: ADR-0008 deliberately holds the first question of
+a round for 8 seconds to get an accurate count.
 
 ## Considered options
 
@@ -73,8 +90,8 @@ than bricking the session.
 **Write the file, then poke the socket with a fire-and-forget datagram.** ADR-0033 endorses
 exactly this shape for activity telemetry, and it would cut the latency to nothing. Not
 rejected on merit — deferred, because it is strictly additive. The doorstep stays the
-source of truth and the datagram would only ever be a hint to sweep sooner.
+source of truth and the datagram would only ever be a hint to collect sooner.
 
 **Watching the filesystem** (FSEvents). Near-instant, but watchers miss events under load
-and need a periodic reconcile anyway — so the sweep gets built regardless, and the watcher
+and need a periodic reconcile anyway — so the backstop gets built regardless, and the watcher
 is a second mechanism earning little.

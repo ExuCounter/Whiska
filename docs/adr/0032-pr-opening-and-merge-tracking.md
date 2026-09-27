@@ -15,7 +15,7 @@ it does not get redesigned from scratch:
 - Whiska does not trust the mouse's self-report: it confirms the PR exists by asking GitHub
   directly (`gh pr list --head <branch>`) — the same "verify mechanically, don't trust the
   model's word" principle used for push detection and readiness checks.
-- The existing sweep, already polling for dead panes, gets one more job for branches with an
+- The existing backstop timer gets one more job for branches with an
   open PR: check `gh pr view --json mergeable,statusCheckRollup` until it is actually green.
 - Once green it becomes a normal question — "PR #42 is green and mergeable — merge it?" —
   through the same path as push approval. Yes means Whiska runs `gh pr merge` itself, purely
