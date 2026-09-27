@@ -14,7 +14,7 @@ defmodule Whiska.CLI do
   alias Whiska.Install
   alias Whiska.Layout
   alias Whiska.Marker
-  alias Whiska.Question.Marker, as: QuestionMarker
+  alias Whiska.Questions
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -51,8 +51,14 @@ defmodule Whiska.CLI do
                          itself yet.
 
     questions [<id>]     What is waiting on you: one line per open or
-                         delivered question. With an id, that question in
-                         full.
+                         delivered question, then any orphaned ones, then
+                         what is still on the doorstep. With an id, that
+                         question in full.
+
+    statusline           Print the one segment the project statusline appends:
+                         detail for one open question, a count for more, and
+                         whether the owl has stopped collecting. Nothing when
+                         nothing is waiting.
 
     reply <id> <text>    Answer a question. The text is typed into that
                          mouse's pane, and the question is marked answered.
@@ -108,7 +114,9 @@ defmodule Whiska.CLI do
   def run(["start" | flags], cwd) when flags in [[], ["--force"]],
     do: start(cwd || File.cwd!(), flags == ["--force"])
 
-  def run(["questions"], cwd), do: with_house(cwd, fn -> list_questions() end)
+  def run(["questions"], cwd), do: questions(cwd || File.cwd!())
+
+  def run(["statusline"], cwd), do: statusline(cwd || File.cwd!())
 
   def run(["questions", id], cwd), do: with_question(cwd, id, &show_question/1)
 
@@ -153,6 +161,8 @@ defmodule Whiska.CLI do
          :ok <- File.mkdir_p(Path.dirname(shim)),
          :ok <- File.write(shim, Install.shim()),
          :ok <- File.chmod(shim, 0o755),
+         :ok <- write_statusline(repo_root),
+         :ok <- write_skills(repo_root),
          :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- File.write(path, JSON.encode!(merged) |> reformat()) do
       say(
@@ -166,9 +176,13 @@ defmodule Whiska.CLI do
         binary and the Erlang runtime get resolved, when the hook fires — so
         neither file names anything specific to this machine.
 
-        Check both into git so the rules travel with the repo (ADR-0016):
+        Also wrote the project statusline (#{Install.statusline_path()}), which
+        runs your global statusline and appends what is waiting on you here, and
+        one slash command per whiska command under .claude/skills/.
 
-          git add .claude/settings.json #{Install.shim_path()}
+        Check them into git so the rules travel with the repo (ADR-0016):
+
+          git add .claude/settings.json .claude/hooks .claude/skills
           git commit -m "chore: enable whiska"
         """
         |> String.trim()
@@ -192,6 +206,28 @@ defmodule Whiska.CLI do
         IO.puts(:stderr, "whiska: could not write #{path} (#{inspect(reason)}).")
         1
     end
+  end
+
+  defp write_statusline(repo_root) do
+    script = Path.join(repo_root, Install.statusline_path())
+
+    with :ok <- File.mkdir_p(Path.dirname(script)),
+         :ok <- File.write(script, Install.statusline_script()) do
+      File.chmod(script, 0o755)
+    end
+  end
+
+  defp write_skills(repo_root) do
+    Enum.reduce_while(Install.skills(), :ok, fn {rel, body}, :ok ->
+      file = Path.join(repo_root, rel)
+
+      with :ok <- File.mkdir_p(Path.dirname(file)),
+           :ok <- File.write(file, body) do
+        {:cont, :ok}
+      else
+        error -> {:halt, error}
+      end
+    end)
   end
 
   # A missing file is a fresh install; an unreadable one is not, and must never
@@ -519,40 +555,41 @@ defmodule Whiska.CLI do
 
   # -- questions ----------------------------------------------------------------
 
-  defp list_questions do
-    case Storage.questions() do
-      [] ->
-        say("Nothing is waiting on you.")
+  # The listing and the statusline read the same summary (Whiska.Questions),
+  # so the two can never disagree about what is waiting. Works from the main
+  # checkout or any worktree of the house, like `whiska mice`.
+  defp questions(cwd) do
+    case main_checkout(cwd) do
+      {:ok, main} ->
+        case Questions.summary(main) do
+          {:ok, summary} ->
+            say(Questions.render(summary))
 
-      questions ->
-        questions
-        |> Enum.map_join("\n", &question_line/1)
-        |> say()
+          {:error, reason} ->
+            fail("whiska: could not open this repo's house (#{inspect(reason)}).")
+        end
+
+      :error ->
+        fail("whiska: #{cwd} is not a git checkout, and not inside a worktree of one.")
     end
   end
 
-  defp question_line(%Question{} = q) do
-    pointer =
-      case QuestionMarker.pointer(q.text) do
-        "" -> ""
-        p -> ~s( · "#{String.slice(p, 0, 80)}")
-      end
+  # Always 0 and never noisy: this runs on every statusline refresh, and a
+  # problem here must not break the line it is appended to.
+  defp statusline(cwd) do
+    with {:ok, main} <- main_checkout(cwd),
+         {:ok, summary} <- Questions.summary(main),
+         segment when segment != "" <- Questions.statusline(summary) do
+      IO.puts(segment)
+    end
 
-    "##{q.id}  #{branch_of(q.mouse_id)}  #{verb(q.kind)}#{pointer}  (#{status_of(q)})"
+    0
   end
-
-  defp verb("unmarked"), do: "stopped without saying why"
-  defp verb(_), do: "needs a decision"
-
-  defp status_of(%Question{status: "sent", sent_at: %DateTime{} = at}),
-    do: "sent #{Calendar.strftime(at, "%H:%M")}"
-
-  defp status_of(%Question{status: status}), do: status
 
   defp show_question(%Question{} = q) do
     say(
       """
-      ##{q.id}  #{branch_of(q.mouse_id)}  #{verb(q.kind)}  (#{status_of(q)}, asked #{Calendar.strftime(q.asked_at, "%Y-%m-%d %H:%M")})
+      ##{q.id}  #{branch_of(q.mouse_id)}  #{Questions.verb(q.kind)}  (#{Questions.state(q)}, asked #{Calendar.strftime(q.asked_at, "%Y-%m-%d %H:%M")})
 
       #{String.trim_trailing(q.text)}
 

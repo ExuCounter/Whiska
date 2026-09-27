@@ -20,7 +20,8 @@ C4Component
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
-    Component(install, "Install", "pure merge", "Writes the hook into .claude/settings.json")
+    Component(install, "Install", "pure merge", "Writes the hooks, the statusline and the skills into .claude/")
+    Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
     Component(nif, "BundledNIF", "scaffolding", "Unpacks SQLite's native library from the escript")
   }
 
@@ -33,6 +34,9 @@ C4Component
   Rel(stop, doorstep, "Writes one entry, then exits")
   Rel(main, hook, "Delegates the hook command")
   Rel(main, install, "Delegates init")
+  Rel(main, questions, "questions and statusline share one summary")
+  Rel(questions, storage, "Opens the house read-only")
+  Rel(questions, doorstep, "Counts what is uncollected, and how stale")
   Rel(hook, layout, "Resolves where this call is")
   Rel(hook, markerm, "Gets the mouse_id")
   Rel(hook, mainrule, "Asks for a decision")
@@ -72,6 +76,13 @@ read as mutating — a false denial there lands on the mouse, which can reach fo
 of equal byte length before locating operators, so `grep -r "=>" lib/` is not read as a
 redirect, and it judges on tokens rather than raw text so `find . -exec grep …` is not
 confused with `exec rm`. Substitutions and nested shells are refused outright.
+
+**`Questions` is read by two commands so they cannot disagree** (ADR-0027). `whiska
+questions` renders the whole summary; `whiska statusline` renders one segment of it —
+detail for exactly one open question, a count for more. Orphaned questions are listed
+but never counted (ADR-0036). The doorstep is the one source the database cannot see:
+an entry uncollected past the owl's backstop is the "owl down" signal, derived from age
+until the owl answers a socket. Nothing here writes or collects.
 
 **`Hook.Stop` never opens a socket, and never classifies.** It reads the payload, works
 out the house, writes the whole final message to the doorstep and exits — unconditionally

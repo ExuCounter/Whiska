@@ -15,6 +15,7 @@ C4Container
 
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Committed hook shim; resolves runtime at fire time, fails open")
+    Container(statusline, "whiska-statusline.sh", "bash", "Committed statusline; runs the global one, appends whiska statusline")
     Container(cli, "whiska", "Elixir escript", "Hooks, init, mode - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
     Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection")
@@ -29,7 +30,10 @@ C4Container
     Container(svc, "launchd service", "brew services", "Keeps the owl awake; whiska start / stop")
   }
 
-  Rel(person, cli, "Runs whiska init / mode / owl")
+  Rel(person, cli, "Runs whiska init / mode / owl / questions")
+  Rel(statusline, cli, "Runs whiska statusline on every refresh", "JSON on stdin")
+  Rel(cli, db, "questions and statusline read the house")
+  Rel(cli, doorstep, "questions and statusline count what is uncollected")
   Rel(herdr, shim, "PreToolUse and Stop fire in a mouse's session")
   Rel(shim, cli, "Execs with the payload on stdin", "JSON")
   Rel(cli, marker, "Reads, minting one on first use")
@@ -46,6 +50,13 @@ C4Container
 ```
 
 ## Why each piece is its own container
+
+**`whiska-statusline.sh` is the second committed script** (ADR-0027). A project-level
+`statusLine` replaces the global one, so the script runs the global command first and
+appends the segment `whiska statusline` prints. It shares the shim's binary-and-runtime
+lookup, generated from the same source, so the two cannot drift. Claude Code sets no
+`CLAUDE_PROJECT_DIR` for statusline commands, so the committed command falls back to a
+path relative to the project directory.
 
 **`whiska.sh` is separate from the binary on purpose** (ADR-0035). The committed
 `settings.json` names only the shim — now with a subcommand argument, `pre-tool-use` or
