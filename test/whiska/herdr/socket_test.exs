@@ -45,6 +45,9 @@ defmodule Whiska.Herdr.SocketTest do
         receive do
           {:fake_reply, result} ->
             :gen_tcp.send(sock, JSON.encode!(%{"id" => id, "result" => result}) <> "\n")
+
+          {:fake_error, error} ->
+            :gen_tcp.send(sock, JSON.encode!(%{"id" => id, "error" => error}) <> "\n")
         after
           1_000 -> :ok
         end
@@ -158,6 +161,64 @@ defmodule Whiska.Herdr.SocketTest do
     test "fails when there is no herdr" do
       assert {:error, _} =
                Socket.subscribe("/nonexistent/herdr.sock", [%{type: "pane.closed"}], self())
+    end
+  end
+
+  describe "pane/2" do
+    test "asks pane.get and returns that one pane" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "pane_info",
+           "pane" => %{
+             "pane_id" => "w1:p2",
+             "cwd" => "/main",
+             "agent" => "claude",
+             "agent_status" => "idle",
+             "focused" => true
+           }
+         }}
+      )
+
+      assert {:ok, pane} = Socket.pane(path, "w1:p2")
+      assert_received {:fake_got, %{"method" => "pane.get", "params" => %{"pane_id" => "w1:p2"}}}
+      assert pane == %{pane_id: "w1:p2", cwd: "/main", agent: "claude", agent_status: "idle"}
+    end
+
+    test "a pane herdr does not know is an error carrying herdr's code" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_error, %{"code" => "not_found", "message" => "no such pane"}})
+
+      assert {:error, {:herdr, %{"code" => "not_found"}}} = Socket.pane(path, "w9:p9")
+    end
+  end
+
+  describe "prompt/3" do
+    test "asks agent.prompt with the pane as target and the text" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_reply, %{"type" => "agent_prompted"}})
+
+      assert :ok = Socket.prompt(path, "w1:p2", "hello there")
+
+      assert_received {:fake_got,
+                       %{
+                         "method" => "agent.prompt",
+                         "params" => %{"target" => "w1:p2", "text" => "hello there"}
+                       }}
+    end
+
+    test "herdr refusing — an agent at a dialog, or none — is an error with the code" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_error, %{"code" => "agent_blocked", "message" => "at a dialog"}})
+
+      assert {:error, {:herdr, %{"code" => "agent_blocked"}}} = Socket.prompt(path, "w1:p2", "x")
+    end
+
+    test "fails when there is no herdr" do
+      assert {:error, _} = Socket.prompt("/nonexistent/herdr.sock", "w1:p2", "x")
     end
   end
 end

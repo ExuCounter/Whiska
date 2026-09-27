@@ -13,10 +13,12 @@ defmodule Whiska.Schema.Question do
 
   use Ecto.Schema
 
-  # `closed` is a `done` report: closed on arrival, never delivered (ADR-0009).
-  # `orphaned` is a question nothing can act on any more — its mouse died
-  # (ADR-0026) or its worktree is gone (ADR-0036).
-  @statuses ~w(open sent answered orphaned closed)
+  # `open` waits in the queue; `sent` has been delivered and waits for its
+  # answer (ADR-0008). `closed` is a `done` report closed on arrival (ADR-0009),
+  # or a question closed by hand. `orphaned` is a question nothing can act on
+  # any more — its mouse died (ADR-0026) or its worktree is gone (ADR-0036).
+  # `superseded` is a question its own mouse moved past by asking a newer one.
+  @statuses ~w(open sent answered orphaned closed superseded)
   # `unmarked` is a turn that ended with no marker at all, which is delivered
   # like a question but recorded as such (ADR-0009).
   @kinds ~w(needs-decision done unmarked)
@@ -32,6 +34,7 @@ defmodule Whiska.Schema.Question do
     field(:kind, :string)
     field(:status, :string, default: "open")
     field(:asked_at, :utc_datetime)
+    field(:sent_at, :utc_datetime)
     field(:answer, :string)
   end
 

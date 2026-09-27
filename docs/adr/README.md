@@ -33,6 +33,7 @@ individually citable decisions.
 - [0008](0008-delivery-is-a-queue-not-a-batch.md) — Delivery is a queue, not a batch
 - [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep; the hook never opens a socket
 - [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is how a mouse opts out
+- [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
 
 ## Enforcement, checks and push
 

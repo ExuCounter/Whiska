@@ -7,18 +7,59 @@ isolated git worktrees.
 **house**, **owl**, **build/sniff mode**. `docs/adr/` records why things are the way they
 are, and those decisions are binding.
 
-## Status: the owl's first slice
+## Status: delivery
 
-v0.0.1 proved the plumbing — identity, storage, one enforced rule (ADR-0030). This slice
-adds the owl (ADR-0001): a house per repo, its herdr subscription, and doorstep collection
-(ADR-0036). Not yet: delivery to the main session (ADR-0008), `launchd` supervision,
-`whiska start`/`stop` over a socket, cross-repo commands, `checks.yml`, push approval.
+v0.0.1 proved the plumbing — identity, storage, one enforced rule (ADR-0030). The owl
+slice added a house per repo, its herdr subscription, and doorstep collection (ADR-0036).
+This slice closes the loop: a collected question is **delivered** to the main session
+(ADR-0008) and answered by id (ADR-0005). Not yet: `launchd` supervision, `whiska stop`,
+the per-repo socket, cross-repo commands, `whiska reopen`, `checks.yml`, push approval.
 
 ```
 mix deps.get
-mix test          # 307 tests
+mix test          # 376 tests
 mix escript.build # produces ./whiska
 ```
+
+### Getting a question in front of you
+
+Three steps, in this order, once per repo:
+
+```
+whiska init                  # hooks into .claude/settings.json (once, committed)
+! whiska start               # from INSIDE your main Claude Code session, in the main checkout
+whiska owl                   # any pane, foreground; keeps this repo's house open
+```
+
+`whiska start` records the herdr pane it is run from as the repo's **main session**
+(ADR-0020) — the one pane the owl delivers to. Typed as `! whiska start` inside the
+session, the Bash tool inherits the pane id, so a session that is already running can be
+recorded without restarting it. It refuses to replace a main session that is still running
+Claude, naming the pane, unless `--force`; it does not launch Claude Code itself yet, which
+the spec describes and a later slice will add. Run in a worktree it refuses: mice are not
+main sessions.
+
+The owl then **delivers**. A question goes to the main session only when herdr reports
+that pane as `claude` + `idle` and no other question is already out waiting for its answer
+(ADR-0008); anything else queues silently. The first question of a fresh round waits 8 s so
+the count in the line is right. `claude` + `unknown` is delivered anyway, and the line says
+so. What is typed is one line — a pointer, not the message:
+
+```
+🐱 whiska #12 · feat-delivery needs a decision · "3 questions ready, see above" · 2 more open · read: whiska questions 12 · answer: whiska reply 12 "..."
+```
+
+```
+whiska questions             # what is waiting on you, one line each
+whiska questions 12          # that one in full
+whiska reply 12 "go with A"  # typed into the mouse's pane; #12 becomes answered
+whiska close 12              # settled some other way, no answer
+```
+
+`whiska reply` and `whiska close` open the house directly and ask herdr to type; they
+need no owl running and no socket. A newer question from the same mouse **supersedes**
+its earlier open or delivered ones (ADR-0037), so a mouse that moves on cannot wedge the
+queue; `whiska close` covers the rest.
 
 ### The owl, the house, the doorstep
 

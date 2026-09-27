@@ -1,0 +1,62 @@
+defmodule Whiska.Delivery.TextTest do
+  @moduledoc """
+  The one line typed into the main session. A pointer, not the message: the
+  full text is one command away (`whiska questions <id>`), and the line must
+  never contain a newline, since the prompt box would submit early.
+  """
+  use ExUnit.Case, async: true
+
+  alias Whiska.Delivery.Text
+  alias Whiska.Schema.Question
+
+  defp question(attrs) do
+    struct(
+      %Question{id: 12, mouse_id: "m1", kind: "needs-decision", status: "open", text: ""},
+      attrs
+    )
+  end
+
+  test "names the question id, the branch, that it needs a decision, and how to read and answer" do
+    q =
+      question(text: "Which db?\n[worktree-status: needs-decision] 3 questions ready, see above")
+
+    line = Text.compose(q, "feat-delivery", 0, [])
+
+    assert line =~ "#12"
+    assert line =~ "feat-delivery"
+    assert line =~ "needs a decision"
+    assert line =~ ~s("3 questions ready, see above")
+    assert line =~ "whiska questions 12"
+    assert line =~ ~s(whiska reply 12 ")
+    refute line =~ "\n"
+  end
+
+  test "says how many more are open, and nothing when there are none" do
+    q = question(text: "[worktree-status: needs-decision] pick one")
+    assert Text.compose(q, "b", 2, []) =~ "2 more open"
+    assert Text.compose(q, "b", 1, []) =~ "1 more open"
+    refute Text.compose(q, "b", 0, []) =~ "more open"
+  end
+
+  test "an unmarked question says the mouse stopped without saying why (ADR-0009)" do
+    q = question(kind: "unmarked", text: "I ran out of things to do.")
+    line = Text.compose(q, "b", 0, [])
+    assert line =~ "stopped without saying why"
+    assert line =~ ~s("I ran out of things to do.")
+  end
+
+  test "a pointer that runs long is cut, and never carries a newline" do
+    long = String.duplicate("word ", 60)
+    q = question(kind: "unmarked", text: "\n" <> long <> "\nline two")
+    line = Text.compose(q, "b", 0, [])
+    refute line =~ "\n"
+    assert String.length(line) < 400
+    assert line =~ "…"
+  end
+
+  test "the unknown-status note is appended when delivery went ahead blind (ADR-0008)" do
+    q = question(text: "[worktree-status: needs-decision] x")
+    line = Text.compose(q, "b", 0, [:status_unknown])
+    assert line =~ "herdr cannot tell whether you are idle"
+  end
+end

@@ -13,12 +13,33 @@ defmodule Whiska.Question.Marker do
   must not be misread as having said nothing.
   """
 
+  @marker ~r/\[worktree-status:\s*([a-z-]+)\]?[ \t]*([^\n]*)/
+
   @doc "The kind a message's marker gives it; `unmarked` when there is none."
   @spec classify(String.t()) :: String.t()
   def classify(text) when is_binary(text) do
-    case Regex.scan(~r/\[worktree-status:\s*([a-z-]+)/, text) do
+    case Regex.scan(@marker, text) do
       [] -> "unmarked"
       matches -> matches |> List.last() |> Enum.at(1) |> kind()
+    end
+  end
+
+  @doc """
+  The mouse's own pointer: what it wrote after its marker on the same line
+  ("3 questions ready, see above"). For an unmarked message, the first
+  non-empty line stands in. Never contains a newline.
+  """
+  @spec pointer(String.t()) :: String.t()
+  def pointer(text) when is_binary(text) do
+    case Regex.scan(@marker, text) do
+      [] ->
+        text
+        |> String.split("\n")
+        |> Enum.map(&String.trim/1)
+        |> Enum.find("", &(&1 != ""))
+
+      matches ->
+        matches |> List.last() |> Enum.at(2, "") |> String.trim()
     end
   end
 

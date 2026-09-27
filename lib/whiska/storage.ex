@@ -16,15 +16,19 @@ defmodule Whiska.Storage do
   import Ecto.Query, only: [from: 2]
 
   alias Whiska.Repo
+  alias Whiska.Schema.House
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
 
   @migrations [
     {1, Whiska.Migrations.V001CreateMiceAndQuestions},
-    {2, Whiska.Migrations.V002OwlCollection}
+    {2, Whiska.Migrations.V002OwlCollection},
+    {3, Whiska.Migrations.V003Delivery}
   ]
 
   @modes ~w(build sniff)
+  # The statuses still waiting on the person (ADR-0008).
+  @waiting ~w(open sent)
 
   @doc "The modes a mouse can be in (ADR-0018)."
   def modes, do: @modes
@@ -254,6 +258,120 @@ defmodule Whiska.Storage do
     |> Ecto.Changeset.validate_inclusion(:kind, Question.kinds())
     |> Ecto.Changeset.validate_inclusion(:status, Question.statuses())
     |> Repo.insert()
+  end
+
+  # -- the main session ---------------------------------------------------------
+
+  @doc "The pane `whiska start` recorded as this house's main session, or nil."
+  @spec main_pane() :: String.t() | nil
+  def main_pane do
+    case Repo.one(from(h in House, limit: 1)) do
+      nil -> nil
+      house -> house.main_pane
+    end
+  end
+
+  @doc """
+  Record the main session's pane (ADR-0020). One per house: recording again
+  replaces the earlier pane.
+  """
+  @spec set_main_pane(String.t()) :: :ok
+  def set_main_pane(pane) do
+    attrs = %{main_pane: pane, started_at: now()}
+
+    case Repo.one(from(h in House, limit: 1)) do
+      nil -> %House{} |> Ecto.Changeset.change(attrs) |> Repo.insert!()
+      house -> house |> Ecto.Changeset.change(attrs) |> Repo.update!()
+    end
+
+    :ok
+  end
+
+  # -- the delivery queue (ADR-0008) -------------------------------------------
+
+  @doc "The oldest open question — the next one to deliver — or nil."
+  @spec next_open() :: Question.t() | nil
+  def next_open do
+    Repo.one(from(q in Question, where: q.status == "open", order_by: q.id, limit: 1))
+  end
+
+  @doc "The question that has been delivered and is waiting for its answer, or nil."
+  @spec sent() :: Question.t() | nil
+  def sent do
+    Repo.one(from(q in Question, where: q.status == "sent", order_by: q.id, limit: 1))
+  end
+
+  @doc "How many questions are open — waiting in the queue, not yet delivered."
+  @spec open_count() :: non_neg_integer()
+  def open_count do
+    Repo.one(from(q in Question, where: q.status == "open", select: count(q.id)))
+  end
+
+  @doc "Every question still waiting on the person: open and sent, oldest first."
+  @spec questions() :: [Question.t()]
+  def questions do
+    Repo.all(from(q in Question, where: q.status in ^@waiting, order_by: q.id))
+  end
+
+  @doc "A question has been delivered to the main session."
+  @spec mark_sent(integer()) ::
+          {:ok, Question.t()} | {:error, :no_such_question | :not_open | Ecto.Changeset.t()}
+  def mark_sent(id) do
+    case Repo.get(Question, id) do
+      nil -> {:error, :no_such_question}
+      %Question{status: "open"} = q -> update_status(q, %{status: "sent", sent_at: now()})
+      %Question{} -> {:error, :not_open}
+    end
+  end
+
+  @doc """
+  Answer a question by id (ADR-0005). Open or sent only: an answer to anything
+  already settled has nowhere to land.
+  """
+  @spec answer(integer(), String.t()) ::
+          {:ok, Question.t()} | {:error, :no_such_question | :not_answerable | Ecto.Changeset.t()}
+  def answer(id, text) do
+    settle(id, %{status: "answered", answer: text})
+  end
+
+  @doc """
+  Close a question by hand, with no answer. Open, sent, or orphaned: an
+  orphaned question's answer went to its dead mouse's worktree some other way.
+  """
+  @spec close_question(integer()) ::
+          {:ok, Question.t()} | {:error, :no_such_question | :not_answerable | Ecto.Changeset.t()}
+  def close_question(id), do: settle(id, %{status: "closed"}, @waiting ++ ["orphaned"])
+
+  defp settle(id, attrs, from \\ @waiting) do
+    case Repo.get(Question, id) do
+      nil ->
+        {:error, :no_such_question}
+
+      %Question{status: s} = q ->
+        if s in from, do: update_status(q, attrs), else: {:error, :not_answerable}
+    end
+  end
+
+  defp update_status(question, attrs) do
+    question |> Ecto.Changeset.change(attrs) |> Repo.update()
+  end
+
+  @doc """
+  A newer question from a mouse supersedes its earlier open and sent ones: the
+  mouse has moved past them, so an answer could no longer land. Settled history
+  is untouched. Returns how many were superseded.
+  """
+  @spec supersede_earlier(Question.t()) :: {:ok, non_neg_integer()}
+  def supersede_earlier(%Question{id: id, mouse_id: mouse_id}) do
+    {n, _} =
+      Repo.update_all(
+        from(q in Question,
+          where: q.mouse_id == ^mouse_id and q.id < ^id and q.status in ^@waiting
+        ),
+        set: [status: "superseded"]
+      )
+
+    {:ok, n}
   end
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
