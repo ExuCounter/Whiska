@@ -20,6 +20,7 @@ individually citable decisions.
 - [0023](0023-one-mouse-per-worktree.md) — One mouse per worktree, enforced rather than assumed
 - [0024](0024-endpoint-identity-is-two-layers.md) — Endpoint identity is two layers, with an honest limit
 - [0025](0025-a-second-read-only-global-socket.md) — Cross-repo visibility uses a second, read-only global socket
+- [0039](0039-the-owl-records-its-open-houses-on-disk.md) — The owl records its open houses on disk, and that record is what makes a whiska
 
 ## Storage
 

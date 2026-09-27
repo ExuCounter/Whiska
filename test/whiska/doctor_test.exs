@@ -136,6 +136,46 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  describe "open_houses/3 — the owl's record, and whether this repo is in it (ADR-0039)" do
+    test "this repo open, alone, is ok" do
+      assert %Check{status: :ok, detail: detail} =
+               Doctor.open_houses(["/r/myrepo"], "/r/myrepo", [4242])
+
+      assert detail =~ "this repo"
+    end
+
+    test "this repo open with others is ok and names the others" do
+      assert %Check{status: :ok, detail: detail} =
+               Doctor.open_houses(["/r/dotfiles", "/r/myrepo", "/r/whiska"], "/r/myrepo", [4242])
+
+      assert detail =~ "dotfiles"
+      assert detail =~ "whiska"
+      refute detail =~ "myrepo"
+    end
+
+    test "this repo missing from the record warns and says how to add it" do
+      assert %Check{status: :warn, detail: detail, fix: fix} =
+               Doctor.open_houses(["/r/dotfiles"], "/r/myrepo", [4242])
+
+      assert detail =~ "not open"
+      assert detail =~ "dotfiles"
+      assert fix =~ "whiska owl /r/myrepo"
+    end
+
+    test "an empty record warns" do
+      assert %Check{status: :warn, fix: "whiska owl"} =
+               Doctor.open_houses([], "/r/myrepo", [4242])
+    end
+
+    test "with no owl alive the record is shown but not in force" do
+      assert %Check{status: :warn, detail: detail, fix: "whiska owl"} =
+               Doctor.open_houses(["/r/myrepo", "/r/dotfiles"], "/r/myrepo", [])
+
+      assert detail =~ "2 houses"
+      assert detail =~ "none is open"
+    end
+  end
+
   # -- mice --------------------------------------------------------------------
 
   describe "mice/2 — do the records still match the world" do
@@ -428,6 +468,27 @@ defmodule Whiska.DoctorTest do
       end
 
       assert %Check{status: :warn} = find(report.checks, "owl")
+      assert %Check{status: :warn} = find(report.checks, "open houses")
+    end
+
+    test "the open-houses record is read from the path given, right after the owl", %{
+      main: main,
+      env: env,
+      root: root
+    } do
+      init(main)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+      record = Path.join(root, "dot-whiska/houses")
+      Whiska.OpenHouses.add(main, record)
+
+      report =
+        Doctor.run(main, env: env, owl_pids: fn -> [4242] end, open_houses: record)
+
+      assert %Check{status: :ok} = find(report.checks, "open houses")
+      names = Enum.map(report.checks, & &1.name)
+
+      assert Enum.find_index(names, &(&1 == "open houses")) ==
+               Enum.find_index(names, &(&1 == "owl")) + 1
     end
 
     test "the house is opened and reported with its schema version, then closed", %{

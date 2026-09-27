@@ -32,3 +32,15 @@ never could. The limit is honest: a repo with no live whiska pane is invisible t
 count, and nobody is there to answer anyway. When the socket lands, the statusline
 switches to it in one place (`Whiska.Statusline.summary/2`) and the direct reads go.
 `whiska projects` and `whiska goto` still wait for the socket.
+
+## Addendum (2026-09-27): a whiska is an open house with a live pane
+
+The definition above — an agent pane in a repo root that has a house — counted a repo
+whose house was initialised once and never opened again, as long as a session sat in it.
+ADR-0039 revises it: a whiska is a house in the owl's **open-houses record**
+(`~/.whiska/houses`, in this same folder) with a live agent pane in its repo root. The
+record is trusted only while an owl is in the process table, so with the owl down no
+house is open and the elsewhere segment says nothing — the owl segment says what
+matters then. The pane list is still herdr's and the other houses are still read
+directly; only the set of repos looked at has changed. The switch to the socket, when it
+lands, stays a one-place change.

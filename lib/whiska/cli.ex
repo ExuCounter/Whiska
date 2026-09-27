@@ -16,6 +16,7 @@ defmodule Whiska.CLI do
   alias Whiska.Install
   alias Whiska.Layout
   alias Whiska.Marker
+  alias Whiska.OpenHouses
   alias Whiska.Questions
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -34,10 +35,12 @@ defmodule Whiska.CLI do
                          doorstep for the owl to collect. Reads the Stop
                          payload on stdin. Never opens a socket.
 
-    owl [<repo>...]      Run the owl in the foreground with a house open for
-                         each repo named (default: the one you are in).
-                         Collects each house's doorstep when herdr reports a
-                         mouse idle, at startup, and on a slow backstop.
+    owl [<repo>...]      Run the owl in the foreground. Opens every house it
+                         had open last time (~/.whiska/houses) plus the one
+                         you are in, if it has a house; any repo named is
+                         opened too and remembered. Collects each house's
+                         doorstep when herdr reports a mouse idle, at
+                         startup, and on a slow backstop.
 
     init                 Write Whiska's PreToolUse hook into this repo's own
                          .claude/settings.json, so the rules travel with the
@@ -396,15 +399,20 @@ defmodule Whiska.CLI do
   @doc """
   Start the owl with a house open for each repo. Prints what it opened.
 
+  Which houses (ADR-0039): everything in the open-houses record, plus the
+  current checkout's house if it already has one, plus every repo named —
+  which are then in the record too. With nothing recorded, nothing named and
+  no house here, the house here is opened, as before, so a first run in a
+  repo still works. A recorded checkout that is gone is said so and dropped.
+
   A repo may be named by its main checkout or by any worktree under it; both
   open the same house. Split out from `run/2` so the CLI can be tested without
   the foreground wait.
   """
   @spec start_owl([Path.t()], Path.t()) :: {:ok, pid()} | {:error, term()}
   def start_owl(repos, cwd \\ File.cwd!()) do
-    repos = if repos == [], do: [cwd], else: repos
-
-    with {:ok, houses} <- resolve_houses(repos),
+    with {:ok, named} <- resolve_houses(repos),
+         {:ok, houses} <- houses_to_open(named, cwd),
          {:ok, owl} <- start_owl_process() do
       Enum.each(houses, &({:ok, _} = Whiska.Owl.open_house(&1)))
 
@@ -449,6 +457,53 @@ defmodule Whiska.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not start the owl (#{inspect(reason)}).")
         {:error, reason}
+    end
+  end
+
+  defp houses_to_open(named, cwd) do
+    case Enum.uniq(recorded_houses() ++ house_here(cwd, named) ++ named) do
+      [] ->
+        IO.puts(
+          :stderr,
+          "whiska: #{cwd} is not a git checkout, and not inside a worktree of one."
+        )
+
+        {:error, {:not_a_repo, cwd}}
+
+      houses ->
+        {:ok, houses}
+    end
+  end
+
+  # The record's houses that are still checkouts; the rest are dropped from it.
+  defp recorded_houses do
+    {kept, gone} = Enum.split_with(OpenHouses.read(), &match?({:ok, _}, main_checkout(&1)))
+
+    Enum.each(gone, fn path ->
+      IO.puts(
+        :stderr,
+        "whiska: #{path} is no longer a git checkout; dropping it from the record."
+      )
+
+      OpenHouses.remove(path)
+    end)
+
+    kept
+  end
+
+  # The current checkout's house when it exists — or, with nothing else to
+  # open, the current checkout regardless, which is what a first run needs.
+  defp house_here(cwd, named) do
+    case main_checkout(cwd) do
+      {:ok, main} ->
+        cond do
+          File.exists?(Storage.database_path(main)) -> [main]
+          named == [] and OpenHouses.read() == [] -> [main]
+          true -> []
+        end
+
+      :error ->
+        []
     end
   end
 

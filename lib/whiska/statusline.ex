@@ -20,32 +20,35 @@ defmodule Whiska.Statusline do
     one per worktree (ADR-0023), whatever the pane count. herdr is the source
     of liveness, not the house: without the owl running, `died_at` is never
     set, and the statusline must work when the owl is down.
-  - **Whiskas** are live agent panes sitting in a repo root that has a house.
-    Their headcount, this repo always included, is shown when it is more than
-    one (`🐈 3 whiskas`). Every other one's house is read the way `whiska
-    questions` reads this one, and it is shown apart only when something is
-    waiting there: one is named by its folder, several become a count. A
-    quiet laptop reads `🦉 watching` and nothing more.
+  - **Whiskas** are the houses the owl has open — the open-houses record,
+    `Whiska.OpenHouses` (ADR-0039) — that have a live agent pane in their repo
+    root. Their headcount is shown when it is more than one (`🐈 3 whiskas`);
+    this repo counts while its house is open, whichever pane the line is
+    drawn in. Every other one's house is read the way `whiska questions` reads
+    this one, and it is shown apart only when something is waiting there: one
+    is named by its folder, several become a count. A quiet laptop reads `🦉
+    watching` and nothing more. A repo with a house file on disk but not open
+    in the owl is not a whiska, live pane or not: nothing collects there.
 
   ADR-0025 routes cross-repo visibility through the owl's global socket. That
-  socket is not built; until it is, the whiskas are found through their live
-  panes and their houses read directly, which also keeps the count honest when
-  the owl is down. A repo with no live whiska pane is invisible here — there is
-  nobody there to answer anyway.
+  socket is not built; until it is, the whiskas are read off the record and
+  their live panes, and their houses read directly. The record is trusted only
+  while an owl is in the process table (`Whiska.OpenHouses.open/2`): with the
+  owl down, no house is open and the line says only that.
 
   Nothing here writes, and no house is created (`Whiska.Questions.summary/1`).
   """
 
   alias Whiska.Herdr
   alias Whiska.Layout
+  alias Whiska.OpenHouses
   alias Whiska.Owl
   alias Whiska.Questions
-  alias Whiska.Storage
 
   @type summary :: %{
           owl: :watching | :down,
           questions: Questions.summary(),
-          whiskas: pos_integer() | nil,
+          whiskas: non_neg_integer() | nil,
           mice: non_neg_integer() | nil,
           elsewhere: [Path.t()]
         }
@@ -57,20 +60,25 @@ defmodule Whiska.Statusline do
   that cannot be asked, leaves `whiskas` and `mice` as `nil` and `elsewhere`
   empty — the line then says only what the house and the process table know.
   `:owl_pids` is the function that finds running owls, `Whiska.Owl.pids/0`
-  unless a test pins it.
+  unless a test pins it; `:open_houses` is the record's path, the real one
+  unless pinned.
   """
   @spec summary(Path.t(), keyword()) :: {:ok, summary()} | {:error, term()}
   def summary(main_checkout, opts \\ []) do
     main = Path.expand(main_checkout)
     socket = Keyword.get_lazy(opts, :herdr_socket, &Herdr.socket_path/0)
     owl_pids = Keyword.get(opts, :owl_pids, &Owl.pids/0)
+    record = Keyword.get_lazy(opts, :open_houses, &OpenHouses.path/0)
 
     with {:ok, questions} <- Questions.summary(main) do
-      owl = owl_state(owl_pids.(), questions)
+      pids = owl_pids.()
+      owl = owl_state(pids, questions)
+      open = OpenHouses.open(pids, record)
 
       case ask_herdr(socket) do
         {:ok, panes} ->
-          whiskas = whiskas(panes)
+          whiskas = whiskas(panes, open)
+          here = if main in open, do: [main], else: []
 
           elsewhere =
             whiskas
@@ -81,7 +89,7 @@ defmodule Whiska.Statusline do
            %{
              owl: owl,
              questions: questions,
-             whiskas: length(Enum.uniq([main | whiskas])),
+             whiskas: length(Enum.uniq(here ++ whiskas)),
              mice: mice_here(panes, main),
              elsewhere: elsewhere
            }}
@@ -126,18 +134,18 @@ defmodule Whiska.Statusline do
   end
 
   @doc """
-  The main checkouts with a live whiska: an agent pane in (or beneath) a repo
-  root that has a house, and not inside one of its worktrees. Pure apart from
-  looking for the house on disk.
+  The main checkouts with a live whiska: of the houses `open` (the record, as
+  `Whiska.OpenHouses.open/2` allows it to be trusted), those with an agent pane
+  in or beneath their repo root and not inside one of their worktrees. Pure.
   """
-  @spec whiskas([Herdr.pane()]) :: [Path.t()]
-  def whiskas(panes) do
+  @spec whiskas([Herdr.pane()], [Path.t()]) :: [Path.t()]
+  def whiskas(panes, open) do
     panes
     |> agent_panes()
     |> Enum.flat_map(fn pane ->
       with {:error, :not_in_worktree} <- Layout.resolve(pane.cwd),
            {:ok, main} <- repo_root(pane.cwd),
-           true <- File.exists?(Storage.database_path(main)) do
+           true <- main in open do
         [main]
       else
         _ -> []

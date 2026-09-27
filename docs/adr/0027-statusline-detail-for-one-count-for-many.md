@@ -87,3 +87,12 @@ waiting" from "nothing is working". So the owl's state is now always shown, and 
 When the global socket lands, "up" becomes "the socket answers", in the same one place
 the elsewhere segment switches over.
 
+
+## Addendum (2026-09-27): the headcount counts open houses
+
+`🐈 N whiskas` now counts the houses in the owl's open-houses record that have a live
+agent pane in their repo root (ADR-0039), not every repo root with a house file. The repo
+the line is drawn in counts while its own house is open. With no owl in the process
+table the record is not trusted, the headcount is zero and the segment is absent; the
+owl segment already says `owl down`. Why a machine-level file is right here when it was
+wrong for counting mice, above, is argued in ADR-0039.
