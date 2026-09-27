@@ -5,9 +5,10 @@ defmodule Whiska.Delivery.Text do
   A pointer, not the message. The full text is one command away (`whiska
   questions <id>`), which is the spec's "full detail fetched just before each
   one is asked". The line carries what the person needs to decide whether to
-  look now: the id, which branch, whether it asked or merely stopped
-  (ADR-0009), the mouse's own pointer, how many more are waiting behind it,
-  and the exact command to answer with (ADR-0005).
+  look now: the id, which branch, whether it asked, finished, or merely
+  stopped (ADR-0009), the mouse's own pointer, how many more are waiting
+  behind it, and the exact command to answer with (ADR-0005) — except for a
+  `done` report, which needs no answer and offers none.
 
   One line, no newline anywhere: `agent.prompt` types into a prompt box, and an
   embedded newline would submit half a notification.
@@ -31,7 +32,7 @@ defmodule Whiska.Delivery.Text do
       pointer(q.text),
       more(more_open),
       "read: whiska questions #{q.id}",
-      ~s(answer: whiska reply #{q.id} "...")
+      answer(q)
     ]
     |> Enum.concat(Enum.map(notes, &note/1))
     |> Enum.reject(&(&1 in [nil, ""]))
@@ -40,7 +41,11 @@ defmodule Whiska.Delivery.Text do
   end
 
   defp verb("unmarked"), do: "stopped without saying why"
+  defp verb("done"), do: "finished"
   defp verb(_), do: "needs a decision"
+
+  defp answer(%Question{kind: "done"}), do: nil
+  defp answer(%Question{id: id}), do: ~s(answer: whiska reply #{id} "...")
 
   defp pointer(text) do
     case Marker.pointer(text) do

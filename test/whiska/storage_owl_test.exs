@@ -42,7 +42,7 @@ defmodule Whiska.StorageOwlTest do
       assert id == q.id
     end
 
-    test "takes an explicit status, so a done report can be closed on arrival" do
+    test "takes an explicit status, so an entry with no worktree can be orphaned on arrival" do
       assert {:ok, q} =
                Storage.record_question(%{
                  mouse_id: "m1",

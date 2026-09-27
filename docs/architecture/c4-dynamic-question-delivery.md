@@ -60,7 +60,7 @@ No heuristics, no model reading the text. **A marker is required to be quiet, no
 heard:**
 
 - no marker at all → **deliver**. The mouse stopped and did not say why.
-- `done` → recorded, never delivered. The explicit opt-out.
+- `done` → delivered as "finished", no reply offered, closed the moment it is sent.
 - `needs-decision` → delivered. Still valid, now redundant.
 
 Forgetting is the safe direction: a mouse that forgets its marker makes noise instead of

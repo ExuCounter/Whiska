@@ -125,6 +125,7 @@ defmodule Whiska.Questions do
   @doc "What the mouse did, as words: asked, or merely stopped (ADR-0009)."
   @spec verb(String.t()) :: String.t()
   def verb("unmarked"), do: "stopped without saying why"
+  def verb("done"), do: "finished"
   def verb(_), do: "needs a decision"
 
   @doc "Where a question stands: its status, with the time it was delivered when sent."
