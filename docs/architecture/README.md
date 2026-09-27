@@ -26,14 +26,18 @@ and `whiska doctor`, which checks all of the above for one repo and never repair
 whiskas elsewhere both found through herdr's pane list, each other house read directly
 until the global socket exists (ADR-0027, ADR-0025 addenda). Then the owl's state shown
 always — watching, or down with the doorstep count — and a whiska headcount when there is
-more than one (ADR-0027, second addendum). 488 tests.
+more than one (ADR-0027, second addendum). Then the open-houses record: the owl writes
+which houses it has open to `~/.whiska/houses`, reopens them on the next `whiska owl`,
+and a whiska is a house in that record with a live pane — the headcount, the elsewhere
+segment and a new doctor line all read it, trusting it only while an owl is alive
+(ADR-0039). 511 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `launchd` supervision and `whiska stop`; push approval; `checks.yml`; the
 statusline's one-mouse excerpt and its "elsewhere" segment *over the global socket*
 (ADR-0027); cross-repo commands. The owl runs in the
-foreground meanwhile, and the doctor finds it through the process table until the global
-socket exists.
+foreground meanwhile, reopening its recorded houses, and the doctor finds it through the
+process table until the global socket exists.
 
 ## Regenerating
 

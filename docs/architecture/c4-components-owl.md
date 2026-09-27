@@ -20,12 +20,15 @@ C4Component
     Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text")
     Component(markerq, "Whiska.Question.Marker", "classifier", "done / needs-decision / unmarked, by marker alone")
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead mice")
+    Component(record, "Whiska.OpenHouses", "text file", "Which houses are open; trusted only while an owl is alive")
   }
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
 
+  Rel(cliboot, record, "Reads what was open last time")
   Rel(cliboot, sup, "Starts with the repos to open")
   Rel(sup, house, "Opens and shuts")
+  Rel(sup, record, "Adds on open, removes on shut")
   Rel(house, herdrb, "Lists panes, subscribes")
   Rel(herdrb, sock, "Dispatched to the configured implementation")
   Rel(sock, herdrd, "One request per connection; events stream")

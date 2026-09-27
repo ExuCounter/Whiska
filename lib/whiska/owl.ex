@@ -10,13 +10,19 @@ defmodule Whiska.Owl do
   Opening and shutting only change whether a house's lights are on (ADR-0003).
   Nothing here ever creates or destroys a house on disk.
 
+  Which houses are open is also written down, one line each, in the
+  open-houses record (`Whiska.OpenHouses`, ADR-0039): added when a house is
+  opened, removed when it is shut, and deliberately left in place when the
+  whole owl stops — that is what the next `whiska owl` reopens from.
+
   This slice runs the owl in the foreground (`whiska owl`) with the houses to
-  open named on the command line; `launchd` supervision and `whiska start`/`stop`
-  reaching it over a socket come later.
+  open named on the command line, or taken from the record; `launchd`
+  supervision and `whiska start`/`stop` reaching it over a socket come later.
   """
 
   use Supervisor
 
+  alias Whiska.OpenHouses
   alias Whiska.Owl.House
 
   @registry Whiska.Owl.Registry
@@ -66,11 +72,21 @@ defmodule Whiska.Owl do
     end
   end
 
-  @doc "Open a house, or return the one already open for that checkout."
+  @doc """
+  Open a house, or return the one already open for that checkout. Either way
+  it is in the open-houses record afterwards.
+  """
   @spec open_house(Path.t()) :: {:ok, pid()} | {:error, term()}
   def open_house(main_checkout) do
     main = Path.expand(main_checkout)
 
+    with {:ok, pid} <- start_house(main),
+         :ok <- OpenHouses.add(main) do
+      {:ok, pid}
+    end
+  end
+
+  defp start_house(main) do
     case DynamicSupervisor.start_child(@houses, {__MODULE__.Opener, main}) do
       {:ok, pid} -> {:ok, pid}
       {:error, {:already_started, pid}} -> {:ok, pid}
@@ -78,11 +94,15 @@ defmodule Whiska.Owl do
     end
   end
 
-  @doc "Shut a house: its process stops, its database and records stay."
+  @doc """
+  Shut a house: its process stops and it leaves the open-houses record; its
+  database and records stay.
+  """
   @spec shut_house(Path.t()) :: :ok | {:error, :shut}
   def shut_house(main_checkout) do
-    with {:ok, pid} <- house(main_checkout) do
-      DynamicSupervisor.terminate_child(@houses, pid)
+    with {:ok, pid} <- house(main_checkout),
+         :ok <- DynamicSupervisor.terminate_child(@houses, pid) do
+      OpenHouses.remove(Path.expand(main_checkout))
     end
   end
 

@@ -25,6 +25,7 @@ C4Component
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
     Component(statusline, "Statusline", "one line", "Owl always, whiskas headcount, mice here, questions here, whiskas waiting elsewhere")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live")
+    Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
     Component(nif, "BundledNIF", "scaffolding", "Unpacks SQLite's native library from the escript")
   }
 
@@ -44,7 +45,9 @@ C4Component
   Rel(statusline, questions, "Reads this house's summary, and every other whiska's")
   Rel(statusline, herdr, "Lists panes: mice here, whiskas here and elsewhere")
   Rel(statusline, owl, "Is it running? Same probe as the doctor", "process table")
+  Rel(statusline, record, "Which houses are open: the whiskas to count")
   Rel(doctor, owl, "Is it running?", "process table")
+  Rel(doctor, record, "Which houses are open, and is this repo one of them")
   Rel(questions, storage, "Opens the house read-only")
   Rel(questions, doorstep, "Counts what is uncollected, and how stale")
   Rel(main, doctor, "Delegates doctor")

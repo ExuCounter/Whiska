@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (307 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (511 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -22,6 +22,7 @@ C4Container
     Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, renamed .collected once read")
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records and questions, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
+    Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
   }
 
   Container_Boundary(todo, "Designed, not built") {
@@ -35,12 +36,14 @@ C4Container
   Rel(cli, db, "questions and statusline read the house")
   Rel(cli, doorstep, "questions and statusline count what is uncollected")
   Rel(cli, herdr, "mice and statusline list panes")
+  Rel(cli, record, "owl reopens from it; statusline and doctor read it while an owl is alive")
   Rel(herdr, shim, "PreToolUse and Stop fire in a mouse's session")
   Rel(shim, cli, "Execs with the payload on stdin", "JSON")
   Rel(cli, marker, "Reads, minting one on first use")
   Rel(cli, doorstep, "Stop hook writes one entry, unconditionally")
   Rel(cli, owl, "whiska owl boots it in the foreground")
   Rel(owl, house, "Opens one per project, supervised independently")
+  Rel(owl, record, "Adds a house when opened, removes it when shut")
   Rel(house, herdr, "Subscribes per mouse pane; lists panes to find them")
   Rel(house, doorstep, "Collects on idle, at open, and on a backstop")
   Rel(house, db, "Records questions and marks mice dead")
@@ -62,6 +65,13 @@ one; the mice here; the questions here; and the whiskas elsewhere with something
 lookup, generated from the same source, so the two cannot drift. Claude Code sets no
 `CLAUDE_PROJECT_DIR` for statusline commands, so the committed command falls back to a
 path relative to the project directory.
+
+**The open-houses record is the one machine-level file** (ADR-0039). It sits in
+`~/.whiska/`, the folder ADR-0025 reserves for the global socket, and says which houses
+the owl has open — not which exist (ADR-0003). The owl writes it as it opens and shuts
+houses and leaves it behind when it stops, so `whiska owl` with no arguments reopens the
+same houses. The statusline and the doctor read it to know what counts as a whiska, but
+only while an owl is in the process table: a file a dead owl left says nothing.
 
 **`whiska.sh` is separate from the binary on purpose** (ADR-0035). The committed
 `settings.json` names only the shim — now with a subcommand argument, `pre-tool-use` or
@@ -98,4 +108,5 @@ collection, classification — is plain code with nothing mocked.
 Delivery to the main session and its idle gate (ADR-0008); the per-repo and global
 sockets with the peer-PID check (ADR-0024, ADR-0025); `launchd` supervision and
 `whiska start`/`stop`; `checks.yml`; push approval; cross-repo commands. The owl runs in
-the foreground today, with the repos to open named on the command line.
+the foreground today, opening the houses in its record plus any named on the command
+line.

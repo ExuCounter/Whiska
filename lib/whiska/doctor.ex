@@ -38,6 +38,7 @@ defmodule Whiska.Doctor do
   alias Whiska.Install
   alias Whiska.Layout
   alias Whiska.Marker
+  alias Whiska.OpenHouses
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -53,14 +54,17 @@ defmodule Whiska.Doctor do
   Options exist so the environment can be pinned in tests: `:env` (a map, the
   process environment by default), `:owl_pids` (a function returning the pids
   of running owls, the process table by default), `:herdr` (the herdr module,
-  ADR-0031's boundary).
+  ADR-0031's boundary), `:open_houses` (the record's path, the real one by
+  default).
   """
   @spec run(Path.t(), keyword()) :: Report.t()
   def run(main_checkout, opts \\ []) do
     env = Keyword.get(opts, :env, System.get_env())
     owl_pids = Keyword.get(opts, :owl_pids, &Whiska.Owl.pids/0)
     herdr = Keyword.get(opts, :herdr, Herdr.impl())
+    record = Keyword.get_lazy(opts, :open_houses, &OpenHouses.path/0)
     now = DateTime.utc_now()
+    pids = owl_pids.()
 
     {binary, binary_found?} = binary(env)
     {herdr_check, panes} = herdr(env, herdr)
@@ -76,7 +80,13 @@ defmodule Whiska.Doctor do
     {house, in_house} = house(main_checkout, panes, herdr, env["HERDR_SOCKET_PATH"], now)
 
     checks =
-      [binary, runtime(env), herdr_check, owl(owl_pids.())] ++
+      [
+        binary,
+        runtime(env),
+        herdr_check,
+        owl(pids),
+        open_houses(OpenHouses.read(record), main_checkout, pids)
+      ] ++
         hooks ++
         [shim] ++ probes ++ [house, doorstep(Doorstep.waiting(main_checkout), now)] ++ in_house
 
@@ -177,6 +187,49 @@ defmodule Whiska.Doctor do
   @spec owl([pos_integer()]) :: Check.t()
   def owl([]), do: Check.warn("owl", "not running — nothing collects the doorstep", @owl)
   def owl(pids), do: Check.ok("owl", "running (pid #{Enum.join(pids, ", ")})")
+
+  @doc """
+  The open-houses record (ADR-0039): which houses the owl has open, and
+  whether this repo is one of them. `record` is what the file says; `pids`
+  are the owl processes found, because the record is only in force while one
+  is alive. A repo not in it is not a whiska and nothing collects its
+  doorstep, however live its main session is — the case the statusline's count
+  cannot explain and this line does.
+  """
+  @spec open_houses([Path.t()], Path.t(), [pos_integer()]) :: Check.t()
+  def open_houses([], _main, _pids),
+    do: Check.warn("open houses", "none recorded — the owl has not opened a house yet", @owl)
+
+  def open_houses(record, _main, []) do
+    Check.warn(
+      "open houses",
+      "record lists #{count(record)} (#{names(record)}); none is open while the owl is down",
+      @owl
+    )
+  end
+
+  def open_houses(record, main, _pids) do
+    main = Path.expand(main)
+
+    case Enum.reject(record, &(&1 == main)) do
+      ^record ->
+        Check.warn(
+          "open houses",
+          "this repo is not open — the owl has #{names(record)}; it is not a whiska and its doorstep is not collected",
+          "#{@owl} #{main}  (restart the owl with this repo added)"
+        )
+
+      [] ->
+        Check.ok("open houses", "this repo")
+
+      others ->
+        Check.ok("open houses", "this repo, with #{count(others)} more: #{names(others)}")
+    end
+  end
+
+  defp count([_]), do: "1 house"
+  defp count(houses), do: "#{length(houses)} houses"
+  defp names(houses), do: Enum.map_join(houses, ", ", &Path.basename/1)
 
   # -- this repo's hooks -------------------------------------------------------
 

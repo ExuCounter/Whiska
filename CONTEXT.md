@@ -7,7 +7,10 @@ git worktrees, replacing this repo's bash-based worktree-notification relay.
 
 **Whiska**:
 The per-project coordinating presence a person controls directly — their main Claude
-Code session for a project, backed by that project's own house in the shared owl.
+Code session for a project, backed by that project's own house in the shared owl. Counted
+as one only while that house is open (in the open-houses record) and a live session sits
+in the project's main checkout; a repo with a house on disk but no owl keeping it is not
+a whiska, however live its session.
 _Avoid_: instance, coordinator
 
 **Mouse**:
@@ -82,6 +85,14 @@ supervision dropped. The house itself, its database and its mouse records, is un
 either way.
 _Avoid_: creating/destroying, starting/tearing down a house (those describe the house,
 not its lights)
+
+**Open-houses record**:
+The owl's note to itself of which houses it has open, kept outside any one house: a
+house is added when opened, removed when shut, and the note is left alone when the whole
+owl stops, so the next `whiska owl` reopens the same houses. Anyone else — the
+statusline, the doctor — trusts it only while an owl is running. It says nothing about
+whether a house exists; that is the house's own affair.
+_Avoid_: registry, manifest, house list (it lists open houses, not houses)
 
 **Doorstep**:
 Where a mouse leaves a question for the owl: a directory in the house, holding entries the
