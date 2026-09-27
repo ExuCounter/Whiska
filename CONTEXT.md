@@ -29,9 +29,10 @@ folder path; both of those can change without the mouse_id changing.
 
 **Question**:
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
-the delivery queue and wait for an answer. The one exception is a `done` report: it's
-closed on arrival, never delivered, never answered — a question in name and storage
-only, not in behavior.
+the delivery queue and wait for an answer. A turn that ends with no marker at all is an
+**unmarked** question: delivered like any other, recorded as having arrived unmarked. The
+one exception is a `done` report: it's closed on arrival, never delivered, never answered
+— a question in name and storage only, not in behavior.
 _Avoid_: report, event (as the table/record name)
 
 **Build mode**:
