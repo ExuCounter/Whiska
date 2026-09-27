@@ -8,6 +8,7 @@ individually citable decisions.
 ## Shape of the system
 
 - [0001](0001-one-owl-per-machine.md) — One owl per machine, with a house per repo inside it
+- [0040](0040-the-owl-is-supervised-by-a-launchagent.md) — The owl is supervised by a user LaunchAgent, and `whiska owl stop` stops the whole owl
 - [0003](0003-a-house-persists-across-start-and-stop.md) — A house persists; start and stop only open and shut it
 - [0020](0020-mice-stay-herdr-panes.md) — Mice stay herdr panes; Whiska never owns Claude Code directly
 - [0017](0017-judgment-lives-in-claude-md.md) — All judgment lives in CLAUDE.md; Whiska stays dumb

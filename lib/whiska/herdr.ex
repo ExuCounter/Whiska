@@ -58,4 +58,18 @@ defmodule Whiska.Herdr do
   @doc "herdr's socket, from the environment herdr sets in every pane it runs."
   @spec socket_path() :: Path.t() | nil
   def socket_path, do: System.get_env("HERDR_SOCKET_PATH")
+
+  @doc """
+  Where herdr puts its socket when nothing says otherwise: `herdr.sock` in
+  its default session directory, `~/.config/herdr/`. Checked against herdr
+  0.8.2: the path is fixed per session and recreated there on every restart,
+  so an owl started by launchd, with no pane's environment to inherit, can
+  still find it. A named herdr session lives elsewhere; the plist carries
+  `HERDR_SOCKET_PATH` for that case and it wins.
+  """
+  @spec default_socket_path(%{optional(String.t()) => String.t()}) :: Path.t()
+  def default_socket_path(env \\ System.get_env()) do
+    home = env["HOME"] || System.user_home!()
+    Path.join(home, ".config/herdr/herdr.sock")
+  end
 end

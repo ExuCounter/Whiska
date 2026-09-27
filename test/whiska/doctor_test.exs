@@ -487,8 +487,9 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :ok} = find(report.checks, "open houses")
       names = Enum.map(report.checks, & &1.name)
 
+      # owl, then its launch agent (ADR-0040), then what it has open.
       assert Enum.find_index(names, &(&1 == "open houses")) ==
-               Enum.find_index(names, &(&1 == "owl")) + 1
+               Enum.find_index(names, &(&1 == "owl")) + 2
     end
 
     test "the house is opened and reported with its schema version, then closed", %{

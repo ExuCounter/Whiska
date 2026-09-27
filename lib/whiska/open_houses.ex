@@ -26,7 +26,9 @@ defmodule Whiska.OpenHouses do
   @spec path() :: Path.t()
   def path, do: Path.join(home(), "houses")
 
-  defp home do
+  @doc "The whiska home itself; the owl's launchd wrapper and log live here too."
+  @spec home() :: Path.t()
+  def home do
     Application.get_env(:whiska, :home) ||
       System.get_env("WHISKA_HOME") ||
       Path.join(System.user_home!(), ".whiska")
