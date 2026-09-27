@@ -52,7 +52,7 @@ defmodule Whiska.Install do
   @command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" pre-tool-use|
   @stop_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" stop|
 
-  @shim """
+  @shim_header """
   #!/usr/bin/env bash
   # Whiska's hooks. Takes the hook's name - pre-tool-use or stop - and hands
   # the payload on stdin to `whiska hook <name>`.
@@ -67,6 +67,11 @@ defmodule Whiska.Install do
   # WHISKA_BIN and WHISKA_ESCRIPT override either, and are ignored if they do
   # not point at something runnable.
 
+  """
+
+  # Finding the binary and the runtime is written once and shared with the
+  # statusline script below, so the two never drift apart.
+  @resolve_whiska """
   whiska_bin="${WHISKA_BIN:-}"
   if [ -n "$whiska_bin" ] && [ ! -x "$whiska_bin" ]; then
     whiska_bin=""
@@ -78,6 +83,9 @@ defmodule Whiska.Install do
     whiska_bin="$HOME/.local/bin/whiska"
   fi
 
+  """
+
+  @shim_fail_open """
   # Fail open, loudly. A missing Whiska must never brick every tool call in a
   # session - the same trade Whiska.Hook.PreToolUse makes on a bad payload.
   if [ -z "$whiska_bin" ]; then
@@ -85,6 +93,9 @@ defmodule Whiska.Install do
     exit 0
   fi
 
+  """
+
+  @resolve_escript """
   # An escript begins `#!/usr/bin/env escript`, so it only runs when escript is
   # on PATH. With a version manager in play it is not found at all - and asking
   # the version manager does not help when it is off PATH too, which is exactly
@@ -112,6 +123,9 @@ defmodule Whiska.Install do
     done
   fi
 
+  """
+
+  @shim_exec """
   if [ -n "$escript_bin" ]; then
     exec "$escript_bin" "$whiska_bin" hook "$@"
   fi
@@ -123,6 +137,85 @@ defmodule Whiska.Install do
   fi
   exit 0
   """
+
+  @shim @shim_header <> @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
+
+  @statusline_path ".claude/hooks/whiska-statusline.sh"
+
+  # Claude Code does not set CLAUDE_PROJECT_DIR for the statusline command, only
+  # for hooks; the command runs from the project directory, so the relative path
+  # is the fallback, and the variable is honoured if a later version sets it.
+  @statusline_command ~s|bash "${CLAUDE_PROJECT_DIR:-.}/#{@statusline_path}"|
+
+  @statusline_script """
+                     #!/usr/bin/env bash
+                     # Whiska's project statusline (ADR-0027). A project-level statusLine
+                     # replaces the global one rather than merging with it, so this runs your
+                     # global statusline first and appends what is waiting in this repo's
+                     # house: one open question in detail, a count for more, and whether the
+                     # owl has stopped collecting. Nothing is appended when nothing waits.
+                     #
+                     # Written by `whiska init`. The binary and runtime are resolved the same
+                     # way the hook shim resolves them, at run time, never baked in here.
+
+                     input="$(cat)"
+
+                     global=""
+                     if command -v jq >/dev/null 2>&1 && [ -r "$HOME/.claude/settings.json" ]; then
+                       global="$(jq -r '.statusLine.command // empty' "$HOME/.claude/settings.json" 2>/dev/null)"
+                     fi
+
+                     base=""
+                     case "$global" in
+                       "" | *whiska-statusline.sh*) ;;
+                       *) base="$(printf '%s' "$input" | bash -c "$global" 2>/dev/null)" ;;
+                     esac
+
+                     dir=""
+                     if command -v jq >/dev/null 2>&1; then
+                       dir="$(printf '%s' "$input" | jq -r '.workspace.current_dir // .workspace.project_dir // .cwd // empty' 2>/dev/null)"
+                     fi
+                     [ -d "$dir" ] || dir="$PWD"
+
+                     """ <>
+                       @resolve_whiska <>
+                       @resolve_escript <>
+                       """
+                       segment=""
+                       if [ -n "$whiska_bin" ] && [ -n "$escript_bin" ]; then
+                         segment="$(cd "$dir" && "$escript_bin" "$whiska_bin" statusline 2>/dev/null)"
+                       elif [ -n "$whiska_bin" ]; then
+                         segment="$(cd "$dir" && "$whiska_bin" statusline 2>/dev/null)"
+                       fi
+
+                       if [ -n "$base" ] && [ -n "$segment" ]; then
+                         printf '%s · %s' "$base" "$segment"
+                       else
+                         printf '%s%s' "$base" "$segment"
+                       fi
+                       """
+
+  # One slash-command skill per command (ADR-0022): a thin wrapper around the
+  # fixed `whiska` call, discoverable via /help, so the model never has to
+  # compose the bash itself. Paths are relative to the repo root.
+  @skills [
+    {".claude/skills/whiska-questions/SKILL.md",
+     """
+     ---
+     name: whiska-questions
+     description: List the questions waiting on you from this repo's mice. Use when asked what is open, what is waiting, what the mice need, or on /whiska-questions.
+     ---
+
+     Run exactly this and show its output as it is:
+
+         whiska questions
+
+     To read one question in full, run `whiska questions <id>` with an id from the list.
+
+     Present what it prints faithfully, then stop. Answering is the person's move —
+     never reply to a question, guess an answer, or act on one on their behalf.
+     """}
+  ]
 
   @doc "The Claude Code matcher Whiska registers for."
   @spec matcher() :: String.t()
@@ -159,6 +252,22 @@ defmodule Whiska.Install do
   @spec shim() :: String.t()
   def shim, do: @shim
 
+  @doc "Where the statusline script lives, relative to the repo root."
+  @spec statusline_path() :: Path.t()
+  def statusline_path, do: @statusline_path
+
+  @doc "The statusLine command that goes into `settings.json`; names only the script."
+  @spec statusline_command() :: String.t()
+  def statusline_command, do: @statusline_command
+
+  @doc "The statusline script's contents (ADR-0027)."
+  @spec statusline_script() :: String.t()
+  def statusline_script, do: @statusline_script
+
+  @doc "The slash-command skills `whiska init` writes, as `{path, contents}` (ADR-0022)."
+  @spec skills() :: [{Path.t(), String.t()}]
+  def skills, do: @skills
+
   @doc """
   Merge Whiska's hook into an existing settings map.
 
@@ -181,6 +290,27 @@ defmodule Whiska.Install do
     |> Map.put_new("hooks", %{})
     |> put_ours("PreToolUse", pre_tool_use)
     |> put_ours("Stop", stop)
+    |> put_statusline()
+  end
+
+  # A project statusLine is a single value, not a list, so there is no "beside
+  # the others" here: one that is ours, or missing, is set; one that is somebody
+  # else's is left exactly alone rather than replaced.
+  defp put_statusline(settings) do
+    entry = %{"type" => "command", "command" => @statusline_command}
+
+    case settings["statusLine"] do
+      nil ->
+        Map.put(settings, "statusLine", entry)
+
+      %{"command" => command} when is_binary(command) ->
+        if String.contains?(command, @statusline_path),
+          do: Map.put(settings, "statusLine", entry),
+          else: settings
+
+      _ ->
+        settings
+    end
   end
 
   defp put_ours(settings, event, entry) do

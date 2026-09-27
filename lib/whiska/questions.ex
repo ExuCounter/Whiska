@@ -1,0 +1,173 @@
+defmodule Whiska.Questions do
+  @moduledoc """
+  What is waiting on the person in one house — asked once, shown two ways.
+
+  `whiska questions` and the project statusline both answer "how many questions
+  are open here". The spec has the statusline read the underlying data directly
+  rather than shelling out to the command, so the reading lives here and each
+  caller only renders: `render/1` for the listing, `statusline/1` for the one
+  segment the statusline appends (ADR-0027). A statusline that disagreed with
+  the listing about what is waiting would be worse than either alone.
+
+  Three sources, each asked for what only it knows: the house's open and sent
+  questions (`Whiska.Storage.questions/0`), its orphaned ones — shown apart and
+  never counted, since there is nowhere to reply (ADR-0036) — and the doorstep,
+  whose uncollected entries the database cannot see at all.
+
+  Nothing here writes. A house Whiska has never opened is left unopened; the
+  doorstep is read, never collected — collection is the owl's job (ADR-0036).
+  """
+
+  alias Whiska.Doorstep
+  alias Whiska.Question.Marker
+  alias Whiska.Schema.Mouse
+  alias Whiska.Schema.Question
+  alias Whiska.Storage
+
+  # An entry sitting uncollected longer than the owl's backstop is evidence the
+  # owl is not collecting. Until the owl answers a socket (ADR-0027), age is the
+  # only signal there is; anything younger may just be the normal race between
+  # the two Stop hooks (ADR-0036).
+  @backstop_s 60
+
+  # One listing line has room for a pointer; one statusline segment for less.
+  @pointer_max 80
+  @segment_max 60
+
+  @type summary :: %{
+          open: [Question.t()],
+          orphaned: [Question.t()],
+          doorstep: non_neg_integer(),
+          doorstep_stale: boolean()
+        }
+
+  @doc """
+  Everything waiting in the house whose main checkout this is.
+
+  `open` (open and sent) and `orphaned` come from the database; `doorstep`
+  counts entries the owl has not collected yet, and `doorstep_stale` says
+  whether any has waited past the backstop. A house with no database yet is
+  simply empty — it is not created.
+  """
+  @spec summary(Path.t()) :: {:ok, summary()} | {:error, term()}
+  def summary(main_checkout) do
+    with {:ok, open, orphaned} <- read_house(main_checkout) do
+      waiting = Doorstep.waiting(main_checkout)
+      now = DateTime.utc_now()
+
+      stale =
+        Enum.any?(waiting, fn {_file, entry} ->
+          DateTime.diff(now, entry.stamped_at, :second) > @backstop_s
+        end)
+
+      {:ok, %{open: open, orphaned: orphaned, doorstep: length(waiting), doorstep_stale: stale}}
+    end
+  end
+
+  defp read_house(main_checkout) do
+    if File.exists?(Storage.database_path(main_checkout)) do
+      case Storage.open(main_checkout) do
+        {:ok, handle} ->
+          try do
+            {:ok, Storage.questions(), Storage.orphaned_questions()}
+          after
+            Storage.close(handle)
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      {:ok, [], []}
+    end
+  end
+
+  @doc "What `whiska questions` prints: the open list, then what is not actionable."
+  @spec render(summary()) :: String.t()
+  def render(%{open: open, orphaned: orphaned, doorstep: doorstep}) do
+    open_block =
+      case open do
+        [] -> "Nothing is waiting on you."
+        _ -> Enum.map_join(open, "\n", &line/1)
+      end
+
+    orphaned_block =
+      case orphaned do
+        [] ->
+          nil
+
+        _ ->
+          "#{length(orphaned)} orphaned — the mouse or its worktree is gone, so there is nowhere to reply:\n" <>
+            Enum.map_join(orphaned, "\n", &line/1)
+      end
+
+    doorstep_block =
+      if doorstep > 0,
+        do: "#{doorstep} on the doorstep, not collected yet — is the owl running?"
+
+    [open_block, orphaned_block, doorstep_block]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join("\n\n")
+  end
+
+  @doc "One listing line: id, branch, what the mouse did, its pointer, and where it stands."
+  @spec line(Question.t()) :: String.t()
+  def line(%Question{} = q) do
+    pointer =
+      case Marker.pointer(q.text) do
+        "" -> ""
+        p -> ~s( · "#{String.slice(p, 0, @pointer_max)}")
+      end
+
+    "##{q.id}  #{branch(q)}  #{verb(q.kind)}#{pointer}  (#{state(q)})"
+  end
+
+  @doc "What the mouse did, as words: asked, or merely stopped (ADR-0009)."
+  @spec verb(String.t()) :: String.t()
+  def verb("unmarked"), do: "stopped without saying why"
+  def verb(_), do: "needs a decision"
+
+  @doc "Where a question stands: its status, with the time it was delivered when sent."
+  @spec state(Question.t()) :: String.t()
+  def state(%Question{status: "sent", sent_at: %DateTime{} = at}),
+    do: "sent #{Calendar.strftime(at, "%H:%M")}"
+
+  def state(%Question{status: status}), do: status
+
+  defp branch(%Question{mouse: %Mouse{branch: branch}}) when is_binary(branch), do: branch
+  defp branch(%Question{mouse_id: mouse_id}), do: mouse_id
+
+  @doc """
+  The statusline segment: detail when there is exactly one thing, a count
+  otherwise (ADR-0027). Empty when nothing is waiting, so the line stays clean.
+
+  An owl that is not collecting is reported first, because delivery cannot
+  report its own outage and this line is the one signal that still works.
+  """
+  @spec statusline(summary()) :: String.t()
+  def statusline(%{open: open, doorstep: doorstep, doorstep_stale: stale}) do
+    owl = if stale, do: "🦉 owl down · #{doorstep} waiting"
+
+    cats =
+      case open do
+        [] -> nil
+        [one] -> "🐱 " <> single(one)
+        many -> "🐱 #{length(many)} open"
+      end
+
+    [owl, cats] |> Enum.reject(&is_nil/1) |> Enum.join(" · ")
+  end
+
+  defp single(question) do
+    case Marker.pointer(question.text) do
+      "" -> "#{branch(question)}: ##{question.id}"
+      pointer -> "#{branch(question)}: #{clip(pointer)}"
+    end
+  end
+
+  defp clip(text) do
+    if String.length(text) > @segment_max,
+      do: String.slice(text, 0, @segment_max - 1) <> "…",
+      else: text
+  end
+end

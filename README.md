@@ -17,7 +17,7 @@ the per-repo socket, cross-repo commands, `whiska reopen`, `checks.yml`, push ap
 
 ```
 mix deps.get
-mix test          # 376 tests
+mix test          # 423 tests
 mix escript.build # produces ./whiska
 ```
 
@@ -88,6 +88,32 @@ open questions (ADR-0026). Nothing on disk is ever touched.
 
 herdr is the one boundary with a fake behind it in tests (`Whiska.Herdr`, ADR-0031); the
 real client is checked against an in-test server speaking herdr's wire protocol.
+
+### What is waiting on you
+
+```
+whiska questions       # open and delivered questions, then orphaned, then uncollected
+whiska questions <id>  # one question in full
+whiska statusline      # the segment the project statusline appends
+```
+
+`whiska questions` lists every question still waiting on you — open, or delivered and
+not yet answered — one per line, in delivery's own words:
+
+```
+#12  feat-delivery  needs a decision · "3 questions ready, see above"  (sent 14:32)
+```
+
+Beneath the list, orphaned questions — whose mouse or worktree is gone — are shown apart
+and never counted (ADR-0036), and entries still on the doorstep are counted too, since an
+uncollected doorstep usually means the owl is not running. The listing and the statusline
+read one summary (`Whiska.Questions`), so they cannot disagree about what is waiting.
+
+`whiska init` also installs a project statusline (ADR-0027) and the `/whiska-questions`
+slash command (ADR-0022). The statusline runs your global statusline first and appends
+one segment: `🐱 feat-auth: pick a cache TTL` for one open question, `🐱 3 open` for
+more, `🦉 owl down · 2 waiting` when doorstep entries have sat uncollected past the owl's
+backstop, and nothing when nothing waits.
 
 ### What it does
 

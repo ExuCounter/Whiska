@@ -307,10 +307,25 @@ defmodule Whiska.Storage do
     Repo.one(from(q in Question, where: q.status == "open", select: count(q.id)))
   end
 
-  @doc "Every question still waiting on the person: open and sent, oldest first."
+  @doc """
+  Every question still waiting on the person: open and sent, oldest first, with
+  its mouse loaded. The one query behind `whiska questions` and the statusline's
+  count (ADR-0027).
+  """
   @spec questions() :: [Question.t()]
-  def questions do
-    Repo.all(from(q in Question, where: q.status in ^@waiting, order_by: q.id))
+  def questions, do: questions_with_status(@waiting)
+
+  @doc """
+  Every question nothing can act on any more, oldest first, with its mouse.
+
+  Its mouse died (ADR-0026) or its worktree is gone (ADR-0036). Kept forever
+  (ADR-0007) and shown by `whiska questions`, but never delivered or counted.
+  """
+  @spec orphaned_questions() :: [Question.t()]
+  def orphaned_questions, do: questions_with_status(["orphaned"])
+
+  defp questions_with_status(statuses) do
+    Repo.all(from(q in Question, where: q.status in ^statuses, order_by: q.id, preload: [:mouse]))
   end
 
   @doc "A question has been delivered to the main session."

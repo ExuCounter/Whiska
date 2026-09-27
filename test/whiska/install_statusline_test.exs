@@ -1,0 +1,100 @@
+defmodule Whiska.InstallStatuslineTest do
+  @moduledoc """
+  What `whiska init` adds for questions: the project statusline (ADR-0027) and
+  the `/whiska-questions` slash-command skill (ADR-0022).
+  """
+  use ExUnit.Case, async: false
+
+  import ExUnit.CaptureIO
+
+  alias Whiska.CLI
+  alias Whiska.Install
+
+  setup do
+    root = Path.join(System.tmp_dir!(), "whiska-inst-#{System.unique_integer([:positive])}")
+    main = Path.join(root, "myrepo")
+    File.mkdir_p!(Path.join(main, ".git"))
+    on_exit(fn -> File.rm_rf!(root) end)
+    {:ok, main: main}
+  end
+
+  describe "merge/1 — the statusLine entry" do
+    test "adds a project statusLine that runs the checked-in script" do
+      merged = Install.merge(%{})
+
+      assert %{"type" => "command", "command" => command} = merged["statusLine"]
+      assert command =~ Install.statusline_path()
+      refute command =~ System.user_home!()
+    end
+
+    test "leaves a statusLine that is not ours alone" do
+      mine = %{"type" => "command", "command" => "bash mine.sh"}
+      assert Install.merge(%{"statusLine" => mine})["statusLine"] == mine
+    end
+
+    test "replaces an older one of ours" do
+      old = %{
+        "type" => "command",
+        "command" => "bash \"$CLAUDE_PROJECT_DIR/#{Install.statusline_path()}\" old"
+      }
+
+      assert Install.merge(%{"statusLine" => old})["statusLine"] ==
+               Install.merge(%{})["statusLine"]
+    end
+  end
+
+  describe "statusline_script/0" do
+    test "runs the global statusline first and appends to it (ADR-0027)" do
+      script = Install.statusline_script()
+
+      assert script =~ ~r/\A#!/
+      assert script =~ "statusLine.command"
+      assert script =~ "whiska"
+      assert script =~ "statusline"
+    end
+
+    test "resolves the binary and runtime exactly as the hook shim does" do
+      # Written once: the shim's resolution block is the statusline's too.
+      assert Install.statusline_script() =~ "WHISKA_BIN"
+      assert Install.statusline_script() =~ "command -v escript"
+    end
+
+    test "never recurses into itself if the global statusline is this script" do
+      assert Install.statusline_script() =~ Path.basename(Install.statusline_path())
+    end
+  end
+
+  describe "skills/0 — one slash command per command (ADR-0022)" do
+    test "installs /whiska-questions as a thin wrapper around the fixed command" do
+      assert {path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-questions/SKILL.md", 0)
+
+      assert path =~ "whiska-questions"
+      assert body =~ "name: whiska-questions"
+      assert body =~ "whiska questions"
+    end
+  end
+
+  describe "whiska init writes them" do
+    test "the statusline script, executable, and the skill", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      script = Path.join(main, Install.statusline_path())
+      assert File.read!(script) == Install.statusline_script()
+      assert Bitwise.band(File.stat!(script).mode, 0o100) != 0
+
+      for {path, body} <- Install.skills() do
+        assert File.read!(Path.join(main, path)) == body
+      end
+
+      settings = JSON.decode!(File.read!(Path.join(main, ".claude/settings.json")))
+      assert settings["statusLine"]["command"] =~ Install.statusline_path()
+    end
+
+    test "the shim itself is unchanged by this", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+      assert File.read!(Path.join(main, Install.shim_path())) == Install.shim()
+      assert Install.shim() =~ ~s(hook "$@")
+    end
+  end
+end
