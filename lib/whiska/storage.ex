@@ -16,8 +16,12 @@ defmodule Whiska.Storage do
 
   alias Whiska.Repo
   alias Whiska.Schema.Mouse
+  alias Whiska.Schema.Question
 
-  @migrations [{1, Whiska.Migrations.V001CreateMiceAndQuestions}]
+  @migrations [
+    {1, Whiska.Migrations.V001CreateMiceAndQuestions},
+    {2, Whiska.Migrations.V002OwlCollection}
+  ]
 
   @modes ~w(build sniff)
 
@@ -30,11 +34,17 @@ defmodule Whiska.Storage do
 
   @doc """
   Open the house, creating and migrating it if this is its first invocation.
+
+  The owl keeps many houses open at once (ADR-0001), each on its own Repo
+  instance, so `name:` picks the instance. The calling process is pointed at
+  it (`point_at/1`); every house process opens its own and never has to think about
+  it again. The CLI leaves the default, and there is one house per VM.
   """
-  @spec open(Path.t()) :: {:ok, pid()} | {:error, term()}
-  def open(main_checkout) do
+  @spec open(Path.t(), keyword()) :: {:ok, pid()} | {:error, term()}
+  def open(main_checkout, opts \\ []) do
     path = database_path(main_checkout)
     File.mkdir_p!(Path.dirname(path))
+    name = Keyword.get(opts, :name, Repo)
 
     # An escript cannot ship SQLite's native library inside itself; see
     # Whiska.BundledNIF for the whole story. Has to happen before anything
@@ -43,10 +53,18 @@ defmodule Whiska.Storage do
     with {:ok, _} <- Whiska.BundledNIF.ensure_loadable(),
          {:ok, _} <- Application.ensure_all_started(:ecto_sql),
          {:ok, _} <- Application.ensure_all_started(:ecto_sqlite3),
-         {:ok, pid} <- Repo.start_link(repo_opts(path)) do
+         {:ok, pid} <- Repo.start_link([name: name] ++ repo_opts(path)) do
+      point_at(name)
       migrate()
       {:ok, pid}
     end
+  end
+
+  @doc "Point this process at one house's Repo instance (a dynamic repo)."
+  @spec point_at(atom() | pid()) :: :ok
+  def point_at(name) do
+    Repo.put_dynamic_repo(name)
+    :ok
   end
 
   @doc """
@@ -151,6 +169,89 @@ defmodule Whiska.Storage do
         |> Ecto.Changeset.change(%{mode: mode})
         |> Repo.update()
     end
+  end
+
+  @doc "One mouse, or nil."
+  @spec mouse(String.t()) :: Mouse.t() | nil
+  def mouse(mouse_id), do: Repo.get(Mouse, mouse_id)
+
+  @doc "One question, or nil."
+  @spec question(integer()) :: Question.t() | nil
+  def question(id), do: Repo.get(Question, id)
+
+  @doc "Every mouse not marked dead, oldest first."
+  @spec alive_mice() :: [Mouse.t()]
+  def alive_mice do
+    Repo.all(from(m in Mouse, where: is_nil(m.died_at), order_by: m.created_at))
+  end
+
+  @doc """
+  Record the pane herdr reports for a mouse.
+
+  A pane running Claude in the worktree is a live mouse by definition, so this
+  also clears `died_at` — the case where a pane died and a new one was started
+  on the same worktree by hand.
+  """
+  @spec set_pane(String.t(), String.t()) ::
+          {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def set_pane(mouse_id, pane) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      mouse ->
+        mouse
+        |> Ecto.Changeset.change(%{pane: pane, died_at: nil})
+        |> Repo.update()
+    end
+  end
+
+  @doc """
+  Mark a mouse dead: its pane is gone (ADR-0026).
+
+  The row stays (ADR-0007). Its still-open questions cascade to `orphaned`
+  rather than sitting open forever; anything already sent, answered or closed
+  is history and is left alone. Marking an already-dead mouse changes nothing.
+  """
+  @spec mark_dead(String.t()) :: {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def mark_dead(mouse_id) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      %Mouse{died_at: %DateTime{}} = mouse ->
+        {:ok, mouse}
+
+      mouse ->
+        Repo.transaction(fn ->
+          Repo.update_all(
+            from(q in Question, where: q.mouse_id == ^mouse_id and q.status == "open"),
+            set: [status: "orphaned"]
+          )
+
+          mouse
+          |> Ecto.Changeset.change(%{died_at: now()})
+          |> Repo.update!()
+        end)
+    end
+  end
+
+  @doc """
+  Record a question the owl collected from the doorstep (ADR-0036).
+
+  `status` defaults to `open`; a `done` report passes `closed` so it is never
+  delivered (ADR-0009). Kind and status are checked against the lists on
+  `Whiska.Schema.Question`, so nothing unclassifiable is stored.
+  """
+  @spec record_question(map()) :: {:ok, Question.t()} | {:error, Ecto.Changeset.t()}
+  def record_question(attrs) do
+    %Question{}
+    |> Ecto.Changeset.cast(attrs, [:mouse_id, :text, :kind, :status, :asked_at])
+    |> Ecto.Changeset.put_change(:asked_at, Map.get(attrs, :asked_at) || now())
+    |> Ecto.Changeset.validate_required([:mouse_id, :text, :kind, :status])
+    |> Ecto.Changeset.validate_inclusion(:kind, Question.kinds())
+    |> Ecto.Changeset.validate_inclusion(:status, Question.statuses())
+    |> Repo.insert()
   end
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)

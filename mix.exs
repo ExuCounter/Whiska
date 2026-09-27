@@ -30,7 +30,9 @@ defmodule Whiska.MixProject do
   defp deps do
     [
       {:ecto_sql, "~> 3.12"},
-      {:ecto_sqlite3, "~> 0.17"}
+      {:ecto_sqlite3, "~> 0.17"},
+      # The herdr boundary is the one place mocking is allowed (ADR-0031).
+      {:mox, "~> 1.2", only: :test}
     ]
   end
 end

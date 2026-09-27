@@ -7,15 +7,19 @@ defmodule Whiska.Schema.Question do
   question's id rather than a branch (ADR-0005), which is what stops an answer
   landing on whichever question Whiska happened to guess.
 
-  v0.0.1 has no rule that writes a meaningful row here — its one rule denies
-  rather than asks — but the table carries its final schema from day one so
-  nothing changes shape when the owl arrives (ADR-0030).
+  Rows are written by collection (ADR-0036): the owl reads a doorstep entry,
+  classifies it by its marker (ADR-0009), and records it here.
   """
 
   use Ecto.Schema
 
-  @statuses ~w(open sent answered orphaned)
-  @kinds ~w(needs-decision done)
+  # `closed` is a `done` report: closed on arrival, never delivered (ADR-0009).
+  # `orphaned` is a question nothing can act on any more — its mouse died
+  # (ADR-0026) or its worktree is gone (ADR-0036).
+  @statuses ~w(open sent answered orphaned closed)
+  # `unmarked` is a turn that ended with no marker at all, which is delivered
+  # like a question but recorded as such (ADR-0009).
+  @kinds ~w(needs-decision done unmarked)
 
   schema "questions" do
     belongs_to(:mouse, Whiska.Schema.Mouse,

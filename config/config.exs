@@ -12,3 +12,9 @@ config :whiska, Whiska.Repo,
   # Migrations are handed to Ecto.Migrator as compiled modules; see
   # Whiska.Migrations.V001CreateMiceAndQuestions for why.
   log: false
+
+# The one external boundary: talking to herdr (ADR-0031). Tests swap in a Mox
+# fake; see config/test.exs.
+config :whiska, :herdr, Whiska.Herdr.Socket
+
+import_config "#{config_env()}.exs"

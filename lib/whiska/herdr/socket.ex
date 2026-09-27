@@ -1,0 +1,138 @@
+defmodule Whiska.Herdr.Socket do
+  @moduledoc """
+  The real herdr client: newline-delimited JSON over herdr's Unix socket.
+
+  Two facts about the wire, both checked against herdr 0.8.2:
+
+  - A plain request gets one reply and herdr then closes the connection, so
+    every request opens its own.
+  - `events.subscribe` is different: the reply is `subscription_started` and
+    the connection stays open, streaming one `{"event": ..., "data": ...}` line
+    per event. That connection is held by a process of its own, which forwards
+    events to the listener and dies when herdr hangs up.
+  """
+
+  @behaviour Whiska.Herdr
+
+  @connect_timeout 2_000
+  @reply_timeout 5_000
+
+  @impl true
+  def list_panes(socket) do
+    with {:ok, %{"result" => %{"panes" => panes}}} when is_list(panes) <-
+           request(socket, "pane.list", %{}) do
+      {:ok, Enum.map(panes, &pane/1)}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp pane(raw) do
+    %{
+      pane_id: raw["pane_id"],
+      cwd: raw["cwd"],
+      agent: raw["agent"],
+      agent_status: raw["agent_status"] || "unknown"
+    }
+  end
+
+  @impl true
+  def subscribe(socket, subscriptions, listener) do
+    parent = self()
+    ref = make_ref()
+
+    pid =
+      spawn_link(fn ->
+        case open_subscription(socket, subscriptions) do
+          {:ok, conn} ->
+            send(parent, {ref, :ok})
+            stream(conn, listener)
+
+          {:error, reason} ->
+            send(parent, {ref, {:error, reason}})
+        end
+      end)
+
+    receive do
+      {^ref, :ok} -> {:ok, pid}
+      {^ref, {:error, reason}} -> {:error, reason}
+    after
+      @connect_timeout + @reply_timeout -> {:error, :timeout}
+    end
+  end
+
+  defp open_subscription(socket, subscriptions) do
+    params = %{"subscriptions" => Enum.map(subscriptions, &stringify/1)}
+
+    with {:ok, conn} <- connect(socket),
+         :ok <- send_request(conn, "events.subscribe", params),
+         {:ok, %{"result" => %{"type" => "subscription_started"}}} <- read_line(conn) do
+      {:ok, conn}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp stream(conn, listener) do
+    case :gen_tcp.recv(conn, 0) do
+      {:ok, line} ->
+        case JSON.decode(line) do
+          {:ok, %{"event" => name, "data" => data}} -> send(listener, {:herdr_event, name, data})
+          _ -> :ok
+        end
+
+        stream(conn, listener)
+
+      {:error, reason} ->
+        # Linked to the listener so it cannot outlive the house — which means
+        # the exit has to be normal, or losing herdr would take the house down
+        # with it instead of letting it resubscribe.
+        send(listener, {:herdr_subscription_lost, reason})
+        exit(:normal)
+    end
+  end
+
+  defp request(socket, method, params) do
+    with {:ok, conn} <- connect(socket) do
+      try do
+        with :ok <- send_request(conn, method, params) do
+          read_line(conn)
+        end
+      after
+        :gen_tcp.close(conn)
+      end
+    end
+  end
+
+  defp connect(socket) do
+    :gen_tcp.connect(
+      {:local, socket},
+      0,
+      [:binary, packet: :line, active: false],
+      @connect_timeout
+    )
+  end
+
+  defp send_request(conn, method, params) do
+    id = "whiska:#{System.unique_integer([:positive])}"
+
+    :gen_tcp.send(
+      conn,
+      JSON.encode!(%{"id" => id, "method" => method, "params" => params}) <> "\n"
+    )
+  end
+
+  defp read_line(conn) do
+    with {:ok, line} <- :gen_tcp.recv(conn, 0, @reply_timeout) do
+      case JSON.decode(line) do
+        {:ok, %{"error" => error}} -> {:error, {:herdr, error}}
+        {:ok, reply} -> {:ok, reply}
+        {:error, reason} -> {:error, {:bad_json, reason}}
+      end
+    end
+  end
+
+  defp stringify(map), do: Map.new(map, fn {k, v} -> {to_string(k), v} end)
+end

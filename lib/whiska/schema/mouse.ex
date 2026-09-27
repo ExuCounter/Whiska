@@ -14,12 +14,16 @@ defmodule Whiska.Schema.Mouse do
   @derive {Inspect, only: [:mouse_id, :branch, :mode]}
 
   schema "mice" do
-    # Set once herdr is in the picture; v0.0.1 never talks to herdr (ADR-0030).
+    # The herdr pane hosting this mouse, found by matching the pane's cwd to
+    # `path` when the house opens or the pane's agent is detected.
     field(:pane, :string)
     field(:path, :string)
     field(:branch, :string)
     # Stored from day one, read by nothing in v0.0.1 (ADR-0018, ADR-0030).
     field(:mode, :string, default: "build")
     field(:created_at, :utc_datetime)
+    # Set when herdr reports the pane gone (ADR-0026); cleared if a pane comes
+    # back on the same worktree. Never a reason to delete the row (ADR-0007).
+    field(:died_at, :utc_datetime)
   end
 end
