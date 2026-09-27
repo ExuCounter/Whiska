@@ -32,6 +32,28 @@ defmodule Whiska.Herdr.Socket do
     end
   end
 
+  @impl true
+  def pane(socket, pane_id) do
+    with {:ok, %{"result" => %{"pane" => raw}}} when is_map(raw) <-
+           request(socket, "pane.get", %{"pane_id" => pane_id}) do
+      {:ok, pane(raw)}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  @impl true
+  def prompt(socket, pane_id, text) do
+    with {:ok, %{"result" => _}} <-
+           request(socket, "agent.prompt", %{"target" => pane_id, "text" => text}) do
+      :ok
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
   defp pane(raw) do
     %{
       pane_id: raw["pane_id"],

@@ -32,8 +32,24 @@ A message a mouse sends when it finishes a turn. Most are real questions — the
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
 **unmarked** question: delivered like any other, recorded as having arrived unmarked. The
 one exception is a `done` report: it's closed on arrival, never delivered, never answered
-— a question in name and storage only, not in behavior.
+— a question in name and storage only, not in behavior. A question is **open** while it
+waits in the queue, **sent** once delivered and waiting for its answer, then **answered**;
+**superseded** when its own mouse asked a newer one, **closed** by hand or as a `done`
+report, **orphaned** when nothing can act on it (its mouse died, its worktree is gone).
 _Avoid_: report, event (as the table/record name)
+
+**Main session**:
+The one herdr pane per house that questions are delivered to — the person's own Claude
+Code session in the main checkout, recorded by `whiska start` from the pane it is run in.
+A house has at most one; nothing is delivered until one is recorded.
+_Avoid_: primary, parent, captain
+
+**Delivery**:
+The owl typing one question's line into the main session — only when that pane is idle
+and no other question is already sent. A queue, not a batch: the next question goes when
+the previous one is answered (or superseded, or closed) and the session is idle again.
+What is typed is a one-line pointer with the id; the full text is `whiska questions <id>`.
+_Avoid_: notify, ping, relay (the old bash mechanism), push
 
 **Build mode**:
 A mouse mode that produces a real code change. Edits confined to its own worktree,

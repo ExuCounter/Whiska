@@ -28,16 +28,36 @@ defmodule Whiska.Owl.House do
   house, and a slow backstop. Each one reads the doorstep, records every entry as
   a question — classified by its marker alone (ADR-0009) — and marks the entry
   collected. A `done` report is closed on arrival; an entry whose worktree is no
-  longer on disk is recorded as orphaned rather than delivered.
+  longer on disk is recorded as orphaned rather than delivered. Whatever a mouse
+  leaves supersedes its own earlier open or sent questions: it has moved past
+  them, and an answer could no longer land.
+
+  ## Delivery (ADR-0008)
+
+  A question reaches the main session — the pane `whiska start` recorded
+  (ADR-0020) — only when that pane runs Claude and reports idle, and no other
+  question is already out waiting for its answer. Anything else joins the queue
+  silently. The one exception is the first question of a fresh round, which
+  waits `round_wait_ms` (8 s) so that the line it delivers carries an accurate
+  count of what landed just behind it. Delivery is attempted after every
+  collection, whenever herdr reports the main pane idle, and on the backstop.
+
+  herdr's word is taken fresh at each attempt (`pane.get`), not from the last
+  event: `claude` + `idle` delivers; `working` or `blocked` holds; `claude` +
+  `unknown` delivers anyway and says so in the line, since holding would be
+  silence with no explanation; no agent at all is a dead pane, held with a
+  warning. What is typed is one line (`Whiska.Delivery.Text`), not the message.
   """
 
   use GenServer
 
+  alias Whiska.Delivery.Text
   alias Whiska.Doorstep
   alias Whiska.Herdr
   alias Whiska.Layout
   alias Whiska.Question.Marker
   alias Whiska.Schema.Mouse
+  alias Whiska.Schema.Question
   alias Whiska.Storage
 
   @global_subscriptions [
@@ -48,6 +68,7 @@ defmodule Whiska.Owl.House do
 
   @default_backstop_ms 60_000
   @default_resubscribe_ms 5_000
+  @default_round_wait_ms 8_000
 
   defstruct [
     :main_checkout,
@@ -56,8 +77,12 @@ defmodule Whiska.Owl.House do
     :repo,
     :backstop_ms,
     :resubscribe_ms,
+    :round_wait_ms,
     subscription: nil,
-    panes: %{}
+    panes: %{},
+    main_pane: nil,
+    round_timer: nil,
+    warned: MapSet.new()
   ]
 
   # -- API ---------------------------------------------------------------------
@@ -66,7 +91,8 @@ defmodule Whiska.Owl.House do
   Open a house.
 
   Options: `:main_checkout` (required), `:herdr_socket` (defaults to
-  `HERDR_SOCKET_PATH`), `:backstop_ms`, `:resubscribe_ms`, `:name`.
+  `HERDR_SOCKET_PATH`), `:backstop_ms`, `:resubscribe_ms`, `:round_wait_ms`,
+  `:name`.
   """
   def start_link(opts) do
     {name, opts} = Keyword.pop(opts, :name)
@@ -110,7 +136,9 @@ defmodule Whiska.Owl.House do
           herdr: Herdr.impl(),
           repo: repo,
           backstop_ms: Keyword.get(opts, :backstop_ms, @default_backstop_ms),
-          resubscribe_ms: Keyword.get(opts, :resubscribe_ms, @default_resubscribe_ms)
+          resubscribe_ms: Keyword.get(opts, :resubscribe_ms, @default_resubscribe_ms),
+          round_wait_ms: Keyword.get(opts, :round_wait_ms, @default_round_wait_ms),
+          main_pane: Storage.main_pane()
         }
 
         {:ok, state, {:continue, :open}}
@@ -126,8 +154,8 @@ defmodule Whiska.Owl.House do
       state
       |> reconcile_panes()
       |> subscribe()
+      |> collect_now()
 
-    collect_doorstep(state)
     Process.send_after(self(), :backstop, state.backstop_ms)
     {:noreply, state}
   end
@@ -142,7 +170,11 @@ defmodule Whiska.Owl.House do
   # -- calls -------------------------------------------------------------------
 
   @impl true
-  def handle_call(:collect, _from, state), do: {:reply, {:ok, collect_doorstep(state)}, state}
+  def handle_call(:collect, _from, state) do
+    {collected, state} = collect_and_count(state)
+    {:reply, {:ok, collected}, state}
+  end
+
   def handle_call(:reconcile, _from, state), do: {:reply, :ok, refresh(state)}
   def handle_call(:sync, _from, state), do: {:reply, :ok, state}
   def handle_call(:repo, _from, state), do: {:reply, state.repo, state}
@@ -152,12 +184,21 @@ defmodule Whiska.Owl.House do
 
   @impl true
   def handle_info({:herdr_event, "pane_agent_status_changed", data}, state) do
-    with %{"pane_id" => pane_id, "agent_status" => "idle"} <- data,
-         true <- Map.has_key?(state.panes, pane_id) do
-      collect_doorstep(state)
-    end
+    case data do
+      %{"pane_id" => pane_id, "agent_status" => status}
+      when status in ["idle", "done"] and pane_id == state.main_pane and pane_id != nil ->
+        # The person is free: the next question can go, unless a fresh round is
+        # still gathering its count.
+        {:noreply, deliver(state)}
 
-    {:noreply, state}
+      %{"pane_id" => pane_id, "agent_status" => "idle"} ->
+        if Map.has_key?(state.panes, pane_id),
+          do: {:noreply, collect_now(state)},
+          else: {:noreply, state}
+
+      _ ->
+        {:noreply, state}
+    end
   end
 
   def handle_info({:herdr_event, gone, %{"pane_id" => pane_id}}, state)
@@ -186,10 +227,13 @@ defmodule Whiska.Owl.House do
   def handle_info(:resubscribe, state), do: {:noreply, subscribe(state)}
 
   def handle_info(:backstop, state) do
-    state = refresh(state)
-    collect_doorstep(state)
+    state = state |> refresh() |> collect_now() |> deliver()
     Process.send_after(self(), :backstop, state.backstop_ms)
     {:noreply, state}
+  end
+
+  def handle_info(:round_over, state) do
+    {:noreply, deliver(%{state | round_timer: nil})}
   end
 
   # The subscription process ending normally has already been announced by its
@@ -205,11 +249,13 @@ defmodule Whiska.Owl.House do
 
   # -- panes and the subscription ----------------------------------------------
 
-  # Re-list panes and, if the set of mouse panes changed, reopen the subscription.
+  # Re-list panes, re-read the main session, and reopen the subscription if
+  # the set of panes to watch changed.
   defp refresh(state) do
-    before = state.panes
-    state = reconcile_panes(state)
-    if Map.keys(state.panes) == Map.keys(before), do: state, else: resubscribe(state)
+    before = {Map.keys(state.panes), state.main_pane}
+    state = %{reconcile_panes(state) | main_pane: Storage.main_pane()}
+    after_ = {Map.keys(state.panes), state.main_pane}
+    if after_ == before, do: state, else: resubscribe(state)
   end
 
   defp reconcile_panes(%{socket: nil} = state) do
@@ -249,8 +295,10 @@ defmodule Whiska.Owl.House do
   end
 
   defp subscriptions(state) do
+    watched = Map.keys(state.panes) ++ List.wrap(state.main_pane)
+
     @global_subscriptions ++
-      for pane_id <- Map.keys(state.panes),
+      for pane_id <- Enum.uniq(watched),
           do: %{type: "pane.agent_status_changed", pane_id: pane_id}
   end
 
@@ -286,10 +334,32 @@ defmodule Whiska.Owl.House do
 
   # -- collection --------------------------------------------------------------
 
-  defp collect_doorstep(state) do
-    state.main_checkout
-    |> Doorstep.waiting()
-    |> Enum.count(fn {file, entry} -> collect_entry(state, file, entry) end)
+  defp collect_now(state), do: state |> collect_and_count() |> elem(1)
+
+  # Collect the doorstep, then decide how delivery follows. A fresh round —
+  # nothing was open and nothing is out — earns the one wait ADR-0008 allows;
+  # anything else is attempted at once, and the gate decides.
+  defp collect_and_count(state) do
+    fresh_round? = Storage.open_count() == 0 and Storage.sent() == nil
+
+    collected =
+      state.main_checkout
+      |> Doorstep.waiting()
+      |> Enum.count(fn {file, entry} -> collect_entry(state, file, entry) end)
+
+    state =
+      cond do
+        collected == 0 -> state
+        state.round_timer != nil -> state
+        fresh_round? -> start_round(state)
+        true -> deliver(state)
+      end
+
+    {collected, state}
+  end
+
+  defp start_round(state) do
+    %{state | round_timer: Process.send_after(self(), :round_over, state.round_wait_ms)}
   end
 
   defp collect_entry(state, file, entry) do
@@ -308,7 +378,7 @@ defmodule Whiska.Owl.House do
              path: entry.worktree_root,
              branch: entry.branch
            }),
-         {:ok, _} <-
+         {:ok, question} <-
            Storage.record_question(%{
              mouse_id: entry.mouse_id,
              text: entry.text,
@@ -316,6 +386,7 @@ defmodule Whiska.Owl.House do
              status: status,
              asked_at: DateTime.truncate(entry.stamped_at, :second)
            }),
+         {:ok, _} <- Storage.supersede_earlier(question),
          {:ok, _} <- Doorstep.mark_collected(file) do
       true
     else
@@ -324,6 +395,103 @@ defmodule Whiska.Owl.House do
         # nothing is lost in the meantime.
         warn(state, "could not collect #{Path.basename(file)} (#{inspect(reason)})")
         false
+    end
+  end
+
+  # -- delivery (ADR-0008) -----------------------------------------------------
+
+  # The gate. Every branch that holds returns the state unchanged, so calling
+  # this on every trigger is safe; only a delivery changes anything.
+  defp deliver(%{round_timer: timer} = state) when timer != nil, do: state
+
+  defp deliver(%{main_pane: nil} = state) do
+    if Storage.open_count() > 0 do
+      warn_once(
+        state,
+        :no_main,
+        "questions are waiting but no main session is recorded — " <>
+          "run `whiska start` in the main session's pane"
+      )
+    else
+      state
+    end
+  end
+
+  defp deliver(state) do
+    with nil <- Storage.sent(),
+         %Question{} = question <- Storage.next_open(),
+         {:go, notes} <- main_session_free?(state) do
+      send_question(state, question, notes)
+    else
+      _ -> state
+    end
+  end
+
+  defp main_session_free?(%{socket: nil} = state),
+    do: warn_once(state, :no_socket, "no herdr socket known — cannot deliver")
+
+  defp main_session_free?(state) do
+    case state.herdr.pane(state.socket, state.main_pane) do
+      {:ok, %{agent: "claude", agent_status: status}} when status in ["idle", "done"] ->
+        {:go, []}
+
+      {:ok, %{agent: "claude", agent_status: "unknown"}} ->
+        {:go, [:status_unknown]}
+
+      {:ok, %{agent: "claude"}} ->
+        :hold
+
+      {:ok, %{agent: nil}} ->
+        warn_once(
+          state,
+          :main_dead,
+          "the main session's pane #{state.main_pane} is not running Claude — " <>
+            "questions are held; run `whiska start` where it is"
+        )
+
+      {:ok, %{agent: other}} ->
+        warn_once(state, :main_dead, "the main session's pane runs #{other}, not Claude — held")
+
+      {:error, reason} ->
+        warn_once(
+          state,
+          :main_lookup,
+          "could not ask herdr about the main pane (#{inspect(reason)})"
+        )
+    end
+  end
+
+  defp send_question(state, question, notes) do
+    branch = branch_of(question.mouse_id)
+    line = Text.compose(question, branch, Storage.open_count() - 1, notes)
+
+    case state.herdr.prompt(state.socket, state.main_pane, line) do
+      :ok ->
+        {:ok, _} = Storage.mark_sent(question.id)
+        %{state | warned: MapSet.new()}
+
+      {:error, reason} ->
+        # Stays open; the next trigger tries again.
+        warn(state, "could not deliver ##{question.id} (#{inspect(reason)}) — will retry")
+        state
+    end
+  end
+
+  defp branch_of(mouse_id) do
+    case Storage.mouse(mouse_id) do
+      %Mouse{branch: branch} when is_binary(branch) -> branch
+      _ -> mouse_id
+    end
+  end
+
+  # A held delivery is retried on every trigger; the reason is worth one line,
+  # not one per minute. The set is cleared by the next successful delivery.
+  defp warn_once(state, key, message) do
+    if MapSet.member?(state.warned, key) do
+      state
+    else
+      warn(state, message)
+      %{state | warned: MapSet.put(state.warned, key)}
     end
   end
 

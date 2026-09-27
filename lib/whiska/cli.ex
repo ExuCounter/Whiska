@@ -14,6 +14,9 @@ defmodule Whiska.CLI do
   alias Whiska.Install
   alias Whiska.Layout
   alias Whiska.Marker
+  alias Whiska.Question.Marker, as: QuestionMarker
+  alias Whiska.Schema.Mouse
+  alias Whiska.Schema.Question
   alias Whiska.Storage
 
   @version Mix.Project.config()[:version]
@@ -37,6 +40,25 @@ defmodule Whiska.CLI do
     init                 Write Whiska's PreToolUse hook into this repo's own
                          .claude/settings.json, so the rules travel with the
                          repo. Safe to re-run.
+
+    start [--force]      Record the herdr pane this is run from as the main
+                         session for this repo: where the owl delivers
+                         questions. Run it in the main checkout, from the
+                         pane your main Claude Code session lives in — from
+                         inside that session, `! whiska start` does it.
+                         Refuses to replace a main session still running
+                         Claude unless --force. Does not launch Claude Code
+                         itself yet.
+
+    questions [<id>]     What is waiting on you: one line per open or
+                         delivered question. With an id, that question in
+                         full.
+
+    reply <id> <text>    Answer a question. The text is typed into that
+                         mouse's pane, and the question is marked answered.
+
+    close <id>           Settle a question by hand, with no answer — for one
+                         you dealt with some other way.
 
     mode                 Print this mouse's mode.
     mode build|sniff     Set it. A build mouse makes changes, confined to its
@@ -79,6 +101,18 @@ defmodule Whiska.CLI do
   end
 
   def run(["init"], cwd), do: init(cwd || File.cwd!())
+
+  def run(["start" | flags], cwd) when flags in [[], ["--force"]],
+    do: start(cwd || File.cwd!(), flags == ["--force"])
+
+  def run(["questions"], cwd), do: with_house(cwd, fn -> list_questions() end)
+
+  def run(["questions", id], cwd), do: with_question(cwd, id, &show_question/1)
+
+  def run(["reply", id, first | rest], cwd),
+    do: with_question(cwd, id, &reply(&1, Enum.join([first | rest], " ")))
+
+  def run(["close", id], cwd), do: with_question(cwd, id, &close/1)
 
   def run(["mode"], cwd), do: with_mouse(cwd, &show_mode/2)
 
@@ -350,12 +384,278 @@ defmodule Whiska.CLI do
         {:ok, layout} = Layout.resolve(path)
         {:ok, layout.main_checkout}
 
-      File.exists?(Path.join(path, ".git")) ->
-        {:ok, path}
-
       true ->
-        :error
+        case find_main_checkout(path) do
+          {:ok, main} -> {:ok, main}
+          {:error, _} -> :error
+        end
     end
+  end
+
+  # -- the main session (ADR-0020) --------------------------------------------
+
+  defp start(cwd, force?) do
+    with {:ok, pane} <- current_pane(),
+         {:ok, main} <- main_checkout_only(cwd) do
+      with_house(main, fn ->
+        case Storage.main_pane() do
+          ^pane ->
+            say("#{pane} is already the main session for #{Path.basename(main)}.")
+
+          nil ->
+            record_main(main, pane)
+
+          other ->
+            if force? or not running_claude?(other),
+              do: record_main(main, pane),
+              else: refuse_to_replace(other)
+        end
+      end)
+    else
+      {:error, :no_pane} ->
+        fail("""
+        whiska: not inside a herdr pane (HERDR_PANE_ID is not set).
+
+        The main session is a herdr pane (ADR-0020); run this from the pane your
+        main Claude Code session lives in.
+        """)
+
+      {:error, :in_worktree} ->
+        fail("""
+        whiska: this is a worktree, and the main session lives in the main checkout.
+
+        Run `whiska start` from the main checkout's pane instead.
+        """)
+
+      {:error, :not_a_repo} ->
+        fail("whiska: not inside a git checkout.")
+    end
+  end
+
+  defp record_main(main, pane) do
+    :ok = Storage.set_main_pane(pane)
+
+    say(
+      "Recorded #{pane} as the main session for #{Path.basename(main)}. " <>
+        "Questions from its mice will be delivered here."
+    )
+  end
+
+  defp refuse_to_replace(other) do
+    fail("""
+    whiska: #{other} is already this repo's main session, and is still running Claude.
+
+    Two main sessions would fight over the same questions. If that one is stale,
+    or you mean to move the main session here, run `whiska start --force`.
+    """)
+  end
+
+  defp running_claude?(pane) do
+    case Herdr.socket_path() do
+      nil ->
+        false
+
+      socket ->
+        match?({:ok, %{agent: "claude"}}, Herdr.impl().pane(socket, pane))
+    end
+  end
+
+  defp current_pane do
+    case System.get_env("HERDR_PANE_ID") do
+      pane when is_binary(pane) and pane != "" -> {:ok, pane}
+      _ -> {:error, :no_pane}
+    end
+  end
+
+  # The main checkout this directory belongs to, refusing a worktree outright.
+  defp main_checkout_only(cwd) do
+    cond do
+      match?({:ok, _}, Layout.resolve(cwd)) -> {:error, :in_worktree}
+      true -> find_main_checkout(cwd)
+    end
+  end
+
+  # Walk up from `cwd` to the nearest directory holding a `.git`.
+  defp find_main_checkout(cwd) do
+    cwd
+    |> Path.expand()
+    |> Stream.unfold(fn
+      nil -> nil
+      "/" -> {"/", nil}
+      dir -> {dir, Path.dirname(dir)}
+    end)
+    |> Enum.find_value({:error, :not_a_repo}, fn dir ->
+      if File.exists?(Path.join(dir, ".git")), do: {:ok, dir}
+    end)
+  end
+
+  # -- questions ----------------------------------------------------------------
+
+  defp list_questions do
+    case Storage.questions() do
+      [] ->
+        say("Nothing is waiting on you.")
+
+      questions ->
+        questions
+        |> Enum.map_join("\n", &question_line/1)
+        |> say()
+    end
+  end
+
+  defp question_line(%Question{} = q) do
+    pointer =
+      case QuestionMarker.pointer(q.text) do
+        "" -> ""
+        p -> ~s( · "#{String.slice(p, 0, 80)}")
+      end
+
+    "##{q.id}  #{branch_of(q.mouse_id)}  #{verb(q.kind)}#{pointer}  (#{status_of(q)})"
+  end
+
+  defp verb("unmarked"), do: "stopped without saying why"
+  defp verb(_), do: "needs a decision"
+
+  defp status_of(%Question{status: "sent", sent_at: %DateTime{} = at}),
+    do: "sent #{Calendar.strftime(at, "%H:%M")}"
+
+  defp status_of(%Question{status: status}), do: status
+
+  defp show_question(%Question{} = q) do
+    say(
+      """
+      ##{q.id}  #{branch_of(q.mouse_id)}  #{verb(q.kind)}  (#{status_of(q)}, asked #{Calendar.strftime(q.asked_at, "%Y-%m-%d %H:%M")})
+
+      #{String.trim_trailing(q.text)}
+
+      answer: whiska reply #{q.id} "..."
+      """
+      |> String.trim_trailing()
+    )
+  end
+
+  # Orphaned means the mouse died (ADR-0026) or its worktree went (ADR-0036);
+  # the person needs to know which, and where the work is.
+  defp reply(%Question{status: "orphaned"} = q, _text) do
+    case Storage.mouse(q.mouse_id) do
+      %Mouse{} = mouse -> dead_mouse(q, mouse)
+      nil -> fail("whiska: ##{q.id} is orphaned and its mouse is unknown.")
+    end
+  end
+
+  defp reply(%Question{status: status} = q, _text) when status not in ["open", "sent"] do
+    fail("whiska: ##{q.id} is already #{status}; there is nothing to answer.")
+  end
+
+  defp reply(%Question{} = q, text) do
+    with {:ok, mouse} <- live_mouse(q),
+         {:ok, socket} <- herdr_socket(),
+         :ok <- Herdr.impl().prompt(socket, mouse.pane, text),
+         {:ok, _} <- Storage.answer(q.id, text) do
+      say("Answered ##{q.id} (#{mouse.branch}): typed into #{mouse.pane}.")
+    else
+      {:error, {:dead, mouse}} ->
+        dead_mouse(q, mouse)
+
+      {:error, :no_socket} ->
+        fail("whiska: HERDR_SOCKET_PATH is not set — cannot reach the mouse's pane.")
+
+      {:error, reason} ->
+        fail(
+          "whiska: could not type the answer into the mouse's pane (#{describe(reason)}). " <>
+            "##{q.id} is unchanged."
+        )
+    end
+  end
+
+  defp dead_mouse(q, mouse) do
+    fail("""
+    whiska: ##{q.id}'s mouse (#{mouse.branch}) is dead — its pane is gone.
+
+    The worktree is still on disk at #{mouse.path}. `whiska reopen` is not
+    built yet; start Claude Code there by hand and pass the answer on
+    yourself, then `whiska close #{q.id}`.
+    """)
+  end
+
+  defp close(%Question{} = q) do
+    case Storage.close_question(q.id) do
+      {:ok, _} -> say("Closed ##{q.id} without an answer.")
+      {:error, :not_answerable} -> fail("whiska: ##{q.id} is already #{q.status}.")
+      {:error, reason} -> fail("whiska: could not close ##{q.id} (#{inspect(reason)}).")
+    end
+  end
+
+  defp live_mouse(%Question{mouse_id: mouse_id}) do
+    case Storage.mouse(mouse_id) do
+      %Mouse{died_at: nil, pane: pane} = mouse when is_binary(pane) -> {:ok, mouse}
+      %Mouse{} = mouse -> {:error, {:dead, mouse}}
+      nil -> {:error, :no_such_mouse}
+    end
+  end
+
+  defp herdr_socket do
+    case Herdr.socket_path() do
+      nil -> {:error, :no_socket}
+      socket -> {:ok, socket}
+    end
+  end
+
+  defp describe({:herdr, %{"code" => code, "message" => message}}), do: "#{code}: #{message}"
+  defp describe(reason), do: inspect(reason)
+
+  defp branch_of(mouse_id) do
+    case Storage.mouse(mouse_id) do
+      %Mouse{branch: branch} when is_binary(branch) -> branch
+      _ -> mouse_id
+    end
+  end
+
+  # Run `work` on one question of this house, by id.
+  defp with_question(cwd, id, work) do
+    case Integer.parse(id) do
+      {n, ""} ->
+        with_house(cwd, fn ->
+          case Storage.question(n) do
+            nil -> fail("whiska: there is no question ##{id} in this house.")
+            question -> work.(question)
+          end
+        end)
+
+      _ ->
+        fail(
+          "whiska: #{id} is not a question id — expected a number, as `whiska questions` shows."
+        )
+    end
+  end
+
+  # Open the house this directory belongs to — main checkout or a worktree of
+  # it — run `work`, and close it again.
+  defp with_house(cwd, work) do
+    cwd = cwd || File.cwd!()
+
+    case main_checkout(cwd) do
+      {:ok, main} ->
+        case Storage.open(main) do
+          {:ok, handle} ->
+            try do
+              work.()
+            after
+              Storage.close(handle)
+            end
+
+          {:error, reason} ->
+            fail("whiska: could not open this repo's house (#{inspect(reason)}).")
+        end
+
+      :error ->
+        fail("whiska: #{cwd} is not a git checkout, and not inside a worktree of one.")
+    end
+  end
+
+  defp fail(message) do
+    IO.puts(:stderr, String.trim_trailing(message))
+    1
   end
 
   defp stdin do

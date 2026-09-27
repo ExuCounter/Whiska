@@ -46,4 +46,28 @@ defmodule Whiska.Question.MarkerTest do
       assert Marker.classify("Result: [worktree-status: done] all set") == "done"
     end
   end
+
+  describe "pointer/1" do
+    test "is what the mouse wrote after its marker on the same line" do
+      assert Marker.pointer(
+               "body\n[worktree-status: needs-decision] 3 questions ready, see above"
+             ) ==
+               "3 questions ready, see above"
+    end
+
+    test "is empty when the marker stands alone" do
+      assert Marker.pointer("done\n[worktree-status: done]") == ""
+      assert Marker.pointer("[worktree-status: done]\n") == ""
+    end
+
+    test "for an unmarked message it is the first non-empty line" do
+      assert Marker.pointer("\n\nI stopped here.\nmore") == "I stopped here."
+      assert Marker.pointer("") == ""
+    end
+
+    test "the last marker wins here too" do
+      text = "[worktree-status: done] old\n[worktree-status: needs-decision] new"
+      assert Marker.pointer(text) == "new"
+    end
+  end
 end

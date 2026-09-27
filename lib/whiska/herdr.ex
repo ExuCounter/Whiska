@@ -26,6 +26,18 @@ defmodule Whiska.Herdr do
   @doc "Every pane herdr currently has."
   @callback list_panes(socket :: Path.t()) :: {:ok, [pane()]} | {:error, term()}
 
+  @doc "One pane, by id — the fresh word on its agent and status, for the delivery gate."
+  @callback pane(socket :: Path.t(), pane_id :: String.t()) :: {:ok, pane()} | {:error, term()}
+
+  @doc """
+  Type `text` into the agent in a pane and submit it — how a question reaches
+  the main session and how an answer reaches a mouse (ADR-0020). herdr refuses
+  when the agent sits at a dialog (`agent_blocked`) or when there is no agent
+  (`agent_not_found`); the error carries herdr's own code.
+  """
+  @callback prompt(socket :: Path.t(), pane_id :: String.t(), text :: String.t()) ::
+              :ok | {:error, term()}
+
   @doc """
   Open a subscription and stream its events to `listener`.
 
