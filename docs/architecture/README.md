@@ -54,10 +54,11 @@ blocked turn leaves nothing on the doorstep and `Hook.Stop` itself is unchanged
 superseded). Then `whiska waiting` and `whiska jump`: one reading of every house in the
 open-houses record — each open or sent question and each uncollected doorstep entry,
 oldest first, with the mouse's pane — printed as lines or as `--json`, and a `jump` that
-asks herdr to focus the top one's pane, or a named branch's. It is the first thing in
+asks herdr to focus the main session of the house the top one belongs to, or of a named
+repo or branch. It is the first thing in
 Whiska that moves the person's screen, and only ever because the person asked in that
 same breath; the record is read without the owl-alive guard, since a question already
-recorded is waiting whether or not anything is awake (ADR-0043). 663 tests.
+recorded is waiting whether or not anything is awake (ADR-0043). 674 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;

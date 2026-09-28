@@ -83,12 +83,14 @@ Only the owl's Nudge reaches across houses; houses never call each other.
 _Avoid_: notification, ping, cross-house delivery, all-clear (there is none)
 
 **Jump**:
-Moving the person to a mouse — Whiska asking herdr to bring that mouse's pane into
-view, so the person is looking at the work rather than at a pointer to it. The one thing
-Whiska does to the person rather than to a mouse, and only ever because the person asked
-for it in the same breath: a typed command, or a hotkey they bound. The owl never jumps;
-its one cross-house move is the Nudge, which types a line and leaves the screen where it
-is. The destination is the mouse's own pane, never the house's main session.
+Moving the person to a whiska — Whiska asking herdr to bring a house's main session into
+view, so the person is sitting where they can act on what is waiting rather than looking
+at a pointer to it. The one thing Whiska does to the person rather than to a mouse, and
+only ever because the person asked for it in the same breath: a typed command, or a
+hotkey they bound. The owl never jumps; its one cross-house move is the Nudge, which
+types a line and leaves the screen where it is. The destination is the house's main
+session, never a mouse's own pane: a mouse's pane is the mouse's workplace, and the
+person answers from their own (ADR-0043).
 _Avoid_: goto, focus (herdr's word for the mechanism, not for what this is), switch,
 attach, take over
 
