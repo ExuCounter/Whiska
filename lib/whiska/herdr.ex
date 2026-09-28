@@ -39,6 +39,15 @@ defmodule Whiska.Herdr do
               :ok | {:error, term()}
 
   @doc """
+  Bring a pane into view — the person's screen moves to it, in whichever
+  workspace and tab it lives (ADR-0043).
+
+  The one call here that acts on the person rather than on a mouse. herdr
+  refuses with its own code when the pane is gone; the error carries it.
+  """
+  @callback focus(socket :: Path.t(), pane_id :: String.t()) :: :ok | {:error, term()}
+
+  @doc """
   Open a subscription and stream its events to `listener`.
 
   Returns the pid of the process holding the connection. Each event arrives at

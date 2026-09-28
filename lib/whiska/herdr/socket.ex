@@ -54,6 +54,16 @@ defmodule Whiska.Herdr.Socket do
     end
   end
 
+  @impl true
+  def focus(socket, pane_id) do
+    with {:ok, %{"result" => _}} <- request(socket, "pane.focus", %{"pane_id" => pane_id}) do
+      :ok
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
   defp pane(raw) do
     %{
       pane_id: raw["pane_id"],

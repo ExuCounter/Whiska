@@ -79,3 +79,21 @@ already gone, and the report cannot be acted on from elsewhere either way.
 Rejected by the person: the line exists to redraw the statusline, and the statusline
 already says where to look. Anything that reads like a command risks the target's Claude
 acting on it.
+
+## Note, 2026-09-28: the line is now also a command, and that is accepted
+
+ADR-0043 added `whiska waiting`. The nudge's line for a single source repo named
+`whiska` is `⚡ whiska waiting`, which is now literally a runnable command — exactly the
+shape the "longer line with a pointer" option above was rejected for ("anything that
+reads like a command risks the target's Claude acting on it").
+
+Accepted rather than changed, for two reasons. The collision is narrow: the line is
+`⚡ <folders> waiting`, so it only reads as a command when a single source repo happens
+to be named `whiska`, and never for two (`⚡ crew, whiska waiting`). And the consequence
+is harmless in a way the rejected option's was not: what was rejected pointed at one
+specific question to read and act on, whereas `whiska waiting` is a read-only listing
+that changes nothing. A target session that runs it has done no damage and told itself
+something true.
+
+The decision above is unchanged — the line stays `⚡ <folders> waiting` and nothing else.
+This note exists so the next reader knows the overlap was seen rather than missed.

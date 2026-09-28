@@ -221,4 +221,27 @@ defmodule Whiska.Herdr.SocketTest do
       assert {:error, _} = Socket.prompt("/nonexistent/herdr.sock", "w1:p2", "x")
     end
   end
+
+  describe "focus/2" do
+    test "asks pane.focus with the pane id (ADR-0043)" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_reply, %{"type" => "pane_focused"}})
+
+      assert :ok = Socket.focus(path, "w1:p2")
+
+      assert_received {:fake_got,
+                       %{"method" => "pane.focus", "params" => %{"pane_id" => "w1:p2"}}}
+    end
+
+    test "a pane herdr no longer has is an error with the code" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_error, %{"code" => "pane_not_found", "message" => "gone"}})
+
+      assert {:error, {:herdr, %{"code" => "pane_not_found"}}} = Socket.focus(path, "w9:p9")
+    end
+
+    test "fails when there is no herdr" do
+      assert {:error, _} = Socket.focus("/nonexistent/herdr.sock", "w1:p2")
+    end
+  end
 end

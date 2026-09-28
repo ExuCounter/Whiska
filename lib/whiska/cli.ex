@@ -23,6 +23,7 @@ defmodule Whiska.CLI do
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
+  alias Whiska.Waiting
 
   @version Mix.Project.config()[:version]
 
@@ -75,6 +76,29 @@ defmodule Whiska.CLI do
                          delivered question, then any orphaned ones, then
                          what is still on the doorstep. With an id, that
                          question in full.
+
+    waiting [--json]     What is waiting on you anywhere on this machine: one
+                         line per question, across every house the owl has
+                         recorded (~/.whiska/houses), oldest first — repo,
+                         branch, what the mouse said, how long it has waited,
+                         its id and its herdr pane. Uncollected doorstep
+                         entries are in it too. Run from anywhere; it is not
+                         repo-scoped, and it reads whether or not the owl is
+                         up. --json prints the same rows for a script.
+
+    jump [<branch>]      Take me to whatever needs me: focus the herdr pane of
+                         the oldest thing `whiska waiting` lists. With a
+                         branch, focus that mouse's pane instead, waiting or
+                         not. Prints where it went, or says nothing is waiting.
+
+                         For a global hotkey, save this as a Raycast script
+                         command and bind it:
+
+                           #!/bin/bash
+                           # @raycast.schemaVersion 1
+                           # @raycast.title Jump to what needs me
+                           # @raycast.mode silent
+                           open -a kitty && whiska jump
 
     statusline           Print the one segment the project statusline appends:
                          whether the owl is watching or down (always), how many
@@ -159,6 +183,12 @@ defmodule Whiska.CLI do
   def run(["questions"], cwd), do: questions(cwd || File.cwd!())
 
   def run(["statusline"], cwd), do: statusline(cwd || File.cwd!())
+
+  def run(["waiting"], _cwd), do: waiting(:text)
+  def run(["waiting", "--json"], _cwd), do: waiting(:json)
+
+  def run(["jump"], _cwd), do: jump_to_oldest()
+  def run(["jump", branch], _cwd), do: jump_to_branch(branch)
 
   def run(["questions", id], cwd), do: with_question(cwd, id, &show_question/1)
 
@@ -772,6 +802,69 @@ defmodule Whiska.CLI do
     end
 
     0
+  end
+
+  # -- waiting and jump (ADR-0043) ---------------------------------------------
+
+  # Not repo-scoped, unlike everything above it: the record says which repos to
+  # look in (ADR-0039), and the answer is the same from anywhere on the machine.
+  defp waiting(:json), do: say(Waiting.json(Waiting.list()))
+  defp waiting(:text), do: say(Waiting.render(Waiting.list()))
+
+  # Nothing waiting is a normal answer, not a failure — the hotkey is pressed
+  # on spec, and exiting 1 would make a Raycast script look broken.
+  defp jump_to_oldest do
+    case Waiting.list() do
+      [] ->
+        say("nothing waiting")
+
+      [oldest | _] ->
+        case oldest.pane do
+          nil ->
+            fail(
+              "whiska: the oldest thing waiting (#{oldest.branch} in #{oldest.repo}) has no " <>
+                "pane recorded, so there is nowhere to jump to. `whiska waiting` lists the rest."
+            )
+
+          pane ->
+            focus(pane, "#{oldest.branch} (#{oldest.repo})")
+        end
+    end
+  end
+
+  defp jump_to_branch(branch) do
+    case Waiting.pane_for(branch) do
+      {:ok, place} ->
+        focus(place.pane, "#{place.branch} (#{place.repo})")
+
+      {:error, :no_such_branch} ->
+        fail(
+          "whiska: no house has a live mouse on #{branch}. " <>
+            "`whiska mice` lists this repo's; `whiska waiting` lists what is waiting anywhere."
+        )
+
+      {:error, :no_pane} ->
+        fail(
+          "whiska: #{branch}'s mouse has no pane recorded, so there is nowhere to jump to. " <>
+            "Its worktree is still on disk; `whiska mice` shows the mouse."
+        )
+    end
+  end
+
+  defp focus(pane, where) do
+    case herdr_socket() do
+      {:ok, socket} ->
+        case Herdr.impl().focus(socket, pane) do
+          :ok ->
+            say("Jumped to #{where} — pane #{pane}.")
+
+          {:error, reason} ->
+            fail("whiska: could not focus #{pane} (#{describe(reason)}). Nothing moved.")
+        end
+
+      {:error, :no_socket} ->
+        fail("whiska: HERDR_SOCKET_PATH is not set — cannot ask herdr to focus a pane.")
+    end
   end
 
   defp show_question(%Question{} = q) do

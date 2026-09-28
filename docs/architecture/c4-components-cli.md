@@ -1,7 +1,8 @@
 # Component Diagram — the `whiska` CLI
 
 Level 3 for the escript — the hooks, `init`, `mode`, `doctor`, the delivery-side commands
-(`start`, `questions`, `reply`, `close`, `mice`), and the command that boots the owl.
+(`start`, `questions`, `reply`, `close`, `mice`), the machine-wide pair (`waiting`,
+`jump`), and the command that boots the owl.
 Every module here exists in `lib/whiska/` with a test beside it in `test/whiska/`. The
 owl's own internals are a separate diagram: [c4-components-owl.md](c4-components-owl.md).
 
@@ -13,7 +14,7 @@ C4Component
   Container_Ext(loop, "review-loop.sh", "bash", "The repo's review loop: Whiska writes it once and never reads it")
 
   Container_Boundary(cli, "whiska escript") {
-    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / owl, and owl install / stop / start / uninstall")
+    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / waiting / jump / owl, and owl install / stop / start / uninstall")
     Component(hook, "Hook.PreToolUse", "decision", "One tool call in, one decision out")
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
     Component(layout, "Layout", "path arithmetic", "Finds worktree root and main checkout")
@@ -24,6 +25,7 @@ C4Component
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
     Component(install, "Install", "pure merge", "Writes the hooks, the review loop, the statusline and the skills into .claude/")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
+    Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question and per uncollected doorstep entry, oldest first, each with its mouse pane")
     Component(statusline, "Statusline", "one line", "Owl always, whiskas headcount, mice here, questions here, whiskas waiting elsewhere")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live")
     Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
@@ -34,7 +36,7 @@ C4Component
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
   Container_Ext(doorstep, "Doorstep", "directory", "Uncollected entries")
-  System_Ext(herdr, "herdr", "pane list")
+  System_Ext(herdr, "herdr", "pane list, and pane focus for jump")
   Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
 
   Rel(shim, loop, "On stop, runs it first and stops there if it blocks")
@@ -47,7 +49,13 @@ C4Component
   Rel(install, loop, "Writes it once, only when missing")
   Rel(main, questions, "Delegates questions")
   Rel(main, statusline, "Delegates statusline")
-  Rel(statusline, questions, "Reads this house's summary, and every other whiska's")
+  Rel(statusline, questions, "Reads this house's summary")
+  Rel(statusline, waiting, "Has any other whiska something waiting?")
+  Rel(main, waiting, "Delegates waiting and jump")
+  Rel(waiting, record, "Which repos to look in: read without the owl-alive guard")
+  Rel(waiting, storage, "Opens each house read-only: questions and mouse panes")
+  Rel(waiting, doorstep, "Reads each house's uncollected entries")
+  Rel(main, herdr, "jump: focuses one mouse pane", "pane.focus")
   Rel(statusline, herdr, "Lists panes: mice here, whiskas here and elsewhere")
   Rel(statusline, owl, "Is it running? Same probe as the doctor", "process table")
   Rel(statusline, record, "Which houses are open: the whiskas to count")
@@ -116,6 +124,20 @@ down · N waiting` — because a blank line could not be told apart from a broke
 uses (`Whiska.Owl.pids/0`), and collecting: the doorstep is the one source the database
 cannot see, and an entry uncollected past the owl's backstop still means down, until the
 owl answers a socket. Nothing here writes or collects.
+
+**`Waiting` is the machine-wide reading, and `jump` is the only thing in Whiska that
+moves the person** (ADR-0043). `whiska waiting` walks every repo in the open-houses
+record and lists one entry per open or sent question and per uncollected doorstep entry,
+oldest first, each carrying the mouse's herdr pane; `whiska jump` focuses the top one's
+pane, or a named branch's. Three things are worth naming. It reads the record with
+`read/1` rather than `open/2`, so it works with the owl down — nothing here claims a
+house is *open*, the record only says which repos to look in (ADR-0039). It lands on the
+mouse's pane rather than the house's main session, because the mouse is where the work
+is and `whiska reply` already answers from anywhere (ADR-0005). And `Statusline`'s
+elsewhere segment asks `Waiting.waiting?/1` rather than keeping its own copy, so the
+statusline and the listing cannot disagree about what "waiting" means — the same reason
+`Questions` is shared above. Nothing in the owl calls `focus`: its one cross-house move
+stays the nudge, which types a line and leaves the screen where it is (ADR-0041).
 
 **`Hook.Stop` never opens a socket, and never classifies.** It reads the payload, works
 out the house, writes the whole final message to the doorstep and exits — unconditionally
