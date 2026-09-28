@@ -28,3 +28,19 @@ as a user turn. The skill's description names that shape, so Claude Code picks i
 description; its body is the same thin wrapper — run `whiska questions <id>`, show the
 output, stop, never answer on the person's behalf. Same reasoning as above: the model is
 not asked to compose the read from a hint in the line.
+
+## Note, 2026-09-28: a wrapper may run one of two fixed commands
+
+`whiska-questions` now runs `whiska questions --full` when nobody passes an
+argument, and `whiska questions $ARGUMENTS` when somebody passes an id. Two
+fixed commands, chosen by whether `$ARGUMENTS` is empty, is still the thin
+wrapper this decision asks for: what a wrapper must not do is compose a command
+out of what it read, summarise the output, or answer on the person's behalf
+(ADR-0017). Picking between two written-out commands on one written-out
+condition is none of those.
+
+The reason for `--full` is the same one that moved the commands out of the
+delivered line: the person ran `/whiska-questions`, was told "read either in
+full with `whiska questions 1` or `whiska questions 3`", and had to read an id
+off a list and type it back. Now the default prints everything open in full, so
+there is no id to type; an id still reads exactly one.

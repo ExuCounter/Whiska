@@ -73,9 +73,10 @@ defmodule Whiska.CLI do
                          itself yet.
 
     questions [<id>]     What is waiting on you: one line per open or
-                         delivered question, then any orphaned ones, then
+    questions --full     delivered question, then any orphaned ones, then
                          what is still on the doorstep. With an id, that
-                         question in full.
+                         question in full; with --full, every open one in
+                         full, oldest first, so there is no id to type.
 
     waiting [--json]     What is waiting on you anywhere on this machine: one
                          line per question, across every house the owl has
@@ -188,7 +189,9 @@ defmodule Whiska.CLI do
   def run(["start" | flags], cwd) when flags in [[], ["--force"]],
     do: start(cwd || File.cwd!(), flags == ["--force"])
 
-  def run(["questions"], cwd), do: questions(cwd || File.cwd!())
+  def run(["questions"], cwd), do: questions(cwd || File.cwd!(), :listing)
+
+  def run(["questions", "--full"], cwd), do: questions(cwd || File.cwd!(), :full)
 
   def run(["statusline"], cwd), do: statusline(cwd || File.cwd!())
 
@@ -785,12 +788,12 @@ defmodule Whiska.CLI do
   # The listing and the statusline read the same summary (Whiska.Questions),
   # so the two can never disagree about what is waiting. Works from the main
   # checkout or any worktree of the house, like `whiska mice`.
-  defp questions(cwd) do
+  defp questions(cwd, shape) do
     case main_checkout(cwd) do
       {:ok, main} ->
         case Questions.summary(main) do
           {:ok, summary} ->
-            say(Questions.render(summary))
+            say(render(summary, shape))
 
           {:error, reason} ->
             fail("whiska: could not open this repo's house (#{inspect(reason)}).")
@@ -800,6 +803,9 @@ defmodule Whiska.CLI do
         fail("whiska: #{cwd} is not a git checkout, and not inside a worktree of one.")
     end
   end
+
+  defp render(summary, :listing), do: Questions.render(summary)
+  defp render(summary, :full), do: Questions.render_full(summary)
 
   # Always 0 and never noisy: this runs on every statusline refresh, and a
   # problem here must not break the line it is appended to.
@@ -879,18 +885,10 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp show_question(%Question{} = q) do
-    say(
-      """
-      ##{q.id}  #{branch_of(q.mouse_id)}  #{Questions.verb(q.kind)}  (#{Questions.state(q)}, asked #{Calendar.strftime(q.asked_at, "%Y-%m-%d %H:%M")})
-
-      #{String.trim_trailing(q.text)}
-
-      answer: whiska reply #{q.id} "..."
-      """
-      |> String.trim_trailing()
-    )
-  end
+  # The shape lives in Whiska.Questions, so one question read by id and one
+  # block of `whiska questions --full` cannot drift apart. This question was
+  # loaded by id, without its mouse, so the branch is looked up here.
+  defp show_question(%Question{} = q), do: say(Questions.full(q, branch_of(q.mouse_id)))
 
   # Orphaned means the mouse died (ADR-0026) or its worktree went (ADR-0036);
   # the person needs to know which, and where the work is.

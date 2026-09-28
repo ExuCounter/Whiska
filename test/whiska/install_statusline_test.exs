@@ -85,6 +85,27 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "whiska questions"
     end
 
+    test "/whiska-questions reads everything in full with no argument, one by id with one" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-questions/SKILL.md", 0)
+
+      assert body =~ "whiska questions --full"
+      assert body =~ "$ARGUMENTS"
+      assert body =~ "whiska questions $ARGUMENTS"
+      # Still a thin wrapper of fixed commands (ADR-0022), still never answering
+      # on the person's behalf (ADR-0017).
+      assert body =~ ~r/never reply/
+      refute body =~ "summarise"
+    end
+
+    test "whiska-delivered points at --full for the ones behind the delivered line" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      assert body =~ "more open"
+      assert body =~ "whiska questions --full"
+    end
+
     test "installs whiska-delivered, which reads a delivered line's question by its id" do
       assert {path, body} =
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
