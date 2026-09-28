@@ -53,7 +53,8 @@ The owl typing one question's line into the main session — only when that pane
 and no other question is already sent. A queue, not a batch: the next question goes when
 the previous one is answered (or superseded, or closed — a `done` report closes itself on
 sending) and the session is idle again.
-What is typed is a one-line pointer with the id; the full text is `whiska questions <id>`.
+What is typed is a one-line pointer with the id and no command; the full text is
+`whiska questions <id>`, which the `whiska-delivered` skill runs when the line lands.
 A nudge is not a delivery: it is typed through the same gate but is never a question of
 this house (see **Nudge**).
 _Avoid_: notify, ping, relay (the old bash mechanism), push

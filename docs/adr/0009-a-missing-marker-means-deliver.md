@@ -57,8 +57,7 @@ mice to write the complete report in the body precisely so that it is read, and 
 nobody is told about is a report nobody reads.
 
 So `done` now enters the queue and is typed into the main session in its turn, as `🐱
-whiska #N · feat-x finished · read: whiska questions N`, with no `answer:` command. It
-does not wait for a reply: the owl closes it as soon as the prompt lands, so it never
+feat-x finished · #N`, offering no answer. It does not wait for a reply: the owl closes it as soon as the prompt lands, so it never
 holds ADR-0008's one delivery slot. That keeps one code path — a `done` is a question in
 storage and in delivery, differing only in the verb and in what happens after it is
 sent — rather than a second "notice" kind with its own rules, which is the trade the
@@ -68,3 +67,13 @@ you": it changes the line's verb and drops the reply, not whether you hear about
 **Recording that an entry arrived unmarked is deliberate.** It is the evidence that shows
 which mice forget and how often, and therefore whether the invisible-character marker is
 worth keeping at all.
+
+## Note, 2026-09-28: the line carries no command
+
+The line shown above used to end in `read: whiska questions N`, and a `needs-decision`
+line in `answer: whiska reply N "..."` besides, so the person could see what to type
+next. Both were dropped: they made the line read like code. The shape is now `🐱 <branch>
+<verb> · #<id> · "<pointer>" · <n> more open`, and the `whiska-delivered` skill that
+`whiska init` installs (ADR-0022) recognises it and runs the read. The id stays because
+answers are keyed to it (ADR-0005). What this ADR decides — that `done` is delivered,
+told as "finished", and closed at once — is unchanged.

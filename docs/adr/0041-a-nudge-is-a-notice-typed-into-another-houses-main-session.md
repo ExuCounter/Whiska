@@ -39,7 +39,7 @@ secondary; the redraw is the point.
   named by its folder exactly like the elsewhere segment. If more than one source house
   has something open when a nudge goes out, one line names them all, sorted:
   `⚡ crew, whiska waiting` — never one line per repo, and never the target itself. No id,
-  no path, no `read:` hint and no instruction: the line lands as a user turn in the
+  no path, no hint of where to read and no instruction: the line lands as a user turn in the
   target's Claude, which should have nothing to do with it beyond acknowledging.
 - **No all-clear.** When the source's last open question closes, nothing is typed. An
   all-clear would double the typed turns for information nobody can act on; the stale

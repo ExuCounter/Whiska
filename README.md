@@ -52,8 +52,12 @@ the count in the line is right. `claude` + `unknown` is delivered anyway, and th
 so. What is typed is one line — a pointer, not the message:
 
 ```
-🐱 whiska #12 · feat-delivery needs a decision · "3 questions ready, see above" · 2 more open · read: whiska questions 12 · answer: whiska reply 12 "..."
+🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above" · 2 more open
 ```
+
+No command in it: the `whiska-delivered` skill that `whiska init` installs recognises the
+line by its shape and runs `whiska questions 12` for you, shows the question, and stops
+(ADR-0022). Answering is still yours to do:
 
 ```
 whiska questions             # what is waiting on you, one line each
