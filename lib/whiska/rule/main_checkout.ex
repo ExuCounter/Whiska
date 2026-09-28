@@ -3,7 +3,7 @@ defmodule Whiska.Rule.MainCheckout do
   The one rule v0.0.1 enforces: a mouse may not edit the main checkout.
 
   ADR-0013 is the why. Every other protection in this design — worktree
-  containment, `checks.yml`, diff review, push approval — only covers a mouse's
+  containment, the repo's own review loop, diff review, push approval — only covers a mouse's
   own worktree. An edit made directly in the main checkout skips all of it. So the
   rule is mechanical (ADR-0010): a `PreToolUse` hook that can actually block,
   rather than a line in `CLAUDE.md` that a mouse may or may not follow.
@@ -33,8 +33,8 @@ defmodule Whiska.Rule.MainCheckout do
 
   ## No carve-out in v0.0.1
 
-  ADR-0013 carves out Whiska's own config files — `checks.yml`, `dispatch.yml`,
-  the `CLAUDE.md` block — as still directly editable. That carve-out is scoped to
+  ADR-0013 carves out Whiska's own config files — `dispatch.yml`, the
+  `CLAUDE.md` block — as still directly editable. That carve-out is scoped to
   the **main session** editing its own repo's setup, and does not extend to a
   mouse reaching into the main checkout from a worktree: that is the containment
   breach the ADR exists to stop. So this slice denies every main-checkout edit,
@@ -112,7 +112,7 @@ defmodule Whiska.Rule.MainCheckout do
     The main checkout is     #{layout.main_checkout}
 
     Edits in the main checkout are blocked (ADR-0013) — they bypass worktree
-    containment, checks, diff review and push approval. Make this change inside
+    containment, the review loop, diff review and push approval. Make this change inside
     the worktree instead; if it genuinely belongs in the main checkout, that is a
     decision for the main session, not for a mouse.
     """

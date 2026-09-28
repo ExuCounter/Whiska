@@ -48,7 +48,7 @@ against a dead trigger hiding behind a working last resort (ADR-0036, note of
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;
-`checks.yml`; the statusline's one-mouse excerpt and its "elsewhere" segment *over the
+the statusline's one-mouse excerpt and its "elsewhere" segment *over the
 global socket* (ADR-0027); cross-repo commands. The doctor and the statusline find the
 owl through the process table until the global socket exists.
 

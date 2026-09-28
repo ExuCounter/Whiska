@@ -5,8 +5,10 @@ cannot stay open while a human decides. So `PreToolUse` never blocks-and-waits: 
 instant a mouse tries to push, the hook denies that exact attempt on the spot with "hold
 on, checking" as the tool's result. The mouse's original attempt is dead, not paused.
 
-Everything after that — checks, then approval, then the real push — runs asynchronously,
-off to the side, through the same delivery machinery questions already use.
+Everything after that — approval, then the real push — runs asynchronously, off to the
+side, through the same delivery machinery questions already use. There is no check step:
+Whiska runs no checks of its own (ADR-0014, superseded), so the approval question carries
+the diff and nothing else.
 
 ## Consequences
 
@@ -16,8 +18,10 @@ mouse's pane being free or idle at whatever moment you get around to answering, 
 could be minutes or hours later. Running the push is purely mechanical and needs no
 reasoning, so it does not violate "Whiska stays dumb".
 
-Check failures come back the same way — as a message delivered into the mouse's own pane,
-the same shape as any other failing command it already knows how to react to mid-task.
-Bounded escalation: two failures in a row on the same push attempt turn the next one into
-a real question to you, carrying the failure output. The counter resets on a successful
-push or once you resolve the escalated question.
+A push that fails for a real reason — a rejected remote, a hook downstream — comes back
+the same way: a message delivered into the mouse's own pane, the same shape as any other
+failing command it already knows how to react to mid-task. Bounded escalation: two
+failures in a row on the same push attempt turn the next one into a real question to you,
+carrying the failure output. The counter resets on a successful push or once you resolve
+the escalated question. ADR-0042's review loop borrows that shape wholesale, for the same
+reason: a loop with no ceiling is worse than a failure you can see.

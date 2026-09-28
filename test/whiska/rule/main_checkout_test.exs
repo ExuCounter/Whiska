@@ -94,7 +94,7 @@ defmodule Whiska.Rule.MainCheckoutTest do
     end
 
     test "denies the main checkout's .whiska config directory", %{main: main, layout: layout} do
-      input = %{"file_path" => Path.join(main, ".whiska/checks.yml")}
+      input = %{"file_path" => Path.join(main, ".whiska/dispatch.yml")}
 
       assert {:deny, _} = MainCheckout.decide("Write", input, layout)
     end
