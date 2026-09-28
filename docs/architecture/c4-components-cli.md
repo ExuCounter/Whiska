@@ -12,7 +12,7 @@ C4Component
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
 
   Container_Boundary(cli, "whiska escript") {
-    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / owl")
+    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / owl, and owl install / stop / start / uninstall")
     Component(hook, "Hook.PreToolUse", "decision", "One tool call in, one decision out")
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
     Component(layout, "Layout", "path arithmetic", "Finds worktree root and main checkout")
@@ -26,6 +26,7 @@ C4Component
     Component(statusline, "Statusline", "one line", "Owl always, whiskas headcount, mice here, questions here, whiskas waiting elsewhere")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live")
     Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
+    Component(agent, "LaunchAgent", "plist + wrapper", "The owl's launchd job: rendered, written, and driven through launchctl")
     Component(nif, "BundledNIF", "scaffolding", "Unpacks SQLite's native library from the escript")
   }
 
@@ -48,6 +49,9 @@ C4Component
   Rel(statusline, record, "Which houses are open: the whiskas to count")
   Rel(doctor, owl, "Is it running?", "process table")
   Rel(doctor, record, "Which houses are open, and is this repo one of them")
+  Rel(main, agent, "owl install / stop / start / uninstall")
+  Rel(agent, install, "Wrapper is built from the shim's resolution fragments")
+  Rel(doctor, agent, "Installed? loaded? running? two owls?", "launchctl print")
   Rel(questions, storage, "Opens the house read-only")
   Rel(questions, doorstep, "Counts what is uncollected, and how stale")
   Rel(main, doctor, "Delegates doctor")
@@ -122,6 +126,13 @@ shim byte for byte with what `Install` writes, because the old no-argument shim 
 the probe silently; and it asks herdr about the recorded main session with the same call
 the delivery gate uses. Every finding prints its fix. `fail` means a mouse's question
 here would be lost or never written; `warn` means degraded but nothing lost.
+
+**`LaunchAgent` is pure values plus writes under a given home (ADR-0040).** The plist and
+the wrapper are rendered from data; install and uninstall write them where they are told;
+every `launchctl` call goes through a runner the tests replace, and the test config points
+the user home and that runner away from the real machine. The wrapper is assembled from
+`Install`'s own `resolve_whiska` and `resolve_escript` fragments, so the shim, the
+statusline script and the owl's launcher cannot disagree about where the runtime is.
 
 **`BundledNIF` is scaffolding with a known end.** An escript is a zip with no `priv/`,
 and native code cannot be `dlopen`ed out of a zip — so SQLite's 1.6 MB library travels as

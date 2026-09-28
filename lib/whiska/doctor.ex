@@ -36,6 +36,7 @@ defmodule Whiska.Doctor do
   alias Whiska.Doorstep.Entry
   alias Whiska.Herdr
   alias Whiska.Install
+  alias Whiska.LaunchAgent
   alias Whiska.Layout
   alias Whiska.Marker
   alias Whiska.OpenHouses
@@ -46,6 +47,7 @@ defmodule Whiska.Doctor do
   @reinstall "mix escript.build && cp whiska ~/.local/bin/whiska"
   @init "whiska init"
   @owl "whiska owl"
+  @install "whiska owl install"
   @restart "whiska start --force  (from the main checkout's pane)"
 
   @doc """
@@ -55,7 +57,8 @@ defmodule Whiska.Doctor do
   process environment by default), `:owl_pids` (a function returning the pids
   of running owls, the process table by default), `:herdr` (the herdr module,
   ADR-0031's boundary), `:open_houses` (the record's path, the real one by
-  default).
+  default), `:launch_agent` (a function returning `{installed?, status}` for
+  the owl's LaunchAgent, launchd's own answer by default).
   """
   @spec run(Path.t(), keyword()) :: Report.t()
   def run(main_checkout, opts \\ []) do
@@ -63,8 +66,10 @@ defmodule Whiska.Doctor do
     owl_pids = Keyword.get(opts, :owl_pids, &Whiska.Owl.pids/0)
     herdr = Keyword.get(opts, :herdr, Herdr.impl())
     record = Keyword.get_lazy(opts, :open_houses, &OpenHouses.path/0)
+    launch_agent = Keyword.get(opts, :launch_agent, &launch_agent_state/0)
     now = DateTime.utc_now()
     pids = owl_pids.()
+    {installed?, agent} = launch_agent.()
 
     {binary, binary_found?} = binary(env)
     {herdr_check, panes} = herdr(env, herdr)
@@ -85,6 +90,7 @@ defmodule Whiska.Doctor do
         runtime(env),
         herdr_check,
         owl(pids),
+        launch_agent(installed?, agent, pids),
         open_houses(OpenHouses.read(record), main_checkout, pids)
       ] ++
         hooks ++
@@ -187,6 +193,56 @@ defmodule Whiska.Doctor do
   @spec owl([pos_integer()]) :: Check.t()
   def owl([]), do: Check.warn("owl", "not running — nothing collects the doorstep", @owl)
   def owl(pids), do: Check.ok("owl", "running (pid #{Enum.join(pids, ", ")})")
+
+  defp launch_agent_state,
+    do: {LaunchAgent.installed?(LaunchAgent.paths()), LaunchAgent.status()}
+
+  @doc """
+  The owl's LaunchAgent (ADR-0040): is it installed, loaded, and is the owl it
+  runs alive — and is that the only owl. `installed?` is whether the plist is
+  there, `agent` is launchd's word on the job, `pids` every owl in the process
+  table. An owl running only in the foreground is the pre-launchd state and a
+  warning: it dies with its pane and nothing restarts it. Two owls is the one
+  state nothing else can explain, and the doctor names both.
+  """
+  @spec launch_agent(boolean(), LaunchAgent.status(), [pos_integer()]) :: Check.t()
+  def launch_agent(false, _agent, []),
+    do: Check.warn("launch agent", "not installed — the owl is not supervised", @install)
+
+  def launch_agent(false, _agent, pids) do
+    Check.warn(
+      "launch agent",
+      "not installed — the owl (pid #{Enum.join(pids, ", ")}) runs in the foreground and " <>
+        "dies with its pane",
+      @install
+    )
+  end
+
+  def launch_agent(true, %{loaded: false}, _pids),
+    do: Check.warn("launch agent", "#{LaunchAgent.label()} is written but not loaded", @install)
+
+  def launch_agent(true, %{pid: nil}, _pids) do
+    Check.warn(
+      "launch agent",
+      "#{LaunchAgent.label()} loaded, owl not running — see #{LaunchAgent.paths().log}",
+      "whiska owl start"
+    )
+  end
+
+  def launch_agent(true, %{pid: pid}, pids) do
+    case Enum.reject(pids, &(&1 == pid)) do
+      [] ->
+        Check.ok("launch agent", "#{LaunchAgent.label()} loaded, owl running (pid #{pid})")
+
+      others ->
+        Check.warn(
+          "launch agent",
+          "two owls — launchd's (pid #{pid}) and another (pid #{Enum.join(others, ", ")}) " <>
+            "collect the same doorsteps",
+          "Ctrl-C the foreground owl"
+        )
+    end
+  end
 
   @doc """
   The open-houses record (ADR-0039): which houses the owl has open, and

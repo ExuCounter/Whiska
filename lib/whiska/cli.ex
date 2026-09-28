@@ -5,7 +5,8 @@ defmodule Whiska.CLI do
   Built with `mix escript.build`. The hooks invoke it fresh per event (ADR-0030):
   `PreToolUse` opens SQLite, makes one decision, and exits; `Stop` writes one
   doorstep entry and exits. `whiska owl` is the other half — the one supervised
-  process per machine (ADR-0001), run in the foreground for now.
+  process per machine (ADR-0001), under a user LaunchAgent once `whiska owl
+  install` has run (ADR-0040), or in the foreground before that.
   """
 
   alias Whiska.Hook.PreToolUse
@@ -14,6 +15,7 @@ defmodule Whiska.CLI do
   alias Whiska.Doctor.Report
   alias Whiska.Herdr
   alias Whiska.Install
+  alias Whiska.LaunchAgent
   alias Whiska.Layout
   alias Whiska.Marker
   alias Whiska.OpenHouses
@@ -40,7 +42,21 @@ defmodule Whiska.CLI do
                          you are in, if it has a house; any repo named is
                          opened too and remembered. Collects each house's
                          doorstep when herdr reports a mouse idle, at
-                         startup, and on a slow backstop.
+                         startup, and on a slow backstop. Refuses while
+                         the supervised owl is running.
+
+    owl install          Put the owl under launchd: write a user LaunchAgent
+                         (com.whiska.owl) that starts it at login and
+                         restarts it if it crashes, and load it now. Logs
+                         to ~/.whiska/owl.log. Refuses while any owl runs.
+    owl uninstall        Unload that LaunchAgent and remove it.
+    owl stop             Ask the supervised owl to exit. It stays installed
+                         and returns at the next login, or on `owl start`.
+    owl start            Start the supervised owl now.
+
+    stop                 Shut this repo's house only (ADR-0003). Not built:
+                         it needs the owl's socket. `whiska owl stop` stops
+                         the whole owl.
 
     init                 Write Whiska's PreToolUse hook into this repo's own
                          .claude/settings.json, so the rules travel with the
@@ -110,6 +126,19 @@ defmodule Whiska.CLI do
   def run(["hook", "stop"], _cwd) do
     stdin() |> Stop.run()
     0
+  end
+
+  def run(["owl", "install"], _cwd), do: owl_install()
+  def run(["owl", "uninstall"], _cwd), do: owl_uninstall()
+  def run(["owl", "stop"], _cwd), do: owl_stop()
+  def run(["owl", "start"], _cwd), do: owl_start()
+
+  def run(["stop"], _cwd) do
+    fail("""
+    whiska: `whiska stop` shuts one house — this repo's — and leaves the owl
+    running for every other (ADR-0003). That needs the owl's socket, which is
+    not built yet. To stop the whole owl: whiska owl stop.
+    """)
   end
 
   def run(["owl" | repos], cwd) do
@@ -411,18 +440,43 @@ defmodule Whiska.CLI do
   """
   @spec start_owl([Path.t()], Path.t()) :: {:ok, pid()} | {:error, term()}
   def start_owl(repos, cwd \\ File.cwd!()) do
-    with {:ok, named} <- resolve_houses(repos),
+    with :ok <- not_supervised(),
+         {:ok, named} <- resolve_houses(repos),
          {:ok, houses} <- houses_to_open(named, cwd),
          {:ok, owl} <- start_owl_process() do
       Enum.each(houses, &({:ok, _} = Whiska.Owl.open_house(&1)))
 
       say(
-        "Opened #{length(houses)} #{if length(houses) == 1, do: "house", else: "houses"}:\n" <>
-          Enum.map_join(houses, "\n", &"  #{Path.basename(&1)}  (#{&1})") <>
-          "\n\nCollecting doorsteps. Ctrl-C to shut them all; nothing on disk is touched."
+        case houses do
+          [] ->
+            "Opened no house. Waiting; nothing on disk is touched."
+
+          _ ->
+            "Opened #{length(houses)} #{if length(houses) == 1, do: "house", else: "houses"}:\n" <>
+              Enum.map_join(houses, "\n", &"  #{Path.basename(&1)}  (#{&1})") <>
+              "\n\nCollecting doorsteps. Ctrl-C to shut them all; nothing on disk is touched."
+        end
       )
 
       {:ok, owl}
+    end
+  end
+
+  # Two owls would collect the same doorsteps (ADR-0040). The foreground one
+  # yields to the supervised one: if launchd has an owl up, this one refuses.
+  defp not_supervised do
+    case LaunchAgent.status() do
+      %{loaded: true, pid: pid} when is_integer(pid) ->
+        IO.puts(
+          :stderr,
+          "whiska: the owl is already running under launchd (pid #{pid}). " <>
+            "Run `whiska owl stop` first if you want it in the foreground."
+        )
+
+        {:error, :supervised}
+
+      _ ->
+        :ok
     end
   end
 
@@ -435,16 +489,27 @@ defmodule Whiska.CLI do
     end
   end
 
+  # Under launchd there is no pane's environment to inherit, so a missing
+  # HERDR_SOCKET_PATH falls back to herdr's default socket rather than to
+  # no herdr at all; the plist carries the variable when it was set at install.
   defp start_owl_process do
-    if Herdr.socket_path() == nil do
-      IO.puts(
-        :stderr,
-        "whiska: HERDR_SOCKET_PATH is not set — herdr events will not arrive; " <>
-          "collection falls back to the backstop timer alone."
-      )
-    end
+    socket =
+      case Herdr.socket_path() do
+        nil ->
+          default = Herdr.default_socket_path()
 
-    case Whiska.Owl.start_link() do
+          IO.puts(
+            :stderr,
+            "whiska: HERDR_SOCKET_PATH is not set — using herdr's default, #{default}."
+          )
+
+          default
+
+        path ->
+          path
+      end
+
+    case Whiska.Owl.start_link(herdr_socket: socket) do
       {:ok, pid} ->
         # The owl outlives whoever started it — the CLI's main process only
         # sleeps, and a test process should not take the owl down with it.
@@ -460,15 +525,20 @@ defmodule Whiska.CLI do
     end
   end
 
+  # Nothing to open is not an error: launchd starts the owl from the home
+  # directory, and before the first `whiska owl <repo>` there is nothing in
+  # the record. The owl idles until a house is opened rather than exiting,
+  # which under KeepAlive would be a restart loop (ADR-0040).
   defp houses_to_open(named, cwd) do
     case Enum.uniq(recorded_houses() ++ house_here(cwd, named) ++ named) do
       [] ->
         IO.puts(
           :stderr,
-          "whiska: #{cwd} is not a git checkout, and not inside a worktree of one."
+          "whiska: no house to open — nothing is recorded in #{OpenHouses.path()} and " <>
+            "#{cwd} is not a git checkout. Waiting; run `whiska owl <repo>` to open one."
         )
 
-        {:error, {:not_a_repo, cwd}}
+        {:ok, []}
 
       houses ->
         {:ok, houses}
@@ -751,6 +821,7 @@ defmodule Whiska.CLI do
   end
 
   defp describe({:herdr, %{"code" => code, "message" => message}}), do: "#{code}: #{message}"
+  defp describe(reason) when is_binary(reason), do: reason
   defp describe(reason), do: inspect(reason)
 
   defp branch_of(mouse_id) do
@@ -801,6 +872,154 @@ defmodule Whiska.CLI do
         fail("whiska: #{cwd} is not a git checkout, and not inside a worktree of one.")
     end
   end
+
+  # -- the owl under launchd (ADR-0040) ------------------------------------------
+
+  defp owl_install do
+    paths = LaunchAgent.paths()
+    uid = LaunchAgent.uid()
+    run = LaunchAgent.runner()
+    status = LaunchAgent.status(uid, run)
+    env = Application.get_env(:whiska, :env) || System.get_env()
+
+    with :ok <- no_other_owl(status),
+         :ok <- LaunchAgent.install(paths, env),
+         :ok <- if(status.loaded, do: LaunchAgent.bootout(uid, run), else: :ok),
+         :ok <- LaunchAgent.bootstrap(paths, uid, run) do
+      if env["HERDR_SOCKET_PATH"] in [nil, ""] do
+        IO.puts(
+          :stderr,
+          "whiska: HERDR_SOCKET_PATH is not set here, so the plist does not carry it; " <>
+            "the owl will use herdr's default, #{Herdr.default_socket_path(env)}. " <>
+            "Run this from a herdr pane to pin it."
+        )
+      end
+
+      say("""
+      Installed #{LaunchAgent.label()} and started the owl under launchd.
+
+        job:     #{paths.plist}
+        runs:    #{paths.wrapper}  (whiska owl, no arguments — reopens the recorded houses)
+        log:     #{paths.log}
+
+      launchd starts it at login and restarts it if it crashes. `whiska owl stop`
+      turns it off until the next login or `whiska owl start`; `whiska owl
+      uninstall` removes it. `whiska doctor` shows its state.
+      """)
+    else
+      {:error, :owl_running} -> 1
+      {:error, reason} -> fail("whiska: could not install the LaunchAgent (#{describe(reason)}).")
+    end
+  end
+
+  # Two owls collecting the same doorsteps is the one state install must
+  # never produce, so it refuses while any owl is in the process table — the
+  # supervised one included, since reinstalling means stopping it first.
+  defp no_other_owl(status) do
+    case owl_pids() do
+      [] ->
+        :ok
+
+      pids ->
+        if status.pid in pids,
+          do:
+            fail("""
+            whiska: the owl is already running under launchd (pid #{status.pid}).
+            To reinstall, `whiska owl stop` first, then `whiska owl install`.
+            """),
+          else:
+            fail("""
+            whiska: an owl is already running in the foreground (pid #{Enum.join(pids, ", ")}).
+            Two owls would collect the same doorsteps. The handover is:
+
+              1. Ctrl-C the foreground owl in its pane.
+              2. `whiska owl install` again — launchd's owl reopens the same houses.
+            """)
+
+        {:error, :owl_running}
+    end
+  end
+
+  defp owl_uninstall do
+    paths = LaunchAgent.paths()
+    uid = LaunchAgent.uid()
+    run = LaunchAgent.runner()
+    status = LaunchAgent.status(uid, run)
+
+    with :ok <- if(status.loaded, do: LaunchAgent.bootout(uid, run), else: :ok),
+         :ok <- LaunchAgent.uninstall(paths) do
+      say(
+        "Removed #{LaunchAgent.label()}: the owl is no longer supervised. " <>
+          "The log at #{paths.log} and the open-houses record are kept. " <>
+          "`whiska owl install` puts it back."
+      )
+    else
+      {:error, :not_installed} ->
+        say("#{LaunchAgent.label()} is not installed; nothing to remove.")
+
+      {:error, reason} ->
+        fail("whiska: could not remove the LaunchAgent (#{describe(reason)}).")
+    end
+  end
+
+  defp owl_stop do
+    uid = LaunchAgent.uid()
+    run = LaunchAgent.runner()
+
+    case LaunchAgent.status(uid, run) do
+      %{loaded: false} ->
+        fail(
+          case owl_pids() do
+            [] ->
+              "whiska: #{LaunchAgent.label()} is not installed, and no owl is running."
+
+            pids ->
+              "whiska: #{LaunchAgent.label()} is not installed; the owl running (pid " <>
+                "#{Enum.join(pids, ", ")}) is in the foreground — Ctrl-C it in its pane."
+          end
+        )
+
+      %{pid: nil} ->
+        say(
+          "The owl is not running under launchd; nothing to stop. `whiska owl start` starts it."
+        )
+
+      %{pid: pid} ->
+        case LaunchAgent.stop(uid, run) do
+          :ok ->
+            say(
+              "Asked the owl (pid #{pid}) to exit. It stays installed: launchd starts it " <>
+                "again at the next login, or now with `whiska owl start`."
+            )
+
+          {:error, reason} ->
+            fail("whiska: could not stop the owl (#{reason}).")
+        end
+    end
+  end
+
+  defp owl_start do
+    uid = LaunchAgent.uid()
+    run = LaunchAgent.runner()
+
+    case LaunchAgent.status(uid, run) do
+      %{loaded: false} ->
+        fail(
+          "whiska: #{LaunchAgent.label()} is not installed. `whiska owl install` installs and starts it."
+        )
+
+      %{pid: pid} when is_integer(pid) ->
+        say("The owl is already running under launchd (pid #{pid}).")
+
+      _ ->
+        case LaunchAgent.start(uid, run) do
+          :ok -> say("Started the owl under launchd (#{LaunchAgent.label()}).")
+          {:error, reason} -> fail("whiska: could not start the owl (#{reason}).")
+        end
+    end
+  end
+
+  defp owl_pids, do: (Application.get_env(:whiska, :owl_pids) || (&Whiska.Owl.pids/0)).()
 
   defp fail(message) do
     IO.puts(:stderr, String.trim_trailing(message))

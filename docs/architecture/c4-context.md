@@ -18,7 +18,7 @@ C4Context
   System_Ext(claude, "Claude Code", "Main session and mice; fires PreToolUse and Stop hooks")
   System_Ext(herdr, "herdr", "Terminal multiplexer - owns panes, starts Claude, reports agent status")
   System_Ext(git, "git worktrees", "One worktree per mouse, laid out under the main checkout")
-  System_Ext(launchd, "launchd", "Will supervise the one owl per machine - not wired yet")
+  System_Ext(launchd, "launchd", "Supervises the one owl per machine as a user LaunchAgent")
 
   Rel(person, claude, "Types into the main session")
   Rel(claude, whiska, "Sends hook events", "JSON on stdin / socket")
@@ -26,7 +26,7 @@ C4Context
   Rel(whiska, herdr, "Opens panes, reads agent status", "herdr CLI")
   Rel(herdr, claude, "Starts and hosts every session")
   Rel(whiska, git, "Derives layout from, stores house under .git/")
-  Rel(launchd, whiska, "Keeps the owl awake")
+  Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
@@ -39,5 +39,6 @@ C4Context
   it is a name for a herdr pane running Claude Code. This is also the one boundary where
   mocking is allowed in tests (ADR-0031).
 - **launchd** matters because there is exactly one owl per machine, not one process per
-  repo (ADR-0001). The owl exists today but runs in the foreground; the supervision is
-  designed, not wired.
+  repo (ADR-0001). `whiska owl install` writes the user LaunchAgent `com.whiska.owl`,
+  which starts the owl at login and restarts it if it crashes (ADR-0040). The foreground
+  `whiska owl` still exists, and refuses while launchd's owl is running.

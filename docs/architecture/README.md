@@ -30,14 +30,16 @@ more than one (ADR-0027, second addendum). Then the open-houses record: the owl 
 which houses it has open to `~/.whiska/houses`, reopens them on the next `whiska owl`,
 and a whiska is a house in that record with a live pane — the headcount, the elsewhere
 segment and a new doctor line all read it, trusting it only while an owl is alive
-(ADR-0039). 511 tests.
+(ADR-0039). Then `launchd` supervision: `whiska owl install` writes a user LaunchAgent that
+runs the owl with no arguments through a wrapper sharing the shim's runtime lookup,
+restarts it only on a crash, and logs to `~/.whiska/owl.log`; `whiska owl stop`, `start`
+and `uninstall` beside it; and the doctor's `launch agent` line (ADR-0040). 560 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
-ADR-0025); `launchd` supervision and `whiska stop`; push approval; `checks.yml`; the
-statusline's one-mouse excerpt and its "elsewhere" segment *over the global socket*
-(ADR-0027); cross-repo commands. The owl runs in the
-foreground meanwhile, reopening its recorded houses, and the doctor finds it through the
-process table until the global socket exists.
+ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;
+`checks.yml`; the statusline's one-mouse excerpt and its "elsewhere" segment *over the
+global socket* (ADR-0027); cross-repo commands. The doctor and the statusline find the
+owl through the process table until the global socket exists.
 
 ## Regenerating
 

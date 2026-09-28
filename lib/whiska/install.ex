@@ -220,6 +220,18 @@ defmodule Whiska.Install do
      """}
   ]
 
+  @doc """
+  The shell that finds the whiska binary: `WHISKA_BIN`, then `PATH`, then
+  `~/.local/bin`. Shared by the shim, the statusline script and the owl's
+  launchd wrapper, so the three resolve identically.
+  """
+  @spec resolve_whiska() :: String.t()
+  def resolve_whiska, do: @resolve_whiska
+
+  @doc "The shell that finds the Erlang runtime; shared the same way."
+  @spec resolve_escript() :: String.t()
+  def resolve_escript, do: @resolve_escript
+
   @doc "The Claude Code matcher Whiska registers for."
   @spec matcher() :: String.t()
   def matcher, do: @matcher

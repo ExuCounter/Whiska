@@ -15,9 +15,9 @@ defmodule Whiska.Owl do
   opened, removed when it is shut, and deliberately left in place when the
   whole owl stops — that is what the next `whiska owl` reopens from.
 
-  This slice runs the owl in the foreground (`whiska owl`) with the houses to
-  open named on the command line, or taken from the record; `launchd`
-  supervision and `whiska start`/`stop` reaching it over a socket come later.
+  `whiska owl` runs it: under `launchd` with no arguments, opening what the
+  record says (ADR-0040), or in the foreground with houses named on the
+  command line. `whiska stop` reaching one house over a socket comes later.
   """
 
   use Supervisor
@@ -57,8 +57,12 @@ defmodule Whiska.Owl do
   """
   @spec pids() :: [pos_integer()]
   def pids do
+    # `pgrep -f` matches argv, so `whiska owl install` (or stop, or start)
+    # would find itself; the calling process is never an owl.
+    self = String.to_integer(System.pid())
+
     case System.cmd("pgrep", ["-f", "whiska owl"], stderr_to_stdout: true) do
-      {out, 0} -> out |> String.split() |> Enum.flat_map(&pid/1)
+      {out, 0} -> out |> String.split() |> Enum.flat_map(&pid/1) |> Enum.reject(&(&1 == self))
       _ -> []
     end
   rescue

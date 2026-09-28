@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (511 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (560 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -23,12 +23,12 @@ C4Container
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records and questions, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
+    Container(svc, "LaunchAgent", "launchd, com.whiska.owl", "Starts the owl at login, restarts a crash; runs the owl.sh wrapper")
   }
 
   Container_Boundary(todo, "Designed, not built") {
     Container(delivery, "Delivery", "idle-gated queue", "One open question at a time to the main session")
     Container(sockets, "Sockets", "Unix, per-repo and global", "Push approval, mouse identity, cross-repo reads")
-    Container(svc, "launchd service", "brew services", "Keeps the owl awake; whiska start / stop")
   }
 
   Rel(person, cli, "Runs whiska init / mode / owl / questions")
@@ -42,13 +42,14 @@ C4Container
   Rel(cli, marker, "Reads, minting one on first use")
   Rel(cli, doorstep, "Stop hook writes one entry, unconditionally")
   Rel(cli, owl, "whiska owl boots it in the foreground")
+  Rel(cli, svc, "whiska owl install / stop / start / uninstall", "launchctl")
+  Rel(svc, owl, "Runs whiska owl with no arguments; KeepAlive on crash only")
   Rel(owl, house, "Opens one per project, supervised independently")
   Rel(owl, record, "Adds a house when opened, removes it when shut")
   Rel(house, herdr, "Subscribes per mouse pane; lists panes to find them")
   Rel(house, doorstep, "Collects on idle, at open, and on a backstop")
   Rel(house, db, "Records questions and marks mice dead")
   Rel(delivery, db, "Will read open questions")
-  Rel(svc, owl, "Will supervise")
 
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
 ```
@@ -94,6 +95,13 @@ answerable with no database and no owl.
 erase pending questions. The mirror cost is that a question can outlive its mouse; that
 state has a name already (ADR-0026) rather than being a new problem.
 
+**The LaunchAgent is the one supervisor** (ADR-0040). It runs `~/.whiska/owl.sh`, not the
+escript: launchd's `PATH` cannot find `escript`, and the wrapper is generated from the same
+fragments as the hook shim, so the runtime is found at every launch and an Erlang upgrade
+needs no reinstall. `KeepAlive` is on crash only, which is what lets `whiska owl stop` be a
+clean exit that stays stopped without booting the job out. `whiska stop` is a different,
+per-house verb (ADR-0003) and waits for the socket.
+
 **One owl, many houses** (ADR-0001). An earlier draft gave each repo its own OS process;
 that fought launchd and made "what is waiting on me anywhere" a new subsystem. Each house
 is supervised independently, so one project's house crashing is invisible to every other.
@@ -105,8 +113,5 @@ collection, classification — is plain code with nothing mocked.
 
 ## What is still designed only
 
-Delivery to the main session and its idle gate (ADR-0008); the per-repo and global
-sockets with the peer-PID check (ADR-0024, ADR-0025); `launchd` supervision and
-`whiska start`/`stop`; `checks.yml`; push approval; cross-repo commands. The owl runs in
-the foreground today, opening the houses in its record plus any named on the command
-line.
+The per-repo and global sockets with the peer-PID check (ADR-0024, ADR-0025);
+`whiska stop` for one house; `checks.yml`; push approval; cross-repo commands.

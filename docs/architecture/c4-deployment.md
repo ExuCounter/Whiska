@@ -7,8 +7,8 @@ network hop; every endpoint is a Unix socket or a file.
 C4Deployment
   title Deployment Diagram - developer machine
   Deployment_Node(mac, "Developer machine", "macOS, single OS user") {
-    Deployment_Node(launchd, "launchd - NOT BUILT; foreground today", "service supervision") {
-      Container(owl, "Owl", "Elixir/OTP", "One per machine; every open house inside it")
+    Deployment_Node(launchd, "launchd, user gui domain", "com.whiska.owl LaunchAgent") {
+      Container(owl, "Owl", "Elixir/OTP", "One per machine; every open house inside it. Started at login, restarted on a crash")
     }
     Deployment_Node(herdrnode, "herdr", "terminal multiplexer") {
       Container(mainpane, "Main session pane", "Claude Code", "One per project")
@@ -22,10 +22,13 @@ C4Deployment
     }
     Deployment_Node(home, "Home directory", "~") {
       Container(globalsock, "owl.sock - NOT BUILT", "Unix socket, ~/.whiska/", "Read-only, cross-repo")
+      Container(plist, "com.whiska.owl.plist", "~/Library/LaunchAgents/", "The job: runs owl.sh, KeepAlive on crash only")
+      Container(wrapper, "owl.sh + owl.log", "~/.whiska/", "Resolves binary and runtime at launch; the owl's stdout and stderr")
       Container(cache, "exqlite cache", "~/.cache/whiska/", "Unpacked SQLite native library")
     }
   }
 
+  Rel(plist, wrapper, "launchd runs the wrapper, which execs the owl")
   Rel(owl, housedb, "Holds open per open house")
   Rel(owl, doorstep, "Collects on an idle signal")
   Rel(owl, sock, "Listens, one per open house")
@@ -61,8 +64,14 @@ are the only commands that work from anywhere on the machine rather than inside 
 `dlopen`ed out of one, so the bundled SQLite library unpacks there on first run — 627 ms,
 once. It disappears with ADR-0033's native hook client.
 
-**What actually exists today**: `whiska.db`, `.whiska-mouse`, `doorstep/`, the cache, and
-the owl itself with its houses and herdr subscription — run in the foreground as
-`whiska owl <repo>…`, with the repos to open named on the command line. Not yet: either
-socket, `whiska start`/`stop`, and launchd supervision. The two sockets are drawn because
-their placement is the security argument below, not because they are written.
+**The LaunchAgent lives in the user's own `gui` domain** (ADR-0040): one job,
+`com.whiska.owl`, that starts the owl at login and restarts it on a crash. It runs the
+wrapper in `~/.whiska/` rather than the escript, because launchd's `PATH` cannot find
+`escript`, and the wrapper shares the hook shim's runtime lookup. The owl it starts takes
+no arguments and opens what the open-houses record lists.
+
+**What actually exists today**: `whiska.db`, `.whiska-mouse`, `doorstep/`, the cache, the
+open-houses record, the LaunchAgent with its wrapper and log, and the owl itself with its
+houses and herdr subscription. Not yet: either socket, and `whiska stop` for one house. The
+two sockets are drawn because their placement is the security argument above, not because
+they are written.

@@ -12,12 +12,13 @@ are, and those decisions are binding.
 v0.0.1 proved the plumbing — identity, storage, one enforced rule (ADR-0030). The owl
 slice added a house per repo, its herdr subscription, and doorstep collection (ADR-0036).
 This slice closes the loop: a collected question is **delivered** to the main session
-(ADR-0008) and answered by id (ADR-0005). Not yet: `launchd` supervision, `whiska stop`,
-the per-repo socket, cross-repo commands, `whiska reopen`, `checks.yml`, push approval.
+(ADR-0008) and answered by id (ADR-0005). The owl remembers which houses it has open
+(ADR-0039) and runs under `launchd` (ADR-0040). Not yet: `whiska stop` for one house, the
+per-repo socket, cross-repo commands, `whiska reopen`, `checks.yml`, push approval.
 
 ```
 mix deps.get
-mix test          # 423 tests
+mix test          # 560 tests
 mix escript.build # produces ./whiska
 ```
 
@@ -28,8 +29,13 @@ Three steps, in this order, once per repo:
 ```
 whiska init                  # hooks into .claude/settings.json (once, committed)
 ! whiska start               # from INSIDE your main Claude Code session, in the main checkout
-whiska owl                   # any pane, foreground; keeps this repo's house open
+whiska owl install           # once per machine: the owl under launchd, restarted if it crashes
+whiska owl .                 # once per repo: open this house; the owl remembers it from then on
 ```
+
+`whiska owl install` puts the owl under a user LaunchAgent (ADR-0040) and starts it; see
+"Keeping the owl awake" below. Before the first install, `whiska owl` in any pane runs it
+in the foreground instead.
 
 `whiska start` records the herdr pane it is run from as the repo's **main session**
 (ADR-0020) — the one pane the owl delivers to. Typed as `! whiska start` inside the
@@ -60,6 +66,33 @@ whiska close 12              # settled some other way, no answer
 need no owl running and no socket. A newer question from the same mouse **supersedes**
 its earlier open or delivered ones (ADR-0037), so a mouse that moves on cannot wedge the
 queue; `whiska close` covers the rest.
+
+### Keeping the owl awake
+
+```
+whiska owl install    # write ~/Library/LaunchAgents/com.whiska.owl.plist and load it
+whiska owl stop       # ask the owl to exit; it returns at login, or on `whiska owl start`
+whiska owl start      # start it now
+whiska owl uninstall  # unload the job and remove it; the log and the record stay
+```
+
+The LaunchAgent starts the owl at login and restarts it if it crashes — `KeepAlive` only on
+a crash, so `whiska owl stop` is a clean exit that stays stopped (ADR-0040). The job runs
+`~/.whiska/owl.sh`, a wrapper generated from the same shell the hook shim uses, so the
+binary and the Erlang runtime are found at every launch rather than baked in; stdout and
+stderr go to `~/.whiska/owl.log`. `HERDR_SOCKET_PATH` and the `WHISKA_*` overrides are
+copied into the job from the shell you install from, so install from a herdr pane; with
+nothing to copy the owl falls back to herdr's default socket.
+
+launchd starts the owl with no arguments, so it opens exactly the houses in its record
+(`~/.whiska/houses`, ADR-0039). With the record empty it idles and waits; `whiska owl
+<repo>` in the foreground is how a house first gets recorded — Ctrl-C it afterwards and
+the supervised owl picks it up on `whiska owl start`.
+
+Two owls would collect the same doorsteps, so `install` refuses while any owl is in the
+process table and prints the handover (Ctrl-C the foreground one, install again), and the
+foreground `whiska owl` refuses while launchd's owl is running. `whiska stop` is not the
+owl's stop: it shuts one house (ADR-0003) and is not built until the owl has a socket.
 
 ### The owl, the house, the doorstep
 
@@ -203,6 +236,9 @@ whiska doctor — myrepo (/Users/me/projects/myrepo)
   ok    runtime     /Users/me/.asdf/installs/erlang/28.1.1/bin/escript
   ok    herdr       reachable at /Users/me/.config/herdr/herdr.sock (12 panes)
   warn  owl         not running — nothing collects the doorstep
+                    fix: whiska owl
+  warn  launch agent  not installed — the owl is not supervised
+                    fix: whiska owl install
                     fix: whiska owl
   FAIL  Stop        not wired — mice here cannot leave questions
                     fix: whiska init
