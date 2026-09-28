@@ -36,7 +36,7 @@ individually citable decisions.
 - [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep; the hook never opens a socket
 - [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
-- [0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md) — A nudge is a notice typed into another house's main session (0040 is `launchd` supervision, on the unmerged `feat/launchd-supervision` branch)
+- [0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md) — A nudge is a notice typed into another house's main session (0040 is `launchd` supervision, on the unmerged `feat/launchd-supervision` branch) — with a 2026-09-28 note on its line now also being a command
 
 ## Enforcement, checks and push
 

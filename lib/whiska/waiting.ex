@@ -102,7 +102,10 @@ defmodule Whiska.Waiting do
         Enum.map(doorstep, fn {_file, e} -> from_doorstep(e, main, now, fn _ -> nil end) end)
       end
 
-    Enum.sort_by(entries, & &1.age_s, :desc)
+    case entries do
+      list when is_list(list) -> Enum.sort_by(list, & &1.age_s, :desc)
+      :unreadable -> []
+    end
   end
 
   @doc """
@@ -144,7 +147,10 @@ defmodule Whiska.Waiting do
     main = Path.expand(main)
 
     if File.exists?(Storage.database_path(main)) do
-      with_house(main, fn -> Enum.find(Storage.alive_mice(), &(&1.branch == branch)) end)
+      case with_house(main, fn -> Enum.find(Storage.alive_mice(), &(&1.branch == branch)) end) do
+        %Mouse{} = mouse -> mouse
+        _unreadable -> nil
+      end
     end
   end
 
@@ -155,21 +161,55 @@ defmodule Whiska.Waiting do
     |> OpenHouses.read()
   end
 
-  # A house that will not open is not an error worth stopping a machine-wide
-  # listing for; it is one repo's problem, and `whiska doctor` is where it is
-  # explained.
+  # A house that will not open, or will not answer, is not an error worth
+  # stopping a machine-wide listing for; it is one repo's problem, and `whiska
+  # doctor` is where it is explained. This is the one place that has to be said
+  # out loud: a per-repo command may fail loudly for its own repo, but every
+  # other house's questions must still be listable when one database is corrupt,
+  # locked or mid-migration. Opening can fail by returning, and querying can
+  # fail by raising or exiting (`DBConnection` does both), so both are caught.
   defp with_house(main, work) do
-    case Storage.open(main) do
-      {:ok, handle} ->
-        try do
-          work.()
-        after
-          Storage.close(handle)
-        end
+    try do
+      case Storage.open(main) do
+        {:ok, handle} ->
+          try do
+            work.()
+          after
+            Storage.close(handle)
+          end
 
-      {:error, _} ->
-        []
+        {:error, _} ->
+          :unreadable
+      end
+    catch
+      :error, _ -> abandon(main)
+      :exit, _ -> abandon(main)
     end
+  end
+
+  # `Storage.open/1` migrates as it opens, so a database that is corrupt or
+  # locked raises from inside the open — after the Repo process is already up.
+  # Left running it would be found as `{:already_started, _}` by the *next*
+  # house, turning one bad repo into every repo. So the connection is shut down
+  # here before moving on.
+  defp abandon(main) do
+    case Process.whereis(Whiska.Repo) do
+      nil -> :ok
+      pid -> Storage.close(pid)
+    end
+
+    warn(main)
+    :unreadable
+  end
+
+  # Said once, on stderr, so a listing that silently skipped a repo cannot be
+  # mistaken for that repo being quiet. `whiska doctor` is where it is explained.
+  defp warn(main) do
+    IO.puts(
+      :stderr,
+      "whiska: could not read #{Path.basename(main)}'s house — skipping it. " <>
+        "Run `whiska doctor` in #{main}."
+    )
   end
 
   defp from_question(%Question{} = q, main, now) do

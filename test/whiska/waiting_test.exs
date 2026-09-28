@@ -269,6 +269,20 @@ defmodule Whiska.WaitingTest do
       assert Waiting.pane_for("feat-a", open_houses: record) == {:error, :no_pane}
     end
 
+    test "a house that will not open is skipped, not a crash", %{root: root, record: record} do
+      a = house!(root, "alpha", record)
+      b = house!(root, "beta", record)
+      seed(b, fn -> mouse("m2", "feat-b", "%7") end)
+
+      # A database that exists but cannot be opened: one repo's problem, and
+      # `whiska doctor` is where it is explained — never a machine-wide crash.
+      File.rm_rf!(Storage.database_path(a))
+      File.mkdir_p!(Storage.database_path(a))
+
+      assert {:ok, %{pane: "%7"}} = Waiting.pane_for("feat-b", open_houses: record)
+      assert [] = Waiting.house(a)
+    end
+
     test "skips a dead mouse in favour of a live one on the same branch", %{
       root: root,
       record: record

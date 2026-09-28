@@ -85,5 +85,12 @@ most needs to be told what piled up. The guard stays where it belongs: on the wo
   different unions; it is now one state of a house — open and sent questions plus
   uncollected doorstep entries — and the Nudge entry says in so many words that what it
   qualifies on is narrower.
+- One bad house must not sink the listing. `whiska questions` may fail loudly for its own
+  repo; a machine-wide read cannot, or one corrupt or locked database would hide every
+  other repo's questions. `Whiska.Waiting` therefore catches a house that will not open
+  *or* will not answer — `Storage.open/1` migrates as it opens, so a bad database raises
+  from inside the open, after its connection is already up — shuts that connection down
+  so the next house is not met with `{:already_started, _}`, says so once on stderr, and
+  carries on. Silence there would read as that repo being quiet.
 - The Raycast script is not shipped and nothing is written into anyone's dotfiles. The
   five lines it takes are in `whiska --help` under `jump`, to be copied by hand.
