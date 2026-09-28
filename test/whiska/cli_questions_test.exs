@@ -76,6 +76,51 @@ defmodule Whiska.CLIQuestionsTest do
     end
   end
 
+  describe "whiska questions --full — no id to type" do
+    test "prints every open question in full, oldest first, with what is not actionable under it",
+         %{main: main} do
+      %{q1: q1, q2: q2} =
+        seed(main, fn ->
+          q1 = ask("Recap.\n[worktree-status: needs-decision] pick a cache TTL")
+          q2 = ask("The other one.\n[worktree-status: needs-decision] name the flag")
+          ask("gone", status: "orphaned")
+          %{q1: q1, q2: q2}
+        end)
+
+      out = capture_io(fn -> assert CLI.run(["questions", "--full"], main) == 0 end)
+
+      assert out =~ "pick a cache TTL"
+      assert out =~ "name the flag"
+      assert out =~ ~r/pick a cache TTL.*name the flag/s
+      assert out =~ ~s(answer: whiska reply #{q1.id} "...")
+      assert out =~ ~s(answer: whiska reply #{q2.id} "...")
+      assert out =~ "feat-a"
+      assert out =~ "1 orphaned"
+    end
+
+    test "with nothing open it says so, the same as the summary does", %{main: main} do
+      out = capture_io(fn -> assert CLI.run(["questions", "--full"], main) == 0 end)
+      assert out =~ "🦉 Nothing needs you"
+    end
+
+    test "the plain listing and one question by id are unchanged", %{main: main} do
+      q = seed(main, fn -> ask("Recap.\n[worktree-status: needs-decision] pick a cache TTL") end)
+
+      listing = capture_io(fn -> assert CLI.run(["questions"], main) == 0 end)
+      assert listing =~ ~s(##{q.id}  feat-a  needs a decision · "pick a cache TTL"  \(open\))
+      refute listing =~ "answer: whiska reply"
+
+      one = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
+      assert one =~ "feat-a"
+      assert one =~ ~s(answer: whiska reply #{q.id} "...")
+    end
+
+    test "--full is in the usage text" do
+      out = capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
+      assert out =~ "--full"
+    end
+  end
+
   # The owl is found in the real process table (ADR-0031 fakes only herdr), so
   # the CLI tests accept either state and pin the rest; the owl's own logic is
   # tested in Whiska.StatuslineTest with `:owl_pids` pinned.

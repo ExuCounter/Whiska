@@ -42,6 +42,12 @@ defmodule Whiska.QuestionsTest do
     q
   end
 
+  # `render_full/1` reads preloaded questions; `full/1` names the branch from
+  # that preload, so a freshly recorded question needs the same shape here.
+  defp with_branch(question, branch) do
+    %{question | mouse: %Whiska.Schema.Mouse{branch: branch}}
+  end
+
   defp leave(main, text, age_seconds) do
     {:ok, _} =
       Doorstep.leave(main, %Entry{
@@ -127,6 +133,66 @@ defmodule Whiska.QuestionsTest do
 
       assert out =~ "2 on the doorstep"
       assert out =~ "owl"
+    end
+  end
+
+  describe "render_full/1 — what `whiska questions --full` prints" do
+    test "says plainly when nothing is waiting, the same as the summary", %{main: main} do
+      {:ok, summary} = Questions.summary(main)
+
+      assert Questions.render_full(summary) ==
+               "🦉 Nothing needs you · the owl delivers when something does"
+    end
+
+    test "every open question in full, oldest first, clearly separated", %{main: main} do
+      %{q1: q1, q2: q2} =
+        seed(main, fn ->
+          q1 = ask("m1", "Recap.\n[worktree-status: needs-decision] pick a cache TTL")
+          q2 = ask("m2", "The other one.\n[worktree-status: needs-decision] name the flag")
+          %{q1: q1, q2: q2}
+        end)
+
+      {:ok, summary} = Questions.summary(main)
+      out = Questions.render_full(summary)
+
+      assert [first, second] = String.split(out, Questions.separator())
+
+      # Each block is exactly what `whiska questions <id>` prints today.
+      assert String.trim(first) == Questions.full(q1 |> with_branch("feat-a"))
+      assert String.trim(second) == Questions.full(q2 |> with_branch("feat-b"))
+
+      # Oldest first, and the whole text is there, not a pointer.
+      assert out =~ "pick a cache TTL"
+      assert out =~ "name the flag"
+      assert out =~ ~r/pick a cache TTL.*name the flag/s
+      assert out =~ ~s(answer: whiska reply #{q1.id} "...")
+    end
+
+    test "the not-actionable block follows, exactly as the summary shows it", %{main: main} do
+      seed(main, fn ->
+        ask("m1", "live")
+        ask("m2", "its worktree is gone", status: "orphaned")
+      end)
+
+      leave(main, "waiting for the owl", 0)
+
+      {:ok, summary} = Questions.summary(main)
+      out = Questions.render_full(summary)
+
+      assert out =~ "1 orphaned"
+      assert out =~ ~s("its worktree is gone"  \(orphaned\))
+      assert out =~ "1 on the doorstep"
+      assert out =~ ~r/live.*\n\n1 orphaned.*\n\n1 on the doorstep/s
+    end
+
+    test "nothing open but something orphaned still says nothing needs you first", %{main: main} do
+      seed(main, fn -> ask("m2", "its worktree is gone", status: "orphaned") end)
+
+      {:ok, summary} = Questions.summary(main)
+      out = Questions.render_full(summary)
+
+      assert out =~ "🦉 Nothing needs you"
+      assert out =~ "1 orphaned"
     end
   end
 

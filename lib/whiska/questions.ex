@@ -1,11 +1,12 @@
 defmodule Whiska.Questions do
   @moduledoc """
-  What is waiting on the person in one house — asked once, shown two ways.
+  What is waiting on the person in one house — asked once, shown three ways.
 
   `whiska questions` and the project statusline both answer "how many questions
   are open here". The spec has the statusline read the underlying data directly
   rather than shelling out to the command, so the reading lives here and each
-  caller only renders: `render/1` for the listing, `statusline/1` for the one
+  caller only renders: `render/1` for the listing, `render_full/1` for the same
+  thing at length (`whiska questions --full`), and `statusline/1` for the one
   segment the statusline appends (ADR-0027). A statusline that disagreed with
   the listing about what is waiting would be worse than either alone.
 
@@ -84,13 +85,43 @@ defmodule Whiska.Questions do
 
   @doc "What `whiska questions` prints: the open list, then what is not actionable."
   @spec render(summary()) :: String.t()
-  def render(%{open: open, orphaned: orphaned, doorstep: doorstep}) do
+  def render(%{open: open} = summary) do
     open_block =
       case open do
-        [] -> "🦉 Nothing needs you · the owl delivers when something does"
+        [] -> nothing_waiting()
         _ -> Enum.map_join(open, "\n", &line/1)
       end
 
+    compose(open_block, summary)
+  end
+
+  @doc """
+  What `whiska questions --full` prints: every open question in full, oldest
+  first, then the same not-actionable blocks the listing shows underneath.
+
+  The same reading as `render/1`, told at length: nobody should have to read a
+  line, pick an id out of it and type it back to see what a mouse actually
+  said. Each block is exactly what `whiska questions <id>` prints for that one,
+  so the two can never drift apart.
+  """
+  @spec render_full(summary()) :: String.t()
+  def render_full(%{open: open} = summary) do
+    open_block =
+      case open do
+        [] -> nothing_waiting()
+        _ -> Enum.map_join(open, separator(), &full/1)
+      end
+
+    compose(open_block, summary)
+  end
+
+  @doc "What sits between two questions in `render_full/1`, so the eye finds the break."
+  @spec separator() :: String.t()
+  def separator, do: "\n\n" <> String.duplicate("─", 60) <> "\n\n"
+
+  defp nothing_waiting, do: "🦉 Nothing needs you · the owl delivers when something does"
+
+  defp compose(open_block, %{orphaned: orphaned, doorstep: doorstep}) do
     orphaned_block =
       case orphaned do
         [] ->
@@ -108,6 +139,28 @@ defmodule Whiska.Questions do
     [open_block, orphaned_block, doorstep_block]
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n\n")
+  end
+
+  @doc """
+  One question in full: heading, the mouse's whole message, and how to answer.
+
+  What `whiska questions <id>` prints, and one block of `render_full/1`. The
+  branch comes from the question's own preloaded mouse; a caller that loaded
+  the question without it passes the branch itself.
+  """
+  @spec full(Question.t()) :: String.t()
+  def full(%Question{} = q), do: full(q, branch(q))
+
+  @spec full(Question.t(), String.t()) :: String.t()
+  def full(%Question{} = q, branch) do
+    """
+    ##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q)}, asked #{Calendar.strftime(q.asked_at, "%Y-%m-%d %H:%M")})
+
+    #{String.trim_trailing(q.text)}
+
+    answer: whiska reply #{q.id} "..."
+    """
+    |> String.trim_trailing()
   end
 
   @doc "One listing line: id, branch, what the mouse did, its pointer, and where it stands."
