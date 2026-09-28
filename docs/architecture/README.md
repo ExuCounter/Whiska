@@ -8,7 +8,7 @@ an ADR disagree, the ADR wins.
 |---|---|---|
 | 1 | [c4-context.md](c4-context.md) | Whiska between the person, Claude Code, herdr, git and launchd |
 | 2 | [c4-containers.md](c4-containers.md) | Built against designed, as two boundaries |
-| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init, mode, questions, statusline, doctor, the delivery-side commands |
+| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init, mode, questions, statusline, doctor, the delivery-side commands, waiting and jump |
 | 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification, delivery, the nudge |
 | — | [c4-dynamic-pretooluse.md](c4-dynamic-pretooluse.md) | One tool-call decision, end to end |
 | — | [c4-dynamic-question-delivery.md](c4-dynamic-question-delivery.md) | A question from the doorstep to its answer, and the nudge to the other houses |
@@ -51,7 +51,13 @@ until the repo's own check command is green and one review pass against `specs/`
 ADR-0011 gives a failing push. The shim chains it in front of `whiska hook stop`, so a
 blocked turn leaves nothing on the doorstep and `Hook.Stop` itself is unchanged
 (ADR-0042, the addendum to ADR-0036). Whiska itself now runs no checks at all (ADR-0014
-superseded). 621 tests.
+superseded). Then `whiska waiting` and `whiska jump`: one reading of every house in the
+open-houses record — each open or sent question and each uncollected doorstep entry,
+oldest first, with the mouse's pane — printed as lines or as `--json`, and a `jump` that
+asks herdr to focus the top one's pane, or a named branch's. It is the first thing in
+Whiska that moves the person's screen, and only ever because the person asked in that
+same breath; the record is read without the owl-alive guard, since a question already
+recorded is waiting whether or not anything is awake (ADR-0043). 663 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;

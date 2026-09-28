@@ -24,8 +24,9 @@ defmodule Whiska.Statusline do
     `Whiska.OpenHouses` (ADR-0039) — that have a live agent pane in their repo
     root. Their headcount is shown when it is more than one (`🐈 3 whiskas`);
     this repo counts while its house is open, whichever pane the line is
-    drawn in. Every other one's house is read the way `whiska questions` reads
-    this one, and it is shown apart only when something is waiting there: one
+    drawn in. Every other one's house is read through `Whiska.Waiting`, which
+    is also what `whiska waiting` lists, so the two cannot disagree about what
+    "waiting" means; a whiska is shown apart only when something is waiting there: one
     is named by its folder, several become a count. A quiet laptop reads `🦉
     watching` and nothing more. A repo with a house file on disk but not open
     in the owl is not a whiska, live pane or not: nothing collects there.
@@ -44,6 +45,7 @@ defmodule Whiska.Statusline do
   alias Whiska.OpenHouses
   alias Whiska.Owl
   alias Whiska.Questions
+  alias Whiska.Waiting
 
   @type summary :: %{
           owl: :watching | :down,
@@ -83,7 +85,7 @@ defmodule Whiska.Statusline do
           elsewhere =
             whiskas
             |> Enum.reject(&(&1 == main))
-            |> Enum.filter(&waiting?/1)
+            |> Enum.filter(&Waiting.waiting?/1)
 
           {:ok,
            %{
@@ -108,13 +110,6 @@ defmodule Whiska.Statusline do
 
   defp ask_herdr(nil), do: :no_socket
   defp ask_herdr(socket), do: Herdr.impl().list_panes(socket)
-
-  defp waiting?(main) do
-    case Questions.summary(main) do
-      {:ok, %{open: open, doorstep: doorstep}} -> open != [] or doorstep > 0
-      {:error, _} -> false
-    end
-  end
 
   @doc "How many of this repo's worktrees have a live agent pane in them. Pure."
   @spec mice_here([Herdr.pane()], Path.t()) :: non_neg_integer()
