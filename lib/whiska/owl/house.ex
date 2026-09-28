@@ -22,12 +22,30 @@ defmodule Whiska.Owl.House do
   the subscription is reopened with the new set; when herdr drops it, it is
   reopened after a short wait, and kept being retried while herdr is down.
 
+  Two facts about the stream, both checked against herdr 0.8.2 on 2026-09-28
+  (the live socket and `herdr api schema`), because getting either wrong made
+  every collection and delivery wait for the backstop:
+
+  - **The event name has two spellings.** A per-pane subscription event is
+    streamed under its subscription type, `pane.agent_status_changed`; a global
+    one under its event type, `pane_closed`, `pane_exited`,
+    `pane_agent_detected`. The house folds the dot form into the underscore
+    form on arrival and matches only the latter.
+  - **`done` is what a mouse reports.** herdr's statuses are `idle`, `working`,
+    `blocked`, `done` and `unknown`. In herdr's own words, `idle` means the
+    agent is ready for input and its tab has been seen in the focused UI, and
+    `done` is the same underlying state after work finished in a tab the person
+    had not looked at. A mouse works in a background worktree, so the end of
+    its turn arrives as `working` → `done`; the main pane, focused, reports
+    `idle`. Both mean "ready for input" and both trigger. `blocked` is an
+    approval or question dialog; `unknown` is an agent herdr cannot classify.
+
   ## Collection (ADR-0036)
 
-  Three triggers, only one of them a timer: a mouse pane going idle, opening the
-  house, and a slow backstop. Each one reads the doorstep, records every entry as
-  a question — classified by its marker alone (ADR-0009) — and marks the entry
-  collected.
+  Three triggers, only one of them a timer: a mouse pane reporting `done` or
+  `idle`, opening the house, and a slow backstop. Each one reads the doorstep,
+  records every entry as a question — classified by its marker alone
+  (ADR-0009) — and marks the entry collected.
 
   The idle trigger races Whiska's own `Stop` hook — Claude Code runs the two in
   no fixed order — so herdr's idle event can arrive before the entry is on the
@@ -196,42 +214,12 @@ defmodule Whiska.Owl.House do
 
   # -- herdr events ------------------------------------------------------------
 
+  # Every herdr event comes through here once, with its name normalised, and
+  # is then dispatched by that one spelling (see "What the house watches").
   @impl true
-  def handle_info({:herdr_event, "pane_agent_status_changed", data}, state) do
-    case data do
-      %{"pane_id" => pane_id, "agent_status" => status}
-      when status in ["idle", "done"] and pane_id == state.main_pane and pane_id != nil ->
-        # The person is free: the next question can go, unless a fresh round is
-        # still gathering its count.
-        {:noreply, deliver(state)}
-
-      %{"pane_id" => pane_id, "agent_status" => "idle"} ->
-        if Map.has_key?(state.panes, pane_id),
-          do: {:noreply, collect_after_idle(state)},
-          else: {:noreply, state}
-
-      _ ->
-        {:noreply, state}
-    end
+  def handle_info({:herdr_event, name, data}, state) do
+    {:noreply, herdr_event(event_name(name), data, state)}
   end
-
-  def handle_info({:herdr_event, gone, %{"pane_id" => pane_id}}, state)
-      when gone in ["pane_closed", "pane_exited"] do
-    case Map.pop(state.panes, pane_id) do
-      {nil, _} ->
-        {:noreply, state}
-
-      {mouse_id, panes} ->
-        Storage.mark_dead(mouse_id)
-        {:noreply, resubscribe(%{state | panes: panes})}
-    end
-  end
-
-  def handle_info({:herdr_event, "pane_agent_detected", _data}, state) do
-    {:noreply, refresh(state)}
-  end
-
-  def handle_info({:herdr_event, _other, _data}, state), do: {:noreply, state}
 
   def handle_info({:herdr_subscription_lost, reason}, state) do
     warn(state, "herdr subscription lost (#{inspect(reason)}) — will reopen it")
@@ -269,6 +257,52 @@ defmodule Whiska.Owl.House do
     do: {:stop, {:repo_down, reason}, state}
 
   def handle_info({:EXIT, _pid, _reason}, state), do: {:noreply, state}
+
+  # -- herdr events, by name ---------------------------------------------------
+
+  # herdr 0.8.2 streams a per-pane subscription event under its subscription
+  # type (`pane.agent_status_changed`) but a global one under its event type
+  # (`pane_closed`): the same event, two spellings, depending on how it was
+  # subscribed. The house speaks the underscore form, so the dot form is folded
+  # into it here. This is done in the house rather than in `Whiska.Herdr.Socket`
+  # because the house is what the `Whiska.Herdr` fake feeds directly (ADR-0031):
+  # a normalisation in the socket client would be invisible to every test and to
+  # any other implementation of the behaviour, and the contract stays "herdr's
+  # own name, verbatim".
+  defp event_name(name), do: String.replace(name, ".", "_")
+
+  defp herdr_event("pane_agent_status_changed", data, state) do
+    case data do
+      %{"pane_id" => pane_id, "agent_status" => status}
+      when status in ["idle", "done"] and pane_id == state.main_pane and pane_id != nil ->
+        # The person is free: the next question can go, unless a fresh round is
+        # still gathering its count.
+        deliver(state)
+
+      %{"pane_id" => pane_id, "agent_status" => status} when status in ["idle", "done"] ->
+        if Map.has_key?(state.panes, pane_id),
+          do: collect_after_idle(state),
+          else: state
+
+      _ ->
+        state
+    end
+  end
+
+  defp herdr_event(gone, %{"pane_id" => pane_id}, state)
+       when gone in ["pane_closed", "pane_exited"] do
+    case Map.pop(state.panes, pane_id) do
+      {nil, _} ->
+        state
+
+      {mouse_id, panes} ->
+        Storage.mark_dead(mouse_id)
+        resubscribe(%{state | panes: panes})
+    end
+  end
+
+  defp herdr_event("pane_agent_detected", _data, state), do: refresh(state)
+  defp herdr_event(_other, _data, state), do: state
 
   # -- panes and the subscription ----------------------------------------------
 

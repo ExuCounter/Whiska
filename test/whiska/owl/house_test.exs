@@ -173,19 +173,55 @@ defmodule Whiska.Owl.HouseTest do
       {:ok, house: open(main)}
     end
 
-    test "happens when herdr reports the mouse's pane idle", %{main: main, a: a, house: house} do
+    # herdr 0.8.2 streams a per-pane subscription event under its subscription
+    # type, `pane.agent_status_changed` (dot), and a mouse ending a turn in an
+    # unfocused tab reports `done`, not `idle` — checked against the live socket
+    # on 2026-09-28. Both spellings and both statuses have to trigger.
+    test "happens when herdr reports the mouse's pane done", %{main: main, a: a, house: house} do
       leave(main, "ma", a, "[worktree-status: needs-decision] which one?")
 
       send(
         house,
-        {:herdr_event, "pane_agent_status_changed",
-         %{"pane_id" => "w1:p1", "agent_status" => "idle"}}
+        {:herdr_event, "pane.agent_status_changed",
+         %{"pane_id" => "w1:p1", "agent_status" => "done"}}
       )
 
       House.sync(house)
 
       assert Doorstep.waiting(main) == []
       in_house(house, fn -> assert [%Question{status: "open"}] = Storage.all(Question) end)
+    end
+
+    test "happens when herdr reports the mouse's pane idle", %{main: main, a: a, house: house} do
+      leave(main, "ma", a, "[worktree-status: needs-decision] which one?")
+
+      send(
+        house,
+        {:herdr_event, "pane.agent_status_changed",
+         %{"pane_id" => "w1:p1", "agent_status" => "idle"}}
+      )
+
+      House.sync(house)
+
+      assert Doorstep.waiting(main) == []
+    end
+
+    test "still happens under the underscore spelling herdr's schema gives the event", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      leave(main, "ma", a, "[worktree-status: needs-decision] which one?")
+
+      send(
+        house,
+        {:herdr_event, "pane_agent_status_changed",
+         %{"pane_id" => "w1:p1", "agent_status" => "done"}}
+      )
+
+      House.sync(house)
+
+      assert Doorstep.waiting(main) == []
     end
 
     test "does not happen on working, blocked, or a pane that is not a mouse", %{
@@ -197,20 +233,20 @@ defmodule Whiska.Owl.HouseTest do
 
       send(
         house,
-        {:herdr_event, "pane_agent_status_changed",
+        {:herdr_event, "pane.agent_status_changed",
          %{"pane_id" => "w1:p1", "agent_status" => "working"}}
       )
 
       send(
         house,
-        {:herdr_event, "pane_agent_status_changed",
+        {:herdr_event, "pane.agent_status_changed",
          %{"pane_id" => "w1:p1", "agent_status" => "blocked"}}
       )
 
       send(
         house,
-        {:herdr_event, "pane_agent_status_changed",
-         %{"pane_id" => "w9:p9", "agent_status" => "idle"}}
+        {:herdr_event, "pane.agent_status_changed",
+         %{"pane_id" => "w9:p9", "agent_status" => "done"}}
       )
 
       House.sync(house)
@@ -285,11 +321,12 @@ defmodule Whiska.Owl.HouseTest do
       assert Doorstep.waiting(main) == []
     end
 
+    # A mouse ending its turn, as herdr actually reports it (see above).
     defp idle(house, pane_id \\ "w1:p1") do
       send(
         house,
-        {:herdr_event, "pane_agent_status_changed",
-         %{"pane_id" => pane_id, "agent_status" => "idle"}}
+        {:herdr_event, "pane.agent_status_changed",
+         %{"pane_id" => pane_id, "agent_status" => "done"}}
       )
 
       House.sync(house)
