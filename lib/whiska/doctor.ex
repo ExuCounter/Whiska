@@ -453,10 +453,15 @@ defmodule Whiska.Doctor do
       "tool_input" => %{"file_path" => Path.join(cwd, "probe")}
     }
 
+  # Deliberately not a `done` marker. The shim chains the repo's review loop in
+  # front of `whiska hook stop` (ADR-0042), and `done` is what sets that loop
+  # running — so a probe carrying one would make `whiska doctor` run the repo's
+  # whole check command and then report its block as unexpected output. The
+  # doctor checks; it never sets anything going (ADR-0038).
   defp payload("stop", cwd),
     do: %{
       "cwd" => cwd,
-      "last_assistant_message" => "whiska doctor probe\n[worktree-status: done]"
+      "last_assistant_message" => "whiska doctor probe"
     }
 
   # -- this repo's house -------------------------------------------------------

@@ -8,7 +8,7 @@ How often these worktree branches actually go through a PR is a genuine 50/50, s
 not built for the MVP. The shape is worked out for whenever it is wanted, recorded here so
 it does not get redesigned from scratch:
 
-- Opt-in per repo, a `pr: true` line alongside `checks.yml` — off by default, matching
+- Opt-in per repo, a `pr: true` line in `.whiska/dispatch.yml` — off by default, matching
   today's behaviour (stop at push, handle PRs and merges yourself).
 - When on, after a push succeeds Whiska tells the mouse to open the PR itself, since the
   mouse has the context to write a real title and summary and Whiska stays dumb on purpose.

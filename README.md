@@ -14,7 +14,7 @@ slice added a house per repo, its herdr subscription, and doorstep collection (A
 This slice closes the loop: a collected question is **delivered** to the main session
 (ADR-0008) and answered by id (ADR-0005). The owl remembers which houses it has open
 (ADR-0039) and runs under `launchd` (ADR-0040). Not yet: `whiska stop` for one house, the
-per-repo socket, cross-repo commands, `whiska reopen`, `checks.yml`, push approval.
+per-repo socket, cross-repo commands, `whiska reopen`, push approval.
 
 ```
 mix deps.get

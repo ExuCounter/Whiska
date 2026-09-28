@@ -3,14 +3,14 @@
 Surfaced by a real firstmate incident: their primary once ran work through Claude Code's
 own subagent tool instead of a real spawned worker, and that work had no durable fleet
 record and bypassed every one of their guards. The same risk applies here. Every
-protection in this design — worktree containment, `checks.yml`, diff review, push
+protection in this design — worktree containment, the review loop, diff review, push
 approval — only covers a mouse's own worktree. An edit made directly in the main checkout
 skips all of it.
 
 ## Consequences
 
-Carved out and still directly editable: Whiska's own config files — `checks.yml`,
-`dispatch.yml`, the `CLAUDE.md` block. Those are meta/setup rather than project code, and
+Carved out and still directly editable: Whiska's own config files — `dispatch.yml` and
+the `CLAUDE.md` block. Those are meta/setup rather than project code, and
 blocking them would make basic setup painfully indirect.
 
 **The carve-out is scoped to the main session editing its own repo's setup, and does not

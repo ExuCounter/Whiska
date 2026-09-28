@@ -2,8 +2,8 @@
 
 The main session can always override model and effort per task, the same judgment call it
 already makes about whether something needs a worktree at all. The *default* comes from a
-small static config, `.whiska/dispatch.yml`, scaffolded by `whiska init` — the same
-agnostic shape as `checks.yml` — with a ranked list per mode.
+small static config, `.whiska/dispatch.yml`, scaffolded by `whiska init` — a flat,
+tool-agnostic file the person writes — with a ranked list per mode.
 
 The list is walked reactively, not predictively. Whiska does not check quota or usage
 before spawning: that would mean integrating with whatever quota API each provider happens

@@ -17,6 +17,7 @@ to whatever you have already told git.
 
 What protects you without an automated reviewer, concretely: every push is a real decision
 with a diff-stat scope check and a one-command path to the full diff; `PreToolUse`
-physically confines edits to the worktree; `checks.yml` catches anything mechanical first;
+physically confines edits to the worktree; the repo's own review loop catches anything
+mechanical a turn earlier, before the commit even exists (ADR-0042);
 `whiska cleanup` verifies a branch is merged before removing it; and CI is a second layer
 outside the mouse's environment if PR mode is ever turned on.

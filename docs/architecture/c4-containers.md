@@ -133,4 +133,4 @@ collection, classification — is plain code with nothing mocked.
 ## What is still designed only
 
 The per-repo and global sockets with the peer-PID check (ADR-0024, ADR-0025);
-`whiska stop` for one house; `checks.yml`; push approval; cross-repo commands.
+`whiska stop` for one house; push approval; cross-repo commands.

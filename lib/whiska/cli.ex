@@ -223,6 +223,7 @@ defmodule Whiska.CLI do
          :ok <- File.write(shim, Install.shim()),
          :ok <- File.chmod(shim, 0o755),
          :ok <- write_statusline(repo_root),
+         :ok <- write_review_loop(repo_root),
          :ok <- write_skills(repo_root),
          :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- File.write(path, JSON.encode!(merged) |> reformat()) do
@@ -240,6 +241,12 @@ defmodule Whiska.CLI do
         Also wrote the project statusline (#{Install.statusline_path()}), which
         runs your global statusline and appends what is waiting on you here, and
         one slash command per whiska command under .claude/skills/.
+
+        And the review loop (#{Install.review_loop_path()}) — a Stop hook this
+        repo owns, not Whiska (ADR-0042). The shim runs it before Whiska's own
+        stop hook and only leaves a question on the doorstep once it lets the
+        turn end. Edit the CHECK line at the top to say what green means here;
+        it is written once and never touched again.
 
         Check them into git so the rules travel with the repo (ADR-0016):
 
@@ -266,6 +273,23 @@ defmodule Whiska.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not write #{path} (#{inspect(reason)}).")
         1
+    end
+  end
+
+  # The repo's review loop (ADR-0042), written once and then left alone: the
+  # CHECK line inside it is the person's, and `whiska init` — or `whiska update`
+  # — rewriting the file would throw their answer away. Whiska never reads it
+  # back either way.
+  defp write_review_loop(repo_root) do
+    script = Path.join(repo_root, Install.review_loop_path())
+
+    if File.exists?(script) do
+      :ok
+    else
+      with :ok <- File.mkdir_p(Path.dirname(script)),
+           :ok <- File.write(script, Install.review_loop()) do
+        File.chmod(script, 0o755)
+      end
     end
   end
 

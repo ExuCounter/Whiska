@@ -128,3 +128,16 @@ have been told about, so it says so rather than quietly making up the difference
 much it has had to collect is the measure of whether the event-driven path is alive.
 _Avoid_: fallback, poller, sweep, safety net (all of them suggest a path that is fine to
 be on; being on this one is the symptom)
+
+**Review loop**:
+The repo's own answer to "is this turn actually over?" — held by the repo, not by
+Whiska, and consulted the moment a mouse tries to end a turn on `done`. It has two
+things to say and no more: whether the repo's checks are green, and that the mouse has
+not yet read its own diff back against the repo's written decisions. Either one sends
+the mouse back to work; neither is ever Whiska's opinion, and Whiska never reads what
+the loop is made of. It runs ahead of the doorstep rather than beside it, so a turn it
+sends back leaves no question at all — not a question that is later corrected. Bounded by
+construction: a loop that cannot be satisfied gives up and lets the person see the failure
+instead.
+_Avoid_: checks, gate (the no-mistakes gate is a different thing, and it runs after a
+push rather than at the end of a turn), CI, ralph loop

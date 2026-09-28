@@ -358,6 +358,12 @@ a real check beats trusting a skill to remember.
 
 ## Review before a push — agnostic, no specific tool required
 
+> **Superseded, 2026-09-28.** `checks.yml` was never built and is now decided against:
+> ADR-0014 records why, and ADR-0042 replaces it. Whiska runs no checks of its own. What
+> answers "is this worktree actually done?" is the repo's own `Stop` hook,
+> `.claude/hooks/review-loop.sh`, which runs at the end of a *turn* rather than at push.
+> The section below is kept as the original reasoning — the ADRs win (see `CLAUDE.md`).
+
 "Is this worktree actually done?" isn't answered by asking the mouse — it's verified
 mechanically, the same way edit/push rules are enforced rather than just written down.
 A mouse marking itself `done` is just its own opinion; what actually decides is whether
@@ -385,6 +391,10 @@ tool's result — the mouse's original attempt is dead, not paused. Everything t
 happens after that (checks, then approval, then the real push) runs asynchronously, off
 to the side, through the same delivery machinery questions already use — never inside
 the hook itself.
+
+> **Step 1 below is superseded** (ADR-0014, ADR-0042): there is no check step in the push
+> flow any more, and approval carries the diff alone. Step 2's bounded escalation is what
+> survives, and ADR-0042's review loop borrows its shape.
 
 **What happens in that background work, concretely:**
 1. Checks run (`checks.yml`, in parallel — a file with six checks costs about as long as
@@ -448,7 +458,8 @@ What actually protects you without an automated reviewer, concretely:
 - Every push is a real decision you make, not a rubber stamp — with a diff-stat scope
   check and a one-command path to the full diff right there.
 - `PreToolUse` physically confines a mouse's edits to its own worktree.
-- `checks.yml` catches anything mechanical before a push is even offered to you.
+- The repo's own review loop catches anything mechanical a turn earlier, before the
+  commit even exists (ADR-0042; this bullet used to say `checks.yml`).
 - If PR mode is on later, CI is a second layer outside the mouse's own environment.
 - `whiska cleanup` mechanically checks a branch is actually merged before removing it.
 
