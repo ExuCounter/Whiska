@@ -463,21 +463,31 @@ defmodule Whiska.CLI do
   end
 
   # Two owls would collect the same doorsteps (ADR-0040). The foreground one
-  # yields to the supervised one: if launchd has an owl up, this one refuses.
+  # yields to the supervised one: if launchd has an owl up, this one refuses —
+  # unless launchd's owl *is* this process. The wrapper execs, so the job's pid
+  # is this BEAM's own pid, and without that test the supervised owl refuses
+  # itself, exits 1, and KeepAlive restarts it into a loop (ADR-0040,
+  # 2026-09-28 note).
   defp not_supervised do
     case LaunchAgent.status() do
       %{loaded: true, pid: pid} when is_integer(pid) ->
-        IO.puts(
-          :stderr,
-          "whiska: the owl is already running under launchd (pid #{pid}). " <>
-            "Run `whiska owl stop` first if you want it in the foreground."
-        )
-
-        {:error, :supervised}
+        if pid == os_pid(), do: :ok, else: refuse_to_launchd(pid)
 
       _ ->
         :ok
     end
+  end
+
+  defp os_pid, do: String.to_integer(System.pid())
+
+  defp refuse_to_launchd(pid) do
+    IO.puts(
+      :stderr,
+      "whiska: the owl is already running under launchd (pid #{pid}). " <>
+        "Run `whiska owl stop` first if you want it in the foreground."
+    )
+
+    {:error, :supervised}
   end
 
   @doc "Stop a running owl, shutting every house. For tests and for `whiska stop`, later."

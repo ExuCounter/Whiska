@@ -195,7 +195,31 @@ defmodule Whiska.LaunchAgentTest do
 
     test "status: loaded but not running" do
       out = "gui/501/com.whiska.owl = {\n\tstate = not running\n\tlast exit code = 0\n}\n"
-      assert %{loaded: true, pid: nil} = LaunchAgent.status(501, recorder({out, 0}))
+
+      assert %{loaded: true, pid: nil, last_exit_code: 0} =
+               LaunchAgent.status(501, recorder({out, 0}))
+    end
+
+    # A job launchd keeps restarting says so in the same print: no pid, a
+    # non-zero last exit code, and a rising run count.
+    test "status: a crash-looping job carries its last exit code" do
+      out = """
+      gui/501/com.whiska.owl = {
+      \tstate = spawn scheduled
+      \truns = 4
+      \tlast exit code = 1
+      }
+      """
+
+      assert %{loaded: true, pid: nil, last_exit_code: 1} =
+               LaunchAgent.status(501, recorder({out, 0}))
+    end
+
+    test "status: a job that has never exited has no last exit code" do
+      out =
+        "gui/501/com.whiska.owl = {\n\tstate = running\n\tlast exit code = (never exited)\n}\n"
+
+      assert %{last_exit_code: nil} = LaunchAgent.status(501, recorder({out, 0}))
     end
   end
 end

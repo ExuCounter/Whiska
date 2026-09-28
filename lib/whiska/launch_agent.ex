@@ -37,7 +37,7 @@ defmodule Whiska.LaunchAgent do
   @passthrough ~w(HERDR_SOCKET_PATH WHISKA_BIN WHISKA_ESCRIPT WHISKA_HOME)
 
   @type paths :: %{plist: Path.t(), wrapper: Path.t(), log: Path.t()}
-  @type status :: %{loaded: boolean(), pid: pos_integer() | nil}
+  @type status :: %{loaded: boolean(), pid: pos_integer() | nil, last_exit_code: integer() | nil}
   @type runner :: ([String.t()] -> {String.t(), non_neg_integer()})
 
   @doc "The job's label."
@@ -224,21 +224,31 @@ defmodule Whiska.LaunchAgent do
   Is the job loaded, and is the owl running under it? From `launchctl print`,
   which fails when the job is not loaded and otherwise prints a `pid = N`
   line only while the process is alive.
+
+  `last_exit_code` is how the owl last ended, when launchd has seen it end at
+  all — it prints `(never exited)` until then. With no pid and a non-zero code
+  the job is loaded and crash-looping, which is the one thing "loaded, owl not
+  running" cannot tell apart on its own (ADR-0040, 2026-09-28 note).
   """
   @spec status(pos_integer(), runner()) :: status()
   def status(uid, run) do
     case run.(["print", service(uid)]) do
       {out, 0} ->
-        pid =
-          case Regex.run(~r/^\s*pid = (\d+)\s*$/m, out) do
-            [_, n] -> String.to_integer(n)
-            nil -> nil
-          end
-
-        %{loaded: true, pid: pid}
+        %{
+          loaded: true,
+          pid: integer_field(out, ~r/^\s*pid = (\d+)\s*$/m),
+          last_exit_code: integer_field(out, ~r/^\s*last exit code = (-?\d+)\s*$/m)
+        }
 
       _ ->
-        %{loaded: false, pid: nil}
+        %{loaded: false, pid: nil, last_exit_code: nil}
+    end
+  end
+
+  defp integer_field(out, regex) do
+    case Regex.run(regex, out) do
+      [_, n] -> String.to_integer(n)
+      nil -> nil
     end
   end
 

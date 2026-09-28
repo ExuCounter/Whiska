@@ -93,3 +93,52 @@ foreground one.
   verified by hand.
 - The `launchd` node of the deployment diagram, and the "launchd service" container, move
   from designed to built.
+
+## Note, 2026-09-28: the owl refused itself
+
+The first real install of the LaunchAgent never produced a running owl. `whiska owl
+install` wrote the wrapper and the plist, launchd loaded the job, the wrapper resolved
+the binary and ran `whiska owl` with no arguments — and that owl refused to start,
+because the refusal above ("the foreground `whiska owl` refuses while launchd's owl is
+running") could not tell that the owl launchd had up *was itself*. `launchctl print`
+reported the job loaded with a pid; that pid was this very process, since the wrapper
+`exec`s and the pid is carried through bash, escript and the BEAM unchanged. So it
+printed "the owl is already running under launchd (pid N). Run `whiska owl stop` first",
+exited 1, and `KeepAlive` with `SuccessfulExit = false` did exactly what it is for: it
+restarted a crash. `~/.whiska/owl.log` filled with the same line at rising pids, and
+`launchctl print` said `runs = 4, last exit code = 1, state = spawn scheduled`. The
+doctor said `com.whiska.owl loaded, owl not running — see ~/.whiska/owl.log`, which was
+true and did not name the loop.
+
+**The refusal stays; it learns which owl it is looking at.** `Whiska.CLI.start_owl/2`
+compares the pid `launchctl print` reports with this process's own pid, and proceeds when
+they are the same. A hand-started foreground owl has a different pid and is refused
+exactly as before, so the invariant this section exists for — never two owls on the same
+doorstep — is untouched.
+
+Two mechanisms were weighed. The other was a marker in the environment: the plist's
+`EnvironmentVariables` would carry `WHISKA_SUPERVISED=1` and the refusal would be skipped
+when it is set. The pid comparison was chosen for two reasons. It answers the question
+actually being asked — "am I that process?" — rather than an inherited claim about who
+started me, and an environment variable is inherited by every child a process spawns,
+so any `whiska owl` descended from the supervised owl would skip the refusal and become
+the second owl. And it needs no plist change: an install already on disk is fixed by the
+new binary alone, which matters here because `whiska owl install` refuses while any owl
+is in the process table, and a crash-looping owl is in the process table.
+
+The pid comparison rests on the wrapper's `exec` — without it launchd's pid would be the
+bash process, not the BEAM. That is already a tested property of the wrapper
+(`exec "$whiska_bin" owl`), and it is the shape the wrapper wants anyway.
+
+**Why no test caught it.** The test config installs a launchctl runner that answers every
+`print` with "could not find service", so `status/0` never returned a loaded job to
+`start_owl/2` in any test; the refusal's true branch had never run under test at all.
+`test/whiska/cli_owl_test.exs` now injects a runner that reports the job loaded with this
+BEAM's own pid, and asserts the owl opens its houses; a sibling test reports a different
+pid and asserts the refusal still fires.
+
+**The doctor names the loop.** `LaunchAgent.status/2` also reads `last exit code` from the
+same `launchctl print` output. Loaded, no pid, non-zero code now reads
+`com.whiska.owl loaded but crash-looping (last exit code N) — see ~/.whiska/owl.log`,
+which is the line that would have pointed at this bug directly. Loaded, no pid, exit 0 —
+the owl stopped cleanly by `whiska owl stop` — keeps the old "loaded, owl not running".
