@@ -84,6 +84,21 @@ idle event while those retries are pending adds none. The doorstep is still the 
 channel, and the backstop is still the last resort — the retries only shorten the common
 case.
 
+*Note, 2026-09-28.* The primary trigger had never fired. Every collection and every
+delivery since the owl was built had been running on the 60 s backstop, and last night's
+retries had never run either. Two reasons, both found by subscribing to the live socket
+from the main terminal: herdr streams a per-pane subscription event under its
+*subscription* type, `pane.agent_status_changed` (a dot), while the global events arrive
+under their *event* type, `pane_closed`, `pane_exited`, `pane_agent_detected` (an
+underscore) — and the house matched only the underscore spelling, so no status event ever
+matched; and a mouse ending a turn reports `done`, not `idle`. In herdr's own words,
+`idle` is "ready for input and its tab has been seen in the focused UI" and `done` is
+"the same underlying idle state after unseen background work finishes" — a mouse works in
+a background tab, so its turn ends as `working` → `done`, with `idle` following only when
+someone looks at it. The house now folds the dot spelling into the underscore one on
+arrival and treats a mouse pane's `done` exactly as `idle`. The trigger table above
+stands, read "idle" as "`done` or `idle`".
+
 **The subscription is per pane, so the house has to know its panes.** Checked against herdr
 0.8.2 when this was built: `pane.agent_status_changed` can only be subscribed for a named
 `pane_id` (no wildcard), while `pane.closed`, `pane.exited` and `pane.agent_detected` are
