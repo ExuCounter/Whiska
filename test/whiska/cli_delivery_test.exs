@@ -158,7 +158,7 @@ defmodule Whiska.CLIDeliveryTest do
   describe "whiska questions" do
     test "says so when nothing is waiting", %{main: main} do
       {0, out, _} = run(["questions"], main)
-      assert out =~ "Nothing is waiting"
+      assert out =~ "🦉 Nothing needs you"
     end
 
     test "lists open and sent questions, one line each, with the id and branch", %{main: main} do

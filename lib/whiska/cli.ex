@@ -89,7 +89,7 @@ defmodule Whiska.CLI do
     jump [<branch>]      Take me to whatever needs me: focus the herdr pane of
                          the oldest thing `whiska waiting` lists. With a
                          branch, focus that mouse's pane instead, waiting or
-                         not. Prints where it went, or says nothing is waiting.
+                         not. Prints where it went, or says nothing needs you.
 
                          For a global hotkey, save this as a Raycast script
                          command and bind it:
@@ -816,7 +816,7 @@ defmodule Whiska.CLI do
   defp jump_to_oldest do
     case Waiting.list() do
       [] ->
-        say("nothing waiting")
+        say("🦉 Nothing needs you · the owl delivers when something does")
 
       [oldest | _] ->
         case oldest.pane do

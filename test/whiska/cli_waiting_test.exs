@@ -105,7 +105,7 @@ defmodule Whiska.CLIWaitingTest do
     test "says so plainly when nothing is waiting anywhere", %{root: root} do
       main = house!(root, "alpha")
       out = capture_io(fn -> assert CLI.run(["waiting"], main) == 0 end)
-      assert out =~ "Nothing is waiting on you"
+      assert out =~ "🦉 Nothing needs you"
     end
 
     test "--json prints an array a script can read", %{root: root} do
@@ -184,7 +184,7 @@ defmodule Whiska.CLIWaitingTest do
     test "says 'nothing waiting' and changes nothing when nothing is", %{root: root} do
       main = house!(root, "alpha")
       out = capture_io(fn -> assert CLI.run(["jump"], main) == 0 end)
-      assert out =~ "nothing waiting"
+      assert out =~ "🦉 Nothing needs you"
     end
 
     test "with a branch, focuses that mouse's pane whether or not it is waiting", %{

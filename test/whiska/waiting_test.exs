@@ -325,7 +325,7 @@ defmodule Whiska.WaitingTest do
     end
 
     test "says so plainly when nothing is waiting" do
-      assert Waiting.render([]) == "Nothing is waiting on you, in any house."
+      assert Waiting.render([]) == "🦉 Nothing needs you · the owl delivers when something does"
     end
   end
 

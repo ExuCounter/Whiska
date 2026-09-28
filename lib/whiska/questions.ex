@@ -87,7 +87,7 @@ defmodule Whiska.Questions do
   def render(%{open: open, orphaned: orphaned, doorstep: doorstep}) do
     open_block =
       case open do
-        [] -> "Nothing is waiting on you."
+        [] -> "🦉 Nothing needs you · the owl delivers when something does"
         _ -> Enum.map_join(open, "\n", &line/1)
       end
 

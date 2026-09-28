@@ -79,7 +79,9 @@ defmodule Whiska.QuestionsTest do
   describe "render/1 — what `whiska questions` prints" do
     test "says plainly when nothing is waiting", %{main: main} do
       {:ok, summary} = Questions.summary(main)
-      assert Questions.render(summary) == "Nothing is waiting on you."
+
+      assert Questions.render(summary) ==
+               "🦉 Nothing needs you · the owl delivers when something does"
     end
 
     test "one line per open question: id, branch, what it did, its pointer, where it stands",

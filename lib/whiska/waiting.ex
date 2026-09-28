@@ -255,7 +255,7 @@ defmodule Whiska.Waiting do
   statusline segment, not about a command whose whole job is the list.
   """
   @spec render([entry()]) :: String.t()
-  def render([]), do: "Nothing is waiting on you, in any house."
+  def render([]), do: "🦉 Nothing needs you · the owl delivers when something does"
 
   def render(entries) do
     rows = Enum.map(entries, &row/1)
