@@ -18,7 +18,7 @@ per-repo socket, cross-repo commands, `whiska reopen`, `checks.yml`, push approv
 
 ```
 mix deps.get
-mix test          # 560 tests
+mix test          # 574 tests
 mix escript.build # produces ./whiska
 ```
 

@@ -5,7 +5,9 @@ defmodule Whiska.Owl do
   The owl is a supervisor holding one `Whiska.Owl.House` per open house, each
   supervised independently: one project's house crashing and restarting is
   invisible to every other project's. It is the only thing that can see across
-  all of them, which is what `open_houses/0` is for.
+  all of them, which is what `open_houses/0` is for — and what
+  `Whiska.Owl.Nudge` uses to tell every other house's main session that one
+  house has something waiting (ADR-0041).
 
   Opening and shutting only change whether a house's lights are on (ADR-0003).
   Nothing here ever creates or destroys a house on disk.
@@ -40,6 +42,7 @@ defmodule Whiska.Owl do
   def init(opts) do
     children = [
       {Registry, keys: :unique, name: @registry},
+      Whiska.Owl.Nudge,
       {DynamicSupervisor, name: @houses, strategy: :one_for_one, extra_arguments: [opts]}
     ]
 

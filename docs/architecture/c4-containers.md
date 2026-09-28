@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (560 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (574 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -18,7 +18,8 @@ C4Container
     Container(statusline, "whiska-statusline.sh", "bash", "Committed statusline; runs the global one, appends whiska statusline")
     Container(cli, "whiska", "Elixir escript", "Hooks, init, mode - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
-    Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection")
+    Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection, delivery to the main session")
+    Container(nudge, "Nudge", "GenServer, one per owl", "Types the waiting repos' names into every other open house's idle main session")
     Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, renamed .collected once read")
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records and questions, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
@@ -27,7 +28,6 @@ C4Container
   }
 
   Container_Boundary(todo, "Designed, not built") {
-    Container(delivery, "Delivery", "idle-gated queue", "One open question at a time to the main session")
     Container(sockets, "Sockets", "Unix, per-repo and global", "Push approval, mouse identity, cross-repo reads")
   }
 
@@ -48,8 +48,10 @@ C4Container
   Rel(owl, record, "Adds a house when opened, removes it when shut")
   Rel(house, herdr, "Subscribes per mouse pane; lists panes to find them")
   Rel(house, doorstep, "Collects on idle, at open, and on a backstop")
-  Rel(house, db, "Records questions and marks mice dead")
-  Rel(delivery, db, "Will read open questions")
+  Rel(house, db, "Records questions and marks mice dead; reads the next open one")
+  Rel(house, herdr, "Types one question at a time into the main session when idle")
+  Rel(house, nudge, "Reports after each collection: something waiting, or nothing")
+  Rel(nudge, house, "Asks each other open house to type the nudge line through its own gate")
 
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
 ```
@@ -105,6 +107,12 @@ per-house verb (ADR-0003) and waits for the socket.
 **One owl, many houses** (ADR-0001). An earlier draft gave each repo its own OS process;
 that fought launchd and made "what is waiting on me anywhere" a new subsystem. Each house
 is supervised independently, so one project's house crashing is invisible to every other.
+
+**Delivery lives in the house; the nudge lives beside the houses** (ADR-0008,
+ADR-0041). Each house owns its own idle-gated queue to its own main session. The one
+thing that crosses houses — telling another repo's idle main session that something is
+waiting here, so its statusline redraws — is a single Nudge process under the owl, which
+asks each target house to run its own gate. Houses never call each other.
 
 **herdr is the one boundary with a fake behind it** (ADR-0031). `Whiska.Herdr` is a
 behaviour; `Whiska.Herdr.Socket` is the real client and tests use a Mox fake, checked

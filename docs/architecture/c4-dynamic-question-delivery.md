@@ -1,7 +1,9 @@
 # Dynamic — a question from doorstep to answer
 
-**Steps 1–4 are built and tested. Steps 5–8 are designed only** — the delivery slice has
-not been written. Shown as a dynamic diagram because the ordering is the design.
+**All of this is built and tested**: the doorstep and collection (ADR-0036), classification
+(ADR-0009), the idle-gated delivery queue (ADR-0008), the reply keyed to a question id
+(ADR-0005), and the nudge to the other open houses (ADR-0041). Shown as a dynamic
+diagram because the ordering is the design.
 
 > Mermaid numbers a `C4Dynamic` diagram's relationships itself, in declaration
 > order — so the order of the `Rel` lines below is the flow, and the step numbers
@@ -15,23 +17,27 @@ C4Dynamic
   Container_Ext(mousepane, "Mouse", "Claude Code in a herdr pane", "Just finished a turn")
   Container_Ext(herdr, "herdr", "Multiplexer", "Reports agent status from a real hook")
   Container_Ext(mainpane, "Main session", "Claude Code", "The pane whiska start ran in")
+  Container_Ext(otherpane, "Another house's main session", "Claude Code", "Idle in a different repo")
 
   Container_Boundary(owl, "Owl") {
     Component(doorstep, "Doorstep", "directory", "Uncollected entries")
     Component(collection, "Collection", "per house", "Reads and marks, never deletes")
-    Component(delivery, "Delivery", "queue - NOT BUILT", "One open question at a time")
+    Component(delivery, "Delivery", "per house, a queue", "One question at a time, when idle")
+    Component(nudge, "Nudge", "one per owl", "Tells the other houses' main sessions")
   }
 
   ContainerDb(db, "House database", "SQLite", "questions")
 
   Rel(mousepane, doorstep, "Stop hook writes a file and exits", "unconditional")
-  Rel(herdr, collection, "Reports that mouse idle")
+  Rel(herdr, collection, "Reports that mouse done or idle")
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by marker")
-  Rel(delivery, db, "Not built - any open question, and is the slot free?")
-  Rel(delivery, mainpane, "Not built - deliver only if idle and nothing open")
-  Rel(person, delivery, "Not built - answers, keyed to the question id")
-  Rel(delivery, mousepane, "Not built - herdr types the answer into that pane")
+  Rel(collection, nudge, "Report: something waiting here, or nothing")
+  Rel(nudge, otherpane, "On nothing to something: type the waiting repos' names, through that house's own gate")
+  Rel(delivery, db, "Any open question, and is the slot free?")
+  Rel(delivery, mainpane, "Type one line only if idle and nothing sent")
+  Rel(person, delivery, "whiska reply, keyed to the question id")
+  Rel(delivery, mousepane, "herdr types the answer into that pane")
 
   UpdateRelStyle(mousepane, doorstep, $textColor="blue", $lineColor="blue", $offsetY="-20")
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
@@ -46,15 +52,15 @@ transcript, seen by the mouse and nobody else. So the hook writes to the doorste
 exits, every time. No connect timeout, no retry, no error handling, and no second code
 path that differs between a healthy machine and a broken one.
 
-## Step 2 — collection is event-driven, not a sweep
+## Steps 2–3 — collection is event-driven, not a sweep
 
-herdr reporting a mouse idle is what triggers collection of that house; opening the house
-collects too, and a slow timer is only a backstop. An idle collection that finds the
-doorstep empty — the mouse's `Stop` hook may still be writing — looks again after 2 s and
-5 s, and stops as soon as anything is found. Because
+herdr reporting a mouse `done` or `idle` is what triggers collection of that house;
+opening the house collects too, and a slow timer is only a backstop. An idle collection
+that finds the doorstep empty — the mouse's `Stop` hook may still be writing — looks again
+after 2 s and 5 s, and stops as soon as anything is found. Because
 `pane.agent_status_changed` can only be subscribed per pane id, the house first matches
-each pane's `cwd` to a mouse's worktree to learn which panes are its own. Collection reads and marks — it never deletes and never touches the
-worktree (ADR-0007).
+each pane's `cwd` to a mouse's worktree to learn which panes are its own. Collection reads
+and marks — it never deletes and never touches the worktree (ADR-0007).
 
 ## Step 4 — classification is the mouse's marker, nothing more (ADR-0009)
 
@@ -73,29 +79,33 @@ is nowhere to reply and nothing left to change. One whose worktree still exists 
 delivered even if its mouse is dead, because `whiska reopen <branch>` can start a fresh
 pane on it.
 
-## Steps 5–6 — a queue, not a batch (ADR-0008). Not built yet.
+## Steps 5–6 — the nudge to every other open house (ADR-0041)
 
-Deliver only when the main session is idle *and* has no other open, unanswered question
-sitting there. Anything else joins the pile silently. That single rule, not a timer, is
+After each collection the house tells the owl's one Nudge process whether it has an open
+or sent question other than a `done` report. On the change from nothing to something,
+Nudge asks every other house in the open-houses record to type `⚡ <folders> waiting`
+into its main session — through that house's own idle-and-slot gate, so a busy pane or a
+house with its own question out gets nothing, and nothing is retried. The line is a
+notice: never recorded, never answered, never holding a slot. It exists because Claude
+Code redraws a statusline only when that session's own conversation changes; without it
+the elsewhere segment (ADR-0027) is invisible exactly where it matters.
+
+## Steps 7–8 — a queue, not a batch (ADR-0008)
+
+Deliver only when the main session is idle *and* has no other question sent and waiting
+for its answer. Anything else joins the pile silently. That single rule, not a timer, is
 what stops a double ping. The one exception that earns a timer: the first question of a
 fresh round waits up to 8 s, so the first thing you see is "3 open" rather than "1 open"
-with more trickling in.
+with more trickling in. A newer question from the same mouse supersedes its earlier ones,
+so a mouse that moves on cannot wedge the queue (ADR-0037).
 
 When herdr reports `claude` + `unknown` — the integration is broken — **deliver anyway
 and say so**. Holding there is not caution, it is choosing silence, and the person would
 never learn why the mice went quiet.
 
-## Steps 7–8 — answers are keyed to a question id (ADR-0005). Not built yet.
+## Steps 9–10 — answers are keyed to a question id (ADR-0005)
 
 Not to a branch. That is what stops an answer landing on whichever question Whiska
-happened to guess. Whiska looks up the question's pane and asks herdr to type there
-(ADR-0020) — it never owns a Claude Code process itself.
-
-
-## What the delivery slice still has to settle
-
-Three things, none of them recorded anywhere yet: how a house learns which pane is its
-**main session** (`whiska start` is the designed answer — it records the pane it is run
-from); the idle gate and the 8-second first-of-round wait, including the `claude` +
-`unknown` case; and what a delivered question looks like and how a reply gets back, which
-is what first needs the per-repo socket.
+happened to guess. `whiska reply <id>` writes the answer to the house; the owl looks up
+the question's mouse pane and asks herdr to type there (ADR-0020) — it never owns a
+Claude Code process itself.

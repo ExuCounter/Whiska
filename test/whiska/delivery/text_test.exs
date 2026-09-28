@@ -70,4 +70,9 @@ defmodule Whiska.Delivery.TextTest do
     line = Text.compose(q, "b", 0, [:status_unknown])
     assert line =~ "herdr cannot tell whether you are idle"
   end
+
+  test "a nudge names the waiting repos by folder and nothing else (ADR-0041)" do
+    assert Text.nudge(["/Users/me/projects/whiska"]) == "⚡ whiska waiting"
+    assert Text.nudge(["/Users/me/projects/whiska", "/srv/crew"]) == "⚡ crew, whiska waiting"
+  end
 end
