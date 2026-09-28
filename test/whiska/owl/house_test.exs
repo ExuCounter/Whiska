@@ -5,8 +5,10 @@ defmodule Whiska.Owl.HouseTest do
   """
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureIO
   import Mox
 
+  alias Whiska.Backstop
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
   alias Whiska.Herdr.Mock, as: Herdr
@@ -408,6 +410,137 @@ defmodule Whiska.Owl.HouseTest do
       House.sync(house)
 
       assert retry_timer(house) == nil
+    end
+  end
+
+  # The backstop is the last resort, not a working trigger: everything it picks
+  # up is something the idle trigger should have picked up first. It went unseen
+  # for weeks that the idle trigger had never fired at all (ADR-0036, note of
+  # 2026-09-28), because the backstop quietly collected every entry a minute
+  # late. It says so now.
+  describe "the backstop announces what the trigger missed" do
+    setup %{a: a} do
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+      :ok
+    end
+
+    test "a backstop collection warns, naming the house and the count", %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, id: :backstop_house)
+      leave(main, "ma", a, "[worktree-status: done]")
+      leave(main, "ma", a, "[worktree-status: needs-decision] which one?")
+
+      warning =
+        capture_io(:stderr, fn ->
+          send(house, :backstop)
+          House.sync(house)
+        end)
+
+      assert warning =~ "myrepo"
+      assert warning =~ "backstop collected 2"
+      assert warning =~ "trigger"
+    end
+
+    test "it counts them on the house and stamps when", %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, id: :backstop_house)
+      leave(main, "ma", a, "[worktree-status: done]")
+
+      capture_io(:stderr, fn ->
+        send(house, :backstop)
+        House.sync(house)
+      end)
+
+      state = :sys.get_state(house)
+      assert state.backstop_collections == 1
+      assert %DateTime{} = state.last_backstop_at
+
+      leave(main, "ma", a, "[worktree-status: done]")
+
+      capture_io(:stderr, fn ->
+        send(house, :backstop)
+        House.sync(house)
+      end)
+
+      assert :sys.get_state(house).backstop_collections == 2
+    end
+
+    test "it writes the mark the doctor reads", %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, id: :backstop_house)
+      leave(main, "ma", a, "[worktree-status: done]")
+
+      capture_io(:stderr, fn ->
+        send(house, :backstop)
+        House.sync(house)
+      end)
+
+      assert %{count: 1, last: %DateTime{}} = Backstop.read(main)
+    end
+
+    test "a backstop that finds nothing is silent and leaves no mark", %{main: main} do
+      house = open(main, backstop_ms: 60_000, id: :backstop_house)
+
+      warning =
+        capture_io(:stderr, fn ->
+          send(house, :backstop)
+          House.sync(house)
+        end)
+
+      refute warning =~ "backstop"
+      assert :sys.get_state(house).backstop_collections == 0
+      assert Backstop.read(main) == nil
+    end
+
+    # Collecting what landed while the owl was down is the designed path, not a
+    # missed trigger (ADR-0036).
+    test "what the house collects at open does not count", %{main: main, a: a} do
+      leave(main, "ma", a, "[worktree-status: done]")
+
+      warning =
+        capture_io(:stderr, fn ->
+          house = open(main, backstop_ms: 60_000, id: :backstop_house)
+          assert :sys.get_state(house).backstop_collections == 0
+        end)
+
+      refute warning =~ "backstop"
+      assert Backstop.read(main) == nil
+    end
+
+    test "what the idle trigger collects does not count", %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, id: :backstop_house)
+      leave(main, "ma", a, "[worktree-status: done]")
+
+      warning = capture_io(:stderr, fn -> idle(house) end)
+
+      refute warning =~ "backstop"
+      assert :sys.get_state(house).backstop_collections == 0
+      assert Backstop.read(main) == nil
+    end
+
+    test "what an idle retry collects does not count", %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, retry_ms: [30, 100], id: :backstop_house)
+
+      warning =
+        capture_io(:stderr, fn ->
+          idle(house)
+          leave(main, "ma", a, "[worktree-status: done]")
+          Process.sleep(80)
+          House.sync(house)
+        end)
+
+      assert Doorstep.waiting(main) == []
+      refute warning =~ "backstop"
+      assert :sys.get_state(house).backstop_collections == 0
+      assert Backstop.read(main) == nil
+    end
+
+    # The mark says "since this owl opened this house", so a new owl starts
+    # clean and the doctor never warns about a run that is over.
+    test "opening the house clears an older owl's mark", %{main: main} do
+      :ok = Backstop.record(main, 7, DateTime.utc_now())
+
+      open(main, backstop_ms: 60_000, id: :backstop_house)
+
+      assert Backstop.read(main) == nil
     end
   end
 

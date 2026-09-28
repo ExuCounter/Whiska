@@ -39,7 +39,12 @@ restarts it only on a crash, and logs to `~/.whiska/owl.log`; `whiska owl stop`,
 and `uninstall` beside it; and the doctor's `launch agent` line (ADR-0040). Then the nudge: when a house gains something waiting on the person, the
 owl's one Nudge process types `⚡ <folders> waiting` into every other open house's idle
 main session so its statusline redraws — a notice through the target's own gate, never
-recorded, never retried, never for a `done` report (ADR-0041). 574 tests.
+recorded, never retried, never for a `done` report (ADR-0041). Then the backstop
+warning: when a house's 60 s backstop collects anything, it is something the idle trigger
+should have brought a minute earlier, so the house warns and marks it in
+`.git/whiska/backstop`, and the doctor reads that mark as one more line — the guard
+against a dead trigger hiding behind a working last resort (ADR-0036, note of
+2026-09-28). 596 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;

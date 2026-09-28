@@ -123,6 +123,35 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  # -- backstop ----------------------------------------------------------------
+
+  describe "backstop/2 — did the last resort do the trigger's job (ADR-0036)" do
+    test "no mark means the trigger has been doing its job" do
+      assert %Check{status: :ok, detail: detail} = Doctor.backstop(nil, now())
+      assert detail =~ "nothing"
+    end
+
+    test "a mark warns with the count, when, and how to fix the trigger" do
+      now = now()
+
+      assert %Check{status: :warn, detail: detail, fix: fix} =
+               Doctor.backstop(%{count: 4, last: DateTime.add(now, -12 * 60)}, now)
+
+      assert detail =~ "4"
+      assert detail =~ "12 min"
+      assert fix =~ "whiska owl stop && whiska owl start"
+    end
+
+    test "one collection reads as one, not four" do
+      now = now()
+
+      assert %Check{status: :warn, detail: detail} =
+               Doctor.backstop(%{count: 1, last: now}, now)
+
+      assert detail =~ "1 entry"
+    end
+  end
+
   # -- owl ---------------------------------------------------------------------
 
   describe "owl/1" do
@@ -462,7 +491,7 @@ defmodule Whiska.DoctorTest do
       report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
 
       for name <-
-            ~w(binary runtime herdr PreToolUse Stop shim house doorstep) ++
+            ~w(binary runtime herdr PreToolUse Stop shim house doorstep backstop) ++
               ["hook pre-tool-use", "hook stop"] do
         assert %Check{status: :ok} = find(report.checks, name), "expected #{name} to be ok"
       end
@@ -490,6 +519,26 @@ defmodule Whiska.DoctorTest do
       # owl, then its launch agent (ADR-0040), then what it has open.
       assert Enum.find_index(names, &(&1 == "open houses")) ==
                Enum.find_index(names, &(&1 == "owl")) + 2
+    end
+
+    test "a backstop mark in the house shows up as a warning", %{main: main, env: env} do
+      init(main)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+      :ok = Whiska.Backstop.record(main, 3, now())
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [4242] end)
+
+      assert %Check{status: :warn, detail: detail} = find(report.checks, "backstop")
+      assert detail =~ "3"
+    end
+
+    test "no backstop mark is an ok line of its own", %{main: main, env: env} do
+      init(main)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [4242] end)
+
+      assert %Check{status: :ok} = find(report.checks, "backstop")
     end
 
     test "the house is opened and reported with its schema version, then closed", %{

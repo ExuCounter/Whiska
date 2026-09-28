@@ -99,6 +99,30 @@ someone looks at it. The house now folds the dot spelling into the underscore on
 arrival and treats a mouse pane's `done` exactly as `idle`. The trigger table above
 stands, read "idle" as "`done` or `idle`".
 
+*Note, 2026-09-28 (later the same day).* The backstop now announces itself, so a dead
+trigger cannot hide behind it again. The bug above cost weeks precisely because the
+backup mechanism worked: every question did arrive, a minute late, and a minute late is
+invisible to someone reading their terminal when they get to it. A last resort that is
+silently doing the primary trigger's job is indistinguishable from a healthy system.
+
+So when the backstop's collection finds anything, the house prints one warning line
+naming the house and the count, and leaves a mark — a count and a timestamp in
+`<main-checkout>/.git/whiska/backstop`, cleared when the owl opens the house, so it is
+always about the run happening now. `whiska doctor` reads the mark and turns it into one
+line: ok when the backstop has collected nothing since the owl opened this house, a
+warning with the count and the age when it has, pointing at the subscription and at
+`whiska owl stop && whiska owl start`. The doctor still only checks (ADR-0038).
+
+The mark is in the house, beside the doorstep and the database, not in `~/.whiska` beside
+the open-houses record (ADR-0039) — it is one house's fact, the doctor is scoped to one
+repo, and per-house files mean no two houses ever rewrite the same one. It borrows
+ADR-0039's shape otherwise: plain text, written to a temporary name and renamed into
+place, hand-editable and safe to delete.
+
+Two collections deliberately do not count. Collecting at open is the designed "what
+landed while the owl was down" path, not a missed trigger; and the idle trigger's own
+2 s and 5 s retries are the idle trigger, just slower.
+
 **The subscription is per pane, so the house has to know its panes.** Checked against herdr
 0.8.2 when this was built: `pane.agent_status_changed` can only be subscribed for a named
 `pane_id` (no wildcard), while `pane.closed`, `pane.exited` and `pane.agent_detected` are
