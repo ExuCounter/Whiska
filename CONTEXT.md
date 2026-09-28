@@ -42,6 +42,18 @@ newer one, **closed** by hand or as a `done` report once told, **orphaned** when
 can act on it (its mouse died, its worktree is gone).
 _Avoid_: report, event (as the table/record name)
 
+**Waiting**:
+Everything a house holds that still wants the person: its open and sent questions,
+and the entries still sitting uncollected on its doorstep. Deliberately wider than what
+a nudge qualifies on — a `done` report is waiting until the person has been told, even
+though nothing can be acted on elsewhere, and a doorstep entry is waiting although no
+question exists for it yet. It is a state of the house, not a status on a row: the
+statusline's elsewhere segment and `whiska waiting` both ask exactly this, so the two
+cannot disagree about it. A house is quiet when nothing is waiting; there is no other
+word for the state.
+_Avoid_: pending, outstanding, open (a question's own status, which is narrower), the
+queue (delivery's, which a doorstep entry has not reached)
+
 **Main session**:
 The one herdr pane per house that questions are delivered to — the person's own Claude
 Code session in the main checkout, recorded by `whiska start` from the pane it is run in.
@@ -65,9 +77,20 @@ gains something open that waits on the person — `⚡ whiska waiting`, naming e
 repo by folder and nothing else. It exists only to make that session's statusline redraw.
 A notice, not a question: never recorded, never answered, never closed, never holding the
 target's delivery slot, dropped rather than retried when the target is busy, once per
-episode, and never for a `done` report. Only the owl's Nudge reaches across houses; houses
-never call each other.
+episode, and never for a `done` report. What qualifies is narrower than **Waiting** — only
+what can be acted on from another repo — so a house can be waiting and still not nudge.
+Only the owl's Nudge reaches across houses; houses never call each other.
 _Avoid_: notification, ping, cross-house delivery, all-clear (there is none)
+
+**Jump**:
+Moving the person to a mouse — Whiska asking herdr to bring that mouse's pane into
+view, so the person is looking at the work rather than at a pointer to it. The one thing
+Whiska does to the person rather than to a mouse, and only ever because the person asked
+for it in the same breath: a typed command, or a hotkey they bound. The owl never jumps;
+its one cross-house move is the Nudge, which types a line and leaves the screen where it
+is. The destination is the mouse's own pane, never the house's main session.
+_Avoid_: goto, focus (herdr's word for the mechanism, not for what this is), switch,
+attach, take over
 
 **Build mode**:
 A mouse mode that produces a real code change. Edits confined to its own worktree,

@@ -81,5 +81,9 @@ most needs to be told what piled up. The guard stays where it belongs: on the wo
   puts the machine-wide commands — its examples are `projects` and `goto` — outside the
   set a Claude session runs on the person's behalf. `jump` is the sharpest case of that:
   a session that ran it would yank the person's screen somewhere they did not ask to go.
+- `CONTEXT.md` gains **Waiting** and **Jump**. Waiting had been used loosely for three
+  different unions; it is now one state of a house — open and sent questions plus
+  uncollected doorstep entries — and the Nudge entry says in so many words that what it
+  qualifies on is narrower.
 - The Raycast script is not shipped and nothing is written into anyone's dotfiles. The
   five lines it takes are in `whiska --help` under `jump`, to be copied by hand.
