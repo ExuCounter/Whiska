@@ -120,3 +120,11 @@ reports a mouse has gone idle and the owl collects that house then — with a sl
 as a backstop. Collection reads and marks; it never deletes and never touches the worktree.
 _Avoid_: sweep (it implies tidying up, which is precisely what this must not do), poll,
 drain, scan
+
+**Backstop**:
+The slow timer that collects a house's doorstep when nothing else has. It is a last
+resort, never a working trigger: anything it finds is something the owl should already
+have been told about, so it says so rather than quietly making up the difference. How
+much it has had to collect is the measure of whether the event-driven path is alive.
+_Avoid_: fallback, poller, sweep, safety net (all of them suggest a path that is fine to
+be on; being on this one is the symptom)
