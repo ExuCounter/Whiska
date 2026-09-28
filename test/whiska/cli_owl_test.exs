@@ -100,6 +100,49 @@ defmodule Whiska.CLIOwlTest do
     end
   end
 
+  # The refusal that keeps two owls off the same doorstep (ADR-0040) has to
+  # know which owl it is talking about. Under launchd there is only one
+  # process: the wrapper execs, so the job's pid is this BEAM's own pid.
+  describe "the owl and launchd's job (ADR-0040)" do
+    setup do
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      stub(Herdr, :subscribe, fn _, _, _ -> {:ok, spawn(fn -> receive do: (:stop -> :ok) end)} end)
+
+      on_exit(fn -> CLI.stop_owl() end)
+      :ok
+    end
+
+    # `launchctl print` for a loaded job whose owl is alive with this pid.
+    defp print_pid(pid) do
+      out = "com.whiska.owl = {\n\tstate = running\n\tpid = #{pid}\n}\n"
+      runner = fn ["print" | _] -> {out, 0} end
+      Application.put_env(:whiska, :launchctl, runner)
+      on_exit(fn -> Application.put_env(:whiska, :launchctl, &Whiska.Test.NoLaunchctl.run/1) end)
+    end
+
+    test "the supervised owl does not refuse itself", %{main: main} do
+      print_pid(System.pid())
+
+      output = capture_io(fn -> assert {:ok, _} = CLI.start_owl([], main) end)
+
+      assert output =~ "Opened 1 house"
+      assert Whiska.Owl.open_houses() == [main]
+    end
+
+    test "a foreground owl still refuses while launchd's owl is up", %{main: main} do
+      print_pid(String.to_integer(System.pid()) + 1)
+
+      err =
+        capture_io(:stderr, fn ->
+          assert {:error, :supervised} = CLI.start_owl([], main)
+        end)
+
+      assert err =~ "already running under launchd"
+      assert Process.whereis(Whiska.Owl) == nil
+    end
+  end
+
   describe "the open-houses record (ADR-0039)" do
     setup do
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)

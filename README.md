@@ -95,7 +95,8 @@ the supervised owl picks it up on `whiska owl start`.
 
 Two owls would collect the same doorsteps, so `install` refuses while any owl is in the
 process table and prints the handover (Ctrl-C the foreground one, install again), and the
-foreground `whiska owl` refuses while launchd's owl is running. `whiska stop` is not the
+foreground `whiska owl` refuses while launchd's owl is running — unless it *is* launchd's
+owl, which it tells by pid (ADR-0040's 2026-09-28 note). `whiska stop` is not the
 owl's stop: it shuts one house (ADR-0003) and is not built until the owl has a socket.
 
 ### The owl, the house, the doorstep

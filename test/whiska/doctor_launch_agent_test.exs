@@ -31,6 +31,22 @@ defmodule Whiska.DoctorLaunchAgentTest do
       assert check.fix == "whiska owl start"
     end
 
+    test "loaded and crash-looping says so, with the exit code and the log" do
+      check = Doctor.launch_agent(true, %{loaded: true, pid: nil, last_exit_code: 1}, [])
+      assert check.status == :warn
+      assert check.detail =~ "crash-looping"
+      assert check.detail =~ "last exit code 1"
+      assert check.detail =~ "owl.log"
+    end
+
+    test "loaded, stopped and cleanly exited is not called crash-looping" do
+      check = Doctor.launch_agent(true, %{loaded: true, pid: nil, last_exit_code: 0}, [])
+      assert check.status == :warn
+      assert check.detail =~ "not running"
+      refute check.detail =~ "crash-looping"
+      assert check.fix == "whiska owl start"
+    end
+
     test "a second owl beside the supervised one is a warning" do
       check = Doctor.launch_agent(true, %{loaded: true, pid: 777}, [777, 4242])
       assert check.status == :warn

@@ -207,7 +207,8 @@ defmodule Whiska.Doctor do
 
   @doc """
   The owl's LaunchAgent (ADR-0040): is it installed, loaded, and is the owl it
-  runs alive — and is that the only owl. `installed?` is whether the plist is
+  runs alive — and is that the only owl. A loaded job with no owl and a
+  non-zero last exit code is crash-looping, not merely stopped. `installed?` is whether the plist is
   there, `agent` is launchd's word on the job, `pids` every owl in the process
   table. An owl running only in the foreground is the pre-launchd state and a
   warning: it dies with its pane and nothing restarts it. Two owls is the one
@@ -228,6 +229,16 @@ defmodule Whiska.Doctor do
 
   def launch_agent(true, %{loaded: false}, _pids),
     do: Check.warn("launch agent", "#{LaunchAgent.label()} is written but not loaded", @install)
+
+  def launch_agent(true, %{pid: nil, last_exit_code: code}, _pids)
+      when is_integer(code) and code != 0 do
+    Check.warn(
+      "launch agent",
+      "#{LaunchAgent.label()} loaded but crash-looping (last exit code #{code}) — " <>
+        "see #{LaunchAgent.paths().log}",
+      "whiska owl start"
+    )
+  end
 
   def launch_agent(true, %{pid: nil}, _pids) do
     Check.warn(
