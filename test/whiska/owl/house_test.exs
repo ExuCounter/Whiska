@@ -413,6 +413,72 @@ defmodule Whiska.Owl.HouseTest do
     end
   end
 
+  # A mouse's first question reaches the owl before any pane matching has seen
+  # that mouse: the entry itself is what records it, and until 2026-09-28 the
+  # mouse's `pane` column stayed nil until the backstop's minute was up. In that
+  # minute `whiska waiting` said "no pane" and `whiska reply` refused, for a
+  # mouse sitting right there in herdr.
+  describe "matching a mouse to its pane on collection" do
+    setup do
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+      :ok
+    end
+
+    test "a never-seen mouse has its pane right after its first entry is collected",
+         %{main: main, a: a} do
+      new = worktree(main, "feat-new")
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a), pane("w3:p1", new)]) end)
+
+      house = open(main, backstop_ms: 60_000, id: :match_house)
+      leave(main, "mnew", new, "[worktree-status: needs-decision] hello?")
+
+      # The idle trigger, not the backstop: no timer is waited for here.
+      idle(house)
+
+      in_house(house, fn ->
+        assert Storage.mouse("mnew").pane == "w3:p1"
+        assert is_nil(Storage.mouse("mnew").died_at)
+      end)
+    end
+
+    test "and is subscribed to, so its next turn triggers a collection of its own",
+         %{main: main, a: a} do
+      new = worktree(main, "feat-new")
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a), pane("w3:p1", new)]) end)
+      test = self()
+
+      stub(Herdr, :subscribe, fn @socket, subs, _listener ->
+        send(test, {:subscribed, subs})
+        fake_subscription()
+      end)
+
+      house = open(main, backstop_ms: 60_000, id: :match_house)
+      # The subscription opened at open, before the mouse existed.
+      assert_receive {:subscribed, _at_open}
+      leave(main, "mnew", new, "[worktree-status: needs-decision] hello?")
+
+      idle(house)
+
+      assert Map.has_key?(:sys.get_state(house).panes, "w3:p1")
+      assert_receive {:subscribed, subs}
+      assert %{type: "pane.agent_status_changed", pane_id: "w3:p1"} in subs
+    end
+
+    test "a collection from a mouse that already has its pane asks herdr nothing more",
+         %{main: main, a: a} do
+      # One list at open and no second one: nothing about the mouse is unknown,
+      # so a collection from it is not a reason to ask herdr again.
+      expect(Herdr, :list_panes, 1, fn @socket -> panes([pane("w1:p1", a)]) end)
+
+      house = open(main, backstop_ms: 60_000, id: :match_house)
+      leave(main, "ma", a, "[worktree-status: done]")
+
+      idle(house)
+
+      assert Doorstep.waiting(main) == []
+    end
+  end
+
   # The backstop is the last resort, not a working trigger: everything it picks
   # up is something the idle trigger should have picked up first. It went unseen
   # for weeks that the idle trigger had never fired at all (ADR-0036, note of
