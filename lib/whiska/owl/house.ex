@@ -52,7 +52,13 @@ defmodule Whiska.Owl.House do
   doorstep. When an idle collection finds nothing, the house looks again after
   each delay in `retry_ms` (2 s, then 5 s) and stops as soon as any collection
   finds something. One idle event's retries are never stacked on another's; the
-  backstop stays the last resort. A `done` report is delivered like any other and closed the moment
+  backstop stays the last resort — and says so: when the backstop collects
+  anything, the house warns and marks it (`Whiska.Backstop`), because everything
+  it picks up is something the idle trigger should have brought a minute
+  earlier. Collecting at open does not count; that is the designed "what landed
+  while the owl was down" path.
+
+  A `done` report is delivered like any other and closed the moment
   it is sent; an entry whose worktree is no longer on disk is recorded as
   orphaned rather than delivered. Whatever a mouse
   leaves supersedes its own earlier open or sent questions: it has moved past
@@ -87,6 +93,7 @@ defmodule Whiska.Owl.House do
 
   use GenServer
 
+  alias Whiska.Backstop
   alias Whiska.Delivery.Text
   alias Whiska.Doorstep
   alias Whiska.Herdr
@@ -123,6 +130,8 @@ defmodule Whiska.Owl.House do
     round_timer: nil,
     retry_timer: nil,
     retries_left: [],
+    backstop_collections: 0,
+    last_backstop_at: nil,
     warned: MapSet.new()
   ]
 
@@ -201,6 +210,10 @@ defmodule Whiska.Owl.House do
 
   @impl true
   def handle_continue(:open, state) do
+    # The mark counts backstop collections since *this* owl opened this house,
+    # so an older owl's does not follow it around (ADR-0036).
+    Backstop.clear(state.main_checkout)
+
     state =
       state
       |> reconcile_panes()
@@ -253,7 +266,7 @@ defmodule Whiska.Owl.House do
   def handle_info(:resubscribe, state), do: {:noreply, subscribe(state)}
 
   def handle_info(:backstop, state) do
-    state = state |> refresh() |> collect_now() |> deliver()
+    state = state |> refresh() |> collect_on_backstop() |> deliver()
     Process.send_after(self(), :backstop, state.backstop_ms)
     {:noreply, state}
   end
@@ -416,6 +429,36 @@ defmodule Whiska.Owl.House do
   # -- collection --------------------------------------------------------------
 
   defp collect_now(state), do: state |> collect_and_count() |> elem(1)
+
+  # The backstop is the last resort, and anything it finds is something the idle
+  # trigger should have brought a minute ago. Collecting at open is a different
+  # thing — that is the designed "what landed while the owl was down" path — and
+  # so are the idle trigger's own 2 s and 5 s retries; neither is counted here.
+  # This announcing itself is what stops a dead trigger hiding behind a working
+  # backstop, as it did for weeks (ADR-0036, note of 2026-09-28).
+  defp collect_on_backstop(state) do
+    case collect_and_count(state) do
+      {0, state} -> state
+      {found, state} -> note_backstop(state, found)
+    end
+  end
+
+  defp note_backstop(state, found) do
+    at = DateTime.utc_now()
+    count = state.backstop_collections + found
+
+    warn(
+      state,
+      "the backstop collected #{entries(found)} the idle trigger missed " <>
+        "(#{entries(count)} since this house opened) — run `whiska doctor`"
+    )
+
+    Backstop.record(state.main_checkout, count, at)
+    %{state | backstop_collections: count, last_backstop_at: at}
+  end
+
+  defp entries(1), do: "1 entry"
+  defp entries(n), do: "#{n} entries"
 
   # The idle trigger. An empty doorstep here usually means Whiska's Stop hook
   # has not finished writing yet, so look again shortly — unless retries from

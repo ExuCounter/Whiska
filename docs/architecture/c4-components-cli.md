@@ -26,6 +26,7 @@ C4Component
     Component(statusline, "Statusline", "one line", "Owl always, whiskas headcount, mice here, questions here, whiskas waiting elsewhere")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live")
     Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
+    Component(backstop, "Backstop", "text file", "The house's mark of what only its backstop collected")
     Component(agent, "LaunchAgent", "plist + wrapper", "The owl's launchd job: rendered, written, and driven through launchctl")
     Component(nif, "BundledNIF", "scaffolding", "Unpacks SQLite's native library from the escript")
   }
@@ -49,6 +50,7 @@ C4Component
   Rel(statusline, record, "Which houses are open: the whiskas to count")
   Rel(doctor, owl, "Is it running?", "process table")
   Rel(doctor, record, "Which houses are open, and is this repo one of them")
+  Rel(doctor, backstop, "Has the backstop been doing the idle trigger's job")
   Rel(main, agent, "owl install / stop / start / uninstall")
   Rel(agent, install, "Wrapper is built from the shim's resolution fragments")
   Rel(doctor, agent, "Installed? loaded? running? two owls?", "launchctl print")

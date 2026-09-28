@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (574 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (596 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -23,6 +23,7 @@ C4Container
     Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, renamed .collected once read")
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records and questions, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
+    Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
     Container(svc, "LaunchAgent", "launchd, com.whiska.owl", "Starts the owl at login, restarts a crash; runs the owl.sh wrapper")
   }
@@ -48,6 +49,8 @@ C4Container
   Rel(owl, record, "Adds a house when opened, removes it when shut")
   Rel(house, herdr, "Subscribes per mouse pane; lists panes to find them")
   Rel(house, doorstep, "Collects on idle, at open, and on a backstop")
+  Rel(house, backstop, "Marks what the backstop collected; clears it at open")
+  Rel(cli, backstop, "doctor reads it: has the last resort been doing the trigger's job")
   Rel(house, db, "Records questions and marks mice dead; reads the next open one")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
   Rel(house, nudge, "Reports after each collection: something waiting, or nothing")
@@ -75,6 +78,14 @@ the owl has open — not which exist (ADR-0003). The owl writes it as it opens a
 houses and leaves it behind when it stops, so `whiska owl` with no arguments reopens the
 same houses. The statusline and the doctor read it to know what counts as a whiska, but
 only while an owl is in the process table: a file a dead owl left says nothing.
+
+**The backstop mark is a house's file, not a machine-level one** (ADR-0036, note of
+2026-09-28). Everything the backstop collects is something herdr's idle event should have
+brought a minute earlier, so the house warns as it happens and leaves a count and a
+timestamp beside the doorstep; `whiska doctor` turns that into one line. It is per house
+because the fact is one house's and the doctor is scoped to one repo — and because
+per-house files mean no two houses ever rewrite the same one. The owl clears it when it
+opens the house, so the mark is always about the run happening now.
 
 **`whiska.sh` is separate from the binary on purpose** (ADR-0035). The committed
 `settings.json` names only the shim — now with a subcommand argument, `pre-tool-use` or

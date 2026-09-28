@@ -30,6 +30,7 @@ defmodule Whiska.Doctor do
   cannot serve it.
   """
 
+  alias Whiska.Backstop
   alias Whiska.Doctor.Check
   alias Whiska.Doctor.Report
   alias Whiska.Doorstep
@@ -49,6 +50,7 @@ defmodule Whiska.Doctor do
   @owl "whiska owl"
   @install "whiska owl install"
   @restart "whiska start --force  (from the main checkout's pane)"
+  @restart_owl "whiska owl stop && whiska owl start"
 
   @doc """
   Examine one repo. `main_checkout` is its main checkout.
@@ -94,7 +96,13 @@ defmodule Whiska.Doctor do
         open_houses(OpenHouses.read(record), main_checkout, pids)
       ] ++
         hooks ++
-        [shim] ++ probes ++ [house, doorstep(Doorstep.waiting(main_checkout), now)] ++ in_house
+        [shim] ++
+        probes ++
+        [
+          house,
+          doorstep(Doorstep.waiting(main_checkout), now),
+          backstop(Backstop.read(main_checkout), now)
+        ] ++ in_house
 
     %Report{repo: main_checkout, checks: checks}
   end
@@ -560,6 +568,32 @@ defmodule Whiska.Doctor do
     oldest = stamps |> Enum.min(DateTime) |> then(&DateTime.diff(now, &1, :second))
     Check.warn("doorstep", "#{length(entries)} waiting, oldest #{age(oldest)}", @owl)
   end
+
+  @doc """
+  Has the backstop been doing the idle trigger's job (ADR-0036)?
+
+  The backstop is the last resort: anything it collects is something herdr's
+  idle event should have brought a minute earlier, so a mark left by the house
+  (`Whiska.Backstop`, cleared when the owl opens the house) means the trigger
+  is not reaching the owl. Everything still arrives, a minute late and with no
+  other symptom — which is exactly how a trigger that had never once fired went
+  unseen for weeks. A warning, never a failure: nothing is lost.
+  """
+  @spec backstop(Backstop.mark() | nil, DateTime.t()) :: Check.t()
+  def backstop(nil, _now),
+    do: Check.ok("backstop", "nothing collected by it since the owl opened this house")
+
+  def backstop(%{count: count, last: last}, now) do
+    Check.warn(
+      "backstop",
+      "collected #{entries(count)} the idle trigger missed, last #{age(DateTime.diff(now, last, :second))} ago — " <>
+        "the herdr idle trigger is not reaching the owl; check the subscription and the herdr version",
+      @restart_owl
+    )
+  end
+
+  defp entries(1), do: "1 entry"
+  defp entries(n), do: "#{n} entries"
 
   defp age(seconds) when seconds < 3600, do: "#{div(seconds, 60)} min"
   defp age(seconds), do: "#{div(seconds, 3600)} h #{div(rem(seconds, 3600), 60)} min"

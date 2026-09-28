@@ -18,7 +18,7 @@ per-repo socket, cross-repo commands, `whiska reopen`, `checks.yml`, push approv
 
 ```
 mix deps.get
-mix test          # 574 tests
+mix test          # 596 tests
 mix escript.build # produces ./whiska
 ```
 
@@ -224,9 +224,17 @@ the main terminal a broken pipe and a quiet fleet look much the same. The
 doctor is what you run when the mice have gone quiet, to learn which silence you are in
 (ADR-0038). It checks this repo's prerequisites (binary, runtime, herdr, owl), its hooks
 and shim — **by running them**, through the committed shim with a payload outside any
-worktree, so nothing is minted or left behind — then its house, its doorstep, its main
-session and question queue, and whether each mouse record still matches a real worktree
-and a live herdr pane.
+worktree, so nothing is minted or left behind — then its house, its doorstep, its
+backstop, its main session and question queue, and whether each mouse record still
+matches a real worktree and a live herdr pane.
+
+The backstop line is the one that catches a silent half-failure. Collection is meant to
+be event-driven: herdr tells the owl a mouse has gone idle and the owl reads that
+house's doorstep then, with a 60 s timer as a last resort (ADR-0036). When the event
+stops arriving, nothing breaks — every question still lands, a minute late — so the
+doctor watches the last resort instead: it warns when the backstop has collected
+anything at all since the owl opened this house, which means the trigger is not reaching
+the owl.
 
 It never repairs. Every failing line carries the command that fixes it. `FAIL` means a
 question from a mouse here would be lost or never written; `warn` means degraded but
@@ -248,6 +256,8 @@ whiska doctor — myrepo (/Users/me/projects/myrepo)
                     fix: whiska init
   ok    house       /Users/me/projects/myrepo/.git/whiska/whiska.db, schema v3
   ok    doorstep    nothing waiting
+  warn  backstop    collected 4 entries the idle trigger missed, last 12 min ago — the herdr idle trigger is not reaching the owl; check the subscription and the herdr version
+                    fix: whiska owl stop && whiska owl start
   warn  main session  not recorded — nothing is delivered until it is
                     fix: whiska start  (from the main checkout's pane)
   ok    questions   none waiting

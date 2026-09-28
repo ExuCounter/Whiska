@@ -2,7 +2,7 @@
 
 Level 3 for the owl, which is real code as of the owl slice. Everything here is in
 `lib/whiska/owl/`, `lib/whiska/doorstep*`, `lib/whiska/herdr*`, `lib/whiska/delivery/`,
-`lib/whiska/open_houses.ex` and `lib/whiska/question/marker.ex`, each with a test beside
+`lib/whiska/open_houses.ex`, `lib/whiska/backstop.ex` and `lib/whiska/question/marker.ex`, each with a test beside
 it.
 
 ```mermaid
@@ -23,6 +23,7 @@ C4Component
     Component(markerq, "Whiska.Question.Marker", "classifier", "done / needs-decision / unmarked, by marker alone")
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead mice")
     Component(record, "Whiska.OpenHouses", "text file", "Which houses are open; trusted only while an owl is alive")
+    Component(backstop, "Whiska.Backstop", "text file", "How much this house's backstop collected that the idle trigger missed")
   }
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
@@ -38,6 +39,7 @@ C4Component
   Rel(herdrb, sock, "Dispatched to the configured implementation")
   Rel(sock, herdrd, "One request per connection; events stream")
   Rel(house, doorstep, "Collects")
+  Rel(house, backstop, "Marks what only the backstop found; clears it at open")
   Rel(doorstep, entry, "Decodes each JSON file")
   Rel(house, markerq, "Classifies each entry's text")
   Rel(house, storage, "Writes questions, marks mice dead")
@@ -60,6 +62,13 @@ kept being retried while herdr is down.
 opening, and a slow backstop. An idle collection that finds nothing retries after 2 s and
 5 s, since the idle event can beat the mouse's `Stop` hook to the doorstep. Collection
 reads and marks; it never deletes and never touches the worktree (ADR-0007).
+
+**The backstop is loud about what it finds.** Anything it collects is something the idle
+trigger should have brought a minute earlier, so the house warns on stderr and marks it
+in `Whiska.Backstop` for `whiska doctor` to read later. Collecting at open does not count
+— that is the designed "what landed while the owl was down" path — and neither do the
+idle trigger's own retries. Without this, a trigger that never fires looks exactly like a
+healthy owl, which is what happened (ADR-0036, note of 2026-09-28).
 
 **Classification is the marker and nothing else** (ADR-0009). `Whiska.Question.Marker`
 scans for `[worktree-status: …]` and maps it to `done`, `needs-decision` or `unmarked`;
