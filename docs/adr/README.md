@@ -46,6 +46,7 @@ individually citable decisions.
 - [0013](0013-main-checkout-edits-are-blocked.md) — Edits in the main checkout are blocked, subagents included
 - [0014](0014-checks-come-from-a-per-repo-config.md) — Whiska runs no checks of its own (superseded 2026-09-28 by 0042)
 - [0015](0015-no-automated-diff-review-in-the-mvp.md) — No automated diff review in the MVP — the human is the review
+- [0042](0042-the-review-loop-is-a-stop-hook-the-repo-owns.md) — The review loop is a Stop hook the repo owns, not a Whiska feature
 - [0034](0034-shell-commands-are-judged-by-a-read-only-allowlist.md) — Shell commands are judged by a read-only allowlist, not a mutating denylist
 
 ## Mice: modes, dispatch, liveness

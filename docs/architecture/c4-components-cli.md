@@ -10,6 +10,7 @@ C4Component
   title Component Diagram - whiska CLI
 
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
+  Container_Ext(loop, "review-loop.sh", "bash", "The repo's review loop: a second Stop hook Whiska writes once and never reads")
 
   Container_Boundary(cli, "whiska escript") {
     Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / owl, and owl install / stop / start / uninstall")
@@ -21,7 +22,7 @@ C4Component
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
-    Component(install, "Install", "pure merge", "Writes the hooks, the statusline and the skills into .claude/")
+    Component(install, "Install", "pure merge", "Writes the hooks, the review loop, the statusline and the skills into .claude/")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
     Component(statusline, "Statusline", "one line", "Owl always, whiskas headcount, mice here, questions here, whiskas waiting elsewhere")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live")
@@ -42,6 +43,7 @@ C4Component
   Rel(stop, doorstep, "Writes one entry, then exits")
   Rel(main, hook, "Delegates the hook command")
   Rel(main, install, "Delegates init")
+  Rel(install, loop, "Writes it once, only when missing")
   Rel(main, questions, "Delegates questions")
   Rel(main, statusline, "Delegates statusline")
   Rel(statusline, questions, "Reads this house's summary, and every other whiska's")
@@ -120,6 +122,12 @@ out the house, writes the whole final message to the doorstep and exits — unco
 Elixir despite ADR-0033 saying hooks go native, and that is written down in the ADR rather
 than drifted into: the measurement there is about the per-tool-call path, and `Stop` fires
 once per turn.
+
+**`review-loop.sh` is a second `Stop` hook, and nothing in the escript reads it**
+(ADR-0042). `Install` writes it once, only when it is missing, and the repo owns the
+check command inside it from then on. Claude Code runs both `Stop` hooks in parallel, so
+the loop blocking a stop does not stop `Hook.Stop` leaving the message on the doorstep —
+the open seam recorded at the end of ADR-0042.
 
 **`Doctor` checks and never repairs, and probes rather than inspects (ADR-0038).** It
 runs the repo's committed shim for both hooks with a payload whose `cwd` is outside any

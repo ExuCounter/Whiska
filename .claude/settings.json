@@ -31,6 +31,14 @@
             "type": "command"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/review-loop.sh\"",
+            "type": "command"
+          }
+        ]
       }
     ]
   },
