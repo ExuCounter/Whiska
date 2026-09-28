@@ -84,6 +84,29 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "name: whiska-questions"
       assert body =~ "whiska questions"
     end
+
+    test "installs whiska-delivered, which reads a delivered line's question by its id" do
+      assert {path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      assert path =~ "whiska-delivered"
+      assert body =~ "name: whiska-delivered"
+      # Chosen by description, never by a slash command: nobody types one for a
+      # line the owl typed. So the description names the line's shape. It must
+      # be a quoted YAML string: unquoted, " #" starts a comment and the
+      # listing shown to the model ends there, before every example.
+      assert [description] = Regex.run(~r/^description: "(.*)"$/m, body, capture: :all_but_first)
+      assert description =~ "🐱"
+      assert description =~ ~s(#12)
+      assert body =~ "whiska questions <id>"
+      assert body =~ ~r/never reply\s+to a question/
+    end
+
+    test "the committed skills in this repo are what init writes today" do
+      for {path, body} <- Install.skills() do
+        assert File.read!(path) == body, "#{path} is stale: run whiska init and commit"
+      end
+    end
   end
 
   describe "whiska init writes them" do

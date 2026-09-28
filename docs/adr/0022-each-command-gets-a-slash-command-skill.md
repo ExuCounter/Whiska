@@ -18,3 +18,13 @@ session, so it cannot be something Claude runs for you. That splits the surface 
 — typed by you before a session exists (`init`, `start`, `stop`, `doctor`, `update`), used
 by your session once one is running (the list above), and machine-wide with no "right repo"
 to run them in (`projects`, `goto`).
+
+## Note, 2026-09-28: one skill is triggered by a line, not a slash command
+
+`whiska-delivered` is installed alongside the per-command skills but nobody types it.
+The owl's delivered line (`🐱 <branch> <verb> · #<id> …`) no longer carries `read:` or
+`answer:` commands, so the main session's Claude has to know what to do when one lands
+as a user turn. The skill's description names that shape, so Claude Code picks it by
+description; its body is the same thin wrapper — run `whiska questions <id>`, show the
+output, stop, never answer on the person's behalf. Same reasoning as above: the model is
+not asked to compose the read from a hint in the line.

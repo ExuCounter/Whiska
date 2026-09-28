@@ -18,28 +18,41 @@ defmodule Whiska.Delivery.TextTest do
 
   test "a done report says the mouse finished, and offers no reply (ADR-0009)" do
     q = question(kind: "done", text: "Merged and pushed.\n[worktree-status: done]")
-    line = Text.compose(q, "feat-a", 0, [])
-
-    assert line =~ "#12"
-    assert line =~ "feat-a finished"
-    assert line =~ "whiska questions 12"
-    refute line =~ "whiska reply"
-    refute line =~ "needs a decision"
+    assert Text.compose(q, "feat-a", 0, []) == "🐱 feat-a finished · #12"
   end
 
-  test "names the question id, the branch, that it needs a decision, and how to read and answer" do
+  test "names the branch, that it needs a decision, the id, and the mouse's pointer" do
     q =
       question(text: "Which db?\n[worktree-status: needs-decision] 3 questions ready, see above")
 
     line = Text.compose(q, "feat-delivery", 0, [])
 
-    assert line =~ "#12"
-    assert line =~ "feat-delivery"
-    assert line =~ "needs a decision"
-    assert line =~ ~s("3 questions ready, see above")
-    assert line =~ "whiska questions 12"
-    assert line =~ ~s(whiska reply 12 ")
+    assert line == ~s(🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above")
     refute line =~ "\n"
+  end
+
+  test "carries no command and never names whiska: the id is the whole pointer (ADR-0005)" do
+    q = question(text: "[worktree-status: needs-decision] pick one")
+
+    for line <- [
+          Text.compose(q, "b", 3, [:status_unknown]),
+          Text.compose(question(kind: "done"), "b", 0, [])
+        ] do
+      refute line =~ "whiska"
+      refute line =~ "read:"
+      refute line =~ "answer:"
+      assert String.starts_with?(line, "🐱 ")
+      assert line =~ " · #12"
+    end
+  end
+
+  test "the order is branch and verb, then id, then pointer, then more open, then notes" do
+    q = question(text: "[worktree-status: needs-decision] pick one")
+    line = Text.compose(q, "b", 2, [:status_unknown])
+
+    assert line ==
+             ~s(🐱 b needs a decision · #12 · "pick one" · 2 more open · ) <>
+               "delivered blind: herdr cannot tell whether you are idle, so this may interrupt"
   end
 
   test "says how many more are open, and nothing when there are none" do
