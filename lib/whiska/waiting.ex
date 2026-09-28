@@ -11,8 +11,9 @@ defmodule Whiska.Waiting do
   (ADR-0036), which the database cannot see at all.
 
   Each entry carries the mouse's herdr pane, because a mouse is a herdr pane
-  (ADR-0020) and that pane is the only address there is for "take me there" —
-  what `whiska jump` focuses (ADR-0043).
+  (ADR-0020) and that is the address `whiska reply` types into. It is not where
+  `whiska jump` goes: a jump lands on the house's main session (ADR-0043),
+  which `house_for/2` and `main_session/1` are here to find.
 
   ## The record without an owl
 
@@ -56,14 +57,6 @@ defmodule Whiska.Waiting do
           pointer: String.t(),
           age_s: non_neg_integer(),
           pane: String.t() | nil
-        }
-
-  @typedoc "Where a branch's mouse lives, for `whiska jump <branch>`."
-  @type place :: %{
-          repo: String.t(),
-          main_checkout: Path.t(),
-          branch: String.t(),
-          pane: String.t()
         }
 
   @doc """
@@ -118,30 +111,42 @@ defmodule Whiska.Waiting do
   def waiting?(main_checkout), do: house(main_checkout) != []
 
   @doc """
-  Where the mouse on `branch` lives — which house, and which herdr pane.
+  Which house a name given to `whiska jump` means: its own repo, or the repo a
+  branch's mouse is working in.
 
   Searched across every recorded house, since a branch name says nothing about
-  which project it belongs to. Dead mice are skipped (ADR-0026): their pane is
-  gone, so focusing it would land nowhere.
+  which project it belongs to. A repo of that name wins — it is the plainer
+  reading of a bare word, and a branch that shares a repo's name is still
+  reachable by standing in it. Dead mice do not name a house (ADR-0026): their
+  work is over, and their house may have nothing to do with the person now.
   """
-  @spec pane_for(String.t(), keyword()) ::
-          {:ok, place()} | {:error, :no_such_branch | :no_pane}
-  def pane_for(branch, opts \\ []) do
-    opts
-    |> houses()
-    |> Enum.reduce({:error, :no_such_branch}, fn main, acc ->
-      case {acc, mouse_on(main, branch)} do
-        {{:ok, _}, _} -> acc
-        {_, nil} -> acc
-        {_, %Mouse{pane: pane}} when is_binary(pane) -> {:ok, place(main, branch, pane)}
-        {{:error, :no_such_branch}, %Mouse{}} -> {:error, :no_pane}
-        {_, %Mouse{}} -> acc
-      end
-    end)
+  @spec house_for(String.t(), keyword()) :: {:ok, Path.t()} | {:error, :no_such_target}
+  def house_for(name, opts \\ []) do
+    houses = houses(opts)
+
+    cond do
+      main = Enum.find(houses, &(Path.basename(&1) == name)) -> {:ok, main}
+      main = Enum.find(houses, &(mouse_on(&1, name) != nil)) -> {:ok, main}
+      true -> {:error, :no_such_target}
+    end
   end
 
-  defp place(main, branch, pane),
-    do: %{repo: Path.basename(main), main_checkout: main, branch: branch, pane: pane}
+  @doc """
+  The pane a jump into this house lands on: its main session, as `whiska start`
+  recorded it (ADR-0043), or `nil` when it has none — no `whiska start` has been
+  run there, or the house cannot be read.
+  """
+  @spec main_session(Path.t()) :: String.t() | nil
+  def main_session(main_checkout) do
+    main = Path.expand(main_checkout)
+
+    if File.exists?(Storage.database_path(main)) do
+      case with_house(main, fn -> Storage.main_pane() end) do
+        pane when is_binary(pane) -> pane
+        _none -> nil
+      end
+    end
+  end
 
   defp mouse_on(main, branch) do
     main = Path.expand(main)

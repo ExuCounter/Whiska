@@ -72,6 +72,33 @@ defmodule Whiska.Herdr do
   def socket_path, do: System.get_env("HERDR_SOCKET_PATH")
 
   @doc """
+  herdr's socket for anything that needs to talk to herdr now: the variable
+  when it is set, and otherwise herdr's fixed default (ADR-0040).
+
+  The fallback is not only launchd's. A Raycast script command runs with no
+  shell environment at all, so a hotkey running `whiska jump` sees exactly what
+  the supervised owl sees: nothing. The variable still wins where it is set — a
+  named herdr session's socket lives elsewhere.
+
+  `{:error, {:no_socket, default}}` when nothing set the variable and there is
+  no socket at the default path either. That is a different thing to say than
+  "the variable is not set": the variable is not how anyone normally finds
+  herdr, and the honest reading is that herdr is not running.
+  """
+  @spec socket(%{optional(String.t()) => String.t()}) ::
+          {:ok, Path.t()} | {:error, {:no_socket, Path.t()}}
+  def socket(env \\ System.get_env()) do
+    case env["HERDR_SOCKET_PATH"] do
+      path when is_binary(path) and path != "" ->
+        {:ok, path}
+
+      _unset ->
+        default = default_socket_path(env)
+        if File.exists?(default), do: {:ok, default}, else: {:error, {:no_socket, default}}
+    end
+  end
+
+  @doc """
   Where herdr puts its socket when nothing says otherwise: `herdr.sock` in
   its default session directory, `~/.config/herdr/`. Checked against herdr
   0.8.2: the path is fixed per session and recreated there on every restart,

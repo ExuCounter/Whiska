@@ -243,30 +243,47 @@ defmodule Whiska.WaitingTest do
     end
   end
 
-  describe "pane_for/2 — where a branch's mouse lives" do
-    test "finds the mouse's pane in whichever house has that branch", %{
-      root: root,
-      record: record
-    } do
+  describe "house_for/2 — which house a name means" do
+    test "a repo name is the house of that name", %{root: root, record: record} do
       _a = house!(root, "alpha", record)
       b = house!(root, "beta", record)
 
+      assert Waiting.house_for("beta", open_houses: record) == {:ok, b}
+    end
+
+    test "a branch name is the house its mouse lives in", %{root: root, record: record} do
+      _a = house!(root, "alpha", record)
+      b = house!(root, "beta", record)
       seed(b, fn -> mouse("m2", "feat-b", "%7") end)
 
-      assert {:ok, %{pane: "%7", repo: "beta", branch: "feat-b"}} =
-               Waiting.pane_for("feat-b", open_houses: record)
+      assert Waiting.house_for("feat-b", open_houses: record) == {:ok, b}
     end
 
-    test "says so when no house has that branch", %{root: root, record: record} do
-      _a = house!(root, "alpha", record)
-      assert Waiting.pane_for("feat-nope", open_houses: record) == {:error, :no_such_branch}
-    end
-
-    test "says so when the branch's mouse has no pane", %{root: root, record: record} do
+    test "a repo of that name wins over a branch of the same name", %{
+      root: root,
+      record: record
+    } do
       a = house!(root, "alpha", record)
-      seed(a, fn -> mouse("m1", "feat-a", nil) end)
+      b = house!(root, "beta", record)
+      seed(b, fn -> mouse("m2", "alpha", "%7") end)
 
-      assert Waiting.pane_for("feat-a", open_houses: record) == {:error, :no_pane}
+      assert Waiting.house_for("alpha", open_houses: record) == {:ok, a}
+    end
+
+    test "says so when the name is neither", %{root: root, record: record} do
+      _a = house!(root, "alpha", record)
+      assert Waiting.house_for("nope", open_houses: record) == {:error, :no_such_target}
+    end
+
+    test "a dead mouse's branch does not name a house", %{root: root, record: record} do
+      a = house!(root, "alpha", record)
+
+      seed(a, fn ->
+        mouse("dead", "feat-a", "%1")
+        {:ok, _} = Storage.mark_dead("dead")
+      end)
+
+      assert Waiting.house_for("feat-a", open_houses: record) == {:error, :no_such_target}
     end
 
     test "a house that will not open is skipped, not a crash", %{root: root, record: record} do
@@ -274,28 +291,28 @@ defmodule Whiska.WaitingTest do
       b = house!(root, "beta", record)
       seed(b, fn -> mouse("m2", "feat-b", "%7") end)
 
-      # A database that exists but cannot be opened: one repo's problem, and
-      # `whiska doctor` is where it is explained — never a machine-wide crash.
       File.rm_rf!(Storage.database_path(a))
       File.mkdir_p!(Storage.database_path(a))
 
-      assert {:ok, %{pane: "%7"}} = Waiting.pane_for("feat-b", open_houses: record)
-      assert [] = Waiting.house(a)
+      assert Waiting.house_for("feat-b", open_houses: record) == {:ok, b}
+    end
+  end
+
+  describe "main_session/1 — the pane a jump lands on" do
+    test "the pane `whiska start` recorded", %{root: root, record: record} do
+      a = house!(root, "alpha", record)
+      seed(a, fn -> :ok = Storage.set_main_pane("w1:p1") end)
+
+      assert Waiting.main_session(a) == "w1:p1"
     end
 
-    test "skips a dead mouse in favour of a live one on the same branch", %{
-      root: root,
-      record: record
-    } do
+    test "nil when no main session has been recorded", %{root: root, record: record} do
       a = house!(root, "alpha", record)
+      assert Waiting.main_session(a) == nil
+    end
 
-      seed(a, fn ->
-        mouse("dead", "feat-a", "%1")
-        {:ok, _} = Storage.mark_dead("dead")
-        mouse("live", "feat-a", "%2")
-      end)
-
-      assert {:ok, %{pane: "%2"}} = Waiting.pane_for("feat-a", open_houses: record)
+    test "nil for a house that cannot be read, never a crash", %{root: root} do
+      assert Waiting.main_session(Path.join(root, "nowhere")) == nil
     end
   end
 

@@ -11,10 +11,15 @@ defmodule Whiska.Owl.House do
   ## What the house watches
 
   The house learns which herdr panes are its mice by matching each pane's `cwd`
-  to a mouse record's worktree path — at open, and again whenever herdr reports a
-  new agent pane. That is the first and only thing that ever fills a mouse's
-  `pane` column (ADR-0006). A mouse with no pane anywhere is dead (ADR-0026), and
-  is marked, never deleted (ADR-0007).
+  to a mouse record's worktree path — at open, whenever herdr reports a new agent
+  pane, and the moment a collection records a mouse no pane is known for. That is
+  the first and only thing that ever fills a mouse's `pane` column (ADR-0006).
+
+  Only the first two judge liveness: a mouse with no pane anywhere is dead
+  (ADR-0026), and is marked, never deleted (ADR-0007). Matching on collection
+  never marks anything dead — a dead mouse's open questions cascade to
+  `orphaned`, and the question just collected would be the casualty of a pane
+  list that happened to be a moment stale.
 
   herdr's `pane.agent_status_changed` subscription is per pane, so the house
   subscribes for each mouse pane it knows, plus the global `pane.closed`,
@@ -352,12 +357,33 @@ defmodule Whiska.Owl.House do
     if after_ == before, do: state, else: resubscribe(state)
   end
 
-  defp reconcile_panes(%{socket: nil} = state) do
-    warn(state, "no herdr socket known — mice cannot be matched to panes")
-    state
+  # Matching *and* judging liveness: every mouse herdr cannot place is marked
+  # dead here (ADR-0026). That judgment belongs to this path only — see
+  # `match_panes/1`.
+  defp reconcile_panes(state) do
+    case match_panes(state) do
+      {:ok, state, mice} ->
+        for mouse <- mice,
+            is_nil(mouse.died_at),
+            mouse.mouse_id not in Map.values(state.panes) do
+          Storage.mark_dead(mouse.mouse_id)
+        end
+
+        state
+
+      {:error, state} ->
+        state
+    end
   end
 
-  defp reconcile_panes(state) do
+  # Matching alone: each mouse whose worktree holds a listed agent pane's cwd
+  # gets that pane, and a mouse herdr does not list is left exactly as it was.
+  defp match_panes(%{socket: nil} = state) do
+    warn(state, "no herdr socket known — mice cannot be matched to panes")
+    {:error, state}
+  end
+
+  defp match_panes(state) do
     case state.herdr.list_panes(state.socket) do
       {:ok, panes} ->
         agent_panes = Enum.filter(panes, &(&1.agent != nil and is_binary(&1.cwd)))
@@ -372,19 +398,13 @@ defmodule Whiska.Owl.House do
             {pane.pane_id, mouse.mouse_id}
           end
 
-        for mouse <- mice,
-            is_nil(mouse.died_at),
-            mouse.mouse_id not in Map.values(matched) do
-          Storage.mark_dead(mouse.mouse_id)
-        end
-
-        %{state | panes: matched}
+        {:ok, %{state | panes: matched}, mice}
 
       {:error, reason} ->
         # Without herdr there is no way to tell dead from alive, so nothing is
         # marked either way; the backstop asks again.
         warn(state, "could not list herdr panes (#{inspect(reason)})")
-        state
+        {:error, state}
     end
   end
 
@@ -490,10 +510,14 @@ defmodule Whiska.Owl.House do
   defp collect_and_count(state) do
     fresh_round? = Storage.open_count() == 0 and Storage.sent() == nil
 
-    collected =
+    mice =
       state.main_checkout
       |> Doorstep.waiting()
-      |> Enum.count(fn {file, entry} -> collect_entry(state, file, entry) end)
+      |> Enum.filter(fn {file, entry} -> collect_entry(state, file, entry) end)
+      |> Enum.map(fn {_file, entry} -> entry.mouse_id end)
+
+    collected = length(mice)
+    state = match_new_mice(state, mice)
 
     state =
       cond do
@@ -505,6 +529,39 @@ defmodule Whiska.Owl.House do
 
     Nudge.report(state.main_checkout, waiting_on_person?())
     {collected, state}
+  end
+
+  # A collection is the first the house hears of a mouse that has never been
+  # matched to a pane — `collect_entry/3` records the mouse from the entry
+  # itself. Left to `refresh/1`'s own triggers the pane column stayed nil until
+  # the backstop's minute was up, and in that minute `whiska waiting` said "no
+  # pane" and `whiska reply` refused (ADR-0043's note of 2026-09-28). So an
+  # unmatched mouse is matched here and now: one `list_panes` call, and only
+  # when a collection named a mouse no pane is known for. A mouse already in
+  # `state.panes` asks herdr nothing.
+  defp match_new_mice(state, []), do: state
+
+  defp match_new_mice(state, mouse_ids) do
+    known = Map.values(state.panes)
+    if Enum.all?(mouse_ids, &(&1 in known)), do: state, else: rematch(state)
+  end
+
+  # Matching only, never `refresh/1`: a mouse herdr does not list must not be
+  # marked dead here. Marking dead cascades its open questions to `orphaned`
+  # (ADR-0026), and the question just collected is precisely the one that would
+  # be lost to a stale pane list. Liveness stays the backstop's judgment, by
+  # which time the mouse has had its minute to appear.
+  defp rematch(state) do
+    before = Map.keys(state.panes)
+    state = match_panes_only(state)
+    if Map.keys(state.panes) == before, do: state, else: resubscribe(state)
+  end
+
+  defp match_panes_only(state) do
+    case match_panes(state) do
+      {:ok, state, _mice} -> state
+      {:error, state} -> state
+    end
   end
 
   # What the nudge is about: a question waiting on the person, here. A `done`

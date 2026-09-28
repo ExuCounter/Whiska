@@ -64,6 +64,29 @@ defmodule Whiska.CLIWaitingTest do
       Storage.record_mouse(%{mouse_id: id, path: "/w/#{branch}", branch: branch, pane: pane})
   end
 
+  # A shell with no HERDR_SOCKET_PATH in it — a Raycast hotkey runs a script
+  # command with no shell environment at all — and herdr's socket sitting where
+  # herdr always puts it (ADR-0040).
+  defp no_variable_but_a_socket(root) do
+    home = Path.join(root, "home")
+    default = Path.join(home, ".config/herdr/herdr.sock")
+    File.mkdir_p!(Path.dirname(default))
+    File.touch!(default)
+    pretend_home(home)
+    default
+  end
+
+  defp pretend_home(home) do
+    was_home = System.get_env("HOME")
+    System.delete_env("HERDR_SOCKET_PATH")
+    System.put_env("HOME", home)
+    on_exit(fn -> if was_home, do: System.put_env("HOME", was_home) end)
+    home
+  end
+
+  # What `whiska start` records: this house's main session (ADR-0043).
+  defp started(pane), do: :ok = Storage.set_main_pane(pane)
+
   defp ask(mouse_id, text, age_s \\ 0) do
     {:ok, _} =
       Storage.record_question(%{
@@ -158,27 +181,35 @@ defmodule Whiska.CLIWaitingTest do
     end
   end
 
+  # A jump lands on the house's main session, never on a mouse's pane
+  # (ADR-0043, rewritten 2026-09-28): the main session is the pane the question
+  # was delivered into and the pane the person answers from.
   describe "whiska jump" do
-    test "focuses the pane of the oldest waiting question", %{root: root, socket: socket} do
+    test "focuses the main session of the house with the oldest waiting question", %{
+      root: root,
+      socket: socket
+    } do
       a = house!(root, "alpha")
       b = house!(root, "beta")
 
       seed(a, fn ->
+        started("w1:p1")
         mouse("m1", "feat-a", "%1")
         ask("m1", "[worktree-status: needs-decision] newer", 10)
       end)
 
       seed(b, fn ->
+        started("w2:p1")
         mouse("m2", "feat-b", "%2")
         ask("m2", "[worktree-status: needs-decision] older", 600)
       end)
 
-      expect(Herdr, :focus, fn ^socket, "%2" -> :ok end)
+      expect(Herdr, :focus, fn ^socket, "w2:p1" -> :ok end)
 
       out = capture_io(fn -> assert CLI.run(["jump"], a) == 0 end)
-      assert out =~ "feat-b"
       assert out =~ "beta"
-      assert out =~ "%2"
+      assert out =~ "w2:p1"
+      refute out =~ "%2"
     end
 
     test "says 'nothing waiting' and changes nothing when nothing is", %{root: root} do
@@ -187,23 +218,39 @@ defmodule Whiska.CLIWaitingTest do
       assert out =~ "🦉 Nothing needs you"
     end
 
-    test "with a branch, focuses that mouse's pane whether or not it is waiting", %{
+    test "with a repo name, focuses that house's main session, waiting or not", %{
       root: root,
       socket: socket
     } do
       a = house!(root, "alpha")
       b = house!(root, "beta")
-      seed(a, fn -> mouse("m1", "feat-a", "%1") end)
-      seed(b, fn -> mouse("m2", "feat-quiet", "%7") end)
+      seed(a, fn -> started("w1:p1") end)
+      seed(b, fn -> started("w2:p1") end)
 
-      expect(Herdr, :focus, fn ^socket, "%7" -> :ok end)
+      expect(Herdr, :focus, fn ^socket, "w2:p1" -> :ok end)
 
-      out = capture_io(fn -> assert CLI.run(["jump", "feat-quiet"], a) == 0 end)
-      assert out =~ "feat-quiet"
-      assert out =~ "%7"
+      out = capture_io(fn -> assert CLI.run(["jump", "beta"], a) == 0 end)
+      assert out =~ "beta"
     end
 
-    test "refuses a branch no house has", %{root: root} do
+    test "with a branch, focuses the main session of the house that mouse works in", %{
+      root: root,
+      socket: socket
+    } do
+      a = house!(root, "alpha")
+      b = house!(root, "beta")
+      seed(a, fn -> started("w1:p1") end)
+      seed(b, fn -> started("w2:p1") end)
+      seed(b, fn -> mouse("m2", "feat-quiet", "%7") end)
+
+      expect(Herdr, :focus, fn ^socket, "w2:p1" -> :ok end)
+
+      out = capture_io(fn -> assert CLI.run(["jump", "feat-quiet"], a) == 0 end)
+      assert out =~ "beta"
+      refute out =~ "%7"
+    end
+
+    test "refuses a name that is neither a repo nor a branch", %{root: root} do
       main = house!(root, "alpha")
 
       err =
@@ -214,12 +261,19 @@ defmodule Whiska.CLIWaitingTest do
       assert err =~ "feat-nope"
     end
 
-    test "says so when the branch's mouse has no pane recorded", %{root: root} do
+    # Exit 0, like nothing waiting: the hotkey is pressed on spec, and a house
+    # nobody has run `whiska start` in is a thing to fix, not a failure.
+    test "says so and exits 0 when the house has no main session recorded", %{root: root} do
       main = house!(root, "alpha")
-      seed(main, fn -> mouse("m1", "feat-a", nil) end)
 
-      err = capture_io(:stderr, fn -> assert CLI.run(["jump", "feat-a"], main) == 1 end)
-      assert err =~ "no pane"
+      seed(main, fn ->
+        mouse("m1", "feat-a", "%1")
+        ask("m1", "[worktree-status: needs-decision] pick")
+      end)
+
+      out = capture_io(fn -> assert CLI.run(["jump"], main) == 0 end)
+      assert out =~ "alpha"
+      assert out =~ "whiska start"
     end
 
     test "reports herdr refusing, and does not claim to have jumped", %{
@@ -229,11 +283,12 @@ defmodule Whiska.CLIWaitingTest do
       main = house!(root, "alpha")
 
       seed(main, fn ->
+        started("w1:p1")
         mouse("m1", "feat-a", "%1")
         ask("m1", "[worktree-status: needs-decision] pick")
       end)
 
-      expect(Herdr, :focus, fn ^socket, "%1" ->
+      expect(Herdr, :focus, fn ^socket, "w1:p1" ->
         {:error, {:herdr, %{"code" => "pane_not_found", "message" => "gone"}}}
       end)
 
@@ -241,17 +296,41 @@ defmodule Whiska.CLIWaitingTest do
       assert err =~ "pane_not_found"
     end
 
-    test "says so when herdr's socket is not set", %{root: root} do
-      System.delete_env("HERDR_SOCKET_PATH")
+    # Bug, 2026-09-28: a Raycast hotkey running `open -a kitty && whiska jump`
+    # got "HERDR_SOCKET_PATH is not set — cannot ask herdr to focus a pane",
+    # because Raycast runs a script command with no shell environment. The owl
+    # under launchd has the same problem and already falls back (ADR-0040).
+    test "falls back to herdr's default socket when the variable is unset", %{root: root} do
+      default = no_variable_but_a_socket(root)
       main = house!(root, "alpha")
 
       seed(main, fn ->
+        started("w1:p1")
+        mouse("m1", "feat-a", "%1")
+        ask("m1", "[worktree-status: needs-decision] pick")
+      end)
+
+      expect(Herdr, :focus, fn ^default, "w1:p1" -> :ok end)
+
+      out = capture_io(fn -> assert CLI.run(["jump"], main) == 0 end)
+      assert out =~ "Jumped"
+    end
+
+    test "says herdr's default socket is not there when nothing set the variable", %{
+      root: root
+    } do
+      pretend_home(Path.join(root, "home"))
+      main = house!(root, "alpha")
+
+      seed(main, fn ->
+        started("w1:p1")
         mouse("m1", "feat-a", "%1")
         ask("m1", "[worktree-status: needs-decision] pick")
       end)
 
       err = capture_io(:stderr, fn -> assert CLI.run(["jump"], main) == 1 end)
       assert err =~ "HERDR_SOCKET_PATH"
+      assert err =~ ".config/herdr/herdr.sock"
     end
   end
 end

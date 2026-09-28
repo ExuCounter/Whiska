@@ -86,10 +86,18 @@ defmodule Whiska.CLI do
                          repo-scoped, and it reads whether or not the owl is
                          up. --json prints the same rows for a script.
 
-    jump [<branch>]      Take me to whatever needs me: focus the herdr pane of
-                         the oldest thing `whiska waiting` lists. With a
-                         branch, focus that mouse's pane instead, waiting or
-                         not. Prints where it went, or says nothing needs you.
+    jump [<repo|branch>] Take me to whatever needs me: focus the main session
+                         of the house the oldest thing `whiska waiting` lists
+                         belongs to. With a repo name, or a branch — whichever
+                         house that mouse works in — focus that house's main
+                         session instead, waiting or not. It lands on the
+                         whiska, never on a mouse's pane: that is the pane the
+                         question was delivered into and the one you answer
+                         from. Prints where it went, or says nothing needs you.
+
+                         HERDR_SOCKET_PATH is used when it is set, and herdr's
+                         default socket (~/.config/herdr/herdr.sock) when it is
+                         not — a hotkey runs with no shell environment at all.
 
                          For a global hotkey, save this as a Raycast script
                          command and bind it:
@@ -188,7 +196,7 @@ defmodule Whiska.CLI do
   def run(["waiting", "--json"], _cwd), do: waiting(:json)
 
   def run(["jump"], _cwd), do: jump_to_oldest()
-  def run(["jump", branch], _cwd), do: jump_to_branch(branch)
+  def run(["jump", name], _cwd), do: jump_to_name(name)
 
   def run(["questions", id], cwd), do: with_question(cwd, id, &show_question/1)
 
@@ -558,19 +566,20 @@ defmodule Whiska.CLI do
   # no herdr at all; the plist carries the variable when it was set at install.
   defp start_owl_process do
     socket =
-      case Herdr.socket_path() do
-        nil ->
-          default = Herdr.default_socket_path()
+      case Herdr.socket() do
+        {:ok, path} ->
+          path
 
+        # The owl starts anyway and picks herdr up when it appears: it is
+        # supervised and long-lived, and its houses retry their subscriptions.
+        {:error, {:no_socket, default}} ->
           IO.puts(
             :stderr,
-            "whiska: HERDR_SOCKET_PATH is not set — using herdr's default, #{default}."
+            "whiska: HERDR_SOCKET_PATH is not set and there is no socket at herdr's " <>
+              "default, #{default} — using it anyway, in case herdr comes up."
           )
 
           default
-
-        path ->
-          path
       end
 
     case Whiska.Owl.start_link(herdr_socket: socket) do
@@ -811,43 +820,46 @@ defmodule Whiska.CLI do
   defp waiting(:json), do: say(Waiting.json(Waiting.list()))
   defp waiting(:text), do: say(Waiting.render(Waiting.list()))
 
+  # A jump lands on a house's main session, never on a mouse's pane (ADR-0043):
+  # that is the pane the question was delivered into, and the pane the person
+  # answers from. The mouse's pane is the mouse's workplace.
+  #
   # Nothing waiting is a normal answer, not a failure — the hotkey is pressed
-  # on spec, and exiting 1 would make a Raycast script look broken.
+  # on spec, and exiting 1 would make a Raycast script look broken. So is a
+  # house with no main session recorded: something to run `whiska start` in,
+  # not something that failed.
   defp jump_to_oldest do
     case Waiting.list() do
-      [] ->
-        say("🦉 Nothing needs you · the owl delivers when something does")
-
-      [oldest | _] ->
-        case oldest.pane do
-          nil ->
-            fail(
-              "whiska: the oldest thing waiting (#{oldest.branch} in #{oldest.repo}) has no " <>
-                "pane recorded, so there is nowhere to jump to. `whiska waiting` lists the rest."
-            )
-
-          pane ->
-            focus(pane, "#{oldest.branch} (#{oldest.repo})")
-        end
+      [] -> say("🦉 Nothing needs you · the owl delivers when something does")
+      [oldest | _] -> jump_to_house(oldest.main_checkout)
     end
   end
 
-  defp jump_to_branch(branch) do
-    case Waiting.pane_for(branch) do
-      {:ok, place} ->
-        focus(place.pane, "#{place.branch} (#{place.repo})")
+  defp jump_to_name(name) do
+    case Waiting.house_for(name) do
+      {:ok, main} ->
+        jump_to_house(main)
 
-      {:error, :no_such_branch} ->
+      {:error, :no_such_target} ->
         fail(
-          "whiska: no house has a live mouse on #{branch}. " <>
-            "`whiska mice` lists this repo's; `whiska waiting` lists what is waiting anywhere."
+          "whiska: no recorded house is called #{name}, and none has a live mouse on " <>
+            "a branch of that name. `whiska waiting` lists what is waiting anywhere."
+        )
+    end
+  end
+
+  defp jump_to_house(main) do
+    repo = Path.basename(main)
+
+    case Waiting.main_session(main) do
+      nil ->
+        say(
+          "whiska: #{repo} has no main session recorded, so there is nowhere to jump to. " <>
+            "Run `whiska start` in its main pane."
         )
 
-      {:error, :no_pane} ->
-        fail(
-          "whiska: #{branch}'s mouse has no pane recorded, so there is nowhere to jump to. " <>
-            "Its worktree is still on disk; `whiska mice` shows the mouse."
-        )
+      pane ->
+        focus(pane, repo)
     end
   end
 
@@ -856,14 +868,14 @@ defmodule Whiska.CLI do
       {:ok, socket} ->
         case Herdr.impl().focus(socket, pane) do
           :ok ->
-            say("Jumped to #{where} — pane #{pane}.")
+            say("Jumped to #{where}'s main session — pane #{pane}.")
 
           {:error, reason} ->
             fail("whiska: could not focus #{pane} (#{describe(reason)}). Nothing moved.")
         end
 
-      {:error, :no_socket} ->
-        fail("whiska: HERDR_SOCKET_PATH is not set — cannot ask herdr to focus a pane.")
+      {:error, {:no_socket, default}} ->
+        no_socket(default, "ask to focus a pane")
     end
   end
 
@@ -903,8 +915,8 @@ defmodule Whiska.CLI do
       {:error, {:dead, mouse}} ->
         dead_mouse(q, mouse)
 
-      {:error, :no_socket} ->
-        fail("whiska: HERDR_SOCKET_PATH is not set — cannot reach the mouse's pane.")
+      {:error, {:no_socket, default}} ->
+        no_socket(default, "reach the mouse's pane through")
 
       {:error, reason} ->
         fail(
@@ -940,11 +952,17 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp herdr_socket do
-    case Herdr.socket_path() do
-      nil -> {:error, :no_socket}
-      socket -> {:ok, socket}
-    end
+  # One fallback for every command that talks to herdr, the owl's included
+  # (ADR-0040): `HERDR_SOCKET_PATH` when a herdr pane's shell set it, herdr's
+  # fixed default otherwise. `whiska jump` is typically run by a hotkey with no
+  # shell environment at all, which is the same position launchd's owl is in.
+  defp herdr_socket, do: Herdr.socket()
+
+  defp no_socket(default, cannot) do
+    fail(
+      "whiska: HERDR_SOCKET_PATH is not set and there is no socket at herdr's default, " <>
+        "#{default} — so there is no herdr to #{cannot}. Is herdr running?"
+    )
   end
 
   defp describe({:herdr, %{"code" => code, "message" => message}}), do: "#{code}: #{message}"

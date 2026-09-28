@@ -36,7 +36,7 @@ C4Component
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
   Container_Ext(doorstep, "Doorstep", "directory", "Uncollected entries")
-  System_Ext(herdr, "herdr", "pane list, and pane focus for jump")
+  System_Ext(herdr, "herdr", "pane list, and main-session focus for jump")
   Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
 
   Rel(shim, loop, "On stop, runs it first and stops there if it blocks")
@@ -53,9 +53,9 @@ C4Component
   Rel(statusline, waiting, "Has any other whiska something waiting?")
   Rel(main, waiting, "Delegates waiting and jump")
   Rel(waiting, record, "Which repos to look in: read without the owl-alive guard")
-  Rel(waiting, storage, "Opens each house read-only: questions and mouse panes")
+  Rel(waiting, storage, "Opens each house read-only: questions, mouse panes, main session")
   Rel(waiting, doorstep, "Reads each house's uncollected entries")
-  Rel(main, herdr, "jump: focuses one mouse pane", "pane.focus")
+  Rel(main, herdr, "jump: focuses one house's main session", "pane.focus")
   Rel(statusline, herdr, "Lists panes: mice here, whiskas here and elsewhere")
   Rel(statusline, owl, "Is it running? Same probe as the doctor", "process table")
   Rel(statusline, record, "Which houses are open: the whiskas to count")
@@ -128,12 +128,14 @@ owl answers a socket. Nothing here writes or collects.
 **`Waiting` is the machine-wide reading, and `jump` is the only thing in Whiska that
 moves the person** (ADR-0043). `whiska waiting` walks every repo in the open-houses
 record and lists one entry per open or sent question and per uncollected doorstep entry,
-oldest first, each carrying the mouse's herdr pane; `whiska jump` focuses the top one's
-pane, or a named branch's. Three things are worth naming. It reads the record with
-`read/1` rather than `open/2`, so it works with the owl down — nothing here claims a
-house is *open*, the record only says which repos to look in (ADR-0039). It lands on the
-mouse's pane rather than the house's main session, because the mouse is where the work
-is and `whiska reply` already answers from anywhere (ADR-0005). And `Statusline`'s
+oldest first, each carrying the mouse's herdr pane; `whiska jump` focuses the main
+session of the house the top one belongs to, or of a named repo or branch. Three things
+are worth naming. It reads the record with `read/1` rather than `open/2`, so it works
+with the owl down — nothing here claims a house is *open*, the record only says which
+repos to look in (ADR-0039). It lands on the house's main session rather than on a
+mouse's pane: that is the pane the question was delivered into and the one the person
+answers from, while a mouse's pane is the mouse's workplace (ADR-0043, note of
+2026-09-28). And `Statusline`'s
 elsewhere segment asks `Waiting.waiting?/1` rather than keeping its own copy, so the
 statusline and the listing cannot disagree about what "waiting" means — the same reason
 `Questions` is shared above. Nothing in the owl calls `focus`: its one cross-house move

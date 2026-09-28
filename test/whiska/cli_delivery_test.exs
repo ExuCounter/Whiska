@@ -40,7 +40,7 @@ defmodule Whiska.CLIDeliveryTest do
         else: System.delete_env("HERDR_SOCKET_PATH")
     end)
 
-    {:ok, main: main, worktree: worktree}
+    {:ok, root: root, main: main, worktree: worktree}
   end
 
   # Run a command, returning {status, stdout, stderr}.
@@ -223,6 +223,29 @@ defmodule Whiska.CLIDeliveryTest do
       in_house(main, fn ->
         assert %{status: "answered", answer: "go with SQLite"} = Storage.question(1)
       end)
+    end
+
+    # The same fallback the owl has under launchd (ADR-0040): a shell that never
+    # set the variable — a hotkey's, a script's — still finds herdr's socket
+    # where herdr always puts it.
+    test "falls back to herdr's default socket when the variable is unset", %{
+      main: main,
+      root: root
+    } do
+      home = Path.join(root, "home")
+      default = Path.join(home, ".config/herdr/herdr.sock")
+      File.mkdir_p!(Path.dirname(default))
+      File.touch!(default)
+
+      was_home = System.get_env("HOME")
+      System.delete_env("HERDR_SOCKET_PATH")
+      System.put_env("HOME", home)
+      on_exit(fn -> if was_home, do: System.put_env("HOME", was_home) end)
+
+      seed(main, fn -> ask("?") end)
+      expect(Herdr, :prompt, fn ^default, "w1R:p1", "yes" -> :ok end)
+
+      {0, _, _} = run(["reply", "1", "yes"], main)
     end
 
     test "joins several words into one answer", %{main: main} do
