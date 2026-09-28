@@ -54,7 +54,19 @@ and no other question is already sent. A queue, not a batch: the next question g
 the previous one is answered (or superseded, or closed — a `done` report closes itself on
 sending) and the session is idle again.
 What is typed is a one-line pointer with the id; the full text is `whiska questions <id>`.
+A nudge is not a delivery: it is typed through the same gate but is never a question of
+this house (see **Nudge**).
 _Avoid_: notify, ping, relay (the old bash mechanism), push
+
+**Nudge**:
+One short line the owl types into *another* house's idle main session when this house
+gains something open that waits on the person — `⚡ whiska waiting`, naming every waiting
+repo by folder and nothing else. It exists only to make that session's statusline redraw.
+A notice, not a question: never recorded, never answered, never closed, never holding the
+target's delivery slot, dropped rather than retried when the target is busy, once per
+episode, and never for a `done` report. Only the owl's Nudge reaches across houses; houses
+never call each other.
+_Avoid_: notification, ping, cross-house delivery, all-clear (there is none)
 
 **Build mode**:
 A mouse mode that produces a real code change. Edits confined to its own worktree,

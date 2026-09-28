@@ -9,8 +9,11 @@ an ADR disagree, the ADR wins.
 | 1 | [c4-context.md](c4-context.md) | Whiska between the person, Claude Code, herdr, git and launchd |
 | 2 | [c4-containers.md](c4-containers.md) | Built against designed, as two boundaries |
 | 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init, mode, questions, statusline, doctor, the delivery-side commands |
-| 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification |
-| — | [c4-dynamic-pretooluse.md](c4-dynamic-pretooluse.md) | One tool-call decision, end to end. **Built.** v0.0.1's plumbing — mouse identity as a marker file, a per-repo SQLite house,
+| 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification, delivery, the nudge |
+| — | [c4-dynamic-pretooluse.md](c4-dynamic-pretooluse.md) | One tool-call decision, end to end |
+| — | [c4-dynamic-question-delivery.md](c4-dynamic-question-delivery.md) | A question from the doorstep to its answer, and the nudge to the other houses |
+
+**Built.** v0.0.1's plumbing — mouse identity as a marker file, a per-repo SQLite house,
 worktree containment and sniff mode enforced through `PreToolUse` (ADR-0030). Then the
 owl slice: the owl supervisor with one independently supervised house per project, each
 house's herdr subscription and pane discovery, the doorstep and the `Stop` hook that
@@ -30,7 +33,10 @@ more than one (ADR-0027, second addendum). Then the open-houses record: the owl 
 which houses it has open to `~/.whiska/houses`, reopens them on the next `whiska owl`,
 and a whiska is a house in that record with a live pane — the headcount, the elsewhere
 segment and a new doctor line all read it, trusting it only while an owl is alive
-(ADR-0039). 511 tests.
+(ADR-0039). Then the nudge: when a house gains something waiting on the person, the
+owl's one Nudge process types `⚡ <folders> waiting` into every other open house's idle
+main session so its statusline redraws — a notice through the target's own gate, never
+recorded, never retried, never for a `done` report (ADR-0041). 531 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `launchd` supervision and `whiska stop`; push approval; `checks.yml`; the

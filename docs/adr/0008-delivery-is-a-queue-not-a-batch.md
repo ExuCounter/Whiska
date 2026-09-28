@@ -16,6 +16,11 @@ window only affects what the first notification says, never what eventually arri
 An earlier framing of this as "batching" was wrong and was corrected: it is a queue with
 one narrow exception.
 
+*Addendum, 2026-09-28.* A nudge from another house (ADR-0041) is gated by this slot —
+typed only when the main session is idle and no question of this house's own is out — but
+never holds it: it is not recorded, and the next own question goes as soon as the pane is
+idle again.
+
 ## When the idle signal is unavailable, deliver anyway
 
 The gate depends on knowing whether the main session is idle. herdr reports this from a

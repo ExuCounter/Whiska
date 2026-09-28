@@ -73,6 +73,16 @@ defmodule Whiska.Owl.House do
   `unknown` delivers anyway and says so in the line, since holding would be
   silence with no explanation; no agent at all is a dead pane, held with a
   warning. What is typed is one line (`Whiska.Delivery.Text`), not the message.
+
+  ## The nudge (ADR-0041)
+
+  After each collection the house tells `Whiska.Owl.Nudge` whether it has
+  something open that waits on the person — an open or sent question other
+  than a `done` report. In return, Nudge may ask this house to type a nudge
+  line about *other* houses into its main session (`nudge/2`). The same gate
+  decides: the pane must be free and no question of this house's own may be
+  out — but a nudge is never recorded, never holds the slot, and is never
+  retried if the gate holds. Houses never call each other.
   """
 
   use GenServer
@@ -81,6 +91,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Doorstep
   alias Whiska.Herdr
   alias Whiska.Layout
+  alias Whiska.Owl.Nudge
   alias Whiska.Question.Marker
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -133,6 +144,14 @@ defmodule Whiska.Owl.House do
   @doc "Collect this house's doorstep now. Returns how many entries were collected."
   @spec collect(GenServer.server()) :: {:ok, non_neg_integer()}
   def collect(house), do: GenServer.call(house, :collect)
+
+  @doc """
+  Type a nudge line into this house's main session, if its gate allows it now.
+  Returns the pane it was typed into, or `:held` — and a held nudge is dropped,
+  not queued (ADR-0041).
+  """
+  @spec nudge(GenServer.server(), String.t()) :: {:ok, String.t()} | :held
+  def nudge(house, line), do: GenServer.call(house, {:nudge, line})
 
   @doc "Ask herdr for its panes again and re-match mice to them."
   @spec reconcile(GenServer.server()) :: :ok
@@ -205,6 +224,11 @@ defmodule Whiska.Owl.House do
   def handle_call(:collect, _from, state) do
     {collected, state} = collect_and_count(state)
     {:reply, {:ok, collected}, state}
+  end
+
+  def handle_call({:nudge, line}, _from, state) do
+    {reply, state} = send_nudge(state, line)
+    {:reply, reply, state}
   end
 
   def handle_call(:reconcile, _from, state), do: {:reply, :ok, refresh(state)}
@@ -436,8 +460,14 @@ defmodule Whiska.Owl.House do
         true -> state |> stop_retries() |> deliver()
       end
 
+    Nudge.report(state.main_checkout, waiting_on_person?())
     {collected, state}
   end
+
+  # What the nudge is about: a question waiting on the person, here. A `done`
+  # report is told and closed on its own; nothing about it can be acted on
+  # from elsewhere (ADR-0041).
+  defp waiting_on_person?, do: Enum.any?(Storage.questions(), &(&1.kind != "done"))
 
   defp start_round(state) do
     %{state | round_timer: Process.send_after(self(), :round_over, state.round_wait_ms)}
@@ -553,6 +583,32 @@ defmodule Whiska.Owl.House do
         # Stays open; the next trigger tries again.
         warn(state, "could not deliver ##{question.id} (#{inspect(reason)}) — will retry")
         state
+    end
+  end
+
+  # The nudge runs the same gate as a question — free pane, no question of this
+  # house's own out — and then leaves no trace: nothing recorded, nothing to
+  # close, no retry.
+  defp send_nudge(%{main_pane: nil} = state, _line), do: {:held, state}
+
+  defp send_nudge(state, line) do
+    with nil <- Storage.sent(),
+         {:go, _notes} <- main_session_free?(state),
+         :ok <- state.herdr.prompt(state.socket, state.main_pane, line) do
+      {{:ok, state.main_pane}, state}
+    else
+      %Question{} ->
+        {:held, state}
+
+      :hold ->
+        {:held, state}
+
+      %__MODULE__{} = state ->
+        {:held, state}
+
+      {:error, reason} ->
+        warn(state, "could not type a nudge (#{inspect(reason)}) — dropped")
+        {:held, state}
     end
   end
 
