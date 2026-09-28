@@ -95,10 +95,13 @@ defmodule Whiska.Owl.DeliveryTest do
     end)
   end
 
+  # herdr streams the per-pane event under its subscription type, with a dot
+  # (checked live, 2026-09-28); the main pane sits in the focused tab, so it
+  # reports `idle` rather than a background mouse's `done`.
   defp idle(house, pane) do
     send(
       house,
-      {:herdr_event, "pane_agent_status_changed", %{"pane_id" => pane, "agent_status" => "idle"}}
+      {:herdr_event, "pane.agent_status_changed", %{"pane_id" => pane, "agent_status" => "idle"}}
     )
   end
 

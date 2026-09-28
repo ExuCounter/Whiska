@@ -43,8 +43,11 @@ defmodule Whiska.Herdr do
 
   Returns the pid of the process holding the connection. Each event arrives at
   the listener as `{:herdr_event, name, data}` — `name` is herdr's event name
-  (`"pane_closed"`, `"pane_agent_status_changed"`) and `data` its payload,
-  string-keyed. The process is linked to the listener and exits normally when
+  exactly as streamed and `data` its payload, string-keyed. herdr 0.8.2 names a
+  global event by its event type (`"pane_closed"`, `"pane_exited"`,
+  `"pane_agent_detected"`) but a per-pane one by its subscription type
+  (`"pane.agent_status_changed"`, with a dot); nothing is normalised here, so
+  the listener has to accept both. The process is linked to the listener and exits normally when
   the connection drops, after sending `{:herdr_subscription_lost, reason}`, so
   the listener can resubscribe.
   """
