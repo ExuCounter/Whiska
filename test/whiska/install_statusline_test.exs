@@ -98,6 +98,20 @@ defmodule Whiska.InstallStatuslineTest do
       refute body =~ "summarise"
     end
 
+    test "both reading skills say the person cannot see the command's output, so it goes verbatim in the reply" do
+      # Claude Code folds a Bash tool's result away from the person; "show its
+      # output" alone got read as "it is already visible" and the model summarised.
+      for path <- [
+            ".claude/skills/whiska-questions/SKILL.md",
+            ".claude/skills/whiska-delivered/SKILL.md"
+          ] do
+        assert {_path, body} = List.keyfind(Install.skills(), path, 0)
+        assert body =~ "cannot see", path
+        assert body =~ "verbatim", path
+        assert body =~ "code block", path
+      end
+    end
+
     test "whiska-delivered points at --full for the ones behind the delivered line" do
       assert {_path, body} =
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)

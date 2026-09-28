@@ -3,7 +3,7 @@ name: whiska-questions
 description: List the questions waiting on you from this repo's mice. Use when asked what is open, what is waiting, what the mice need, or on /whiska-questions.
 ---
 
-With no argument, run exactly this and show its output as it is:
+With no argument, run exactly this:
 
     whiska questions --full
 
@@ -14,5 +14,8 @@ If the person passed an id ($ARGUMENTS is not empty), run exactly this instead:
 
     whiska questions $ARGUMENTS
 
-Present what it prints faithfully, then stop. Answering is the person's move —
-never reply to a question, guess an answer, or act on one on their behalf.
+The person cannot see the command's output, only your reply. So your whole
+reply is that output, verbatim, inside one fenced code block: every line,
+nothing shortened, nothing paraphrased, no commentary before or after. Then
+stop. Answering is the person's move — never reply to a question, guess an
+answer, or act on one on their behalf.
