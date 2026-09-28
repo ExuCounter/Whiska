@@ -10,7 +10,7 @@ C4Component
   title Component Diagram - whiska CLI
 
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
-  Container_Ext(loop, "review-loop.sh", "bash", "The repo's review loop: a second Stop hook Whiska writes once and never reads")
+  Container_Ext(loop, "review-loop.sh", "bash", "The repo's review loop: Whiska writes it once and never reads it")
 
   Container_Boundary(cli, "whiska escript") {
     Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / owl, and owl install / stop / start / uninstall")
@@ -37,6 +37,7 @@ C4Component
   System_Ext(herdr, "herdr", "pane list")
   Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
 
+  Rel(shim, loop, "On stop, runs it first and stops there if it blocks")
   Rel(shim, main, "Execs", "JSON on stdin")
   Rel(main, stop, "Delegates the stop hook")
   Rel(stop, layout, "Which house does this worktree belong to?")
@@ -123,11 +124,18 @@ Elixir despite ADR-0033 saying hooks go native, and that is written down in the 
 than drifted into: the measurement there is about the per-tool-call path, and `Stop` fires
 once per turn.
 
-**`review-loop.sh` is a second `Stop` hook, and nothing in the escript reads it**
-(ADR-0042). `Install` writes it once, only when it is missing, and the repo owns the
-check command inside it from then on. Claude Code runs both `Stop` hooks in parallel, so
-the loop blocking a stop does not stop `Hook.Stop` leaving the message on the doorstep —
-the open seam recorded at the end of ADR-0042.
+**`review-loop.sh` is the repo's, and nothing in the escript reads it** (ADR-0042).
+`Install` writes it once, only when it is missing, and the repo owns the check command
+inside it from then on.
+
+**The shim chains it in front of `Hook.Stop` rather than Claude Code running the two in
+parallel.** There is one `Stop` entry in `settings.json`, and the ordering lives in shell:
+the shim runs the loop, passes a block straight through, and only calls `whiska hook stop`
+when the loop lets the turn end. That is what keeps `Hook.Stop` literally as ADR-0036
+describes it — it is not made conditional, it is simply not invoked — and it is why the
+loop runs *before* the shim's binary lookup, so a missing Whiska cannot quietly disable
+the repo's own hook too. The `pre-tool-use` path is untouched and still `exec`s
+(ADR-0033).
 
 **`Doctor` checks and never repairs, and probes rather than inspects (ADR-0038).** It
 runs the repo's committed shim for both hooks with a payload whose `cwd` is outside any

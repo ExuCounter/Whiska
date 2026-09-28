@@ -26,39 +26,23 @@ defmodule Whiska.InstallReviewLoopTest do
     {:ok, root: root}
   end
 
-  describe "review_loop_path/0 and the settings.json entry" do
-    test "the loop is a second Stop hook beside Whiska's own" do
-      stop = Install.merge(%{})["hooks"]["Stop"]
-
+  describe "how the loop is reached" do
+    test "it gets no settings.json entry of its own — the shim chains it" do
+      # Its own Stop entry would run in parallel with Whiska's, which is the
+      # race ADR-0042's addendum to ADR-0036 closes. Whiska.InstallShimStopTest
+      # covers the chaining itself.
       commands =
-        Enum.flat_map(stop, fn entry -> Enum.map(entry["hooks"], & &1["command"]) end)
+        Install.merge(%{})["hooks"]["Stop"]
+        |> Enum.flat_map(fn entry -> Enum.map(entry["hooks"], & &1["command"]) end)
 
-      assert Enum.any?(commands, &String.contains?(&1, Install.shim_path())),
-             "Whiska's own Stop hook must survive"
-
-      assert Enum.any?(commands, &String.contains?(&1, Install.review_loop_path())),
-             "the review loop must be registered"
-    end
-
-    test "re-running init replaces both entries rather than stacking them" do
-      once = Install.merge(%{})
-
-      assert Install.merge(once) == once
-      assert length(once["hooks"]["Stop"]) == 2
-    end
-
-    test "leaves somebody else's Stop hook alone" do
-      mine = %{"hooks" => [%{"type" => "command", "command" => "bash mine.sh"}]}
-
-      assert mine in Install.merge(%{"hooks" => %{"Stop" => [mine]}})["hooks"]["Stop"]
+      assert commands == [Install.stop_command()]
+      assert Install.shim() =~ Path.basename(Install.review_loop_path())
     end
 
     test "names nothing specific to the machine that ran init" do
-      for text <- [Install.review_loop_command(), Install.review_loop()] do
-        refute text =~ System.user_home!()
-        refute text =~ "/Users/"
-        refute text =~ "/home/"
-      end
+      refute Install.review_loop() =~ System.user_home!()
+      refute Install.review_loop() =~ "/Users/"
+      refute Install.review_loop() =~ "/home/"
     end
   end
 

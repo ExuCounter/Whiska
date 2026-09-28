@@ -45,11 +45,13 @@ should have brought a minute earlier, so the house warns and marks it in
 `.git/whiska/backstop`, and the doctor reads that mark as one more line — the guard
 against a dead trigger hiding behind a working last resort (ADR-0036, note of
 2026-09-28). Then the review loop: `whiska init` writes `.claude/hooks/review-loop.sh`,
-a second `Stop` hook the repo owns and Whiska never reads, which holds a turn ending on
-`done` until the repo's own check command is green and one review pass against `specs/`
-and `docs/adr/` has been asked for — bounded at two failing blocks in a row, the shape
-ADR-0011 gives a failing push. Whiska itself now runs no checks at all (ADR-0042,
-ADR-0014 superseded). 614 tests.
+a `Stop` hook the repo owns and Whiska never reads, which holds a turn ending on `done`
+until the repo's own check command is green and one review pass against `specs/` and
+`docs/adr/` has been asked for — bounded at two failing blocks in a row, the shape
+ADR-0011 gives a failing push. The shim chains it in front of `whiska hook stop`, so a
+blocked turn leaves nothing on the doorstep and `Hook.Stop` itself is unchanged
+(ADR-0042, the addendum to ADR-0036). Whiska itself now runs no checks at all (ADR-0014
+superseded). 621 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;

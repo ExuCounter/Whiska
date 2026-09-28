@@ -57,6 +57,9 @@ defmodule Whiska.Install do
   # Whiska's hooks. Takes the hook's name - pre-tool-use or stop - and hands
   # the payload on stdin to `whiska hook <name>`.
   #
+  # On `stop` it runs the repo's review loop first and only calls Whiska when
+  # that lets the turn end (ADR-0042, and the addendum to ADR-0036).
+  #
   # Written by `whiska init` and checked into the repo so the rules travel with
   # it (ADR-0016). Everything machine-specific is resolved here, when the hook
   # runs, rather than baked into .claude/settings.json where it would name one
@@ -66,6 +69,39 @@ defmodule Whiska.Install do
   # lookup ends by searching the filesystem directly rather than trusting it.
   # WHISKA_BIN and WHISKA_ESCRIPT override either, and are ignored if they do
   # not point at something runnable.
+
+  """
+
+  # The review loop goes first, and before the binary lookup below: it is the
+  # repo's own hook (ADR-0042) and needs nothing of Whiska's, so a missing
+  # Whiska must not quietly disable it too.
+  #
+  # Chained rather than registered as its own Stop entry because Claude Code
+  # runs Stop hooks in parallel - side by side, Whiska left `done` on the
+  # doorstep while the loop was still blocking the turn, and the person was
+  # told the mouse had finished before it had. Ordering it here leaves
+  # Whiska.Hook.Stop exactly as ADR-0036 describes it: unconditional and never
+  # classifying. It is simply not called when the turn did not end.
+  @shim_review_loop """
+  hook_name="${1:-}"
+
+  if [ "$hook_name" = "stop" ]; then
+    # stdin can only be read once, and both the loop and Whiska need it.
+    payload="$(cat)"
+    hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    review_loop="$hook_dir/review-loop.sh"
+
+    if [ -r "$review_loop" ]; then
+      # No output means the loop is content and the turn really is over.
+      # Anything else is its block decision, which is Claude Code's to read -
+      # and nothing goes on the doorstep, because nothing has finished.
+      verdict="$(printf '%s' "$payload" | bash "$review_loop")"
+      if [ -n "$verdict" ]; then
+        printf '%s\n' "$verdict"
+        exit 0
+      fi
+    fi
+  fi
 
   """
 
@@ -126,6 +162,22 @@ defmodule Whiska.Install do
   """
 
   @shim_exec """
+  # stop has already had its stdin read above, so the captured payload is piped
+  # back in. pre-tool-use is the hot path (ADR-0033) and still has its own, so
+  # it execs straight through and costs no extra process.
+  if [ "$hook_name" = "stop" ]; then
+    if [ -n "$escript_bin" ]; then
+      # Not `exit 0`: exec used to carry the hook's status out, and the doctor
+      # reads it to tell a working hook from a binary that does not know it.
+      printf '%s' "$payload" | "$escript_bin" "$whiska_bin" hook "$@"
+      exit $?
+    fi
+    if ! printf '%s' "$payload" | "$whiska_bin" hook "$@"; then
+      echo "whiska: could not run $whiska_bin - allowing the call" >&2
+    fi
+    exit 0
+  fi
+
   if [ -n "$escript_bin" ]; then
     exec "$escript_bin" "$whiska_bin" hook "$@"
   fi
@@ -138,11 +190,13 @@ defmodule Whiska.Install do
   exit 0
   """
 
-  @shim @shim_header <> @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
+  @shim @shim_header <>
+          @shim_review_loop <>
+          @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
 
+  # No command constant: the loop gets no Stop entry of its own. The shim above
+  # finds it beside itself and runs it (ADR-0042).
   @review_loop_path ".claude/hooks/review-loop.sh"
-
-  @review_loop_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@review_loop_path}"|
 
   # The repo's review loop (ADR-0042). `whiska init` writes this file once, if
   # it is missing, and never reads it again — Whiska runs no checks of its own
@@ -450,10 +504,6 @@ defmodule Whiska.Install do
   @spec review_loop_path() :: Path.t()
   def review_loop_path, do: @review_loop_path
 
-  @doc "The review loop's Stop entry for `settings.json`; names only the script."
-  @spec review_loop_command() :: String.t()
-  def review_loop_command, do: @review_loop_command
-
   @doc """
   The review loop script's contents — the starting point, not the last word.
 
@@ -495,16 +545,14 @@ defmodule Whiska.Install do
       "hooks" => [%{"type" => "command", "command" => @command}]
     }
 
-    # Two Stop hooks, deliberately separate. Whiska's leaves the question on the
-    # doorstep (ADR-0036); the repo's decides whether the turn is over at all
-    # (ADR-0042). Claude Code runs them in parallel.
+    # One Stop entry. The shim runs the repo's review loop in front of Whiska's
+    # own hook rather than Claude Code running the two in parallel (ADR-0042).
     stop = %{"hooks" => [%{"type" => "command", "command" => @stop_command}]}
-    review_loop = %{"hooks" => [%{"type" => "command", "command" => @review_loop_command}]}
 
     settings
     |> Map.put_new("hooks", %{})
     |> put_ours("PreToolUse", [pre_tool_use])
-    |> put_ours("Stop", [stop, review_loop])
+    |> put_ours("Stop", [stop])
     |> put_statusline()
   end
 
@@ -535,7 +583,12 @@ defmodule Whiska.Install do
   end
 
   # Ours is whatever runs a `whiska ... hook ...`, or the shim that does it for
-  # us — whatever matcher it was registered with, and whether or not the shim
+  # us, or the review loop. The loop is still recognised although nothing writes
+  # an entry for it any more: a settings.json from the version that gave it its
+  # own Stop entry must have that entry *removed* on the next init, not left
+  # beside the shim's to race it again.
+  #
+  # Ours is also — whatever matcher it was registered with, and whether or not the shim
   # took an argument when it was written. Matching on the matcher would fail to
   # recognise an entry written by an older version and would stack a duplicate
   # beside it.

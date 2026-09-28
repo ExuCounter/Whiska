@@ -26,9 +26,7 @@ defmodule Whiska.InstallOwlTest do
     test "adds a Stop entry beside PreToolUse" do
       merged = Install.merge(%{})
 
-      # Two of them now: the doorstep writer, and the repo's own review loop
-      # (ADR-0042), which Claude Code runs in parallel with it.
-      assert [entry, _review_loop] = get_in(merged, ["hooks", "Stop"])
+      assert [entry] = get_in(merged, ["hooks", "Stop"])
       assert [%{"type" => "command", "command" => command}] = entry["hooks"]
       assert command == Install.stop_command()
     end
@@ -37,14 +35,14 @@ defmodule Whiska.InstallOwlTest do
       once = Install.merge(%{})
       twice = Install.merge(once)
       assert once == twice
-      assert length(twice["hooks"]["Stop"]) == 2
+      assert length(twice["hooks"]["Stop"]) == 1
     end
 
     test "leaves other people's Stop hooks alone" do
       existing = %{"hooks" => %{"Stop" => [%{"hooks" => [%{"command" => "their-notify.sh"}]}]}}
       merged = Install.merge(existing)
 
-      assert length(merged["hooks"]["Stop"]) == 3
+      assert length(merged["hooks"]["Stop"]) == 2
       assert Enum.any?(merged["hooks"]["Stop"], &(&1 == hd(existing["hooks"]["Stop"])))
     end
 

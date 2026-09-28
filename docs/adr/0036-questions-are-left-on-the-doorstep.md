@@ -133,6 +133,33 @@ subscription whenever that set changes. A mouse with no pane anywhere is a dead 
 (ADR-0026). herdr's own Claude integration has since stopped reporting `Stop` and detects
 idleness itself; the event still arrives, so the trigger table above stands.
 
+*Note, 2026-09-28 (later again).* **"Every time, unconditionally" now means every time
+the hook runs, and something else decides whether it runs.** ADR-0042 adds a second `Stop`
+hook — the repo's review loop, which blocks a turn that claims to be `done` until the
+repo's checks are green. Claude Code runs `Stop` hooks in parallel and does not order
+them, so registered side by side the two raced: the loop blocked the turn while this hook
+had already written `done` to the doorstep, and the owl delivered "finished" within
+seconds of a mouse that was still working. ADR-0037 meant nothing was lost — the next
+turn's entry supersedes it — but "finished" is exactly the report a person acts on without
+checking, so being wrong about it for a few minutes is worse than being late.
+
+So the two are **chained in `whiska.sh` rather than registered separately**. There is one
+`Stop` entry. The shim runs `review-loop.sh` first, prints its block decision and exits if
+there is one, and only then calls `whiska hook stop`.
+
+`Whiska.Hook.Stop` is not touched, and neither is anything above. It still writes the
+whole final message the moment it is asked, still never classifies, still has no socket
+and no second code path. What changed is upstream of it: the shim asks whether the turn
+ended before asking this hook to record that it did. The marker is read — by the repo's
+script, in shell, outside Whiska — but not by anything that then decides what kind of
+question this is. That judgment is still the owl's on collection (ADR-0009).
+
+Two smaller consequences follow from where the chaining sits. The loop runs *before* the
+shim's binary lookup, so a missing Whiska fails open without also disabling the repo's own
+hook. And `whiska doctor`'s `stop` probe no longer sends a payload ending in `done`:
+chained, that marker would set the repo's whole check command running, and the doctor
+checks rather than sets things going (ADR-0038).
+
 ## Considered options
 
 **Auto-start the owl on demand.** `launchd` socket activation would start the owl when a

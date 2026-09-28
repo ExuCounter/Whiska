@@ -6,9 +6,10 @@ time. That is superseded. **What decides whether a turn is actually over is a Cl
 `Stop` hook belonging to the repo**: `.claude/hooks/review-loop.sh`, a shell script with
 the repo's own check command written at the top of it.
 
-`whiska init` writes the file and its `settings.json` entry the same way it writes the
-shim (ADR-0035, ADR-0016), and then never touches it again — not on a re-run, not on
-`whiska update`. Whiska never reads its contents. It is one more per-project hook that
+`whiska init` writes the file the same way it writes the shim (ADR-0035, ADR-0016), and
+then never touches it again — not on a re-run, not on `whiska update`. It gets no
+`settings.json` entry of its own; the shim runs it, for the reason below. Whiska never
+reads its contents. It is one more per-project hook that
 happens to be installed by the same command, and Whiska stays exactly as dumb as ADR-0017
 requires.
 
@@ -23,7 +24,8 @@ When the mouse's final message ends on `[worktree-status: done]`, and only then:
    block exactly once with a fixed reason: read your own diff back against `specs/` and
    `docs/adr/`, fix what contradicts a recorded decision, say in one line what you found.
    One guaranteed review pass, every time, whether or not the mouse thinks it needs one.
-3. **Otherwise let the stop through.**
+3. **Otherwise let the stop through**, and only then does Whiska's own hook run and leave
+   the message on the doorstep — see the chaining below.
 
 A turn ending on `needs-decision` is never blocked — it is waiting on the person, and
 holding it hostage to a green suite would strand them. A turn with no marker at all is
@@ -60,6 +62,36 @@ or a `gh`/`glab` call writes exactly that on one line.
 diff: the hook makes the mouse read its own, and the human is still the review at push.
 What moved is where the mechanical layer sits — a turn earlier, before the commit exists,
 outside Whiska.
+
+## It is chained in the shim, not registered beside Whiska's own `Stop` hook
+
+Claude Code runs every `Stop` hook in parallel and does not order them. Registered as its
+own entry, the loop raced Whiska's hook: that one writes the final message to the doorstep
+unconditionally (ADR-0036) and the owl delivers it within seconds, so a blocked turn
+reported **finished** while the mouse was still working. ADR-0037 meant nothing was lost,
+since the next turn's entry supersedes it — but "finished" is the one report a person acts
+on without checking.
+
+So there is **one `Stop` entry**, naming the shim, and the shim decides the order: it runs
+`review-loop.sh`, prints the block decision and exits if there is one, and calls `whiska
+hook stop` only when the loop lets the turn end. ADR-0036 carries the addendum.
+
+`Whiska.Hook.Stop` is untouched — still unconditional, still never classifying. It is not
+made conditional; it is simply not called when nothing has finished. The marker is read
+before the doorstep, but by the repo's own shell script, and nothing downstream of it
+decides what kind of question anything is.
+
+**Considered instead:** `whiska hook stop` exec'ing the loop itself and skipping the
+doorstep on a block. Rejected — it puts Whiska in the business of sequencing a script it
+deliberately does not read, in Elixir, and ADR-0036's "does not classify" really would
+bend, because the Elixir hook would be reading the loop's verdict. Shell is where the
+ordering is visible and editable, and ADR-0035 already makes the shim the place
+sequencing goes.
+
+Two things follow from where in the shim it sits. **The loop runs before the binary
+lookup**, so a missing Whiska fails open without quietly disabling the repo's own hook
+too. And **the `pre-tool-use` path is untouched**: no stdin capture, no loop, still an
+`exec`, so ADR-0033's hot path costs nothing new.
 
 ## Considered options
 
@@ -106,16 +138,3 @@ without Whiska complaining.
 **In the main checkout it is inert.** A main-session turn does not carry a worktree-status
 marker, so the hook exits before running anything. No worktree detection was needed to get
 that; it falls out of the marker being the trigger.
-
-## The open seam: this races Whiska's own `Stop` hook
-
-Claude Code runs every `Stop` hook in parallel. Whiska's writes the mouse's final message
-to the doorstep unconditionally (ADR-0036), and the owl delivers it within seconds — so
-when the review loop blocks the stop, the person is told the mouse **finished** while it
-is still looping. What lands on the doorstep next turn supersedes it (ADR-0037), so
-nothing is lost, but the first report is wrong while it stands.
-
-This is a known wart at the time of writing, not a decision. Closing it means something
-reading the marker before the doorstep write, which bends ADR-0036's "it does not
-classify", and that is a change to make deliberately rather than in passing. Until it is
-made, the loop and the doorstep run side by side.

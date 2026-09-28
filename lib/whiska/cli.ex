@@ -243,8 +243,10 @@ defmodule Whiska.CLI do
         one slash command per whiska command under .claude/skills/.
 
         And the review loop (#{Install.review_loop_path()}) — a Stop hook this
-        repo owns, not Whiska (ADR-0042). Edit the CHECK line at the top to say
-        what green means here; it is written once and never touched again.
+        repo owns, not Whiska (ADR-0042). The shim runs it before Whiska's own
+        stop hook and only leaves a question on the doorstep once it lets the
+        turn end. Edit the CHECK line at the top to say what green means here;
+        it is written once and never touched again.
 
         Check them into git so the rules travel with the repo (ADR-0016):
 
