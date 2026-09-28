@@ -57,7 +57,8 @@ queue (delivery's, which a doorstep entry has not reached)
 **Main session**:
 The one herdr pane per house that questions are delivered to — the person's own Claude
 Code session in the main checkout, recorded by `whiska start` from the pane it is run in.
-A house has at most one; nothing is delivered until one is recorded.
+A house has at most one; nothing is delivered until one is recorded, and it is also where
+a Jump lands.
 _Avoid_: primary, parent, captain
 
 **Delivery**:
