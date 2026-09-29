@@ -40,7 +40,17 @@ slot. A question is **open** while it waits in the queue, **sent** once delivere
 waiting for its answer, then **answered**; **superseded** when its own mouse asked a
 newer one, **closed** by hand or as a `done` report once told, **orphaned** when nothing
 can act on it (its mouse died, its worktree is gone).
-_Avoid_: report, event (as the table/record name)
+_Avoid_: report (as the table/record name — the word now names how a message reads,
+see **Report**), event (as the table/record name)
+
+**Report**:
+The shape a mouse's final message takes — one line of what is true now, where it lives,
+what changed, what was verified rather than assumed, one thing worth knowing, then
+either nothing waiting or the one decision with its options and a recommendation. It
+names how a message reads, never the record it becomes: once collected the same message
+is a **question**. The block's `report` part teaches it. `done` report is the older,
+narrower use of the word — a question whose marker said `done` — and both stay.
+_Avoid_: summary, status, update, hand-off
 
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,
