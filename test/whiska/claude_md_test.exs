@@ -127,6 +127,14 @@ defmodule Whiska.ClaudeMdTest do
   end
 
   describe "the report part" do
+    test "binds the main session as well as a mouse" do
+      body = body_of("report")
+
+      assert body =~ "How a session writes its message"
+      assert body =~ "main session"
+      refute body =~ "How a mouse writes its message"
+    end
+
     test "teaches the shape of the message, step by step" do
       body = body_of("report")
 

@@ -137,11 +137,14 @@ defmodule Whiska.ClaudeMd do
 
   @report """
   <!-- whiska:report:start -->
-  ## How a mouse writes its message
+  ## How a session writes its message
 
-  The final message is a report to the person, not a status dump. It is the only thing
-  they see of the whole turn, and they see it later and somewhere else, so it carries
-  every fact that matters and assumes nothing they could only get from the scrollback.
+  Every message to the person — from a mouse ending a turn, and from the main session
+  answering in this repo — is a report, not a status dump. For a mouse it is the only
+  thing they see of the whole turn, and they see it later and somewhere else, so it
+  carries every fact that matters and assumes nothing they could only get from the
+  scrollback. The main session writes the same way; it is only shorter, since the
+  person is right there.
 
   Write it in this order, dropping any line that has nothing to say:
 
