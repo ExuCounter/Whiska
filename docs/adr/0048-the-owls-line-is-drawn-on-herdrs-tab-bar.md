@@ -146,3 +146,88 @@ by its repo — `🐱 new-linkedin-plugin` — several are a count — `🐱 2 w
 questions in one repo are one place to go. `whiska waiting` still lists every
 question; the bar is the coarser view of the same list.
 
+
+## Amendment, 2026-09-29: only the machine-wide segments left Claude Code
+
+The decision above reads "the line moves to herdr's tab bar, and leaves Claude
+Code", and `whiska init` stopped writing a `statusLine` at all. That went one
+step too far, and the person said so the same day: the repo-scoped facts —
+what is waiting in *this* house, and how many mice are alive in *this* repo —
+were only ever drawn in Claude Code, and the tab bar is deliberately the wrong
+place for them. Removing the machine-wide duplication removed them with it.
+
+So the split is between the two surfaces, not between one surface and nothing:
+
+- **herdr's tab bar keeps everything machine-wide**: the owl's state, always,
+  and which whiskas have something waiting. Nothing above it changes.
+- **Claude Code's statusline comes back, repo-scoped.** `whiska init` writes
+  `.claude/hooks/whiska-statusline.sh` and the `statusLine` entry again, with
+  ADR-0044's `refreshInterval: 15` beside it. Two segments, both about this
+  repo, both under ADR-0027's one-or-many rule:
+
+  ```
+  🐱 feat-auth
+  🐱 3 waiting
+  🐱 feat-auth · 🐭 2 mice
+  ```
+
+  One thing waiting here is named by its mouse's branch, several are a count.
+  Mice are the live agent panes in this repo's worktrees, one per worktree
+  (ADR-0023), counted from herdr rather than from the house for ADR-0027's
+  original reason: `died_at` is only set while the owl runs.
+- **No owl segment on it, in herdr or out of it.** The owl's state is one
+  machine-wide fact with one home, and a copy of it per session is exactly what
+  this ADR undid. ADR-0027's second addendum — a blank line cannot be told from
+  a broken Whiska — does not carry over: a project `statusLine` runs the
+  person's global one first and appends to its output, so a quiet repo shows
+  their own line with nothing added, not a blank bar. The tab bar's blankness
+  was the danger, and it still says `🦉 whiska missing` rather than going quiet.
+- **Outside herdr there is no owl segment either**, so a bare `claude` in a
+  terminal shows what is waiting in the repo and never learns the owl is down.
+  Accepted, and for the same reason the original decision accepted losing the
+  whole line there: the person works in herdr, and mice are herdr panes by
+  definition (ADR-0020). Detecting herdr to draw a conditional segment would
+  mean a line that means different things in different places — the confusion
+  this ADR rejected when it rejected a workspace-following tab bar.
+- **`whiska statusline` keeps its machine-wide meaning**, and the repo-scoped
+  line is `whiska statusline --here`. The tab bar's script is unchanged.
+- **`Install.clear_statusline/1` is gone.** It existed to remove the script and
+  entry this amendment restores. A repo initialised before today has the old
+  script at the same path and the old entry in `settings.json`; `whiska init`
+  writes both wholesale, so the stale version is overwritten rather than
+  cleared. Nothing is left to clean up, and no separate removal step survives.
+- **The doctor checks both**: its `statusLine` check is back beside the `tab
+  bar` one, still a warning and never a failure (ADR-0038).
+
+### What this costs, against the arithmetic that moved the line
+
+The per-session duty cycle is back, and so is the `pane.list` call
+this ADR was pleased to remove — the mice segment is its only caller, and it
+needs herdr's view of what is live. That is the price of the facts, not of the
+duplication: what the timer now refreshes is only ever about the repo the
+person is looking at, drawn once per repo rather than four times over for one
+machine-wide line. ADR-0025's addendum on what a refresh costs applies again,
+minus the per-other-house opens: `Whiska.Waiting.house/2` reads one house.
+
+It is also larger than this ADR said. Re-measured, one run is 0.41 s of wall clock but
+**0.81 core-seconds of CPU**, because the BEAM starts on more than one core — so an idle
+session costs ~5.4% of a core, not the ~3% quoted above and in ADR-0044, and four open
+sessions ~22% rather than ~12%. ADR-0044 carries the correction. The argument for moving
+the machine-wide line was understated, not overstated, and the interval stays 15 s.
+
+The one-per-session cost is worth revisiting if the escript startup ever goes
+(ADR-0033), which is where nearly all of that 0.8 s lives.
+
+### What the trust model now covers
+
+Every other script `whiska init` commits runs only when the session calls a tool — the
+`PreToolUse` shim, the `Stop` hook — which is after the person has typed something. A
+`statusLine` with a `refreshInterval` runs from the moment the session opens, on a timer,
+with no turn and no tool call. Opening a repo is now enough to run a script that travelled
+with it, and a reviewer opening a contributor's worktree runs that branch's copy of the
+script before reading the diff. Claude Code's "hooks changed" confirmation covers `hooks`
+entries, not the `statusLine` command.
+
+That is the same trust ADR-0016 already asks for — a cloned repo's `.claude/` is executed
+— widened from "using a tool here" to "opening this". Accepted, because the alternative is
+no repo-scoped line at all, and it is written down here rather than discovered later.

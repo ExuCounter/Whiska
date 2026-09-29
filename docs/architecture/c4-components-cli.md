@@ -22,11 +22,11 @@ C4Component
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
-    Component(install, "Install", "pure merge", "Writes the hooks, the skills and the CLAUDE.md block into the repo, and the status script into ~/.whiska/")
+    Component(install, "Install", "pure merge", "Writes the hooks, the statusline, the skills and the CLAUDE.md block into the repo, and the machine-wide status script into ~/.whiska/")
     Component(claudemd, "ClaudeMd", "pure merge", "The worktree protocol block, merged into CLAUDE.md one named part at a time")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question and per uncollected doorstep entry, oldest first, each with its mouse pane")
-    Component(statusline, "Statusline", "one line", "The line herdr's tab bar shows: the owl always, and what is waiting machine-wide")
+    Component(statusline, "Statusline", "two lines", "herdr's tab bar: the owl always, and what is waiting machine-wide. This repo's Claude statusline: what waits here, and the mice alive here")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live, and reads herdr's config")
     Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
     Component(backstop, "Backstop", "text file", "The house's mark of what only its backstop collected")
@@ -47,8 +47,9 @@ C4Component
   Rel(main, install, "Delegates init")
   Rel(main, claudemd, "init: merges the block into CLAUDE.md")
   Rel(main, questions, "Delegates questions")
-  Rel(main, statusline, "Delegates statusline")
-  Rel(statusline, waiting, "What is waiting, across every recorded house")
+  Rel(main, statusline, "Delegates statusline and statusline --here")
+  Rel(statusline, waiting, "What is waiting: every recorded house, or just this one")
+  Rel(statusline, herdr, "--here: which of this repo's worktrees have a live agent pane", "pane.list")
   Rel(main, waiting, "Delegates waiting and jump")
   Rel(waiting, record, "Which repos to look in: read without the owl-alive guard")
   Rel(waiting, storage, "Opens each house read-only: questions, mouse panes, main session")
@@ -59,6 +60,7 @@ C4Component
   Rel(doctor, record, "Which houses are open, and is this repo one of them")
   Rel(doctor, backstop, "Has the backstop been doing the idle trigger's job")
   Rel(doctor, herdr, "Is the tab bar entry that draws the line in herdr's config?", "config.toml")
+  Rel(doctor, statusline, "Is this repo's statusLine ours, and on a timer?")
   Rel(main, agent, "owl install / stop / start / uninstall")
   Rel(agent, install, "Wrapper is built from the shim's resolution fragments")
   Rel(doctor, agent, "Installed? loaded? running? two owls?", "launchctl print")
@@ -109,17 +111,27 @@ of equal byte length before locating operators, so `grep -r "=>" lib/` is not re
 redirect, and it judges on tokens rather than raw text so `find . -exec grep …` is not
 confused with `exec rm`. Substitutions and nested shells are refused outright.
 
-**`Statusline` is two segments and reads nothing of its own** (ADR-0048). It is the line
-herdr's tab bar shows, once for the whole machine, so it asks `Waiting` for every
-recorded house's questions and doorstep entries and renders the owl's state in front of
-them. Detail for one thing waiting, a count for several (ADR-0027). The owl comes first
-and is always shown — `🦉 watching` or `🦉 owl down` — because a blank line could not be
-told apart from a broken Whiska (ADR-0027, second addendum). Up means found in the
-process table, the probe the doctor uses (`Whiska.Owl.pids/0`), and collecting: the
-doorstep is the one source the database cannot see, and an entry uncollected past the
-owl's backstop still means down, until the owl answers a socket. It asks herdr for
-nothing — mice, whiskas and elsewhere were the only readers of the pane list here, and
-they are gone. Nothing here writes or collects.
+**`Statusline` draws two lines, one per surface** (ADR-0048). Both follow ADR-0027's rule:
+detail for one thing, a count for several.
+
+The machine-wide line is what herdr's tab bar shows, once for the whole machine, so it
+asks `Waiting` for every recorded house's questions and doorstep entries and renders the
+owl's state in front of them. The owl comes first and is always shown — `🦉 watching` or
+`🦉 owl down` — because a blank tab bar entry could not be told apart from a broken
+Whiska (ADR-0027, second addendum). Up means found in the process table, the probe the
+doctor uses (`Whiska.Owl.pids/0`), and collecting: the doorstep is the one source the
+database cannot see, and an entry uncollected past the owl's backstop still means down,
+until the owl answers a socket.
+
+The repo-scoped line is what Claude Code's statusline appends in that repo: what is
+waiting in this house, named by its mouse's branch or counted, and how many of this
+repo's worktrees have a live agent pane in them. The mice are the one thing here that
+asks herdr, and they are read from herdr rather than from the house because `died_at` is
+only set while the owl runs. No owl segment: that fact is machine-wide and the tab bar's.
+The line is empty when the repo is quiet, and the person's global statusline is drawn
+underneath it either way.
+
+Nothing here writes or collects.
 
 **`Waiting` is the machine-wide reading, and `jump` is the only thing in Whiska that
 moves the person** (ADR-0043). `whiska waiting` walks every repo in the open-houses

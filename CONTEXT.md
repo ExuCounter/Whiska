@@ -160,12 +160,16 @@ whether a house exists; that is the house's own affair.
 _Avoid_: registry, manifest, house list (it lists open houses, not houses)
 
 **Statusline**:
-The one line Whiska draws for the person: the owl's state, always, and what is waiting
-on the machine. One line for the whole machine, not one per repo, and drawn on herdr's
-tab bar rather than inside any agent session (ADR-0048). Two segments and no more:
-`🦉 watching`, and `🐱 feat-auth` for one thing waiting or `🐱 3 waiting` for several.
+A line Whiska draws for the person. There are two, one per surface (ADR-0048). The
+machine-wide one is herdr's tab bar: the owl's state, always, and which whiskas have
+something waiting — `🦉 watching`, `🦉 owl down · 🐱 2 whiskas`. The repo-scoped one is
+Claude Code's own statusline in that repo, appended to the person's global line: what is
+waiting in this house and how many mice are alive here — `🐱 feat-auth · 🐭 2 mice`,
+and nothing at all when the repo is quiet. No owl on it; that fact is machine-wide and
+has one home.
 _Avoid_: status bar, status line as two words (see **Worktree-status marker**), segment
-(one part of it, not the line), tab bar (herdr's surface, not Whiska's line)
+(one part of it, not the line), tab bar (herdr's surface, one of the two places a
+statusline is drawn, not a name for the line itself)
 
 **Doorstep**:
 Where a mouse leaves a question for the owl: a directory in the house, holding entries the

@@ -41,7 +41,7 @@ into the `CLAUDE.md` block, and a mouse runs it itself before it says `done` —
 read back against the brief and the repo's decisions, the repo's checks run and fixed,
 reviewers sent over its own diff, one more round, then the marker. `review-loop.sh` is
 retired: nothing writes it, nothing chains it, and the doctor warns about a file left on
-disk rather than removing it (ADR-0048, ADR-0042 superseded). Whiska itself still runs no
+disk rather than removing it (ADR-0049, ADR-0042 superseded). Whiska itself still runs no
 checks at all (ADR-0014 superseded). Then `whiska waiting` and `whiska jump`: one reading of every house in the
 open-houses record — each open or sent question and each uncollected doorstep entry,
 oldest first, with the mouse's pane — printed as lines or as `--json`, and a `jump` that
@@ -49,11 +49,14 @@ asks herdr to focus the main session of the house the top one belongs to, or of 
 repo or branch. It is the first thing in
 Whiska that moves the person's screen, and only ever because the person asked in that
 same breath; the record is read without the owl-alive guard, since a question already
-recorded is waiting whether or not anything is awake (ADR-0043). Then the statusline left Claude Code
-altogether: it is drawn once on herdr's tab bar, machine-wide, by a `tab_bar_right`
-command entry the person keeps in their own herdr config running the `~/.whiska/herdr-status.sh`
-that `whiska owl install` writes. Two segments — the owl always, and what is waiting
-anywhere — and the doctor reads herdr's config and prints the entry to paste (ADR-0048).
+recorded is waiting whether or not anything is awake (ADR-0043). Then the statusline split in two, one line per surface: the machine-wide one is
+drawn once on herdr's tab bar, by a `tab_bar_right` command entry the person keeps in
+their own herdr config running the `~/.whiska/herdr-status.sh` that `whiska owl install`
+writes — the owl always, and what is waiting anywhere — with the doctor reading herdr's
+config and printing the entry to paste; the repo-scoped one is back in Claude Code's
+statusline, written by `whiska init` and redrawn every 15 seconds, saying what is waiting
+in this house and how many mice are alive here, and carrying no owl (ADR-0048 and its
+amendment, ADR-0027, ADR-0044).
 Nothing in Whiska types into a session that is not its own house's main session any more
 — a short-lived cross-house nudge did, as a user turn the other Claude could not tell
 from a prompt, and ADR-0044 deleted it. Then the `CLAUDE.md` block, which is the other half of
@@ -64,11 +67,11 @@ touching the others and a part marked `keep` is the person's for good (ADR-0045,
 ADR-0017). It installs `spawn-worktree`, `send-to-worktree` and `drop-worktree` beside
 the reading skills, so the skills that create a mouse ship with the thing that tracks it
 (ADR-0046). Both used to live in one person's global `~/.claude/CLAUDE.md`, applying to
-every repo whether Whiska was there or not. 752 tests.
+every repo whether Whiska was there or not. 806 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;
-the statusline reading the owl over the
+the machine-wide line reading the owl over the
 global socket instead of the process table (ADR-0027); cross-repo commands. The doctor and the statusline find the
 owl through the process table until the global socket exists.
 

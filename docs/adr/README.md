@@ -39,7 +39,7 @@ individually citable decisions.
 - [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
 - [0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md) — A nudge is a notice typed into another house's main session (superseded 2026-09-29 by 0044)
-- [0044](0044-the-statusline-redraws-on-a-timer-not-a-typed-nudge.md) — The statusline redraws on a timer, not a typed nudge (superseded 2026-09-29 by 0048)
+- [0044](0044-the-statusline-redraws-on-a-timer-not-a-typed-nudge.md) — The statusline redraws on a timer, not a typed nudge (partly superseded 2026-09-29 by 0048; the refresh interval is live again on the repo-scoped line)
 
 ## Enforcement, checks and push
 
@@ -49,7 +49,7 @@ individually citable decisions.
 - [0013](0013-main-checkout-edits-are-blocked.md) — Edits in the main checkout are blocked, subagents included
 - [0014](0014-checks-come-from-a-per-repo-config.md) — Whiska runs no checks of its own (superseded 2026-09-28 by 0042)
 - [0015](0015-no-automated-diff-review-in-the-mvp.md) — No automated diff review in the MVP — the human is the review
-- [0042](0042-the-review-loop-is-a-stop-hook-the-repo-owns.md) — The review loop is a Stop hook the repo owns (superseded 2026-09-29 by 0048)
+- [0042](0042-the-review-loop-is-a-stop-hook-the-repo-owns.md) — The review loop is a Stop hook the repo owns (superseded 2026-09-29 by 0049)
 - [0049](0049-finishing-is-a-pipeline-the-mouse-runs.md) — Finishing is a pipeline the mouse runs, not a hook that blocks it
 - [0034](0034-shell-commands-are-judged-by-a-read-only-allowlist.md) — Shell commands are judged by a read-only allowlist, not a mutating denylist
 
@@ -66,7 +66,7 @@ individually citable decisions.
 - [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash
 - [0046](0046-whiska-ships-the-worktree-skills.md) — Whiska ships the worktree skills, because Whiska owns the protocol
 - [0027](0027-statusline-detail-for-one-count-for-many.md) — Statusline shows detail for one thing, a count for many
-- [0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) — The owl's line is drawn once on herdr's tab bar, machine-wide, not in every Claude session
+- [0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) — The owl's line is drawn once on herdr's tab bar, machine-wide, not in every Claude session (amended 2026-09-29: the repo-scoped line stays in Claude Code's statusline)
 - [0038](0038-the-doctor-checks-and-probes-it-never-repairs.md) — The doctor checks and probes; it never repairs
 - [0043](0043-whiska-jump-moves-the-persons-focus.md) — `whiska jump` moves the person's focus, and lands on the house's main session
 

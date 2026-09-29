@@ -77,7 +77,7 @@ defmodule Whiska.Doctor do
     {binary, binary_found?} = binary(env)
     {herdr_check, panes} = herdr(env, herdr)
     settings = read_settings(main_checkout)
-    hooks = hooks(settings)
+    hooks = hooks(settings) ++ [statusline(settings)]
     shim_contents = read_shim(main_checkout)
     shim = shim(shim_contents)
 
@@ -361,6 +361,59 @@ defmodule Whiska.Doctor do
           true ->
             Check.ok(event, "wired")
         end
+    end
+  end
+
+  @doc """
+  The project statusline: ours, and redrawn on a timer (ADR-0027, ADR-0044).
+
+  Nothing is lost when this is wrong — questions are still collected and still
+  delivered — so the worst it goes is a warning. What is lost is this repo's own
+  view of itself: with no `refreshInterval`, Claude Code re-runs the line only
+  when this session's own conversation changes, and a mouse that spawns, dies or
+  asks a second question while the person sits still changes nothing in it.
+
+  Any interval of a second or more reads as ok: this reports and never argues
+  with a number the person typed. `whiska init` is the other half of ADR-0044's
+  decision and does replace the whole entry, interval included, every time it
+  runs.
+  """
+  @spec statusline(map()) :: Check.t()
+  def statusline(settings) when is_map(settings) do
+    case settings["statusLine"] do
+      %{"command" => command} = entry when is_binary(command) ->
+        ours_statusline(entry, command)
+
+      _ ->
+        Check.warn(
+          "statusLine",
+          "no project statusLine — nothing here says what is waiting",
+          @init
+        )
+    end
+  end
+
+  defp ours_statusline(entry, command) do
+    interval = entry["refreshInterval"]
+
+    cond do
+      not String.contains?(command, Install.statusline_path()) ->
+        Check.warn(
+          "statusLine",
+          "somebody else's script — this repo's line is not shown here",
+          @init
+        )
+
+      is_integer(interval) and interval >= 1 ->
+        Check.ok("statusLine", "wired, redrawn every #{interval}s")
+
+      true ->
+        Check.warn(
+          "statusLine",
+          "wired, but with no refreshInterval — a mouse that spawns or asks " <>
+            "stays invisible while this session is idle",
+          @init
+        )
     end
   end
 
