@@ -75,6 +75,17 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       assert body =~ "doorstep"
       refute body =~ "settings.local.json cp"
     end
+
+    test "carries the hooks and settings only, never the skills" do
+      # A mouse speaks through its Stop hook; the skills are main-session
+      # tools, and the person's own skills are read from ~/.claude/skills in
+      # every directory. Copying 30 folders per worktree bought nothing.
+      body = skill("spawn-worktree")
+
+      refute body =~ "cp -R .claude/skills"
+      assert body =~ "never `.claude/skills`"
+      assert body =~ "~/.claude/skills"
+    end
   end
 
   describe "send-to-worktree" do
