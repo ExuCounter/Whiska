@@ -20,6 +20,7 @@ C4Component
     Component(doorstep, "Whiska.Doorstep", "file store", "Reads entries, marks them collected by rename")
     Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text")
     Component(markerq, "Whiska.Question.Marker", "classifier", "done / needs-decision / unmarked, by marker alone")
+    Component(draft, "Whiska.Delivery.Draft", "classifier", "Is the main session's prompt box empty? empty / typing / unknown")
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead mice")
     Component(record, "Whiska.OpenHouses", "text file", "Which houses are open; trusted only while an owl is alive")
     Component(backstop, "Whiska.Backstop", "text file", "How much this house's backstop collected that the idle trigger missed")
@@ -34,6 +35,7 @@ C4Component
   Rel(house, herdrb, "Lists panes, subscribes")
   Rel(herdrb, sock, "Dispatched to the configured implementation")
   Rel(sock, herdrd, "One request per connection; events stream")
+  Rel(house, draft, "Judges the main pane's screen before typing into it")
   Rel(house, doorstep, "Collects")
   Rel(house, backstop, "Marks what only the backstop found; clears it at open")
   Rel(doorstep, entry, "Decodes each JSON file")
@@ -65,6 +67,12 @@ in `Whiska.Backstop` for `whiska doctor` to read later. Collecting at open does 
 — that is the designed "what landed while the owl was down" path — and neither do the
 idle trigger's own retries. Without this, a trigger that never fires looks exactly like a
 healthy owl, which is what happened (ADR-0036, note of 2026-09-28).
+
+**The screen is read in one place** (ADR-0047). herdr has no input signal, so the
+delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible text and
+`Whiska.Delivery.Draft` decides whether the person is mid-sentence. The boundary returns
+text and judges nothing; the classifier judges text and talks to nothing — the same split
+as `Whiska.Question.Marker`, for the same reason (ADR-0031).
 
 **Classification is the marker and nothing else** (ADR-0009). `Whiska.Question.Marker`
 scans for `[worktree-status: …]` and maps it to `done`, `needs-decision` or `unmarked`;

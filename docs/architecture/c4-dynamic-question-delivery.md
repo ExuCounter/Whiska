@@ -2,9 +2,10 @@
 
 **All of this is built and tested**: the review loop in front of the doorstep (ADR-0042),
 the doorstep and collection (ADR-0036), classification (ADR-0009), the idle-gated delivery
-queue (ADR-0008) and the reply keyed to a question id (ADR-0005). Shown as a dynamic
-diagram because the ordering is the design. Nothing here crosses into another repo: the
-nudge that once did was deleted by ADR-0044.
+queue (ADR-0008) with its hold while the person is typing (ADR-0047), and the reply keyed
+to a question id (ADR-0005). Shown as a dynamic diagram because the ordering is the
+design. Nothing here crosses into another repo: the nudge that once did was deleted by
+ADR-0044.
 
 > Mermaid numbers a `C4Dynamic` diagram's relationships itself, in declaration
 > order — so the order of the `Rel` lines below is the flow, and the step numbers
@@ -35,7 +36,8 @@ C4Dynamic
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by marker")
   Rel(delivery, db, "Any open question, and is the slot free?")
-  Rel(delivery, mainpane, "Type one line only if idle and nothing sent")
+  Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
+  Rel(delivery, mainpane, "Type one line only if idle, nothing sent, nothing half-typed")
   Rel(person, delivery, "whiska reply, keyed to the question id")
   Rel(delivery, mousepane, "herdr types the answer into that pane")
 
@@ -93,8 +95,9 @@ pane on it.
 
 ## Nothing goes to another repo (ADR-0044)
 
-Steps 7 and 8 used to be the nudge: the house reported to the owl's one Nudge process,
-which typed `⚡ <folders> waiting` into every other open house's main session. Its
+Two steps between collection and delivery used to be the nudge: the house reported to
+the owl's one Nudge process, which typed `⚡ <folders> waiting` into every other open
+house's main session. Its
 purpose was real — Claude Code redraws a statusline only when that session's own
 conversation changes, so the elsewhere segment (ADR-0027) was invisible exactly where it
 mattered — but its means were not: the line arrived as a user turn the other session's
@@ -104,7 +107,7 @@ That other session now redraws itself, on the `refreshInterval` `whiska init` wr
 beside the statusLine command, and reads what is waiting here off disk. Nothing in this
 flow reaches out of the repo it started in.
 
-## Steps 7–8 — a queue, not a batch (ADR-0008)
+## Steps 7–9 — a queue, not a batch (ADR-0008)
 
 Deliver only when the main session is idle *and* has no other question sent and waiting
 for its answer. Anything else joins the pile silently. That single rule, not a timer, is
@@ -124,7 +127,15 @@ When herdr reports `claude` + `unknown` — the integration is broken — **deli
 and say so**. Holding there is not caution, it is choosing silence, and the person would
 never learn why the mice went quiet.
 
-## Steps 9–10 — answers are keyed to a question id (ADR-0005)
+Step 8 is the second half of the same gate (ADR-0047). Idle is the model's word: the
+person can have a half-typed prompt sitting in the box while the pane is every bit as
+idle, and the line would land inside it or submit it. herdr has no input signal, so
+delivery reads the pane's visible screen and looks for Claude Code's prompt box. A draft
+in it holds the question — open, first in the queue, gone on the next trigger once the
+box clears — and `whiska doctor` says `held: person is typing` meanwhile. A screen with
+no box on it is an unavailable signal, and delivers for the reason above.
+
+## Steps 10–11 — answers are keyed to a question id (ADR-0005)
 
 Not to a branch. That is what stops an answer landing on whichever question Whiska
 happened to guess. `whiska reply <id>` writes the answer to the house; the owl looks up

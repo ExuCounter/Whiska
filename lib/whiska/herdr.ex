@@ -30,6 +30,17 @@ defmodule Whiska.Herdr do
   @callback pane(socket :: Path.t(), pane_id :: String.t()) :: {:ok, pane()} | {:error, term()}
 
   @doc """
+  The visible screen of a pane, as plain text with the escapes stripped.
+
+  Only the delivery gate uses this, and only for the main session's prompt box
+  (ADR-0047): herdr has no input or keystroke signal, so whether the person is
+  mid-sentence can be read from the screen or not at all. What the text means
+  is `Whiska.Delivery.Draft`'s job, not this boundary's.
+  """
+  @callback read_screen(socket :: Path.t(), pane_id :: String.t()) ::
+              {:ok, String.t()} | {:error, term()}
+
+  @doc """
   Type `text` into the agent in a pane and submit it — how a question reaches
   the main session and how an answer reaches a mouse (ADR-0020). herdr refuses
   when the agent sits at a dialog (`agent_blocked`) or when there is no agent
