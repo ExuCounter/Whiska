@@ -73,12 +73,11 @@ session of the question's own house (ADR-0044).
 _Avoid_: notify, ping, relay (the old bash mechanism), push
 
 **Draft**:
-Whatever the person has half-typed in the main session's prompt box and not yet sent.
-Delivery holds while there is one, however idle herdr says the pane is (ADR-0047): idle
-is the model's word, and a line typed into an occupied box lands inside the draft or
-submits it. Read off the screen, because herdr has no input signal; an unreadable screen
-is no draft, and delivery goes ahead.
-_Avoid_: input, buffer, typing state
+Whatever the person has half-typed in the main session's prompt box and not yet sent. A
+draft *holds* delivery — the question stays open and first in the queue — however idle
+herdr says the pane is (ADR-0047): idle is the model's word, and a line typed into an
+occupied box lands inside the draft or submits it. A box Whiska cannot see is no draft.
+_Avoid_: input, buffer, typing state, pending prompt
 
 **Nudge** (retired):
 A line the owl used to type into *another* house's idle main session, to force that
