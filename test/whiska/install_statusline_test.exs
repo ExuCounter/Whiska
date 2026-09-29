@@ -165,6 +165,43 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ ~r/never reply\s+to a question/
     end
 
+    test "a delivered message that ends in lettered options is offered as a picker" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      # The person asked for the pick to look like Claude Code's own picker
+      # rather than a letter they have to type back.
+      assert body =~ "AskUserQuestion"
+      assert body =~ "(Recommended)"
+      # Still the fixed command (ADR-0022), still the person's answer (ADR-0017):
+      # the pick is theirs, the model only writes it into the reply.
+      assert body =~ ~r/whiska reply <id>/
+      assert body =~ "Other"
+    end
+
+    test "the picker is skipped when there is nothing to pick, or too much" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      # AskUserQuestion takes at most four options; beyond that the skill asks
+      # in prose instead of silently dropping some.
+      assert body =~ ~r/4 or fewer/
+      assert body =~ ~r/More than 4/
+      # No options and a "finished" line both behave exactly as before.
+      assert body =~ ~r/No options/
+      assert body =~ "finished"
+    end
+
+    test "/whiska-questions offers the same picker when it read one question by id" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-questions/SKILL.md", 0)
+
+      assert body =~ "AskUserQuestion"
+      assert body =~ ~r/whiska reply/
+      # --full is a list of several; a single picker cannot stand for all of them.
+      assert body =~ "--full"
+    end
+
     test "the committed skills in this repo are what init writes today" do
       for {path, body} <- Install.skills() do
         assert File.read!(path) == body, "#{path} is stale: run whiska init and commit"

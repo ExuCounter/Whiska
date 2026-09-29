@@ -44,3 +44,18 @@ delivered line: the person ran `/whiska-questions`, was told "read either in
 full with `whiska questions 1` or `whiska questions 3`", and had to read an id
 off a list and type it back. Now the default prints everything open in full, so
 there is no id to type; an id still reads exactly one.
+
+## Note, 2026-09-29: a lettered decision is offered as a picker
+
+When a delivered message ends in 2–4 lettered options, the reading skills offer them
+with Claude Code's own `AskUserQuestion` tool after showing the message, then relay the
+pick with the fixed `whiska reply <id> "<the letter and its label>"`. The person still
+answers — this decision's line is that the model must not compose the command out of
+what it read, and it does not: the command is written out, the options come from the
+mouse, and the only thing composed is the reply text out of the person's pick. Free
+text typed into the picker's "Other" is relayed word for word, so ADR-0017 holds too.
+
+The pointer-first rule is untouched. The message still goes out verbatim as markdown
+first, in full; the picker comes after it and adds nothing to it. More than four options
+is beyond what the tool takes, so the skill asks in prose instead of quietly dropping
+some.
