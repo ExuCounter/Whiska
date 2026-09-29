@@ -592,8 +592,12 @@ defmodule Whiska.Doctor do
   @doc """
   The queue as a diagnosis, not a listing (`whiska questions` is the listing):
   how many are open, whether one is sent and for how long — and a warning for
-  the one combination that means nothing can move, open questions with no main
-  session to deliver them to.
+  each combination that means nothing can move: open questions with no main
+  session to deliver them to, and a sent question whose mouse is dead. The
+  second is a ghost holding ADR-0008's one slot — no answer can reach a dead
+  mouse, so nothing behind it will ever be delivered. `mark_dead/1` orphans a
+  dead mouse's sent question for exactly that reason, so seeing one here means
+  the owl has not reconciled it yet, or is not running.
   """
   @spec questions(non_neg_integer(), Question.t() | nil, boolean(), DateTime.t()) :: Check.t()
   def questions(0, nil, _main?, _now), do: Check.ok("questions", "none waiting")
@@ -606,19 +610,25 @@ defmodule Whiska.Doctor do
     )
   end
 
+  def questions(open, %Question{mouse: %Mouse{died_at: %DateTime{}}} = ghost, _main?, now) do
+    Check.warn(
+      "questions",
+      "#{open} open, #{out_for(ghost, now)} — its mouse #{branch_of(ghost.mouse)} is dead, " <>
+        "holding the delivery slot: nothing else can be delivered until it lets go",
+      @restart_owl
+    )
+  end
+
   def questions(open, sent, _main?, now) do
-    parts =
-      ["#{open} open"] ++
-        case sent do
-          nil ->
-            []
-
-          %Question{id: id, sent_at: at} ->
-            ["1 sent (id #{id}, waiting #{age(DateTime.diff(now, at, :second))})"]
-        end
-
+    parts = ["#{open} open"] ++ if sent, do: [out_for(sent, now)], else: []
     Check.ok("questions", Enum.join(parts, ", "))
   end
+
+  defp out_for(%Question{id: id, sent_at: at}, now),
+    do: "1 sent (id #{id}, waiting #{age(DateTime.diff(now, at, :second))})"
+
+  defp branch_of(%Mouse{branch: branch}) when is_binary(branch), do: branch
+  defp branch_of(%Mouse{mouse_id: id}), do: id
 
   @doc "Uncollected entries: none is ok; any is a warning carrying the count and the oldest age."
   @spec doorstep([{Path.t(), Entry.t()} | Entry.t()], DateTime.t()) :: Check.t()

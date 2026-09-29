@@ -64,7 +64,8 @@ _Avoid_: primary, parent, captain
 The owl typing one question's line into the main session — only when that pane is idle
 and no other question is already sent. A queue, not a batch: the next question goes when
 the previous one is answered (or superseded, or closed — a `done` report closes itself on
-sending) and the session is idle again.
+sending — or orphaned, when its own mouse dies while holding the slot) and the session is
+idle again.
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska questions <id>`, which the `whiska-delivered` skill runs when the line lands.
 Delivery is the only thing Whiska types anywhere, and it only ever types into the main

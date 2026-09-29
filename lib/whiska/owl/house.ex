@@ -17,7 +17,7 @@ defmodule Whiska.Owl.House do
 
   Only the first two judge liveness: a mouse with no pane anywhere is dead
   (ADR-0026), and is marked, never deleted (ADR-0007). Matching on collection
-  never marks anything dead — a dead mouse's open questions cascade to
+  never marks anything dead — a dead mouse's open and sent questions cascade to
   `orphaned`, and the question just collected would be the casualty of a pane
   list that happened to be a moment stale.
 
@@ -73,10 +73,13 @@ defmodule Whiska.Owl.House do
 
   A question reaches the main session — the pane `whiska start` recorded
   (ADR-0020) — only when that pane runs Claude and reports idle, and no other
-  question is already out waiting for its answer. Anything else joins the queue
+  question is already out waiting for its answer. "Already out" means a live
+  mouse is waiting on it: a mouse that dies with a question sent has that
+  question orphaned with the rest of what it left waiting (ADR-0007), which
+  frees the slot rather than holding it against every later question. Anything else joins the queue
   silently. The one exception is the first question of a fresh round, which
   waits `round_wait_ms` (8 s) so that the line it delivers carries an accurate
-  count of what landed just behind it. Delivery is attempted after every
+  count of what landed just behind it. Delivery is attempted at open, after every
   collection, whenever herdr reports the main pane idle, and on the backstop.
 
   herdr's word is taken fresh at each attempt (`pane.get`), not from the last
@@ -204,11 +207,17 @@ defmodule Whiska.Owl.House do
     # so an older owl's does not follow it around (ADR-0036).
     Backstop.clear(state.main_checkout)
 
+    # Delivery is attempted at open, not only after a collection: reconciling
+    # may just have freed ADR-0008's slot by marking a mouse dead that died
+    # while the owl was down, and the question behind it should not wait for
+    # the backstop's minute. The gate decides, and a collection that started a
+    # round holds this one back anyway.
     state =
       state
       |> reconcile_panes()
       |> subscribe()
       |> collect_now()
+      |> deliver()
 
     Process.send_after(self(), :backstop, state.backstop_ms)
     {:noreply, state}

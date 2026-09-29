@@ -113,6 +113,13 @@ fresh round waits up to 8 s, so the first thing you see is "3 open" rather than 
 with more trickling in. A newer question from the same mouse supersedes its earlier ones,
 so a mouse that moves on cannot wedge the queue (ADR-0037).
 
+A mouse that *dies* cannot wedge it either: marking it dead orphans everything it left
+waiting, sent as well as open (ADR-0007), because no answer can reach a dead mouse and a
+question nobody can answer would otherwise hold the one slot forever. The owl frees it by
+itself — at house open, where reconciling against `pane.list` catches whatever died while
+the owl was down, and on the backstop. `whiska doctor` says so meanwhile: a sent question
+whose mouse is dead is a warning naming the ghost, not a passing check.
+
 When herdr reports `claude` + `unknown` — the integration is broken — **deliver anyway
 and say so**. Holding there is not caution, it is choosing silence, and the person would
 never learn why the mice went quiet.

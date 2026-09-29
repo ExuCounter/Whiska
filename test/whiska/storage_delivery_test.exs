@@ -6,6 +6,7 @@ defmodule Whiska.StorageDeliveryTest do
   """
   use ExUnit.Case, async: false
 
+  alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
 
@@ -69,6 +70,20 @@ defmodule Whiska.StorageDeliveryTest do
       q = ask("m1")
       {:ok, _} = Storage.mark_sent(q.id)
       assert %Question{status: "sent"} = Storage.sent()
+    end
+
+    test "sent/0 loads the mouse, so a reader can tell a ghost from a live one" do
+      q = ask("m1")
+      {:ok, _} = Storage.mark_sent(q.id)
+      assert %Question{mouse: %Mouse{mouse_id: "m1", died_at: nil}} = Storage.sent()
+
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m3", path: "/w/c", branch: "c"})
+      other = ask("m3")
+      {:ok, _} = Storage.mark_sent(other.id)
+      {:ok, _} = Storage.answer(q.id, "done")
+      {:ok, _} = Storage.mark_dead("m3")
+      # Dead means orphaned now, so nothing is sent at all — the slot is free.
+      assert Storage.sent() == nil
     end
 
     test "open_count/0 counts only open questions" do
