@@ -89,6 +89,13 @@ defmodule Whiska.Owl.House do
   silence with no explanation; no agent at all is a dead pane, held with a
   warning. What is typed is one line (`Whiska.Delivery.Text`), not the message.
 
+  A pane that passes all of that is asked one more thing (ADR-0047): whether
+  the person has a draft in its prompt box, read off the screen by
+  `Whiska.Delivery.Draft`. herdr's idle is the model's word, and typing into an
+  occupied box would land inside what the person is writing. A draft holds the
+  question — open, first in the queue, delivered on the next trigger — and a
+  screen with no box on it delivers anyway, for ADR-0008's reason.
+
   A house tells no other house anything, and nothing is ever typed into
   another repo's session (ADR-0044): the other repo's own statusline redraws
   on its `refreshInterval` timer and reads what is waiting here off disk.
@@ -97,6 +104,7 @@ defmodule Whiska.Owl.House do
   use GenServer
 
   alias Whiska.Backstop
+  alias Whiska.Delivery.Draft
   alias Whiska.Delivery.Text
   alias Whiska.Doorstep
   alias Whiska.Herdr
@@ -625,10 +633,10 @@ defmodule Whiska.Owl.House do
   defp main_session_free?(state) do
     case state.herdr.pane(state.socket, state.main_pane) do
       {:ok, %{agent: "claude", agent_status: status}} when status in ["idle", "done"] ->
-        {:go, []}
+        not_typing(state, [])
 
       {:ok, %{agent: "claude", agent_status: "unknown"}} ->
-        {:go, [:status_unknown]}
+        not_typing(state, [:status_unknown])
 
       {:ok, %{agent: "claude"}} ->
         :hold
@@ -650,6 +658,18 @@ defmodule Whiska.Owl.House do
           :main_lookup,
           "could not ask herdr about the main pane (#{inspect(reason)})"
         )
+    end
+  end
+
+  # The second half of the gate (ADR-0047). herdr's idle is the model's word,
+  # not the person's: a half-typed prompt sits in the box while the pane is
+  # every bit as idle, and a line typed into that box lands inside the draft or
+  # submits it. The screen is the only place that shows it, so the screen is
+  # read. An unreadable one is ADR-0008's unavailable signal — deliver anyway.
+  defp not_typing(state, notes) do
+    case state.herdr.read_screen(state.socket, state.main_pane) do
+      {:ok, screen} -> if Draft.read(screen) == :typing, do: :hold, else: {:go, notes}
+      {:error, _reason} -> {:go, notes}
     end
   end
 

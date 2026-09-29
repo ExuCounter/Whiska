@@ -31,6 +31,7 @@ defmodule Whiska.Doctor do
   """
 
   alias Whiska.Backstop
+  alias Whiska.Delivery.Draft
   alias Whiska.Doctor.Check
   alias Whiska.Doctor.Report
   alias Whiska.Doorstep
@@ -527,10 +528,19 @@ defmodule Whiska.Doctor do
             main_pane = Storage.main_pane()
             word = main_word(main_pane, panes, herdr, socket)
 
+            open = Storage.open_count()
+            sent = Storage.sent()
+
             in_house =
               [
                 main_session(main_pane, word),
-                questions(Storage.open_count(), Storage.sent(), main_pane != nil, now)
+                questions(
+                  open,
+                  sent,
+                  main_pane != nil,
+                  draft(open, sent, main_pane, word, herdr, socket),
+                  now
+                )
               ] ++ mice(Storage.all(Mouse), panes)
 
             {Check.ok("house", "#{path}, schema v#{version}"), in_house}
@@ -545,6 +555,19 @@ defmodule Whiska.Doctor do
       e -> {Check.fail("house", "cannot open #{path} (#{Exception.message(e)})"), []}
     end
   end
+
+  # The same screen read the delivery gate makes (ADR-0047), and only where the
+  # answer could change the questions line: something open, nothing already
+  # sent, and a main pane herdr can be asked about.
+  defp draft(open, nil, pane, {:ok, %{agent: "claude"}}, herdr, socket)
+       when open > 0 and is_binary(pane) do
+    case herdr.read_screen(socket, pane) do
+      {:ok, screen} -> Draft.read(screen)
+      {:error, _reason} -> :unknown
+    end
+  end
+
+  defp draft(_open, _sent, _pane, _word, _herdr, _socket), do: :unknown
 
   # herdr's fresh word on the main pane — the same call the delivery gate
   # makes, so the doctor and the owl agree on what "running Claude" means.
@@ -591,7 +614,9 @@ defmodule Whiska.Doctor do
 
   @doc """
   The queue as a diagnosis, not a listing (`whiska questions` is the listing):
-  how many are open, whether one is sent and for how long — and a warning for
+  how many are open, whether one is sent and for how long, whether the queue is
+  held because the person has a half-typed prompt in the main session's box
+  (ADR-0047) — and a warning for
   each combination that means nothing can move: open questions with no main
   session to deliver them to, and a sent question whose mouse is dead. The
   second holds ADR-0008's one slot with nothing behind it able to move — no
@@ -599,10 +624,16 @@ defmodule Whiska.Doctor do
   `mark_dead/1` orphans a dead mouse's sent question for exactly that reason,
   so seeing one here means the owl has not reconciled it yet, or is not running.
   """
-  @spec questions(non_neg_integer(), Question.t() | nil, boolean(), DateTime.t()) :: Check.t()
-  def questions(0, nil, _main?, _now), do: Check.ok("questions", "none waiting")
+  @spec questions(
+          non_neg_integer(),
+          Question.t() | nil,
+          boolean(),
+          :empty | :typing | :unknown,
+          DateTime.t()
+        ) :: Check.t()
+  def questions(0, nil, _main?, _draft, _now), do: Check.ok("questions", "none waiting")
 
-  def questions(open, nil, false, _now) when open > 0 do
+  def questions(open, nil, false, _draft, _now) when open > 0 do
     Check.warn(
       "questions",
       "#{open} open, cannot be delivered — no main session",
@@ -610,7 +641,7 @@ defmodule Whiska.Doctor do
     )
   end
 
-  def questions(open, %Question{mouse: %Mouse{died_at: %DateTime{}}} = sent, _main?, now) do
+  def questions(open, %Question{mouse: %Mouse{died_at: %DateTime{}}} = sent, _main?, _draft, now) do
     Check.warn(
       "questions",
       "#{open} open, #{out_for(sent, now)} — its mouse #{branch_of(sent.mouse)} is dead, " <>
@@ -619,8 +650,15 @@ defmodule Whiska.Doctor do
     )
   end
 
-  def questions(open, sent, _main?, now) do
-    parts = ["#{open} open"] ++ if sent, do: [out_for(sent, now)], else: []
+  def questions(open, sent, _main?, draft, now) do
+    parts =
+      ["#{open} open"] ++
+        if(sent, do: [out_for(sent, now)], else: []) ++
+        if(open > 0 and is_nil(sent) and draft == :typing,
+          do: ["held: person is typing"],
+          else: []
+        )
+
     Check.ok("questions", Enum.join(parts, ", "))
   end
 

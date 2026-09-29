@@ -34,6 +34,7 @@ individually citable decisions.
 
 - [0005](0005-answers-are-keyed-to-a-question-id.md) — Answers are keyed to a question id, not a branch
 - [0008](0008-delivery-is-a-queue-not-a-batch.md) — Delivery is a queue, not a batch
+- [0047](0047-delivery-holds-while-the-person-is-typing.md) — Delivery holds while the person is typing, read off the main session's prompt box
 - [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep; the hook never opens a socket
 - [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones

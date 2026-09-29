@@ -43,6 +43,9 @@ defmodule Whiska.Owl.DeliveryTest do
       {:ok, spawn(fn -> receive do: (:stop -> :ok) end)}
     end)
 
+    # Nobody is typing unless a test says so (ADR-0047).
+    box_holds("")
+
     {:ok, main: main, a: a}
   end
 
@@ -84,6 +87,21 @@ defmodule Whiska.Owl.DeliveryTest do
     stub(Herdr, :pane, fn @socket, @main_pane ->
       {:ok, %{pane_id: @main_pane, cwd: "/main", agent: agent, agent_status: status}}
     end)
+  end
+
+  # What `pane.read` comes back with: Claude Code's prompt box, drawn with
+  # whatever the person has half-typed in it (ADR-0047).
+  defp box_holds(draft) do
+    screen = """
+    ✻ Baked for 46s · done 2:44 PM
+
+    ────────────────────────────────────
+    ❯\u00a0#{draft}
+    ────────────────────────────────────
+      ⏵⏵ auto mode on (shift+tab to cycle)
+    """
+
+    stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, screen} end)
   end
 
   defp expect_prompts do
@@ -472,6 +490,63 @@ defmodule Whiska.Owl.DeliveryTest do
         assert Storage.question(1).status == "orphaned"
         assert Storage.question(2).status == "sent"
       end)
+    end
+  end
+
+  describe "while the person is typing in the main session (ADR-0047)" do
+    setup %{main: main} do
+      record_main(main)
+      main_is("idle")
+      expect_prompts()
+      :ok
+    end
+
+    test "a half-typed prompt holds delivery even though herdr says idle", %{main: main, a: a} do
+      box_holds("a thought I have not finished")
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+
+      refute_receive {:prompted, _, _}, @wait * 3
+      in_house(house, fn -> assert Storage.question(1).status == "open" end)
+    end
+
+    test "the question goes on the next trigger once the box is empty again", %{
+      main: main,
+      a: a
+    } do
+      box_holds("still typing")
+      house = open(main, backstop_ms: @wait)
+
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      box_holds("")
+      assert_receive {:prompted, @main_pane, _}, @wait * 6
+      in_house(house, fn -> assert Storage.question(1).status == "sent" end)
+    end
+
+    test "a screen with no prompt box on it delivers anyway — ADR-0008's unavailable signal",
+         %{main: main, a: a} do
+      stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, "scrolled right away\n"} end)
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+
+      assert_receive {:prompted, @main_pane, _}, @wait * 3
+    end
+
+    test "a pane.read herdr refuses delivers anyway", %{main: main, a: a} do
+      stub(Herdr, :read_screen, fn @socket, @main_pane -> {:error, :nope} end)
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+
+      assert_receive {:prompted, @main_pane, _}, @wait * 3
     end
   end
 

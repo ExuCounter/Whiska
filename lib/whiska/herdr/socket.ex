@@ -44,6 +44,24 @@ defmodule Whiska.Herdr.Socket do
   end
 
   @impl true
+  def read_screen(socket, pane_id) do
+    params = %{
+      "pane_id" => pane_id,
+      "source" => "visible",
+      "format" => "text",
+      "strip_ansi" => true
+    }
+
+    with {:ok, %{"result" => %{"read" => %{"text" => text}}}} when is_binary(text) <-
+           request(socket, "pane.read", params) do
+      {:ok, text}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  @impl true
   def prompt(socket, pane_id, text) do
     with {:ok, %{"result" => _}} <-
            request(socket, "agent.prompt", %{"target" => pane_id, "text" => text}) do

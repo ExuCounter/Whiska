@@ -374,25 +374,45 @@ defmodule Whiska.DoctorTest do
 
   # -- questions ---------------------------------------------------------------
 
-  describe "questions/4 — the queue as a diagnosis, not a listing" do
+  describe "questions/5 — the queue as a diagnosis, not a listing" do
     test "nothing open and nothing sent is ok" do
-      assert %Check{status: :ok, detail: "none waiting"} = Doctor.questions(0, nil, true, now())
+      assert %Check{status: :ok, detail: "none waiting"} =
+               Doctor.questions(0, nil, true, :empty, now())
     end
 
     test "open questions with no main session warn — they cannot be delivered" do
       assert %Check{status: :warn, detail: detail, fix: fix} =
-               Doctor.questions(2, nil, false, now())
+               Doctor.questions(2, nil, false, :empty, now())
 
       assert detail =~ "2 open"
       assert detail =~ "cannot be delivered"
       assert fix =~ "whiska start"
     end
 
+    test "a question held because the person is typing says so (ADR-0047)" do
+      assert %Check{status: :ok, detail: detail} = Doctor.questions(2, nil, true, :typing, now())
+      assert detail =~ "2 open"
+      assert detail =~ "held: person is typing"
+    end
+
+    test "nothing open is not held, whatever is in the box" do
+      assert %Check{status: :ok, detail: "none waiting"} =
+               Doctor.questions(0, nil, true, :typing, now())
+    end
+
+    test "a sent question is out already — the box it came from says nothing about it" do
+      now = now()
+      sent = %Whiska.Schema.Question{id: 7, sent_at: DateTime.add(now, -60)}
+
+      assert %Check{status: :ok, detail: detail} = Doctor.questions(0, sent, true, :typing, now)
+      refute detail =~ "held"
+    end
+
     test "open and sent are counted, with how long the sent one has waited" do
       now = now()
       sent = %Whiska.Schema.Question{id: 7, sent_at: DateTime.add(now, -40 * 60)}
 
-      assert %Check{status: :ok, detail: detail} = Doctor.questions(3, sent, true, now)
+      assert %Check{status: :ok, detail: detail} = Doctor.questions(3, sent, true, :empty, now)
       assert detail =~ "3 open"
       assert detail =~ "1 sent (id 7, waiting 40 min)"
     end
@@ -411,7 +431,7 @@ defmodule Whiska.DoctorTest do
       }
 
       assert %Check{status: :warn, detail: detail, fix: fix} =
-               Doctor.questions(1, sent, true, now)
+               Doctor.questions(1, sent, true, :empty, now)
 
       assert detail =~ "1 open"
       assert detail =~ "1 sent (id 10, waiting 3 h 0 min)"
@@ -659,6 +679,33 @@ defmodule Whiska.DoctorTest do
       assert detail =~ "w1:p2"
       assert detail =~ "working"
       assert %Check{status: :ok} = find(report.checks, "questions")
+    end
+
+    test "an open question held because the person is typing says so on the questions line", %{
+      main: main,
+      env: env,
+      root: root
+    } do
+      init(main)
+      File.touch!(Path.join(root, "herdr.sock"))
+      {:ok, handle} = Storage.open(main, name: :seed)
+      :ok = Storage.set_main_pane("w1:p2")
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: Path.join(main, "wt"), branch: "b"})
+      {:ok, _} = Storage.record_question(%{mouse_id: "m1", kind: "needs-decision", text: "?"})
+      Storage.close(handle)
+
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+      stub(Herdr, :pane, fn _, "w1:p2" -> {:ok, claude("idle")} end)
+
+      stub(Herdr, :read_screen, fn _, "w1:p2" ->
+        {:ok, "──────\n❯\u00a0half a thought\n──────\n"}
+      end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :ok, detail: detail} = find(report.checks, "questions")
+      assert detail =~ "1 open"
+      assert detail =~ "held: person is typing"
     end
 
     test "with no main session and questions open, both lines warn", %{main: main, env: env} do
