@@ -24,9 +24,10 @@ width fight to avoid.
 
 **This repo's Claude Code statusline is a board**: one row per mouse — branch, herdr's
 status, and one column of detail, which is the question waiting on the person if there is
-one and otherwise what the mouse is doing (ADR-0050). Five rows at most, ordered waiting,
-blocked, working, quiet; the rest become `🐭 +3 more`. **The cap never drops a mouse that
-is waiting on the person** — a board that can hide a question is worse than no board.
+one and otherwise what the mouse is doing (ADR-0050). Five rows, ordered waiting, blocked,
+working, quiet; the rest become `🐭 +3 more`. **The cap gives way to a question rather
+than hide one** — five is a preference about height, and six mice all waiting get six
+rows, because a board that can hide a question is worse than no board.
 
 **A dead mouse (ADR-0026) keeps a row only while it still has an orphaned question**,
 dimmed, under the live rows, carrying the `whiska close <id>` that clears it. That
@@ -37,19 +38,33 @@ waiting drops off. **The board never acts.** It shows the command; the person ru
 the statusline script prints that file. This is the load-bearing part. ADR-0044 set the
 interval at 15 seconds because one run of the script cost ~0.8 core-seconds, nearly all of
 it escript startup, which at 2 seconds would be ~40% of a core per idle session, forever.
-The script now starts nothing: your global statusline, then `cat`. The cost moves to the
-owl, which is one process for the machine and already has every house open.
+Whiska's own part of the script starts nothing now — a `stat` and a `cat`, ~18 ms of CPU —
+and the cost moves to the owl, which is one process for the machine and already has every
+house open. One board tick measured at ~10 ms for a house with ten mice.
+
+**The arithmetic, honestly, because the script is not free.** It still runs the person's
+own global statusline first, and now does so 7.5 times as often. On the machine this was
+built for that line costs ~49 ms of CPU, so the whole script is ~68 ms and the change is
+34 ms/s against the old 54 ms/s — a win of about 1.6x, not the order of magnitude "starts
+nothing" suggests. The break-even is a global statusline of about 90 ms of CPU: above
+that — a `git status` in a big repo, a version probe, a token-usage lookup — two seconds
+costs more than fifteen did, and the interval is the person's to lower. `whiska doctor`
+does not argue with an interval they set (ADR-0044).
 
 **`whiska init` writes `refreshInterval: 2`.**
 
 **A mouse's own session draws no board.** `.claude/settings.json` is committed, so every
 worktree runs the same script; a mouse has no use for its siblings' rows and would spend
-five rows of its own pane on them. The script skips any directory under `worktrees/`.
+five rows of its own pane on them. The script skips any directory under `worktrees/`, and
+`whiska statusline --here` refuses there too — a repo still carrying the script an older
+`whiska init` wrote would otherwise put the board in every mouse's pane.
 
-**A board nobody has refreshed says so.** Up to 5 seconds old it is drawn as it is; up to
-a minute it is drawn dimmed under `🦉 owl down · 40s stale`; past a minute it is not drawn
-at all. Rows that are 40 seconds old are still mostly true, and hiding them at the moment
-something is wrong is the worse failure.
+**A board nobody has refreshed says so.** Up to 10 seconds old it is drawn as it is; up
+to a minute it is drawn dimmed under `🦉 owl down · 40s stale`; past a minute it is not
+drawn at all. Ten and not five because the house writes the board in the same process
+that asks herdr for its panes, and herdr's client waits up to 7 seconds for a reply: a
+slow herdr must not make a live owl announce itself dead. A row 40 seconds old is still
+mostly true, and hiding it at the moment something is wrong is the worse failure.
 
 **`whiska watch` prints the board once and exits** — the same renderer, worked out now
 rather than read from the file. It is what the person runs when the statusline looks
@@ -78,9 +93,24 @@ run on anyone's behalf — it is drawn, or typed by the person into their own te
 - **A repo `init`-ed before today keeps the old script and the old 15.** Nothing breaks:
   the old script runs `whiska statusline --here`, which now prints the board, at a
   fifteen-second refresh. `whiska init` replaces the whole entry and the script.
+- **Only the mice a row could be about are read.** Nothing is ever deleted (ADR-0007), so
+  a year-old repo has a mouse record for every worktree it has ever had; reading them all
+  thirty times a minute would be work that grows forever. The board reads the alive ones
+  and the dead ones still holding a question.
+- **Drawing the board can never stop a house.** It is wrapped: a reader that raises warns
+  and leaves the board as it was, because collection and delivery must outlive anything
+  that goes wrong in a picture. Without that, one malformed transcript field would
+  crash-loop the house on its own two-second timer and take the owl's delivery with it.
+- **A phrase on the board is stripped before it is written** — no control characters, one
+  line, capped. The board file is the trust boundary: it is the first thing in Whiska that
+  carries free text a mouse wrote into the person's terminal, and a terminal runs escape
+  sequences rather than showing them. A newline would be worse than a strange row: it
+  would forge a whole one, and a forged row can say that nothing is waiting.
 - **The board file is machine-readable by nothing.** It is rendered text, named after the
-  main checkout so that bash can find it with `tr -c 'A-Za-z0-9' '-'` and no escript. A
-  session in a subfolder walks up until it finds one.
+  main checkout so that bash can find it with `LC_ALL=C tr -c 'A-Za-z0-9' '-'` and no
+  escript — bytes, not characters, or a path with an accent in it would be spelled one way
+  by the owl and another by the script. A session in a subfolder walks up until it finds
+  one.
 
 ## Considered options
 

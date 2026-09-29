@@ -87,6 +87,38 @@ defmodule Whiska.Watch.TranscriptTest do
                {:tool, "Edit x.ex"}
     end
 
+    test "an escape sequence a mouse printed never reaches the terminal" do
+      line = said("done \e]0;PWNED\a\e[2J")
+
+      assert {:said, phrase} = Transcript.last_action(line, "/repo/worktrees/a")
+      assert phrase =~ "done"
+      refute phrase =~ "\e"
+      refute phrase =~ "\a"
+    end
+
+    test "a newline in what a tool is doing cannot forge a second row" do
+      line = tool("Grep", %{"pattern" => "x\n🐭 main  idle  all clear"})
+
+      assert {:tool, phrase} = Transcript.last_action(line, "/repo/worktrees/a")
+      refute phrase =~ "\n"
+    end
+
+    test "a field of the wrong shape is skipped, never raised" do
+      for line <- [
+            JSON.encode!(%{
+              "type" => "assistant",
+              "message" => %{"content" => [%{"type" => "tool_use", "name" => 123}]}
+            }),
+            JSON.encode!(%{
+              "type" => "assistant",
+              "message" => %{"content" => [%{"type" => "text", "text" => %{"a" => 1}}]}
+            }),
+            JSON.encode!(%{"type" => "assistant", "message" => %{"content" => "not a list"}})
+          ] do
+        assert Transcript.last_action(line, "/repo/worktrees/a") == nil
+      end
+    end
+
     test "nothing readable at all is no action, not a guess" do
       assert Transcript.last_action("", "/repo/worktrees/a") == nil
       assert Transcript.last_action("not json\n{}\n", "/repo/worktrees/a") == nil

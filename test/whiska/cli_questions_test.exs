@@ -200,14 +200,11 @@ defmodule Whiska.CLIQuestionsTest do
       assert out == ""
     end
 
-    test "works from a worktree of the house, like whiska questions does", %{
-      main: main,
-      worktree: worktree
-    } do
+    test "a mouse's own session draws no board", %{main: main, worktree: worktree} do
       seed(main, fn -> ask("a") end)
 
       out = capture_io(fn -> assert CLI.run(["statusline", "--here"], worktree) == 0 end)
-      assert out =~ "🐭 feat-a"
+      assert out == ""
     end
 
     test "outside a checkout it says nothing and still exits 0", %{root: root} do

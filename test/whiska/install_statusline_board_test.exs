@@ -76,6 +76,16 @@ defmodule Whiska.InstallStatuslineBoardTest do
     assert run(context, lib) =~ "🐭 feat-a"
   end
 
+  test "a board a few seconds behind is still drawn as it is", context do
+    :ok = Snapshot.write(context.main, "🐭 feat-a  working")
+    age_file(Snapshot.path(context.main), 8)
+
+    out = run(context, context.main)
+
+    assert out =~ "🐭 feat-a"
+    refute out =~ "stale"
+  end
+
   test "a board going stale says so, and dims what it still shows", context do
     :ok = Snapshot.write(context.main, "🐭 feat-a  working")
     age_file(Snapshot.path(context.main), 40)

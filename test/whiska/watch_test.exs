@@ -95,6 +95,31 @@ defmodule Whiska.WatchTest do
       assert [%{detail: "waiting on you · #52"}] = rows
     end
 
+    test "a question's pointer is cut to a row's width" do
+      rows =
+        board([mouse("feat-a")],
+          questions: [
+            question(52, "feat-a", text: String.duplicate("long ", 60) <> "\n\u2063\u2063")
+          ],
+          bare_panes: [pane("feat-a", "idle")]
+        ).rows
+
+      assert [%{detail: detail}] = rows
+      assert String.length(detail) <= 90
+      refute detail =~ "\n"
+    end
+
+    test "an escape sequence in a pointer never reaches the terminal" do
+      rows =
+        board([mouse("feat-a")],
+          questions: [question(52, "feat-a", text: "body\n\e]0;PWNED\a pick one\n\u2063\u2063")],
+          bare_panes: [pane("feat-a", "idle")]
+        ).rows
+
+      assert [%{detail: detail}] = rows
+      refute detail =~ "\e"
+    end
+
     test "herdr's done is a mouse ready for input, and reads as idle" do
       rows = board([mouse("feat-a")], bare_panes: [pane("feat-a", "done")]).rows
 
@@ -151,6 +176,33 @@ defmodule Whiska.WatchTest do
 
       assert "feat-8" in Enum.map(board.rows, & &1.branch)
       assert length(board.rows) == 5
+    end
+
+    test "the cap gives way rather than hide a question, however many are waiting" do
+      mice = Enum.map(1..7, &mouse("feat-#{&1}"))
+      panes = Enum.map(1..7, &pane("feat-#{&1}", "working"))
+      questions = Enum.map(1..7, &question(&1, "feat-#{&1}"))
+
+      board = board(mice, bare_panes: panes, questions: questions)
+
+      assert length(board.rows) == 7
+      assert board.more == 0
+      assert board.waiting == 0
+    end
+
+    test "a dead mouse's other orphaned questions are counted, not lost" do
+      mice = [mouse("feat-gone", died_at: @now)]
+
+      board =
+        board(mice,
+          questions: [
+            question(7, "feat-gone", status: "orphaned"),
+            question(9, "feat-gone", status: "orphaned")
+          ]
+        )
+
+      assert [%{detail: "#7 orphaned · whiska close 7"}] = board.rows
+      assert board.waiting == 1
     end
 
     test "a dead mouse is shown only while its question still needs closing" do

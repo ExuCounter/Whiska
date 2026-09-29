@@ -69,6 +69,23 @@ defmodule Whiska.CLIWatchTest do
       assert out =~ "which db?"
     end
 
+    test "a dead mouse with an orphaned question keeps its row", %{main: main} do
+      seed_mouse(main, "ma", "feat-a")
+      q = seed_question(main, "ma", "Body.\n\npick one\n\u2063\u2063")
+
+      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, _} = Storage.mark_dead("ma")
+      Storage.close(handle)
+
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+
+      assert out =~ "🐭 feat-a"
+      assert out =~ "dead"
+      assert out =~ "whiska close #{q.id}"
+    end
+
     test "a quiet house prints nothing", %{main: main} do
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
 
@@ -79,6 +96,13 @@ defmodule Whiska.CLIWatchTest do
       out = ExUnit.CaptureIO.capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
 
       assert out =~ ~r/^\s+watch\s+\S/m
+    end
+
+    test "statusline --here draws no board in a mouse's own session", %{main: main} do
+      path = seed_mouse(main, "ma", "feat-a")
+      stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "working")]} end)
+
+      assert capture_io(fn -> assert CLI.run(["statusline", "--here"], path) == 0 end) == ""
     end
 
     test "run inside a worktree it still reports that worktree's own house", %{main: main} do

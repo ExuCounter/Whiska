@@ -21,7 +21,18 @@ defmodule Whiska.Watch.SnapshotTest do
 
     test "is the same spelling the statusline script works out in bash", %{home: home} do
       main = "/Users/me/pro.jects/whiska"
-      {shell, 0} = System.cmd("sh", ["-c", "printf '%s' '#{main}' | tr -c 'A-Za-z0-9' '-'"])
+
+      {shell, 0} =
+        System.cmd("sh", ["-c", "printf '%s' '#{main}' | LC_ALL=C tr -c 'A-Za-z0-9' '-'"])
+
+      assert Snapshot.path(main) == Path.join([home, "board", shell])
+    end
+
+    test "matches bash for a path with a non-ASCII character in it", %{home: home} do
+      main = "/Users/josé/repo"
+
+      {shell, 0} =
+        System.cmd("sh", ["-c", "printf '%s' '#{main}' | LC_ALL=C tr -c 'A-Za-z0-9' '-'"])
 
       assert Snapshot.path(main) == Path.join([home, "board", shell])
     end
@@ -51,6 +62,28 @@ defmodule Whiska.Watch.SnapshotTest do
       :ok = Snapshot.write(main, "")
 
       assert File.read!(Snapshot.path(main)) == ""
+    end
+
+    test "the board is the person's to read and nobody else's" do
+      main = "/Users/me/projects/whiska"
+      :ok = Snapshot.write(main, "🐭 feat-a  working")
+
+      assert {:ok, %File.Stat{mode: mode}} = File.stat(Snapshot.path(main))
+      assert Bitwise.band(mode, 0o077) == 0
+    end
+
+    test "a symlink left where the board goes is replaced, not written through" do
+      main = "/Users/me/projects/whiska"
+      :ok = Snapshot.write(main, "first")
+      elsewhere = Path.join(System.tmp_dir!(), "whiska-snap-target-#{System.unique_integer()}")
+      File.write!(elsewhere, "untouched")
+      File.ln_s!(elsewhere, Snapshot.path(main) <> ".tmp")
+
+      :ok = Snapshot.write(main, "second")
+
+      assert File.read!(Snapshot.path(main)) == "second"
+      assert File.read!(elsewhere) == "untouched"
+      File.rm!(elsewhere)
     end
   end
 end

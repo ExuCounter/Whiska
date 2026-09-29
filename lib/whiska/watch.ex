@@ -10,9 +10,9 @@ defmodule Whiska.Watch do
   A row is branch, herdr's status, and one column of detail — the question
   waiting on the person if there is one, otherwise what the mouse is doing
   (`Whiska.Watch.Transcript`). Live mice first, ordered by how much they want
-  the person: waiting, blocked, working, then the quiet ones. Five rows at most,
-  and the cap never drops a mouse that is waiting — a hidden question is the one
-  failure a board must not have.
+  the person: waiting, blocked, working, then the quiet ones. Five rows, unless
+  more than five mice are waiting — the cap gives way rather than hide a
+  question, which is the one failure a board must not have.
 
   A dead mouse (ADR-0026) keeps a row only while it still has an orphaned
   question, which is the one thing left that the person can act on: nothing can
@@ -26,9 +26,11 @@ defmodule Whiska.Watch do
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
+  alias Whiska.Watch.Text
   alias Whiska.Watch.Transcript
 
   @board_max 5
+  @phrase_max 60
   @branch_max 24
   @dim "\e[2m"
   @undim "\e[0m"
@@ -38,6 +40,7 @@ defmodule Whiska.Watch do
   @typedoc "One line of the board, already rendered as words."
   @type row :: %{
           mouse_id: String.t(),
+          question_id: pos_integer() | nil,
           branch: String.t(),
           status: String.t(),
           detail: String.t(),
@@ -59,22 +62,42 @@ defmodule Whiska.Watch do
 
     with {:ok, handle} <- Storage.open(main_checkout) do
       try do
-        built =
-          board(
-            Storage.all(Mouse),
-            opts
-            |> Keyword.take([:action])
-            |> Keyword.merge(
-              questions: Storage.questions() ++ Storage.orphaned_questions(),
-              panes: ask_herdr(socket)
-            )
-          )
-
-        {:ok, built}
+        {:ok, from_house(Keyword.put(opts, :panes, ask_herdr(socket)))}
       after
         Storage.close(handle)
       end
     end
+  end
+
+  @doc """
+  The board for the house this process is already pointed at.
+
+  Only the mice a row could be about are read — the alive ones, and the dead
+  ones still holding a question. Nothing is ever deleted (ADR-0007), so a repo
+  a year old has a mouse record for every worktree it has ever had and reading
+  them all, thirty times a minute, would be work that grows forever.
+
+  Options are `board/2`'s.
+  """
+  @spec from_house(keyword()) :: t()
+  def from_house(opts \\ []) do
+    questions = Storage.questions() ++ Storage.orphaned_questions()
+
+    board(mice_with_a_row(questions), Keyword.put(opts, :questions, questions))
+  end
+
+  defp mice_with_a_row(questions) do
+    alive = Storage.alive_mice()
+    known = MapSet.new(alive, & &1.mouse_id)
+
+    dead =
+      questions
+      |> Enum.map(& &1.mouse_id)
+      |> Enum.uniq()
+      |> Enum.reject(&MapSet.member?(known, &1))
+      |> Enum.flat_map(&List.wrap(Storage.mouse(&1)))
+
+    alive ++ dead
   end
 
   defp ask_herdr(nil), do: :no_socket
@@ -93,7 +116,7 @@ defmodule Whiska.Watch do
     panes = Keyword.get(opts, :panes, :no_socket)
     action = Keyword.get(opts, :action, &Transcript.read(&1.path))
 
-    by_mouse = Map.new(Enum.reverse(questions), &{&1.mouse_id, &1})
+    by_mouse = questions |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1})
     {alive, dead} = Enum.split_with(mice, &is_nil(&1.died_at))
 
     {shown, more} =
@@ -111,6 +134,7 @@ defmodule Whiska.Watch do
   defp live_row(mouse, question, panes, action) do
     %{
       mouse_id: mouse.mouse_id,
+      question_id: question_id(question),
       branch: mouse.branch || mouse.mouse_id,
       status: status(mouse, panes),
       detail: detail(question, mouse, action),
@@ -124,6 +148,7 @@ defmodule Whiska.Watch do
     [
       %{
         mouse_id: mouse.mouse_id,
+        question_id: question.id,
         branch: mouse.branch || mouse.mouse_id,
         status: "dead",
         detail: "##{question.id} orphaned · whiska close #{question.id}",
@@ -131,6 +156,9 @@ defmodule Whiska.Watch do
       }
     ]
   end
+
+  defp question_id(%Question{status: status, id: id}) when status in @waiting, do: id
+  defp question_id(_other), do: nil
 
   defp status(mouse, {:ok, panes}) do
     panes
@@ -150,7 +178,7 @@ defmodule Whiska.Watch do
   defp said_status(status), do: status
 
   defp detail(%Question{status: status} = question, _mouse, _action) when status in @waiting do
-    case Marker.pointer(question.text) do
+    case Text.plain(Marker.pointer(question.text), @phrase_max) do
       "" -> "waiting on you · ##{question.id}"
       pointer -> ~s(waiting on you · ##{question.id} · "#{pointer}")
     end
@@ -169,15 +197,24 @@ defmodule Whiska.Watch do
   defp rank(%{status: "working"}), do: 2
   defp rank(_quiet), do: 3
 
+  # The cap gives way to a question rather than hide one: five rows is a
+  # preference about height, and a mouse waiting on the person is the thing the
+  # board exists to show (ADR-0051).
   defp cap(rows) do
-    {Enum.take(rows, @board_max), max(length(rows) - @board_max, 0)}
+    {waiting, quiet} = Enum.split_with(rows, &(rank(&1) == 0))
+    room = max(@board_max - length(waiting), 0)
+
+    {waiting ++ Enum.take(quiet, room), max(length(quiet) - room, 0)}
   end
 
+  # Every question a row does not carry, so nothing waiting can leave the board
+  # without being counted: a mouse the cap left off, a mouse whose record is
+  # gone, and a dead mouse's second orphan — only its oldest gets the row.
   defp uncovered(questions, rows) do
-    shown = MapSet.new(rows, & &1.mouse_id)
+    shown = MapSet.new(rows, & &1.question_id)
 
     questions
-    |> Enum.filter(&(&1.status in @waiting and not MapSet.member?(shown, &1.mouse_id)))
+    |> Enum.reject(&MapSet.member?(shown, &1.id))
     |> length()
   end
 
@@ -196,7 +233,11 @@ defmodule Whiska.Watch do
     color = Keyword.get(opts, :color, true)
     widths = widths(rows)
 
-    (Enum.map(rows, &line(&1, widths, color)) ++ [more_line(more), waiting_line(waiting)])
+    {live, dead} = Enum.split_with(rows, &(&1.state == :live))
+
+    (Enum.map(live, &line(&1, widths, color)) ++
+       [more_line(more)] ++
+       Enum.map(dead, &line(&1, widths, color)) ++ [waiting_line(waiting)])
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n")
   end

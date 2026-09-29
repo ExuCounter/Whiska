@@ -211,8 +211,10 @@ defmodule Whiska.Install do
   home="${WHISKA_HOME:-$HOME/.whiska}"
   board=""
   probe="$dir"
-  while [ -n "$probe" ] && [ "$probe" != "/" ]; do
-    candidate="$home/board/$(printf '%s' "$probe" | tr -c 'A-Za-z0-9' '-')"
+  while [ -n "$probe" ] && [ "$probe" != "/" ] && [ "$probe" != "." ]; do
+    # LC_ALL=C so tr counts bytes: a path with a non-ASCII character in it
+    # must be spelled the same here as the owl spells it.
+    candidate="$home/board/$(printf '%s' "$probe" | LC_ALL=C tr -c 'A-Za-z0-9' '-')"
     if [ -f "$candidate" ]; then
       board="$candidate"
       break
@@ -222,14 +224,24 @@ defmodule Whiska.Install do
 
   [ -n "$board" ] && [ -s "$board" ] || exit 0
 
-  mtime="$(stat -f %m "$board" 2>/dev/null || stat -c %Y "$board" 2>/dev/null)"
-  age=$(( $(date +%s) - ${mtime:-0} ))
+  # BSD stat first, then GNU, and each answer is checked rather than trusted:
+  # `stat -f` on GNU means --file-system and prints a paragraph.
+  mtime="$(stat -f %m "$board" 2>/dev/null)"
+  case "$mtime" in
+    "" | *[!0-9]*) mtime="$(stat -c %Y "$board" 2>/dev/null)" ;;
+  esac
+  case "$mtime" in
+    "" | *[!0-9]*) exit 0 ;;
+  esac
+  age=$(( $(date +%s) - mtime ))
 
   # A board nothing has refreshed is still mostly true for a little while,
   # and hiding it the moment something goes wrong is the worse failure. Past
   # a minute it stops being worth showing; herdr's tab bar says the owl is
-  # down either way (ADR-0048).
-  if [ "$age" -le 5 ]; then
+  # down either way (ADR-0048). Ten seconds, not five: a house waiting on a
+  # slow herdr can miss a couple of its own two-second writes without the owl
+  # being down at all.
+  if [ "$age" -le 10 ]; then
     cat "$board"
   elif [ "$age" -le 60 ]; then
     printf '🦉 owl down · %ss stale\n' "$age"

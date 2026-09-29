@@ -879,13 +879,20 @@ defmodule Whiska.CLI do
     0
   end
 
-  # Always 0 and never noisy: a directory with no house simply has nothing to
-  # say, and this runs wherever a session is sitting.
+  # A mouse's own session draws no board (ADR-0051), and this refuses there
+  # rather than leaving it to the script, so a repo still carrying the script an
+  # older `whiska init` wrote does not put the board in every mouse's pane.
+  # Always 0 and never noisy, whatever it finds: this runs on a timer wherever a
+  # session is sitting, and a statusline is no place to report a broken house.
   defp statusline_here(cwd) do
-    case main_checkout(cwd) do
-      {:ok, main} -> board(main)
-      :error -> 0
+    with {:error, :not_in_worktree} <- Layout.resolve(cwd),
+         {:ok, main} <- main_checkout(cwd),
+         {:ok, board} <- Whiska.Watch.house(main),
+         lines when lines != "" <- Whiska.Watch.render(board) do
+      IO.puts(lines)
     end
+
+    0
   end
 
   # -- waiting and jump (ADR-0043) ---------------------------------------------

@@ -21,6 +21,7 @@ defmodule Whiska.Watch.Transcript do
   """
 
   alias Whiska.LaunchAgent
+  alias Whiska.Watch.Text
 
   @typedoc "The phrase a row shows: a tool call, the last thing said, or nothing."
   @type action :: {:tool, String.t()} | {:said, String.t()} | nil
@@ -98,14 +99,16 @@ defmodule Whiska.Watch.Transcript do
     |> Enum.filter(&(is_map(&1) and &1["type"] == "tool_use"))
     |> List.last()
     |> case do
-      nil -> nil
-      %{"name" => name} = call -> {:tool, phrase(name, target(call["input"], worktree_root))}
-      _nameless -> nil
+      %{"name" => name} = call when is_binary(name) ->
+        {:tool, phrase(name, target(call["input"], worktree_root))}
+
+      _nameless ->
+        nil
     end
   end
 
-  defp phrase(name, nil), do: cut(name)
-  defp phrase(name, target), do: cut("#{name} #{target}")
+  defp phrase(name, nil), do: Text.plain(name, @phrase_max)
+  defp phrase(name, target), do: Text.plain("#{name} #{target}", @phrase_max)
 
   # The one thing about a call worth a column: what it is being done to. Ordered
   # by how much it says, so a Bash call reads as its command rather than as the
@@ -140,12 +143,12 @@ defmodule Whiska.Watch.Transcript do
 
   defp said_action(content) do
     content
-    |> Enum.filter(&(is_map(&1) and &1["type"] == "text"))
-    |> Enum.map_join("\n", &to_string(&1["text"]))
+    |> Enum.filter(&(is_map(&1) and &1["type"] == "text" and is_binary(&1["text"])))
+    |> Enum.map_join("\n", & &1["text"])
     |> last_sentence()
     |> case do
       nil -> nil
-      sentence -> {:said, cut(sentence)}
+      sentence -> {:said, Text.plain(sentence, @phrase_max)}
     end
   end
 
@@ -167,16 +170,6 @@ defmodule Whiska.Watch.Transcript do
     |> case do
       nil -> nil
       line -> line |> String.split(~r/(?<=[.!?])\s+/) |> List.last() |> string()
-    end
-  end
-
-  defp cut(phrase) when byte_size(phrase) == 0, do: phrase
-
-  defp cut(phrase) do
-    if String.length(phrase) > @phrase_max do
-      String.slice(phrase, 0, @phrase_max - 1) <> "…"
-    else
-      phrase
     end
   end
 

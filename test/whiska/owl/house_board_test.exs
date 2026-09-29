@@ -106,6 +106,30 @@ defmodule Whiska.Owl.HouseBoardTest do
     end)
   end
 
+  test "herdr failing mid-tick does not take the house down with it", %{
+    main: main,
+    worktree: worktree
+  } do
+    asked = :counters.new(1, [])
+
+    stub(Herdr, :list_panes, fn @socket ->
+      if :counters.get(asked, 1) == 1, do: raise("herdr blew up")
+      {:ok, [pane(worktree, "working")]}
+    end)
+
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+    house = open(main, board_ms: 20)
+    assert board(main) =~ "🐭 feat-a"
+
+    :counters.put(asked, 1, 1)
+    Process.sleep(60)
+    :counters.put(asked, 1, 0)
+
+    assert House.sync(house) == :ok
+    assert Process.alive?(house)
+  end
+
   test "a house with nothing running leaves an empty board, not the last one", %{
     main: main,
     worktree: worktree

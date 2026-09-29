@@ -283,7 +283,7 @@ defmodule Whiska.Owl.House do
   end
 
   def handle_info(:board, state) do
-    state = %{state | last_panes: list_panes(state)}
+    state = %{state | last_panes: safe_list_panes(state)}
     write_board(state)
     Process.send_after(self(), :board, state.board_ms)
     {:noreply, state}
@@ -318,18 +318,24 @@ defmodule Whiska.Owl.House do
   # `state.panes` is the match from pane to mouse and holds no status, so the
   # board keeps herdr's last full answer beside it: the one the tick asks for,
   # or the one matching panes has just fetched.
+  #
+  # Nothing about drawing the board may stop a house: it reads a file format
+  # somebody else writes (ADR-0050), and collection and delivery must outlive
+  # anything that goes wrong in it.
   defp write_board(state) do
-    board =
-      Watch.board(Storage.all(Mouse),
-        questions: Storage.questions() ++ Storage.orphaned_questions(),
-        panes: state.last_panes
-      )
-
+    board = Watch.from_house(panes: state.last_panes)
     Snapshot.write(state.main_checkout, Watch.render(board))
+  rescue
+    error -> warn(state, "could not draw the board (#{Exception.message(error)})")
   end
 
-  defp list_panes(%{socket: nil}), do: :no_socket
-  defp list_panes(state), do: state.herdr.list_panes(state.socket)
+  defp safe_list_panes(%{socket: nil}), do: :no_socket
+
+  defp safe_list_panes(state) do
+    state.herdr.list_panes(state.socket)
+  rescue
+    error -> {:error, Exception.message(error)}
+  end
 
   # -- herdr events, by name ---------------------------------------------------
 
