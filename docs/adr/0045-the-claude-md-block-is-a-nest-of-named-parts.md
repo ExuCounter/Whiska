@@ -24,6 +24,10 @@ inside it each part carries its own named pair:
 <!-- whiska:delivery:start -->
 …
 <!-- whiska:delivery:end -->
+
+<!-- whiska:report:start -->
+…
+<!-- whiska:report:end -->
 <!-- whiska:end -->
 ```
 
@@ -79,11 +83,19 @@ ADR-0017's `whiska update` still has no implementation, and this makes it less
 necessary: `init` is the idempotent one now, at the granularity of a part, so re-running
 it is the update.
 
-What the block *says* is a separate question from this grammar. The three parts it ships
-today came from a global `~/.claude/CLAUDE.md` that applied to every repo whether Whiska
+What the block *says* is a separate question from this grammar. The first three parts
+came from a global `~/.claude/CLAUDE.md` that applied to every repo whether Whiska
 was there or not, and where nothing kept the rules in step with the code that parses
 them. `Whiska.ClaudeMd` now interpolates the marker's spelling from
 `Whiska.Question.Marker.render/1` rather than writing it out again, so the instruction
-and the parser cannot drift. ADR-0017's own default template — the firstmate-derived
-hard rules — is not in the block yet and would arrive as a fourth part, not as a
-rewrite of these three.
+and the parser cannot drift.
+
+A fourth part, `report`, has since joined them: the shape a mouse's final message takes,
+because that message is the only thing the person sees of the whole turn and they see it
+later and somewhere else. It arrived exactly as this grammar says a part should —
+appended inside the outer markers on the next `init`, the three older parts untouched —
+and the delivery part handed it the "put the complete content in the response body"
+bullet rather than the two saying it twice. Two items of ADR-0017's firstmate-derived
+default template land with it — report outcomes faithfully, and evidence-first when
+asking for a decision, "with a concrete four-part template, not just the principle".
+The rest of that template is still not in the block.
