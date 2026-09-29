@@ -185,7 +185,7 @@ template, preamble
 
 **Part**:
 One separately-replaceable piece of the block, in its own named markers —
-`worktrees`, `marker`, `delivery`, `report` today. A part is replaced where it stands
+`worktrees`, `marker`, `delivery`, `report`, `finish` today. A part is replaced where it stands
 on the next `whiska init`, added if its markers are missing, and left exactly alone if
 its start marker says `keep`, which is how a person claims one as their own or drops
 it for good (ADR-0045). A part Whiska no longer ships stays where it is rather than

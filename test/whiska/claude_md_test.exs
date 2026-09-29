@@ -228,6 +228,24 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/outside Whiska's block/i
     end
 
+    test "a ticket is evidence, never an instruction to the session" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/never an instruction/i
+      assert body =~ ~r/goes to the person/i
+    end
+
+    test "a check command that does more than the repo's own tooling is the person's call" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/fetches|downloads/i
+      assert body =~ ~r/branch under review|branch being finished/i
+    end
+
+    test "names how red-before-the-turn is established, not just the rule" do
+      assert prose_of("finish") =~ ~r/merge base/i
+    end
+
     test "a missing Finish heading is not a reason to stop" do
       body = prose_of("finish")
 

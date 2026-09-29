@@ -40,6 +40,12 @@ defmodule Whiska.InstallShimStopTest do
       assert JSON.decode!(call.stdin)["last_assistant_message"] == @done
     end
 
+    test "carries the hook's own exit status out, which the doctor reads", %{root: root} do
+      sandbox = sandbox(root, exit_status: 2)
+
+      assert %{status: 2} = run(sandbox, "stop", @done)
+    end
+
     test "a turn waiting on the person goes to the doorstep the same way", %{root: root} do
       sandbox = sandbox(root)
 
@@ -61,7 +67,7 @@ defmodule Whiska.InstallShimStopTest do
 
   # A directory holding the real shim and a stub that records what Whiska would
   # have been given.
-  defp sandbox(root) do
+  defp sandbox(root, opts \\ []) do
     shim = Path.join(root, "whiska.sh")
     whiska = Path.join(root, "fake-whiska")
     escript = Path.join(root, "fake-escript")
@@ -75,6 +81,7 @@ defmodule Whiska.InstallShimStopTest do
     stdin="$(cat)"
     printf '%s\\n' "$(jq -c -n --arg s "$stdin" --args '{stdin: $s, args: $ARGS.positional}' "$@")" \\
       >> "#{log}"
+    exit #{Keyword.get(opts, :exit_status, 0)}
     """)
 
     # Stands in for the Erlang runtime: runs the escript it is handed.
@@ -115,7 +122,7 @@ defmodule Whiska.InstallShimStopTest do
       {"WHISKA_BIN", sandbox.whiska || Path.join(sandbox.root, "no-whiska-here")}
     ]
 
-    {out, _status} =
+    {out, status} =
       System.cmd(
         "bash",
         ["-c", ~s|bash "#{sandbox.shim}" #{hook} < "#{payload_file}" 2> "#{err_file}"|],
@@ -136,6 +143,6 @@ defmodule Whiska.InstallShimStopTest do
           []
       end
 
-    %{out: String.trim(out), err: File.read!(err_file), called: called}
+    %{out: String.trim(out), err: File.read!(err_file), called: called, status: status}
   end
 end

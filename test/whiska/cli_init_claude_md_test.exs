@@ -64,4 +64,11 @@ defmodule Whiska.CLIInitClaudeMdTest do
     assert output =~ "CLAUDE.md"
     assert output =~ "git add"
   end
+
+  test "tells the person to write the Finish heading the finish part reads", %{main: main} do
+    output = init(main)
+
+    assert output =~ "## Finish"
+    refute output =~ Whiska.Install.review_loop_path()
+  end
 end

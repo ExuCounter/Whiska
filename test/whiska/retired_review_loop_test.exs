@@ -93,7 +93,9 @@ defmodule Whiska.RetiredReviewLoopTest do
 
       assert %Check{status: :warn, detail: detail, fix: fix} = Whiska.Doctor.review_loop(root)
       assert detail =~ "retired"
-      assert fix =~ Install.review_loop_path()
+      # The doctor is run from any worktree but checks the main checkout, so a
+      # relative path would name a different file in the pane it is pasted into.
+      assert fix == "rm #{path}"
       assert File.exists?(path), "the doctor never repairs (ADR-0038)"
     end
   end

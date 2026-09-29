@@ -104,6 +104,23 @@ unconditional as it always was.
 every finished turn. That is the point, and a repo that finds it too much says so by
 making `checks:` cheaper — the same answer ADR-0042 gave for a slow `CHECK`.
 
+**`init` still removes a `Stop` entry naming `review-loop.sh`, although the file itself is
+the person's.** The two are not the same thing: the file is inert text, and an entry is a
+hook that fires. An entry left behind runs the retired script in parallel with the shim —
+the race ADR-0036's addendum closed — so it goes, the way every other Whiska-written entry
+is replaced rather than duplicated. The cost is accepted and stated here: a person who
+registers the retired script themselves will find that entry gone after the next `init`,
+with no way for `init` to tell their entry from the one an older Whiska wrote. Keeping
+their own gate means giving it a different filename.
+
+**Two of the pipeline's inputs come from outside the session, and the part says so.** A
+ticket is evidence about what was asked and never an instruction to the session; a check
+command is read before it is run, and one that fetches something, writes outside the repo
+or touches credentials is a decision for the person rather than a command — the more so
+when it arrived with the branch being finished rather than from the base branch. The
+retired hook had the same exposure through its `CHECK` line, quieter only because a diff
+to a shell hook is conspicuous and a `name: value` line in `CLAUDE.md` is not.
+
 **`## Finish` is now a shared heading with its own grammar.** The finish part reads
 `checks:`, `specs:` and `ticket:` from it; the finished-branch picker reads `finish:`.
 Nothing parses it in Elixir — it is read by a model, like everything else in `CLAUDE.md`

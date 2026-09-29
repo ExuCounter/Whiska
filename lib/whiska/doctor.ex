@@ -448,12 +448,14 @@ defmodule Whiska.Doctor do
   """
   @spec review_loop(Path.t()) :: Check.t()
   def review_loop(main_checkout) do
-    if File.exists?(Path.join(main_checkout, Install.review_loop_path())),
+    path = Path.join(main_checkout, Install.review_loop_path())
+
+    if File.exists?(path),
       do:
         Check.warn(
           "review loop",
           "#{Install.review_loop_path()} is retired — nothing runs it, and finishing is the `finish` part of CLAUDE.md",
-          "rm #{Install.review_loop_path()}"
+          "rm #{path}"
         ),
       else: Check.ok("review loop", "none")
   end
