@@ -44,10 +44,9 @@ _Avoid_: report, event (as the table/record name)
 
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,
-and the entries still sitting uncollected on its doorstep. Deliberately wider than what
-a nudge qualifies on — a `done` report is waiting until the person has been told, even
-though nothing can be acted on elsewhere, and a doorstep entry is waiting although no
-question exists for it yet. It is a state of the house, not a status on a row: the
+and the entries still sitting uncollected on its doorstep. A `done` report is waiting
+until the person has been told, and a doorstep entry is waiting although no question
+exists for it yet. It is a state of the house, not a status on a row: the
 statusline's elsewhere segment and `whiska waiting` both ask exactly this, so the two
 cannot disagree about it. A house is quiet when nothing is waiting; there is no other
 word for the state.
@@ -68,28 +67,29 @@ the previous one is answered (or superseded, or closed — a `done` report close
 sending) and the session is idle again.
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska questions <id>`, which the `whiska-delivered` skill runs when the line lands.
-A nudge is not a delivery: it is typed through the same gate but is never a question of
-this house (see **Nudge**).
+Delivery is the only thing Whiska types anywhere, and it only ever types into the main
+session of the question's own house (ADR-0044).
 _Avoid_: notify, ping, relay (the old bash mechanism), push
 
-**Nudge**:
-One short line the owl types into *another* house's idle main session when this house
-gains something open that waits on the person — `⚡ whiska waiting`, naming every waiting
-repo by folder and nothing else. It exists only to make that session's statusline redraw.
-A notice, not a question: never recorded, never answered, never closed, never holding the
-target's delivery slot, dropped rather than retried when the target is busy, once per
-episode, and never for a `done` report. What qualifies is narrower than **Waiting** — only
-what can be acted on from another repo — so a house can be waiting and still not nudge.
-Only the owl's Nudge reaches across houses; houses never call each other.
-_Avoid_: notification, ping, cross-house delivery, all-clear (there is none)
+**Nudge** (retired):
+A line the owl used to type into *another* house's idle main session, to force that
+session's statusline to redraw. Removed on 2026-09-29 (ADR-0044): the line landed as a
+user turn that Claude Code could not tell from a typed prompt, so it cost that session a
+turn and the model improvised on it. Nothing in Whiska now types into a session that is
+not its own house's main session. The elsewhere segment it existed to refresh is kept
+current instead by the `refreshInterval` on the statusLine command, which re-runs the
+statusline script every 15 seconds while the session sits idle.
+_Avoid_: reviving the word for anything cross-house. (`specs/spec.md` uses "corrective
+nudge" for a message into a *stuck mouse's own* pane — a different, still-unbuilt idea,
+and the only sense the word is left with.)
 
 **Jump**:
 Moving the person to a whiska — Whiska asking herdr to bring a house's main session into
 view, so the person is sitting where they can act on what is waiting rather than looking
 at a pointer to it. The one thing Whiska does to the person rather than to a mouse, and
 only ever because the person asked for it in the same breath: a typed command, or a
-hotkey they bound. The owl never jumps; its one cross-house move is the Nudge, which
-types a line and leaves the screen where it is. The destination is the house's main
+hotkey they bound. The owl never jumps, and since the Nudge was retired it makes no
+cross-house move at all. The destination is the house's main
 session, never a mouse's own pane: a mouse's pane is the mouse's workplace, and the
 person answers from their own (ADR-0043).
 _Avoid_: goto, focus (herdr's word for the mechanism, not for what this is), switch,
@@ -106,7 +106,9 @@ report instead.
 **Owl**:
 The one always-awake presence per machine, supervised by `launchd`, that keeps every
 project's house standing and is the only thing that can see across all of them at
-once. Not per-project: a person has many houses and exactly one owl.
+once. Seeing is not acting: the owl reads every house, and types into none but the one
+each question belongs to (see **Nudge**, retired). Not per-project: a person has many
+houses and exactly one owl.
 _Avoid_: daemon, server, service
 
 **House**:

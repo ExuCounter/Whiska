@@ -348,6 +348,19 @@ defmodule Whiska.Install do
   # is the fallback, and the variable is honoured if a later version sets it.
   @statusline_command ~s|bash "${CLAUDE_PROJECT_DIR:-.}/#{@statusline_path}"|
 
+  # Seconds between redraws, on top of Claude Code's own event triggers
+  # (ADR-0044). Claude Code's event triggers all come from the session's own
+  # conversation, so a person sitting idle in one repo never learns that
+  # another repo's mouse is waiting — which is what the elsewhere segment
+  # exists to tell them. This timer is the sanctioned way to redraw without a
+  # conversation turn; the minimum the setting accepts is 1.
+  #
+  # One run of the script costs about 0.44 s of wall clock (escript startup),
+  # so 15 s holds each idle session near 3% of a core, and the person learns
+  # of another repo within a quarter of a minute of sitting still. See
+  # ADR-0044 for the arithmetic behind the number.
+  @statusline_refresh_interval 15
+
   @statusline_script """
                      #!/usr/bin/env bash
                      # Whiska's project statusline (ADR-0027). A project-level statusLine
@@ -361,6 +374,10 @@ defmodule Whiska.Install do
                      #
                      # Written by `whiska init`. The binary and runtime are resolved the same
                      # way the hook shim resolves them, at run time, never baked in here.
+                     #
+                     # How often this runs is not this script's business: the `refreshInterval`
+                     # beside the command in settings.json redraws it on a timer while the
+                     # session sits idle (ADR-0044).
 
                      input="$(cat)"
 
@@ -539,6 +556,15 @@ defmodule Whiska.Install do
   @spec statusline_script() :: String.t()
   def statusline_script, do: @statusline_script
 
+  @doc """
+  Seconds between statusline redraws, written beside the command (ADR-0044).
+
+  It is what keeps the elsewhere segment honest while a session sits idle,
+  now that no nudge is typed into it.
+  """
+  @spec statusline_refresh_interval() :: pos_integer()
+  def statusline_refresh_interval, do: @statusline_refresh_interval
+
   @doc "The slash-command skills `whiska init` writes, as `{path, contents}` (ADR-0022)."
   @spec skills() :: [{Path.t(), String.t()}]
   def skills, do: @skills
@@ -572,9 +598,14 @@ defmodule Whiska.Install do
 
   # A project statusLine is a single value, not a list, so there is no "beside
   # the others" here: one that is ours, or missing, is set; one that is somebody
-  # else's is left exactly alone rather than replaced.
+  # else's is left exactly alone rather than replaced — including its refresh
+  # interval, or its want of one.
   defp put_statusline(settings) do
-    entry = %{"type" => "command", "command" => @statusline_command}
+    entry = %{
+      "type" => "command",
+      "command" => @statusline_command,
+      "refreshInterval" => @statusline_refresh_interval
+    }
 
     case settings["statusLine"] do
       nil ->

@@ -280,8 +280,11 @@ defmodule Whiska.CLI do
         neither file names anything specific to this machine.
 
         Also wrote the project statusline (#{Install.statusline_path()}), which
-        runs your global statusline and appends what is waiting on you here, and
-        one slash command per whiska command under .claude/skills/.
+        runs your global statusline and appends what is waiting on you here. It
+        is set to redraw every #{Install.statusline_refresh_interval()} seconds,
+        so what is waiting in another repo shows up while you sit still
+        (ADR-0044). And one slash command per whiska command under
+        .claude/skills/.
 
         And the review loop (#{Install.review_loop_path()}) — a Stop hook this
         repo owns, not Whiska (ADR-0042). The shim runs it before Whiska's own

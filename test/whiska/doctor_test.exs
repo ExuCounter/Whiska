@@ -83,6 +83,51 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  # -- statusline --------------------------------------------------------------
+
+  describe "statusline/1 — the redraw timer that replaced the nudge (ADR-0044)" do
+    test "a fresh init passes: our script, and a refresh interval" do
+      check = Doctor.statusline(Install.merge(%{}))
+
+      assert %Check{status: :ok} = check
+      assert check.detail =~ "#{Install.statusline_refresh_interval()}"
+    end
+
+    test "no statusLine at all is a warning, pointing at init" do
+      assert %Check{status: :warn, fix: "whiska init"} = Doctor.statusline(%{})
+    end
+
+    test "ours with no interval warns: nothing redraws while the session sits idle" do
+      settings = %{
+        "statusLine" => %{"type" => "command", "command" => Install.statusline_command()}
+      }
+
+      check = Doctor.statusline(settings)
+      assert %Check{status: :warn, fix: "whiska init"} = check
+      assert check.detail =~ "idle"
+    end
+
+    test "an interval the person chose themselves is left alone" do
+      settings = %{
+        "statusLine" => %{
+          "type" => "command",
+          "command" => Install.statusline_command(),
+          "refreshInterval" => 30
+        }
+      }
+
+      check = Doctor.statusline(settings)
+      assert %Check{status: :ok} = check
+      assert check.detail =~ "30"
+    end
+
+    test "somebody else's statusLine warns that Whiska's segment is not shown" do
+      settings = %{"statusLine" => %{"type" => "command", "command" => "bash mine.sh"}}
+
+      assert %Check{status: :warn} = Doctor.statusline(settings)
+    end
+  end
+
   # -- shim --------------------------------------------------------------------
 
   describe "shim/1 — the committed script beside settings.json" do
@@ -491,7 +536,7 @@ defmodule Whiska.DoctorTest do
       report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
 
       for name <-
-            ~w(binary runtime herdr PreToolUse Stop shim house doorstep backstop) ++
+            ~w(binary runtime herdr PreToolUse Stop statusLine shim house doorstep backstop) ++
               ["hook pre-tool-use", "hook stop"] do
         assert %Check{status: :ok} = find(report.checks, name), "expected #{name} to be ok"
       end

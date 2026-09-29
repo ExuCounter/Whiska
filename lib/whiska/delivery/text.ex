@@ -48,18 +48,6 @@ defmodule Whiska.Delivery.Text do
     |> String.replace(~r/\s*\n\s*/, " ")
   end
 
-  @doc """
-  The nudge line (ADR-0041): which repos have something waiting, named by
-  folder like the statusline's elsewhere segment (ADR-0027), and nothing else.
-  It is typed into another house's main session only to make that session's
-  statusline redraw, so it carries no id, no path and no command.
-  """
-  @spec nudge([Path.t()]) :: String.t()
-  def nudge(waiting) when is_list(waiting) and waiting != [] do
-    names = waiting |> Enum.map(&Path.basename/1) |> Enum.sort() |> Enum.join(", ")
-    "⚡ #{names} waiting"
-  end
-
   defp verb("unmarked"), do: "stopped without saying why"
   defp verb("done"), do: "finished"
   defp verb(_), do: "needs a decision"

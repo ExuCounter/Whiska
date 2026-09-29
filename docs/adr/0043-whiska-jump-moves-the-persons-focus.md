@@ -16,10 +16,9 @@ collapses it to one keypress, and all it needs from Whiska is one line: focus th
 - **Whiska may take the person's focus, but only when the person asked for it in that
   same breath.** `whiska jump` is typed, or fired from a hotkey the person bound. Nothing
   else in Whiska calls `focus` — not delivery, not the backstop, and above all not the
-  owl. The owl's one cross-house move stays the nudge (ADR-0041), which types a line into
-  an idle pane and leaves the screen where it is; that restraint was deliberate and is
-  unchanged. An owl that could pull the screen around would be a different and much worse
-  thing than one that can type a line.
+  owl. The owl has no cross-house move at all since ADR-0044 retired the nudge: it types
+  into a house's own main session and nowhere else. An owl that could pull the screen
+  around would be a different and much worse thing than one that can type a line.
 - **It lands on the house's main session, not on a mouse's pane.** The waiting entry
   names a mouse, but the person does not work in a mouse's pane — they work in their own,
   the one `whiska start` recorded (CONTEXT.md, **Main session**). That is where the owl
@@ -59,8 +58,8 @@ unbuilt; there is no second command to write.
 
 Checked and not in conflict: ADR-0020 (mice stay herdr panes — this uses the same
 boundary for the same reason), ADR-0008 and ADR-0009 (delivery: untouched, jumping
-neither delivers nor closes anything), ADR-0041 (the nudge stays the owl's only
-cross-house move), ADR-0038 (the doctor never repairs — this is not the doctor),
+neither delivers nor closes anything), ADR-0041 (the nudge, which was the owl's only
+cross-house move and has since been retired by ADR-0044), ADR-0038 (the doctor never repairs — this is not the doctor),
 ADR-0007 (nothing is deleted — this writes nothing at all).
 
 ## `whiska waiting` reads the record without the owl
@@ -94,8 +93,8 @@ most needs to be told what piled up. The guard stays where it belongs: on the wo
   a session that ran it would yank the person's screen somewhere they did not ask to go.
 - `CONTEXT.md` gains **Waiting** and **Jump**. Waiting had been used loosely for three
   different unions; it is now one state of a house — open and sent questions plus
-  uncollected doorstep entries — and the Nudge entry says in so many words that what it
-  qualifies on is narrower.
+  uncollected doorstep entries. (The Nudge entry it was contrasted with is retired:
+  ADR-0044.)
 - One bad house must not sink the listing. `whiska questions` may fail loudly for its own
   repo; a machine-wide read cannot, or one corrupt or locked database would hide every
   other repo's questions. `Whiska.Waiting` therefore catches a house that will not open

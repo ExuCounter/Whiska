@@ -27,7 +27,7 @@ C4Component
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question and per uncollected doorstep entry, oldest first, each with its mouse pane")
     Component(statusline, "Statusline", "one line", "Owl always, whiskas headcount, mice here, questions here, whiskas waiting elsewhere")
-    Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live")
+    Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live, and reads the statusLine")
     Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
     Component(backstop, "Backstop", "text file", "The house's mark of what only its backstop collected")
     Component(agent, "LaunchAgent", "plist + wrapper", "The owl's launchd job: rendered, written, and driven through launchctl")
@@ -138,8 +138,9 @@ answers from, while a mouse's pane is the mouse's workplace (ADR-0043, note of
 2026-09-28). And `Statusline`'s
 elsewhere segment asks `Waiting.waiting?/1` rather than keeping its own copy, so the
 statusline and the listing cannot disagree about what "waiting" means — the same reason
-`Questions` is shared above. Nothing in the owl calls `focus`: its one cross-house move
-stays the nudge, which types a line and leaves the screen where it is (ADR-0041).
+`Questions` is shared above. Nothing in the owl calls `focus`, and nothing in the owl
+reaches into another repo at all: the statusline's own `refreshInterval` keeps the
+elsewhere segment current while the session sits idle (ADR-0044).
 
 **`Hook.Stop` never opens a socket, and never classifies.** It reads the payload, works
 out the house, writes the whole final message to the doorstep and exits — unconditionally

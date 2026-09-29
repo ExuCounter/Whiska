@@ -96,3 +96,16 @@ the line is drawn in counts while its own house is open. With no owl in the proc
 table the record is not trusted, the headcount is zero and the segment is absent; the
 owl segment already says `owl down`. Why a machine-level file is right here when it was
 wrong for counting mice, above, is argued in ADR-0039.
+
+## Addendum (2026-09-29): the line redraws on a timer
+
+Claude Code's own triggers for re-running the statusline command all come from the
+session's own conversation, so an idle session's line is a snapshot from the last
+keystroke. That is fine for every segment that describes this repo — nothing here changes
+while the person does nothing — and wrong for exactly one: **elsewhere**, whose whole job
+is to report a repo the person is not looking at.
+
+`whiska init` therefore writes `refreshInterval: 15` beside the statusLine command, which
+re-runs the script every 15 seconds on top of the event triggers. The elsewhere segment
+goes stale for at most that long. The number, and why not a typed nudge into the other
+session, is ADR-0044.
