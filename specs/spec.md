@@ -719,8 +719,11 @@ scattered across a few sections — written out here as the one place to read th
 sequence):
 
 1. The sweep finds a `Mouse` row whose pane is gone.
-2. That row is marked dead — **not deleted.** Every one of its still-open questions
-   cascades to `orphaned` at the same time, instead of sitting "open" forever.
+2. That row is marked dead — **not deleted.** Every one of its questions that was still
+   waiting on you cascades to `orphaned` at the same time, instead of sitting there
+   forever. That is open *and* sent: this once said "still-open", and a sent question
+   whose mouse had died held the delivery queue's one slot against every later mouse
+   (ADR-0007, note of 2026-09-29, which is the authority here).
 3. It drops out of `whiska mice` (alive-only listing) and out of the statusline count —
    a dead mouse doesn't count as a live one.
 4. **The worktree folder itself is untouched** — nothing here ever deletes anything from

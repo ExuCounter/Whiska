@@ -595,9 +595,9 @@ defmodule Whiska.Doctor do
   each combination that means nothing can move: open questions with no main
   session to deliver them to, and a sent question whose mouse is dead. The
   second holds ADR-0008's one slot with nothing behind it able to move — no
-  answer can reach a dead mouse, so it is never settled by being answered. `mark_dead/1` orphans a
-  dead mouse's sent question for exactly that reason, so seeing one here means
-  the owl has not reconciled it yet, or is not running.
+  answer can reach a dead mouse, so it is never settled by being answered.
+  `mark_dead/1` orphans a dead mouse's sent question for exactly that reason,
+  so seeing one here means the owl has not reconciled it yet, or is not running.
   """
   @spec questions(non_neg_integer(), Question.t() | nil, boolean(), DateTime.t()) :: Check.t()
   def questions(0, nil, _main?, _now), do: Check.ok("questions", "none waiting")

@@ -11,11 +11,12 @@ decision made.
   `whiska reopen` update that same row's `pane` column and carry its whole question history
   along, since everything was always keyed by `mouse_id` and never by the pane.
 
-  *The sent one, added 2026-09-29.* This once cascaded only `open` questions. Delivery is a
-  queue with one slot (ADR-0008) and no answer can reach a dead mouse, so a question left
-  `sent` held that slot against every later mouse's question — for three hours in one house,
-  while `whiska doctor` reported every check passing. The owl frees the slot by itself now,
-  at house open and on the backstop, and the doctor names the dead mouse holding the slot instead of passing.
+  *The sent one, added 2026-09-29.* This once cascaded only `open` questions. Delivery is
+  a queue with one slot (ADR-0008) and no answer can reach a dead mouse, so a question
+  left `sent` held that slot against every later mouse's question — for three hours in
+  one house, while `whiska doctor` reported every check passing. The owl frees the slot
+  by itself now, at house open and on the backstop, and the doctor names the dead mouse
+  that is holding it instead of passing.
 - **Collection never touches disk.** It only marks state in the database; the worktree
   folder stays exactly where it is.
 

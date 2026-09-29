@@ -76,11 +76,12 @@ defmodule Whiska.Owl.House do
   question is already out waiting for its answer. "Already out" means a live
   mouse is waiting on it: a mouse that dies with a question sent has that
   question orphaned with the rest of what it left waiting (ADR-0007), which
-  frees the slot rather than holding it against every later question. Anything else joins the queue
-  silently. The one exception is the first question of a fresh round, which
-  waits `round_wait_ms` (8 s) so that the line it delivers carries an accurate
-  count of what landed just behind it. Delivery is attempted at open, after every
-  collection, whenever herdr reports the main pane idle, and on the backstop.
+  frees the slot rather than holding it against every later question. Anything
+  else joins the queue silently. The one exception is the first question of a
+  fresh round, which waits `round_wait_ms` (8 s) so that the line it delivers
+  carries an accurate count of what landed just behind it. Delivery is attempted
+  at open, after every collection, whenever herdr reports the main pane idle,
+  and on the backstop.
 
   herdr's word is taken fresh at each attempt (`pane.get`), not from the last
   event: `claude` + `idle` delivers; `working` or `blocked` holds; `claude` +
