@@ -9,7 +9,6 @@ defmodule Whiska.CLIQuestionsTest do
   import Mox
 
   alias Whiska.CLI
-  alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
   alias Whiska.Storage
@@ -126,7 +125,7 @@ defmodule Whiska.CLIQuestionsTest do
   # The owl is found in the real process table (ADR-0031 fakes only herdr), so
   # the CLI tests accept either state and pin the rest; the owl's own logic is
   # tested in Whiska.StatuslineTest with `:owl_pids` pinned.
-  @owl ~r/\A🦉 (watching|owl down · 0 waiting)/
+  @owl ~r/\A🦉 (watching|owl down)/
 
   defp after_owl(out) do
     assert out =~ @owl
@@ -134,46 +133,46 @@ defmodule Whiska.CLIQuestionsTest do
   end
 
   describe "whiska statusline" do
-    test "prints the segment and nothing else", %{main: main} do
-      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+    setup %{main: main} do
+      home = Path.join(Path.dirname(main), "dot-whiska")
+      Application.put_env(:whiska, :home, home)
+      Whiska.OpenHouses.add(main)
+      on_exit(fn -> Application.delete_env(:whiska, :home) end)
+      :ok
+    end
 
+    test "prints the machine-wide line and nothing else", %{main: main} do
       seed(main, fn ->
         ask("a")
         ask("b")
       end)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
-      assert after_owl(out) == " · 🐱 2 questions waiting\n"
+      assert after_owl(out) == " · 🐱 2 waiting\n"
     end
 
-    test "counts the mice herdr sees in this repo's worktrees", %{main: main, worktree: worktree} do
-      stub(Herdr, :list_panes, fn _ ->
-        {:ok, [%{pane_id: "p1", cwd: worktree, agent: "claude", agent_status: "working"}]}
-      end)
-
-      out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
-      assert after_owl(out) == " · 🐭 1 mouse\n"
-    end
-
-    test "reads the same house from a worktree", %{main: main, worktree: worktree} do
-      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+    test "one thing waiting is named by its branch", %{main: main} do
       seed(main, fn -> ask("[worktree-status: needs-decision] pick one") end)
 
-      out = capture_io(fn -> assert CLI.run(["statusline"], worktree) == 0 end)
-      assert after_owl(out) == " · 🐱 feat-a: pick one\n"
+      out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
+      assert after_owl(out) == " · 🐱 feat-a\n"
     end
 
     test "prints only the owl when nothing is waiting (ADR-0027 addendum)", %{main: main} do
-      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
       assert after_owl(out) == "\n"
     end
 
-    test "prints nothing outside a checkout, and still exits 0", %{root: root} do
+    test "is not repo-scoped: outside a checkout it prints the same line", %{
+      root: root,
+      main: main
+    } do
+      seed(main, fn -> ask("a") end)
       plain = Path.join(root, "plain")
       File.mkdir_p!(plain)
+
       out = capture_io(fn -> assert CLI.run(["statusline"], plain) == 0 end)
-      assert out == ""
+      assert after_owl(out) == " · 🐱 feat-a\n"
     end
   end
 end

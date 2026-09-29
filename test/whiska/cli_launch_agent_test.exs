@@ -102,6 +102,18 @@ defmodule Whiska.CLILaunchAgentTest do
       assert out =~ "whiska owl stop"
     end
 
+    test "writes the script herdr's tab bar runs, and prints the entry to paste (ADR-0048)" do
+      launchctl(:not_loaded)
+
+      {0, out, _err} = run(["owl", "install"])
+
+      script = Whiska.Install.herdr_status_path()
+      assert File.read!(script) == Whiska.Install.herdr_status_script()
+      assert Bitwise.band(File.stat!(script).mode, 0o100) != 0
+      assert out =~ "tab_bar_right"
+      assert out =~ script
+    end
+
     test "says when herdr's socket was not in the environment to copy" do
       launchctl(:not_loaded)
       {0, _out, err} = run(["owl", "install"], nil, %{"HOME" => "/h"})

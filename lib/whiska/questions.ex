@@ -31,6 +31,15 @@ defmodule Whiska.Questions do
   # the two Stop hooks (ADR-0036).
   @backstop_s 60
 
+  @doc """
+  How long an entry may sit uncollected before it is evidence, not a race.
+
+  Shared so `Whiska.Statusline` reads the owl's collecting the same way this
+  does; two numbers could disagree about whether the owl is up.
+  """
+  @spec backstop_s() :: pos_integer()
+  def backstop_s, do: @backstop_s
+
   # One listing line has room for a pointer; one statusline segment for less.
   @pointer_max 80
   @segment_max 60

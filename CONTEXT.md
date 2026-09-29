@@ -46,9 +46,8 @@ _Avoid_: report, event (as the table/record name)
 Everything a house holds that still wants the person: its open and sent questions,
 and the entries still sitting uncollected on its doorstep. A `done` report is waiting
 until the person has been told, and a doorstep entry is waiting although no question
-exists for it yet. It is a state of the house, not a status on a row: the
-statusline's elsewhere segment and `whiska waiting` both ask exactly this, so the two
-cannot disagree about it. A house is quiet when nothing is waiting; there is no other
+exists for it yet. It is a state of the house, not a status on a row: the statusline
+and `whiska waiting` both ask exactly this, so the two cannot disagree about it. A house is quiet when nothing is waiting; there is no other
 word for the state.
 _Avoid_: pending, outstanding, open (a question's own status, which is narrower), the
 queue (delivery's, which a doorstep entry has not reached)
@@ -84,9 +83,8 @@ A line the owl used to type into *another* house's idle main session, to force t
 session's statusline to redraw. Removed on 2026-09-29 (ADR-0044): the line landed as a
 user turn that Claude Code could not tell from a typed prompt, so it cost that session a
 turn and the model improvised on it. Nothing in Whiska now types into a session that is
-not its own house's main session. The elsewhere segment it existed to refresh is kept
-current instead by the `refreshInterval` on the statusLine command, which re-runs the
-statusline script every 15 seconds while the session sits idle.
+not its own house's main session. The elsewhere segment it existed to refresh is gone
+too (ADR-0048): the statusline is machine-wide now, so there is no elsewhere.
 _Avoid_: reviving the word for anything cross-house. (`specs/spec.md` uses "corrective
 nudge" for a message into a *stuck mouse's own* pane — a different, still-unbuilt idea,
 and the only sense the word is left with.)
@@ -142,6 +140,16 @@ owl stops, so the next `whiska owl` reopens the same houses. Anyone else — the
 statusline, the doctor — trusts it only while an owl is running. It says nothing about
 whether a house exists; that is the house's own affair.
 _Avoid_: registry, manifest, house list (it lists open houses, not houses)
+
+**Statusline**:
+The one line Whiska draws for the person: the owl's state, always, and what is waiting
+on the machine. It is drawn on **herdr's tab bar**, once for the whole herdr session
+(ADR-0048) — an entry the person keeps in their own herdr config, running a script
+Whiska ships. Not per repo and not in Claude Code, where it used to live. Two segments
+and no more: `🦉 watching`, and `🐱 <branch>` for one thing waiting or `🐱 N waiting`
+for several.
+_Avoid_: status bar, status line as two words (see **Worktree-status marker**), segment
+(one part of it, not the line), tab bar (herdr's surface, not Whiska's line)
 
 **Doorstep**:
 Where a mouse leaves a question for the owl: a directory in the house, holding entries the

@@ -78,9 +78,10 @@ most needs to be told what piled up. The guard stays where it belongs: on the wo
 
 ## Consequences
 
-- `Whiska.Waiting` is the new shared reading, and `Whiska.Statusline`'s elsewhere segment
-  now asks it rather than keeping its own copy, so `whiska waiting` and the statusline
-  cannot disagree about what "waiting" means.
+- `Whiska.Waiting` is the new shared reading, and `Whiska.Statusline` asks it rather than
+  keeping its own copy, so `whiska waiting` and the statusline cannot disagree about what
+  "waiting" means. (Then it was the elsewhere segment alone; since ADR-0048 the whole
+  line is this listing.)
 - `Whiska.Waiting` gains `house_for/2` (a name to a house) and `main_session/1` (a house
   to the pane a jump lands on). Every waiting entry still carries its *mouse's* pane —
   that is what `whiska waiting` prints and what `whiska reply` types into; it is simply

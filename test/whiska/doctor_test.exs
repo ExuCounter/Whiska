@@ -83,48 +83,56 @@ defmodule Whiska.DoctorTest do
     end
   end
 
-  # -- statusline --------------------------------------------------------------
+  # -- the tab bar -------------------------------------------------------------
 
-  describe "statusline/1 — the redraw timer that replaced the nudge (ADR-0044)" do
-    test "a fresh init passes: our script, and a refresh interval" do
-      check = Doctor.statusline(Install.merge(%{}))
+  describe "tab_bar/2 — the herdr entry that draws the owl's line (ADR-0048)" do
+    test "the entry the person committed, naming the shipped script, passes" do
+      check = Doctor.tab_bar(Install.tab_bar_right_snippet(), true)
 
       assert %Check{status: :ok} = check
-      assert check.detail =~ "#{Install.statusline_refresh_interval()}"
+      assert check.detail =~ "#{Install.herdr_status_interval()}"
     end
 
-    test "no statusLine at all is a warning, pointing at init" do
-      assert %Check{status: :warn, fix: "whiska init"} = Doctor.statusline(%{})
+    test "no herdr config at all is a warning, and the fix is the entry to paste" do
+      check = Doctor.tab_bar(nil, true)
+
+      assert %Check{status: :warn} = check
+      assert check.fix =~ "tab_bar_right"
+      assert check.fix =~ Install.herdr_status_path()
     end
 
-    test "ours with no interval warns: nothing redraws while the session sits idle" do
-      settings = %{
-        "statusLine" => %{"type" => "command", "command" => Install.statusline_command()}
-      }
+    test "a herdr config without our entry is a warning, and the fix is the entry to paste" do
+      check = Doctor.tab_bar("[ui]\ntab_bar_right = [{ type = \"hostname\" }]\n", true)
 
-      check = Doctor.statusline(settings)
-      assert %Check{status: :warn, fix: "whiska init"} = check
-      assert check.detail =~ "idle"
+      assert %Check{status: :warn} = check
+      assert check.fix =~ Install.herdr_status_path()
     end
 
-    test "an interval the person chose themselves is left alone" do
-      settings = %{
-        "statusLine" => %{
-          "type" => "command",
-          "command" => Install.statusline_command(),
-          "refreshInterval" => 30
-        }
-      }
+    test "an entry naming a script that is not there points at owl install, not at herdr" do
+      check = Doctor.tab_bar(Install.tab_bar_right_snippet(), false)
 
-      check = Doctor.statusline(settings)
+      assert %Check{status: :warn, fix: "whiska owl install"} = check
+      assert check.detail =~ "script"
+    end
+
+    test "never a failure: nothing is lost when the line is missing (ADR-0038)" do
+      for {config, script?} <- [{nil, false}, {nil, true}, {"[ui]\n", true}] do
+        assert %Check{status: status} = Doctor.tab_bar(config, script?)
+        assert status in [:ok, :warn]
+      end
+    end
+
+    test "an interval the person chose themselves is reported, not argued with" do
+      config =
+        String.replace(
+          Install.tab_bar_right_snippet(),
+          "interval_seconds = 5",
+          "interval_seconds = 30"
+        )
+
+      check = Doctor.tab_bar(config, true)
       assert %Check{status: :ok} = check
       assert check.detail =~ "30"
-    end
-
-    test "somebody else's statusLine warns that Whiska's segment is not shown" do
-      settings = %{"statusLine" => %{"type" => "command", "command" => "bash mine.sh"}}
-
-      assert %Check{status: :warn} = Doctor.statusline(settings)
     end
   end
 
@@ -579,7 +587,7 @@ defmodule Whiska.DoctorTest do
       report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
 
       for name <-
-            ~w(binary runtime herdr PreToolUse Stop statusLine shim house doorstep backstop) ++
+            ~w(binary runtime herdr PreToolUse Stop shim house doorstep backstop) ++
               ["hook pre-tool-use", "hook stop"] do
         assert %Check{status: :ok} = find(report.checks, name), "expected #{name} to be ok"
       end

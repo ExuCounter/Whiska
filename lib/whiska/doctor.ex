@@ -77,7 +77,7 @@ defmodule Whiska.Doctor do
     {binary, binary_found?} = binary(env)
     {herdr_check, panes} = herdr(env, herdr)
     settings = read_settings(main_checkout)
-    hooks = hooks(settings) ++ [statusline(settings)]
+    hooks = hooks(settings)
     shim_contents = read_shim(main_checkout)
     shim = shim(shim_contents)
 
@@ -95,7 +95,8 @@ defmodule Whiska.Doctor do
         herdr_check,
         owl(pids),
         launch_agent(installed?, agent, pids),
-        open_houses(OpenHouses.read(record), main_checkout, pids)
+        open_houses(OpenHouses.read(record), main_checkout, pids),
+        tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path()))
       ] ++
         hooks ++
         [shim] ++
@@ -363,51 +364,70 @@ defmodule Whiska.Doctor do
   end
 
   @doc """
-  The project statusline: ours, and redrawn on a timer (ADR-0027, ADR-0044).
+  The herdr entry that draws the owl's line, and the script it names
+  (ADR-0048).
 
-  Nothing is lost when this is wrong — questions are still collected and still
-  delivered — so the worst it goes is a warning. What is lost is the person's
-  view of another repo while they sit still in this one: with no
-  `refreshInterval`, Claude Code re-runs the line only when this session's own
-  conversation changes, which is exactly when the elsewhere segment does not
-  matter. An interval the person chose for themselves is theirs to keep.
+  `config` is the contents of herdr's `config.toml`, or `nil` when there is
+  none; `script?` says whether the shipped script is on disk.
+
+  Nothing is lost when this is wrong — questions are still collected, recorded
+  and delivered — so the worst it goes is a warning (ADR-0038). What is lost is
+  the one place the owl's own outage can appear, since delivery cannot report
+  it. The config is the person's and machine-global, so the doctor prints the
+  entry to paste and never writes it (ADR-0016).
   """
-  @spec statusline(map()) :: Check.t()
-  def statusline(settings) when is_map(settings) do
-    case settings["statusLine"] do
-      %{"command" => command} = entry when is_binary(command) ->
-        ours_statusline(entry, command)
+  @spec tab_bar(String.t() | nil, boolean()) :: Check.t()
+  def tab_bar(config, script?) do
+    entry = config && entry_line(config)
 
-      _ ->
+    cond do
+      entry && not script? ->
         Check.warn(
-          "statusLine",
-          "no project statusLine — nothing here says what is waiting",
-          @init
+          "tab bar",
+          "herdr runs #{Install.herdr_status_path()}, and that script is not there",
+          "whiska owl install"
         )
+
+      entry ->
+        Check.ok("tab bar", "wired, herdr redraws it every #{interval(entry)}s")
+
+      not script? ->
+        Check.warn(
+          "tab bar",
+          "nothing draws the owl's line, and the script it needs is not there either",
+          "whiska owl install"
+        )
+
+      true ->
+        Check.warn("tab bar", "nothing draws the owl's line", paste())
     end
   end
 
-  defp ours_statusline(entry, command) do
-    interval = entry["refreshInterval"]
+  # The one `tab_bar_right` entry that runs our script, whatever else the
+  # person has on their tab bar.
+  defp entry_line(config) do
+    path = Install.herdr_status_path()
 
-    cond do
-      not String.contains?(command, Install.statusline_path()) ->
-        Check.warn(
-          "statusLine",
-          "somebody else's script — Whiska's segment is not shown here",
-          @init
-        )
+    config
+    |> String.split("\n")
+    |> Enum.find(&String.contains?(&1, path))
+  end
 
-      is_integer(interval) and interval >= 1 ->
-        Check.ok("statusLine", "wired, redrawn every #{interval}s")
+  defp interval(entry) do
+    case Regex.run(~r/interval_seconds\s*=\s*(\d+)/, entry, capture: :all_but_first) do
+      [seconds] -> seconds
+      nil -> Install.herdr_status_interval()
+    end
+  end
 
-      true ->
-        Check.warn(
-          "statusLine",
-          "wired, but with no refreshInterval — what waits in another repo " <>
-            "stays invisible while this session is idle",
-          @init
-        )
+  defp paste do
+    "paste into #{Herdr.config_path()} and commit it:\n" <> Install.tab_bar_right_snippet()
+  end
+
+  defp read_herdr_config(env) do
+    case File.read(Herdr.config_path(env)) do
+      {:ok, config} -> config
+      {:error, _} -> nil
     end
   end
 

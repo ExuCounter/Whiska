@@ -1,34 +1,25 @@
 defmodule Whiska.StatuslineTest do
   @moduledoc """
-  The whole statusline: the owl's state always, the whiskas on the machine
-  when there is more than one, the mice alive here, the questions waiting
-  here, and the whiskas elsewhere with something waiting (ADR-0027).
+  The one line Whiska draws on herdr's tab bar (ADR-0048): the owl's state,
+  always, and what is waiting on the whole machine.
 
-  The owl is found in the process table, faked here through `:owl_pids` the
-  way `Whiska.Doctor` fakes it.
-
-  Everything live comes from one herdr pane list, faked at the boundary
-  (ADR-0031); houses are real SQLite files under a tmp root.
+  It is machine-wide, so nothing here is scoped to a repo and no herdr pane
+  list is asked for — the line says nothing about panes any more. The owl is
+  found in the process table, faked here through `:owl_pids` the way
+  `Whiska.Doctor` fakes it; houses are real SQLite files under a tmp root.
   """
   use ExUnit.Case, async: false
 
-  import Mox
-
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
-  alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.OpenHouses
   alias Whiska.Statusline
   alias Whiska.Storage
 
-  setup :set_mox_global
-  setup :verify_on_exit!
-
   setup do
     root = Path.join(System.tmp_dir!(), "whiska-sl-#{System.unique_integer([:positive])}")
-    main = house!(root, "myrepo")
     record = Path.join(root, "dot-whiska/houses")
-    OpenHouses.add(main, record)
+    main = open!(root, "myrepo", record)
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, root: root, main: main, record: record}
   end
@@ -49,263 +40,120 @@ defmodule Whiska.StatuslineTest do
     main
   end
 
-  defp seed(main, fun) do
+  defp seed(main, branch, fun) do
     {:ok, handle} = Storage.open(main)
-    {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "feat-a"})
-    fun.()
+
+    {:ok, _} =
+      Storage.record_mouse(%{mouse_id: "m-#{branch}", path: "/w/#{branch}", branch: branch})
+
+    fun.(branch)
     Storage.close(handle)
   end
 
-  defp ask(text) do
+  defp ask(branch, text) do
     {:ok, _} =
       Storage.record_question(%{
-        mouse_id: "m1",
+        mouse_id: "m-#{branch}",
         text: text,
         kind: "needs-decision",
         status: "open"
       })
   end
 
-  defp leave(main, text, age_seconds) do
+  defp leave(main, branch, text, age_seconds) do
     {:ok, _} =
       Doorstep.leave(main, %Entry{
-        mouse_id: "m1",
-        branch: "feat-a",
-        worktree_root: "/w/a",
+        mouse_id: "m-#{branch}",
+        branch: branch,
+        worktree_root: "/w/#{branch}",
         stamped_at: DateTime.add(DateTime.utc_now(), -age_seconds, :second),
         text: text
       })
   end
 
-  defp pane(id, cwd, agent \\ "claude"),
-    do: %{pane_id: id, cwd: cwd, agent: agent, agent_status: "idle"}
-
   # The owl is up unless a test says otherwise, and the record is this test's.
-  defp summary!(main, opts, record) do
-    {:ok, summary} = summary(main, opts, record)
-    summary
+  defp summary(opts, record) do
+    opts
+    |> Keyword.put_new(:owl_pids, fn -> [4242] end)
+    |> Keyword.put(:open_houses, record)
+    |> Statusline.summary()
   end
 
-  defp summary(main, opts, record) do
-    opts =
-      opts |> Keyword.put_new(:owl_pids, fn -> [4242] end) |> Keyword.put(:open_houses, record)
-
-    Statusline.summary(main, opts)
-  end
-
-  describe "mice_here/2 — live agent panes in this repo's worktrees" do
-    test "counts distinct worktrees with a live agent pane, not panes (ADR-0023)", %{main: main} do
-      panes = [
-        pane("p1", "#{main}/worktrees/feat-a/lib"),
-        pane("p2", "#{main}/worktrees/feat-a"),
-        pane("p3", "#{main}/worktrees/feat-b"),
-        pane("p4", "#{main}/worktrees/feat-c", nil),
-        pane("p5", main),
-        pane("p6", "/elsewhere/worktrees/feat-z")
-      ]
-
-      assert Statusline.mice_here(panes, main) == 2
-    end
-  end
-
-  describe "whiskas/2 — open houses with a live agent pane in their root (ADR-0039)" do
-    test "one per open house with a live pane; a house not open, or a repo without a pane, is none",
-         %{root: root, main: main, record: record} do
-      other = open!(root, "api-service", record)
-      not_open = house!(root, "crew")
-      quiet = open!(root, "quiet", record)
-      bare = Path.join(root, "no-house")
-      File.mkdir_p!(Path.join(bare, ".git"))
-
-      panes = [
-        pane("p1", main),
-        pane("p2", Path.join(main, "lib")),
-        pane("p3", other),
-        pane("p4", bare),
-        pane("p5", "#{main}/worktrees/feat-a"),
-        pane("p6", other, nil),
-        pane("p7", not_open),
-        pane("p8", "#{quiet}/worktrees/feat-q")
-      ]
-
-      assert Enum.sort(Statusline.whiskas(panes, OpenHouses.read(record))) ==
-               Enum.sort([main, other])
-    end
-  end
-
-  describe "summary/2 and render/1" do
-    test "mice here, questions here, and the one whiska waiting elsewhere is named",
-         %{root: root, main: main, record: record} do
-      other = open!(root, "api-service", record)
-      quiet = open!(root, "quiet", record)
-
-      seed(main, fn ->
-        ask("a")
-        ask("b")
-      end)
-
-      seed(other, fn -> ask("c") end)
-
-      expect(Herdr, :list_panes, fn "/sock" ->
-        {:ok,
-         [
-           pane("p1", main),
-           pane("p2", "#{main}/worktrees/feat-a"),
-           pane("p3", "#{main}/worktrees/feat-b"),
-           pane("p4", other),
-           pane("p5", quiet)
-         ]}
-      end)
-
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-
-      assert Statusline.render(summary) ==
-               "🦉 watching · 🐈 3 whiskas · 🐭 2 mice · 🐱 2 questions waiting · ⚡ api-service waiting"
-    end
-
-    test "several whiskas waiting elsewhere become a count", %{
-      root: root,
-      main: main,
-      record: record
-    } do
-      others = for name <- ~w(one two three), do: open!(root, name, record)
-      for other <- others, do: seed(other, fn -> ask("x") end)
-
-      expect(Herdr, :list_panes, fn _ -> {:ok, Enum.map(others, &pane(&1, &1))} end)
-
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-
-      assert Statusline.render(summary) ==
-               "🦉 watching · 🐈 4 whiskas · ⚡ 3 whiskas waiting elsewhere"
-    end
-
-    test "one mouse is singular, and this repo is never 'elsewhere'", %{
-      main: main,
-      record: record
-    } do
-      expect(Herdr, :list_panes, fn _ ->
-        {:ok, [pane("p1", main), pane("p2", "#{main}/worktrees/feat-a")]}
-      end)
-
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-      assert Statusline.render(summary) == "🦉 watching · 🐭 1 mouse"
-    end
-
-    test "a whiska elsewhere with nothing waiting adds no elsewhere segment, only a head",
-         %{root: root, main: main, record: record} do
-      other = open!(root, "api-service", record)
-      expect(Herdr, :list_panes, fn _ -> {:ok, [pane("p1", other)]} end)
-
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-      assert Statusline.render(summary) == "🦉 watching · 🐈 2 whiskas"
-    end
-
-    test "without herdr, the owl and what the house knows are shown", %{
-      main: main,
-      record: record
-    } do
-      seed(main, fn -> ask("[worktree-status: needs-decision] pick one") end)
-
-      summary = summary!(main, [herdr_socket: nil], record)
-      assert summary.whiskas == nil
-      assert Statusline.render(summary) == "🦉 watching · 🐱 feat-a: pick one"
-
-      expect(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-      assert Statusline.render(summary) == "🦉 watching · 🐱 feat-a: pick one"
-    end
-  end
+  defp line(opts, record), do: opts |> summary(record) |> Statusline.render()
 
   describe "the owl's state is always shown (ADR-0027 addendum)" do
-    test "a quiet laptop reads just the owl watching", %{main: main, record: record} do
-      expect(Herdr, :list_panes, fn _ -> {:ok, [pane("p1", main)]} end)
-
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-      assert summary.owl == :watching
-      assert Statusline.render(summary) == "🦉 watching"
+    test "a quiet machine reads just the owl watching", %{record: record} do
+      assert summary([], record).owl == :watching
+      assert line([], record) == "🦉 watching"
     end
 
-    test "no owl process is owl down, with the doorstep count even when it is zero",
-         %{main: main, record: record} do
-      expect(Herdr, :list_panes, fn _ -> {:ok, [pane("p1", main)]} end)
-
-      {:ok, summary} = summary(main, [herdr_socket: "/sock", owl_pids: fn -> [] end], record)
-      assert summary.owl == :down
-      assert Statusline.render(summary) == "🦉 owl down · 0 waiting"
+    test "no owl process is owl down, and with nothing waiting it says only that", %{
+      record: record
+    } do
+      assert line([owl_pids: fn -> [] end], record) == "🦉 owl down"
     end
 
     test "an owl that is not collecting past the backstop is down, whatever the process table says",
          %{main: main, record: record} do
-      leave(main, "old", 120)
-      leave(main, "newer", 90)
-      expect(Herdr, :list_panes, fn _ -> {:ok, [pane("p1", main)]} end)
+      leave(main, "feat-a", "old", 120)
+      leave(main, "feat-b", "newer", 90)
 
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-      assert Statusline.render(summary) == "🦉 owl down · 2 waiting"
+      assert line([], record) == "🦉 owl down · 🐱 2 waiting"
     end
 
-    test "owl down comes first, and with no owl the record is not trusted: no house is open (ADR-0039)",
-         %{root: root, main: main, record: record} do
-      other = open!(root, "api-service", record)
-      seed(other, fn -> ask("c") end)
-      leave(main, "here", 10)
-      expect(Herdr, :list_panes, fn _ -> {:ok, [pane("p1", main), pane("p2", other)]} end)
+    test "a doorstep entry younger than the backstop is the normal race, not an outage", %{
+      main: main,
+      record: record
+    } do
+      leave(main, "feat-a", "just left", 2)
 
-      {:ok, summary} = summary(main, [herdr_socket: "/sock", owl_pids: fn -> [] end], record)
-
-      assert summary.whiskas == 0
-      assert summary.elsewhere == []
-      assert Statusline.render(summary) == "🦉 owl down · 1 waiting"
+      assert line([], record) == "🦉 watching · 🐱 feat-a"
     end
   end
 
-  describe "the whiska headcount (ADR-0027 addendum, ADR-0039)" do
-    test "this repo counts as one while its house is open, even when its only pane is in a worktree",
-         %{root: root, main: main, record: record} do
+  describe "what is waiting, machine-wide (ADR-0048)" do
+    test "one thing waiting is named by its mouse's branch", %{main: main, record: record} do
+      seed(main, "feat-auth", &ask(&1, "[worktree-status: needs-decision] pick one"))
+
+      assert line([], record) == "🦉 watching · 🐱 feat-auth"
+    end
+
+    test "several become a count, across every house the owl has open", %{
+      root: root,
+      main: main,
+      record: record
+    } do
       other = open!(root, "api-service", record)
+      seed(main, "feat-auth", &ask(&1, "a"))
+      seed(other, "feat-rates", &ask(&1, "b"))
+      leave(other, "feat-rates", "c", 5)
 
-      expect(Herdr, :list_panes, fn _ ->
-        {:ok, [pane("p1", "#{main}/worktrees/feat-a"), pane("p2", other)]}
-      end)
-
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-      assert summary.whiskas == 2
-      assert Statusline.render(summary) == "🦉 watching · 🐈 2 whiskas · 🐭 1 mouse"
+      assert line([], record) == "🦉 watching · 🐱 3 waiting"
     end
 
-    test "one whiska is not worth a segment", %{main: main, record: record} do
-      expect(Herdr, :list_panes, fn _ -> {:ok, [pane("p1", main), pane("p2", "/nowhere")]} end)
+    test "a house with nothing waiting adds nothing", %{root: root, record: record} do
+      open!(root, "quiet", record)
 
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-      assert summary.whiskas == 1
-      assert Statusline.render(summary) == "🦉 watching"
+      assert line([], record) == "🦉 watching"
     end
 
-    test "a repo with a stale house and a live pane, but not open in the owl, is not a whiska",
-         %{root: root, main: main, record: record} do
-      dotfiles = open!(root, "dotfiles", record)
+    test "a repo with a house on disk but not in the record is not read", %{
+      root: root,
+      record: record
+    } do
       crew = house!(root, "crew")
-      seed(crew, fn -> ask("ignored") end)
+      seed(crew, "feat-x", &ask(&1, "ignored"))
 
-      expect(Herdr, :list_panes, fn _ ->
-        {:ok, [pane("p1", main), pane("p2", dotfiles), pane("p3", crew)]}
-      end)
-
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-      assert summary.whiskas == 2
-      assert summary.elsewhere == []
-      assert Statusline.render(summary) == "🦉 watching · 🐈 2 whiskas"
+      assert line([], record) == "🦉 watching"
     end
 
-    test "this repo not being open is not counted either, and the doctor is where that shows",
+    test "with the owl down, what is waiting is still counted — the record is read either way",
          %{root: root, main: main, record: record} do
       other = open!(root, "api-service", record)
-      OpenHouses.remove(main, record)
-      expect(Herdr, :list_panes, fn _ -> {:ok, [pane("p1", main), pane("p2", other)]} end)
+      seed(main, "feat-auth", &ask(&1, "a"))
+      leave(other, "feat-rates", "b", 5)
 
-      summary = summary!(main, [herdr_socket: "/sock"], record)
-      assert summary.whiskas == 1
-      assert Statusline.render(summary) == "🦉 watching"
+      assert line([owl_pids: fn -> [] end], record) == "🦉 owl down · 🐱 2 waiting"
     end
   end
 

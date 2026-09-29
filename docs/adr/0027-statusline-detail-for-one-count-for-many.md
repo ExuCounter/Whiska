@@ -97,7 +97,26 @@ table the record is not trusted, the headcount is zero and the segment is absent
 owl segment already says `owl down`. Why a machine-level file is right here when it was
 wrong for counting mice, above, is argued in ADR-0039.
 
-## Addendum (2026-09-29): the line redraws on a timer
+## Addendum (2026-09-29): the line moved to herdr's tab bar
+
+[ADR-0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) took the line out of
+Claude Code's statusline and drew it once on herdr's tab bar instead, for the
+whole machine rather than per repo. What this ADR decided that still stands:
+
+- **Detail for one thing, a count for many.** One thing waiting is named by its
+  mouse's branch, several are counted.
+- **The owl's state is always shown**, for the reason under "the owl is down"
+  above — delivery cannot report its own outage, and a blank line reads as a
+  broken Whiska. The line is drawn by herdr's server rather than the owl's
+  process, so that argument carries over unchanged. It is
+  now its own segment rather than carrying the count: `🦉 owl down · 🐱 4
+  waiting`.
+
+What it retired: the **mice**, **whiskas** and **elsewhere** segments, and with
+them the addendum below about `refreshInterval`. herdr's sidebar already shows
+each mouse; a machine-wide line has no elsewhere.
+
+## Addendum (2026-09-29, retired): the line redraws on a timer
 
 Claude Code's own triggers for re-running the statusline command all come from the
 session's own conversation, so an idle session's line is a snapshot from the last

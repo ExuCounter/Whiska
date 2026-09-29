@@ -87,7 +87,7 @@ defmodule Whiska.LaunchAgentTest do
       assert LaunchAgent.wrapper() =~ Install.resolve_whiska()
       assert LaunchAgent.wrapper() =~ Install.resolve_escript()
       assert Install.shim() =~ Install.resolve_whiska()
-      assert Install.statusline_script() =~ Install.resolve_escript()
+      assert Install.herdr_status_script() =~ Install.resolve_escript()
       assert String.starts_with?(LaunchAgent.wrapper(), "#!/usr/bin/env bash\n")
     end
 
