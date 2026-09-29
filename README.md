@@ -114,7 +114,8 @@ about what the mouse does (ADR-0036).
 
 The owl **collects** the doorstep when herdr reports that mouse's pane idle, when a house
 opens, and on a slow backstop timer. Each entry becomes a question, classified by its
-marker alone (ADR-0009): `[worktree-status: needs-decision]` → open; `done` → open too,
+marker alone (ADR-0009), an invisible line the mouse ends on: needs-decision → open;
+`done` → open too,
 delivered as "finished" with no reply offered and closed the moment it is sent; no marker
 → `unmarked`, and open — forgetting the marker makes noise rather than silence. An entry whose worktree is gone is recorded as `orphaned`. Collected entries are
 renamed `.collected`, never deleted (ADR-0007), so `ls *.json` on the doorstep is exactly

@@ -211,12 +211,24 @@ being tidied away.
 _Avoid_: block (the whole thing), fragment, chunk
 
 **Worktree-status marker**:
-The line a mouse ends every response with — `[worktree-status: done]` or
-`[worktree-status: needs-decision]` — and the only thing a turn is classified by
-(ADR-0009). The main session never writes one. Distinct from the **marker file** that
+The line a mouse ends every response with, and the only thing a turn is classified by
+(ADR-0009). It is written in invisible separators (U+2063) so the person watching the
+pane never sees it: three of them for `done`, two for `needs-decision`, whose readable
+pointer sentence sits on the line above. The older bracket spelling,
+`[worktree-status: done]`, is still read and no longer written. The main session never
+writes one. Distinct from the **marker file** that
 carries a `mouse_id`: that one is identity on disk, this one is a line in a message.
 Say which when either could be meant.
 _Avoid_: status line (the statusline is a different thing entirely), tag, signal
+
+**Pointer**:
+One line standing in for a whole message, in two related places. A mouse's pointer is
+the readable sentence it leaves beside its marker — the short question itself, or "3
+questions ready, see above" — which sits on the line above a `needs-decision` marker; a
+finished turn leaves none. The owl's delivery line quotes that sentence, and is itself a
+pointer to the question the person reads in full with `whiska questions <id>`. Say
+*the mouse's pointer* or *the delivery line* when both are in play.
+_Avoid_: summary, title, subject, preview
 
 **Finish**:
 What a mouse does before it is allowed to say `done`: read the work back against the

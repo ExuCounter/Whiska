@@ -75,10 +75,11 @@ text and judges nothing; the classifier judges text and talks to nothing — the
 as `Whiska.Question.Marker`, for the same reason (ADR-0031).
 
 **Classification is the marker and nothing else** (ADR-0009). `Whiska.Question.Marker`
-scans for `[worktree-status: …]` and maps it to `done`, `needs-decision` or `unmarked`;
-anything unrecognised is `unmarked`, which is delivered. The invisible-character prefix is
-treated as optional — it is a courtesy to whoever reads the transcript, not part of the
-marker's meaning, so a mouse that drops it is not misread as having said nothing.
+reads the last marker line — a line of invisible separators, three for `done` and two for
+`needs-decision`, or the older `[worktree-status: …]` spelling — and maps it to `done`,
+`needs-decision` or `unmarked`; anything unrecognised is `unmarked`, which is delivered.
+Only that one line is read, and only that one line is stripped before the person sees the
+message, so a marker quoted mid-prose survives intact.
 
 **The hook does not classify.** `Whiska.Hook.Stop` writes the raw final message and exits;
 the owl reads the marker on collection. That keeps the writer dumb and puts the one piece

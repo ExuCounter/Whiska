@@ -69,12 +69,24 @@ defmodule Whiska.ClaudeMdTest do
   end
 
   describe "the marker part" do
-    test "spells both values exactly as Whiska parses them" do
+    test "names both values in words, since the marker cannot be seen" do
+      body = body_of("marker")
+
+      assert body =~ Whiska.Question.Marker.spell(:done)
+      assert body =~ Whiska.Question.Marker.spell(:needs_decision)
+      assert body =~ "last line"
+    end
+
+    test "still names the bracket spelling, which Whiska keeps reading" do
       body = body_of("marker")
 
       assert body =~ "[worktree-status: done]"
       assert body =~ "[worktree-status: needs-decision]"
-      assert body =~ "last line"
+      assert body =~ ~r/do not write it/i
+    end
+
+    test "says where the pointer goes, now that it cannot follow the marker" do
+      assert body_of("marker") =~ ~r/line above/i
     end
 
     test "says the main session never writes one" do
@@ -270,8 +282,9 @@ defmodule Whiska.ClaudeMdTest do
       refute body =~ ~r/outcomes, not mechanics/i
     end
 
-    test "the marker it ends on is the one Whiska parses" do
-      assert body_of("finish") =~ Whiska.Question.Marker.render(:done)
+    test "the marker it ends on is the one Whiska parses, named in words" do
+      # The marker is invisible, so prose names it rather than showing it.
+      assert body_of("finish") =~ Whiska.Question.Marker.spell(:done)
     end
   end
 

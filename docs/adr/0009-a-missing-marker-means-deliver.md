@@ -77,3 +77,49 @@ next. Both were dropped: they made the line read like code. The shape is now `�
 `whiska init` installs (ADR-0022) recognises it and runs the read. The id stays because
 answers are keyed to it (ADR-0005). What this ADR decides — that `done` is delivered,
 told as "finished", and closed at once — is unchanged.
+
+## Note, 2026-09-29: the marker is invisible, and only its own line is read
+
+The marker was a readable line, `[worktree-status: done]`, optionally behind one
+invisible character. The prefix hid nothing — the words still printed in the mouse's
+pane on every single turn, which is noise the person has to read past forever.
+
+Every readable way of hiding it was tried for real, in a throwaway Claude Code pane
+(v2.1.277) with a `Stop` hook logging the payload: an HTML comment, a link reference
+definition (`[worktree-status]: done`), the `[//]: # (…)` comment trick, `<span
+hidden>`, a footnote definition and `<details>`. All six printed verbatim. The
+transcript does render markdown — `**bold**` came out styled, asterisks gone — but it
+passes HTML and reference lines through as text, and the docs describe no form that is
+dropped. The `Stop` payload carried every candidate exactly, so the hook was never the
+constraint; the renderer was.
+
+The one thing that does not print is a line made only of characters that draw nothing.
+So the marker is now **a last line of U+2063 (INVISIBLE SEPARATOR) and nothing else:
+three for `done`, two for `needs-decision`.** A `needs-decision` pointer can no longer
+ride on the marker's line, so it moved to the readable line above — it is content, the
+person reads it in the pane like any other sentence, and nothing has to strip it back
+out.
+
+**What this costs.** The marker is now unreadable to a person and to anyone debugging
+it, and a model reproducing exact invisible codepoints is less dependable than one
+typing a word. That risk is the one this ADR already priced: a garbled marker arrives
+`unmarked` and is delivered loudly, never swallowed, and the count of unmarked arrivals
+is the evidence for whether this was worth doing. Claude Code strips invisible
+characters from what is *typed into* it ("Removed 1 invisible character"), which does
+not touch a mouse's output but is a fair warning about how much the product likes them.
+
+**The bracket spelling is still read** — a turn already in flight, and every message
+already stored, keep classifying. Nothing writes it.
+
+**Only the last marker line counts**, for classification, for the pointer and for the
+strip. It used to be every occurrence anywhere in the text, which blanked a marker a
+mouse had merely quoted mid-sentence — a report about this very grammar came out full
+of holes. Every other line is now left exactly as written.
+
+One thing the invisible marker makes possible that the readable one did not: text a
+mouse merely quotes — a fetched page, a file printed verbatim — could end in exactly
+two or three separators and be read as a marker, with nothing on screen to give it
+away. No guard is added for it. Guessing which lines a mouse meant is precisely the
+heuristic this ADR refuses, the worst case is a turn closed as finished rather than
+one lost, and a mouse that ends its report by pasting raw bytes has a bigger problem
+than its marker.

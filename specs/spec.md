@@ -48,10 +48,12 @@ answer, not a new process talking to N other processes over some new protocol.
   not just claim an id; Whiska cross-checks it against worktrees it actually remembers
   creating, and rejects anything it doesn't recognize. Not a full identity system, still
   worth hardening further later — see "Still needs deciding."
-- Marker (`[worktree-status: ...]`) is prefixed with an invisible Unicode character
-  (same trick as firstmate), so it never shows up when reading the transcript — only
-  the hook can see it. Real risk worth flagging: getting a model to reliably emit an
-  exact invisible character every time isn't guaranteed the way plain text is.
+- The marker is written entirely in invisible Unicode characters (U+2063), so it never
+  shows up when reading the transcript — only the hook can see it. Every readable
+  spelling was tried against Claude Code's renderer and printed verbatim, the bracket
+  form included (ADR-0009). Real risk worth flagging: getting a model to reliably emit
+  an exact invisible character every time isn't guaranteed the way plain text is —
+  which is why a missed marker is delivered loudly rather than swallowed.
 - One saved `Question` table and one saved `Mouse` table per repo house (see "What
   gets saved" below) — repo is implicit, it's whichever house they belong to.
 

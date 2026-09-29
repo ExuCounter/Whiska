@@ -88,20 +88,28 @@ defmodule Whiska.ClaudeMd do
   ## Worktree status marker
 
   A mouse — a session running inside a spawned or routed worktree, never the person's
-  main session — ends every response with one plain marker line, so what happened is on
-  the record rather than guessed from a screen-detected idle state. Whiska reads exactly
-  this marker to classify the turn, so the spelling matters:
+  main session — ends every response with one marker line, so what happened is on the
+  record rather than guessed from a screen-detected idle state. The line is written in
+  invisible characters: Whiska reads it, and the person watching the pane sees nothing
+  there. The spelling matters exactly.
 
-  - `#{Marker.render(:done)}` — the task is fully finished and nothing is needed from
-    the person.
-  - `#{Marker.render(:needs_decision)} <a short pointer, in one line>` — stopping
-    because only the person can decide something. A single short question goes right
-    there. A grilling round with several questions says something like "3 questions
-    ready, see above" and leaves the questions themselves in the response body.
+  - **Finished, nothing needed from the person** — a last line of
+    #{Marker.spell(:done)} (INVISIBLE SEPARATOR), `#{Marker.render(:done)}`, and nothing
+    else on it.
+  - **Stopping because only the person can decide something** — a last line of
+    #{Marker.spell(:needs_decision)}, `#{Marker.render(:needs_decision)}`. The pointer goes
+    on the line above it, as ordinary readable prose: the short question itself when there
+    is one, or something like "3 questions ready, see above" when a grilling round leaves
+    several in the response body.
 
-  Always the last line, always exactly one of the two. The main session never writes one
-  — only a mouse does. A turn that forgets it is delivered anyway, as an unmarked
-  question, which is the loud direction on purpose.
+  Always the last line, always exactly one of the two, nothing else on that line. The
+  main session never writes one — only a mouse does. A turn that forgets it is delivered
+  anyway, as an unmarked question, which is the loud direction on purpose.
+
+  The older spelling — `[worktree-status: done]`, and
+  `[worktree-status: needs-decision] <a short pointer>` — is still read, so a turn
+  already in flight is never lost. Do not write it: it prints in the pane, which is the
+  whole reason it was replaced.
   <!-- whiska:marker:end -->\
   """
 
@@ -191,11 +199,11 @@ defmodule Whiska.ClaudeMd do
   <!-- whiska:finish:start -->
   ## Before a turn is done
 
-  A turn about to end on `#{Marker.render(:done)}` has one more piece of work in it:
-  showing that it is done. These five steps, in order, in the mouse's own session,
-  before the marker goes down. A turn ending on a decision for the person skips all of
-  it — that turn is waiting on them, not claiming to be finished — and the person's main
-  session never runs it at all.
+  A turn about to end on the finished marker — #{Marker.spell(:done)} — has one more piece
+  of work in it: showing that it is done. These five steps, in order, in the mouse's own
+  session, before the marker goes down. A turn ending on a decision for the person skips
+  all of it — that turn is waiting on them, not claiming to be finished — and the person's
+  main session never runs it at all.
 
   1. **Read the work back against what was asked.** The brief that started the turn, the
      ticket it names, and whatever this repo writes down: its specs, its glossary, its
