@@ -13,29 +13,33 @@ defmodule Whiska.Transcript do
   ## What "a subagent still out" looks like
 
   Read from a real transcript on 2026-09-29. A background `Agent` call gets its
-  `tool_result` immediately — it says only that the agent was launched, and
-  carries the agent's id:
+  `tool_result` within milliseconds — it carries no result, only the agent's id:
 
       Async agent launched successfully. …
       agentId: ae96c5149391564f6 …
 
-  The agent's report arrives later, as a user entry whose whole content is text:
+  So a pending `tool_use` is the wrong thing to look for. What is pending is the
+  report, which arrives later as a user entry Claude Code stamps
+  `origin: %{"kind" => "peer", "handback" => true, "from" => "<the id>"}`.
 
-      Another Claude session sent a message:
-      <agent-message from="ae96c5149391564f6">
-      [Subagent hand-back] …
+  Both ends are read structurally. A launch counts only when its `tool_result`
+  answers an `Agent` call seen in the same tail, so a line of shell output that
+  happens to read `agentId: …` launches nothing. A hand-back is read from
+  `origin`, with the frame in the text as a fallback for a transcript that
+  carries no `origin`.
 
-  So a pending `tool_use` is the wrong thing to look for — every launch has a
-  result within milliseconds. What is pending is the hand-back, and an id
-  launched but not handed back is a subagent the session will be woken for.
+  A turn the person started clears the accounting: `origin: %{"kind" => "human"}`.
+  Whatever was out when they typed is theirs to have interrupted, and a mouse
+  held silent by an agent that will never report is the one direction this must
+  not fail in.
   """
 
   # Enough tail to hold a whole turn, launches included. `Stop` fires once per
   # turn, so this is read a few times a minute rather than every two seconds.
   @tail_bytes 512 * 1024
 
-  # The id Claude Code prints when a background Agent starts, and the id on the
-  # frame its report comes back in.
+  # The id Claude Code prints when a background Agent starts, and the frame its
+  # report comes back in, read only from transcripts that carry no `origin`.
   @launched ~r/^agentId: ([A-Za-z0-9_-]+)/m
   @handed_back ~r/<agent-message from="([A-Za-z0-9_-]+)">/
 
@@ -56,11 +60,12 @@ defmodule Whiska.Transcript do
 
   @doc """
   The last `bytes` of a transcript, with the first line dropped when it may have
-  been cut in half. A file that is gone or unreadable is `""`.
+  been cut in half. Anything that is not a plain file — gone, a directory, a
+  pipe with nobody writing to it — is `""`.
   """
   @spec tail(Path.t(), pos_integer()) :: String.t()
   def tail(path, bytes \\ @tail_bytes) do
-    with {:ok, %File.Stat{size: size}} <- File.stat(path),
+    with {:ok, %File.Stat{type: :regular, size: size}} <- File.stat(path),
          {:ok, io} <- File.open(path, [:read, :binary]) do
       try do
         from = max(size - bytes, 0)
@@ -70,7 +75,7 @@ defmodule Whiska.Transcript do
         File.close(io)
       end
     else
-      _gone -> ""
+      _unreadable -> ""
     end
   end
 
@@ -100,52 +105,77 @@ defmodule Whiska.Transcript do
   def subagents_in_flight?(text) do
     text
     |> String.split("\n")
-    |> Enum.reduce(MapSet.new(), &account_for/2)
-    |> MapSet.size()
-    |> Kernel.>(0)
+    |> Enum.reduce(%{agent_calls: MapSet.new(), out: MapSet.new()}, &account_for/2)
+    |> Map.fetch!(:out)
+    |> Enum.any?()
   end
 
-  defp account_for(line, out) do
+  defp account_for(line, state) do
     case JSON.decode(line) do
-      {:ok, %{"isSidechain" => true}} -> out
-      {:ok, %{"message" => %{"content" => content}}} -> account_for_content(content, out)
-      _unreadable -> out
+      {:ok, %{"isSidechain" => true}} -> state
+      {:ok, entry} when is_map(entry) -> account_for_entry(entry, state)
+      _unreadable -> state
     end
   end
 
-  defp account_for_content(content, out) when is_list(content) do
-    content
-    |> Enum.filter(&(is_map(&1) and &1["type"] == "tool_result"))
-    |> Enum.flat_map(&launched_ids(&1["content"]))
-    |> Enum.into(out)
+  defp account_for_entry(%{"origin" => %{"kind" => "human"}}, state) do
+    %{state | out: MapSet.new()}
   end
 
-  defp account_for_content(content, out) when is_binary(content) do
+  defp account_for_entry(%{"origin" => %{"handback" => true, "from" => id}}, state)
+       when is_binary(id) do
+    %{state | out: MapSet.delete(state.out, id)}
+  end
+
+  defp account_for_entry(%{"message" => %{"content" => content}}, state) do
+    account_for_content(content, state)
+  end
+
+  defp account_for_entry(_other, state), do: state
+
+  defp account_for_content(content, state) when is_list(content) do
+    Enum.reduce(content, state, &account_for_block/2)
+  end
+
+  defp account_for_content(content, state) when is_binary(content) do
     if String.contains?(content, "[Subagent hand-back]") do
-      @handed_back
-      |> Regex.scan(content, capture: :all_but_first)
-      |> List.flatten()
-      |> Enum.reduce(out, &MapSet.delete(&2, &1))
+      %{state | out: MapSet.difference(state.out, ids(@handed_back, content))}
     else
-      out
+      state
     end
   end
 
-  defp account_for_content(_other, out), do: out
+  defp account_for_content(_other, state), do: state
 
-  defp launched_ids(blocks) when is_list(blocks) do
+  defp account_for_block(%{"type" => "tool_use", "name" => "Agent", "id" => id}, state)
+       when is_binary(id) do
+    %{state | agent_calls: MapSet.put(state.agent_calls, id)}
+  end
+
+  defp account_for_block(%{"type" => "tool_result", "tool_use_id" => id} = block, state)
+       when is_binary(id) do
+    if MapSet.member?(state.agent_calls, id) do
+      %{state | out: MapSet.union(state.out, ids(@launched, text_of(block["content"])))}
+    else
+      state
+    end
+  end
+
+  defp account_for_block(_other, state), do: state
+
+  defp text_of(blocks) when is_list(blocks) do
     blocks
     |> Enum.filter(&(is_map(&1) and is_binary(&1["text"])))
-    |> Enum.flat_map(
-      &(@launched
-        |> Regex.scan(&1["text"], capture: :all_but_first)
-        |> List.flatten())
-    )
+    |> Enum.map_join("\n", & &1["text"])
   end
 
-  defp launched_ids(text) when is_binary(text) do
-    @launched |> Regex.scan(text, capture: :all_but_first) |> List.flatten()
-  end
+  defp text_of(text) when is_binary(text), do: text
+  defp text_of(_other), do: ""
 
-  defp launched_ids(_other), do: []
+  defp ids(pattern, text) do
+    pattern
+    |> Regex.scan(text, capture: :all_but_first)
+    |> List.flatten()
+    |> MapSet.new()
+  end
 end

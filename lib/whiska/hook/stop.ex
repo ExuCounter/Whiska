@@ -4,9 +4,12 @@ defmodule Whiska.Hook.Stop do
 
   The hook never opens a socket. It reads the `Stop` payload, works out which
   house this worktree belongs to, and writes the mouse's whole final message to
-  that house's doorstep — every time, unconditionally, whether or not the owl is
-  running. There is no second code path for "the owl is down", because there is
-  no first one.
+  that house's doorstep, whether or not the owl is running. There is no second
+  code path for "the owl is down", because there is no first one.
+
+  It writes on every turn that ended. A turn with a subagent still out has not
+  ended — Claude Code will wake this session when the subagent reports — and
+  that one is passed over in silence (ADR-0052).
 
   It does not classify. The marker is read by the owl on collection (ADR-0009),
   so a message with no marker is written exactly like one with a `done` in it:
@@ -35,9 +38,9 @@ defmodule Whiska.Hook.Stop do
   @spec run(String.t()) :: :ok
   def run(raw_payload) do
     with {:ok, payload} <- decode(raw_payload),
-         :over <- turn_state(payload),
          {:ok, cwd} <- fetch_cwd(payload),
          {:ok, layout} <- Layout.resolve(cwd),
+         :over <- turn_state(payload),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
          {:ok, _file} <- leave(layout, mouse_id, message(payload)) do
       :ok

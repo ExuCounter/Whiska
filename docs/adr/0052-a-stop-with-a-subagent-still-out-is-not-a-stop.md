@@ -28,20 +28,35 @@ transcript on 2026-09-29 (`~/.claude/projects/…/29421db1-….jsonl`):
 
 - A background `Agent` call gets its `tool_result` within milliseconds. It carries no
   result, only `agentId: <id>` and "the agent is working in the background".
-- The report arrives later as a user entry whose content is text: `<agent-message
-  from="<id>">` followed by `[Subagent hand-back]`.
+- The report arrives later as a user entry Claude Code stamps
+  `origin: {"kind": "peer", "handback": true, "from": "<id>"}`.
 
 An id launched and not handed back is a subagent still out. **A pending `tool_use` is
 therefore the wrong signal** — the obvious reading, and the one this work started from.
 Every `Agent` call has a result almost immediately; what is pending is the hand-back.
 
+**Both ends are read structurally, because prose in a transcript is not evidence.** A
+`tool_result` counts as a launch only when it answers an `Agent` call seen in the same
+tail — otherwise any shell output, fetched page or file that happened to contain a line
+reading `agentId: something` would register a launch that could never be handed back, and
+silence the mouse for hours. The hand-back is read from `origin` rather than from the
+frame in the text, with the frame kept only as a fallback for a transcript that carries no
+`origin`.
+
+**A turn the person started clears the accounting.** `origin: {"kind": "human"}` — they
+typed. Whatever was out at that moment they may well have interrupted, and an agent that
+will never report must not be able to hold a mouse silent indefinitely. The cost is that a
+person who types while reviewers really are running gets the next stop delivered; that is
+noise, which is the direction this whole decision fails in on purpose.
+
 **Only the mouse's own entries count.** A subagent's entries are marked `isSidechain`, and
 what it launches is its own business.
 
-**Unreadable means deliver.** A missing `transcript_path`, a file that is gone, a line that
-will not parse, a tail that starts after the launch — every one of them counts as nothing
-out, and the stop is written as it always was. This is ADR-0009's direction held: being
-wrong towards noise costs a ping, being wrong towards silence loses a mouse.
+**Unreadable means deliver.** A missing `transcript_path`, a file that is gone, a path that
+is not a plain file, a line that will not parse, a tail that starts after the launch —
+every one of them counts as nothing out, and the stop is written as it always was. This is
+ADR-0009's direction held: being wrong towards noise costs a ping, being wrong towards
+silence loses a mouse.
 
 ## Consequences
 
@@ -52,12 +67,16 @@ narrower — *did this turn end?* — and it decides it from a fact in Claude Co
 rather than from the text of the message. A hook reading the message to guess whether the
 mouse meant to stop is exactly the heuristic ADR-0009 refuses, and is not what this is.
 
-**A subagent that never reports takes its mouse with it.** If Claude Code loses a handback,
-the mouse stops and nothing is written, so the person hears nothing until they look. This
-is the one case where the rule points at silence, and it is accepted rather than guarded:
-the backstop (ADR-0008's sweeper) sees no entry to collect, so there is nothing to catch.
-If it proves real, the answer is a deadline — an entry written anyway once a launch is old
-enough — and not a reading of the message.
+**A subagent that never reports takes its mouse with it, until the person types.** A lost
+hand-back, an agent that errors out, an interrupted turn: the launch stays unmatched and
+every stop after it is swallowed. Nothing catches that — the backstop sees no entry to
+collect. Two things bound it rather than fix it: the person's next prompt clears the
+accounting, and the launch scrolls out of the tail. If it proves real beyond that, the
+answer is a deadline — an entry written anyway once a launch is old enough — and not a
+reading of the message.
+
+**The check runs only for a mouse.** It sits after the worktree has been resolved, so the
+main session and any repo Whiska is merely installed in read no transcript at all.
 
 **Only the tail is read, and generously: 512 KB.** `Stop` fires once per turn, not every
 two seconds like the board (ADR-0050), so the budget can be large enough to hold a whole
@@ -67,8 +86,10 @@ direction above.
 **The transcript is load-bearing in a second place now.** ADR-0050 already accepted that
 the format is somebody else's and can change under us; there the cost was an empty column
 on the board. Here the cost is this bug coming back — a Claude Code release that renames
-`agentId` or reframes the hand-back makes every mid-turn stop a question again. Loud, not
-silent, and the same failure that exists today.
+`agentId` or drops `origin` makes every mid-turn stop a question again. Loud, not silent,
+and the same failure that exists today. The one shape that would fail the other way is a
+launch Whiska can still see paired with a hand-back it no longer recognises, which is why
+the hand-back is read two ways and the person's prompt clears the slate.
 
 **`Whiska.Transcript` is now the one reader of Claude Code's JSONL.** The folder name, the
 tail and this test live there; `Whiska.Watch.Transcript` keeps the board's reading of it and

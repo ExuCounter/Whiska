@@ -188,3 +188,16 @@ source of truth and the datagram would only ever be a hint to collect sooner.
 **Watching the filesystem** (FSEvents). Near-instant, but watchers miss events under load
 and need a periodic reconcile anyway — so the backstop gets built regardless, and the watcher
 is a second mechanism earning little.
+
+## Note, 2026-09-29: "every time" means every turn that ended
+
+The decision above says the hook writes "every time, unconditionally, whether or not the
+owl is running", and its earlier note re-asserts that. ADR-0052 narrows it in one place and
+one only: a turn with a background subagent still out has not ended, so nothing is written
+and the hook exits quietly.
+
+What the sentence was defending is untouched. There is still no second code path for a
+missing owl, no socket, no retry, and nothing about the state of the house changes what the
+hook does. The condition is about whether the turn happened at all, read from Claude Code's
+own transcript, and every way of failing to read it counts as "it happened" — so the hook
+still writes whenever there is any doubt.

@@ -87,38 +87,43 @@ defmodule Whiska.Hook.StopTest do
   describe "a stop with a subagent still out (ADR-0052)" do
     defp transcript(worktree, lines) do
       path = Path.join(worktree, "transcript.jsonl")
-      File.write!(path, Enum.join(lines, "\n"))
+      File.write!(path, lines |> List.flatten() |> Enum.join("\n"))
       path
     end
 
     defp launched(agent_id) do
-      JSON.encode!(%{
-        "type" => "user",
-        "message" => %{
-          "content" => [
-            %{
-              "tool_use_id" => "toolu_1",
-              "type" => "tool_result",
-              "content" => [
-                %{
-                  "type" => "text",
-                  "text" => "Async agent launched successfully.\nagentId: #{agent_id}\n"
-                }
-              ]
-            }
-          ]
-        }
-      })
+      [
+        JSON.encode!(%{
+          "type" => "assistant",
+          "message" => %{
+            "content" => [%{"type" => "tool_use", "id" => "toolu_1", "name" => "Agent"}]
+          }
+        }),
+        JSON.encode!(%{
+          "type" => "user",
+          "message" => %{
+            "content" => [
+              %{
+                "tool_use_id" => "toolu_1",
+                "type" => "tool_result",
+                "content" => [
+                  %{
+                    "type" => "text",
+                    "text" => "Async agent launched successfully.\nagentId: #{agent_id}\n"
+                  }
+                ]
+              }
+            ]
+          }
+        })
+      ]
     end
 
     defp handed_back(agent_id) do
       JSON.encode!(%{
         "type" => "user",
-        "message" => %{
-          "content" =>
-            "Another Claude session sent a message:\n<agent-message from=\"#{agent_id}\">\n" <>
-              "[Subagent hand-back] nothing to change\n"
-        }
+        "origin" => %{"kind" => "peer", "from" => agent_id, "handback" => true},
+        "message" => %{"content" => "[Subagent hand-back] nothing to change"}
       })
     end
 
