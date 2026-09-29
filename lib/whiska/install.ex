@@ -479,6 +479,25 @@ defmodule Whiska.Install do
      """}
   ]
 
+  # The three worktree skills (ADR-0046). Unlike the two above, these wrap
+  # `herdr` rather than `whiska` — they are the half of the protocol that
+  # creates a mouse and takes it down again, and Whiska ships them because
+  # Whiska is what the protocol is for. ADR-0021 stands: there is still no
+  # `whiska spawn`, and spawning still happens through a conversation.
+  #
+  # Read from the committed files at compile time rather than written out here.
+  # They are long prose, this repo uses them itself, and one source of truth is
+  # the only way the shipped copy and the committed copy cannot drift.
+  @worktree_skills ~w(spawn-worktree send-to-worktree drop-worktree)
+
+  for name <- @worktree_skills do
+    @external_resource ".claude/skills/#{name}/SKILL.md"
+  end
+
+  @worktree_skill_files for name <- @worktree_skills,
+                            path = ".claude/skills/#{name}/SKILL.md",
+                            do: {path, File.read!(path)}
+
   @doc """
   The shell that finds the whiska binary: `WHISKA_BIN`, then `PATH`, then
   `~/.local/bin`. Shared by the shim, the statusline script and the owl's
@@ -565,9 +584,15 @@ defmodule Whiska.Install do
   @spec statusline_refresh_interval() :: pos_integer()
   def statusline_refresh_interval, do: @statusline_refresh_interval
 
-  @doc "The slash-command skills `whiska init` writes, as `{path, contents}` (ADR-0022)."
+  @doc """
+  The skills `whiska init` writes, as `{path, contents}`.
+
+  Two kinds, and both are one skill per fixed command rather than bash the model
+  composes itself (ADR-0022): the reading skills that wrap `whiska`, and the
+  three worktree skills that wrap `herdr` (ADR-0046).
+  """
   @spec skills() :: [{Path.t(), String.t()}]
-  def skills, do: @skills
+  def skills, do: @skills ++ @worktree_skill_files
 
   @doc """
   Merge Whiska's hook into an existing settings map.

@@ -43,6 +43,17 @@ defmodule Whiska.Question.Marker do
     end
   end
 
+  @doc """
+  The literal marker for a status, for telling a mouse what to write.
+
+  The CLAUDE.md block quotes this rather than spelling it out again
+  (`Whiska.ClaudeMd`), so what a mouse is told to write and what `classify/1`
+  reads back cannot drift apart.
+  """
+  @spec render(:done | :needs_decision) :: String.t()
+  def render(:done), do: "[worktree-status: done]"
+  def render(:needs_decision), do: "[worktree-status: needs-decision]"
+
   defp kind("done"), do: "done"
   defp kind("needs-decision"), do: "needs-decision"
   defp kind(_), do: "unmarked"

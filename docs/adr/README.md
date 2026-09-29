@@ -13,6 +13,7 @@ individually citable decisions.
 - [0020](0020-mice-stay-herdr-panes.md) — Mice stay herdr panes; Whiska never owns Claude Code directly
 - [0017](0017-judgment-lives-in-claude-md.md) — All judgment lives in CLAUDE.md; Whiska stays dumb
 - [0016](0016-hooks-and-rules-are-per-project.md) — Hooks and rules are per-project, not global
+- [0045](0045-the-claude-md-block-is-a-nest-of-named-parts.md) — The CLAUDE.md block is a nest of named parts, and a part can be claimed
 - [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
 
 ## Identity and security
@@ -61,6 +62,7 @@ individually citable decisions.
 - [0004](0004-domain-names-house-and-owl.md) — The per-repo slice is a "house", the machine-wide process an "owl"
 - [0021](0021-no-whiska-spawn-command.md) — No `whiska spawn` command — spawning happens through a conversation
 - [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash
+- [0046](0046-whiska-ships-the-worktree-skills.md) — Whiska ships the worktree skills, because Whiska owns the protocol
 - [0027](0027-statusline-detail-for-one-count-for-many.md) — Statusline shows detail for one thing, a count for many
 - [0038](0038-the-doctor-checks-and-probes-it-never-repairs.md) — The doctor checks and probes; it never repairs
 - [0043](0043-whiska-jump-moves-the-persons-focus.md) — `whiska jump` moves the person's focus, and lands on the house's main session

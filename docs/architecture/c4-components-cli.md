@@ -24,6 +24,7 @@ C4Component
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
     Component(install, "Install", "pure merge", "Writes the hooks, the review loop, the statusline and the skills into .claude/")
+    Component(claudemd, "ClaudeMd", "pure merge", "The worktree protocol block, merged into CLAUDE.md one named part at a time")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question and per uncollected doorstep entry, oldest first, each with its mouse pane")
     Component(statusline, "Statusline", "one line", "Owl always, whiskas headcount, mice here, questions here, whiskas waiting elsewhere")
@@ -47,6 +48,7 @@ C4Component
   Rel(main, hook, "Delegates the hook command")
   Rel(main, install, "Delegates init")
   Rel(install, loop, "Writes it once, only when missing")
+  Rel(main, claudemd, "init: merges the block into CLAUDE.md")
   Rel(main, questions, "Delegates questions")
   Rel(main, statusline, "Delegates statusline")
   Rel(statusline, questions, "Reads this house's summary")
@@ -148,6 +150,17 @@ out the house, writes the whole final message to the doorstep and exits — unco
 Elixir despite ADR-0033 saying hooks go native, and that is written down in the ADR rather
 than drifted into: the measurement there is about the per-tool-call path, and `Stop` fires
 once per turn.
+
+**`ClaudeMd` merges the block one named part at a time, and the file stays the person's**
+(ADR-0045). The outer `<!-- whiska:start -->` pair bounds what Whiska will touch at all;
+inside it each part has its own named pair, and `init` replaces a part where it stands,
+adds one whose markers are absent, and reads straight past one whose start marker says
+`keep`. Everything else in the file — including the person's own prose sitting between
+two parts — comes back byte for byte. It is the opposite trade from `review-loop.sh`
+below, and for one reason: the loop has no way to say which part of itself is the
+person's, and the block does. The marker text it writes is interpolated from
+`Question.Marker.render/1` rather than spelled out again, so what a mouse is told to
+write and what the owl reads back cannot drift.
 
 **`review-loop.sh` is the repo's, and nothing in the escript reads it** (ADR-0042).
 `Install` writes it once, only when it is missing, and the repo owns the check command

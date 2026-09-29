@@ -114,3 +114,93 @@ would be the wrong trade, and both skills are reflective — they read what land
 The global `CLAUDE.md` still applies in full: TDD is mandatory (failing test first),
 never claim "done" without running it, and use the gate for pushing committed work where
 one is set up. Nothing in this file overrides those.
+
+The worktree protocol is no longer among them. It is the block below, written by
+`whiska init` (ADR-0045) — this repo runs on the same block it ships.
+
+<!-- whiska:start -->
+<!-- Whiska wrote this block (`whiska init`). Each part below is replaced in
+     place on the next run and nothing outside the markers is touched. To keep
+     a part as your own, add `keep` to its start marker — `<!-- whiska:NAME:start
+     keep -->` — and Whiska will never rewrite it again. See Whiska ADR-0045. -->
+
+<!-- whiska:worktrees:start -->
+## Worktrees
+
+When the person describes a real feature or fix — one that touches several files or
+takes more than a few minutes — the work goes to a mouse, not to this session.
+
+1. **Check for an existing worktree first — before anything else, grilling included.**
+   Run `herdr worktree list` right away. git cannot have two worktrees on one branch
+   anyway, so the real question is whether this idea continues a feature a mouse is
+   already building (a sub-part, refinement or follow-up that would ship on the same
+   branch and PR) or is a separate, independently-shippable unit of work.
+   - Continues an existing worktree → use `send-to-worktree` to route the raw idea
+     into that mouse right now. Let it grill the person further if it needs to; do
+     not grill here first, and do not read any code here first.
+   - A separate unit of work, or nothing running matches → step 2.
+   - Unclear which → ask the person directly, do not guess.
+2. **Spawn the worktree immediately** with `spawn-worktree` — before anything else,
+   even before reading any code, and even when the brief is still vague. Do not grill
+   in the main session first: a thin brief is not a reason to keep this terminal
+   busy. Whatever branch name the raw request suggests will do; it need not be final.
+3. **If the brief is thin, grill from inside the worktree.** The mouse does that, not
+   this session — what "done" looks like, which part of the app, what data it uses,
+   the edge cases — and ends each round with the worktree-status marker, so the
+   question reaches the person the way every other one does. All the investigation
+   happens there too, not just the eventual edits, so the main session never runs a
+   single command for this task and stays free for something else.
+4. **A frontend change gets previewed before it gets built.** That happens in the
+   worktree too, and the response body and its marker carry the link to the preview.
+
+This applies whenever `HERDR_ENV=1`. Outside a herdr session `spawn-worktree`'s own
+preconditions refuse, so grill and work in the current checkout instead. Skip steps 2
+and 3 for a small contained edit — a one-line config tweak, a quick question that
+turns into a quick fix — or when the person says to work in place.
+
+Once the work is merged, `drop-worktree` cleans up. The next mouse gets a fresh
+worktree off the latest base branch; an old tree is never reused.
+<!-- whiska:worktrees:end -->
+
+<!-- whiska:marker:start -->
+## Worktree status marker
+
+A mouse — a session running inside a spawned or routed worktree, never the person's
+main session — ends every response with one plain marker line, so what happened is on
+the record rather than guessed from a screen-detected idle state. Whiska reads exactly
+this marker to classify the turn, so the spelling matters:
+
+- `[worktree-status: done]` — the task is fully finished and nothing is needed from
+  the person.
+- `[worktree-status: needs-decision] <a short pointer, in one line>` — stopping
+  because only the person can decide something. A single short question goes right
+  there. A grilling round with several questions says something like "3 questions
+  ready, see above" and leaves the questions themselves in the response body.
+
+Always the last line, always exactly one of the two. The main session never writes one
+— only a mouse does. A turn that forgets it is delivered anyway, as an unmarked
+question, which is the loud direction on purpose.
+<!-- whiska:marker:end -->
+
+<!-- whiska:delivery:start -->
+## How a mouse's question reaches the person
+
+A mouse leaves its whole final message on this house's doorstep. The owl collects it
+and delivers a one-line pointer into the main session — once the repo has been
+`whiska init`-ed, the owl is running, and a main session is recorded; `whiska doctor`
+says which of those is missing. The person reads the message with
+`whiska questions <id>` and answers it with `whiska reply <id>`. Two rules follow for
+a mouse:
+
+- **Put the complete content in the response body** — every question, every option,
+  every recommendation, spelled out. The whole final message is what gets stored; the
+  marker is only the pointer to it.
+- **Make the body self-contained.** Whoever reads it is sitting in a different
+  terminal with none of this session's scrollback, possibly much later.
+
+Never ask the main session to read a mouse's pane, and never expect it to. Claude Code
+runs on the terminal's alternate screen, so `herdr pane read` comes back with a
+truncated tail no matter what `--lines` it is given. Storing the whole message is what
+makes that irrelevant.
+<!-- whiska:delivery:end -->
+<!-- whiska:end -->
