@@ -198,6 +198,17 @@ directly, so whether the owl is awake changes nothing about what the mouse does.
 _Avoid_: spool, outbox, queue (the delivery queue is a different thing — the doorstep is
 what a question sits on before it ever reaches that queue), larder, inbox
 
+**In flight**:
+Said of a background subagent a mouse launched and has not been handed the report of.
+Claude Code ends the mouse's turn while one is out and wakes the session when it reports,
+so the `Stop` hook fires on a turn that is not over: with anything in flight it writes
+nothing at all, and the doorstep never hears about it (ADR-0052). Read from the mouse's
+own transcript, and structurally: a `tool_result` answering an `Agent` call gives the id,
+the hand-back that clears it is stamped on the entry, and a turn the person typed clears
+whatever was out. Never read from what the mouse said.
+_Avoid_: running, pending, busy, mid-turn (all of them describe the mouse, and it is the
+subagent that is out)
+
 **Collection**:
 The owl taking what a mouse left on the doorstep. Overwhelmingly event-driven — herdr
 reports a mouse has gone idle and the owl collects that house then — with a slow timer only

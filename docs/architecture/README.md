@@ -59,7 +59,11 @@ per mouse of this repo — its branch, what its pane is doing, and either the qu
 waiting on the person or its last action, read from the mouse's own transcript. The house
 renders it into `~/.whiska/board/` and the script prints that file, so the line starts
 nothing and carries no owl (ADR-0051, ADR-0050, ADR-0048 and its amendment, ADR-0027,
-ADR-0044).
+ADR-0044). Then the `Stop` hook reading the turn before it records it: the finish pipeline
+sends its reviewers off as background subagents and Claude Code ends the mouse's turn
+while they run, so the hook reads the tail of the transcript it is handed and writes
+nothing at all while an agent it launched has not handed its report back — every one of
+those endings used to arrive as an unmarked question that asked nothing (ADR-0052).
 Nothing in Whiska types into a session that is not its own house's main session any more
 — a short-lived cross-house nudge did, as a user turn the other Claude could not tell
 from a prompt, and ADR-0044 deleted it. Then the `CLAUDE.md` block, which is the other half of

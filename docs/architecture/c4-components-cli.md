@@ -18,6 +18,7 @@ C4Component
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
     Component(layout, "Layout", "path arithmetic", "Finds worktree root and main checkout")
     Component(markerm, "Marker", "identity", "Reads or mints the mouse_id")
+    Component(tx, "Transcript", "reader", "Claude Code's JSONL: its tail, and whether a subagent is still out")
     Component(mainrule, "Rule.MainCheckout", "rule", "No edits outside the mouse's worktree")
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
@@ -42,6 +43,7 @@ C4Component
 
   Rel(shim, main, "Execs", "JSON on stdin")
   Rel(main, stop, "Delegates the stop hook")
+  Rel(stop, tx, "Is this turn over, or is a reviewer still out?")
   Rel(stop, layout, "Which house does this worktree belong to?")
   Rel(stop, doorstep, "Writes one entry, then exits")
   Rel(main, hook, "Delegates the hook command")

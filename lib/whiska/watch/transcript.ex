@@ -21,6 +21,7 @@ defmodule Whiska.Watch.Transcript do
   """
 
   alias Whiska.LaunchAgent
+  alias Whiska.Transcript
   alias Whiska.Watch.Text
 
   @typedoc "The phrase a row shows: a tool call, the last thing said, or nothing."
@@ -48,24 +49,16 @@ defmodule Whiska.Watch.Transcript do
 
     case newest_transcript(project_dir(worktree_root, home)) do
       nil -> nil
-      file -> file |> tail() |> last_action(worktree_root)
+      file -> file |> Transcript.tail(@tail_bytes) |> last_action(worktree_root)
     end
   end
 
   @doc """
-  Claude Code's own folder for a working directory: every character that is not
-  a letter or a digit replaced by a dash, one for one.
-
-  Checked against a real `~/.claude/projects` on 2026-09-29 — `~/.herdr/worktrees/x`
-  is recorded as `--herdr-worktrees-x`, the dot and the slash each becoming
-  their own dash, so the replacement collapses nothing.
+  Claude Code's own folder for this worktree — `Whiska.Transcript.project_dir/2`,
+  kept here because this module is where the board reaches for it.
   """
   @spec project_dir(Path.t(), Path.t()) :: Path.t()
-  def project_dir(worktree_root, user_home) do
-    slug = String.replace(Path.expand(worktree_root), ~r/[^A-Za-z0-9]/, "-")
-
-    Path.join([user_home, ".claude", "projects", slug])
-  end
+  defdelegate project_dir(worktree_root, user_home), to: Transcript
 
   @doc """
   The last action in a transcript's text. Pure, and total: anything it cannot
@@ -190,35 +183,6 @@ defmodule Whiska.Watch.Transcript do
     case File.stat(path, time: :posix) do
       {:ok, %File.Stat{mtime: mtime}} -> mtime
       {:error, _gone} -> 0
-    end
-  end
-
-  # The tail, with the first line dropped when it may have been cut in half.
-  defp tail(path) do
-    with {:ok, %File.Stat{size: size}} <- File.stat(path),
-         {:ok, io} <- File.open(path, [:read, :binary]) do
-      try do
-        from = max(size - @tail_bytes, 0)
-        :file.position(io, {:bof, from})
-        read_from(io, from)
-      after
-        File.close(io)
-      end
-    else
-      _gone -> ""
-    end
-  end
-
-  defp read_from(io, from) do
-    case IO.binread(io, :eof) do
-      text when is_binary(text) and from > 0 ->
-        text |> String.split("\n", parts: 2) |> Enum.at(1, "")
-
-      text when is_binary(text) ->
-        text
-
-      _empty ->
-        ""
     end
   end
 end

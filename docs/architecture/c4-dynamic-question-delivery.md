@@ -1,7 +1,8 @@
 # Dynamic — a question from doorstep to answer
 
 **All of this is built and tested**: the doorstep and collection (ADR-0036),
-classification (ADR-0009), the idle-gated delivery queue (ADR-0008) with its hold while
+classification (ADR-0009), the hook's reading of the transcript before it writes anything
+(ADR-0052), the idle-gated delivery queue (ADR-0008) with its hold while
 the person is typing (ADR-0047), and the reply keyed to a question id (ADR-0005). Shown as a dynamic diagram because the ordering is the
 design. Nothing here crosses into another repo: the nudge that once did was deleted by
 ADR-0044.
@@ -18,6 +19,7 @@ C4Dynamic
   Container_Ext(mousepane, "Mouse", "Claude Code in a herdr pane", "Just finished a turn")
   Container_Ext(herdr, "herdr", "Multiplexer", "Reports agent status from a real hook")
   Container_Ext(mainpane, "Main session", "Claude Code", "The pane whiska start ran in")
+  ContainerDb_Ext(jsonl, "Session transcript", "JSONL in ~/.claude/projects", "Claude Code writes it as the turn runs")
 
   Container_Boundary(owl, "Owl") {
     Component(doorstep, "Doorstep", "directory", "Uncollected entries")
@@ -27,7 +29,8 @@ C4Dynamic
 
   ContainerDb(db, "House database", "SQLite", "questions")
 
-  Rel(mousepane, doorstep, "End of a turn: the stop hook writes a file and exits")
+  Rel(mousepane, jsonl, "End of a turn: the stop hook reads the tail. A subagent still out and it writes nothing")
+  Rel(mousepane, doorstep, "Otherwise the turn is over: write a file and exit")
   Rel(herdr, collection, "Reports that mouse done or idle")
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by marker")
@@ -46,7 +49,15 @@ brief, checks, reviewers, one more round — and only then writes the marker (AD
 Nothing sits in front of the stop hook, and nothing in Whiska knows whether that pipeline
 ran.
 
-## Step 1 — the hook never opens a socket (ADR-0036)
+## Steps 1–2 — the hook reads the turn, then writes, and never opens a socket
+
+A background subagent ends the mouse's turn every time the mouse waits on one, and the
+finish pipeline sends three (ADR-0049). So the hook's first act is to read the tail of
+the transcript Claude Code hands it: an agent launched with no hand-back against it means
+the turn is not over, and the hook exits quietly with nothing written (ADR-0052). Anything
+it cannot read counts as over, so the direction it fails in is noise rather than silence.
+
+Then it writes, and that write never opens a socket (ADR-0036).
 
 The obvious design connects to the house's socket, and then has to answer what happens
 when nothing is listening. The spec required that case to "fail loudly", but loudly has
@@ -55,7 +66,7 @@ transcript, seen by the mouse and nobody else. So the hook writes to the doorste
 exits, every time. No connect timeout, no retry, no error handling, and no second code
 path that differs between a healthy machine and a broken one.
 
-## Steps 2–3 — collection is event-driven, not a sweep
+## Steps 3–4 — collection is event-driven, not a sweep
 
 herdr reporting a mouse `done` or `idle` is what triggers collection of that house;
 opening the house collects too, and a slow timer is only a backstop. An idle collection
@@ -65,7 +76,7 @@ after 2 s and 5 s, and stops as soon as anything is found. Because
 each pane's `cwd` to a mouse's worktree to learn which panes are its own. Collection reads
 and marks — it never deletes and never touches the worktree (ADR-0007).
 
-## Step 4 — classification is the mouse's marker, nothing more (ADR-0009)
+## Step 5 — classification is the mouse's marker, nothing more (ADR-0009)
 
 No heuristics, no model reading the text. **A marker is required to be quiet, not to be
 heard:**
@@ -98,7 +109,7 @@ whole session and runs it on its own timer, reading every recorded house off dis
 needs nothing from any other house. Nothing in this flow reaches out of the repo it
 started in.
 
-## Steps 5–7 — a queue, not a batch (ADR-0008)
+## Steps 6–8 — a queue, not a batch (ADR-0008)
 
 Deliver only when the main session is idle *and* has no other question sent and waiting
 for its answer. Anything else joins the pile silently. That single rule, not a timer, is
@@ -126,7 +137,7 @@ in it holds the question — open, first in the queue, gone on the next trigger 
 box clears — and `whiska doctor` says `held: person is typing` meanwhile. A screen with
 no box on it is an unavailable signal, and delivers for the reason above.
 
-## Steps 8–9 — answers are keyed to a question id (ADR-0005)
+## Steps 9–10 — answers are keyed to a question id (ADR-0005)
 
 Not to a branch. That is what stops an answer landing on whichever question Whiska
 happened to guess. `whiska reply <id>` writes the answer to the house; the owl looks up
