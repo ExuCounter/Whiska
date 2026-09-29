@@ -141,21 +141,24 @@ defmodule Whiska.CLIQuestionsTest do
       :ok
     end
 
-    test "prints the machine-wide line and nothing else", %{main: main} do
+    test "prints the machine-wide line and nothing else — two questions in one repo are one whiska",
+         %{
+           main: main
+         } do
       seed(main, fn ->
         ask("a")
         ask("b")
       end)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
-      assert after_owl(out) == " · 🐱 2 waiting\n"
+      assert after_owl(out) == " · 🐱 myrepo\n"
     end
 
-    test "one thing waiting is named by its branch", %{main: main} do
+    test "one whiska waiting is named by its repo (ADR-0048 note)", %{main: main} do
       seed(main, fn -> ask("[worktree-status: needs-decision] pick one") end)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
-      assert after_owl(out) == " · 🐱 feat-a\n"
+      assert after_owl(out) == " · 🐱 myrepo\n"
     end
 
     test "prints only the owl when nothing is waiting (ADR-0027 addendum)", %{main: main} do
@@ -172,7 +175,7 @@ defmodule Whiska.CLIQuestionsTest do
       File.mkdir_p!(plain)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], plain) == 0 end)
-      assert after_owl(out) == " · 🐱 feat-a\n"
+      assert after_owl(out) == " · 🐱 myrepo\n"
     end
   end
 end

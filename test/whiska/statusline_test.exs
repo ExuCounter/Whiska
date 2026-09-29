@@ -98,7 +98,7 @@ defmodule Whiska.StatuslineTest do
       leave(main, "feat-a", "old", 120)
       leave(main, "feat-b", "newer", 90)
 
-      assert line([], record) == "🦉 owl down · 🐱 2 waiting"
+      assert line([], record) == "🦉 owl down · 🐱 myrepo"
     end
 
     test "a doorstep entry younger than the backstop is the normal race, not an outage", %{
@@ -107,18 +107,22 @@ defmodule Whiska.StatuslineTest do
     } do
       leave(main, "feat-a", "just left", 2)
 
-      assert line([], record) == "🦉 watching · 🐱 feat-a"
+      assert line([], record) == "🦉 watching · 🐱 myrepo"
     end
   end
 
   describe "what is waiting, machine-wide (ADR-0048)" do
-    test "one thing waiting is named by its mouse's branch", %{main: main, record: record} do
+    test "one whiska with something waiting is named by its repo", %{main: main, record: record} do
+      # The person jumps to a whiska, never straight to a mouse (ADR-0043), so
+      # the name on the bar is the repo's, and two questions in one repo are
+      # still one place to go.
       seed(main, "feat-auth", &ask(&1, "[worktree-status: needs-decision] pick one"))
+      seed(main, "feat-rates", &ask(&1, "and this"))
 
-      assert line([], record) == "🦉 watching · 🐱 feat-auth"
+      assert line([], record) == "🦉 watching · 🐱 myrepo"
     end
 
-    test "several become a count, across every house the owl has open", %{
+    test "several whiskas become a count of whiskas, not of questions", %{
       root: root,
       main: main,
       record: record
@@ -128,7 +132,7 @@ defmodule Whiska.StatuslineTest do
       seed(other, "feat-rates", &ask(&1, "b"))
       leave(other, "feat-rates", "c", 5)
 
-      assert line([], record) == "🦉 watching · 🐱 3 waiting"
+      assert line([], record) == "🦉 watching · 🐱 2 whiskas"
     end
 
     test "a house with nothing waiting adds nothing", %{root: root, record: record} do
@@ -153,7 +157,7 @@ defmodule Whiska.StatuslineTest do
       seed(main, "feat-auth", &ask(&1, "a"))
       leave(other, "feat-rates", "b", 5)
 
-      assert line([owl_pids: fn -> [] end], record) == "🦉 owl down · 🐱 2 waiting"
+      assert line([owl_pids: fn -> [] end], record) == "🦉 owl down · 🐱 2 whiskas"
     end
   end
 

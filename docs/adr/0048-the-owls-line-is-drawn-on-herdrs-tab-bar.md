@@ -135,3 +135,14 @@ has no such key. Not an option, not a trade.
 **Keep `🐭 N mice` on the tab bar.** Rejected: herdr's sidebar is two inches away
 and already shows each agent pane's state, one row each, which is strictly more
 than a count.
+
+## Note, 2026-09-29: counted by whiska, not by question
+
+The waiting segment counted questions (`🐱 3 waiting`) and named one by its mouse's
+branch. The person read "5 waiting" as five repos and asked. What the bar is for is
+"how many places need me", and a place is a whiska (ADR-0043: a jump lands on a
+house's main session, never on a mouse). So the segment counts whiskas: one is named
+by its repo — `🐱 new-linkedin-plugin` — several are a count — `🐱 2 whiskas`. Two
+questions in one repo are one place to go. `whiska waiting` still lists every
+question; the bar is the coarser view of the same list.
+

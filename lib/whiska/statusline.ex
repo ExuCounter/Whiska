@@ -21,7 +21,7 @@ defmodule Whiska.Statusline do
     and sent questions plus the entries still on its doorstep, so the line and
     `whiska waiting` can never disagree about what "waiting" means. One thing
     is named by its mouse's branch, several become a count (ADR-0027's
-    one-or-many rule). Nothing waiting adds no segment.
+    one-or-many rule, counted by whiska, not by question). Nothing waiting adds no segment.
 
   There is no mice segment: herdr's own sidebar already shows every agent pane
   and its state, and repeating it on herdr's own tab bar is noise (ADR-0048).
@@ -84,7 +84,16 @@ defmodule Whiska.Statusline do
   defp owl_segment(:watching), do: "🦉 watching"
   defp owl_segment(:down), do: "🦉 owl down"
 
+  # Counted by whiska, not by question: the person jumps to a whiska, never
+  # straight to a mouse (ADR-0043), so what the bar answers is "how many places
+  # need me", and two questions in one repo are one place. One is named by its
+  # repo, several are a count (ADR-0027's one-or-many rule, ADR-0048 note).
   defp waiting_segment([]), do: nil
-  defp waiting_segment([one]), do: "🐱 #{one.branch}"
-  defp waiting_segment(many), do: "🐱 #{length(many)} waiting"
+
+  defp waiting_segment(waiting) do
+    case waiting |> Enum.map(& &1.repo) |> Enum.uniq() do
+      [one] -> "🐱 #{one}"
+      repos -> "🐱 #{length(repos)} whiskas"
+    end
+  end
 end
