@@ -118,11 +118,10 @@ defmodule Whiska.CLI do
                          from anywhere. `whiska doctor` prints the herdr config
                          entry that draws it.
 
-    statusline --here    Print this repo's own line, which the Claude Code
-                         statusline appends: what is waiting in this house —
-                         one thing named by its branch, several as a count —
-                         and how many mice are alive here. Nothing when the
-                         repo is quiet. `whiska init` wires it up.
+    statusline --here    Print this repo's board, the same one the Claude Code
+                         statusline draws, worked out now rather than read from
+                         the file the owl keeps. Nothing when the repo is
+                         quiet. `whiska init` wires it up.
 
     reply <id> <text>    Answer a question. The text is typed into that
                          mouse's pane, and the question is marked answered.
@@ -132,6 +131,13 @@ defmodule Whiska.CLI do
 
     mice                 List what is alive in this repo's house: one line per
                          mouse — branch, mode, what its pane is doing, uptime.
+
+    watch                Print this repo's board once: a row per mouse — its
+                         branch, what its pane is doing, and either the
+                         question waiting on you or its last action. The owl
+                         writes this every couple of seconds for the
+                         statusline to print; run it yourself when that looks
+                         wrong.
 
     doctor               Is Whiska working for this repo right now? Checks the
                          binary, runtime, herdr, owl, this repo's hooks and
@@ -219,6 +225,8 @@ defmodule Whiska.CLI do
   def run(["close", id], cwd), do: with_question(cwd, id, &close/1)
 
   def run(["mice"], cwd), do: mice(cwd || File.cwd!())
+
+  def run(["watch"], cwd), do: watch(cwd || File.cwd!())
 
   def run(["doctor"], cwd) do
     cwd = cwd || File.cwd!()
@@ -471,6 +479,37 @@ defmodule Whiska.CLI do
   end
 
   # Runs from the main checkout or any worktree; both name the same house.
+  defp watch(cwd) do
+    case main_checkout(cwd) do
+      {:ok, main} ->
+        board(main)
+
+      :error ->
+        IO.puts(
+          :stderr,
+          "whiska: #{cwd} is not a git checkout, and not inside a worktree of one."
+        )
+
+        1
+    end
+  end
+
+  # The board, computed now rather than read from the file the owl keeps
+  # (ADR-0051) — this is what somebody runs when the statusline looks wrong.
+  defp board(main) do
+    case Whiska.Watch.house(main) do
+      {:ok, board} ->
+        case Whiska.Watch.render(board) do
+          "" -> 0
+          lines -> say(lines)
+        end
+
+      {:error, reason} ->
+        IO.puts(:stderr, "whiska: could not reach this repo's house (#{inspect(reason)}).")
+        1
+    end
+  end
+
   defp mice(cwd) do
     case main_checkout(cwd) do
       {:ok, main} ->
@@ -840,17 +879,19 @@ defmodule Whiska.CLI do
     0
   end
 
-  # Repo-scoped, and works from a worktree of the house the way `whiska mice`
-  # does. Always 0 and never noisy: this runs on a timer in every session, and
-  # a directory with no house simply has nothing to say.
+  # A mouse's own session draws no board (ADR-0051), and this refuses there
+  # rather than leaving it to the script, so a repo still carrying the script an
+  # older `whiska init` wrote does not put the board in every mouse's pane.
+  # Always 0 and never noisy, whatever it finds: this runs on a timer wherever a
+  # session is sitting, and a statusline is no place to report a broken house.
   defp statusline_here(cwd) do
-    line =
-      case main_checkout(cwd) do
-        {:ok, main} -> Whiska.Statusline.render_house(Whiska.Statusline.house(main))
-        :error -> ""
-      end
+    with {:error, :not_in_worktree} <- Layout.resolve(cwd),
+         {:ok, main} <- main_checkout(cwd),
+         {:ok, board} <- Whiska.Watch.house(main),
+         lines when lines != "" <- Whiska.Watch.render(board) do
+      IO.puts(lines)
+    end
 
-    IO.puts(line)
     0
   end
 

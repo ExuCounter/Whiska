@@ -125,3 +125,10 @@ protocol, which Whiska owns; which branch-ending a person prefers is not protoco
 code reads the heading: the repo's `CLAUDE.md` is already in the main session's context,
 so this costs one paragraph of skill text and nothing else. If it later needs to be read
 by something other than the model, a part is still available.
+
+## Addendum (2026-09-29): a command nobody runs on the person's behalf gets none
+
+`whiska watch` ships without a skill (ADR-0051). The rule above exists so the main session
+never composes bash for a command it runs for the person; the board is drawn into their
+statusline, or typed by them into their own terminal, and the main session has no occasion
+to run it at all.

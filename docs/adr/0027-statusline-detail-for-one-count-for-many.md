@@ -1,5 +1,15 @@
 # Statusline shows detail when there is exactly one thing, a count otherwise
 
+**Partly superseded 2026-09-29 by
+[ADR-0051](0051-the-repo-scoped-statusline-is-a-board-the-owl-writes.md)**: this ADR's
+one-or-many rule governs herdr's tab bar, and no longer Claude Code's statusline. The
+repo-scoped line is a board now — a row per mouse, drawn from a file the owl writes —
+because the premise below that "one terminal line has room for one real phrase" was wrong
+about a statusline that renders as many lines as it is given. The mice segment and the
+repo-scoped question count go with it; the unbuilt one-mouse excerpt this ADR's addendum
+records is built, and is ADR-0050.
+
+
 One terminal line has room for one real phrase. So the statusline names the single case and
 falls back to a count beyond it — applied twice, the same way both times. One mouse alive
 shows its activity excerpt (`🐭 editing auth.ex`); two or more fall back to `🐭×3 · 🐱 2

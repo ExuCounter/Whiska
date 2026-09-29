@@ -14,7 +14,7 @@ ask herdr the same thing twice.
 **Stuck** means the pane is alive and Claude Code is running, but nothing is progressing.
 That is invisible to the same check, because the pane genuinely does exist. Detection
 reuses a signal that already exists — the last-tool-call excerpt from "knowing what a mouse
-is doing". If it has not changed in a long while *and* there is no open question waiting on
+is doing", which is built now and comes from the mouse's own transcript (ADR-0050). If it has not changed in a long while *and* there is no open question waiting on
 you (so it is not simply waiting for an answer), that is worth a look.
 
 ## Consequences

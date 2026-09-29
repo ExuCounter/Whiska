@@ -54,9 +54,12 @@ drawn once on herdr's tab bar, by a `tab_bar_right` command entry the person kee
 their own herdr config running the `~/.whiska/herdr-status.sh` that `whiska owl install`
 writes — the owl always, and what is waiting anywhere — with the doctor reading herdr's
 config and printing the entry to paste; the repo-scoped one is back in Claude Code's
-statusline, written by `whiska init` and redrawn every 15 seconds, saying what is waiting
-in this house and how many mice are alive here, and carrying no owl (ADR-0048 and its
-amendment, ADR-0027, ADR-0044).
+statusline and is now a board, written by `whiska init` and redrawn every 2 seconds: a row
+per mouse of this repo — its branch, what its pane is doing, and either the question
+waiting on the person or its last action, read from the mouse's own transcript. The house
+renders it into `~/.whiska/board/` and the script prints that file, so the line starts
+nothing and carries no owl (ADR-0051, ADR-0050, ADR-0048 and its amendment, ADR-0027,
+ADR-0044).
 Nothing in Whiska types into a session that is not its own house's main session any more
 — a short-lived cross-house nudge did, as a user turn the other Claude could not tell
 from a prompt, and ADR-0044 deleted it. Then the `CLAUDE.md` block, which is the other half of
@@ -67,7 +70,7 @@ touching the others and a part marked `keep` is the person's for good (ADR-0045,
 ADR-0017). It installs `spawn-worktree`, `send-to-worktree` and `drop-worktree` beside
 the reading skills, so the skills that create a mouse ship with the thing that tracks it
 (ADR-0046). Both used to live in one person's global `~/.claude/CLAUDE.md`, applying to
-every repo whether Whiska was there or not. 806 tests.
+every repo whether Whiska was there or not. 863 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;

@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (806 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (863 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -16,7 +16,8 @@ C4Container
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Committed hook shim; resolves runtime at fire time, fails open")
     Container(statusline, "herdr-status.sh", "bash", "Machine-level status script in ~/.whiska; herdr's tab bar runs it on a timer")
-    Container(repoline, "whiska-statusline.sh", "bash", "Committed statusline script; Claude Code runs it in this repo every 15 seconds")
+    Container(repoline, "whiska-statusline.sh", "bash", "Committed statusline script; Claude Code runs it in this repo every 2 seconds. Starts nothing - it prints the board file")
+    Container(board, "Board file", "text file, ~/.whiska/board/", "The rows of this repo's mice, rewritten by its house every 2 seconds")
     Container(cli, "whiska", "Elixir escript", "Hooks, init, mode - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
     Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection, delivery to the main session")
@@ -35,7 +36,9 @@ C4Container
   Rel(person, cli, "Runs whiska init / mode / owl / questions")
   Rel(herdr, statusline, "Tab bar runs it every 5 seconds and shows its last line")
   Rel(statusline, cli, "Runs whiska statusline")
-  Rel(repoline, cli, "Claude Code runs it in every session of this repo; it runs whiska statusline --here")
+  Rel(repoline, board, "Prints it, or nothing when it is over a minute old")
+  Rel(house, board, "Rewrites this repo's rows every 2 seconds")
+  Rel(cli, board, "watch renders the same rows now, without reading the file")
   Rel(cli, db, "questions, statusline and waiting read every recorded house")
   Rel(cli, doorstep, "questions, statusline and waiting count what is uncollected")
   Rel(cli, herdr, "mice list panes; doctor reads herdr's config for the tab bar entry")

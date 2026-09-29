@@ -56,7 +56,13 @@ defmodule Whiska.Owl.HouseTest do
 
   defp open(main, opts \\ []) do
     {id, opts} = Keyword.pop(opts, :id, House)
-    opts = Keyword.merge([main_checkout: main, herdr_socket: @socket, backstop_ms: 60_000], opts)
+
+    opts =
+      Keyword.merge(
+        [main_checkout: main, herdr_socket: @socket, backstop_ms: 60_000, board_ms: 60_000],
+        opts
+      )
+
     pid = start_supervised!(Supervisor.child_spec({House, opts}, id: id))
     House.sync(pid)
     pid
