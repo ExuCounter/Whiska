@@ -13,7 +13,9 @@ defmodule Whiska.Layout do
   directory owning nothing. Nothing about the shape of the tree says where the
   branch name ends, so the worktree root is the deepest directory between the
   container and the working directory that is a checkout of its own, recognised by
-  the `.git` file git writes into every linked worktree. With no such directory the
+  the `.git` file git writes into every linked worktree — the one pointing into the
+  main checkout's own `.git/worktrees/`, which is what tells a linked worktree apart
+  from a submodule carrying a `.git` file of the same shape. With no such directory the
   root is the one directly under the container, which is the flat case unchanged.
   The branch label is then the root's path relative to the container, so it reads
   back as `feat/csv-data-page`.
@@ -85,8 +87,21 @@ defmodule Whiska.Layout do
     |> Enum.find(shallowest, &checkout?/1)
   end
 
+  # A submodule's `.git` file has the same shape and points into `.git/modules/`,
+  # so the gitdir is read rather than only sniffed for.
   defp checkout?(dir) do
-    match?({:ok, %File.Stat{type: :regular}}, File.stat(Path.join(dir, ".git")))
+    case File.read(Path.join(dir, ".git")) do
+      {:ok, "gitdir:" <> gitdir} -> linked_worktree?(String.trim(gitdir), dir)
+      _ -> false
+    end
+  end
+
+  defp linked_worktree?(gitdir, dir) do
+    gitdir
+    |> Path.expand(dir)
+    |> Path.split()
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.any?(&(&1 == [".git", "worktrees"]))
   end
 
   @doc """

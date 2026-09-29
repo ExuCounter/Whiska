@@ -20,11 +20,18 @@ defmodule Whiska.LayoutTest do
     path
   end
 
-  # A git worktree checkout carries a `.git` *file* pointing at the main
-  # checkout's gitdir; a plain clone carries a `.git` directory.
+  # A git worktree checkout carries a `.git` *file* pointing into the main
+  # checkout's `.git/worktrees/`; a plain clone carries a `.git` directory, and a
+  # submodule a `.git` file pointing into `.git/modules/`.
   defp checkout(root, rel) do
     path = make(root, rel)
     File.write!(Path.join(path, ".git"), "gitdir: /somewhere/.git/worktrees/x\n")
+    path
+  end
+
+  defp submodule(root, rel) do
+    path = make(root, rel)
+    File.write!(Path.join(path, ".git"), "gitdir: ../../.git/modules/dep\n")
     path
   end
 
@@ -131,6 +138,35 @@ defmodule Whiska.LayoutTest do
       assert {:ok, layout} = Layout.resolve(worktree <> "/lib")
       assert layout.worktree_root == worktree
       assert layout.branch_label == "feat-thing"
+    end
+
+    test "a submodule inside a worktree is not the worktree root", %{root: root} do
+      main = make(root, "myrepo")
+      worktree = checkout(root, "myrepo/worktrees/feat/csv-data-page")
+      vendored = submodule(root, "myrepo/worktrees/feat/csv-data-page/vendor/dep")
+
+      assert {:ok, layout} = Layout.resolve(vendored)
+      assert layout.worktree_root == worktree
+      assert layout.main_checkout == main
+      assert layout.branch_label == "feat/csv-data-page"
+    end
+
+    test "a gitdir written relative still counts when it points at a worktree", %{root: root} do
+      path = make(root, "myrepo/worktrees/feat/relative")
+      File.write!(Path.join(path, ".git"), "gitdir: ../../../.git/worktrees/relative\n")
+
+      assert {:ok, layout} = Layout.resolve(path)
+      assert layout.branch_label == "feat/relative"
+    end
+
+    test "never takes a checkout above the container as the root", %{root: root} do
+      outer = checkout(root, "myrepo/worktrees/outer")
+      inner = make(root, "myrepo/worktrees/outer/worktrees/inner/lib")
+
+      assert {:ok, layout} = Layout.resolve(inner)
+      assert layout.worktree_root == Path.dirname(inner)
+      assert layout.main_checkout == outer
+      assert layout.branch_label == "inner"
     end
 
     test "a .git directory is a clone, not a worktree checkout", %{root: root} do

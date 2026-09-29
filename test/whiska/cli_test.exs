@@ -146,6 +146,19 @@ defmodule Whiska.CLITest do
       assert %{"hookSpecificOutput" => %{"permissionDecision" => "deny"}} = JSON.decode!(out)
     end
 
+    test "still denies a write into the main checkout", %{main: main, nested: nested} do
+      payload =
+        JSON.encode!(%{
+          "cwd" => nested,
+          "tool_name" => "Write",
+          "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+        })
+
+      out = capture_io(payload, fn -> assert CLI.run(["hook", "pre-tool-use"]) == 0 end)
+
+      assert %{"hookSpecificOutput" => %{"permissionDecision" => "deny"}} = JSON.decode!(out)
+    end
+
     test "allows a write inside its own worktree", %{nested: nested} do
       payload =
         JSON.encode!(%{
