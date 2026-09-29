@@ -1,5 +1,12 @@
 # The review loop is a Stop hook the repo owns, not a Whiska feature
 
+**Superseded on 2026-09-29 by [ADR-0049](0049-finishing-is-a-pipeline-the-mouse-runs.md).**
+There is no review loop. `whiska init` writes no `.claude/hooks/review-loop.sh`, the shim
+chains none, and what decides whether a turn is over is the `finish` part of the
+`CLAUDE.md` block — a pipeline the mouse runs itself before it writes the marker. A file
+already on disk stays there, unrun, and `whiska doctor` names it. Everything below is what
+this decision said, and is history.
+
 A mouse marking itself `done` is its own opinion, and ADR-0014 tried to answer that with
 `.whiska/checks.yml` — a check list Whiska would own, parse, run and report on, at push
 time. That is superseded. **What decides whether a turn is actually over is a Claude Code

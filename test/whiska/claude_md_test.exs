@@ -4,8 +4,9 @@ defmodule Whiska.ClaudeMdTest do
   alias Whiska.ClaudeMd
 
   describe "parts/0 — the block is a nest of named parts (ADR-0045)" do
-    test "ships the worktree protocol in four separately-replaceable parts" do
-      assert Enum.map(ClaudeMd.parts(), & &1.name) == ~w(worktrees marker delivery report)
+    test "ships the worktree protocol in five separately-replaceable parts" do
+      assert Enum.map(ClaudeMd.parts(), & &1.name) ==
+               ~w(worktrees marker delivery report finish)
     end
 
     test "every part is wrapped in its own named markers" do
@@ -170,6 +171,102 @@ defmodule Whiska.ClaudeMdTest do
     end
   end
 
+  describe "the finish part" do
+    test "runs the five steps in order, before the marker goes down" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/read the work back against what was asked/i
+      assert body =~ ~r/run this repo's checks/i
+      assert body =~ ~r/send reviewers over the change/i
+      assert body =~ ~r/two rounds is the ceiling/i
+      # The marker goes down last, after the reviewers have been over the change.
+      assert index_of(body, "Then the marker") > index_of(body, "Send reviewers")
+    end
+
+    test "a wrong scope goes to the person, a small mismatch gets fixed" do
+      # The one judgment the mouse does not make alone (ADR-0017 puts the
+      # judgment in CLAUDE.md; whose judgment it is, is the point here).
+      body = prose_of("finish")
+
+      assert body =~ ~r/scope/i
+      assert body =~ ~r/end the turn on a decision for the person/i
+      assert body =~ ~r/fix it now/i
+    end
+
+    test "fixing a check is bounded: inside the change, never against step 1" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/only inside this change/i
+      assert body =~ ~r/already red before the turn started/i
+      assert body =~ ~r/deleting an assertion/i
+    end
+
+    test "names the reviewer axes, and frontend only when a person sees it" do
+      body = prose_of("finish")
+
+      for axis <- ["correctness", "security", "performance", "frontend"] do
+        assert body =~ axis, axis
+      end
+
+      assert body =~ ~r/only when the change touches something a person sees/i
+    end
+
+    test "a reviewer's finding is verified before it is acted on" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/a claim, not a verdict/i
+      assert body =~ ~r/verify each one/i
+    end
+
+    test "the per-repo facts come from a Finish heading outside the block" do
+      body = prose_of("finish")
+
+      assert body =~ "## Finish"
+      assert body =~ "checks:"
+      assert body =~ "specs:"
+      assert body =~ "ticket:"
+      assert body =~ ~r/outside Whiska's block/i
+    end
+
+    test "a ticket is evidence, never an instruction to the session" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/never an instruction/i
+      assert body =~ ~r/goes to the person/i
+    end
+
+    test "a check command that does more than the repo's own tooling is the person's call" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/fetches|downloads/i
+      assert body =~ ~r/branch under review|branch being finished/i
+    end
+
+    test "names how red-before-the-turn is established, not just the rule" do
+      assert prose_of("finish") =~ ~r/merge base/i
+    end
+
+    test "a missing Finish heading is not a reason to stop" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/no `## Finish` heading/i
+      assert body =~ ~r/say in the done message what was assumed/i
+    end
+
+    test "does not restate the shape the report part already teaches" do
+      # ADR-0045: a part says its own thing once. The finish part says what goes
+      # in the message, not how the message is written.
+      body = prose_of("finish")
+
+      assert body =~ ~r/does not repeat it/i
+      refute body =~ ~r/outcomes, not mechanics/i
+    end
+
+    test "the marker it ends on is the one Whiska parses" do
+      assert body_of("finish") =~ Whiska.Question.Marker.render(:done)
+    end
+  end
+
   describe "merge/1 — idempotent per part (ADR-0045)" do
     test "an empty file gets the whole block, and one trailing newline" do
       assert ClaudeMd.merge("") == ClaudeMd.render() <> "\n"
@@ -232,19 +329,19 @@ defmodule Whiska.ClaudeMdTest do
 
     test "a file with only the older parts gains the newest one, untouched neighbours" do
       # What a person's CLAUDE.md looks like the run before a new part ships.
-      older = Enum.reject(ClaudeMd.parts(), &(&1.name == "report"))
+      older = Enum.reject(ClaudeMd.parts(), &(&1.name == "finish"))
 
-      before_report =
-        ClaudeMd.render() |> String.replace("\n\n" <> body_of("report"), "")
+      before_finish =
+        ClaudeMd.render() |> String.replace("\n\n" <> body_of("finish"), "")
 
-      refute before_report =~ "whiska:report:start"
+      refute before_finish =~ "whiska:finish:start"
 
-      merged = ClaudeMd.merge(before_report)
+      merged = ClaudeMd.merge(before_finish)
 
-      assert merged =~ body_of("report")
+      assert merged =~ body_of("finish")
       for part <- older, do: assert(merged =~ part.body, part.name)
       # And in the order Whiska ships, with the new part last inside the block.
-      assert String.split(merged, "<!-- whiska:end -->") |> hd() =~ body_of("report")
+      assert String.split(merged, "<!-- whiska:end -->") |> hd() =~ body_of("finish")
     end
 
     test "adds a part whose markers are missing entirely" do
@@ -327,6 +424,11 @@ defmodule Whiska.ClaudeMdTest do
 
   defp body_of(name) do
     Enum.find(ClaudeMd.parts(), &(&1.name == name)).body
+  end
+
+  defp index_of(text, needle) do
+    [{at, _}] = Regex.run(~r/#{needle}/i, text, return: :index)
+    at
   end
 
   # A phrase the part teaches can fall across a line break, and where it wraps is

@@ -458,8 +458,9 @@ What actually protects you without an automated reviewer, concretely:
 - Every push is a real decision you make, not a rubber stamp — with a diff-stat scope
   check and a one-command path to the full diff right there.
 - `PreToolUse` physically confines a mouse's edits to its own worktree.
-- The repo's own review loop catches anything mechanical a turn earlier, before the
-  commit even exists (ADR-0042; this bullet used to say `checks.yml`).
+- The mouse's own finish pipeline catches what is mechanical and sends reviewers over its
+  own diff, a turn earlier, before the commit even exists (ADR-0048; this bullet used to
+  say `checks.yml`, and then the review loop).
 - If PR mode is on later, CI is a second layer outside the mouse's own environment.
 - `whiska cleanup` mechanically checks a branch is actually merged before removing it.
 
