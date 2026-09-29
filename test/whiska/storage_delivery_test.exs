@@ -72,7 +72,7 @@ defmodule Whiska.StorageDeliveryTest do
       assert %Question{status: "sent"} = Storage.sent()
     end
 
-    test "sent/0 loads the mouse, so a reader can tell a ghost from a live one" do
+    test "sent/0 loads the mouse, so a reader can tell a dead one from a live one" do
       q = ask("m1")
       {:ok, _} = Storage.mark_sent(q.id)
       assert %Question{mouse: %Mouse{mouse_id: "m1", died_at: nil}} = Storage.sent()

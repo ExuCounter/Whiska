@@ -411,10 +411,10 @@ defmodule Whiska.Owl.DeliveryTest do
       {:ok, handle} = Storage.open(main, name: :seed)
       {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: b, branch: "feat-b"})
 
-      {:ok, ghost} =
+      {:ok, out} =
         Storage.record_question(%{mouse_id: "ma", text: "which one?", kind: "needs-decision"})
 
-      {:ok, _} = Storage.mark_sent(ghost.id)
+      {:ok, _} = Storage.mark_sent(out.id)
 
       {:ok, _} =
         Storage.record_question(%{mouse_id: "mb", text: "and this one?", kind: "needs-decision"})

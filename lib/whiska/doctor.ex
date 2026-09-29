@@ -594,8 +594,8 @@ defmodule Whiska.Doctor do
   how many are open, whether one is sent and for how long — and a warning for
   each combination that means nothing can move: open questions with no main
   session to deliver them to, and a sent question whose mouse is dead. The
-  second is a ghost holding ADR-0008's one slot — no answer can reach a dead
-  mouse, so nothing behind it will ever be delivered. `mark_dead/1` orphans a
+  second holds ADR-0008's one slot with nothing behind it able to move — no
+  answer can reach a dead mouse, so it is never settled by being answered. `mark_dead/1` orphans a
   dead mouse's sent question for exactly that reason, so seeing one here means
   the owl has not reconciled it yet, or is not running.
   """
@@ -610,10 +610,10 @@ defmodule Whiska.Doctor do
     )
   end
 
-  def questions(open, %Question{mouse: %Mouse{died_at: %DateTime{}}} = ghost, _main?, now) do
+  def questions(open, %Question{mouse: %Mouse{died_at: %DateTime{}}} = sent, _main?, now) do
     Check.warn(
       "questions",
-      "#{open} open, #{out_for(ghost, now)} — its mouse #{branch_of(ghost.mouse)} is dead, " <>
+      "#{open} open, #{out_for(sent, now)} — its mouse #{branch_of(sent.mouse)} is dead, " <>
         "holding the delivery slot: nothing else can be delivered until it lets go",
       @restart_owl
     )

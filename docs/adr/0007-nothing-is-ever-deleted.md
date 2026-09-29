@@ -15,7 +15,7 @@ decision made.
   queue with one slot (ADR-0008) and no answer can reach a dead mouse, so a question left
   `sent` held that slot against every later mouse's question — for three hours in one house,
   while `whiska doctor` reported every check passing. The owl frees the slot by itself now,
-  at house open and on the backstop, and the doctor names the ghost instead of passing.
+  at house open and on the backstop, and the doctor names the dead mouse holding the slot instead of passing.
 - **Collection never touches disk.** It only marks state in the database; the worktree
   folder stays exactly where it is.
 

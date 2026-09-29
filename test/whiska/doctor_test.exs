@@ -401,17 +401,17 @@ defmodule Whiska.DoctorTest do
     # missed it, and the doctor said "all checks passed" while nothing could be
     # delivered. The cascade is fixed, so this is now a state only an owl that
     # has not reconciled yet can be in — which is exactly when saying so helps.
-    test "a sent question whose mouse is dead is a ghost holding the delivery slot" do
+    test "a sent question whose mouse is dead warns: it is holding the delivery slot" do
       now = now()
 
-      ghost = %Whiska.Schema.Question{
+      sent = %Whiska.Schema.Question{
         id: 10,
         sent_at: DateTime.add(now, -3 * 3600),
         mouse: %Mouse{mouse_id: "m1", branch: "feat-a", died_at: DateTime.add(now, -3600)}
       }
 
       assert %Check{status: :warn, detail: detail, fix: fix} =
-               Doctor.questions(1, ghost, true, now)
+               Doctor.questions(1, sent, true, now)
 
       assert detail =~ "1 open"
       assert detail =~ "1 sent (id 10, waiting 3 h 0 min)"

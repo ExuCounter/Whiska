@@ -118,7 +118,7 @@ waiting, sent as well as open (ADR-0007), because no answer can reach a dead mou
 question nobody can answer would otherwise hold the one slot forever. The owl frees it by
 itself — at house open, where reconciling against `pane.list` catches whatever died while
 the owl was down, and on the backstop. `whiska doctor` says so meanwhile: a sent question
-whose mouse is dead is a warning naming the ghost, not a passing check.
+whose mouse is dead is a warning naming that mouse, not a passing check.
 
 When herdr reports `claude` + `unknown` — the integration is broken — **deliver anyway
 and say so**. Holding there is not caution, it is choosing silence, and the person would
