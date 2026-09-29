@@ -364,6 +364,19 @@ defmodule Whiska.InstallStatuslineTest do
       end
     end
 
+    test "the main session never closes or supersedes a delivered question itself" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      # A question the person has not answered stays open. Whiska settles it
+      # when that branch's next message arrives (ADR-0037); `whiska close` is
+      # the person's command, never the model's tidying-up.
+      assert body =~ ~r/never close/i
+      assert body =~ "whiska close"
+      assert body =~ ~r/Whiska supersedes it/
+      assert body =~ ~r/only when they ask|when the person asks/i
+    end
+
     test "the committed skills in this repo are what init writes today" do
       for {path, body} <- Install.skills() do
         assert File.read!(path) == body, "#{path} is stale: run whiska init and commit"
