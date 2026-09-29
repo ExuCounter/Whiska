@@ -9,9 +9,9 @@ an ADR disagree, the ADR wins.
 | 1 | [c4-context.md](c4-context.md) | Whiska between the person, Claude Code, herdr, git and launchd |
 | 2 | [c4-containers.md](c4-containers.md) | Built against designed, as two boundaries |
 | 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init, mode, questions, statusline, doctor, the delivery-side commands, waiting and jump |
-| 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification, delivery, the nudge |
+| 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification, delivery |
 | — | [c4-dynamic-pretooluse.md](c4-dynamic-pretooluse.md) | One tool-call decision, end to end |
-| — | [c4-dynamic-question-delivery.md](c4-dynamic-question-delivery.md) | A question from the doorstep to its answer, and the nudge to the other houses |
+| — | [c4-dynamic-question-delivery.md](c4-dynamic-question-delivery.md) | A question from the doorstep to its answer |
 
 **Built.** v0.0.1's plumbing — mouse identity as a marker file, a per-repo SQLite house,
 worktree containment and sniff mode enforced through `PreToolUse` (ADR-0030). Then the
@@ -36,10 +36,7 @@ segment and a new doctor line all read it, trusting it only while an owl is aliv
 (ADR-0039). Then `launchd` supervision: `whiska owl install` writes a user LaunchAgent that
 runs the owl with no arguments through a wrapper sharing the shim's runtime lookup,
 restarts it only on a crash, and logs to `~/.whiska/owl.log`; `whiska owl stop`, `start`
-and `uninstall` beside it; and the doctor's `launch agent` line (ADR-0040). Then the nudge: when a house gains something waiting on the person, the
-owl's one Nudge process types `⚡ <folders> waiting` into every other open house's idle
-main session so its statusline redraws — a notice through the target's own gate, never
-recorded, never retried, never for a `done` report (ADR-0041). Then the backstop
+and `uninstall` beside it; and the doctor's `launch agent` line (ADR-0040). Then the backstop
 warning: when a house's 60 s backstop collects anything, it is something the idle trigger
 should have brought a minute earlier, so the house warns and marks it in
 `.git/whiska/backstop`, and the doctor reads that mark as one more line — the guard
@@ -58,7 +55,13 @@ asks herdr to focus the main session of the house the top one belongs to, or of 
 repo or branch. It is the first thing in
 Whiska that moves the person's screen, and only ever because the person asked in that
 same breath; the record is read without the owl-alive guard, since a question already
-recorded is waiting whether or not anything is awake (ADR-0043). 674 tests.
+recorded is waiting whether or not anything is awake (ADR-0043). Then the statusline's
+refresh timer, which replaced a short-lived cross-house nudge: `whiska init` writes
+`refreshInterval: 15` beside the statusLine command so the elsewhere segment stays
+current while a session sits idle, and the doctor warns when a repo's statusLine has no
+interval. Nothing in Whiska types into a session that is not its own house's main
+session any more — the nudge did, as a user turn the other Claude could not tell from a
+prompt, and ADR-0044 deleted it. 683 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;

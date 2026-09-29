@@ -2,8 +2,9 @@
 
 **All of this is built and tested**: the review loop in front of the doorstep (ADR-0042),
 the doorstep and collection (ADR-0036), classification (ADR-0009), the idle-gated delivery
-queue (ADR-0008), the reply keyed to a question id (ADR-0005), and the nudge to the other
-open houses (ADR-0041). Shown as a dynamic diagram because the ordering is the design.
+queue (ADR-0008) and the reply keyed to a question id (ADR-0005). Shown as a dynamic
+diagram because the ordering is the design. Nothing here crosses into another repo: the
+nudge that once did was deleted by ADR-0044.
 
 > Mermaid numbers a `C4Dynamic` diagram's relationships itself, in declaration
 > order — so the order of the `Rel` lines below is the flow, and the step numbers
@@ -18,13 +19,11 @@ C4Dynamic
   Container_Ext(loop, "Review loop", "the repo's script, run by the shim", "Is the turn actually over?")
   Container_Ext(herdr, "herdr", "Multiplexer", "Reports agent status from a real hook")
   Container_Ext(mainpane, "Main session", "Claude Code", "The pane whiska start ran in")
-  Container_Ext(otherpane, "Another house's main session", "Claude Code", "Idle in a different repo")
 
   Container_Boundary(owl, "Owl") {
     Component(doorstep, "Doorstep", "directory", "Uncollected entries")
     Component(collection, "Collection", "per house", "Reads and marks, never deletes")
     Component(delivery, "Delivery", "per house, a queue", "One question at a time, when idle")
-    Component(nudge, "Nudge", "one per owl", "Tells the other houses' main sessions")
   }
 
   ContainerDb(db, "House database", "SQLite", "questions")
@@ -35,8 +34,6 @@ C4Dynamic
   Rel(herdr, collection, "Reports that mouse done or idle")
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by marker")
-  Rel(collection, nudge, "Report: something waiting here, or nothing")
-  Rel(nudge, otherpane, "On nothing to something: type the waiting repos' names, through that house's own gate")
   Rel(delivery, db, "Any open question, and is the slot free?")
   Rel(delivery, mainpane, "Type one line only if idle and nothing sent")
   Rel(person, delivery, "whiska reply, keyed to the question id")
@@ -94,18 +91,20 @@ is nowhere to reply and nothing left to change. One whose worktree still exists 
 delivered even if its mouse is dead, because `whiska reopen <branch>` can start a fresh
 pane on it.
 
-## Steps 7–8 — the nudge to every other open house (ADR-0041)
+## Nothing goes to another repo (ADR-0044)
 
-After each collection the house tells the owl's one Nudge process whether it has an open
-or sent question other than a `done` report. On the change from nothing to something,
-Nudge asks every other house in the open-houses record to type `⚡ <folders> waiting`
-into its main session — through that house's own idle-and-slot gate, so a busy pane or a
-house with its own question out gets nothing, and nothing is retried. The line is a
-notice: never recorded, never answered, never holding a slot. It exists because Claude
-Code redraws a statusline only when that session's own conversation changes; without it
-the elsewhere segment (ADR-0027) is invisible exactly where it matters.
+Steps 7 and 8 used to be the nudge: the house reported to the owl's one Nudge process,
+which typed `⚡ <folders> waiting` into every other open house's main session. Its
+purpose was real — Claude Code redraws a statusline only when that session's own
+conversation changes, so the elsewhere segment (ADR-0027) was invisible exactly where it
+mattered — but its means were not: the line arrived as a user turn the other session's
+Claude could not tell from a prompt, and cost that session a turn each time.
 
-## Steps 9–10 — a queue, not a batch (ADR-0008)
+That other session now redraws itself, on the `refreshInterval` `whiska init` writes
+beside the statusLine command, and reads what is waiting here off disk. Nothing in this
+flow reaches out of the repo it started in.
+
+## Steps 7–8 — a queue, not a batch (ADR-0008)
 
 Deliver only when the main session is idle *and* has no other question sent and waiting
 for its answer. Anything else joins the pile silently. That single rule, not a timer, is
@@ -118,7 +117,7 @@ When herdr reports `claude` + `unknown` — the integration is broken — **deli
 and say so**. Holding there is not caution, it is choosing silence, and the person would
 never learn why the mice went quiet.
 
-## Steps 11–12 — answers are keyed to a question id (ADR-0005)
+## Steps 9–10 — answers are keyed to a question id (ADR-0005)
 
 Not to a branch. That is what stops an answer landing on whichever question Whiska
 happened to guess. `whiska reply <id>` writes the answer to the house; the owl looks up

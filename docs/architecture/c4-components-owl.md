@@ -15,7 +15,6 @@ C4Component
   Container_Boundary(owl, "Owl") {
     Component(sup, "Whiska.Owl", "Supervisor", "One House per open project, each supervised alone")
     Component(house, "Whiska.Owl.House", "GenServer", "Pane discovery, subscription, collection, delivery")
-    Component(nudge, "Whiska.Owl.Nudge", "GenServer", "Tells every other open house's main session that one house has something waiting")
     Component(herdrb, "Whiska.Herdr", "behaviour", "The one mocked boundary (ADR-0031)")
     Component(sock, "Whiska.Herdr.Socket", "gen_tcp on a Unix socket", "Newline-delimited JSON; list_panes and subscribe")
     Component(doorstep, "Whiska.Doorstep", "file store", "Reads entries, marks them collected by rename")
@@ -32,9 +31,6 @@ C4Component
   Rel(cliboot, sup, "Starts with the repos to open")
   Rel(sup, house, "Opens and shuts")
   Rel(sup, record, "Adds on open, removes on shut")
-  Rel(house, nudge, "Reports after each collection: something waiting, or nothing")
-  Rel(nudge, record, "Finds the other open houses")
-  Rel(nudge, house, "Asks each other house to type the nudge line, through its own gate")
   Rel(house, herdrb, "Lists panes, subscribes")
   Rel(herdrb, sock, "Dispatched to the configured implementation")
   Rel(sock, herdrd, "One request per connection; events stream")
@@ -86,12 +82,14 @@ slot (ADR-0009, revised 2026-09-27). An entry whose worktree is gone is `orphane
 recorded, surfaced, never interrupting, because there is nowhere to reply and nothing
 left to change.
 
-**The nudge is the one thing that crosses houses** (ADR-0041). A house reports to
-`Whiska.Owl.Nudge` after every collection whether it has an open or sent question other
-than a `done` report. On the change from nothing to something, Nudge reads the
-open-houses record and asks each *other* open house to type `⚡ <folders> waiting` into
-its main session; the target runs its own idle-and-slot gate and types or drops. Nothing
-is recorded, nothing retried, no all-clear. Houses never call each other.
+**Nothing here crosses houses.** A house types into its own main session and nowhere
+else. Until 2026-09-29 one process did reach across — `Whiska.Owl.Nudge`, which typed
+`⚡ <folders> waiting` into every other open house's main session so its statusline would
+redraw — and ADR-0044 deleted it: that line arrived as a user turn the other session's
+Claude could not tell from a prompt. The other repo's statusline now refreshes itself on
+a `refreshInterval` timer and reads what is waiting here off disk. The open-houses
+record is still written by the owl and still read, but only by the statusline and the
+doctor asking questions, never by anything acting.
 
 **Dead mice are marked, not deleted.** `pane.closed` or `pane.exited` on a known mouse
 pane stamps `died_at` (the V002 migration's one column) and cascades that mouse's open

@@ -65,6 +65,30 @@ defmodule Whiska.OwlTest do
     assert {:error, :shut} = Owl.shut_house(a)
   end
 
+  test "nothing under the owl reaches across houses (ADR-0044)", %{a: a, b: b} do
+    {:ok, _} = Owl.open_house(a)
+    {:ok, _} = Owl.open_house(b)
+
+    houses = Owl.open_houses() |> Enum.map(&elem(Owl.house(&1), 1)) |> MapSet.new()
+
+    others =
+      Whiska.Owl.Houses
+      |> DynamicSupervisor.which_children()
+      |> Enum.map(fn {_, pid, _, _} -> pid end)
+      |> MapSet.new()
+      |> MapSet.difference(houses)
+
+    assert MapSet.size(others) == 0
+
+    # The owl itself is the registry and the houses, and nothing else: the
+    # cross-house nudge is gone, and the statusline's own timer redraws the
+    # elsewhere segment instead.
+    assert Owl
+           |> Supervisor.which_children()
+           |> Enum.map(fn {id, _, _, _} -> id end)
+           |> Enum.sort() == Enum.sort([Whiska.Owl.Registry, Whiska.Owl.Houses])
+  end
+
   test "a house that crashes is reopened by the owl", %{a: a} do
     {:ok, pid} = Owl.open_house(a)
     ref = Process.monitor(pid)

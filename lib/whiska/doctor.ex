@@ -8,9 +8,9 @@ defmodule Whiska.Doctor do
   this repo's `init` predates, an owl that never got started, a main session
   never recorded. First-time setup is the degenerate case where everything
   fails. Delivery cannot report the cases where it cannot deliver, and the
-  statusline (ADR-0027) that would is still unbuilt, so this is the command
-  the person runs when the mice have gone quiet and they want to know whether
-  that is real quiet.
+  statusline (ADR-0027) has one line to say it in, so this is the command the
+  person runs when the mice have gone quiet and they want to know whether that
+  is real quiet.
 
   Two rules (ADR-0038):
 
@@ -75,7 +75,8 @@ defmodule Whiska.Doctor do
 
     {binary, binary_found?} = binary(env)
     {herdr_check, panes} = herdr(env, herdr)
-    hooks = hooks(read_settings(main_checkout))
+    settings = read_settings(main_checkout)
+    hooks = hooks(settings) ++ [statusline(settings)]
     shim_contents = read_shim(main_checkout)
     shim = shim(shim_contents)
 
@@ -357,6 +358,55 @@ defmodule Whiska.Doctor do
           true ->
             Check.ok(event, "wired")
         end
+    end
+  end
+
+  @doc """
+  The project statusline: ours, and redrawn on a timer (ADR-0027, ADR-0044).
+
+  Nothing is lost when this is wrong — questions are still collected and still
+  delivered — so the worst it goes is a warning. What is lost is the person's
+  view of another repo while they sit still in this one: with no
+  `refreshInterval`, Claude Code re-runs the line only when this session's own
+  conversation changes, which is exactly when the elsewhere segment does not
+  matter. An interval the person chose for themselves is theirs to keep.
+  """
+  @spec statusline(map()) :: Check.t()
+  def statusline(settings) when is_map(settings) do
+    case settings["statusLine"] do
+      %{"command" => command} = entry when is_binary(command) ->
+        ours_statusline(entry, command)
+
+      _ ->
+        Check.warn(
+          "statusLine",
+          "no project statusLine — nothing here says what is waiting",
+          @init
+        )
+    end
+  end
+
+  defp ours_statusline(entry, command) do
+    interval = entry["refreshInterval"]
+
+    cond do
+      not String.contains?(command, Install.statusline_path()) ->
+        Check.warn(
+          "statusLine",
+          "somebody else's script — Whiska's segment is not shown here",
+          @init
+        )
+
+      is_integer(interval) and interval >= 1 ->
+        Check.ok("statusLine", "wired, redrawn every #{interval}s")
+
+      true ->
+        Check.warn(
+          "statusLine",
+          "wired, but with no refreshInterval — what waits in another repo " <>
+            "stays invisible while this session is idle",
+          @init
+        )
     end
   end
 

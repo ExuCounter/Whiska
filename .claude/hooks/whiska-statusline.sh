@@ -10,6 +10,10 @@
 #
 # Written by `whiska init`. The binary and runtime are resolved the same
 # way the hook shim resolves them, at run time, never baked in here.
+#
+# How often this runs is not this script's business: the `refreshInterval`
+# beside the command in settings.json redraws it on a timer while the
+# session sits idle (ADR-0044).
 
 input="$(cat)"
 

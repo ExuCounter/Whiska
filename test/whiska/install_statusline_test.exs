@@ -41,6 +41,29 @@ defmodule Whiska.InstallStatuslineTest do
       assert Install.merge(%{"statusLine" => old})["statusLine"] ==
                Install.merge(%{})["statusLine"]
     end
+
+    test "sets refreshInterval, so the line redraws while the session sits idle (ADR-0044)" do
+      assert Install.merge(%{})["statusLine"]["refreshInterval"] ==
+               Install.statusline_refresh_interval()
+    end
+
+    test "an interval Claude Code accepts, and long enough not to burn a core" do
+      interval = Install.statusline_refresh_interval()
+      assert is_integer(interval) and interval >= 1
+      assert interval >= 10
+    end
+
+    test "an earlier init of ours, written before the interval existed, gains it" do
+      without = %{"type" => "command", "command" => Install.statusline_command()}
+
+      assert Install.merge(%{"statusLine" => without})["statusLine"]["refreshInterval"] ==
+               Install.statusline_refresh_interval()
+    end
+
+    test "somebody else's statusLine keeps its own interval, or its absence" do
+      mine = %{"type" => "command", "command" => "bash mine.sh"}
+      refute Map.has_key?(Install.merge(%{"statusLine" => mine})["statusLine"], "refreshInterval")
+    end
   end
 
   describe "statusline_script/0" do

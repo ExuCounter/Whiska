@@ -1,5 +1,17 @@
 # A nudge is a notice typed into another house's main session
 
+**Superseded on 2026-09-29 by [ADR-0044](0044-the-statusline-redraws-on-a-timer-not-a-typed-nudge.md).**
+There is no nudge. Nothing in Whiska types into a session that is not its own house's
+main session, `Whiska.Owl.Nudge` is deleted, and the statusline's elsewhere segment is
+kept current by a `refreshInterval` timer on the statusLine command instead. Everything
+below is what this decision said, and is history.
+
+The short version of why: a nudge lands in the target session as a user turn, which
+Claude Code cannot tell from a prompt the person typed. Each one cost that session a turn
+and the model improvised on it. ADR-0044 has the full account and the arithmetic behind
+the interval.
+
+
 The statusline's elsewhere segment (ADR-0027) names the other project with something
 waiting: `⚡ whiska waiting`. In practice it was never seen where it mattered. Claude Code
 re-runs the statusline script only when that session's own conversation changes, so a
