@@ -73,6 +73,16 @@ main session is idle").
   out exactly one, for the nudge, and it goes with it. ADR-0008's addendum about a nudge
   sharing the delivery slot is void for the same reason.
 - `Whiska.Delivery.Text.nudge/1` is gone; `compose/4` is the only line Whiska writes.
+- **ADR-0025's addendum costs a refresh differently now.** It prices the elsewhere
+  segment at "one `pane.list` call plus a read-only open per other house, on every
+  refresh" — written when a refresh only happened because the person typed. Under a timer
+  that cost is periodic: an idle machine with three open houses does that work every 15
+  seconds, forever. The decision does not change, and neither does the arithmetic above
+  (the 0.44 s was measured on the whole script, elsewhere segment included), but the
+  reason 15 s and not 1 s is now partly ADR-0025's: the houses are opened read-only and
+  SQLite is happy with concurrent readers, yet there is no reason to do it sixty times a
+  minute. When the global socket lands (ADR-0025) and the per-house opens go, the
+  interval is worth revisiting downwards.
 - `CONTEXT.md` retires **Nudge** rather than deleting it: the word was in commits, ADRs and
   two architecture diagrams, and a reader who meets it needs to be told it is not a thing
   any more.

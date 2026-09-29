@@ -24,6 +24,8 @@ The global socket is designed and not built. The statusline's "elsewhere" segmen
 own machine-wide pane list — an agent pane in a repo root that has a house — and reads
 each such house's database directly, the way `whiska questions` reads this repo's.
 That is one `pane.list` call plus a read-only open per other house, on every refresh.
+(Since ADR-0044 a refresh also happens on a 15 s timer, not only when the person types,
+so read that cost as periodic rather than keystroke-driven.)
 
 Why this does not undo the decision: everything the segment needs is either a live
 pane, which herdr already knows about, or a house on disk, which is readable without
