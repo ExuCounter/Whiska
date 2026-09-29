@@ -6,10 +6,11 @@ defmodule Whiska.ClaudeMd do
   said from the start that `whiska init` writes "a marked block" there. This is
   that block. What it carries is the protocol between herdr, Whiska and Claude:
   how a mouse gets spawned, what marker it ends a turn with, how its question
-  reaches the person, and the shape the message it writes takes. Those rules used to live in one person's global
-  `~/.claude/CLAUDE.md`, where they applied to every repo whether or not Whiska
-  was anywhere near it, and where nothing kept them in step with the code that
-  actually parses the marker. Now the one thing that owns the protocol ships it.
+  reaches the person, and the shape the message it writes takes. Those rules used to
+  live in one person's global `~/.claude/CLAUDE.md`, where they applied to every repo
+  whether or not Whiska was anywhere near it, and where nothing kept them in step
+  with the code that actually parses the marker. Now the one thing that owns the
+  protocol ships it.
 
   ## The block is a nest of named parts
 

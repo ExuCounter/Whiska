@@ -95,5 +95,7 @@ because that message is the only thing the person sees of the whole turn and the
 later and somewhere else. It arrived exactly as this grammar says a part should —
 appended inside the outer markers on the next `init`, the three older parts untouched —
 and the delivery part handed it the "put the complete content in the response body"
-bullet rather than the two saying it twice. The rest of ADR-0017's firstmate-derived
-default template is still not in the block.
+bullet rather than the two saying it twice. Two items of ADR-0017's firstmate-derived
+default template land with it — report outcomes faithfully, and evidence-first when
+asking for a decision, "with a concrete four-part template, not just the principle".
+The rest of that template is still not in the block.

@@ -290,10 +290,11 @@ defmodule Whiska.CLI do
 
         And the worktree protocol went into CLAUDE.md — how a mouse gets spawned,
         the worktree-status marker it ends a turn with, how its question reaches
-        you, and the shape the message it writes takes (ADR-0045). Each part sits in its own named markers, so the
-        next init replaces one without touching the others and nothing outside
-        them is read at all. Add `keep` to a part's start marker to make it
-        yours and Whiska will never rewrite it again.
+        you, and the shape the message it writes takes (ADR-0045). Each part
+        sits in its own named markers, so the next init replaces one without
+        touching the others and nothing outside them is read at all. Add `keep`
+        to a part's start marker to make it yours and Whiska will never rewrite
+        it again.
 
         And the review loop (#{Install.review_loop_path()}) — a Stop hook this
         repo owns, not Whiska (ADR-0042). The shim runs it before Whiska's own

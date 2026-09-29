@@ -185,11 +185,11 @@ template, preamble
 
 **Part**:
 One separately-replaceable piece of the block, in its own named markers —
-`worktrees`, `marker`, `delivery`, `report` today. A part is replaced where it stands on the next
-`whiska init`, added if its markers are missing, and left exactly alone if its start
-marker says `keep`, which is how a person claims one as their own or drops it for good
-(ADR-0045). A part Whiska no longer ships stays where it is rather than being tidied
-away.
+`worktrees`, `marker`, `delivery`, `report` today. A part is replaced where it stands
+on the next `whiska init`, added if its markers are missing, and left exactly alone if
+its start marker says `keep`, which is how a person claims one as their own or drops
+it for good (ADR-0045). A part Whiska no longer ships stays where it is rather than
+being tidied away.
 _Avoid_: block (the whole thing), fragment, chunk
 
 **Worktree-status marker**:
