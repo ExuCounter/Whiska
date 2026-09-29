@@ -4,8 +4,8 @@ defmodule Whiska.ClaudeMdTest do
   alias Whiska.ClaudeMd
 
   describe "parts/0 — the block is a nest of named parts (ADR-0045)" do
-    test "ships the worktree protocol in three separately-replaceable parts" do
-      assert Enum.map(ClaudeMd.parts(), & &1.name) == ~w(worktrees marker delivery)
+    test "ships the worktree protocol in four separately-replaceable parts" do
+      assert Enum.map(ClaudeMd.parts(), & &1.name) == ~w(worktrees marker delivery report)
     end
 
     test "every part is wrapped in its own named markers" do
@@ -125,6 +125,51 @@ defmodule Whiska.ClaudeMdTest do
     end
   end
 
+  describe "the report part" do
+    test "teaches the shape of the message, step by step" do
+      body = body_of("report")
+
+      assert body =~ ~r/what is true now/i
+      assert body =~ ~r/where it lives/i
+      assert body =~ ~r/verified, not assumed/i
+      assert body =~ ~r/one thing worth knowing/i
+      assert body =~ "Nothing is waiting on you"
+    end
+
+    test "says the message is a report, in outcomes, not a status dump" do
+      body = body_of("report")
+
+      assert body =~ ~r/outcomes, not mechanics/i
+      assert body =~ ~r/short sentences/i
+      # Never paste the runner's tail; read it and send what it means.
+      assert body =~ ~r/tool output/i
+    end
+
+    test "keeps every question and option in the body, where delivery stores it" do
+      report = body_of("report")
+
+      assert report =~ "every option"
+      assert report =~ "recommendation"
+      # Said once, in the part that teaches the shape — not twice (ADR-0045).
+      refute body_of("delivery") =~ "every option"
+    end
+
+    test "forbids Whiska's own words in the message, and excepts the marker" do
+      body = prose_of("report")
+
+      for word <- ["mouse", "owl", "house", "doorstep", "delivery slot"] do
+        assert body =~ word, word
+      end
+
+      assert body =~ ~r/never appears/i
+      assert body =~ ~r/marker line is the one exception/i
+    end
+
+    test "asks for the person's word only when a decision is genuinely needed" do
+      assert prose_of("report") =~ ~r/review, approval, merge or design pick/i
+    end
+  end
+
   describe "merge/1 — idempotent per part (ADR-0045)" do
     test "an empty file gets the whole block, and one trailing newline" do
       assert ClaudeMd.merge("") == ClaudeMd.render() <> "\n"
@@ -185,10 +230,27 @@ defmodule Whiska.ClaudeMdTest do
       assert merged =~ "A note of mine, inside the block."
     end
 
+    test "a file with only the older parts gains the newest one, untouched neighbours" do
+      # What a person's CLAUDE.md looks like the run before a new part ships.
+      older = Enum.reject(ClaudeMd.parts(), &(&1.name == "report"))
+
+      before_report =
+        ClaudeMd.render() |> String.replace("\n\n" <> body_of("report"), "")
+
+      refute before_report =~ "whiska:report:start"
+
+      merged = ClaudeMd.merge(before_report)
+
+      assert merged =~ body_of("report")
+      for part <- older, do: assert(merged =~ part.body, part.name)
+      # And in the order Whiska ships, with the new part last inside the block.
+      assert String.split(merged, "<!-- whiska:end -->") |> hd() =~ body_of("report")
+    end
+
     test "adds a part whose markers are missing entirely" do
-      # Delivery is the last part, so it is the newlines in front of it that go.
+      # Delivery is not the last part, so its own trailing blank line goes with it.
       without_delivery =
-        ClaudeMd.render() |> String.replace("\n\n" <> body_of("delivery"), "")
+        ClaudeMd.render() |> String.replace(body_of("delivery") <> "\n\n", "")
 
       refute without_delivery =~ "whiska:delivery:start"
 
@@ -265,5 +327,11 @@ defmodule Whiska.ClaudeMdTest do
 
   defp body_of(name) do
     Enum.find(ClaudeMd.parts(), &(&1.name == name)).body
+  end
+
+  # A phrase the part teaches can fall across a line break, and where it wraps is
+  # not the behaviour under test.
+  defp prose_of(name) do
+    name |> body_of() |> String.replace(~r/\s+/, " ")
   end
 end

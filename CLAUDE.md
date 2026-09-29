@@ -189,14 +189,11 @@ A mouse leaves its whole final message on this house's doorstep. The owl collect
 and delivers a one-line pointer into the main session — once the repo has been
 `whiska init`-ed, the owl is running, and a main session is recorded; `whiska doctor`
 says which of those is missing. The person reads the message with
-`whiska questions <id>` and answers it with `whiska reply <id>`. Two rules follow for
-a mouse:
+`whiska questions <id>` and answers it with `whiska reply <id>`.
 
-- **Put the complete content in the response body** — every question, every option,
-  every recommendation, spelled out. The whole final message is what gets stored; the
-  marker is only the pointer to it.
-- **Make the body self-contained.** Whoever reads it is sitting in a different
-  terminal with none of this session's scrollback, possibly much later.
+So the whole final message is what gets stored, and the person reads it later, from a
+different terminal, with none of this session's scrollback. How to write one that
+survives that is the next part.
 
 Never ask the main session to read a mouse's pane, and never expect it to. Claude Code
 runs on the terminal's alternate screen, so `herdr pane read` comes back with a
@@ -212,4 +209,51 @@ next mouse's question sits unread behind it. Only `whiska reply` closes the ques
 and frees the slot. Talking it over with the person first is fine; when that talk
 produces something for the mouse, it goes out as the reply.
 <!-- whiska:delivery:end -->
+
+<!-- whiska:report:start -->
+## How a mouse writes its message
+
+The final message is a report to the person, not a status dump. It is the only thing
+they see of the whole turn, and they see it later and somewhere else, so it carries
+every fact that matters and assumes nothing they could only get from the scrollback.
+
+Write it in this order, dropping any line that has nothing to say:
+
+1. **One line saying what is true now.** The outcome, not the activity — "the search
+   box filters as you type", not "implemented filtering".
+2. **Where it lives** — the branch, the files — but only when the person has to go
+   there to look or to carry on.
+3. **What it does, or what changed**, in their terms: what the thing can do now that
+   it could not before.
+4. **Verified, not assumed.** What was run and what came back — the tests, the app,
+   the command end to end. If it was not run, say so plainly and say why. Never call
+   something working on the strength of having written it.
+5. **One thing worth knowing**, and only if there is one: a surprise, a constraint, a
+   choice they would want to know was made.
+6. **Either "Nothing is waiting on you"** or the one decision — spelled out with its
+   options, the trade-off, and a recommendation.
+
+Every question, every option, every recommendation goes in that body, in full. The
+marker line is only the pointer to it.
+
+Rules that hold throughout:
+
+- **Outcomes, not mechanics.** What the person can now do, not what the session did
+  to get there. No retries, no routine progress, no fix that fixed itself.
+- **Never paste tool output or a status line.** Read it as evidence and send what it
+  means: "31 tests pass, no failures", not the runner's tail.
+- **Their words, not Whiska's.** Whiska's own vocabulary — mouse, owl, house,
+  doorstep, collection, delivery slot, and the status labels themselves — never
+  appears in the message. Say "this branch" or "the isolated copy", not "the mouse";
+  name the concrete decision, not "needs-decision". The marker line is the one
+  exception, and it is stripped out before the person reads the message.
+- **Ask for their word only** when the next step really needs a review, approval,
+  merge or design pick. Otherwise say nothing is waiting, and stop.
+- **Short sentences. No headers unless the message is long.** Do not restate the task
+  and do not narrate the steps taken.
+
+Where this repo's other instructions already say to open with a recap, keep a
+question self-contained, or raise one decision at a time, they still hold — this part
+does not repeat them.
+<!-- whiska:report:end -->
 <!-- whiska:end -->
