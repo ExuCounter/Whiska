@@ -133,6 +133,15 @@ subscription whenever that set changes. A mouse with no pane anywhere is a dead 
 (ADR-0026). herdr's own Claude integration has since stopped reporting `Stop` and detects
 idleness itself; the event still arrives, so the trigger table above stands.
 
+*Note, 2026-09-29.* **The addendum below is spent.** ADR-0048 retires the review loop, so
+nothing sits in front of `whiska hook stop` any more: one `Stop` entry, the shim, and this
+hook. "Every time, unconditionally" is again literally true — the shim captures no stdin,
+runs no script, and needs no `jq`. What the addendum decided still holds for the next
+thing that wants to sit in front of this hook: chained in the shim, never a second `Stop`
+entry beside it, because Claude Code runs them in parallel. The doctor's `stop` probe
+still carries no `done` marker, now because a probe that looks like a finished turn is a
+probe that lies.
+
 *Note, 2026-09-28 (later again).* **"Every time, unconditionally" now means every time
 the hook runs, and something else decides whether it runs.** ADR-0042 adds a second `Stop`
 hook — the repo's review loop, which blocks a turn that claims to be `done` until the

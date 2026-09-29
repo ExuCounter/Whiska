@@ -99,6 +99,7 @@ defmodule Whiska.Doctor do
       ] ++
         hooks ++
         [shim] ++
+        retired(main_checkout) ++
         probes ++
         [
           house,
@@ -439,6 +440,32 @@ defmodule Whiska.Doctor do
   end
 
   @doc """
+  A review loop left over from before ADR-0048, if this repo still has one.
+
+  Nothing runs it any more. Saying so is all the doctor does — removing it is
+  the person's call (ADR-0038, ADR-0007). A repo without one gets no line at
+  all: a check that can only ever say "none" is noise in every other report.
+  """
+  @spec review_loop(Path.t()) :: Check.t()
+  def review_loop(main_checkout) do
+    if File.exists?(Path.join(main_checkout, Install.review_loop_path())),
+      do:
+        Check.warn(
+          "review loop",
+          "#{Install.review_loop_path()} is retired — nothing runs it, and finishing is the `finish` part of CLAUDE.md",
+          "rm #{Install.review_loop_path()}"
+        ),
+      else: Check.ok("review loop", "none")
+  end
+
+  defp retired(main_checkout) do
+    case review_loop(main_checkout) do
+      %Check{status: :ok} -> []
+      check -> [check]
+    end
+  end
+
+  @doc """
   Run the repo's installed hook for real, through its shim.
 
   The payload's `cwd` is a fresh temporary directory outside any worktree, so
@@ -504,11 +531,9 @@ defmodule Whiska.Doctor do
       "tool_input" => %{"file_path" => Path.join(cwd, "probe")}
     }
 
-  # Deliberately not a `done` marker. The shim chains the repo's review loop in
-  # front of `whiska hook stop` (ADR-0042), and `done` is what sets that loop
-  # running — so a probe carrying one would make `whiska doctor` run the repo's
-  # whole check command and then report its block as unexpected output. The
-  # doctor checks; it never sets anything going (ADR-0038).
+  # Deliberately not a `done` marker: a probe carrying one is a probe that looks
+  # like a finished turn. The doctor checks; it never sets anything going
+  # (ADR-0038).
   defp payload("stop", cwd),
     do: %{
       "cwd" => cwd,

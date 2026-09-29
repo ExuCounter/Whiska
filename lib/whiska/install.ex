@@ -57,9 +57,6 @@ defmodule Whiska.Install do
   # Whiska's hooks. Takes the hook's name - pre-tool-use or stop - and hands
   # the payload on stdin to `whiska hook <name>`.
   #
-  # On `stop` it runs the repo's review loop first and only calls Whiska when
-  # that lets the turn end (ADR-0042, and the addendum to ADR-0036).
-  #
   # Written by `whiska init` and checked into the repo so the rules travel with
   # it (ADR-0016). Everything machine-specific is resolved here, when the hook
   # runs, rather than baked into .claude/settings.json where it would name one
@@ -69,39 +66,6 @@ defmodule Whiska.Install do
   # lookup ends by searching the filesystem directly rather than trusting it.
   # WHISKA_BIN and WHISKA_ESCRIPT override either, and are ignored if they do
   # not point at something runnable.
-
-  """
-
-  # The review loop goes first, and before the binary lookup below: it is the
-  # repo's own hook (ADR-0042) and needs nothing of Whiska's, so a missing
-  # Whiska must not quietly disable it too.
-  #
-  # Chained rather than registered as its own Stop entry because Claude Code
-  # runs Stop hooks in parallel - side by side, Whiska left `done` on the
-  # doorstep while the loop was still blocking the turn, and the person was
-  # told the mouse had finished before it had. Ordering it here leaves
-  # Whiska.Hook.Stop exactly as ADR-0036 describes it: unconditional and never
-  # classifying. It is simply not called when the turn did not end.
-  @shim_review_loop """
-  hook_name="${1:-}"
-
-  if [ "$hook_name" = "stop" ]; then
-    # stdin can only be read once, and both the loop and Whiska need it.
-    payload="$(cat)"
-    hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    review_loop="$hook_dir/review-loop.sh"
-
-    if [ -r "$review_loop" ]; then
-      # No output means the loop is content and the turn really is over.
-      # Anything else is its block decision, which is Claude Code's to read -
-      # and nothing goes on the doorstep, because nothing has finished.
-      verdict="$(printf '%s' "$payload" | bash "$review_loop")"
-      if [ -n "$verdict" ]; then
-        printf '%s\n' "$verdict"
-        exit 0
-      fi
-    fi
-  fi
 
   """
 
@@ -162,23 +126,9 @@ defmodule Whiska.Install do
   """
 
   @shim_exec """
-  # stop has already had its stdin read above, so the captured payload is piped
-  # back in. pre-tool-use is the hot path (ADR-0033) and still has its own, so
-  # it execs straight through and costs no extra process.
-  if [ "$hook_name" = "stop" ]; then
-    if [ -n "$escript_bin" ]; then
-      # Not `exit 0`: exec used to carry the hook's status out, and the doctor
-      # reads it to tell a working hook from a binary that does not know it.
-      printf '%s' "$payload" | "$escript_bin" "$whiska_bin" hook "$@"
-      exit $?
-    fi
-    if ! printf '%s' "$payload" | "$whiska_bin" hook "$@"; then
-      echo "whiska: could not run $whiska_bin - allowing the call" >&2
-    fi
-    exit 0
-  fi
-
   if [ -n "$escript_bin" ]; then
+    # Not `exit 0`: exec carries the hook's status out, and the doctor reads it
+    # to tell a working hook from a binary that does not know it.
     exec "$escript_bin" "$whiska_bin" hook "$@"
   fi
 
@@ -190,156 +140,12 @@ defmodule Whiska.Install do
   exit 0
   """
 
-  @shim @shim_header <>
-          @shim_review_loop <>
-          @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
+  @shim @shim_header <> @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
 
-  # No command constant: the loop gets no Stop entry of its own. The shim above
-  # finds it beside itself and runs it (ADR-0042).
+  # The retired review loop (ADR-0048). Nothing writes it and nothing runs it;
+  # the path survives so a settings entry an older version wrote is recognised
+  # as Whiska's and dropped, and so the doctor can name a leftover file.
   @review_loop_path ".claude/hooks/review-loop.sh"
-
-  # The repo's review loop (ADR-0042). `whiska init` writes this file once, if
-  # it is missing, and never reads it again — Whiska runs no checks of its own
-  # (ADR-0014, superseded) and stays dumb (ADR-0017). It is a per-project hook
-  # like every other one (ADR-0016), and unlike the shim it takes no argument:
-  # nothing in it resolves anything of Whiska's.
-  #
-  # ~S on purpose: the script is full of shell that Elixir would otherwise try
-  # to read, and nothing in it is interpolated.
-  @review_loop ~S'''
-  #!/usr/bin/env bash
-  # This repo's review loop: a Claude Code Stop hook that will not let a turn
-  # end on `[worktree-status: done]` until the checks pass and the diff has been
-  # read back against the repo's own specs and decisions (ADR-0042).
-  #
-  # The repo owns this file. `whiska init` writes it once if it is missing, then
-  # leaves it alone for ever — including on `whiska update`, so an edited CHECK
-  # is never clobbered. Whiska never reads what is in here.
-  #
-  # ---------------------------------------------------------------------------
-  # Edit these three. They are the whole configuration.
-
-  # What "green" means in this repo. Any shell command; non-zero is a failure.
-  CHECK='mix test'
-
-  # Seconds one run of CHECK gets before it is killed. A Stop hook that hangs
-  # hangs the pane, so this is a ceiling, not a suggestion.
-  TIMEOUT=600
-
-  # The one review pass, asked for once per turn once the checks are green.
-  # Fixed words on purpose: there is no judgment in the hook (ADR-0042).
-  REVIEW='Checks pass. One review pass before you finish.
-
-  Read your own diff on this branch back — `git diff $(git merge-base HEAD main)` —
-  against specs/ and docs/adr/. Fix anything that contradicts a recorded decision
-  or the spec, and say in one line what you found, or that you found nothing.
-
-  Then finish the turn as you meant to, marker line included.'
-  # ---------------------------------------------------------------------------
-
-  set -uo pipefail
-
-  payload="$(cat)"
-
-  # The message can be anything at all, so there is no honest way to pull it out
-  # of the JSON without jq. Fail open, loudly, the way the whiska shim does when
-  # its binary is missing: a hook that cannot read its input must not wedge the
-  # session.
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "review-loop: jq not found - letting the stop through" >&2
-    exit 0
-  fi
-
-  read_field() { printf '%s' "$payload" | jq -r "$1" 2>/dev/null; }
-
-  if ! message="$(read_field '.last_assistant_message // ""')"; then
-    echo "review-loop: unreadable Stop payload - letting the stop through" >&2
-    exit 0
-  fi
-  active="$(read_field '.stop_hook_active // false')"
-  session="$(read_field '.session_id // "unknown"' | tr -c 'A-Za-z0-9_.-' '_')"
-
-  # Only a turn claiming to be finished is this hook's business. A
-  # needs-decision turn is waiting on the person, and an unmarked one is already
-  # something the owl reports (ADR-0009) — blocking either would talk over them.
-  # The marker is the last line, so that is what is matched, not a substring
-  # somewhere in the middle of a paragraph about markers.
-  last_line="$(printf '%s\n' "$message" | sed -e 's/[[:space:]]*$//' -e '/^$/d' | tail -1)"
-  if [ "$last_line" != "[worktree-status: done]" ]; then
-    exit 0
-  fi
-
-  # Two facts survive between the stops of one turn: how many times in a row the
-  # checks have failed, and whether the review pass has been asked for. Keyed by
-  # session so two panes never read each other's.
-  state_dir="${TMPDIR:-/tmp}/review-loop"
-  mkdir -p "$state_dir" 2>/dev/null
-  state="$state_dir/$session"
-
-  # stop_hook_active is false on exactly the first Stop of a turn, which is
-  # where both reset.
-  if [ "$active" != "true" ]; then
-    printf '0\nno\n' > "$state"
-  fi
-  fails="$(sed -n 1p "$state" 2>/dev/null)"
-  reviewed="$(sed -n 2p "$state" 2>/dev/null)"
-  [ -n "$fails" ] || fails=0
-  [ -n "$reviewed" ] || reviewed=no
-
-  block() {
-    jq -n --arg reason "$1" '{decision: "block", reason: $reason}'
-    exit 0
-  }
-
-  # Run CHECK with a watchdog rather than `timeout`, which is not on a stock
-  # macOS. stdin is already spent, and a check must never read from the pane.
-  output_file="$(mktemp)"
-  trap 'rm -f "$output_file"' EXIT
-
-  bash -c "$CHECK" > "$output_file" 2>&1 < /dev/null &
-  check_pid=$!
-  ( sleep "$TIMEOUT"; kill -TERM "$check_pid" ) >/dev/null 2>&1 &
-  watchdog_pid=$!
-  wait "$check_pid"
-  status=$?
-  kill -TERM "$watchdog_pid" >/dev/null 2>&1
-  wait "$watchdog_pid" 2>/dev/null
-
-  if [ "$status" -ne 0 ]; then
-    fails=$((fails + 1))
-    printf '%s\n%s\n' "$fails" "$reviewed" > "$state"
-
-    # Bounded, the same shape ADR-0011 gives a failing push: two blocks in a row
-    # and then the stop goes through, so a check that can never pass reaches the
-    # person through the doorstep instead of looping until someone notices.
-    if [ "$fails" -gt 2 ]; then
-      echo "review-loop: checks failed $fails times in a row - letting the stop through" >&2
-      exit 0
-    fi
-
-    if [ "$status" -ge 128 ]; then
-      detail="It timed out after ${TIMEOUT}s and was killed."
-    else
-      detail="It exited $status."
-    fi
-
-    block "The checks are not green, so this turn is not done.
-
-  $detail Command: $CHECK
-
-  $(tail -n 200 "$output_file")
-
-  Fix it and finish again. After $((3 - fails)) more failing attempt(s) this stop
-  goes through anyway and the failure reaches the person instead."
-  fi
-
-  # Green. One guaranteed review pass per turn, then out of the way.
-  printf '0\nyes\n' > "$state"
-  if [ "$reviewed" != "yes" ]; then
-    block "$REVIEW"
-  fi
-  exit 0
-  '''
 
   @statusline_path ".claude/hooks/whiska-statusline.sh"
 
@@ -626,22 +432,15 @@ defmodule Whiska.Install do
   def shim, do: @shim
 
   @doc """
-  Where the repo's review loop lives, relative to the repo root (ADR-0042).
+  Where an older Whiska's review loop lives, relative to the repo root.
 
-  Written by `whiska init` only when it is missing: the check command inside it
-  is the person's, and rewriting the file would throw it away.
+  Retired (ADR-0048): finishing is the pipeline the `finish` part of `CLAUDE.md`
+  teaches, run by the mouse itself. The path is kept so a `Stop` entry naming it
+  is recognised as Whiska's and dropped, and so `whiska doctor` can say a file
+  left on disk is no longer run by anything.
   """
   @spec review_loop_path() :: Path.t()
   def review_loop_path, do: @review_loop_path
-
-  @doc """
-  The review loop script's contents — the starting point, not the last word.
-
-  Whiska never reads this file again once it is written. What it checks, and
-  what it asks for on a green run, is the repo's business (ADR-0017).
-  """
-  @spec review_loop() :: String.t()
-  def review_loop, do: @review_loop
 
   @doc "Where the statusline script lives, relative to the repo root."
   @spec statusline_path() :: Path.t()
@@ -690,8 +489,6 @@ defmodule Whiska.Install do
       "hooks" => [%{"type" => "command", "command" => @command}]
     }
 
-    # One Stop entry. The shim runs the repo's review loop in front of Whiska's
-    # own hook rather than Claude Code running the two in parallel (ADR-0042).
     stop = %{"hooks" => [%{"type" => "command", "command" => @stop_command}]}
 
     settings
@@ -733,10 +530,9 @@ defmodule Whiska.Install do
   end
 
   # Ours is whatever runs a `whiska ... hook ...`, or the shim that does it for
-  # us, or the review loop. The loop is still recognised although nothing writes
-  # an entry for it any more: a settings.json from the version that gave it its
-  # own Stop entry must have that entry *removed* on the next init, not left
-  # beside the shim's to race it again.
+  # us, or the retired review loop — a settings.json from the version that gave
+  # the loop its own Stop entry has that entry removed on the next init rather
+  # than left to fire beside the shim's.
   #
   # Ours is also — whatever matcher it was registered with, and whether or not the shim
   # took an argument when it was written. Matching on the matcher would fail to

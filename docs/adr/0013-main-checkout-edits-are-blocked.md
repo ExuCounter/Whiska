@@ -3,7 +3,7 @@
 Surfaced by a real firstmate incident: their primary once ran work through Claude Code's
 own subagent tool instead of a real spawned worker, and that work had no durable fleet
 record and bypassed every one of their guards. The same risk applies here. Every
-protection in this design — worktree containment, the review loop, diff review, push
+protection in this design — worktree containment, the finish pipeline, diff review, push
 approval — only covers a mouse's own worktree. An edit made directly in the main checkout
 skips all of it.
 

@@ -200,15 +200,23 @@ carries a `mouse_id`: that one is identity on disk, this one is a line in a mess
 Say which when either could be meant.
 _Avoid_: status line (the statusline is a different thing entirely), tag, signal
 
-**Review loop**:
-The repo's own answer to "is this turn actually over?" — held by the repo, not by
-Whiska, and consulted the moment a mouse tries to end a turn on `done`. It has two
-things to say and no more: whether the repo's checks are green, and that the mouse has
-not yet read its own diff back against the repo's written decisions. Either one sends
-the mouse back to work; neither is ever Whiska's opinion, and Whiska never reads what
-the loop is made of. It runs ahead of the doorstep rather than beside it, so a turn it
-sends back leaves no question at all — not a question that is later corrected. Bounded by
-construction: a loop that cannot be satisfied gives up and lets the person see the failure
-instead.
-_Avoid_: checks, gate (the no-mistakes gate is a different thing, and it runs after a
-push rather than at the end of a turn), CI, ralph loop
+**Finish**:
+What a mouse does before it is allowed to say `done`: read the work back against the
+brief and the repo's written decisions, run the repo's checks and fix what they catch,
+send reviewers over its own diff, go round once more, and only then write the marker.
+Plain instructions in the `finish` part of the block, run by the mouse itself — Whiska
+neither runs it nor knows whether it was run (ADR-0048). What green means here, where the
+decisions live and what a ticket id looks like are the repo's to say, under a `## Finish`
+heading in its own `CLAUDE.md` outside the block. The same heading carries the person's
+usual choice for a finished branch.
+_Avoid_: review loop (retired, below), checks, gate (the no-mistakes gate is a different
+thing, and it runs after a push rather than at the end of a turn), CI, ralph loop
+
+**Review loop** (retired):
+`.claude/hooks/review-loop.sh`, a `Stop` hook the repo owned, which blocked a turn ending
+on `done` until a single `CHECK` command passed and the mouse had read its own diff back
+once. Superseded by **Finish** (ADR-0048): one check command could not know what green
+means in a given repo, and a shell script could make no judgment at all. Nothing writes
+it, chains it or runs it. A file still on disk is inert, `whiska doctor` says so, and
+Whiska never deletes it (ADR-0007). Named here because repos still have the file and the
+word is still in old handoffs; do not reach for it for anything current.

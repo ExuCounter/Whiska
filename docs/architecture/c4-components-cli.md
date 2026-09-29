@@ -11,7 +11,6 @@ C4Component
   title Component Diagram - whiska CLI
 
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
-  Container_Ext(loop, "review-loop.sh", "bash", "The repo's review loop: Whiska writes it once and never reads it")
 
   Container_Boundary(cli, "whiska escript") {
     Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / waiting / jump / owl, and owl install / stop / start / uninstall")
@@ -23,7 +22,7 @@ C4Component
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
-    Component(install, "Install", "pure merge", "Writes the hooks, the review loop, the statusline and the skills into .claude/")
+    Component(install, "Install", "pure merge", "Writes the hooks, the statusline, the skills and the CLAUDE.md block into the repo")
     Component(claudemd, "ClaudeMd", "pure merge", "The worktree protocol block, merged into CLAUDE.md one named part at a time")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question and per uncollected doorstep entry, oldest first, each with its mouse pane")
@@ -40,14 +39,12 @@ C4Component
   System_Ext(herdr, "herdr", "pane list, and main-session focus for jump")
   Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
 
-  Rel(shim, loop, "On stop, runs it first and stops there if it blocks")
   Rel(shim, main, "Execs", "JSON on stdin")
   Rel(main, stop, "Delegates the stop hook")
   Rel(stop, layout, "Which house does this worktree belong to?")
   Rel(stop, doorstep, "Writes one entry, then exits")
   Rel(main, hook, "Delegates the hook command")
   Rel(main, install, "Delegates init")
-  Rel(install, loop, "Writes it once, only when missing")
   Rel(main, claudemd, "init: merges the block into CLAUDE.md")
   Rel(main, questions, "Delegates questions")
   Rel(main, statusline, "Delegates statusline")
@@ -156,24 +153,20 @@ once per turn.
 inside it each part has its own named pair, and `init` replaces a part where it stands,
 adds one whose markers are absent, and reads straight past one whose start marker says
 `keep`. Everything else in the file — including the person's own prose sitting between
-two parts — comes back byte for byte. It is the opposite trade from `review-loop.sh`
-below, and for one reason: the loop has no way to say which part of itself is the
-person's, and the block does. The marker text it writes is interpolated from
+two parts — comes back byte for byte. The marker text it writes is interpolated from
 `Question.Marker.render/1` rather than spelled out again, so what a mouse is told to
 write and what the owl reads back cannot drift.
 
-**`review-loop.sh` is the repo's, and nothing in the escript reads it** (ADR-0042).
-`Install` writes it once, only when it is missing, and the repo owns the check command
-inside it from then on.
+**The `finish` part is where finishing lives, and nothing in the escript runs it**
+(ADR-0048). A mouse checks its own work against the brief, runs the repo's checks, sends
+reviewers over its own diff and goes round once more, all inside the turn. Whiska writes
+the words and never learns whether they were followed. `Install` keeps the retired
+`review-loop.sh` path for two purposes only: recognising a `Stop` entry an older version
+wrote, so `init` removes it, and letting the doctor name a file left on disk.
 
-**The shim chains it in front of `Hook.Stop` rather than Claude Code running the two in
-parallel.** There is one `Stop` entry in `settings.json`, and the ordering lives in shell:
-the shim runs the loop, passes a block straight through, and only calls `whiska hook stop`
-when the loop lets the turn end. That is what keeps `Hook.Stop` literally as ADR-0036
-describes it — it is not made conditional, it is simply not invoked — and it is why the
-loop runs *before* the shim's binary lookup, so a missing Whiska cannot quietly disable
-the repo's own hook too. The `pre-tool-use` path is untouched and still `exec`s
-(ADR-0033).
+**The shim's `stop` path is one `exec`, like `pre-tool-use`.** One `Stop` entry in
+`settings.json`, nothing chained in front of it, no stdin capture — which is what keeps
+`Hook.Stop` literally as ADR-0036 describes it, unconditional and never classifying.
 
 **`Doctor` checks and never repairs, and probes rather than inspects (ADR-0038).** It
 runs the repo's committed shim for both hooks with a payload whose `cwd` is outside any

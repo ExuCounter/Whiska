@@ -265,7 +265,6 @@ defmodule Whiska.CLI do
          :ok <- File.write(shim, Install.shim()),
          :ok <- File.chmod(shim, 0o755),
          :ok <- write_statusline(repo_root),
-         :ok <- write_review_loop(repo_root),
          :ok <- write_skills(repo_root),
          :ok <- write_claude_md(repo_root),
          :ok <- File.mkdir_p(Path.dirname(path)),
@@ -290,17 +289,16 @@ defmodule Whiska.CLI do
 
         And the worktree protocol went into CLAUDE.md — how a mouse gets spawned,
         the worktree-status marker it ends a turn with, how its question reaches
-        you, and the shape the message it writes takes (ADR-0045). Each part
-        sits in its own named markers, so the next init replaces one without
-        touching the others and nothing outside them is read at all. Add `keep`
-        to a part's start marker to make it yours and Whiska will never rewrite
-        it again.
+        you, the shape the message it writes takes, and what it does before it
+        says done (ADR-0045). Each part sits in its own named markers, so the
+        next init replaces one without touching the others and nothing outside
+        them is read at all. Add `keep` to a part's start marker to make it
+        yours and Whiska will never rewrite it again.
 
-        And the review loop (#{Install.review_loop_path()}) — a Stop hook this
-        repo owns, not Whiska (ADR-0042). The shim runs it before Whiska's own
-        stop hook and only leaves a question on the doorstep once it lets the
-        turn end. Edit the CHECK line at the top to say what green means here;
-        it is written once and never touched again.
+        Tell the finish part what green means here: a `## Finish` heading in
+        CLAUDE.md, outside Whiska's block, naming this repo's checks, where its
+        written decisions live and its ticket prefix. Without one a mouse runs
+        whatever the tooling obviously offers and says what it assumed.
 
         Check them into git so the rules travel with the repo (ADR-0016):
 
@@ -330,23 +328,6 @@ defmodule Whiska.CLI do
     end
   end
 
-  # The repo's review loop (ADR-0042), written once and then left alone: the
-  # CHECK line inside it is the person's, and `whiska init` — or `whiska update`
-  # — rewriting the file would throw their answer away. Whiska never reads it
-  # back either way.
-  defp write_review_loop(repo_root) do
-    script = Path.join(repo_root, Install.review_loop_path())
-
-    if File.exists?(script) do
-      :ok
-    else
-      with :ok <- File.mkdir_p(Path.dirname(script)),
-           :ok <- File.write(script, Install.review_loop()) do
-        File.chmod(script, 0o755)
-      end
-    end
-  end
-
   defp write_statusline(repo_root) do
     script = Path.join(repo_root, Install.statusline_path())
 
@@ -370,9 +351,9 @@ defmodule Whiska.CLI do
   end
 
   # The worktree protocol, into the repo's own CLAUDE.md (ADR-0017, ADR-0045).
-  # Unlike the review loop this *is* rewritten on every init — that is the point
-  # of the per-part markers, and a part the person has claimed with `keep` is
-  # skipped by the merge rather than by refusing to write the file at all.
+  # Rewritten on every init — that is the point of the per-part markers, and a
+  # part the person has claimed with `keep` is skipped by the merge rather than
+  # by refusing to write the file at all.
   defp write_claude_md(repo_root) do
     path = Path.join(repo_root, "CLAUDE.md")
 

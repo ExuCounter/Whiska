@@ -41,14 +41,13 @@ warning: when a house's 60 s backstop collects anything, it is something the idl
 should have brought a minute earlier, so the house warns and marks it in
 `.git/whiska/backstop`, and the doctor reads that mark as one more line — the guard
 against a dead trigger hiding behind a working last resort (ADR-0036, note of
-2026-09-28). Then the review loop: `whiska init` writes `.claude/hooks/review-loop.sh`,
-a `Stop` hook the repo owns and Whiska never reads, which holds a turn ending on `done`
-until the repo's own check command is green and one review pass against `specs/` and
-`docs/adr/` has been asked for — bounded at two failing blocks in a row, the shape
-ADR-0011 gives a failing push. The shim chains it in front of `whiska hook stop`, so a
-blocked turn leaves nothing on the doorstep and `Hook.Stop` itself is unchanged
-(ADR-0042, the addendum to ADR-0036). Whiska itself now runs no checks at all (ADR-0014
-superseded). Then `whiska waiting` and `whiska jump`: one reading of every house in the
+2026-09-28). Then finishing, which is no longer a hook at all: `whiska init` writes a `finish` part
+into the `CLAUDE.md` block, and a mouse runs it itself before it says `done` — the work
+read back against the brief and the repo's decisions, the repo's checks run and fixed,
+reviewers sent over its own diff, one more round, then the marker. `review-loop.sh` is
+retired: nothing writes it, nothing chains it, and the doctor warns about a file left on
+disk rather than removing it (ADR-0048, ADR-0042 superseded). Whiska itself still runs no
+checks at all (ADR-0014 superseded). Then `whiska waiting` and `whiska jump`: one reading of every house in the
 open-houses record — each open or sent question and each uncollected doorstep entry,
 oldest first, with the mouse's pane — printed as lines or as `--json`, and a `jump` that
 asks herdr to focus the main session of the house the top one belongs to, or of a named

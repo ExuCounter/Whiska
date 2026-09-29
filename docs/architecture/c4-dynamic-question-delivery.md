@@ -1,9 +1,8 @@
 # Dynamic — a question from doorstep to answer
 
-**All of this is built and tested**: the review loop in front of the doorstep (ADR-0042),
-the doorstep and collection (ADR-0036), classification (ADR-0009), the idle-gated delivery
-queue (ADR-0008) with its hold while the person is typing (ADR-0047), and the reply keyed
-to a question id (ADR-0005). Shown as a dynamic diagram because the ordering is the
+**All of this is built and tested**: the doorstep and collection (ADR-0036),
+classification (ADR-0009), the idle-gated delivery queue (ADR-0008) with its hold while
+the person is typing (ADR-0047), and the reply keyed to a question id (ADR-0005). Shown as a dynamic diagram because the ordering is the
 design. Nothing here crosses into another repo: the nudge that once did was deleted by
 ADR-0044.
 
@@ -17,7 +16,6 @@ C4Dynamic
 
   Person(person, "The person", "Answers one at a time")
   Container_Ext(mousepane, "Mouse", "Claude Code in a herdr pane", "Just finished a turn")
-  Container_Ext(loop, "Review loop", "the repo's script, run by the shim", "Is the turn actually over?")
   Container_Ext(herdr, "herdr", "Multiplexer", "Reports agent status from a real hook")
   Container_Ext(mainpane, "Main session", "Claude Code", "The pane whiska start ran in")
 
@@ -29,9 +27,7 @@ C4Dynamic
 
   ContainerDb(db, "House database", "SQLite", "questions")
 
-  Rel(mousepane, loop, "The shim runs it first, on every finished turn")
-  Rel(loop, mousepane, "Not yet: back to work, nothing written")
-  Rel(mousepane, doorstep, "Turn is over: the stop hook writes a file and exits")
+  Rel(mousepane, doorstep, "End of a turn: the stop hook writes a file and exits")
   Rel(herdr, collection, "Reports that mouse done or idle")
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by marker")
@@ -45,19 +41,12 @@ C4Dynamic
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
 ```
 
-## Steps 1–2 — the review loop decides whether the turn is over (ADR-0042)
+Finishing happens before any of this, inside the turn: the mouse runs its own pipeline —
+brief, checks, reviewers, one more round — and only then writes the marker (ADR-0048).
+Nothing sits in front of the stop hook, and nothing in Whiska knows whether that pipeline
+ran.
 
-A mouse ending a turn on `done` is its own opinion. The repo's own script —
-`.claude/hooks/review-loop.sh`, which Whiska writes once and never reads — runs the repo's
-check command and asks for one diff review against `specs/` and `docs/adr/`. Until it is
-satisfied it blocks the stop, and the mouse goes back to work.
-
-It is chained by the shim rather than registered as a second `Stop` entry, because Claude
-Code runs `Stop` hooks in parallel: side by side, step 3 below happened anyway, and the
-person was told the mouse had finished while it was still looping. A turn ending on
-`needs-decision`, or on no marker at all, skips the loop entirely and goes straight on.
-
-## Step 3 — the hook never opens a socket (ADR-0036)
+## Step 1 — the hook never opens a socket (ADR-0036)
 
 The obvious design connects to the house's socket, and then has to answer what happens
 when nothing is listening. The spec required that case to "fail loudly", but loudly has
@@ -66,7 +55,7 @@ transcript, seen by the mouse and nobody else. So the hook writes to the doorste
 exits, every time. No connect timeout, no retry, no error handling, and no second code
 path that differs between a healthy machine and a broken one.
 
-## Steps 4–5 — collection is event-driven, not a sweep
+## Steps 2–3 — collection is event-driven, not a sweep
 
 herdr reporting a mouse `done` or `idle` is what triggers collection of that house;
 opening the house collects too, and a slow timer is only a backstop. An idle collection
@@ -76,7 +65,7 @@ after 2 s and 5 s, and stops as soon as anything is found. Because
 each pane's `cwd` to a mouse's worktree to learn which panes are its own. Collection reads
 and marks — it never deletes and never touches the worktree (ADR-0007).
 
-## Step 6 — classification is the mouse's marker, nothing more (ADR-0009)
+## Step 4 — classification is the mouse's marker, nothing more (ADR-0009)
 
 No heuristics, no model reading the text. **A marker is required to be quiet, not to be
 heard:**
@@ -107,7 +96,7 @@ That other session now redraws itself, on the `refreshInterval` `whiska init` wr
 beside the statusLine command, and reads what is waiting here off disk. Nothing in this
 flow reaches out of the repo it started in.
 
-## Steps 7–9 — a queue, not a batch (ADR-0008)
+## Steps 5–7 — a queue, not a batch (ADR-0008)
 
 Deliver only when the main session is idle *and* has no other question sent and waiting
 for its answer. Anything else joins the pile silently. That single rule, not a timer, is
@@ -127,7 +116,7 @@ When herdr reports `claude` + `unknown` — the integration is broken — **deli
 and say so**. Holding there is not caution, it is choosing silence, and the person would
 never learn why the mice went quiet.
 
-Step 8 is the second half of the same gate (ADR-0047). Idle is the model's word: the
+Step 6 is the second half of the same gate (ADR-0047). Idle is the model's word: the
 person can have a half-typed prompt sitting in the box while the pane is every bit as
 idle, and the line would land inside it or submit it. herdr has no input signal, so
 delivery reads the pane's visible screen and looks for Claude Code's prompt box. A draft
@@ -135,7 +124,7 @@ in it holds the question — open, first in the queue, gone on the next trigger 
 box clears — and `whiska doctor` says `held: person is typing` meanwhile. A screen with
 no box on it is an unavailable signal, and delivers for the reason above.
 
-## Steps 10–11 — answers are keyed to a question id (ADR-0005)
+## Steps 8–9 — answers are keyed to a question id (ADR-0005)
 
 Not to a branch. That is what stops an answer landing on whichever question Whiska
 happened to guess. `whiska reply <id>` writes the answer to the house; the owl looks up

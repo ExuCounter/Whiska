@@ -70,9 +70,9 @@ opinion about it. The marker sits where the person is already looking.
 
 ## Consequences
 
-`whiska init` rewrites `CLAUDE.md` on every run, unlike `.claude/hooks/review-loop.sh`,
-which is written once and then never touched (ADR-0042). The two are not inconsistent:
-the loop has no way to say which part of itself is the person's, and the block does.
+`whiska init` rewrites `CLAUDE.md` on every run, which nothing else `init` writes into
+the repo can claim — every other file is Whiska's whole and replaced whole. The block can
+say which part of itself is the person's, so it does not have to be.
 
 A part's name is now load-bearing, the way the marker's spelling is (ADR-0009):
 renaming `marker` to something else would make the next `init` treat the old part as
