@@ -46,3 +46,9 @@ house is open and the elsewhere segment says nothing — the owl segment says wh
 matters then. The pane list is still herdr's and the other houses are still read
 directly; only the set of repos looked at has changed. The switch to the socket, when it
 lands, stays a one-place change.
+
+**Note (2026-09-29, ADR-0048):** the elsewhere segment is gone — the statusline is one
+machine-wide line drawn on herdr's tab bar — and with it the pane list this addendum
+prices. What a refresh costs is now the per-house SQLite reads `Whiska.Waiting` already
+does, five seconds apart, once for the machine rather than once per idle session. The
+socket is still what replaces them.

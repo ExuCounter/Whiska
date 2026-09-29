@@ -93,7 +93,7 @@ is nowhere to reply and nothing left to change. One whose worktree still exists 
 delivered even if its mouse is dead, because `whiska reopen <branch>` can start a fresh
 pane on it.
 
-## Nothing goes to another repo (ADR-0044)
+## Nothing goes to another repo (ADR-0044, ADR-0048)
 
 Two steps between collection and delivery used to be the nudge: the house reported to
 the owl's one Nudge process, which typed `⚡ <folders> waiting` into every other open
@@ -103,9 +103,9 @@ conversation changes, so the elsewhere segment (ADR-0027) was invisible exactly 
 mattered — but its means were not: the line arrived as a user turn the other session's
 Claude could not tell from a prompt, and cost that session a turn each time.
 
-That other session now redraws itself, on the `refreshInterval` `whiska init` writes
-beside the statusLine command, and reads what is waiting here off disk. Nothing in this
-flow reaches out of the repo it started in.
+The statusline has since left Claude Code: herdr's tab bar draws one machine-wide line
+for the whole session and runs it on its own timer, reading every recorded house off disk
+(ADR-0048). Nothing in this flow reaches out of the repo it started in.
 
 ## Steps 7–9 — a queue, not a batch (ADR-0008)
 

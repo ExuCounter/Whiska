@@ -4,9 +4,9 @@ defmodule Whiska.Doctor.Report do
 
   One line per check: the status word first, fixed width, so a column of them
   scans; then the check's name, aligned; then what was found. A fix, when
-  there is one, sits on its own indented line right under the finding. Plain
-  ASCII, no colour — this is read in whatever pane it was typed in, and
-  sometimes pasted somewhere else.
+  there is one, sits under the finding in the same gutter, however many lines
+  it runs to. Plain ASCII, no colour — this is read in whatever pane it was
+  typed in, and sometimes pasted somewhere else.
 
   Silence is not a result here. A healthy machine still prints every check,
   because on a machine where the owl has never run, "nothing printed" and
@@ -50,10 +50,13 @@ defmodule Whiska.Doctor.Report do
   defp fix_line(%Check{fix: nil}, _), do: []
   defp fix_line(%Check{status: :ok}, _), do: []
 
-  defp fix_line(%Check{fix: fix}, name_width),
-    do: [
-      String.duplicate(" ", String.length(@indent) + @status_width + name_width) <> "fix: " <> fix
-    ]
+  defp fix_line(%Check{fix: fix}, name_width) do
+    gutter = String.duplicate(" ", String.length(@indent) + @status_width + name_width)
+
+    case String.split(String.trim_trailing(fix), "\n") do
+      [first | rest] -> [gutter <> "fix: " <> first | Enum.map(rest, &(gutter <> "  " <> &1))]
+    end
+  end
 
   defp word(:ok), do: "ok"
   defp word(:warn), do: "warn"

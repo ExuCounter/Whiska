@@ -44,9 +44,11 @@ The record is written by the owl and outlives it, so on its own it would say "op
 as long as nobody restarted. It is therefore **trusted only while an owl is in the
 process table** — `Whiska.OpenHouses.open/2` returns nothing when `Whiska.Owl.pids/0`,
 the probe the doctor and the statusline already share (ADR-0027, second addendum), finds
-no owl. With the owl down, no house is open: the headcount and the elsewhere segment go
-quiet, and the line reads `🦉 owl down · N waiting`, which is the signal that matters
-then. The doctor prints what the file says with "none is open while the owl is down"
+no owl. With the owl down, no house is open, and the statusline reads `🦉 owl down`,
+which is the signal that matters then. (Since ADR-0048 the statusline reads the record
+with `read/1` rather than through this guard: what it lists is what is *waiting*, and a
+question already recorded is waiting whether or not an owl is awake — the same reading
+`whiska waiting` does. The guard still holds for the doctor.) The doctor prints what the file says with "none is open while the owl is down"
 beside it.
 
 ## Why this is not the house registry that was rejected before

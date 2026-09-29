@@ -1,5 +1,13 @@
 # The statusline redraws on a timer, not a typed nudge
 
+**Superseded 2026-09-29 by
+[ADR-0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md)**: the line left
+Claude Code's statusline for herdr's tab bar, where one pull every five seconds
+serves the whole machine, so there is no `refreshInterval` left to set and no
+per-session timer to price. What this ADR decided about the *nudge* still holds
+and is not reopened — nothing in Whiska types into a session that is not its own
+house's main session.
+
 **Supersedes [ADR-0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md)**,
 which had the owl type `⚡ <folders> waiting` into every other open house's idle main
 session.

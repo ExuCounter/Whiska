@@ -33,6 +33,12 @@ defmodule Whiska.Doctor.ReportTest do
     refute out =~ ~r/fine\n +fix:/
   end
 
+  test "a fix of several lines keeps every line indented under the finding" do
+    out = Report.render(report([warn("tab bar", "nothing draws it", "paste this:\n[ui]\nx = 1")]))
+
+    assert out =~ ~r/nothing draws it\n +fix: paste this:\n +\[ui\]\n +x = 1$/m
+  end
+
   test "the summary counts failures and warnings" do
     out = Report.render(report([fail("a", "x", "f"), fail("b", "x", "f"), warn("c", "x", "f")]))
     assert out =~ "2 failed, 1 warning."

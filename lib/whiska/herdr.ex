@@ -122,4 +122,23 @@ defmodule Whiska.Herdr do
     home = env["HOME"] || System.user_home!()
     Path.join(home, ".config/herdr/herdr.sock")
   end
+
+  @doc """
+  herdr's own config file: `HERDR_CONFIG_PATH` when it is set, else
+  `~/.config/herdr/config.toml`.
+
+  The person's file, and machine-global. Whiska reads it — `whiska doctor`
+  looks for the tab bar entry that draws the owl's line (ADR-0048) — and never
+  writes it.
+  """
+  @spec config_path(%{optional(String.t()) => String.t()}) :: Path.t()
+  def config_path(env \\ System.get_env()) do
+    case env["HERDR_CONFIG_PATH"] do
+      path when is_binary(path) and path != "" ->
+        path
+
+      _ ->
+        Path.join(env["HOME"] || System.user_home!(), ".config/herdr/config.toml")
+    end
+  end
 end

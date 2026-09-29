@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (596 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (752 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -15,7 +15,7 @@ C4Container
 
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Committed hook shim; resolves runtime at fire time, fails open")
-    Container(statusline, "whiska-statusline.sh", "bash", "Committed statusline; runs the global one, appends whiska statusline")
+    Container(statusline, "herdr-status.sh", "bash", "Machine-level status script in ~/.whiska; herdr's tab bar runs it on a timer")
     Container(cli, "whiska", "Elixir escript", "Hooks, init, mode - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
     Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection, delivery to the main session")
@@ -32,11 +32,12 @@ C4Container
   }
 
   Rel(person, cli, "Runs whiska init / mode / owl / questions")
-  Rel(statusline, cli, "Runs whiska statusline on every refresh", "JSON on stdin")
-  Rel(cli, db, "questions and statusline read the house")
-  Rel(cli, doorstep, "questions and statusline count what is uncollected")
-  Rel(cli, herdr, "mice and statusline list panes")
-  Rel(cli, record, "owl reopens from it; statusline and doctor read it while an owl is alive")
+  Rel(herdr, statusline, "Tab bar runs it every 5 seconds and shows its last line")
+  Rel(statusline, cli, "Runs whiska statusline")
+  Rel(cli, db, "questions, statusline and waiting read every recorded house")
+  Rel(cli, doorstep, "questions, statusline and waiting count what is uncollected")
+  Rel(cli, herdr, "mice list panes; doctor reads herdr's config for the tab bar entry")
+  Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
   Rel(herdr, shim, "PreToolUse and Stop fire in a mouse's session")
   Rel(shim, cli, "Execs with the payload on stdin", "JSON")
   Rel(cli, marker, "Reads, minting one on first use")
@@ -58,23 +59,27 @@ C4Container
 
 ## Why each piece is its own container
 
-**`whiska-statusline.sh` is the second committed script** (ADR-0027). A project-level
-`statusLine` replaces the global one, so the script runs the global command first and
-appends the line `whiska statusline` prints: the owl's state, always, so a blank line
-never passes for a working Whiska; the whiskas on the machine when there is more than
-one; the mice here; the questions here; and the whiskas elsewhere with something waiting
-— the whiskas and mice from herdr's pane list and a direct read of each other house
-(ADR-0025 addendum), the owl from the process table. It shares the shim's binary-and-runtime
-lookup, generated from the same source, so the two cannot drift. Claude Code sets no
-`CLAUDE_PROJECT_DIR` for statusline commands, so the committed command falls back to a
-path relative to the project directory.
+**`herdr-status.sh` is the one script that is not committed to a repo** (ADR-0048). It
+lives in `~/.whiska/` beside the open-houses record and the owl's launchd wrapper,
+because the line it prints is machine-wide: the owl's state, always, so a blank line
+never passes for a working Whiska, and what is waiting anywhere — one thing named by its
+mouse's branch, several as a count. `whiska owl install` writes it; a `tab_bar_right`
+command entry in the person's own herdr config runs it every five seconds and shows its
+last line. Whiska never edits that config: it is machine-global and hand-edited, and a
+per-repo `init` writing into it is the boundary ADR-0016 draws. `whiska doctor` reads it
+and prints the entry to paste. The script shares the shim's binary-and-runtime lookup,
+generated from the same source, so the two cannot drift, and prints `🦉 whiska missing`
+rather than nothing when the lookup fails — herdr clears an entry that produces no
+output, which would look exactly like nothing being configured.
 
 **The open-houses record is the one machine-level file** (ADR-0039). It sits in
 `~/.whiska/`, the folder ADR-0025 reserves for the global socket, and says which houses
 the owl has open — not which exist (ADR-0003). The owl writes it as it opens and shuts
 houses and leaves it behind when it stops, so `whiska owl` with no arguments reopens the
-same houses. The statusline and the doctor read it to know what counts as a whiska, but
-only while an owl is in the process table: a file a dead owl left says nothing.
+same houses. The doctor reads it to know which houses the owl has open, and only while an owl is in
+the process table: a file a dead owl left says nothing. The statusline and `whiska
+waiting` read it either way — something already recorded is waiting on the person whether
+or not an owl is awake, and a dead owl is when that listing matters most.
 
 **The backstop mark is a house's file, not a machine-level one** (ADR-0036, note of
 2026-09-28). Everything the backstop collects is something herdr's idle event should have
@@ -116,12 +121,12 @@ per-house verb (ADR-0003) and waits for the socket.
 that fought launchd and made "what is waiting on me anywhere" a new subsystem. Each house
 is supervised independently, so one project's house crashing is invisible to every other.
 
-**Delivery lives in the house, and nothing lives across houses** (ADR-0008, ADR-0044).
-Each house owns its own idle-gated queue to its own main session, and that is the only
-place Whiska ever types. Telling another repo's idle session that something is waiting
-here is the statusline's job, not the owl's: a `refreshInterval` on the statusLine
-command re-runs the script every 15 seconds, and it reads the other houses off disk. The
-Nudge process that once typed into other sessions is deleted.
+**Delivery lives in the house, and nothing lives across houses** (ADR-0008, ADR-0044,
+ADR-0048). Each house owns its own idle-gated queue to its own main session, and that is
+the only place Whiska ever types. Telling the person that something is waiting in another
+repo is the statusline's job, not the owl's: herdr's tab bar runs the status script every
+five seconds and it reads every recorded house off disk. The Nudge process that once
+typed into other sessions is deleted.
 
 **herdr is the one boundary with a fake behind it** (ADR-0031). `Whiska.Herdr` is a
 behaviour; `Whiska.Herdr.Socket` is the real client and tests use a Mox fake, checked

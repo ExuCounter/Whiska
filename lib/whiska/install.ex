@@ -341,80 +341,49 @@ defmodule Whiska.Install do
   exit 0
   '''
 
-  @statusline_path ".claude/hooks/whiska-statusline.sh"
+  # The statusline `whiska init` used to write into each repo, kept only so
+  # `init` can recognise its own leavings and clear them away (ADR-0048).
+  @stale_statusline_path ".claude/hooks/whiska-statusline.sh"
+  @stale_statusline_mark "Whiska's project statusline"
 
-  # Claude Code does not set CLAUDE_PROJECT_DIR for the statusline command, only
-  # for hooks; the command runs from the project directory, so the relative path
-  # is the fallback, and the variable is honoured if a later version sets it.
-  @statusline_command ~s|bash "${CLAUDE_PROJECT_DIR:-.}/#{@statusline_path}"|
+  @herdr_status_name "herdr-status.sh"
 
-  # Seconds between redraws, on top of Claude Code's own event triggers
-  # (ADR-0044). Claude Code's event triggers all come from the session's own
-  # conversation, so a person sitting idle in one repo never learns that
-  # another repo's mouse is waiting — which is what the elsewhere segment
-  # exists to tell them. This timer is the sanctioned way to redraw without a
-  # conversation turn; the minimum the setting accepts is 1.
-  #
-  # One run of the script costs about 0.44 s of wall clock (escript startup),
-  # so 15 s holds each idle session near 3% of a core, and the person learns
-  # of another repo within a quarter of a minute of sitting still. See
-  # ADR-0044 for the arithmetic behind the number.
-  @statusline_refresh_interval 15
+  # herdr runs the entry every `interval_seconds` without overlapping a previous
+  # run, and one process per interval covers the whole machine — so five seconds
+  # costs a fraction of what fifteen cost per idle Claude Code session. The
+  # timeout is what herdr waits before clearing the entry; two seconds is well
+  # clear of the escript startup the script pays for.
+  @herdr_status_interval 5
+  @herdr_status_timeout 2
 
-  @statusline_script """
-                     #!/usr/bin/env bash
-                     # Whiska's project statusline (ADR-0027). A project-level statusLine
-                     # replaces the global one rather than merging with it, so this runs your
-                     # global statusline first and appends one line: whether the owl is
-                     # watching or down (always, so a blank line never passes for a working
-                     # Whiska), how many whiskas are on this machine when there is more than
-                     # one, the mice alive here, one open question in detail or a count for
-                     # more, and which other whiska has something waiting. Only the owl is
-                     # shown when nothing waits.
-                     #
-                     # Written by `whiska init`. The binary and runtime are resolved the same
-                     # way the hook shim resolves them, at run time, never baked in here.
-                     #
-                     # How often this runs is not this script's business: the `refreshInterval`
-                     # beside the command in settings.json redraws it on a timer while the
-                     # session sits idle (ADR-0044).
+  @herdr_status_script """
+                       #!/usr/bin/env bash
+                       # The line herdr's tab bar shows (ADR-0048): whether the owl is watching or
+                       # down, always, and what is waiting anywhere on this machine. herdr takes
+                       # the last line of output, so nothing else may be printed on stdout.
+                       #
+                       # Written by `whiska owl install`. The entry that runs it is the person's
+                       # own herdr config; `whiska doctor` prints it. The binary and runtime are
+                       # resolved the same way the hook shim resolves them, at run time.
 
-                     input="$(cat)"
+                       """ <>
+                         @resolve_whiska <>
+                         @resolve_escript <>
+                         """
+                         # A blank line reads as "nothing configured", and the owl's state is the one
+                         # thing that must always be shown (ADR-0027 addendum), so both ways of
+                         # getting no line say which one happened rather than going quiet.
+                         if [ -z "$whiska_bin" ]; then
+                           printf '🦉 whiska missing'
+                           exit 0
+                         fi
 
-                     global=""
-                     if command -v jq >/dev/null 2>&1 && [ -r "$HOME/.claude/settings.json" ]; then
-                       global="$(jq -r '.statusLine.command // empty' "$HOME/.claude/settings.json" 2>/dev/null)"
-                     fi
-
-                     base=""
-                     case "$global" in
-                       "" | *whiska-statusline.sh*) ;;
-                       *) base="$(printf '%s' "$input" | bash -c "$global" 2>/dev/null)" ;;
-                     esac
-
-                     dir=""
-                     if command -v jq >/dev/null 2>&1; then
-                       dir="$(printf '%s' "$input" | jq -r '.workspace.current_dir // .workspace.project_dir // .cwd // empty' 2>/dev/null)"
-                     fi
-                     [ -d "$dir" ] || dir="$PWD"
-
-                     """ <>
-                       @resolve_whiska <>
-                       @resolve_escript <>
-                       """
-                       segment=""
-                       if [ -n "$whiska_bin" ] && [ -n "$escript_bin" ]; then
-                         segment="$(cd "$dir" && "$escript_bin" "$whiska_bin" statusline 2>/dev/null)"
-                       elif [ -n "$whiska_bin" ]; then
-                         segment="$(cd "$dir" && "$whiska_bin" statusline 2>/dev/null)"
-                       fi
-
-                       if [ -n "$base" ] && [ -n "$segment" ]; then
-                         printf '%s · %s' "$base" "$segment"
-                       else
-                         printf '%s%s' "$base" "$segment"
-                       fi
-                       """
+                         if [ -n "$escript_bin" ]; then
+                           "$escript_bin" "$whiska_bin" statusline 2>/dev/null || printf '🦉 whiska error'
+                         else
+                           "$whiska_bin" statusline 2>/dev/null || printf '🦉 whiska error'
+                         fi
+                         """
 
   # One slash-command skill per command (ADR-0022): a thin wrapper around the
   # fixed `whiska` call, discoverable via /help, so the model never has to
@@ -580,8 +549,8 @@ defmodule Whiska.Install do
 
   @doc """
   The shell that finds the whiska binary: `WHISKA_BIN`, then `PATH`, then
-  `~/.local/bin`. Shared by the shim, the statusline script and the owl's
-  launchd wrapper, so the three resolve identically.
+  `~/.local/bin`. Shared by the shim, the tab bar's status script and the
+  owl's launchd wrapper, so the three resolve identically.
   """
   @spec resolve_whiska() :: String.t()
   def resolve_whiska, do: @resolve_whiska
@@ -643,26 +612,76 @@ defmodule Whiska.Install do
   @spec review_loop() :: String.t()
   def review_loop, do: @review_loop
 
-  @doc "Where the statusline script lives, relative to the repo root."
-  @spec statusline_path() :: Path.t()
-  def statusline_path, do: @statusline_path
+  @doc """
+  Where the script herdr's tab bar runs lives: the whiska home, beside the
+  owl's launchd wrapper and the open-houses record.
 
-  @doc "The statusLine command that goes into `settings.json`; names only the script."
-  @spec statusline_command() :: String.t()
-  def statusline_command, do: @statusline_command
+  Machine-level, because the line is (ADR-0048). No repo owns it, and `whiska
+  init` never writes it.
+  """
+  @spec herdr_status_path() :: Path.t()
+  def herdr_status_path, do: Path.join(Whiska.OpenHouses.home(), @herdr_status_name)
 
-  @doc "The statusline script's contents (ADR-0027)."
-  @spec statusline_script() :: String.t()
-  def statusline_script, do: @statusline_script
+  @doc "The script's contents (ADR-0048)."
+  @spec herdr_status_script() :: String.t()
+  def herdr_status_script, do: @herdr_status_script
+
+  @doc "Seconds between the tab bar's runs of it."
+  @spec herdr_status_interval() :: pos_integer()
+  def herdr_status_interval, do: @herdr_status_interval
+
+  @doc "Seconds herdr waits before clearing the entry."
+  @spec herdr_status_timeout() :: pos_integer()
+  def herdr_status_timeout, do: @herdr_status_timeout
 
   @doc """
-  Seconds between statusline redraws, written beside the command (ADR-0044).
+  The herdr config entry that draws the line — what the person pastes into
+  `~/.config/herdr/config.toml` and commits with their dotfiles (ADR-0048).
 
-  It is what keeps the elsewhere segment honest while a session sits idle,
-  now that no nudge is typed into it.
+  Whiska ships the script and never edits this file: the config is
+  machine-global and the person's, and a per-repo `init` writing into it is
+  exactly the boundary ADR-0016 forbids.
   """
-  @spec statusline_refresh_interval() :: pos_integer()
-  def statusline_refresh_interval, do: @statusline_refresh_interval
+  @spec tab_bar_right_snippet() :: String.t()
+  def tab_bar_right_snippet do
+    """
+    [ui]
+    tab_bar_right = [
+      { type = "command", command = "#{herdr_status_path()}", interval_seconds = #{@herdr_status_interval}, timeout_seconds = #{@herdr_status_timeout} },
+    ]
+    tab_bar_right_separator = " · "
+    """
+  end
+
+  @doc "Write the script into the whiska home, executable."
+  @spec write_herdr_status() :: :ok | {:error, File.posix()}
+  def write_herdr_status do
+    path = herdr_status_path()
+
+    with :ok <- File.mkdir_p(Path.dirname(path)),
+         :ok <- File.write(path, @herdr_status_script) do
+      File.chmod(path, 0o755)
+    end
+  end
+
+  @doc """
+  Remove the per-repo statusline an earlier `init` wrote, script and settings
+  entry both (ADR-0048).
+
+  Only ours goes: a script at the same path that Whiska did not write is
+  somebody else's and stays where it is.
+  """
+  @spec clear_statusline(Path.t()) :: :ok
+  def clear_statusline(repo_root) do
+    script = Path.join(repo_root, @stale_statusline_path)
+
+    case File.read(script) do
+      {:ok, body} -> if String.contains?(body, @stale_statusline_mark), do: File.rm(script)
+      {:error, _} -> :ok
+    end
+
+    :ok
+  end
 
   @doc """
   The skills `whiska init` writes, as `{path, contents}`.
@@ -698,27 +717,17 @@ defmodule Whiska.Install do
     |> Map.put_new("hooks", %{})
     |> put_ours("PreToolUse", [pre_tool_use])
     |> put_ours("Stop", [stop])
-    |> put_statusline()
+    |> drop_statusline()
   end
 
-  # A project statusLine is a single value, not a list, so there is no "beside
-  # the others" here: one that is ours, or missing, is set; one that is somebody
-  # else's is left exactly alone rather than replaced — including its refresh
-  # interval, or its want of one.
-  defp put_statusline(settings) do
-    entry = %{
-      "type" => "command",
-      "command" => @statusline_command,
-      "refreshInterval" => @statusline_refresh_interval
-    }
-
+  # A project statusLine replaces the global one rather than merging with it, so
+  # one of ours left behind would keep a repo's statusline pointed at a script
+  # that is gone. Somebody else's is left exactly alone.
+  defp drop_statusline(settings) do
     case settings["statusLine"] do
-      nil ->
-        Map.put(settings, "statusLine", entry)
-
       %{"command" => command} when is_binary(command) ->
-        if String.contains?(command, @statusline_path),
-          do: Map.put(settings, "statusLine", entry),
+        if String.contains?(command, @stale_statusline_path),
+          do: Map.delete(settings, "statusLine"),
           else: settings
 
       _ ->
