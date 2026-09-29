@@ -11,6 +11,7 @@ defmodule Whiska.CLI do
 
   alias Whiska.Hook.PreToolUse
   alias Whiska.Hook.Stop
+  alias Whiska.ClaudeMd
   alias Whiska.Doctor
   alias Whiska.Doctor.Report
   alias Whiska.Herdr
@@ -266,6 +267,7 @@ defmodule Whiska.CLI do
          :ok <- write_statusline(repo_root),
          :ok <- write_review_loop(repo_root),
          :ok <- write_skills(repo_root),
+         :ok <- write_claude_md(repo_root),
          :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- File.write(path, JSON.encode!(merged) |> reformat()) do
       say(
@@ -286,6 +288,13 @@ defmodule Whiska.CLI do
         (ADR-0044). And one slash command per whiska command under
         .claude/skills/.
 
+        And the worktree protocol went into CLAUDE.md — how a mouse gets spawned,
+        the worktree-status marker it ends a turn with, and how its question
+        reaches you (ADR-0045). Each part sits in its own named markers, so the
+        next init replaces one without touching the others and nothing outside
+        them is read at all. Add `keep` to a part's start marker to make it
+        yours and Whiska will never rewrite it again.
+
         And the review loop (#{Install.review_loop_path()}) — a Stop hook this
         repo owns, not Whiska (ADR-0042). The shim runs it before Whiska's own
         stop hook and only leaves a question on the doorstep once it lets the
@@ -294,7 +303,7 @@ defmodule Whiska.CLI do
 
         Check them into git so the rules travel with the repo (ADR-0016):
 
-          git add .claude/settings.json .claude/hooks .claude/skills
+          git add .claude/settings.json .claude/hooks .claude/skills CLAUDE.md
           git commit -m "chore: enable whiska"
         """
         |> String.trim()
@@ -357,6 +366,25 @@ defmodule Whiska.CLI do
         error -> {:halt, error}
       end
     end)
+  end
+
+  # The worktree protocol, into the repo's own CLAUDE.md (ADR-0017, ADR-0045).
+  # Unlike the review loop this *is* rewritten on every init — that is the point
+  # of the per-part markers, and a part the person has claimed with `keep` is
+  # skipped by the merge rather than by refusing to write the file at all.
+  defp write_claude_md(repo_root) do
+    path = Path.join(repo_root, "CLAUDE.md")
+
+    existing =
+      case File.read(path) do
+        {:ok, contents} -> contents
+        {:error, :enoent} -> ""
+      end
+
+    case ClaudeMd.merge(existing) do
+      ^existing -> :ok
+      merged -> File.write(path, merged)
+    end
   end
 
   # A missing file is a fresh install; an unreadable one is not, and must never

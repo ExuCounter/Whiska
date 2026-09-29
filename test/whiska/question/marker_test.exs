@@ -70,4 +70,17 @@ defmodule Whiska.Question.MarkerTest do
       assert Marker.pointer(text) == "new"
     end
   end
+
+  describe "render/1 — the marker Whiska tells a mouse to write" do
+    test "renders exactly what classify/1 reads back" do
+      for {status, kind} <- [{:done, "done"}, {:needs_decision, "needs-decision"}] do
+        assert Marker.classify(Marker.render(status)) == kind
+      end
+    end
+
+    test "is the literal spelling, so the CLAUDE.md block can quote it" do
+      assert Marker.render(:done) == "[worktree-status: done]"
+      assert Marker.render(:needs_decision) == "[worktree-status: needs-decision]"
+    end
+  end
 end

@@ -147,6 +147,25 @@ and never counted (ADR-0036), and entries still on the doorstep are counted too,
 uncollected doorstep usually means the owl is not running. The listing and the statusline
 read one summary (`Whiska.Questions`), so they cannot disagree about what is waiting.
 
+`whiska init` also writes the worktree protocol into the repo's own `CLAUDE.md`
+(ADR-0045) and installs the three skills that drive it — `spawn-worktree`,
+`send-to-worktree` and `drop-worktree` (ADR-0046). The block is a nest of named markers,
+one pair per part:
+
+```markdown
+<!-- whiska:start -->
+<!-- whiska:worktrees:start -->   …the decision tree: route into a running mouse, or spawn
+<!-- whiska:marker:start -->      …the worktree-status marker a mouse ends every turn with
+<!-- whiska:delivery:start -->    …how its question reaches you, and why you never read its pane
+<!-- whiska:end -->
+```
+
+Re-running `init` replaces each part where it stands, adds one whose markers are missing,
+and returns everything outside the outer pair byte for byte — your own text included, and
+your own prose sitting between two parts. To make a part yours for good, put `keep` on
+its start marker (`<!-- whiska:marker:start keep -->`); Whiska then never rewrites it.
+Empty it as well, and the part is dropped for good.
+
 `whiska init` also installs a project statusline (ADR-0027) and the `/whiska-questions`
 slash command (ADR-0022). The statusline runs your global statusline first and appends
 one line. The owl's state is always there, so a blank line never passes for a working
@@ -272,7 +291,7 @@ whiska doctor — myrepo (/Users/me/projects/myrepo)
 ```
 cd your-repo
 /path/to/whiska init
-git add .claude/settings.json .claude/hooks/whiska.sh
+git add .claude/settings.json .claude/hooks/whiska.sh .claude/skills CLAUDE.md
 git commit -m "chore: enable whiska"
 ```
 

@@ -157,6 +157,31 @@ much it has had to collect is the measure of whether the event-driven path is al
 _Avoid_: fallback, poller, sweep, safety net (all of them suggest a path that is fine to
 be on; being on this one is the symptom)
 
+**Block**:
+The region of a project's own `CLAUDE.md` that `whiska init` writes and re-writes — the
+worktree protocol, in Whiska's words, travelling with the repo the way the hooks do. It
+is bounded by one outer marker pair, and everything outside that pair is the person's
+and is never read. Made of **parts**.
+_Avoid_: section (a part is a section too, so the word cannot tell the two apart),
+template, preamble
+
+**Part**:
+One separately-replaceable piece of the block, in its own named markers —
+`worktrees`, `marker`, `delivery` today. A part is replaced where it stands on the next
+`whiska init`, added if its markers are missing, and left exactly alone if its start
+marker says `keep`, which is how a person claims one as their own or drops it for good
+(ADR-0045). A part Whiska no longer ships stays where it is rather than being tidied
+away.
+_Avoid_: block (the whole thing), fragment, chunk
+
+**Worktree-status marker**:
+The line a mouse ends every response with — `[worktree-status: done]` or
+`[worktree-status: needs-decision]` — and the only thing a turn is classified by
+(ADR-0009). The main session never writes one. Distinct from the **marker file** that
+carries a `mouse_id`: that one is identity on disk, this one is a line in a message.
+Say which when either could be meant.
+_Avoid_: status line (the statusline is a different thing entirely), tag, signal
+
 **Review loop**:
 The repo's own answer to "is this turn actually over?" — held by the repo, not by
 Whiska, and consulted the moment a mouse tries to end a turn on `done`. It has two
