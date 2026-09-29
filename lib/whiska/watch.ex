@@ -9,8 +9,10 @@ defmodule Whiska.Watch do
 
   A row is branch, herdr's status, and one column of detail — the question
   waiting on the person if there is one, otherwise what the mouse is doing
-  (`Whiska.Watch.Transcript`). Live mice first, ordered by how much they want
-  the person: waiting, blocked, working, then the quiet ones. Five rows, unless
+  (`Whiska.Watch.Transcript`), and, on a working mouse's row, a ticker that
+  moves one frame per redraw so a frozen board can be told from a quiet one.
+  Live mice first, ordered by how much they want the person: waiting, blocked,
+  working, then the quiet ones. Five rows, unless
   more than five mice are waiting — the cap gives way rather than hide a
   question, which is the one failure a board must not have.
 
@@ -34,6 +36,12 @@ defmodule Whiska.Watch do
   @branch_max 24
   @dim "\e[2m"
   @undim "\e[0m"
+
+  # The ticker: proof the board is being redrawn, on the rows where a still
+  # picture and a frozen one look the same. One frame per snapshot the owl
+  # writes, so at ADR-0051's two seconds the cycle takes six.
+  @frames ["·", "··", "···"]
+  @ticker_width @frames |> Enum.map(&String.length/1) |> Enum.max()
 
   @waiting ["open", "sent"]
 
@@ -222,7 +230,19 @@ defmodule Whiska.Watch do
   The board as the statusline draws it. Empty when the house is quiet.
 
   Options: `:color`, whether a dead mouse's row is dimmed — true unless the
-  caller is writing somewhere that cannot show it.
+  caller is writing somewhere that cannot show it; `:frame`, which frame of the
+  ticker a working row carries, counted in boards written rather than in
+  seconds.
+
+  Only a working mouse ticks. An idle one, one blocked, one waiting on the
+  person, a dead one, and one herdr cannot account for are all still — on those
+  rows the board is saying nothing is happening, and a moving dot would say the
+  opposite. A stale board is still for free: nobody is writing it, so the frame
+  stops.
+
+  Without a `:frame` there is no ticker and no column for one: a board printed
+  once, by `whiska watch`, has nothing refreshing behind it, and a dot that can
+  never move says the opposite of what a ticker is for.
   """
   @spec render(t(), keyword()) :: String.t()
   def render(board, opts \\ [])
@@ -231,35 +251,53 @@ defmodule Whiska.Watch do
 
   def render(%{rows: rows, more: more, waiting: waiting}, opts) do
     color = Keyword.get(opts, :color, true)
-    widths = widths(rows)
+    tick = Keyword.get(opts, :frame)
+    widths = widths(rows, tick)
 
     {live, dead} = Enum.split_with(rows, &(&1.state == :live))
 
-    (Enum.map(live, &line(&1, widths, color)) ++
+    (Enum.map(live, &line(&1, widths, tick, color)) ++
        [more_line(more)] ++
-       Enum.map(dead, &line(&1, widths, color)) ++ [waiting_line(waiting)])
+       Enum.map(dead, &line(&1, widths, tick, color)) ++ [waiting_line(waiting)])
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n")
   end
 
-  defp widths(rows) do
+  defp widths(rows, tick) do
     %{
       branch: width(rows, &String.length(clip(&1.branch))),
-      status: width(rows, &String.length(&1.status))
+      status: width(rows, &String.length(&1.status)),
+      # The column is as wide as the longest frame and is there whether or not
+      # anything is working, so a row's detail sits in the same place while the
+      # dots grow, and stays there when the last working mouse stops.
+      ticker: if(is_integer(tick), do: @ticker_width, else: 0)
     }
   end
 
   defp width([], _of), do: 0
   defp width(rows, of), do: rows |> Enum.map(of) |> Enum.max()
 
-  defp line(row, widths, color) do
+  defp line(row, widths, tick, color) do
     text =
       "🐭 " <>
         String.pad_trailing(clip(row.branch), widths.branch) <>
-        "  " <> String.pad_trailing(row.status, widths.status) <> "  " <> row.detail
+        "  " <>
+        String.pad_trailing(row.status, widths.status) <>
+        "  " <> ticker(row, widths.ticker, tick) <> row.detail
 
     text |> String.trim_trailing() |> dim(row.state, color)
   end
+
+  defp ticker(_row, 0, _tick), do: ""
+
+  defp ticker(row, width, tick) do
+    String.pad_trailing(if(ticking?(row), do: frame(tick), else: ""), width) <> "  "
+  end
+
+  defp frame(n), do: Enum.at(@frames, Integer.mod(n, length(@frames)))
+
+  defp ticking?(row),
+    do: row.state == :live and row.status == "working" and is_nil(row.question_id)
 
   defp dim(text, :dead, true), do: @dim <> text <> @undim
   defp dim(text, _state, _color), do: text

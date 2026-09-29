@@ -245,6 +245,12 @@ defmodule Whiska.WatchTest do
     end
   end
 
+  # Where a row's detail starts, which the ticker must never move.
+  defp detail_column(line) do
+    [head, _detail] = String.split(line, ~r/(Edit x\.ex|waiting on you|#51 orphaned)/, parts: 2)
+    String.length(head)
+  end
+
   describe "render/2" do
     test "is one line per mouse, columns lined up" do
       board =
@@ -259,6 +265,113 @@ defmodule Whiska.WatchTest do
                🐭 feat-longer-name  idle
                """
                |> String.trim_trailing()
+    end
+
+    test "a board printed once, with no frame behind it, has no ticker at all" do
+      board =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working")],
+          action: fn _mouse -> {:tool, "Edit x.ex"} end
+        )
+
+      assert Watch.render(board) == "🐭 feat-a  working  Edit x.ex"
+    end
+
+    test "the ticker's column holds its place when the last working mouse stops" do
+      # `blocked` is as wide a word as `working`, so any difference between the
+      # two is the ticker's column and not the status one.
+      column =
+        fn status ->
+          board([mouse("feat-a")],
+            bare_panes: [pane("feat-a", status)],
+            action: fn _mouse -> {:tool, "Edit x.ex"} end
+          )
+          |> Watch.render(frame: 0)
+          |> detail_column()
+        end
+
+      assert column.("working") == column.("blocked")
+    end
+
+    test "the columns line up across a working, a waiting and a dead row" do
+      board =
+        board([mouse("feat-a"), mouse("feat-b"), mouse("feat-gone", died_at: @now)],
+          questions: [question(52, "feat-b"), question(51, "feat-gone", status: "orphaned")],
+          bare_panes: [pane("feat-a", "working"), pane("feat-b", "working")],
+          action: fn _mouse -> {:tool, "Edit x.ex"} end
+        )
+
+      columns =
+        board
+        |> Watch.render(frame: 1, color: false)
+        |> String.split("\n")
+        |> Enum.map(&detail_column/1)
+
+      assert [column, column, column] = columns
+    end
+
+    test "a working row's ticker advances a frame at a time, and wraps" do
+      board = board([mouse("feat-a")], bare_panes: [pane("feat-a", "working")])
+
+      assert Watch.render(board, frame: 0) == "🐭 feat-a  working  ·"
+      assert Watch.render(board, frame: 1) == "🐭 feat-a  working  ··"
+      assert Watch.render(board, frame: 2) == "🐭 feat-a  working  ···"
+      assert Watch.render(board, frame: 3) == "🐭 feat-a  working  ·"
+    end
+
+    test "the ticker never moves the detail column as it grows" do
+      board =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working")],
+          action: fn _mouse -> {:tool, "Edit x.ex"} end
+        )
+
+      columns =
+        Enum.map(0..2, fn frame ->
+          [line] = String.split(Watch.render(board, frame: frame), "\n")
+          line |> String.split("Edit x.ex") |> hd() |> String.length()
+        end)
+
+      assert [same, same, same] = columns
+    end
+
+    test "an idle mouse's row is still" do
+      board = board([mouse("feat-a")], bare_panes: [pane("feat-a", "idle")])
+
+      for frame <- 0..3, do: refute(Watch.render(board, frame: frame) =~ "·")
+    end
+
+    test "a mouse blocked, off its pane or behind an unreachable herdr is still" do
+      for {panes, status} <- [
+            {{:ok, [pane("feat-a", "blocked")]}, "blocked"},
+            {{:ok, []}, "no pane"},
+            {:no_socket, "?"}
+          ] do
+        board = board([mouse("feat-a")], panes: panes)
+
+        assert Watch.render(board, frame: 1) == "🐭 feat-a  #{status}"
+      end
+    end
+
+    test "a row waiting on the person is still, whatever herdr says it is doing" do
+      board =
+        board([mouse("feat-a")],
+          questions: [question(52, "feat-a")],
+          bare_panes: [pane("feat-a", "working")]
+        )
+
+      refute Watch.render(board, frame: 1) =~ "··"
+      assert Watch.render(board, frame: 1) =~ "waiting on you"
+    end
+
+    test "a dead mouse's row is still" do
+      board =
+        board([mouse("feat-gone", died_at: @now)],
+          questions: [question(51, "feat-gone", status: "orphaned")]
+        )
+
+      assert Watch.render(board, frame: 1, color: false) ==
+               "🐭 feat-gone  dead       #51 orphaned · whiska close 51"
     end
 
     test "a very long branch is cut rather than pushing the columns apart" do

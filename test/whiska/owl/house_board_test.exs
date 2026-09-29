@@ -106,6 +106,57 @@ defmodule Whiska.Owl.HouseBoardTest do
     end)
   end
 
+  test "a working row's ticker moves on every write, so a frozen board shows", %{
+    main: main,
+    worktree: worktree
+  } do
+    stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "working")]} end)
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+    open(main, [])
+    first = board(main)
+
+    second =
+      eventually(fn ->
+        case File.read!(Snapshot.path(main)) do
+          ^first -> :retry
+          other -> {:ok, other}
+        end
+      end)
+
+    assert [_, first_dots] = Regex.run(~r/working  (·+)/u, first)
+    assert [_, second_dots] = Regex.run(~r/working  (·+)/u, second)
+    refute first_dots == second_dots
+    assert String.replace(first, "·", "") == String.replace(second, "·", "")
+  end
+
+  test "a board the house could not write leaves the dots where they were", %{
+    main: main,
+    worktree: worktree
+  } do
+    stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "working")]} end)
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+    house = open(main, board_ms: 5_000)
+    assert [_, dots] = Regex.run(~r/working  (·+)/u, board(main))
+
+    blocked = Snapshot.path(main) <> ".tmp"
+    File.mkdir_p!(blocked)
+    on_exit(fn -> File.rm_rf!(blocked) end)
+
+    send(house, :board)
+    assert House.sync(house) == :ok
+
+    assert [_, ^dots] = Regex.run(~r/working  (·+)/u, File.read!(Snapshot.path(main)))
+
+    File.rm_rf!(blocked)
+    send(house, :board)
+    assert House.sync(house) == :ok
+
+    assert [_, next] = Regex.run(~r/working  (·+)/u, File.read!(Snapshot.path(main)))
+    assert String.length(next) == String.length(dots) + 1
+  end
+
   test "herdr failing mid-tick does not take the house down with it", %{
     main: main,
     worktree: worktree

@@ -78,9 +78,15 @@ one, and otherwise the mouse's **last action**, the tool call it is in the middl
 the last thing it said, read from its own Claude Code transcript and never asked for
 (ADR-0050). Five rows, unless more mice than that are waiting: a mouse with a question on
 the person is never one of the ones left off. It is kept current for the person rather
-than asked for — `whiska watch` is the same rows, worked out on the spot. The board only
-reports: nothing on it acts, and a dead mouse's row carries the command that settles its
-orphaned question rather than settling it (ADR-0051).
+than asked for. A working mouse's row carries a **ticker**, a dot growing to three and
+starting over, one frame per redraw: on a row that says a mouse is busy, a still board
+and a frozen one look the same, and the ticker is the difference. Only a working row
+ticks; an idle mouse, a blocked one, one waiting on the person, a dead one and one herdr
+cannot account for are all still, because on those rows nothing is meant to be moving.
+`whiska watch` is the same rows, worked out on the spot and printed once — and with no
+ticker, since nothing is refreshing behind them. The board only reports: nothing on it
+acts, and a dead mouse's row carries the command that settles its orphaned question
+rather than settling it (ADR-0051).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws, which is not this), the
 statusline (the surface, not what is drawn on it)
 

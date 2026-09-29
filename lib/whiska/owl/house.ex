@@ -139,6 +139,7 @@ defmodule Whiska.Owl.House do
     :retry_ms,
     :board_ms,
     subscription: nil,
+    board_frame: 0,
     panes: %{},
     last_panes: :no_socket,
     main_pane: nil,
@@ -235,7 +236,7 @@ defmodule Whiska.Owl.House do
       |> deliver()
 
     Process.send_after(self(), :backstop, state.backstop_ms)
-    write_board(state)
+    state = write_board(state)
     Process.send_after(self(), :board, state.board_ms)
     {:noreply, state}
   end
@@ -283,8 +284,7 @@ defmodule Whiska.Owl.House do
   end
 
   def handle_info(:board, state) do
-    state = %{state | last_panes: safe_list_panes(state)}
-    write_board(state)
+    state = write_board(%{state | last_panes: safe_list_panes(state)})
     Process.send_after(self(), :board, state.board_ms)
     {:noreply, state}
   end
@@ -322,11 +322,21 @@ defmodule Whiska.Owl.House do
   # Nothing about drawing the board may stop a house: it reads a file format
   # somebody else writes (ADR-0050), and collection and delivery must outlive
   # anything that goes wrong in it.
+  #
+  # The frame is counted in boards actually written rather than in seconds, so a
+  # working row's ticker moves exactly when the board behind it was refreshed: a
+  # house that has stopped writing leaves the dots where they were.
   defp write_board(state) do
     board = Watch.from_house(panes: state.last_panes)
-    Snapshot.write(state.main_checkout, Watch.render(board))
+
+    case Snapshot.write(state.main_checkout, Watch.render(board, frame: state.board_frame)) do
+      :ok -> %{state | board_frame: state.board_frame + 1}
+      {:error, _reason} -> state
+    end
   rescue
-    error -> warn(state, "could not draw the board (#{Exception.message(error)})")
+    error ->
+      warn(state, "could not draw the board (#{Exception.message(error)})")
+      state
   end
 
   defp safe_list_panes(%{socket: nil}), do: :no_socket
