@@ -29,17 +29,22 @@ defmodule Whiska.Hook.Stop do
   alias Whiska.Doorstep.Entry
   alias Whiska.Layout
   alias Whiska.Marker
+  alias Whiska.Transcript
 
   @doc "Handle one Stop payload. Always `:ok`; problems go to stderr."
   @spec run(String.t()) :: :ok
   def run(raw_payload) do
     with {:ok, payload} <- decode(raw_payload),
+         :over <- turn_state(payload),
          {:ok, cwd} <- fetch_cwd(payload),
          {:ok, layout} <- Layout.resolve(cwd),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
          {:ok, _file} <- leave(layout, mouse_id, message(payload)) do
       :ok
     else
+      :in_flight ->
+        :ok
+
       {:error, :not_in_worktree} ->
         :ok
 
@@ -50,6 +55,18 @@ defmodule Whiska.Hook.Stop do
         :ok
     end
   end
+
+  # A turn that launched a subagent and has not been handed its report is not
+  # over: Claude Code ends the turn and wakes the session when the subagent
+  # reports (ADR-0052). Writing here would leave "still waiting on the
+  # reviewers" on the doorstep as an unmarked question that asks nothing.
+  defp turn_state(%{"transcript_path" => path}) when is_binary(path) do
+    if path |> Transcript.tail() |> Transcript.subagents_in_flight?(),
+      do: :in_flight,
+      else: :over
+  end
+
+  defp turn_state(_no_transcript), do: :over
 
   defp leave(layout, mouse_id, text) do
     Doorstep.leave(layout.main_checkout, %Entry{

@@ -220,10 +220,11 @@ defmodule Whiska.ClaudeMd do
        and screen-reader access, empty and error states, small screens, and whatever
        design language the repo already has.
 
-     The turn waits for them: it does not end until every reviewer has reported,
-     inside this same turn, and what they found is handled. There is no such thing as
-     a progress note to the person — a turn that is neither finished nor asking for
-     a decision does not end at all.
+     The turn waits for them: the marker does not go down until every reviewer has
+     reported and what they found is handled. There is no such thing as a progress
+     note to the person. Claude Code will end the turn while a reviewer is still out
+     and wake this session when it reports — that ending is not the turn finishing,
+     it carries no marker, and nothing is delivered from it.
 
      A reviewer's finding is a claim, not a verdict. Verify each one against the code
      before acting on it and drop the ones that do not survive, because a confident

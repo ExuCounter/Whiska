@@ -240,21 +240,18 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/only when the change touches something a person sees/i
     end
 
-    test "the reviewers are waited for inside the same turn" do
-      # The bug this closes: a mouse sent its reviewers off, wrote "waiting on
-      # the correctness review", and ended the turn with no marker — delivered
-      # to the person as a question that asks nothing.
+    test "the marker waits for every reviewer" do
       body = prose_of("finish")
 
-      assert body =~ ~r/inside this same turn/i
-      assert body =~ ~r/every reviewer has reported/i
+      assert body =~ ~r/marker does not go down until every reviewer has reported/i
     end
 
-    test "there is no progress note, and an unfinished turn does not end" do
+    test "there is no progress note, and the turn Claude Code ends is not the turn finishing" do
       body = prose_of("finish")
 
       assert body =~ ~r/no such thing as a progress note/i
-      assert body =~ ~r/neither finished nor asking for a decision does not end/i
+      assert body =~ ~r/not the turn finishing/i
+      assert body =~ ~r/nothing is delivered from it/i
     end
 
     test "a reviewer's finding is verified before it is acted on" do

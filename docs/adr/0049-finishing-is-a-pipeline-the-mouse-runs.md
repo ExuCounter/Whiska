@@ -27,11 +27,11 @@ turn ending on a decision for the person, and never in the main session.
 3. **Send reviewers over the change**: subagents in parallel, one per axis — correctness,
    security, performance, and frontend only when the change touches something a person
    sees. They report; they do not edit. Each finding is verified against the code before
-   it is acted on. **The turn waits for them**: it does not end until every reviewer has
-   reported and what they found is handled. A turn that is neither finished nor asking the
-   person for a decision does not end at all, so there is no progress note — a mouse that
-   ended its turn saying it was waiting on a review was delivering an unmarked question
-   that asked nothing.
+   it is acted on. **The turn waits for them**: the marker does not go down until every
+   reviewer has reported and what they found is handled, so there is no progress note to
+   the person. Claude Code ends the turn while a background subagent is out and wakes the
+   session when it reports; that ending is not the turn finishing and carries no marker,
+   and ADR-0052 makes the `Stop` hook ignore it rather than deliver it.
 4. **Round two, then stop.** A fix sends the turn back to step 2. Two rounds is the
    ceiling; still red after the second, the turn ends on a decision for the person with
    what is failing named.

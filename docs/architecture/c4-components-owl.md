@@ -26,7 +26,7 @@ C4Component
     Component(backstop, "Whiska.Backstop", "text file", "How much this house's backstop collected that the idle trigger missed")
     Component(watch, "Whiska.Watch", "renderer", "A row per mouse: branch, pane status, and the question waiting or the last action")
     Component(snapshot, "Whiska.Watch.Snapshot", "text file", "The board for one house, in ~/.whiska/board/")
-    Component(transcript, "Whiska.Watch.Transcript", "reader", "The last tool call or sentence, from the mouse's own Claude Code transcript")
+    Component(transcript, "Whiska.Watch.Transcript", "reader", "The last tool call or sentence, from the mouse's own Claude Code transcript, over Whiska.Transcript")
   }
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")

@@ -37,6 +37,7 @@ individually citable decisions.
 - [0047](0047-delivery-holds-while-the-person-is-typing.md) — Delivery holds while the person is typing, read off the main session's prompt box
 - [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep; the hook never opens a socket
 - [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer
+- [0052](0052-a-stop-with-a-subagent-still-out-is-not-a-stop.md) — A stop with a subagent still out is not a stop
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
 - [0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md) — A nudge is a notice typed into another house's main session (superseded 2026-09-29 by 0044)
 - [0044](0044-the-statusline-redraws-on-a-timer-not-a-typed-nudge.md) — The statusline redraws on a timer, not a typed nudge (partly superseded 2026-09-29 by 0048; the refresh interval is live again on the repo-scoped line)

@@ -83,4 +83,96 @@ defmodule Whiska.Hook.StopTest do
     assert :ok = Stop.run("{not json")
     assert Doorstep.waiting(main) == []
   end
+
+  describe "a stop with a subagent still out (ADR-0052)" do
+    defp transcript(worktree, lines) do
+      path = Path.join(worktree, "transcript.jsonl")
+      File.write!(path, Enum.join(lines, "\n"))
+      path
+    end
+
+    defp launched(agent_id) do
+      JSON.encode!(%{
+        "type" => "user",
+        "message" => %{
+          "content" => [
+            %{
+              "tool_use_id" => "toolu_1",
+              "type" => "tool_result",
+              "content" => [
+                %{
+                  "type" => "text",
+                  "text" => "Async agent launched successfully.\nagentId: #{agent_id}\n"
+                }
+              ]
+            }
+          ]
+        }
+      })
+    end
+
+    defp handed_back(agent_id) do
+      JSON.encode!(%{
+        "type" => "user",
+        "message" => %{
+          "content" =>
+            "Another Claude session sent a message:\n<agent-message from=\"#{agent_id}\">\n" <>
+              "[Subagent hand-back] nothing to change\n"
+        }
+      })
+    end
+
+    test "leaves nothing on the doorstep — the session will be woken again", %{
+      main: main,
+      worktree: worktree
+    } do
+      path = transcript(worktree, [launched("ae96c5149391564f6")])
+
+      assert :ok =
+               Stop.run(
+                 payload(%{
+                   "cwd" => worktree,
+                   "transcript_path" => path,
+                   "last_assistant_message" => "Still waiting on the three reviewers."
+                 })
+               )
+
+      assert Doorstep.waiting(main) == []
+    end
+
+    test "a turn whose reviewers have all reported is left alone", %{
+      main: main,
+      worktree: worktree
+    } do
+      path =
+        transcript(worktree, [launched("ae96c5149391564f6"), handed_back("ae96c5149391564f6")])
+
+      :ok =
+        Stop.run(
+          payload(%{
+            "cwd" => worktree,
+            "transcript_path" => path,
+            "last_assistant_message" => "All three are back."
+          })
+        )
+
+      assert [{_, %Entry{text: "All three are back."}}] = Doorstep.waiting(main)
+    end
+
+    test "a transcript that is missing or unreadable still leaves the entry", %{
+      main: main,
+      worktree: worktree
+    } do
+      :ok =
+        Stop.run(
+          payload(%{
+            "cwd" => worktree,
+            "transcript_path" => Path.join(worktree, "gone.jsonl"),
+            "last_assistant_message" => "x"
+          })
+        )
+
+      assert [{_, %Entry{text: "x"}}] = Doorstep.waiting(main)
+    end
+  end
 end

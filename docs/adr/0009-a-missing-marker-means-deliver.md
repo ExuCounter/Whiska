@@ -123,3 +123,17 @@ away. No guard is added for it. Guessing which lines a mouse meant is precisely 
 heuristic this ADR refuses, the worst case is a turn closed as finished rather than
 one lost, and a mouse that ends its report by pasting raw bytes has a bigger problem
 than its marker.
+
+## Note, 2026-09-29: an unmarked stop still means deliver, but a mid-turn stop is not a stop
+
+ADR-0052 narrows what counts as a stop worth recording: when the mouse has launched a
+background subagent and has not been handed its report, the `Stop` hook writes nothing and
+exits quietly. Claude Code ends a turn every time it waits on a subagent, and the finish
+pipeline (ADR-0049) launches three of them, so every finished piece of work was producing
+several unmarked questions that asked nothing.
+
+Nothing here is softened. The hook still does not read the message, still has no opinion
+about the marker, and an unmarked turn that really did end is delivered as loudly as
+before. What it now decides — from Claude Code's own transcript, not from the text — is
+whether the turn ended at all. Everything it cannot read counts as ended, so the direction
+this ADR chose is the direction the new rule fails in too.
