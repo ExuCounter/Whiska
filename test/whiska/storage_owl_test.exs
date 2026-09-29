@@ -89,8 +89,14 @@ defmodule Whiska.StorageOwlTest do
       assert [%Mouse{mouse_id: "m1"}] = Storage.all(Mouse)
     end
 
-    test "cascades the mouse's open questions to orphaned, and only those" do
+    test "cascades the mouse's open and sent questions to orphaned, and only those" do
       {:ok, open} = Storage.record_question(%{mouse_id: "m1", text: "a", kind: "needs-decision"})
+
+      # A sent question whose mouse is dead can never be answered — there is
+      # nowhere to reply — and it would hold ADR-0008's one delivery slot
+      # forever. It orphans with the rest.
+      {:ok, out} = Storage.record_question(%{mouse_id: "m1", text: "d", kind: "needs-decision"})
+      {:ok, _} = Storage.mark_sent(out.id)
 
       {:ok, answered} =
         Storage.record_question(%{
@@ -106,6 +112,7 @@ defmodule Whiska.StorageOwlTest do
       {:ok, _} = Storage.mark_dead("m1")
 
       assert Storage.question(open.id).status == "orphaned"
+      assert Storage.question(out.id).status == "orphaned"
       assert Storage.question(answered.id).status == "answered"
       assert Storage.question(other.id).status == "open"
     end

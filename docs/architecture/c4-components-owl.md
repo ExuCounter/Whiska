@@ -93,5 +93,7 @@ doctor asking questions, never by anything acting.
 
 **Dead mice are marked, not deleted.** `pane.closed` or `pane.exited` on a known mouse
 pane stamps `died_at` (the V002 migration's one column) and cascades that mouse's open
-questions to `orphaned` (ADR-0026, ADR-0007). A mouse with no pane anywhere at house open
-is dead too, found by reconciling against `pane.list`.
+*and sent* questions to `orphaned` (ADR-0026, ADR-0007) — the sent one because it holds
+delivery's one slot and nothing can answer it any more. A mouse with no pane anywhere at
+house open is dead too, found by reconciling against `pane.list`; delivery is attempted
+straight after, so a slot freed that way does not wait for the backstop.

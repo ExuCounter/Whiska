@@ -398,6 +398,83 @@ defmodule Whiska.Owl.DeliveryTest do
     end
   end
 
+  # ADR-0026: a mouse whose pane is gone is dead, and ADR-0007 cascades what it
+  # left waiting to `orphaned`. Until this was fixed the cascade skipped `sent`,
+  # so a question already delivered to a mouse that then died held ADR-0008's
+  # one slot forever and every later question stayed `open`, undelivered.
+  describe "a mouse that died holding the delivery slot" do
+    setup %{main: main} do
+      record_main(main)
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: b, branch: "feat-b"})
+
+      {:ok, out} =
+        Storage.record_question(%{mouse_id: "ma", text: "which one?", kind: "needs-decision"})
+
+      {:ok, _} = Storage.mark_sent(out.id)
+
+      {:ok, _} =
+        Storage.record_question(%{mouse_id: "mb", text: "and this one?", kind: "needs-decision"})
+
+      Storage.close(handle)
+
+      {:ok, b: b}
+    end
+
+    defp pane_for(root, pane_id) do
+      %{pane_id: pane_id, cwd: root, agent: "claude", agent_status: "working"}
+    end
+
+    test "opening the house frees the slot and delivers the next question by itself",
+         %{main: main, b: b} do
+      main_is("idle")
+      expect_prompts()
+
+      # feat-a's pane is gone: the mouse died while the owl was down.
+      stub(Herdr, :list_panes, fn @socket -> {:ok, [pane_for(b, "w1R:p9")]} end)
+
+      house = open(main)
+
+      assert_receive {:prompted, @main_pane, text}, @wait * 3
+      assert text =~ "#2"
+      assert text =~ "feat-b"
+
+      in_house(house, fn ->
+        assert Storage.mouse("ma").died_at != nil
+        assert Storage.question(1).status == "orphaned"
+        assert Storage.question(2).status == "sent"
+      end)
+    end
+
+    test "the backstop frees it too, for a mouse that died with the owl up",
+         %{main: main, a: a, b: b} do
+      main_is("idle")
+      expect_prompts()
+
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [pane_for(a, @mouse_pane), pane_for(b, "w1R:p9")]}
+      end)
+
+      house = open(main, backstop_ms: @wait)
+
+      # Both mice alive: the slot is legitimately held, nothing goes out.
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      stub(Herdr, :list_panes, fn @socket -> {:ok, [pane_for(b, "w1R:p9")]} end)
+
+      assert_receive {:prompted, @main_pane, text}, @wait * 10
+      assert text =~ "#2"
+
+      in_house(house, fn ->
+        assert Storage.question(1).status == "orphaned"
+        assert Storage.question(2).status == "sent"
+      end)
+    end
+  end
+
   describe "with no main session recorded" do
     test "nothing is delivered and the question stays open, waiting for whiska start", %{
       main: main,

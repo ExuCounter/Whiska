@@ -215,9 +215,13 @@ defmodule Whiska.Storage do
   @doc """
   Mark a mouse dead: its pane is gone (ADR-0026).
 
-  The row stays (ADR-0007). Its still-open questions cascade to `orphaned`
-  rather than sitting open forever; anything already sent, answered or closed
-  is history and is left alone. Marking an already-dead mouse changes nothing.
+  The row stays (ADR-0007). Everything of its that was still waiting on the
+  person — open *and* sent — cascades to `orphaned` rather than sitting there
+  forever: a sent question whose mouse is dead can never be answered, since
+  there is nowhere for the answer to land, and while it stayed `sent` it held
+  ADR-0008's one delivery slot against every later question. Anything already
+  answered, closed or superseded is history and is left alone. Marking an
+  already-dead mouse changes nothing.
   """
   @spec mark_dead(String.t()) :: {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
   def mark_dead(mouse_id) do
@@ -231,7 +235,7 @@ defmodule Whiska.Storage do
       mouse ->
         Repo.transaction(fn ->
           Repo.update_all(
-            from(q in Question, where: q.mouse_id == ^mouse_id and q.status == "open"),
+            from(q in Question, where: q.mouse_id == ^mouse_id and q.status in ^@waiting),
             set: [status: "orphaned"]
           )
 
@@ -295,10 +299,18 @@ defmodule Whiska.Storage do
     Repo.one(from(q in Question, where: q.status == "open", order_by: q.id, limit: 1))
   end
 
-  @doc "The question that has been delivered and is waiting for its answer, or nil."
+  @doc """
+  The question that has been delivered and is waiting for its answer, or nil.
+
+  Its mouse comes with it: whoever holds the slot, `whiska doctor` has to be
+  able to say whether anything is still alive to answer (a dead one's question
+  is orphaned by `mark_dead/1`, so a live slot-holder is the normal case).
+  """
   @spec sent() :: Question.t() | nil
   def sent do
-    Repo.one(from(q in Question, where: q.status == "sent", order_by: q.id, limit: 1))
+    Repo.one(
+      from(q in Question, where: q.status == "sent", order_by: q.id, limit: 1, preload: [:mouse])
+    )
   end
 
   @doc "How many questions are open — waiting in the queue, not yet delivered."
