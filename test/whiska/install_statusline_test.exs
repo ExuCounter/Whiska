@@ -131,7 +131,12 @@ defmodule Whiska.InstallStatuslineTest do
         assert {_path, body} = List.keyfind(Install.skills(), path, 0)
         assert body =~ "cannot see", path
         assert body =~ "verbatim", path
-        assert body =~ "code block", path
+        # A fenced block is what turns rendering off: the person saw `**sent**`
+        # and backticks instead of bold and code. The reply is the message as
+        # markdown, so it renders the way the mouse wrote it.
+        assert body =~ "as markdown", path
+        assert body =~ "no fence", path
+        refute body =~ "fenced code block", path
       end
     end
 

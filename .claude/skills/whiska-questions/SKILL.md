@@ -15,7 +15,8 @@ If the person passed an id ($ARGUMENTS is not empty), run exactly this instead:
     whiska questions $ARGUMENTS
 
 The person cannot see the command's output, only your reply. So your whole
-reply is that output, verbatim, inside one fenced code block: every line,
-nothing shortened, nothing paraphrased, no commentary before or after. Then
-stop. Answering is the person's move — never reply to a question, guess an
+reply is that output, verbatim, as markdown: every line, nothing shortened,
+nothing paraphrased, no commentary before or after, and no fence around it
+— a code block would show the mouse's bold and backticks raw instead of
+rendering them. Then stop. Answering is the person's move — never reply to a question, guess an
 answer, or act on one on their behalf.
