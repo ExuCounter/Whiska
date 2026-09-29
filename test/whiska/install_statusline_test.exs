@@ -202,6 +202,31 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "--full"
     end
 
+    test "installs /whiska-reply as a thin wrapper around the fixed command" do
+      assert {path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-reply/SKILL.md", 0)
+
+      assert path =~ "whiska-reply"
+      assert body =~ "name: whiska-reply"
+      assert body =~ "whiska reply $ARGUMENTS"
+      # The text is the person's, never the model's composition (ADR-0017).
+      assert body =~ "own words"
+    end
+
+    test "every reading skill says an answer goes through whiska reply and nothing else" do
+      for path <- [
+            ".claude/skills/whiska-delivered/SKILL.md",
+            ".claude/skills/whiska-reply/SKILL.md"
+          ] do
+        assert {_path, body} = List.keyfind(Install.skills(), path, 0)
+
+        # Anything that answers outside Whiska leaves the question `sent`, so it
+        # keeps holding ADR-0008's one delivery slot.
+        assert body =~ "herdr agent prompt", path
+        assert body =~ "frees the slot", path
+      end
+    end
+
     test "the committed skills in this repo are what init writes today" do
       for {path, body} <- Install.skills() do
         assert File.read!(path) == body, "#{path} is stale: run whiska init and commit"

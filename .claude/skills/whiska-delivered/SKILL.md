@@ -45,3 +45,16 @@ prose which one they want, and relay their answer the same way.
 
 No options at all, or a "finished" line: there is nothing to pick. Show the
 message and stop, exactly as above.
+
+## An answer goes through `whiska reply` and nothing else
+
+Whenever the person does decide — off a picker, or after talking it over
+with you — the answer leaves this session as `whiska reply <id> "<their
+words>"` and no other way. Never type it into the mouse's pane with
+`herdr agent prompt`, and never send it with `send-to-worktree`. The mouse
+would read it, but the question would stay `sent`: it keeps holding
+Whiska's one delivery slot, and the next mouse's question sits unread
+behind it. Only `whiska reply` closes the question and frees the slot.
+
+Talking it over with them first is fine. When that talk produces something
+for the mouse, it goes out as the reply.

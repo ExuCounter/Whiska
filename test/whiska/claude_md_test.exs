@@ -112,6 +112,17 @@ defmodule Whiska.ClaudeMdTest do
         assert body =~ word, word
       end
     end
+
+    test "the answer goes through whiska reply and nothing else" do
+      body = body_of("delivery")
+
+      # Typing the answer straight into a mouse's pane leaves the question
+      # `sent`, so it holds ADR-0008's one delivery slot and the next mouse
+      # waits behind a question nobody is going to close.
+      assert body =~ "herdr agent prompt"
+      assert body =~ "send-to-worktree"
+      assert body =~ "frees the slot"
+    end
   end
 
   describe "merge/1 — idempotent per part (ADR-0045)" do

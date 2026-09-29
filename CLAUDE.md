@@ -202,5 +202,14 @@ Never ask the main session to read a mouse's pane, and never expect it to. Claud
 runs on the terminal's alternate screen, so `herdr pane read` comes back with a
 truncated tail no matter what `--lines` it is given. Storing the whole message is what
 makes that irrelevant.
+
+And one rule for the main session: the answer to a delivered question leaves it as
+`whiska reply <id>` and no other way. Never type it into the mouse's pane with
+`herdr agent prompt`, and never send it with `send-to-worktree` — that is for a new
+idea, not for something a mouse is already waiting on. The mouse would read it either
+way, but the question would stay `sent` and keep holding the one delivery slot, so the
+next mouse's question sits unread behind it. Only `whiska reply` closes the question
+and frees the slot. Talking it over with the person first is fine; when that talk
+produces something for the mouse, it goes out as the reply.
 <!-- whiska:delivery:end -->
 <!-- whiska:end -->

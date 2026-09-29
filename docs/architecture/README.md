@@ -69,7 +69,7 @@ touching the others and a part marked `keep` is the person's for good (ADR-0045,
 ADR-0017). It installs `spawn-worktree`, `send-to-worktree` and `drop-worktree` beside
 the reading skills, so the skills that create a mouse ship with the thing that tracks it
 (ADR-0046). Both used to live in one person's global `~/.claude/CLAUDE.md`, applying to
-every repo whether Whiska was there or not. 725 tests.
+every repo whether Whiska was there or not. 739 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;
