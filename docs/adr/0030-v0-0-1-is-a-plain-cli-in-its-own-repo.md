@@ -41,3 +41,24 @@ hook and decision point, so it is trivial to add once this lands. Leaving it out
 first pass to the simplest possible rule instead of also getting mode-awareness right on day
 one. Also out of scope: the owl and its supervision tree, cross-repo commands, `checks.yml`,
 push approval, and the herdr/Mox boundary — v0.0.1 does not talk to herdr at all.
+
+## Note, 2026-09-29: one `.git` check, for slashed branch names
+
+A branch name may carry a slash, and git nests it on disk: `feat/csv-data-page` is laid
+out at `worktrees/feat/csv-data-page`, with `worktrees/feat` an ordinary directory that
+owns nothing. Reading the folder directly under `worktrees/` as the worktree made every
+such mouse a mouse called `feat`, sharing one marker file and one worktree root with
+every other branch under `feat/` — so `whiska mice`, the delivered line and the board all
+named the wrong thing, and the main-checkout rule let a mouse write into its siblings.
+
+Nothing about the shape of the tree says where a nested branch name ends, so `Layout`
+now reads one piece of git state: the `.git` file git writes into every linked worktree.
+The worktree root is the deepest directory between `worktrees/` and the working
+directory that has one, and the branch label is that root's path relative to
+`worktrees/`. With no such file anywhere — every existing test fixture, and any layout
+built by hand — the root is still the folder directly under `worktrees/`, so the flat
+case is untouched.
+
+This narrows the rule above: no `git worktree list`, and the main checkout is still
+found by path arithmetic rather than by probing. One `File.stat` per level is all git is
+asked for, and it is asked only to decide where a branch name stops.

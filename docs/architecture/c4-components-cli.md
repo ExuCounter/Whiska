@@ -88,10 +88,13 @@ C4Component
 
 ## The load-bearing choices
 
-**`Layout` is pure path arithmetic, not git.** It walks up from the working directory
-until an ancestor's parent is named `worktrees`; that ancestor is the worktree root and
-its grandparent is the main checkout. No `git worktree list`, no `.git` probing
-(ADR-0030). It is re-derived every invocation rather than recorded, which is what lets
+**`Layout` is path arithmetic, with one look at git.** It walks up from the working
+directory until an ancestor's parent is named `worktrees`; that ancestor's grandparent is
+the main checkout. A slashed branch name nests on disk, so the worktree root is the
+deepest directory below `worktrees/` carrying the `.git` file git writes into a linked
+worktree, and the branch label is its path relative to `worktrees/` — falling back to the
+folder directly under `worktrees/` when there is no such file. No `git worktree list`
+(ADR-0030 and its note). It is re-derived every invocation rather than recorded, which is what lets
 the marker file stay a bare opaque id with no parsing (ADR-0002).
 
 **The decision never depends on storage.** `Hook.PreToolUse` treats identity and
