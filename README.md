@@ -134,7 +134,8 @@ real client is checked against an in-test server speaking herdr's wire protocol.
 whiska questions       # open and delivered questions, then orphaned, then uncollected
 whiska questions <id>  # one question in full
 whiska statusline      # the line herdr's tab bar shows, for the whole machine
-whiska statusline --here  # this repo's own line, which the Claude statusline appends
+whiska statusline --here  # this repo's board, the same rows the Claude statusline draws
+whiska watch           # the board too, for when the statusline looks wrong
 ```
 
 `whiska questions` lists every question still waiting on you — open, or delivered and
@@ -169,12 +170,11 @@ Empty it as well, and the part is dropped for good.
 
 `whiska init` also installs the `/whiska-questions` slash command (ADR-0022).
 
-### The statusline: two lines, two places
+### The statusline: a line and a board, in two places
 
-Whiska draws two lines, and neither repeats the other (ADR-0048). Facts about the whole
-machine go on herdr's tab bar, once. Facts about one repo go in that repo's Claude Code
-statusline. Both follow the one-or-many rule: one thing is named, several become a count,
-nothing waiting says nothing (ADR-0027).
+Neither repeats the other (ADR-0048). Facts about the whole machine go on herdr's tab
+bar, once, one thing named and several counted (ADR-0027). This repo's own mice go in
+this repo's Claude Code statusline, a row each (ADR-0051).
 
 #### The machine-wide line, on herdr's tab bar
 
@@ -211,30 +211,41 @@ waiting anywhere on this machine, the same reading `whiska waiting` prints: one 
 named by its repo, several become a count. Until the owl's global socket exists the owl is
 found in the process table, the same way `whiska doctor` finds it.
 
-#### This repo's line, in Claude Code
+#### This repo's board, in Claude Code
 
 `whiska init` writes `.claude/hooks/whiska-statusline.sh` and points the repo's
 `statusLine` at it. It runs your own global statusline first — the one in
-`~/.claude/settings.json` — and appends this repo's line to its output, so that line
-is not replaced:
+`~/.claude/settings.json` — and draws the board underneath it, so nothing of yours is
+replaced:
 
 ```
-🐱 feat-auth
-🐱 3 waiting
-🐱 feat-auth · 🐭 2 mice
+~/projects/whiska  main ✔
+🐭 feat-watch-board     working  Edit lib/whiska/watch.ex
+🐭 feat-quiet-marker    idle     waiting on you · #52 · "sqlite or a plain file?"
+🐭 fix-doctor-probe     working  Bash mix test
+🐭 feat-owl-snapshot    blocked  permission prompt in pane
+🐭 style-header-polish  idle     "31 tests pass, nothing waiting"
 ```
 
-`🐱` is what is waiting in this repo — one thing named by its mouse's branch, several as a
-count. `🐭` is how many of this repo's worktrees have a live agent pane in them, read from
-herdr so it keeps working when the owl is down. A quiet repo appends nothing at all.
+One row per mouse of this repo: its branch, what herdr says its pane is doing, and one
+thing more — the question waiting on you when there is one, and otherwise what the mouse
+is doing, read from its own Claude Code transcript and never asked for (ADR-0050). Five
+rows at most, ordered by how much each wants you; the rest become `🐭 +3 more`, and a
+mouse with a question on you is never one of them. A dead mouse keeps a dimmed row only
+while its orphaned question still needs settling, and that row carries the `whiska close`
+that settles it — the board reports and never acts. A quiet repo draws nothing at all.
+
+Your own mice's sessions draw no board: `.claude/settings.json` is committed, so every
+worktree runs the same script, and a mouse has no use for its siblings' rows.
 
 No owl here: that is one machine-wide fact with one home, and repeating it in every open
 session is what moved it to the tab bar in the first place. Outside herdr there is no tab
 bar, so a bare `claude` never learns the owl is down — run `whiska doctor` for that.
 
-The line redraws every 15 seconds on top of Claude Code's own triggers, which all come
-from the session's own conversation; without the timer a mouse that spawns, dies or asks
-a second question would change nothing on screen while you sit still (ADR-0044).
+The board redraws every 2 seconds, which is affordable because the script starts nothing:
+each house renders its own rows into `~/.whiska/board/` every couple of seconds and the
+script prints that file (ADR-0051). A board nothing has refreshed for a few seconds is
+drawn dimmed under `🦉 owl down · 40s stale`, and past a minute it is not drawn at all.
 
 ### What it does
 
