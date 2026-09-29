@@ -69,8 +69,8 @@ defmodule Whiska.Install do
 
   """
 
-  # Finding the binary and the runtime is written once and shared with the
-  # statusline script below, so the two never drift apart.
+  # Finding the binary and the runtime is written once and shared with both
+  # status scripts below, so they never drift apart.
   @resolve_whiska """
   whiska_bin="${WHISKA_BIN:-}"
   if [ -n "$whiska_bin" ] && [ ! -x "$whiska_bin" ]; then
@@ -147,8 +147,72 @@ defmodule Whiska.Install do
   # as Whiska's and dropped, and so the doctor can name a leftover file.
   @review_loop_path ".claude/hooks/review-loop.sh"
 
-  @stale_statusline_path ".claude/hooks/whiska-statusline.sh"
-  @stale_statusline_mark "Whiska's project statusline"
+  @statusline_path ".claude/hooks/whiska-statusline.sh"
+
+  # Claude Code does not set CLAUDE_PROJECT_DIR for the statusline command, only
+  # for hooks; the command runs from the project directory, so the relative path
+  # is the fallback, and the variable is honoured if a later version sets it.
+  @statusline_command ~s|bash "${CLAUDE_PROJECT_DIR:-.}/#{@statusline_path}"|
+
+  # Seconds between redraws, on top of Claude Code's own event triggers, which
+  # all come from the session's own conversation (ADR-0044). Both facts on this
+  # line move without one: a mouse spawns or dies, and a second question opens
+  # in a repo whose delivery slot is already held. One run of the script costs
+  # about 0.4 s of wall clock and about 0.8 core-seconds of CPU — the BEAM
+  # starts on more than one core — so 15 s holds an idle session near 5% of a
+  # core. ADR-0044 has the arithmetic behind the number.
+  @statusline_refresh_interval 15
+
+  @statusline_script """
+                     #!/usr/bin/env bash
+                     # Whiska's project statusline (ADR-0027). A project-level statusLine
+                     # replaces the global one rather than merging with it, so this runs your
+                     # global statusline first and appends this repo's own line: what is
+                     # waiting in this house, and how many mice are alive here. Nothing is
+                     # appended when the repo is quiet.
+                     #
+                     # The owl's state and the machine-wide view are not here: they are drawn
+                     # once on herdr's tab bar (ADR-0048).
+                     #
+                     # Written by `whiska init`. The binary and runtime are resolved the same
+                     # way the hook shim resolves them, at run time, never baked in here.
+
+                     input="$(cat)"
+
+                     global=""
+                     if command -v jq >/dev/null 2>&1 && [ -r "$HOME/.claude/settings.json" ]; then
+                       global="$(jq -r '.statusLine.command // empty' "$HOME/.claude/settings.json" 2>/dev/null)"
+                     fi
+
+                     base=""
+                     case "$global" in
+                       "" | *whiska-statusline.sh*) ;;
+                       *) base="$(printf '%s' "$input" | bash -c "$global" 2>/dev/null)" ;;
+                     esac
+
+                     dir=""
+                     if command -v jq >/dev/null 2>&1; then
+                       dir="$(printf '%s' "$input" | jq -r '.workspace.current_dir // .workspace.project_dir // .cwd // empty' 2>/dev/null)"
+                     fi
+                     [ -d "$dir" ] || dir="$PWD"
+
+                     """ <>
+                       @resolve_whiska <>
+                       @resolve_escript <>
+                       """
+                       segment=""
+                       if [ -n "$whiska_bin" ] && [ -n "$escript_bin" ]; then
+                         segment="$(cd "$dir" && "$escript_bin" "$whiska_bin" statusline --here 2>/dev/null)"
+                       elif [ -n "$whiska_bin" ]; then
+                         segment="$(cd "$dir" && "$whiska_bin" statusline --here 2>/dev/null)"
+                       fi
+
+                       if [ -n "$base" ] && [ -n "$segment" ]; then
+                         printf '%s · %s' "$base" "$segment"
+                       else
+                         printf '%s%s' "$base" "$segment"
+                       fi
+                       """
 
   @herdr_status_name "herdr-status.sh"
 
@@ -393,8 +457,8 @@ defmodule Whiska.Install do
 
   @doc """
   The shell that finds the whiska binary: `WHISKA_BIN`, then `PATH`, then
-  `~/.local/bin`. Shared by the shim, the tab bar's status script and the
-  owl's launchd wrapper, so the three resolve identically.
+  `~/.local/bin`. Shared by the shim, both status scripts and the owl's
+  launchd wrapper, so they all resolve identically.
   """
   @spec resolve_whiska() :: String.t()
   def resolve_whiska, do: @resolve_whiska
@@ -501,24 +565,26 @@ defmodule Whiska.Install do
     end
   end
 
+  @doc "Where the project statusline script lives, relative to the repo root."
+  @spec statusline_path() :: Path.t()
+  def statusline_path, do: @statusline_path
+
+  @doc "The statusLine command that goes into `settings.json`; names only the script."
+  @spec statusline_command() :: String.t()
+  def statusline_command, do: @statusline_command
+
+  @doc "The statusline script's contents (ADR-0027)."
+  @spec statusline_script() :: String.t()
+  def statusline_script, do: @statusline_script
+
   @doc """
-  Remove the per-repo statusline an earlier `init` wrote, script and settings
-  entry both (ADR-0048).
+  Seconds between statusline redraws, written beside the command (ADR-0044).
 
-  Only ours goes: a script at the same path that Whiska did not write is
-  somebody else's and stays where it is.
+  It is what keeps the mice and a second question honest while the session
+  sits idle.
   """
-  @spec clear_statusline(Path.t()) :: :ok
-  def clear_statusline(repo_root) do
-    script = Path.join(repo_root, @stale_statusline_path)
-
-    case File.read(script) do
-      {:ok, body} -> if String.contains?(body, @stale_statusline_mark), do: File.rm(script)
-      {:error, _} -> :ok
-    end
-
-    :ok
-  end
+  @spec statusline_refresh_interval() :: pos_integer()
+  def statusline_refresh_interval, do: @statusline_refresh_interval
 
   @doc """
   The skills `whiska init` writes, as `{path, contents}`.
@@ -552,20 +618,30 @@ defmodule Whiska.Install do
     |> Map.put_new("hooks", %{})
     |> put_ours("PreToolUse", [pre_tool_use])
     |> put_ours("Stop", [stop])
-    |> drop_statusline()
+    |> put_statusline()
   end
 
-  # A project statusLine replaces the global one rather than merging with it, so
-  # one of ours left behind would keep a repo's statusline pointed at a script
-  # that is gone. Somebody else's is left exactly alone.
-  defp drop_statusline(settings) do
+  # A project statusLine is a single value, not a list, so there is no "beside
+  # the others" here: one that is ours, or missing, is set; one that is somebody
+  # else's is left exactly alone rather than replaced — including its refresh
+  # interval, or its want of one.
+  defp put_statusline(settings) do
+    entry = %{
+      "type" => "command",
+      "command" => @statusline_command,
+      "refreshInterval" => @statusline_refresh_interval
+    }
+
     case settings["statusLine"] do
+      nil ->
+        Map.put(settings, "statusLine", entry)
+
       %{"command" => command} when is_binary(command) ->
-        if String.contains?(command, @stale_statusline_path),
-          do: Map.delete(settings, "statusLine"),
+        if String.contains?(command, @statusline_path),
+          do: Map.put(settings, "statusLine", entry),
           else: settings
 
-      _ ->
+      _unrecognised ->
         settings
     end
   end

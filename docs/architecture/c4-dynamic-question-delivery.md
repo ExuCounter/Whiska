@@ -92,9 +92,11 @@ conversation changes, so the elsewhere segment (ADR-0027) was invisible exactly 
 mattered — but its means were not: the line arrived as a user turn the other session's
 Claude could not tell from a prompt, and cost that session a turn each time.
 
-The statusline has since left Claude Code: herdr's tab bar draws one machine-wide line
-for the whole session and runs it on its own timer, reading every recorded house off disk
-(ADR-0048). Nothing in this flow reaches out of the repo it started in.
+The machine-wide view has since left Claude Code: herdr's tab bar draws one line for the
+whole session and runs it on its own timer, reading every recorded house off disk
+(ADR-0048). What Claude Code's statusline still draws is that repo's own line, which
+needs nothing from any other house. Nothing in this flow reaches out of the repo it
+started in.
 
 ## Steps 5–7 — a queue, not a batch (ADR-0008)
 

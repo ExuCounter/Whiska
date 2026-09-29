@@ -83,6 +83,51 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  # -- statusline --------------------------------------------------------------
+
+  describe "statusline/1 — this repo's own line in the Claude statusline (ADR-0027)" do
+    test "a fresh init passes: our script, and a refresh interval" do
+      check = Doctor.statusline(Install.merge(%{}))
+
+      assert %Check{status: :ok} = check
+      assert check.detail =~ "#{Install.statusline_refresh_interval()}"
+    end
+
+    test "no statusLine at all is a warning, pointing at init" do
+      assert %Check{status: :warn, fix: "whiska init"} = Doctor.statusline(%{})
+    end
+
+    test "ours with no interval warns: nothing redraws while the session sits idle" do
+      settings = %{
+        "statusLine" => %{"type" => "command", "command" => Install.statusline_command()}
+      }
+
+      check = Doctor.statusline(settings)
+      assert %Check{status: :warn, fix: "whiska init"} = check
+      assert check.detail =~ "idle"
+    end
+
+    test "an interval the person chose themselves is left alone" do
+      settings = %{
+        "statusLine" => %{
+          "type" => "command",
+          "command" => Install.statusline_command(),
+          "refreshInterval" => 30
+        }
+      }
+
+      check = Doctor.statusline(settings)
+      assert %Check{status: :ok} = check
+      assert check.detail =~ "30"
+    end
+
+    test "somebody else's statusLine warns that this repo's line is not shown" do
+      settings = %{"statusLine" => %{"type" => "command", "command" => "bash mine.sh"}}
+
+      assert %Check{status: :warn} = Doctor.statusline(settings)
+    end
+  end
+
   # -- the tab bar -------------------------------------------------------------
 
   describe "tab_bar/2 — the herdr entry that draws the owl's line (ADR-0048)" do

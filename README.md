@@ -133,6 +133,7 @@ real client is checked against an in-test server speaking herdr's wire protocol.
 whiska questions       # open and delivered questions, then orphaned, then uncollected
 whiska questions <id>  # one question in full
 whiska statusline      # the line herdr's tab bar shows, for the whole machine
+whiska statusline --here  # this repo's own line, which the Claude statusline appends
 ```
 
 `whiska questions` lists every question still waiting on you — open, or delivered and
@@ -167,12 +168,17 @@ Empty it as well, and the part is dropped for good.
 
 `whiska init` also installs the `/whiska-questions` slash command (ADR-0022).
 
-### The statusline, on herdr's tab bar
+### The statusline: two lines, two places
 
-One line for the whole machine, drawn once on herdr's tab bar rather than in every Claude
-Code session (ADR-0048). The owl's state is always there, so a blank line never passes for
-a working Whiska; the rest follows the one-or-many rule and is absent when it has nothing
-to say:
+Whiska draws two lines, and neither repeats the other (ADR-0048). Facts about the whole
+machine go on herdr's tab bar, once. Facts about one repo go in that repo's Claude Code
+statusline. Both follow the one-or-many rule: one thing is named, several become a count,
+nothing waiting says nothing (ADR-0027).
+
+#### The machine-wide line, on herdr's tab bar
+
+The owl's state is always there, so a blank tab bar entry never passes for a working
+Whiska:
 
 ```
 🦉 watching
@@ -200,10 +206,34 @@ tab_bar_right_separator = " · "
 
 `🦉 watching` means the owl is running and collecting; `🦉 owl down` means it is not — no
 owl process, or doorstep entries sat uncollected past its backstop. `🐱` is what is
-waiting anywhere on this machine, the same reading `whiska waiting` prints: one thing is
-named by its mouse's branch, several become a count, nothing waiting says nothing. Until
-the owl's global socket exists the owl is found in the process table, the same way
-`whiska doctor` finds it.
+waiting anywhere on this machine, the same reading `whiska waiting` prints: one whiska is
+named by its repo, several become a count. Until the owl's global socket exists the owl is
+found in the process table, the same way `whiska doctor` finds it.
+
+#### This repo's line, in Claude Code
+
+`whiska init` writes `.claude/hooks/whiska-statusline.sh` and points the repo's
+`statusLine` at it. It runs your own global statusline first — the one in
+`~/.claude/settings.json` — and appends this repo's line to its output, so that line
+is not replaced:
+
+```
+🐱 feat-auth
+🐱 3 waiting
+🐱 feat-auth · 🐭 2 mice
+```
+
+`🐱` is what is waiting in this repo — one thing named by its mouse's branch, several as a
+count. `🐭` is how many of this repo's worktrees have a live agent pane in them, read from
+herdr so it keeps working when the owl is down. A quiet repo appends nothing at all.
+
+No owl here: that is one machine-wide fact with one home, and repeating it in every open
+session is what moved it to the tab bar in the first place. Outside herdr there is no tab
+bar, so a bare `claude` never learns the owl is down — run `whiska doctor` for that.
+
+The line redraws every 15 seconds on top of Claude Code's own triggers, which all come
+from the session's own conversation; without the timer a mouse that spawns, dies or asks
+a second question would change nothing on screen while you sit still (ADR-0044).
 
 ### What it does
 
@@ -255,7 +285,7 @@ whiska doctor         # from the main checkout or any worktree of it
 ```
 
 Delivery only happens when the owl is up and a main session is recorded and idle, and
-the statusline only tells you whether the owl is watching. From
+the tab bar only tells you whether the owl is watching. From
 the main terminal a broken pipe and a quiet fleet look much the same. The
 doctor is what you run when the mice have gone quiet, to learn which silence you are in
 (ADR-0038). It checks this repo's prerequisites (binary, runtime, herdr, owl), its hooks

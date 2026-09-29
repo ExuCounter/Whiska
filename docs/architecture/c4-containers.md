@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (752 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (806 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -16,6 +16,7 @@ C4Container
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Committed hook shim; resolves runtime at fire time, fails open")
     Container(statusline, "herdr-status.sh", "bash", "Machine-level status script in ~/.whiska; herdr's tab bar runs it on a timer")
+    Container(repoline, "whiska-statusline.sh", "bash", "Committed statusline script; Claude Code runs it in this repo every 15 seconds")
     Container(cli, "whiska", "Elixir escript", "Hooks, init, mode - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
     Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection, delivery to the main session")
@@ -34,6 +35,7 @@ C4Container
   Rel(person, cli, "Runs whiska init / mode / owl / questions")
   Rel(herdr, statusline, "Tab bar runs it every 5 seconds and shows its last line")
   Rel(statusline, cli, "Runs whiska statusline")
+  Rel(repoline, cli, "Claude Code runs it in every session of this repo; it runs whiska statusline --here")
   Rel(cli, db, "questions, statusline and waiting read every recorded house")
   Rel(cli, doorstep, "questions, statusline and waiting count what is uncollected")
   Rel(cli, herdr, "mice list panes; doctor reads herdr's config for the tab bar entry")
@@ -58,6 +60,15 @@ C4Container
 ```
 
 ## Why each piece is its own container
+
+**Two status scripts, one per surface** (ADR-0048, amended). `whiska-statusline.sh` is
+committed to the repo like the shim, and draws that repo's own line inside Claude Code:
+what is waiting in this house, and how many mice are alive here. It runs the person's
+global statusline first and appends to its output, so a quiet repo takes nothing away
+from it. `herdr-status.sh` draws the machine-wide line, once, on herdr's tab bar. Neither
+draws what the other does: the owl's state and the cross-repo view are machine-wide facts
+with one home, and the mice are a repo's own, which herdr's sidebar already shows beside
+its own tab bar.
 
 **`herdr-status.sh` is the one script that is not committed to a repo** (ADR-0048). It
 lives in `~/.whiska/` beside the open-houses record and the owl's launchd wrapper,
@@ -124,7 +135,7 @@ is supervised independently, so one project's house crashing is invisible to eve
 **Delivery lives in the house, and nothing lives across houses** (ADR-0008, ADR-0044,
 ADR-0048). Each house owns its own idle-gated queue to its own main session, and that is
 the only place Whiska ever types. Telling the person that something is waiting in another
-repo is the statusline's job, not the owl's: herdr's tab bar runs the status script every
+repo is the tab bar's job, not the owl's: herdr runs the machine-wide status script every
 five seconds and it reads every recorded house off disk. The Nudge process that once
 typed into other sessions is deleted.
 

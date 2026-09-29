@@ -95,8 +95,8 @@ else. Until 2026-09-29 one process did reach across — `Whiska.Owl.Nudge`, whic
 `⚡ <folders> waiting` into every other open house's main session so its statusline would
 redraw — and ADR-0044 deleted it: that line arrived as a user turn the other session's
 Claude could not tell from a prompt. What is waiting in another repo now reaches the
-person through the statusline herdr's tab bar draws, which reads every recorded house off
-disk on its own timer (ADR-0048). The open-houses record is still written by the owl and
+person through the machine-wide line herdr's tab bar draws, which reads every recorded
+house off disk on its own timer (ADR-0048). The open-houses record is still written by the owl and
 still read, but only by the statusline and the doctor asking questions, never by anything
 acting.
 

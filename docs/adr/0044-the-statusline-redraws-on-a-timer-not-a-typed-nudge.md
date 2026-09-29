@@ -1,12 +1,19 @@
 # The statusline redraws on a timer, not a typed nudge
 
-**Superseded 2026-09-29 by
-[ADR-0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md)**: the line left
-Claude Code's statusline for herdr's tab bar, where one pull every five seconds
-serves the whole machine, so there is no `refreshInterval` left to set and no
-per-session timer to price. What this ADR decided about the *nudge* still holds
-and is not reopened — nothing in Whiska types into a session that is not its own
-house's main session.
+**Partly superseded 2026-09-29 by
+[ADR-0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md)**, and partly
+restored by its amendment of the same day.
+
+The **elsewhere** segment, which this ADR's timer was written for, is gone: the
+machine-wide line left Claude Code for herdr's tab bar, where one pull every
+five seconds serves every repo at once. The **`refreshInterval: 15`** is back,
+beside the repo-scoped statusLine that came back with it, and its arithmetic
+below is what still sets the number. What it keeps current is different: a mouse
+spawning or dying, and a second question in a house whose delivery slot is
+already held — neither of which types anything into the session.
+
+What this ADR decided about the *nudge* was never reopened and still holds:
+nothing in Whiska types into a session that is not its own house's main session.
 
 **Supersedes [ADR-0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md)**,
 which had the owl type `⚡ <folders> waiting` into every other open house's idle main
@@ -67,6 +74,19 @@ main session is idle").
   accepted. The nudge was never instant either: it ran the target's delivery gate and was
   dropped, never retried, whenever that session was busy — which is most of the time a
   person is actually at their keyboard.
+
+## Correction (2026-09-29): the duty cycle above is wall clock, not CPU
+
+Re-measured when the interval came back: five runs of the whole script, prod escript,
+real herdr socket, a real global statusline in front of it. 0.41 s of wall clock each,
+and **0.81 core-seconds of CPU** each — the BEAM starts on more than one core, so wall
+clock understates the cost by about half.
+
+So every "~3% per idle session" below, and the "~12% of a core with four sessions" that
+ADR-0048 built on it, is the wall-clock figure. The real numbers are **~5.4% of a core
+per idle session** and ~22% with four open. The decision does not move: 15 s over 10 s
+was the right call and is more clearly so at the corrected cost. The figure to quote is
+5%, not 3%.
 
 ## Consequences
 

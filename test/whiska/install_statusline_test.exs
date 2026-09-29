@@ -1,8 +1,11 @@
 defmodule Whiska.InstallStatuslineTest do
   @moduledoc """
-  What `whiska init` adds for questions — the `/whiska-questions`
-  slash-command skill (ADR-0022) — and what it no longer adds: the project
-  statusline, which moved to herdr's tab bar (ADR-0048).
+  What `whiska init` writes for questions: the project statusline (ADR-0027,
+  ADR-0044) and the `/whiska-questions` slash-command skill (ADR-0022).
+
+  The statusline is repo-scoped — this house's questions, this repo's mice. The
+  owl's state and the cross-repo view are herdr's tab bar's, and the script and
+  config entry for that are here too (ADR-0048).
   """
   use ExUnit.Case, async: false
 
@@ -27,24 +30,80 @@ defmodule Whiska.InstallStatuslineTest do
     {:ok, main: main, home: home}
   end
 
-  describe "merge/1 — the statusLine entry is gone (ADR-0048)" do
-    test "adds no statusLine: the line lives on herdr's tab bar now" do
-      refute Map.has_key?(Install.merge(%{}), "statusLine")
+  describe "merge/1 — the statusLine entry (ADR-0027)" do
+    test "sets ours, with the refresh interval beside it (ADR-0044)" do
+      entry = Install.merge(%{})["statusLine"]
+
+      assert entry["type"] == "command"
+      assert entry["command"] == Install.statusline_command()
+      assert entry["command"] =~ Install.statusline_path()
+      assert entry["refreshInterval"] == Install.statusline_refresh_interval()
     end
 
-    test "removes one of ours left by an earlier init" do
+    test "replaces one of ours wholesale, interval included" do
       old = %{
         "type" => "command",
-        "command" => "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska-statusline.sh\"",
-        "refreshInterval" => 15
+        "command" => "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska-statusline.sh\""
       }
 
-      refute Map.has_key?(Install.merge(%{"statusLine" => old}), "statusLine")
+      assert Install.merge(%{"statusLine" => old})["statusLine"] ==
+               Install.merge(%{})["statusLine"]
     end
 
     test "leaves a statusLine that is not ours exactly alone" do
       mine = %{"type" => "command", "command" => "bash mine.sh"}
       assert Install.merge(%{"statusLine" => mine})["statusLine"] == mine
+    end
+
+    test "a statusLine of a shape we do not recognise is left alone too" do
+      for theirs <- ["bash mine.sh", %{"type" => "command"}, %{"command" => nil}] do
+        assert Install.merge(%{"statusLine" => theirs})["statusLine"] == theirs
+      end
+    end
+
+    test "an interval the person changed is theirs no longer, init restores 15" do
+      ours = %{
+        "type" => "command",
+        "command" => Install.statusline_command(),
+        "refreshInterval" => 90
+      }
+
+      assert Install.merge(%{"statusLine" => ours})["statusLine"]["refreshInterval"] ==
+               Install.statusline_refresh_interval()
+    end
+  end
+
+  describe "statusline_script/0 — what the Claude statusline runs (ADR-0027)" do
+    test "runs the person's global statusline first and appends to its output" do
+      script = Install.statusline_script()
+
+      assert script =~ ~r/\A#!/
+      assert script =~ "statusLine.command"
+    end
+
+    test "asks for this repo's line, not the machine-wide one" do
+      assert Install.statusline_script() =~ "statusline --here"
+    end
+
+    test "runs in the directory the session is in, not wherever it was launched" do
+      script = Install.statusline_script()
+
+      assert script =~ "workspace.current_dir"
+      assert script =~ ~s(cd "$dir")
+    end
+
+    test "the settings.json command names only the script, under the project dir" do
+      assert Install.statusline_command() =~ "CLAUDE_PROJECT_DIR"
+      assert Install.statusline_command() =~ Install.statusline_path()
+    end
+
+    test "resolves the binary and runtime exactly as the hook shim does" do
+      assert Install.statusline_script() =~ "WHISKA_BIN"
+      assert Install.statusline_script() =~ "command -v escript"
+    end
+
+    test "an interval Claude Code accepts" do
+      assert Install.statusline_refresh_interval() >= 1
     end
   end
 
@@ -58,6 +117,7 @@ defmodule Whiska.InstallStatuslineTest do
       # No repo to be in: herdr draws one line for the whole session.
       refute script =~ "CLAUDE_PROJECT_DIR"
       refute script =~ "statusLine.command"
+      refute script =~ "--here"
     end
 
     test "resolves the binary and runtime exactly as the hook shim does" do
@@ -307,49 +367,41 @@ defmodule Whiska.InstallStatuslineTest do
   end
 
   describe "whiska init writes them" do
-    test "the skills, and no statusLine at all (ADR-0048)", %{main: main} do
+    test "the skills, the statusline script and the statusLine entry", %{main: main} do
       capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
 
       for {path, body} <- Install.skills() do
         assert File.read!(Path.join(main, path)) == body
       end
 
+      script = Path.join(main, Install.statusline_path())
+      assert File.read!(script) == Install.statusline_script()
+      assert Bitwise.band(File.stat!(script).mode, 0o100) != 0
+
       settings = JSON.decode!(File.read!(Path.join(main, ".claude/settings.json")))
-      refute Map.has_key?(settings, "statusLine")
-      refute File.exists?(Path.join(main, ".claude/hooks/whiska-statusline.sh"))
+      assert settings["statusLine"]["command"] == Install.statusline_command()
+      assert settings["statusLine"]["refreshInterval"] == Install.statusline_refresh_interval()
     end
 
-    test "clears away the statusline an earlier init left behind", %{main: main} do
-      stale = Path.join(main, ".claude/hooks/whiska-statusline.sh")
+    test "a repo init-ed while the line lived only on the tab bar gets it back", %{main: main} do
+      File.mkdir_p!(Path.join(main, ".claude"))
+      File.write!(Path.join(main, ".claude/settings.json"), JSON.encode!(%{}))
+
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      settings = JSON.decode!(File.read!(Path.join(main, ".claude/settings.json")))
+      assert settings["statusLine"]["command"] == Install.statusline_command()
+      assert File.exists?(Path.join(main, Install.statusline_path()))
+    end
+
+    test "the script an earlier init wrote is overwritten, not left stale", %{main: main} do
+      stale = Path.join(main, Install.statusline_path())
       File.mkdir_p!(Path.dirname(stale))
       File.write!(stale, "#!/usr/bin/env bash\n# Whiska's project statusline (ADR-0027).\n")
 
-      File.write!(
-        Path.join(main, ".claude/settings.json"),
-        JSON.encode!(%{
-          "statusLine" => %{
-            "type" => "command",
-            "command" => "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska-statusline.sh\"",
-            "refreshInterval" => 15
-          }
-        })
-      )
-
       capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
 
-      refute File.exists?(stale)
-      settings = JSON.decode!(File.read!(Path.join(main, ".claude/settings.json")))
-      refute Map.has_key?(settings, "statusLine")
-    end
-
-    test "a statusline script that is not ours is left where it is", %{main: main} do
-      theirs = Path.join(main, ".claude/hooks/whiska-statusline.sh")
-      File.mkdir_p!(Path.dirname(theirs))
-      File.write!(theirs, "#!/usr/bin/env bash\necho mine\n")
-
-      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
-
-      assert File.read!(theirs) == "#!/usr/bin/env bash\necho mine\n"
+      assert File.read!(stale) == Install.statusline_script()
     end
 
     test "the shim itself is unchanged by this", %{main: main} do

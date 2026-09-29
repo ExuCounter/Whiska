@@ -179,4 +179,46 @@ defmodule Whiska.CLIQuestionsTest do
       assert after_owl(out) == " · 🐱 myrepo\n"
     end
   end
+
+  describe "whiska statusline --here — the repo's own line (ADR-0027)" do
+    setup do
+      stub(Whiska.Herdr.Mock, :list_panes, fn _ -> {:ok, []} end)
+      :ok
+    end
+
+    test "names the one mouse waiting here, with no owl on it", %{main: main} do
+      seed(main, fn -> ask("[worktree-status: needs-decision] pick one") end)
+
+      out = capture_io(fn -> assert CLI.run(["statusline", "--here"], main) == 0 end)
+      assert out == "🐱 feat-a\n"
+    end
+
+    test "says nothing at all when this repo is quiet", %{main: main} do
+      out = capture_io(fn -> assert CLI.run(["statusline", "--here"], main) == 0 end)
+      assert out == "\n"
+    end
+
+    test "works from a worktree of the house, like whiska questions does", %{
+      main: main,
+      worktree: worktree
+    } do
+      seed(main, fn -> ask("a") end)
+
+      out = capture_io(fn -> assert CLI.run(["statusline", "--here"], worktree) == 0 end)
+      assert out == "🐱 feat-a\n"
+    end
+
+    test "outside a checkout it says nothing and still exits 0", %{root: root} do
+      plain = Path.join(root, "plain")
+      File.mkdir_p!(plain)
+
+      out = capture_io(fn -> assert CLI.run(["statusline", "--here"], plain) == 0 end)
+      assert out == "\n"
+    end
+
+    test "is in the usage text" do
+      out = capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
+      assert out =~ "statusline --here"
+    end
+  end
 end

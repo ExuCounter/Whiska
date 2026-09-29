@@ -118,6 +118,12 @@ defmodule Whiska.CLI do
                          from anywhere. `whiska doctor` prints the herdr config
                          entry that draws it.
 
+    statusline --here    Print this repo's own line, which the Claude Code
+                         statusline appends: what is waiting in this house —
+                         one thing named by its branch, several as a count —
+                         and how many mice are alive here. Nothing when the
+                         repo is quiet. `whiska init` wires it up.
+
     reply <id> <text>    Answer a question. The text is typed into that
                          mouse's pane, and the question is marked answered.
 
@@ -197,6 +203,8 @@ defmodule Whiska.CLI do
 
   def run(["statusline"], _cwd), do: statusline()
 
+  def run(["statusline", "--here"], cwd), do: statusline_here(cwd || File.cwd!())
+
   def run(["waiting"], _cwd), do: waiting(:text)
   def run(["waiting", "--json"], _cwd), do: waiting(:json)
 
@@ -265,7 +273,7 @@ defmodule Whiska.CLI do
          :ok <- File.mkdir_p(Path.dirname(shim)),
          :ok <- File.write(shim, Install.shim()),
          :ok <- File.chmod(shim, 0o755),
-         :ok <- Install.clear_statusline(repo_root),
+         :ok <- write_statusline(repo_root),
          :ok <- write_skills(repo_root),
          :ok <- write_claude_md(repo_root),
          :ok <- File.mkdir_p(Path.dirname(path)),
@@ -281,10 +289,15 @@ defmodule Whiska.CLI do
         binary and the Erlang runtime get resolved, when the hook fires — so
         neither file names anything specific to this machine.
 
-        Also wrote one slash command per whiska command under .claude/skills/.
-        Nothing goes into this repo's statusLine any more: the owl's line is
-        drawn once on herdr's tab bar for the whole session (ADR-0048), and
-        `whiska doctor` prints the herdr config entry that draws it.
+        Also wrote the project statusline (#{Install.statusline_path()}). It runs
+        your global statusline and appends this repo's own line: what is waiting
+        in this house, and how many mice are alive here. It redraws every
+        #{Install.statusline_refresh_interval()} seconds, so a mouse that spawns or asks while you
+        sit still shows up anyway (ADR-0044). The owl's state and the
+        machine-wide view are not on it: they are drawn once on herdr's tab bar
+        (ADR-0048), and `whiska doctor` prints the entry that draws them.
+
+        And one slash command per whiska command under .claude/skills/.
 
         And the worktree protocol went into CLAUDE.md — how a mouse gets spawned,
         the worktree-status marker it ends a turn with, how its question reaches
@@ -324,6 +337,15 @@ defmodule Whiska.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not write #{path} (#{inspect(reason)}).")
         1
+    end
+  end
+
+  defp write_statusline(repo_root) do
+    script = Path.join(repo_root, Install.statusline_path())
+
+    with :ok <- File.mkdir_p(Path.dirname(script)),
+         :ok <- File.write(script, Install.statusline_script()) do
+      File.chmod(script, 0o755)
     end
   end
 
@@ -815,6 +837,20 @@ defmodule Whiska.CLI do
   # few seconds, and herdr clears the entry on a non-zero exit.
   defp statusline do
     IO.puts(Whiska.Statusline.render(Whiska.Statusline.summary()))
+    0
+  end
+
+  # Repo-scoped, and works from a worktree of the house the way `whiska mice`
+  # does. Always 0 and never noisy: this runs on a timer in every session, and
+  # a directory with no house simply has nothing to say.
+  defp statusline_here(cwd) do
+    line =
+      case main_checkout(cwd) do
+        {:ok, main} -> Whiska.Statusline.render_house(Whiska.Statusline.house(main))
+        :error -> ""
+      end
+
+    IO.puts(line)
     0
   end
 

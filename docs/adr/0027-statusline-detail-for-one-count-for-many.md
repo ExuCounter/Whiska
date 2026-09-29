@@ -97,34 +97,50 @@ table the record is not trusted, the headcount is zero and the segment is absent
 owl segment already says `owl down`. Why a machine-level file is right here when it was
 wrong for counting mice, above, is argued in ADR-0039.
 
-## Addendum (2026-09-29): the line moved to herdr's tab bar
+## Addendum (2026-09-29): one line became two, on two surfaces
 
-[ADR-0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) took the line out of
-Claude Code's statusline and drew it once on herdr's tab bar instead, for the
-whole machine rather than per repo. What this ADR decided that still stands:
+[ADR-0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) took the
+machine-wide part of this line out of Claude Code's statusline and drew it once
+on herdr's tab bar instead. Its amendment of the same day put the repo-scoped
+part back where it was. So there are two lines now, and this ADR's rule shapes
+both:
 
-- **Detail for one thing, a count for many.** One thing waiting is named by its
-  mouse's branch, several are counted.
-- **The owl's state is always shown**, for the reason under "the owl is down"
-  above — delivery cannot report its own outage, and a blank line reads as a
-  broken Whiska. The line is drawn by herdr's server rather than the owl's
-  process, so that argument carries over unchanged. It is
+- **Detail for one thing, a count for many**, applied to each segment of each
+  line the same way. On the tab bar one whiska with something waiting is named
+  by its repo; here one thing waiting is named by its mouse's branch.
+- **The owl's state is always shown** — on the tab bar. The reason under "the
+  owl is down" above is unchanged (delivery cannot report its own outage, and
+  the line is drawn by herdr's server rather than the owl's process), and it is
   now its own segment rather than carrying the count: `🦉 owl down · 🐱 4
-  waiting`.
+  waiting`. It is *not* repeated in each Claude session, which is what ADR-0048
+  was about. The "a blank line reads as a broken Whiska" worry does not apply
+  to the repo-scoped line: a project `statusLine` runs the person's global one
+  first and appends to its output, so a quiet repo shows their own line
+  unchanged rather than nothing at all.
+- **The mice segment stands**, on the repo-scoped line only, counted from herdr
+  exactly as the 2026-09-27 addendum above describes. herdr's sidebar makes it
+  redundant on herdr's own tab bar; a Claude session has no sidebar in view.
 
-What it retired: the **mice**, **whiskas** and **elsewhere** segments, and with
-them the addendum below about `refreshInterval`. herdr's sidebar already shows
-each mouse; a machine-wide line has no elsewhere.
+What ADR-0048 retired outright: the **whiskas** headcount and the **elsewhere**
+segment. A machine-wide line has no elsewhere, and the headcount existed to say
+how many screens the line was being drawn on.
 
-## Addendum (2026-09-29, retired): the line redraws on a timer
+The addendum below about `refreshInterval` is live again, for the repo-scoped
+line, though not for the reason it was written: what goes stale while a session
+sits idle is now a mouse spawning or dying, and a second question opening in a
+house whose delivery slot is already held.
+
+## Addendum (2026-09-29): the line redraws on a timer
 
 Claude Code's own triggers for re-running the statusline command all come from the
 session's own conversation, so an idle session's line is a snapshot from the last
-keystroke. That is fine for every segment that describes this repo — nothing here changes
-while the person does nothing — and wrong for exactly one: **elsewhere**, whose whole job
-is to report a repo the person is not looking at.
+keystroke.
 
 `whiska init` therefore writes `refreshInterval: 15` beside the statusLine command, which
-re-runs the script every 15 seconds on top of the event triggers. The elsewhere segment
-goes stale for at most that long. The number, and why not a typed nudge into the other
-session, is ADR-0044.
+re-runs the script every 15 seconds on top of the event triggers. The number, and why not
+a typed nudge into another session, is ADR-0044.
+
+Written for the **elsewhere** segment, which ADR-0048 retired. The timer outlived it: a
+mouse spawning or dying moves the mice segment with no conversation turn at all, and a
+second question in a house whose delivery slot is already held (ADR-0008) never types
+anything into the session either.
