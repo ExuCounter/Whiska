@@ -147,6 +147,15 @@ defmodule Whiska.ClaudeMdTest do
       refute body =~ "How a mouse writes its message"
     end
 
+    test "puts a size on the message, so a report stays readable in one glance" do
+      body = body_of("report")
+
+      assert body =~ "fits in six lines"
+      assert body =~ ~r/nothing else/
+      assert body =~ ~r/Leave out:/
+      assert body =~ ~r/lessons and reflections/
+    end
+
     test "teaches the shape of the message, step by step" do
       body = body_of("report")
 

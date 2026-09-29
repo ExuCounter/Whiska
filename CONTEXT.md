@@ -230,7 +230,7 @@ pointer to the question the person reads in full with `whiska questions <id>`. S
 *the mouse's pointer* or *the delivery line* when both are in play.
 _Avoid_: summary, title, subject, preview
 
-**Finish**:
+**Finishing**:
 What a mouse does before it is allowed to say `done`: read the work back against the
 brief and the repo's written decisions, run the repo's checks and fix what they catch,
 send reviewers over its own diff, go round once more, and only then write the marker.
@@ -245,7 +245,7 @@ thing, and it runs after a push rather than at the end of a turn), CI, ralph loo
 **Review loop** (retired):
 `.claude/hooks/review-loop.sh`, a `Stop` hook the repo owned, which blocked a turn ending
 on `done` until a single `CHECK` command passed and the mouse had read its own diff back
-once. Superseded by **Finish** (ADR-0049): one check command could not know what green
+once. Superseded by **Finishing** (ADR-0049): one check command could not know what green
 means in a given repo, and a shell script could make no judgment at all. Nothing writes
 it, chains it or runs it. A file still on disk is inert, `whiska doctor` says so, and
 Whiska never deletes it (ADR-0007). Named here because repos still have the file and the
