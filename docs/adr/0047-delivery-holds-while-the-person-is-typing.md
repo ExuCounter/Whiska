@@ -35,6 +35,22 @@ Reading the screen is a worse kind of signal than a hook, and ADR-0008 says as m
 approvingly. It is taken here because the alternative is not a better signal, it is no
 signal — and the failure it prevents is the loudest one Whiska has.
 
+## The spec rejected screen reading, for a different job
+
+`specs/spec.md`, under "Knowing what a mouse is doing": *"This also replaces the earlier
+plan to read each pane's visible screen content directly — that would've needed a
+separate, unverified code path just for this. The hook data is already flowing for
+enforcement, so this is free."*
+
+That rejection stands, and this decision does not reopen it. It is about a different
+subject and a different job: every *mouse* pane, read continuously, to turn into an
+activity phrase — and it was rejected because a signal for that was already flowing from
+`PreToolUse` for nothing. Here the subject is the *main session*, the read happens once
+per delivery attempt, and no hook carries what is needed: Claude Code has no event for
+the person typing, and herdr forwards none. The spec's own reason for saying no — there
+is a free signal already — is exactly what is missing, so the answer comes out the other
+way. Mice are still never screen-read.
+
 ## Consequences
 
 The guesswork is confined. `Whiska.Herdr` gains one callback, `read_screen/2`, which
