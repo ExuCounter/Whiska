@@ -1,5 +1,12 @@
 # The statusline redraws on a timer, not a typed nudge
 
+**Amended 2026-09-29 by
+[ADR-0051](0051-the-repo-scoped-statusline-is-a-board-the-owl-writes.md)**: the interval
+is 2 seconds, not 15. The arithmetic below is unchanged and is the reason — it prices
+escript startup in every session, and the statusline script no longer starts anything.
+The owl renders the repo-scoped line into a file and the script prints it.
+
+
 **Partly superseded 2026-09-29 by
 [ADR-0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md)**, and partly
 restored by its amendment of the same day.

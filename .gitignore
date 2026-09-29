@@ -7,6 +7,7 @@ worktrees/
 .herdr-worktree-meta
 
 # Elixir / mix
+/tmp/
 /_build/
 /cover/
 /deps/

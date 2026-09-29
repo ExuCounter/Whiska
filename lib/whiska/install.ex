@@ -155,64 +155,87 @@ defmodule Whiska.Install do
   @statusline_command ~s|bash "${CLAUDE_PROJECT_DIR:-.}/#{@statusline_path}"|
 
   # Seconds between redraws, on top of Claude Code's own event triggers, which
-  # all come from the session's own conversation (ADR-0044). Both facts on this
-  # line move without one: a mouse spawns or dies, and a second question opens
-  # in a repo whose delivery slot is already held. One run of the script costs
-  # about 0.4 s of wall clock and about 0.8 core-seconds of CPU — the BEAM
-  # starts on more than one core — so 15 s holds an idle session near 5% of a
-  # core. ADR-0044 has the arithmetic behind the number.
-  @statusline_refresh_interval 15
+  # all come from the session's own conversation (ADR-0044). The board is a
+  # live picture of what every mouse is doing, so it is redrawn about as often
+  # as that picture changes. Two seconds is affordable only because the script
+  # starts nothing: it prints a file the owl already wrote (ADR-0051), where
+  # the 0.8 core-seconds of escript startup that set the old interval of 15
+  # used to be.
+  @statusline_refresh_interval 2
 
   @statusline_script """
-                     #!/usr/bin/env bash
-                     # Whiska's project statusline (ADR-0027). A project-level statusLine
-                     # replaces the global one rather than merging with it, so this runs your
-                     # global statusline first and appends this repo's own line: what is
-                     # waiting in this house, and how many mice are alive here. Nothing is
-                     # appended when the repo is quiet.
-                     #
-                     # The owl's state and the machine-wide view are not here: they are drawn
-                     # once on herdr's tab bar (ADR-0048).
-                     #
-                     # Written by `whiska init`. The binary and runtime are resolved the same
-                     # way the hook shim resolves them, at run time, never baked in here.
+  #!/usr/bin/env bash
+  # Whiska's project statusline (ADR-0051): a board, one row per mouse in
+  # this repo — its branch, what herdr says it is doing, and either the
+  # question waiting on you or its last action.
+  #
+  # A project-level statusLine replaces the global one rather than merging
+  # with it, so your global statusline runs first and the board goes under
+  # it.
+  #
+  # Nothing here starts Whiska. The owl writes the board to a file every
+  # couple of seconds and this prints it, which is what makes a two-second
+  # refresh affordable in every open session at once.
+  #
+  # Written by `whiska init`.
 
-                     input="$(cat)"
+  input="$(cat)"
 
-                     global=""
-                     if command -v jq >/dev/null 2>&1 && [ -r "$HOME/.claude/settings.json" ]; then
-                       global="$(jq -r '.statusLine.command // empty' "$HOME/.claude/settings.json" 2>/dev/null)"
-                     fi
+  global=""
+  if command -v jq >/dev/null 2>&1 && [ -r "$HOME/.claude/settings.json" ]; then
+    global="$(jq -r '.statusLine.command // empty' "$HOME/.claude/settings.json" 2>/dev/null)"
+  fi
 
-                     base=""
-                     case "$global" in
-                       "" | *whiska-statusline.sh*) ;;
-                       *) base="$(printf '%s' "$input" | bash -c "$global" 2>/dev/null)" ;;
-                     esac
+  base=""
+  case "$global" in
+    "" | *whiska-statusline.sh*) ;;
+    *) base="$(printf '%s' "$input" | bash -c "$global" 2>/dev/null)" ;;
+  esac
 
-                     dir=""
-                     if command -v jq >/dev/null 2>&1; then
-                       dir="$(printf '%s' "$input" | jq -r '.workspace.current_dir // .workspace.project_dir // .cwd // empty' 2>/dev/null)"
-                     fi
-                     [ -d "$dir" ] || dir="$PWD"
+  [ -n "$base" ] && printf '%s\n' "$base"
 
-                     """ <>
-                       @resolve_whiska <>
-                       @resolve_escript <>
-                       """
-                       segment=""
-                       if [ -n "$whiska_bin" ] && [ -n "$escript_bin" ]; then
-                         segment="$(cd "$dir" && "$escript_bin" "$whiska_bin" statusline --here 2>/dev/null)"
-                       elif [ -n "$whiska_bin" ]; then
-                         segment="$(cd "$dir" && "$whiska_bin" statusline --here 2>/dev/null)"
-                       fi
+  dir=""
+  if command -v jq >/dev/null 2>&1; then
+    dir="$(printf '%s' "$input" | jq -r '.workspace.current_dir // .workspace.project_dir // .cwd // empty' 2>/dev/null)"
+  fi
+  [ -d "$dir" ] || dir="$PWD"
 
-                       if [ -n "$base" ] && [ -n "$segment" ]; then
-                         printf '%s · %s' "$base" "$segment"
-                       else
-                         printf '%s%s' "$base" "$segment"
-                       fi
-                       """
+  # A mouse's own pane never draws the board: it is the person's view of
+  # their mice, and a mouse has no use for its siblings' rows.
+  case "$dir" in
+    */worktrees/*) exit 0 ;;
+  esac
+
+  # The board is named after the main checkout, so a session sitting in a
+  # subfolder walks up until it finds one.
+  home="${WHISKA_HOME:-$HOME/.whiska}"
+  board=""
+  probe="$dir"
+  while [ -n "$probe" ] && [ "$probe" != "/" ]; do
+    candidate="$home/board/$(printf '%s' "$probe" | tr -c 'A-Za-z0-9' '-')"
+    if [ -f "$candidate" ]; then
+      board="$candidate"
+      break
+    fi
+    probe="$(dirname "$probe")"
+  done
+
+  [ -n "$board" ] && [ -s "$board" ] || exit 0
+
+  mtime="$(stat -f %m "$board" 2>/dev/null || stat -c %Y "$board" 2>/dev/null)"
+  age=$(( $(date +%s) - ${mtime:-0} ))
+
+  # A board nothing has refreshed is still mostly true for a little while,
+  # and hiding it the moment something goes wrong is the worse failure. Past
+  # a minute it stops being worth showing; herdr's tab bar says the owl is
+  # down either way (ADR-0048).
+  if [ "$age" -le 5 ]; then
+    cat "$board"
+  elif [ "$age" -le 60 ]; then
+    printf '🦉 owl down · %ss stale\n' "$age"
+    awk '{ printf "%c[2m%s%c[0m%c", 27, $0, 27, 10 }' "$board"
+  fi
+  """
 
   @herdr_status_name "herdr-status.sh"
 

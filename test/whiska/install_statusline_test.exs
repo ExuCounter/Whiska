@@ -61,7 +61,7 @@ defmodule Whiska.InstallStatuslineTest do
       end
     end
 
-    test "an interval the person changed is theirs no longer, init restores 15" do
+    test "an interval the person changed is theirs no longer, init restores its own" do
       ours = %{
         "type" => "command",
         "command" => Install.statusline_command(),
@@ -81,15 +81,18 @@ defmodule Whiska.InstallStatuslineTest do
       assert script =~ "statusLine.command"
     end
 
-    test "asks for this repo's line, not the machine-wide one" do
-      assert Install.statusline_script() =~ "statusline --here"
+    test "prints the board the owl left rather than asking for one (ADR-0051)" do
+      script = Install.statusline_script()
+
+      assert script =~ "board"
+      refute script =~ "statusline --here"
     end
 
-    test "runs in the directory the session is in, not wherever it was launched" do
+    test "looks up the board for the directory the session is in" do
       script = Install.statusline_script()
 
       assert script =~ "workspace.current_dir"
-      assert script =~ ~s(cd "$dir")
+      assert script =~ ~s(probe="$dir")
     end
 
     test "the settings.json command names only the script, under the project dir" do
@@ -97,9 +100,11 @@ defmodule Whiska.InstallStatuslineTest do
       assert Install.statusline_command() =~ Install.statusline_path()
     end
 
-    test "resolves the binary and runtime exactly as the hook shim does" do
-      assert Install.statusline_script() =~ "WHISKA_BIN"
-      assert Install.statusline_script() =~ "command -v escript"
+    test "starts nothing, which is what a two-second refresh costs nothing" do
+      script = Install.statusline_script()
+
+      refute script =~ "WHISKA_BIN"
+      refute script =~ "escript"
     end
 
     test "an interval Claude Code accepts" do

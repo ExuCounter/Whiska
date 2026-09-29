@@ -180,22 +180,24 @@ defmodule Whiska.CLIQuestionsTest do
     end
   end
 
-  describe "whiska statusline --here — the repo's own line (ADR-0027)" do
+  describe "whiska statusline --here — the board this repo draws (ADR-0051)" do
     setup do
       stub(Whiska.Herdr.Mock, :list_panes, fn _ -> {:ok, []} end)
       :ok
     end
 
-    test "names the one mouse waiting here, with no owl on it", %{main: main} do
-      seed(main, fn -> ask("[worktree-status: needs-decision] pick one") end)
+    test "gives the mouse a row, with what it is waiting on", %{main: main} do
+      seed(main, fn -> ask("Body.\n\npick one\n\u2063\u2063") end)
 
       out = capture_io(fn -> assert CLI.run(["statusline", "--here"], main) == 0 end)
-      assert out == "🐱 feat-a\n"
+
+      assert out =~ "🐭 feat-a"
+      assert out =~ "waiting on you · #1 · \"pick one\""
     end
 
     test "says nothing at all when this repo is quiet", %{main: main} do
       out = capture_io(fn -> assert CLI.run(["statusline", "--here"], main) == 0 end)
-      assert out == "\n"
+      assert out == ""
     end
 
     test "works from a worktree of the house, like whiska questions does", %{
@@ -205,7 +207,7 @@ defmodule Whiska.CLIQuestionsTest do
       seed(main, fn -> ask("a") end)
 
       out = capture_io(fn -> assert CLI.run(["statusline", "--here"], worktree) == 0 end)
-      assert out == "🐱 feat-a\n"
+      assert out =~ "🐭 feat-a"
     end
 
     test "outside a checkout it says nothing and still exits 0", %{root: root} do
@@ -213,7 +215,7 @@ defmodule Whiska.CLIQuestionsTest do
       File.mkdir_p!(plain)
 
       out = capture_io(fn -> assert CLI.run(["statusline", "--here"], plain) == 0 end)
-      assert out == "\n"
+      assert out == ""
     end
 
     test "is in the usage text" do

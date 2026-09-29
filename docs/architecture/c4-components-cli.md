@@ -26,7 +26,8 @@ C4Component
     Component(claudemd, "ClaudeMd", "pure merge", "The worktree protocol block, merged into CLAUDE.md one named part at a time")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question and per uncollected doorstep entry, oldest first, each with its mouse pane")
-    Component(statusline, "Statusline", "two lines", "herdr's tab bar: the owl always, and what is waiting machine-wide. This repo's Claude statusline: what waits here, and the mice alive here")
+    Component(statusline, "Statusline", "one line", "herdr's tab bar: the owl always, and what is waiting machine-wide")
+    Component(watch, "Watch", "the board", "A row per mouse of this repo: its branch, what its pane is doing, and either the question waiting on you or its last action")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live, and reads herdr's config")
     Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
     Component(backstop, "Backstop", "text file", "The house's mark of what only its backstop collected")
@@ -47,9 +48,10 @@ C4Component
   Rel(main, install, "Delegates init")
   Rel(main, claudemd, "init: merges the block into CLAUDE.md")
   Rel(main, questions, "Delegates questions")
-  Rel(main, statusline, "Delegates statusline and statusline --here")
+  Rel(main, statusline, "Delegates statusline")
+  Rel(main, watch, "Delegates watch and statusline --here")
+  Rel(watch, herdr, "What each mouse's pane is doing", "pane.list")
   Rel(statusline, waiting, "What is waiting: every recorded house, or just this one")
-  Rel(statusline, herdr, "--here: which of this repo's worktrees have a live agent pane", "pane.list")
   Rel(main, waiting, "Delegates waiting and jump")
   Rel(waiting, record, "Which repos to look in: read without the owl-alive guard")
   Rel(waiting, storage, "Opens each house read-only: questions, mouse panes, main session")
@@ -123,13 +125,17 @@ doctor uses (`Whiska.Owl.pids/0`), and collecting: the doorstep is the one sourc
 database cannot see, and an entry uncollected past the owl's backstop still means down,
 until the owl answers a socket.
 
-The repo-scoped line is what Claude Code's statusline appends in that repo: what is
-waiting in this house, named by its mouse's branch or counted, and how many of this
-repo's worktrees have a live agent pane in them. The mice are the one thing here that
-asks herdr, and they are read from herdr rather than from the house because `died_at` is
-only set while the owl runs. No owl segment: that fact is machine-wide and the tab bar's.
-The line is empty when the repo is quiet, and the person's global statusline is drawn
-underneath it either way.
+The repo-scoped line is no longer this component's: it is the board (ADR-0051), which
+`Watch` renders and the house writes to a file.
+
+**`Watch` is the board** — a row per mouse of this repo, ordered by how much each wants
+the person: waiting, blocked, working, quiet, five rows at most, and never a cap that
+drops a mouse with a question on it. The detail column is that question when there is
+one, and otherwise what the mouse is doing, read from its own Claude Code transcript
+(ADR-0050). A dead mouse keeps a dimmed row while it still has an orphaned question, and
+that row carries the `whiska close` that clears it. `whiska watch` and `whiska statusline
+--here` both print it, worked out afresh; the statusline itself prints the file the house
+keeps, and starts nothing.
 
 Nothing here writes or collects.
 

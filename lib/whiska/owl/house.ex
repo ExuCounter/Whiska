@@ -113,6 +113,8 @@ defmodule Whiska.Owl.House do
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
+  alias Whiska.Watch
+  alias Whiska.Watch.Snapshot
 
   @global_subscriptions [
     %{type: "pane.closed"},
@@ -124,6 +126,7 @@ defmodule Whiska.Owl.House do
   @default_resubscribe_ms 5_000
   @default_round_wait_ms 8_000
   @default_retry_ms [2_000, 5_000]
+  @default_board_ms 2_000
 
   defstruct [
     :main_checkout,
@@ -134,8 +137,10 @@ defmodule Whiska.Owl.House do
     :resubscribe_ms,
     :round_wait_ms,
     :retry_ms,
+    :board_ms,
     subscription: nil,
     panes: %{},
+    last_panes: :no_socket,
     main_pane: nil,
     round_timer: nil,
     retry_timer: nil,
@@ -153,7 +158,7 @@ defmodule Whiska.Owl.House do
   Options: `:main_checkout` (required), `:herdr_socket` (defaults to
   `HERDR_SOCKET_PATH`), `:backstop_ms`, `:resubscribe_ms`, `:round_wait_ms`,
   `:retry_ms` (the delays, in order, of the re-collections after an idle event
-  that found nothing), `:name`.
+  that found nothing), `:board_ms` (how often the board is written), `:name`.
   """
   def start_link(opts) do
     {name, opts} = Keyword.pop(opts, :name)
@@ -200,6 +205,7 @@ defmodule Whiska.Owl.House do
           resubscribe_ms: Keyword.get(opts, :resubscribe_ms, @default_resubscribe_ms),
           round_wait_ms: Keyword.get(opts, :round_wait_ms, @default_round_wait_ms),
           retry_ms: Keyword.get(opts, :retry_ms, @default_retry_ms),
+          board_ms: Keyword.get(opts, :board_ms, @default_board_ms),
           main_pane: Storage.main_pane()
         }
 
@@ -229,6 +235,8 @@ defmodule Whiska.Owl.House do
       |> deliver()
 
     Process.send_after(self(), :backstop, state.backstop_ms)
+    write_board(state)
+    Process.send_after(self(), :board, state.board_ms)
     {:noreply, state}
   end
 
@@ -274,6 +282,13 @@ defmodule Whiska.Owl.House do
     {:noreply, state}
   end
 
+  def handle_info(:board, state) do
+    state = %{state | last_panes: list_panes(state)}
+    write_board(state)
+    Process.send_after(self(), :board, state.board_ms)
+    {:noreply, state}
+  end
+
   def handle_info(:round_over, state) do
     {:noreply, deliver(%{state | round_timer: nil})}
   end
@@ -297,6 +312,24 @@ defmodule Whiska.Owl.House do
     do: {:stop, {:repo_down, reason}, state}
 
   def handle_info({:EXIT, _pid, _reason}, state), do: {:noreply, state}
+
+  # -- the board (ADR-0051) ----------------------------------------------------
+
+  # `state.panes` is the match from pane to mouse and holds no status, so the
+  # board keeps herdr's last full answer beside it: the one the tick asks for,
+  # or the one matching panes has just fetched.
+  defp write_board(state) do
+    board =
+      Watch.board(Storage.all(Mouse),
+        questions: Storage.questions() ++ Storage.orphaned_questions(),
+        panes: state.last_panes
+      )
+
+    Snapshot.write(state.main_checkout, Watch.render(board))
+  end
+
+  defp list_panes(%{socket: nil}), do: :no_socket
+  defp list_panes(state), do: state.herdr.list_panes(state.socket)
 
   # -- herdr events, by name ---------------------------------------------------
 
@@ -396,13 +429,13 @@ defmodule Whiska.Owl.House do
             {pane.pane_id, mouse.mouse_id}
           end
 
-        {:ok, %{state | panes: matched}, mice}
+        {:ok, %{state | panes: matched, last_panes: {:ok, panes}}, mice}
 
       {:error, reason} ->
         # Without herdr there is no way to tell dead from alive, so nothing is
         # marked either way; the backstop asks again.
         warn(state, "could not list herdr panes (#{inspect(reason)})")
-        {:error, state}
+        {:error, %{state | last_panes: {:error, reason}}}
     end
   end
 
