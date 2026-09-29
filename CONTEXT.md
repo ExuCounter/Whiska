@@ -34,9 +34,9 @@ folder path; both of those can change without the mouse_id changing.
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
 **unmarked** question: delivered like any other, recorded as having arrived unmarked. A
-`done` report is delivered like any other too, told as "finished" with no reply offered,
-and closed the moment it is sent — it is never answered and never holds the delivery
-slot. A question is **open** while it waits in the queue, **sent** once delivered and
+`done` report is delivered like any other too, told as "finished" with a **finish**
+offered in place of a reply, and closed the moment it is sent — it is never answered and
+never holds the delivery slot. A question is **open** while it waits in the queue, **sent** once delivered and
 waiting for its answer, then **answered**; **superseded** when its own mouse asked a
 newer one, **closed** by hand or as a `done` report once told, **orphaned** when nothing
 can act on it (its mouse died, its worktree is gone).
@@ -51,6 +51,14 @@ names how a message reads, never the record it becomes: once collected the same 
 is a **question**. The block's `report` part teaches it. `done` report is the older,
 narrower use of the word — a question whose marker said `done` — and both stay.
 _Avoid_: summary, status, update, hand-off
+
+**Finish**:
+What becomes of a branch once its mouse is done: merged into the current branch, opened
+as a merge request, left alone to be talked to further, or dropped unmerged. The person
+picks one when a "finished" question is told; a repo may name its usual choice, and that
+one is recommended. A finish is never an answer — a finished question has nothing to
+answer — and it is only ever offered for a finished one.
+_Avoid_: close (which a question does), cleanup, disposition, land
 
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,

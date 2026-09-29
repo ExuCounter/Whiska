@@ -85,3 +85,43 @@ prompt` into a live mouse's pane is exactly what `send-to-worktree` does legitim
 (ADR-0046), open question or not. Denying it would break that, and the decision would
 have to read the questions table, which no rule does today. So this one stays judgment in
 `CLAUDE.md` and in the skills, which is the split ADR-0010 draws.
+
+## Note, 2026-09-29: a finished line offers what to do with the branch
+
+A "finished" message has nothing to reply to, so the reading skill used to show it and
+stop — and the person then typed "merge it here" by hand, every time. `whiska-delivered`
+now follows a finished line with a second `AskUserQuestion`: merge here (the default),
+open a merge request or PR, chat further, or drop it. Unlike the lettered picker above,
+these options are Whiska's rather than the mouse's, which is the one thing that makes
+this a different shape: they are the same four every time, written out in the skill, so
+nothing is composed out of what was read.
+
+The pick is acted on, not relayed — there is no `whiska reply` for a finished line. That
+is the main session doing work on a branch, which ADR-0017 allows precisely because the
+person picked it. The guard is that the picker appears for a finished line and nothing
+else: a branch still working, or waiting on a decision, is one nobody should merge, push
+or drop. The steps themselves are not restated; `drop-worktree` and the repo's own merge
+and push commands already exist, and the skill names them.
+
+The PR option carries the finished message over as the PR body rather than composing one
+from the diff, which is ADR-0032's reasoning — the branch's own session has the context to
+write a real title and summary, and the main session is holding exactly what it wrote.
+That ADR is still `proposed` and describes an automated flow behind a `pr: true` opt-in;
+this is the manual path it says is today's behaviour ("handle PRs and merges yourself"),
+with the picker as the hands. Merging in the main checkout is that same sanctioned path,
+so ADR-0013 is untouched: it blocks edits that bypass review, not the merge that is how
+reviewed work is meant to land.
+
+### Where the per-repo default lives: a heading, not a fifth part
+
+A repo can name its usual choice with a line like `finish: merge here` under a `## Finish`
+heading in its `CLAUDE.md`, and the picker recommends that one instead. The heading is
+the person's to write by hand. It is deliberately *not* a fifth part of the ADR-0045 nest.
+
+A shipped part would mean Whiska writing a default preference into every repo it touches,
+and a person wanting a different one would have to `keep` the part to change a single
+line — a heavy mechanism for a one-word taste. The block's four parts all describe the
+protocol, which Whiska owns; which branch-ending a person prefers is not protocol. And no
+code reads the heading: the repo's `CLAUDE.md` is already in the main session's context,
+so this costs one paragraph of skill text and nothing else. If it later needs to be read
+by something other than the model, a part is still available.
