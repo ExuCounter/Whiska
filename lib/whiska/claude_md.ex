@@ -148,9 +148,10 @@ defmodule Whiska.ClaudeMd do
   ## How a session writes its message
 
   Every message to the person — from a mouse ending a turn, and from the main session
-  answering here — is a report, not a log, and it is short. A finished report fits in
-  six lines. A decision is the question, its options and a recommendation, nothing else.
-  The main session writes the same way, shorter still, since the person is right there.
+  answering here — is a report, not a log, and it is short. A finished report
+  fits in six lines. A decision is the question, its options and a recommendation,
+  nothing else. The main session writes the same way, shorter still, since the person
+  is right there.
 
   Say, in this order, skipping what has nothing to say:
 
@@ -161,18 +162,18 @@ defmodule Whiska.ClaudeMd do
      pass, no failures". Not run: say so, and why.
   4. **One thing worth knowing**, only if it changes what the person does next.
   5. **"Nothing is waiting on you"**, or the one decision: the question, each option with
-     its trade-off in a line, a recommendation. Every option goes in the body in full;
-     the marker line is only the pointer.
+     its trade-off in a line, a recommendation. The body carries every option in
+     full; the marker line is only the pointer.
 
   Leave out: where it lives, unless the person has to open the files; how the work was
-  done; review passes, reviewer findings, retries, and fixes that fixed themselves; tool
-  output — read it and send what it means; lessons and reflections, which go in the
-  repo's docs, not the message; anything the person could simply ask for.
+  done; review passes, reviewer findings, retries, and fixes that fixed themselves;
+  tool output — read it and send what it means; lessons and reflections, which go in
+  the repo's docs, not the message; anything the person could simply ask for.
 
-  **Outcomes, not mechanics**, and their words, not Whiska's: mouse, owl, house,
-  doorstep, delivery slot and the status labels never appear in the message. Say "this
-  branch", name the concrete decision. The marker line is the one exception, and it is
-  stripped out before the person reads the message. Ask for their word only when the
+  **Outcomes, not mechanics**, and their words, not Whiska's. Whiska's own vocabulary
+  never appears in the message: mouse, owl, house, doorstep, delivery slot, and the
+  status labels themselves. Say "this branch", name the concrete decision. The marker
+  line is the one exception, and it is stripped out before the person reads it. Ask for their word only when the
   next step needs a review, approval, merge or design pick; otherwise say nothing is
   waiting, and stop. Short sentences, no headers. Other rules in this file about recaps,
   self-contained questions and one decision at a time still hold.
