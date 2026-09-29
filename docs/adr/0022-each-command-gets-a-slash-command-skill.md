@@ -59,3 +59,29 @@ The pointer-first rule is untouched. The message still goes out verbatim as mark
 first, in full; the picker comes after it and adds nothing to it. More than four options
 is beyond what the tool takes, so the skill asks in prose instead of quietly dropping
 some.
+
+## Note, 2026-09-29: `/whiska-reply` exists, and it is the only way to answer
+
+The list at the top named `reply` from the start, but `whiska init` shipped only the two
+reading skills. It does now ship `whiska-reply`, the same thin wrapper: `whiska reply
+$ARGUMENTS`, or the id from the delivered line with the person's own words as the text.
+Same shape as the picker section already used, so there is one way to write the command.
+
+Both it and `whiska-delivered` now say what the reading skills only implied: an answer to
+a mouse goes through `whiska reply <id>` and nothing else — never `herdr agent prompt`
+into the mouse's pane, never `send-to-worktree`, which is for a new idea rather than for
+something a mouse is already waiting on. The CLAUDE.md block's delivery part (ADR-0045)
+says it too, for the main session.
+
+The reason is ADR-0008's one delivery slot. Text typed into a mouse's pane reaches the
+mouse, but the question stays `sent`: it keeps the slot, and the next mouse's question
+sits `open` behind it until something supersedes it. That happened on 2026-09-29 and cost
+six minutes of a question nobody could see — the same root cause as the ghost slot fixed
+earlier that day. Only `whiska reply` closes the question and frees the slot.
+
+A `PreToolUse` guard was considered and rejected. The hook does run in the main session —
+ADR-0013's rule aims at it — but it cannot tell an answer from a new idea: `herdr agent
+prompt` into a live mouse's pane is exactly what `send-to-worktree` does legitimately
+(ADR-0046), open question or not. Denying it would break that, and the decision would
+have to read the questions table, which no rule does today. So this one stays judgment in
+`CLAUDE.md` and in the skills, which is the split ADR-0010 draws.
