@@ -106,7 +106,9 @@ report instead.
 **Owl**:
 The one always-awake presence per machine, supervised by `launchd`, that keeps every
 project's house standing and is the only thing that can see across all of them at
-once. Not per-project: a person has many houses and exactly one owl.
+once. Seeing is not acting: the owl reads every house, and types into none but the one
+each question belongs to (see **Nudge**, retired). Not per-project: a person has many
+houses and exactly one owl.
 _Avoid_: daemon, server, service
 
 **House**:
