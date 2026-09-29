@@ -184,12 +184,14 @@ to say:
 `whiska owl install` writes the script herdr runs, `~/.whiska/herdr-status.sh`, and
 prints the entry that runs it. That entry is yours — herdr's config is machine-global and
 hand-edited, so Whiska never writes it. Paste it into `~/.config/herdr/config.toml`,
-commit it with your dotfiles, and `herdr server reload-config`:
+commit it with your dotfiles, and `herdr server reload-config`. `whiska owl install` prints
+it with your own path already filled in; `~/.whiska/herdr-status.sh` works too, since herdr
+runs a command entry through a login shell:
 
 ```toml
 [ui]
 tab_bar_right = [
-  { type = "command", command = "~/.whiska/herdr-status.sh", interval_seconds = 5, timeout_seconds = 2 },
+  { type = "command", command = "/Users/you/.whiska/herdr-status.sh", interval_seconds = 5, timeout_seconds = 2 },
 ]
 tab_bar_right_separator = " · "
 ```

@@ -64,6 +64,13 @@ defmodule Whiska.InstallStatuslineTest do
       assert Install.herdr_status_script() =~ "command -v escript"
     end
 
+    test "tells a crashed Whiska apart from a missing one" do
+      script = Install.herdr_status_script()
+
+      assert script =~ "whiska missing"
+      assert script =~ "whiska error"
+    end
+
     test "says so when it cannot find Whiska, rather than going blank" do
       # herdr clears the entry on empty output or failure, which is
       # indistinguishable from nothing being configured — and the owl's state

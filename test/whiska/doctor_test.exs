@@ -122,6 +122,17 @@ defmodule Whiska.DoctorTest do
       end
     end
 
+    test "the tilde form of the path counts: herdr runs the entry through a login shell" do
+      whiska_home = Path.join(Whiska.LaunchAgent.user_home(), ".whiska")
+      Application.put_env(:whiska, :home, whiska_home)
+      on_exit(fn -> Application.delete_env(:whiska, :home) end)
+
+      config = String.replace(Install.tab_bar_right_snippet(), whiska_home, "~/.whiska")
+
+      assert config =~ ~s(command = "~/.whiska/herdr-status.sh")
+      assert %Check{status: :ok} = Doctor.tab_bar(config, true)
+    end
+
     test "an interval the person chose themselves is reported, not argued with" do
       config =
         String.replace(

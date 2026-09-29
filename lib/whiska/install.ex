@@ -371,17 +371,17 @@ defmodule Whiska.Install do
                          @resolve_escript <>
                          """
                          # A blank line reads as "nothing configured", and the owl's state is the one
-                         # thing that must always be shown (ADR-0027 addendum), so a Whiska that
-                         # cannot be found says so rather than going quiet.
+                         # thing that must always be shown (ADR-0027 addendum), so both ways of
+                         # getting no line say which one happened rather than going quiet.
                          if [ -z "$whiska_bin" ]; then
                            printf '🦉 whiska missing'
                            exit 0
                          fi
 
                          if [ -n "$escript_bin" ]; then
-                           "$escript_bin" "$whiska_bin" statusline 2>/dev/null || printf '🦉 whiska missing'
+                           "$escript_bin" "$whiska_bin" statusline 2>/dev/null || printf '🦉 whiska error'
                          else
-                           "$whiska_bin" statusline 2>/dev/null || printf '🦉 whiska missing'
+                           "$whiska_bin" statusline 2>/dev/null || printf '🦉 whiska error'
                          fi
                          """
 

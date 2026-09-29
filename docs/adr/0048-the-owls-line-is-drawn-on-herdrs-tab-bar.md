@@ -77,10 +77,15 @@ add a status segment. Checked against herdr 0.8.2 and the 0.9.2 documentation.
   with the snippet to paste when there is none. Never a failure: nothing is lost
   when the line is missing — questions are still collected, recorded and
   delivered.
-- **A Whiska the script cannot find says so.** herdr clears the entry on empty
-  output, which is indistinguishable from nothing being configured — the exact
-  blankness ADR-0027's second addendum exists to prevent. So the script prints
-  `🦉 whiska missing` rather than nothing.
+- **A Whiska the script cannot run says which way it failed.** herdr clears the
+  entry on empty output, which is indistinguishable from nothing being
+  configured — the exact blankness ADR-0027's second addendum exists to prevent.
+  So the script prints `🦉 whiska missing` when the binary is not found and
+  `🦉 whiska error` when it is found and fails, rather than nothing either way.
+- **The doctor accepts the path either written out or under a tilde.** herdr
+  runs a command entry through `/bin/sh -lc`, so `~/.whiska/herdr-status.sh`
+  really works there; a check that only matched the expanded path would warn
+  about an entry that was drawing the line perfectly well.
 
 ## Consequences
 

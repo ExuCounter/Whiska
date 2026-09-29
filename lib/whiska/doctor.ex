@@ -404,13 +404,15 @@ defmodule Whiska.Doctor do
   end
 
   # The one `tab_bar_right` entry that runs our script, whatever else the
-  # person has on their tab bar.
+  # person has on their tab bar. herdr runs a command entry through a login
+  # shell, so `~/.whiska/herdr-status.sh` works there and counts here.
   defp entry_line(config) do
     path = Install.herdr_status_path()
+    tilde = String.replace_prefix(path, LaunchAgent.user_home(), "~")
 
     config
     |> String.split("\n")
-    |> Enum.find(&String.contains?(&1, path))
+    |> Enum.find(&(String.contains?(&1, path) or String.contains?(&1, tilde)))
   end
 
   defp interval(entry) do
