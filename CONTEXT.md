@@ -217,6 +217,15 @@ carries a `mouse_id`: that one is identity on disk, this one is a line in a mess
 Say which when either could be meant.
 _Avoid_: status line (the statusline is a different thing entirely), tag, signal
 
+**Pointer**:
+One line standing in for a whole message, in two related places. A mouse's pointer is
+the readable sentence it leaves beside its marker — the short question itself, or "3
+questions ready, see above" — which sits on the line above a `needs-decision` marker; a
+finished turn leaves none. The owl's delivery line quotes that sentence, and is itself a
+pointer to the question the person reads in full with `whiska questions <id>`. Say
+*the mouse's pointer* or *the delivery line* when both are in play.
+_Avoid_: summary, title, subject, preview
+
 **Finish**:
 What a mouse does before it is allowed to say `done`: read the work back against the
 brief and the repo's written decisions, run the repo's checks and fix what they catch,
