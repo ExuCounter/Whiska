@@ -16,10 +16,11 @@ defmodule Whiska.InstallStatuslineTest do
     main = Path.join(root, "myrepo")
     home = Path.join(root, "dot-whiska")
     File.mkdir_p!(Path.join(main, ".git"))
+    previous = Application.get_env(:whiska, :home)
     Application.put_env(:whiska, :home, home)
 
     on_exit(fn ->
-      Application.delete_env(:whiska, :home)
+      Application.put_env(:whiska, :home, previous)
       File.rm_rf!(root)
     end)
 

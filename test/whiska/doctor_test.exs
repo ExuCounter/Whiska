@@ -124,8 +124,9 @@ defmodule Whiska.DoctorTest do
 
     test "the tilde form of the path counts: herdr runs the entry through a login shell" do
       whiska_home = Path.join(Whiska.LaunchAgent.user_home(), ".whiska")
+      previous = Application.get_env(:whiska, :home)
       Application.put_env(:whiska, :home, whiska_home)
-      on_exit(fn -> Application.delete_env(:whiska, :home) end)
+      on_exit(fn -> Application.put_env(:whiska, :home, previous) end)
 
       config = String.replace(Install.tab_bar_right_snippet(), whiska_home, "~/.whiska")
 

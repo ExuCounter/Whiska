@@ -135,9 +135,10 @@ defmodule Whiska.CLIQuestionsTest do
   describe "whiska statusline" do
     setup %{main: main} do
       home = Path.join(Path.dirname(main), "dot-whiska")
+      previous = Application.get_env(:whiska, :home)
       Application.put_env(:whiska, :home, home)
       Whiska.OpenHouses.add(main)
-      on_exit(fn -> Application.delete_env(:whiska, :home) end)
+      on_exit(fn -> Application.put_env(:whiska, :home, previous) end)
       :ok
     end
 
