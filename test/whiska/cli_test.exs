@@ -110,6 +110,67 @@ defmodule Whiska.CLITest do
     end
   end
 
+  describe "a branch name with a slash in it" do
+    setup %{main: main} do
+      nested = Path.join(main, "worktrees/feat/csv-data-page")
+      File.mkdir_p!(nested)
+      File.write!(Path.join(nested, ".git"), "gitdir: #{main}/.git/worktrees/csv-data-page\n")
+      {:ok, nested: nested}
+    end
+
+    test "names the mouse after the whole branch", %{nested: nested} do
+      out = capture_io(fn -> assert CLI.run(["mode"], nested) == 0 end)
+      assert out =~ "feat/csv-data-page"
+    end
+
+    test "mints the marker inside the worktree, not beside it", %{main: main, nested: nested} do
+      capture_io(fn -> assert CLI.run(["mode"], nested) == 0 end)
+
+      assert File.exists?(Whiska.Marker.path(nested))
+      refute File.exists?(Whiska.Marker.path(Path.join(main, "worktrees/feat")))
+    end
+
+    test "denies a write into a sibling branch's worktree", %{main: main, nested: nested} do
+      sibling = Path.join(main, "worktrees/feat/other-page")
+      File.mkdir_p!(sibling)
+
+      payload =
+        JSON.encode!(%{
+          "cwd" => nested,
+          "tool_name" => "Write",
+          "tool_input" => %{"file_path" => Path.join(sibling, "app.ex")}
+        })
+
+      out = capture_io(payload, fn -> assert CLI.run(["hook", "pre-tool-use"]) == 0 end)
+
+      assert %{"hookSpecificOutput" => %{"permissionDecision" => "deny"}} = JSON.decode!(out)
+    end
+
+    test "still denies a write into the main checkout", %{main: main, nested: nested} do
+      payload =
+        JSON.encode!(%{
+          "cwd" => nested,
+          "tool_name" => "Write",
+          "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+        })
+
+      out = capture_io(payload, fn -> assert CLI.run(["hook", "pre-tool-use"]) == 0 end)
+
+      assert %{"hookSpecificOutput" => %{"permissionDecision" => "deny"}} = JSON.decode!(out)
+    end
+
+    test "allows a write inside its own worktree", %{nested: nested} do
+      payload =
+        JSON.encode!(%{
+          "cwd" => nested,
+          "tool_name" => "Write",
+          "tool_input" => %{"file_path" => Path.join(nested, "app/routes/csv.ex")}
+        })
+
+      assert capture_io(payload, fn -> assert CLI.run(["hook", "pre-tool-use"]) == 0 end) == ""
+    end
+  end
+
   describe "whiska init" do
     test "writes the hook into a repo with no settings yet", %{main: main} do
       capture_io(fn -> assert CLI.run(["init"], main) == 0 end)

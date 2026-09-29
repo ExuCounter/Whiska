@@ -265,7 +265,7 @@ defmodule Whiska.Watch do
 
   defp widths(rows, tick) do
     %{
-      branch: width(rows, &String.length(clip(&1.branch))),
+      branch: width(rows, &String.length(branch(&1.branch))),
       status: width(rows, &String.length(&1.status)),
       # The column is as wide as the longest frame and is there whether or not
       # anything is working, so a row's detail sits in the same place while the
@@ -280,7 +280,7 @@ defmodule Whiska.Watch do
   defp line(row, widths, tick, color) do
     text =
       "🐭 " <>
-        String.pad_trailing(clip(row.branch), widths.branch) <>
+        String.pad_trailing(branch(row.branch), widths.branch) <>
         "  " <>
         String.pad_trailing(row.status, widths.status) <>
         "  " <> ticker(row, widths.ticker, tick) <> row.detail
@@ -302,11 +302,7 @@ defmodule Whiska.Watch do
   defp dim(text, :dead, true), do: @dim <> text <> @undim
   defp dim(text, _state, _color), do: text
 
-  defp clip(branch) do
-    if String.length(branch) > @branch_max,
-      do: String.slice(branch, 0, @branch_max - 1) <> "…",
-      else: branch
-  end
+  defp branch(branch), do: Text.plain(branch, @branch_max)
 
   defp more_line(0), do: nil
   defp more_line(more), do: "🐭 +#{more} more"

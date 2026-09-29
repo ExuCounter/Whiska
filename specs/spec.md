@@ -681,9 +681,12 @@ the owl arrives later:
 
 **The one enforced rule:** deny any tool call whose target path resolves to the main
 checkout rather than the current worktree. Detected by comparing the tool's target path
-against the known main-checkout path — not git internals (`git worktree list`, `.git`
-file-vs-directory checks) — since Whiska already knows that path from how
-`spawn-worktree` lays worktrees out under `worktrees/<branch>/`.
+against the known main-checkout path — not `git worktree list` — since Whiska already
+knows that path from how `spawn-worktree` lays worktrees out under `worktrees/<branch>/`.
+A branch name carrying a slash nests on disk, so the worktree root is the deepest
+directory below `worktrees/` whose `.git` file points into the main checkout's
+`.git/worktrees/`, and the branch label is its path relative to `worktrees/`
+(ADR-0030's note).
 
 **Explicitly deferred, not forgotten:** sniff-mode read-only enforcement (deny
 `Edit`/`Write`/mutating `Bash` when `mode: sniff`) uses this exact same hook and exact

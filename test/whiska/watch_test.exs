@@ -267,6 +267,18 @@ defmodule Whiska.WatchTest do
                |> String.trim_trailing()
     end
 
+    test "an escape sequence in a branch name never reaches the terminal" do
+      board =
+        board([mouse("feat/a\e[2Kfake")],
+          bare_panes: [pane("feat/a\e[2Kfake", "idle")]
+        )
+
+      rendered = Watch.render(board)
+
+      refute rendered =~ "\e"
+      assert rendered =~ "feat/a"
+    end
+
     test "a board printed once, with no frame behind it, has no ticker at all" do
       board =
         board([mouse("feat-a")],
