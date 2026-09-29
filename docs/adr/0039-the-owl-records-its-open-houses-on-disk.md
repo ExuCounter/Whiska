@@ -71,9 +71,12 @@ pane list is the honest source for liveness. This record is different in both re
   house; that definition is revised there to "in the open-houses record with a live
   pane". `Whiska.Statusline.whiskas/2` takes the record as an argument and stays pure.
 - The `.whiska` home is `~/.whiska`, overridable by the `:home` application setting and
-  the `WHISKA_HOME` variable. Tests point it into `_build` so they can never touch the
-  person's own record; the owl tests that open houses always pass an explicit working
-  directory for the same reason.
+  the `WHISKA_HOME` variable. `test/test_helper.exs` points both the setting and the
+  variable at one temp folder per run, before any test starts, and `Whiska.Test.HomeGuard`
+  fails the run if a test puts either back wrong; the owl tests that open houses always
+  pass an explicit working directory for the same reason. The temp folder has to be
+  outside the person's home entirely — the checkout, and so `_build`, normally sits
+  inside it.
 - When the global socket lands (ADR-0025), "which houses are open" becomes a question to
   the owl and the file is no longer read by anyone but the owl restoring from it. The
   file itself stays: the socket cannot survive the owl either.

@@ -20,10 +20,15 @@ defmodule Whiska.CLIOwlTest do
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(worktree)
-    # The record the owl keeps (ADR-0039) — the test config points it into
-    # _build, and each test starts with it empty.
-    File.rm_rf!(Path.dirname(OpenHouses.path()))
-    on_exit(fn -> File.rm_rf!(root) end)
+
+    previous_home = Application.get_env(:whiska, :home)
+    Application.put_env(:whiska, :home, Path.join(root, "dot-whiska"))
+
+    on_exit(fn ->
+      Application.put_env(:whiska, :home, previous_home)
+      File.rm_rf!(root)
+    end)
+
     {:ok, root: root, main: main, worktree: worktree}
   end
 
