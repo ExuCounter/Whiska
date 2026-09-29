@@ -142,7 +142,10 @@ defmodule Whiska.Questions do
   end
 
   @doc """
-  One question in full: heading, the mouse's whole message, and how to answer.
+  One question in full: the heading, then the mouse's whole message as a
+  person reads it — the marker token stripped (`Marker.strip/1`) and no
+  `answer:` trailer, since the heading carries the id and the CLAUDE.md block
+  says how to reply. Plumbing stays out of what the person reads.
 
   What `whiska questions <id>` prints, and one block of `render_full/1`. The
   branch comes from the question's own preloaded mouse; a caller that loaded
@@ -156,9 +159,7 @@ defmodule Whiska.Questions do
     """
     ##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q)}, asked #{Calendar.strftime(q.asked_at, "%Y-%m-%d %H:%M")})
 
-    #{String.trim_trailing(q.text)}
-
-    answer: whiska reply #{q.id} "..."
+    #{q.text |> Marker.strip() |> String.trim_trailing()}
     """
     |> String.trim_trailing()
   end

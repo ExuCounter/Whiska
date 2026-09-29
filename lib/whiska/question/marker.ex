@@ -44,6 +44,36 @@ defmodule Whiska.Question.Marker do
   end
 
   @doc """
+  The message as a person reads it: every marker token gone, the pointer the
+  mouse wrote after it kept on its own line, and no blank line left where a
+  bare marker stood. The invisible prefix, when there is one, goes with the
+  token. The stored text is untouched — the marker is how the owl classifies
+  the turn (ADR-0009), not something to show.
+  """
+  @spec strip(String.t()) :: String.t()
+  def strip(text) when is_binary(text) do
+    text
+    |> String.split("\n")
+    |> Enum.flat_map(fn line ->
+      case Regex.run(@marker, line) do
+        nil -> [line]
+        _ -> strip_line(line)
+      end
+    end)
+    |> Enum.join("\n")
+  end
+
+  defp strip_line(line) do
+    rest =
+      line
+      |> String.replace(~r/[\x{2060}\x{2063}\x{200B}\x{FEFF}]/u, "")
+      |> String.replace(@marker, "\\2")
+      |> String.trim()
+
+    if rest == "", do: [], else: [rest]
+  end
+
+  @doc """
   The literal marker for a status, for telling a mouse what to write.
 
   The CLAUDE.md block quotes this rather than spelling it out again

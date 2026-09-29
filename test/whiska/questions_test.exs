@@ -165,7 +165,11 @@ defmodule Whiska.QuestionsTest do
       assert out =~ "pick a cache TTL"
       assert out =~ "name the flag"
       assert out =~ ~r/pick a cache TTL.*name the flag/s
-      assert out =~ ~s(answer: whiska reply #{q1.id} "...")
+      # Plumbing stays out of what the person reads: no marker token, no
+      # `answer:` trailer — the heading carries the id, the block in CLAUDE.md
+      # says how to reply.
+      refute out =~ "[worktree-status"
+      refute out =~ "answer: whiska reply"
     end
 
     test "the not-actionable block follows, exactly as the summary shows it", %{main: main} do

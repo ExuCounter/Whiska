@@ -92,8 +92,8 @@ defmodule Whiska.CLIQuestionsTest do
       assert out =~ "pick a cache TTL"
       assert out =~ "name the flag"
       assert out =~ ~r/pick a cache TTL.*name the flag/s
-      assert out =~ ~s(answer: whiska reply #{q1.id} "...")
-      assert out =~ ~s(answer: whiska reply #{q2.id} "...")
+      refute out =~ "answer: whiska reply"
+      refute out =~ "[worktree-status"
       assert out =~ "feat-a"
       assert out =~ "1 orphaned"
     end
@@ -112,7 +112,9 @@ defmodule Whiska.CLIQuestionsTest do
 
       one = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
       assert one =~ "feat-a"
-      assert one =~ ~s(answer: whiska reply #{q.id} "...")
+      assert one =~ "pick a cache TTL"
+      refute one =~ "[worktree-status"
+      refute one =~ "answer: whiska reply"
     end
 
     test "--full is in the usage text" do

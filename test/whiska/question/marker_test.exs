@@ -83,4 +83,26 @@ defmodule Whiska.Question.MarkerTest do
       assert Marker.render(:needs_decision) == "[worktree-status: needs-decision]"
     end
   end
+
+  describe "strip/1 — the message as a person reads it" do
+    # The marker is plumbing: it is how the owl classifies the turn, not
+    # something the person should see. The mouse's pointer sentence after it
+    # is content and stays, on its own line.
+    test "drops the marker token, keeps the pointer sentence" do
+      assert Marker.strip("Three options.\n[worktree-status: needs-decision] pick one") ==
+               "Three options.\npick one"
+    end
+
+    test "a bare done marker leaves no empty line behind" do
+      assert Marker.strip("Merged.\n[worktree-status: done]") == "Merged."
+    end
+
+    test "an invisible prefix goes with the marker" do
+      assert Marker.strip("Done.\n\u2063[worktree-status: done]") == "Done."
+    end
+
+    test "an unmarked message is returned as it is" do
+      assert Marker.strip("Still working.") == "Still working."
+    end
+  end
 end
