@@ -76,10 +76,10 @@ looking: this repo's Claude Code statusline. A row is the mouse's branch, what h
 its pane is doing, and one thing more — the question waiting on the person when there is
 one, and otherwise the mouse's **last action**, the tool call it is in the middle of or
 the last thing it said, read from its own Claude Code transcript and never asked for
-(ADR-0050). Five rows at most, and a mouse with a question on the person is never one of
-the ones left off. The house renders it every couple of seconds into a file the
-statusline prints; `whiska watch` prints the same rows worked out afresh. The board only
-reports — nothing on it acts, and a dead mouse's row carries the command that settles its
+(ADR-0050). Five rows, unless more mice than that are waiting: a mouse with a question on
+the person is never one of the ones left off. It is kept current for the person rather
+than asked for — `whiska watch` is the same rows, worked out on the spot. The board only
+reports: nothing on it acts, and a dead mouse's row carries the command that settles its
 orphaned question rather than settling it (ADR-0051).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws, which is not this), the
 statusline (the surface, not what is drawn on it)
