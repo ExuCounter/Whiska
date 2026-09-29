@@ -192,6 +192,63 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "finished"
     end
 
+    test "a finished line offers what to do with the branch" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      # Nothing to reply to on a finished line, but plenty to do with the
+      # branch. All four choices, in the order the person reads them.
+      assert body =~ "Merge here"
+      assert body =~ "Open a merge request"
+      assert body =~ "Chat further"
+      assert body =~ "Drop it"
+      assert body =~ "--no-ff"
+      assert body =~ "gh"
+      assert body =~ "glab"
+      # Merging is the usual one, so it is the one carrying the label.
+      assert body =~ ~r/\*\*Merge here[^\n]*Recommended/
+    end
+
+    test "the finish picker never appears for a branch that is still working" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      # The main session acting on a finished branch is the person's call
+      # (ADR-0017); acting on an unfinished one is nobody's.
+      assert body =~ ~r/only.*finished|finished.*only/s
+      assert body =~ "ADR-0017"
+      assert body =~ ~r/still working|unfinished/
+    end
+
+    test "the finish picker points at the skills that already do the work" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      # drop-worktree and the repo's own merge steps exist; the skill names
+      # them rather than restating them.
+      assert body =~ "drop-worktree"
+      refute body =~ "git worktree remove"
+    end
+
+    test "dropping the work is confirmed before anything is thrown away" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      assert body =~ ~r/[Cc]onfirm/
+      assert body =~ ~r/discards/
+    end
+
+    test "a repo can name its usual finish choice, and the picker follows it" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      # Read from an optional heading the person writes by hand — no fifth
+      # part in the block whiska init writes (ADR-0045 nest untouched).
+      assert body =~ "## Finish"
+      assert body =~ "finish: merge here"
+      refute body =~ "whiska:finish"
+    end
+
     test "/whiska-questions offers the same picker when it read one question by id" do
       assert {_path, body} =
                List.keyfind(Install.skills(), ".claude/skills/whiska-questions/SKILL.md", 0)
