@@ -29,6 +29,21 @@ working, quiet; the rest become `🐭 +3 more`. **The cap gives way to a questio
 than hide one** — five is a preference about height, and six mice all waiting get six
 rows, because a board that can hide a question is worse than no board.
 
+**A working mouse's row carries a ticker** — `·`, `··`, `···`, one frame per board the
+owl writes, in a fixed column between the status and the detail so the detail never
+shifts under it. The board's claim is that it is current, and on a row that says a mouse
+is busy the person cannot tell a true still picture from a dead owl or a stuck timer. The
+frame is counted in boards actually written rather than in wall-clock seconds, so it
+moves exactly when the thing it vouches for happened. Only a working row ticks: an idle
+mouse, a blocked one, one waiting on the person, a dead one and one herdr cannot account
+for are all still, since a moving dot on those rows would say something is happening when
+nothing is. A stale board is still for free — nobody is writing it, so the dots stop where
+they were, under the `🦉 owl down` line that already says why. **`whiska watch` draws no
+ticker and no column for one**: nothing is refreshing behind a board printed once, and a
+dot that can never move says the opposite of what the ticker is for. The column is there
+whenever a frame is — on the owl's board, working mouse or not — so the detail does not
+jump sideways the moment the last working mouse stops.
+
 **A dead mouse (ADR-0026) keeps a row only while it still has an orphaned question**,
 dimmed, under the live rows, carrying the `whiska close <id>` that clears it. That
 question is the one thing left that the person can act on; a dead mouse with nothing
