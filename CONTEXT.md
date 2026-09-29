@@ -34,9 +34,9 @@ folder path; both of those can change without the mouse_id changing.
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
 **unmarked** question: delivered like any other, recorded as having arrived unmarked. A
-`done` report is delivered like any other too, told as "finished" with no reply offered
-— what is offered instead is a **finish** — and closed the moment it is sent — it is never answered and never holds the delivery
-slot. A question is **open** while it waits in the queue, **sent** once delivered and
+`done` report is delivered like any other too, told as "finished" with a **finish**
+offered in place of a reply, and closed the moment it is sent — it is never answered and
+never holds the delivery slot. A question is **open** while it waits in the queue, **sent** once delivered and
 waiting for its answer, then **answered**; **superseded** when its own mouse asked a
 newer one, **closed** by hand or as a `done` report once told, **orphaned** when nothing
 can act on it (its mouse died, its worktree is gone).

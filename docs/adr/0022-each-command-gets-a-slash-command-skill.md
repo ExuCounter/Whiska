@@ -103,6 +103,15 @@ else: a branch still working, or waiting on a decision, is one nobody should mer
 or drop. The steps themselves are not restated; `drop-worktree` and the repo's own merge
 and push commands already exist, and the skill names them.
 
+The PR option carries the finished message over as the PR body rather than composing one
+from the diff, which is ADR-0032's reasoning — the branch's own session has the context to
+write a real title and summary, and the main session is holding exactly what it wrote.
+That ADR is still `proposed` and describes an automated flow behind a `pr: true` opt-in;
+this is the manual path it says is today's behaviour ("handle PRs and merges yourself"),
+with the picker as the hands. Merging in the main checkout is that same sanctioned path,
+so ADR-0013 is untouched: it blocks edits that bypass review, not the merge that is how
+reviewed work is meant to land.
+
 ### Where the per-repo default lives: a heading, not a fifth part
 
 A repo can name its usual choice with a line like `finish: merge here` under a `## Finish`

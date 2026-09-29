@@ -57,9 +57,11 @@ order:
   with `--no-ff`, run this repo's tests, and only if they pass, drop the
   worktree and delete the branch.
 - **Open a merge request / PR** — push the branch and open it with `gh`
-  or `glab`, whichever this repo's host wants. If neither is installed or
-  signed in, say plainly what is missing and stop; do not improvise a
-  substitute.
+  or `glab`, whichever this repo's host wants. The message you just showed
+  is the body: the branch's own session wrote it and has the context you
+  do not (ADR-0032), so carry it over rather than composing a summary from
+  the diff. If neither tool is installed or signed in, say plainly what is
+  missing and stop; do not improvise a substitute.
 - **Chat further** — do nothing at all. The person will talk to that
   branch's session themselves.
 - **Drop it** — throw the work away without merging. Ask them to confirm
