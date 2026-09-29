@@ -143,11 +143,9 @@ _Avoid_: registry, manifest, house list (it lists open houses, not houses)
 
 **Statusline**:
 The one line Whiska draws for the person: the owl's state, always, and what is waiting
-on the machine. It is drawn on **herdr's tab bar**, once for the whole herdr session
-(ADR-0048) — an entry the person keeps in their own herdr config, running a script
-Whiska ships. Not per repo and not in Claude Code, where it used to live. Two segments
-and no more: `🦉 watching`, and `🐱 <branch>` for one thing waiting or `🐱 N waiting`
-for several.
+on the machine. One line for the whole machine, not one per repo, and drawn on herdr's
+tab bar rather than inside any agent session (ADR-0048). Two segments and no more:
+`🦉 watching`, and `🐱 feat-auth` for one thing waiting or `🐱 3 waiting` for several.
 _Avoid_: status bar, status line as two words (see **Worktree-status marker**), segment
 (one part of it, not the line), tab bar (herdr's surface, not Whiska's line)
 
