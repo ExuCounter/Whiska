@@ -1,14 +1,12 @@
 # No test may touch the person's own `~/.whiska` (ADR-0039) or their
-# `~/Library/LaunchAgents` (ADR-0040). Running `mix test` once emptied the real
-# open-houses record, and the owl then opened nothing until it was rewritten by
-# hand, so both homes are pointed at one temp folder per run, before a single
-# test starts. A test that forgets to set its own is isolated by this; a test
-# that sets its own still overrides it; and `Whiska.Test.HomeGuard` checks after
-# every test that whatever it put back is still safe.
+# `~/Library/LaunchAgents` (ADR-0040), so both homes go to one temp folder per
+# run, set before a single test starts. A test that pins a home of its own
+# still overrides these; `Whiska.Test.HomeGuard` checks after every test that
+# whatever it put back is still safe.
 #
-# `WHISKA_HOME` is set as well because that is the fallback
-# `Whiska.OpenHouses.home/0` reaches when the `:home` setting is missing — the
-# exact hole a test that deletes the setting used to fall through.
+# `WHISKA_HOME` is set too because it is the fallback `Whiska.OpenHouses.home/0`
+# reaches when the `:home` setting is missing, and a missing setting must still
+# land in the temp folder.
 test_home = Path.join(System.tmp_dir!(), "whiska-test-home-#{System.system_time(:nanosecond)}")
 whiska_home = Path.join(test_home, ".whiska")
 

@@ -1,15 +1,15 @@
 defmodule Whiska.Test.HomeGuard do
   @moduledoc """
-  The backstop that stops the reported bug happening twice.
+  The guard that keeps the suite out of the person's own home.
 
-  `test_helper.exs` points the whiska home and the user home at a temp folder,
-  but a test can still put one back wrong — deleting the setting rather than
-  restoring it is what emptied the person's real open-houses record. So after
-  every test this formatter re-checks every path Whiska writes to outside a
-  repo, says where in the run it went wrong, puts the safe values back so the
-  rest of the run stays isolated, and fails the run at exit. A leak is a
-  failure, never a warning nobody reads.
+  After every test it re-checks every path Whiska writes to outside a repo. On
+  a path that has fallen inside the person's home it names where in the run it
+  noticed, puts the safe settings back so the rest of the run stays isolated,
+  and fails the run at exit — a leak is a failure, never a warning nobody
+  reads. `test_helper.exs` supplies the safe settings; `Whiska.Test.RealHome`
+  is the check.
   """
+
   use GenServer
 
   alias Whiska.Test.RealHome
