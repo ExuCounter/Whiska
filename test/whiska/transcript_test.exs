@@ -87,9 +87,71 @@ defmodule Whiska.TranscriptTest do
     })
   end
 
+  # A hand-back that lands while the mouse is busy is queued, and Claude Code
+  # records the queued copy instead: an `attachment` entry whose `prompt` holds
+  # the frame. Copied from a real transcript read on 2026-09-30.
+  defp queued_handback(agent_id) do
+    JSON.encode!(%{
+      "type" => "attachment",
+      "attachment" => %{
+        "type" => "queued_command",
+        "commandMode" => "prompt",
+        "isMeta" => true,
+        "origin" => %{"kind" => "peer", "from" => agent_id, "handback" => true},
+        "prompt" =>
+          "<agent-message from=\"#{agent_id}\">\n[Subagent hand-back] nothing to change\n"
+      }
+    })
+  end
+
+  # The same report can also come back framed as a task notification, with the
+  # id in `<task-id>` and no `origin` anywhere on the entry.
+  defp queued_notification(agent_id) do
+    JSON.encode!(%{
+      "type" => "attachment",
+      "attachment" => %{
+        "type" => "queued_command",
+        "commandMode" => "task-notification",
+        "prompt" =>
+          "<task-notification>\n<task-id>#{agent_id}</task-id>\n" <>
+            "<tool-use-id>toolu_011v8d56kJo2TbBoT4FrFjoU</tool-use-id>\n</task-notification>"
+      }
+    })
+  end
+
+  defp notification(agent_id) do
+    JSON.encode!(%{
+      "type" => "user",
+      "message" => %{
+        "role" => "user",
+        "content" => "<task-notification>\n<task-id>#{agent_id}</task-id>\n</task-notification>"
+      }
+    })
+  end
+
+  defp queued_prompt(text) do
+    JSON.encode!(%{
+      "type" => "attachment",
+      "attachment" => %{
+        "type" => "queued_command",
+        "commandMode" => "prompt",
+        "origin" => %{"kind" => "human"},
+        "prompt" => text
+      }
+    })
+  end
+
+  defp stamped(lines, timestamp) do
+    lines
+    |> List.flatten()
+    |> Enum.map(fn line ->
+      line |> JSON.decode!() |> Map.put("timestamp", timestamp) |> JSON.encode!()
+    end)
+  end
+
   defp jsonl(lines), do: lines |> List.flatten() |> Enum.join("\n")
 
-  describe "subagents_in_flight?/1" do
+  describe "subagents_in_flight?/2" do
     test "a reviewer launched and not handed back is still out" do
       text = jsonl([launched("ae96c5149391564f6"), said("Waiting on the correctness reviewer.")])
 
@@ -201,6 +263,130 @@ defmodule Whiska.TranscriptTest do
       [_call, result] = launched("ae96c5149391564f6")
 
       refute Transcript.subagents_in_flight?(jsonl([result, said("Waiting on the reviewer.")]))
+    end
+
+    test "a hand-back queued while the mouse was busy is still a hand-back" do
+      text =
+        jsonl([
+          launched("aea9354880e2194ec"),
+          queued_handback("aea9354880e2194ec"),
+          said("Back. ⁣⁣⁣")
+        ])
+
+      refute Transcript.subagents_in_flight?(text)
+    end
+
+    test "a report framed as a task notification is a hand-back too" do
+      text =
+        jsonl([
+          launched("aea9354880e2194ec"),
+          queued_notification("aea9354880e2194ec"),
+          said("Back. ⁣⁣⁣")
+        ])
+
+      refute Transcript.subagents_in_flight?(text)
+    end
+
+    test "a task notification read straight from the turn is a hand-back too" do
+      text =
+        jsonl([launched("aea9354880e2194ec"), notification("aea9354880e2194ec"), said("Back.")])
+
+      refute Transcript.subagents_in_flight?(text)
+    end
+
+    test "a prompt the person queued clears whatever was out when they typed" do
+      text =
+        jsonl([
+          launched("ae96c5149391564f6"),
+          queued_prompt("stop that, do this instead"),
+          said("On it. ⁣⁣⁣")
+        ])
+
+      refute Transcript.subagents_in_flight?(text)
+    end
+
+    test "a tool result printing a hand-back frame hands nothing back" do
+      printed =
+        JSON.encode!(%{
+          "type" => "user",
+          "message" => %{
+            "content" => [
+              %{
+                "type" => "tool_result",
+                "tool_use_id" => "toolu_bash",
+                "content" => [
+                  %{
+                    "type" => "text",
+                    "text" =>
+                      "$ cat notes.md\n<task-notification>\n<task-id>ae96c5149391564f6</task-id>\n"
+                  }
+                ]
+              }
+            ]
+          }
+        })
+
+      assert Transcript.subagents_in_flight?(jsonl([launched("ae96c5149391564f6"), printed]))
+    end
+
+    test "an assistant quoting a hand-back frame hands nothing back" do
+      quoted =
+        JSON.encode!(%{
+          "type" => "assistant",
+          "message" => %{
+            "content" => [
+              %{
+                "type" => "text",
+                "text" =>
+                  "The reviewer will come back as <agent-message from=\"ae96c5149391564f6\"> " <>
+                    "carrying [Subagent hand-back]."
+              }
+            ]
+          }
+        })
+
+      assert Transcript.subagents_in_flight?(jsonl([launched("ae96c5149391564f6"), quoted]))
+    end
+
+    test "a launch old enough to have been abandoned stops holding the mouse silent" do
+      now = ~U[2026-09-30 06:40:00Z]
+
+      text =
+        jsonl([
+          stamped(launched("aea9354880e2194ec"), "2026-09-29T21:40:10.539Z"),
+          said("Waiting on the correctness reviewer.")
+        ])
+
+      refute Transcript.subagents_in_flight?(text, now)
+    end
+
+    test "a launch still inside the bound holds the turn" do
+      now = ~U[2026-09-30 04:40:00Z]
+
+      text =
+        jsonl([
+          stamped(launched("aea9354880e2194ec"), "2026-09-30T04:34:18.004Z"),
+          said("Waiting on the correctness reviewer.")
+        ])
+
+      assert Transcript.subagents_in_flight?(text, now)
+    end
+
+    test "the night the mouse went silent: two reported, the third came back queued" do
+      now = ~U[2026-09-30 04:40:07Z]
+
+      text =
+        jsonl([
+          stamped(launched("aea9354880e2194ec", "toolu_a"), "2026-09-30T04:29:00.000Z"),
+          stamped(launched("ae3c8ed23a403e604", "toolu_b"), "2026-09-30T04:29:01.000Z"),
+          stamped(launched("a4984a5dfda23ce03", "toolu_c"), "2026-09-30T04:29:02.000Z"),
+          handed_back("ae3c8ed23a403e604"),
+          queued_notification("aea9354880e2194ec"),
+          handed_back("a4984a5dfda23ce03"),
+          said("All three are back. ⁣⁣⁣")
+        ])
+
+      refute Transcript.subagents_in_flight?(text, now)
     end
 
     test "nothing readable at all means nothing is out — the safe direction is to deliver" do
