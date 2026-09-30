@@ -248,4 +248,64 @@ defmodule Whiska.TranscriptTest do
                "/home/.claude/projects/-Users-x--herdr-worktrees-a"
     end
   end
+
+  describe "started_in/1" do
+    setup do
+      path = Path.join(System.tmp_dir!(), "whiska-start-#{System.unique_integer([:positive])}")
+      on_exit(fn -> File.rm_rf!(path) end)
+      {:ok, path: path}
+    end
+
+    test "is the first directory the transcript names, not the last", %{path: path} do
+      File.write!(path, [
+        JSON.encode!(%{"type" => "mode"}),
+        "\n",
+        JSON.encode!(%{"type" => "user", "cwd" => "/repo"}),
+        "\n",
+        JSON.encode!(%{"type" => "user", "cwd" => "/repo/worktrees/feat"}),
+        "\n"
+      ])
+
+      assert Transcript.started_in(path) == "/repo"
+    end
+
+    test "skips lines that will not parse", %{path: path} do
+      File.write!(path, "{half a line\n" <> JSON.encode!(%{"cwd" => "/repo"}) <> "\n")
+
+      assert Transcript.started_in(path) == "/repo"
+    end
+
+    test "a first line too big for any byte window is skipped, not an answer", %{path: path} do
+      giant = JSON.encode!(%{"type" => "user", "message" => String.duplicate("x", 300_000)})
+      File.write!(path, giant <> "\n" <> JSON.encode!(%{"cwd" => "/repo"}) <> "\n")
+
+      assert Transcript.started_in(path) == "/repo"
+    end
+
+    test "gives up rather than reading a whole transcript of fat lines", %{path: path} do
+      fat = JSON.encode!(%{"cwd" => "/repo", "message" => String.duplicate("x", 200_000)})
+      File.write!(path, String.duplicate(fat <> "\n", 20))
+
+      assert Transcript.started_in(path) == nil
+    end
+
+    test "a transcript that names no directory is nil", %{path: path} do
+      File.write!(path, JSON.encode!(%{"type" => "mode"}) <> "\n")
+
+      assert Transcript.started_in(path) == nil
+    end
+
+    test "a file that is not there is nil, never a crash", %{path: path} do
+      assert Transcript.started_in(path) == nil
+    end
+
+    test "a pipe is nil rather than a hook that hangs on it", %{path: path} do
+      File.mkdir_p!(path)
+      fifo = Path.join(path, "pipe")
+      {_, 0} = System.cmd("mkfifo", [fifo])
+
+      assert Transcript.started_in(fifo) == nil
+      assert Transcript.started_in(path) == nil
+    end
+  end
 end

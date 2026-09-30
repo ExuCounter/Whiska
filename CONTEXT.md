@@ -30,6 +30,15 @@ The one stable identity for a mouse — an opaque id minted once and written to 
 marker file at the worktree's root when the mouse is created. Never the branch name or
 folder path; both of those can change without the mouse_id changing.
 
+**Start directory**:
+The directory a Claude Code session was started in, read from the first entry of its own
+transcript. Which session a hook is firing in — which mouse, or none — is derived from
+this and from the pane it runs in, and never from the working directory the hook is
+handed: that one follows every `cd` the session runs, so a main session that stepped into
+a worktree read as that branch's mouse and a mouse that stepped out read as nobody
+(ADR-0053).
+_Avoid_: cwd, working directory (both name the thing that moves)
+
 **Question**:
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an

@@ -20,10 +20,11 @@ defmodule Whiska.Hook.PreToolUse do
   best-effort, the decision is not.
   """
 
-  alias Whiska.Layout
+  alias Whiska.Isolated
   alias Whiska.Marker
   alias Whiska.Rule.MainCheckout
   alias Whiska.Rule.Sniff
+  alias Whiska.Session
   alias Whiska.Storage
 
   @type decision :: :allow | {:deny, String.t()}
@@ -34,9 +35,9 @@ defmodule Whiska.Hook.PreToolUse do
   @spec run(String.t()) :: decision()
   def run(raw_payload) do
     with {:ok, payload} when is_map(payload) <- decode(raw_payload),
-         {:ok, cwd} <- fetch_cwd(payload),
-         {:ok, layout} <- Layout.resolve(cwd) do
-      decide(tool_name(payload), tool_input(payload), layout, remember(layout))
+         {:ok, layout} <- Session.worktree(payload),
+         {:mouse, mode} <- identity(layout) do
+      decide(tool_name(payload), tool_input(payload), layout, mode)
     else
       _ -> :allow
     end
@@ -84,58 +85,57 @@ defmodule Whiska.Hook.PreToolUse do
     end
   end
 
-  defp fetch_cwd(payload) do
-    case payload do
-      %{"cwd" => cwd} when is_binary(cwd) -> {:ok, cwd}
-      _ -> File.cwd()
-    end
-  end
-
   defp tool_name(%{"tool_name" => name}) when is_binary(name), do: name
   defp tool_name(_), do: ""
 
   defp tool_input(%{"tool_input" => input}) when is_map(input), do: input
   defp tool_input(_), do: %{}
 
-  # Identity is minted lazily, on the first hook invocation inside a worktree that
-  # has no marker file yet (ADR-0002, ADR-0030) — and it happens whether the call
-  # is allowed or denied, since a denied call still came from a real mouse.
+  # The house answers two questions in one opening: whose pane this is, and what
+  # mode the mouse is in. A tool call firing in the pane `whiska start` recorded
+  # is the person's own session — no mouse, no rules, nothing recorded (ADR-0053).
   #
-  # Minting is plain file I/O and runs here. Opening the house runs in an
-  # isolated, *unlinked* process: `Repo.start_link` links the repo supervisor to
-  # whoever starts it, so a database that will not open takes its starter down
-  # with it. Letting that reach the entry point would turn a storage problem into
-  # "every tool call in this session dies", which is exactly the failure the rule
-  # is supposed to be independent of.
+  # Otherwise identity is minted lazily, on the first invocation inside a worktree
+  # that has no marker file yet (ADR-0002, ADR-0030) — and it happens whether the
+  # call is allowed or denied, since a denied call still came from a real mouse.
+  #
+  # All of it runs through `Whiska.Isolated`, so a database that will not open
+  # cannot turn a storage problem into "every tool call in this session dies",
+  # which is exactly the failure the rule is supposed to be independent of.
   @default_mode "build"
 
-  defp remember(layout) do
-    with {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
-         {:ok, mode} <- isolated(fn -> record(layout, mouse_id) end) do
-      mode
-    else
+  defp identity(layout) do
+    case Isolated.run(fn -> in_house(layout) end) do
+      :main_session ->
+        :main_session
+
+      {:mouse, _mode} = mouse ->
+        mouse
+
       other ->
-        # Falling back to build rather than sniff is deliberate. build is the
-        # default and the common case; assuming sniff would block every edit in
-        # ordinary work over a database hiccup. This degrades sniff to build,
-        # never to unprotected — worktree containment is pure path arithmetic
-        # and does not consult the database at all.
-        warn("could not read this mouse's mode (#{inspect(other)}) — assuming #{@default_mode}")
-        @default_mode
+        fall_back(layout, other)
     end
   end
 
-  defp record(layout, mouse_id) do
+  # Falling back to build rather than sniff is deliberate. build is the default
+  # and the common case; assuming sniff would block every edit in ordinary work
+  # over a database hiccup. This degrades sniff to build, never to unprotected —
+  # worktree containment is pure path arithmetic and does not consult the
+  # database at all.
+  #
+  # The marker is minted here too, so a house that will not open does not also
+  # cost this mouse the identity ADR-0002 says it gets on its first invocation.
+  defp fall_back(layout, reason) do
+    Marker.read_or_mint(layout.worktree_root)
+    warn("could not read this mouse's mode (#{inspect(reason)}) — assuming #{@default_mode}")
+    {:mouse, @default_mode}
+  end
+
+  defp in_house(layout) do
     case Storage.open(layout.main_checkout) do
       {:ok, handle} ->
         try do
-          Storage.record_mouse(%{
-            mouse_id: mouse_id,
-            path: layout.worktree_root,
-            branch: layout.branch_label
-          })
-
-          Storage.mode(mouse_id)
+          if Session.main_pane?(Storage.main_pane()), do: :main_session, else: record(layout)
         after
           Storage.close(handle)
         end
@@ -145,24 +145,18 @@ defmodule Whiska.Hook.PreToolUse do
     end
   end
 
-  @isolation_timeout 5_000
+  defp record(layout) do
+    with {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root) do
+      Storage.record_mouse(%{
+        mouse_id: mouse_id,
+        path: layout.worktree_root,
+        branch: layout.branch_label
+      })
 
-  defp isolated(work) do
-    parent = self()
-    {pid, ref} = spawn_monitor(fn -> send(parent, {__MODULE__, self(), work.()}) end)
-
-    receive do
-      {__MODULE__, ^pid, result} ->
-        Process.demonitor(ref, [:flush])
-        result
-
-      {:DOWN, ^ref, :process, ^pid, reason} ->
-        {:error, reason}
-    after
-      @isolation_timeout ->
-        Process.demonitor(ref, [:flush])
-        Process.exit(pid, :kill)
-        {:error, :timeout}
+      case Storage.mode(mouse_id) do
+        {:ok, mode} -> {:mouse, mode}
+        other -> other
+      end
     end
   end
 

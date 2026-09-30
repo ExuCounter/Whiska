@@ -201,3 +201,16 @@ missing owl, no socket, no retry, and nothing about the state of the house chang
 hook does. The condition is about whether the turn happened at all, read from Claude Code's
 own transcript, and every way of failing to read it counts as "it happened" — so the hook
 still writes whenever there is any doubt.
+
+## Note, 2026-09-30: one row of the house does change what the hook does
+
+The note above says "nothing about the state of the house changes what the hook does".
+ADR-0053 narrows that in one place: the hook reads the pane `whiska start` recorded as
+the main session, and a stop firing in that pane writes nothing, because it is the
+person's own session rather than a mouse.
+
+What the sentence was defending still holds. There is no second code path for a missing
+owl, no socket and no retry, and a house that will not open — or has no main pane
+recorded — makes no claim either way: the read runs through `Whiska.Isolated` so a broken
+database cannot take the hook down before it writes, and the entry is left exactly as
+before. The read narrows *whose* stop this is, never whether a mouse's stop is written.
