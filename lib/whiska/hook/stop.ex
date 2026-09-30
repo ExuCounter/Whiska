@@ -7,6 +7,10 @@ defmodule Whiska.Hook.Stop do
   that house's doorstep, whether or not the owl is running. There is no second
   code path for "the owl is down", because there is no first one.
 
+  It reads one thing out of the house before it writes: the pane `whiska start`
+  recorded as the main session. A stop firing in that pane is the person's own
+  session, not a mouse, and nothing is left behind (ADR-0053).
+
   It writes on every turn that ended. A turn with a subagent still out has not
   ended — Claude Code will wake this session when the subagent reports — and
   that one is passed over in silence (ADR-0052).
@@ -17,7 +21,9 @@ defmodule Whiska.Hook.Stop do
   reader, not the writer.
 
   Outside a worktree — the main session, or any repo Whiska is merely installed
-  in — this is a no-op: there is no mouse here to speak for.
+  in — this is a no-op: there is no mouse here to speak for. Which session this
+  is comes from `Whiska.Session`, not from the working directory it was handed
+  (ADR-0053).
 
   ## Why this is Elixir when ADR-0033 says hooks go native
 
@@ -30,16 +36,16 @@ defmodule Whiska.Hook.Stop do
 
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
-  alias Whiska.Layout
   alias Whiska.Marker
+  alias Whiska.Session
   alias Whiska.Transcript
 
   @doc "Handle one Stop payload. Always `:ok`; problems go to stderr."
   @spec run(String.t()) :: :ok
   def run(raw_payload) do
     with {:ok, payload} <- decode(raw_payload),
-         {:ok, cwd} <- fetch_cwd(payload),
-         {:ok, layout} <- Layout.resolve(cwd),
+         {:ok, layout} <- Session.worktree(payload),
+         false <- Session.main_session?(layout.main_checkout),
          :over <- turn_state(payload),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
          {:ok, _file} <- leave(layout, mouse_id, message(payload)) do
@@ -48,7 +54,10 @@ defmodule Whiska.Hook.Stop do
       :in_flight ->
         :ok
 
-      {:error, :not_in_worktree} ->
+      true ->
+        :ok
+
+      {:error, :not_a_mouse} ->
         :ok
 
       {:error, reason} ->
@@ -91,9 +100,6 @@ defmodule Whiska.Hook.Stop do
         :error
     end
   end
-
-  defp fetch_cwd(%{"cwd" => cwd}) when is_binary(cwd), do: {:ok, cwd}
-  defp fetch_cwd(_), do: File.cwd()
 
   defp message(%{"last_assistant_message" => text}) when is_binary(text), do: text
   defp message(_), do: ""

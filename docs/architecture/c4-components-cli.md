@@ -16,9 +16,10 @@ C4Component
     Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / waiting / jump / owl, and owl install / stop / start / uninstall")
     Component(hook, "Hook.PreToolUse", "decision", "One tool call in, one decision out")
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
+    Component(session, "Session", "identity", "Which session is this: the worktree it started in, and whether its pane is the main session")
     Component(layout, "Layout", "path arithmetic", "Finds worktree root and main checkout")
     Component(markerm, "Marker", "identity", "Reads or mints the mouse_id")
-    Component(tx, "Transcript", "reader", "Claude Code's JSONL: its tail, and whether a subagent is still out")
+    Component(tx, "Transcript", "reader", "Claude Code's JSONL: where the session started, its tail, and whether a subagent is still out")
     Component(mainrule, "Rule.MainCheckout", "rule", "No edits outside the mouse's worktree")
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
@@ -44,7 +45,8 @@ C4Component
   Rel(shim, main, "Execs", "JSON on stdin")
   Rel(main, stop, "Delegates the stop hook")
   Rel(stop, tx, "Is this turn over, or is a reviewer still out?")
-  Rel(stop, layout, "Which house does this worktree belong to?")
+  Rel(stop, session, "Which mouse is this, if any?")
+  Rel(session, waiting, "Is this pane the house's main session?")
   Rel(stop, doorstep, "Writes one entry, then exits")
   Rel(main, hook, "Delegates the hook command")
   Rel(main, install, "Delegates init")
@@ -75,7 +77,9 @@ C4Component
   Rel(doctor, install, "Compares the shim and hook commands with what init writes")
   Rel(doctor, storage, "Opens the house; reads main session, questions, mice")
   Rel(doctor, doorstep, "Counts what is waiting")
-  Rel(hook, layout, "Resolves where this call is")
+  Rel(hook, session, "Whose session is this?")
+  Rel(session, tx, "Where did this session start?")
+  Rel(session, layout, "Resolves the start directory to a worktree")
   Rel(hook, markerm, "Gets the mouse_id")
   Rel(hook, mainrule, "Asks for a decision")
   Rel(hook, sniffrule, "Asks for a decision")
@@ -90,8 +94,15 @@ C4Component
 
 ## The load-bearing choices
 
-**`Layout` is path arithmetic, with one look at git.** It walks up from the working
-directory until an ancestor's parent is named `worktrees`; that ancestor's grandparent is
+**`Session` decides whose session it is; `Layout` only turns a directory into a worktree.**
+The working directory Claude Code hands a hook follows every `cd` the session runs, so it
+is a position, not an identity. `Session` reads the two things that do not move: the pane,
+from `HERDR_PANE_ID` against the main pane `whiska start` recorded, and the directory the
+session started in, from the first entry of its own transcript (ADR-0053). Either can be
+absent — no herdr, no transcript — and each falls back to what identity was before it.
+
+**`Layout` is path arithmetic, with one look at git.** It walks up from the directory it
+is handed until an ancestor's parent is named `worktrees`; that ancestor's grandparent is
 the main checkout. A slashed branch name nests on disk, so the worktree root is the
 deepest directory below `worktrees/` carrying the `.git` file git writes into a linked
 worktree, and the branch label is its path relative to `worktrees/` — falling back to the
@@ -161,7 +172,10 @@ bar runs the status script on its own timer (ADR-0048).
 
 **`Hook.Stop` never opens a socket, and never classifies.** It reads the payload, works
 out the house, writes the whole final message to the doorstep and exits — unconditionally
-(ADR-0036). Outside a worktree it is a no-op: there is no mouse there to speak for. It is
+(ADR-0036). Nothing in it depends on the owl being up. It does read one row out of the
+house first, the pane `whiska start` recorded: a stop firing there is the person’s own
+session, not a mouse (ADR-0053). Outside a worktree it is a no-op: there is no mouse there
+to speak for. It is
 Elixir despite ADR-0033 saying hooks go native, and that is written down in the ADR rather
 than drifted into: the measurement there is about the per-tool-call path, and `Stop` fires
 once per turn.

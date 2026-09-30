@@ -38,6 +38,17 @@ defmodule Whiska.Transcript do
   # turn, so this is read a few times a minute rather than every two seconds.
   @tail_bytes 512 * 1024
 
+  # The session's own header and the start of its first turn; the working
+  # directory is named well inside this. Counted in lines rather than bytes,
+  # because one opening paste can be larger than any sensible byte window and
+  # cutting the read there would answer "started nowhere" for a session that
+  # plainly did. Two ceilings keep that from becoming unbounded on a hook that
+  # runs per tool call: a line fatter than an entry ever needs to be is skipped
+  # unparsed, and the whole search gives up after a megabyte.
+  @head_lines 200
+  @head_bytes 1024 * 1024
+  @line_bytes 64 * 1024
+
   # The id Claude Code prints when a background Agent starts, and the frame its
   # report comes back in, read only from transcripts that carry no `origin`.
   @launched ~r/^agentId: ([A-Za-z0-9_-]+)/m
@@ -56,6 +67,51 @@ defmodule Whiska.Transcript do
     slug = String.replace(Path.expand(worktree_root), ~r/[^A-Za-z0-9]/, "-")
 
     Path.join([user_home, ".claude", "projects", slug])
+  end
+
+  @doc """
+  The directory the session was started in, read from the first entry that names
+  one — `nil` for a transcript that is not there, names none, or is not a plain
+  file.
+
+  Claude Code stamps each entry with the session's working directory, and that
+  follows any `cd` the session runs. The first entry predates all of them, which
+  is what makes this an identity rather than a position (ADR-0053).
+  """
+  @spec started_in(Path.t()) :: Path.t() | nil
+  def started_in(path) do
+    with {:ok, %File.Stat{type: :regular}} <- File.stat(path),
+         {:ok, io} <- File.open(path, [:read, :binary]) do
+      try do
+        first_cwd(io, @head_lines, @head_bytes)
+      after
+        File.close(io)
+      end
+    else
+      _unreadable -> nil
+    end
+  end
+
+  defp first_cwd(_io, 0, _bytes), do: nil
+  defp first_cwd(_io, _lines, bytes) when bytes <= 0, do: nil
+
+  defp first_cwd(io, lines, bytes) do
+    case IO.read(io, :line) do
+      line when is_binary(line) ->
+        cwd_in(line) || first_cwd(io, lines - 1, bytes - byte_size(line))
+
+      _eof_or_error ->
+        nil
+    end
+  end
+
+  defp cwd_in(line) when byte_size(line) > @line_bytes, do: nil
+
+  defp cwd_in(line) do
+    case JSON.decode(line) do
+      {:ok, %{"cwd" => cwd}} when is_binary(cwd) and cwd != "" -> cwd
+      _other -> nil
+    end
   end
 
   @doc """

@@ -14,7 +14,15 @@ defmodule Whiska.Hook.PreToolUseTest do
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(Path.join(worktree, "lib"))
-    on_exit(fn -> File.rm_rf!(root) end)
+
+    was = System.get_env("HERDR_PANE_ID")
+    System.delete_env("HERDR_PANE_ID")
+
+    on_exit(fn ->
+      File.rm_rf!(root)
+      if was, do: System.put_env("HERDR_PANE_ID", was), else: System.delete_env("HERDR_PANE_ID")
+    end)
+
     {:ok, root: root, main: main, worktree: worktree}
   end
 
@@ -167,6 +175,20 @@ defmodule Whiska.Hook.PreToolUseTest do
 
       assert stderr =~ "whiska"
     end
+
+    test "mints identity even when the house cannot be opened", %{
+      main: main,
+      worktree: worktree
+    } do
+      File.rm_rf!(Path.join(main, ".git"))
+      File.write!(Path.join(main, ".git"), "gitdir: nowhere")
+
+      capture_io(:stderr, fn ->
+        run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
+      end)
+
+      assert File.exists?(Marker.path(worktree))
+    end
   end
 
   describe "mode drives which rule applies (ADR-0018)" do
@@ -281,6 +303,70 @@ defmodule Whiska.Hook.PreToolUseTest do
         end)
 
       assert stderr =~ "whiska"
+    end
+  end
+
+  describe "a session is what it started as, not where its shell wandered (ADR-0053)" do
+    defp started_in(dir) do
+      path = Path.join(dir, "start-#{System.unique_integer([:positive])}.jsonl")
+      File.write!(path, JSON.encode!(%{"type" => "user", "cwd" => dir}))
+      path
+    end
+
+    test "the main session may still edit its own checkout after a cd", %{
+      main: main,
+      worktree: worktree
+    } do
+      assert :allow =
+               run(%{
+                 "cwd" => worktree,
+                 "transcript_path" => started_in(main),
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+               })
+    end
+
+    test "and is recorded as no mouse at all", %{main: main, worktree: worktree} do
+      run(%{
+        "cwd" => worktree,
+        "transcript_path" => started_in(main),
+        "tool_name" => "Read",
+        "tool_input" => %{}
+      })
+
+      refute File.exists?(Marker.path(worktree))
+    end
+
+    test "a mouse that cd'd out is still held to its own worktree", %{
+      main: main,
+      worktree: worktree
+    } do
+      assert {:deny, _} =
+               run(%{
+                 "cwd" => main,
+                 "transcript_path" => started_in(worktree),
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+               })
+    end
+
+    test "the pane the house calls its main session is never a mouse, whatever it started in",
+         %{main: main, worktree: worktree} do
+      {:ok, handle} = Storage.open(main)
+      :ok = Storage.set_main_pane("w1:p2")
+      Storage.close(handle)
+
+      System.put_env("HERDR_PANE_ID", "w1:p2")
+
+      assert :allow =
+               run(%{
+                 "cwd" => worktree,
+                 "transcript_path" => started_in(worktree),
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+               })
+
+      refute File.exists?(Marker.path(worktree))
     end
   end
 end

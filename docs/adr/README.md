@@ -21,6 +21,7 @@ individually citable decisions.
 - [0002](0002-mouse-identity-is-a-marker-file.md) — Mouse identity is an opaque marker file, not the branch or path
 - [0023](0023-one-mouse-per-worktree.md) — One mouse per worktree, enforced rather than assumed
 - [0024](0024-endpoint-identity-is-two-layers.md) — Endpoint identity is two layers, with an honest limit
+- [0053](0053-a-session-is-identified-by-where-it-started.md) — A session is identified by where it started and which pane it runs in, never by where its shell currently is
 - [0025](0025-a-second-read-only-global-socket.md) — Cross-repo visibility uses a second, read-only global socket
 - [0039](0039-the-owl-records-its-open-houses-on-disk.md) — The owl records its open houses on disk, and that record is what makes a whiska
 
