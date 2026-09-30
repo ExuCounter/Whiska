@@ -39,9 +39,35 @@ Every `Agent` call has a result almost immediately; what is pending is the hand-
 `tool_result` counts as a launch only when it answers an `Agent` call seen in the same
 tail — otherwise any shell output, fetched page or file that happened to contain a line
 reading `agentId: something` would register a launch that could never be handed back, and
-silence the mouse for hours. The hand-back is read from `origin` rather than from the
-frame in the text, with the frame kept only as a fallback for a transcript that carries no
-`origin`.
+silence the mouse for hours.
+
+**A hand-back is read in every shape it arrives in, and from the queued copy as well as
+the live one.** Amended 2026-09-30, after the shape this originally missed silenced a
+mouse for four hours. Three shapes, checked against
+`~/.claude/projects/…/7453bb5e-….jsonl`:
+
+- the `origin` stamp above;
+- the `<agent-message from="<id>">` frame;
+- the `<task-notification>` frame, whose id sits in `<task-id>`.
+
+The frames are not a fallback for a missing stamp. The commonest shape of all carries
+`origin: {"kind": "task-notification"}` — a stamp that says a report arrived and not which
+agent sent it — so the id has to come from the frame.
+
+And a report that lands while the mouse is busy is *queued*. Claude Code records the
+queued copy as an entry of type `attachment`, with the frame in `attachment.prompt` and
+the `origin` stamp — when there is one — on the attachment rather than the entry. It never
+writes the `user` entry this decision originally looked for. So the stamp and the frames
+are both read from an `attachment` exactly as from a `user` entry, and a frame is read
+only from those two: an assistant message quoting one is the mouse talking about a report,
+not the report.
+
+**A launch older than half an hour is abandoned, not pending.** The deadline the
+Consequences below predicted, in its cheapest form: an aged launch stops being counted
+rather than forcing a write. Long enough that no reviewer this repo runs comes near it,
+short enough that a lost hand-back costs one quiet stop rather than a night of them. A
+launch whose entry carries no readable timestamp cannot be aged and holds the turn as
+before.
 
 **A turn the person started clears the accounting.** `origin: {"kind": "human"}` — they
 typed. Whatever was out at that moment they may well have interrupted, and an agent that
@@ -67,13 +93,13 @@ narrower — *did this turn end?* — and it decides it from a fact in Claude Co
 rather than from the text of the message. A hook reading the message to guess whether the
 mouse meant to stop is exactly the heuristic ADR-0009 refuses, and is not what this is.
 
-**A subagent that never reports takes its mouse with it, until the person types.** A lost
+**A subagent that never reports takes its mouse with it for half an hour.** A lost
 hand-back, an agent that errors out, an interrupted turn: the launch stays unmatched and
-every stop after it is swallowed. Nothing catches that — the backstop sees no entry to
-collect. Two things bound it rather than fix it: the person's next prompt clears the
-accounting, and the launch scrolls out of the tail. If it proves real beyond that, the
-answer is a deadline — an entry written anyway once a launch is old enough — and not a
-reading of the message.
+every stop after it is swallowed. It proved real the day this was written, so the deadline
+is now in: the launch ages out, the person's next prompt still clears the accounting, and
+the launch still scrolls out of the tail. The cost the other way is one delivered progress
+note from a reviewer that genuinely runs longer than that, which is the direction this
+whole decision fails in on purpose.
 
 **The check runs only for a mouse.** It sits after the worktree has been resolved, so the
 main session and any repo Whiska is merely installed in read no transcript at all.
@@ -85,11 +111,14 @@ direction above.
 
 **The transcript is load-bearing in a second place now.** ADR-0050 already accepted that
 the format is somebody else's and can change under us; there the cost was an empty column
-on the board. Here the cost is this bug coming back — a Claude Code release that renames
-`agentId` or drops `origin` makes every mid-turn stop a question again. Loud, not silent,
-and the same failure that exists today. The one shape that would fail the other way is a
-launch Whiska can still see paired with a hand-back it no longer recognises, which is why
-the hand-back is read two ways and the person's prompt clears the slate.
+on the board. Here the cost is this bug coming back — and it did, the day after, through a
+hand-back shape this decision had not seen. A Claude Code release that renames `agentId`
+makes every mid-turn stop a question again: loud, not silent, and the same failure that
+exists today. The shape that fails the other way is a launch Whiska can still see paired
+with a hand-back it no longer recognises, and that is the one that actually happened. Three
+guards against it, in order of how much they are trusted: the hand-back is read in three
+shapes and from both the live and the queued entry, the person's next prompt clears the
+slate, and a launch old enough stops counting whatever else is missing.
 
 **`Whiska.Transcript` is now the one reader of Claude Code's JSONL.** The folder name, the
 tail and this test live there; `Whiska.Watch.Transcript` keeps the board's reading of it and
