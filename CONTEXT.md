@@ -238,18 +238,41 @@ _Avoid_: fallback, poller, sweep, safety net (all of them suggest a path that is
 be on; being on this one is the symptom)
 
 **Block**:
-The region of a project's own `CLAUDE.md` that `whiska init` writes and re-writes — the
-worktree protocol, in Whiska's words, travelling with the repo the way the hooks do. It
-is bounded by one outer marker pair, and everything outside that pair is the person's
-and is never read. Made of **parts**. Rules, not prose: an imperative or a concrete fact
-per line, with the reasoning left in Whiska's own ADRs, which the repo it is written into
-does not have (ADR-0055).
+The region of a `CLAUDE.md` that `whiska init` writes and re-writes — the worktree
+protocol, in Whiska's words, travelling with the repo the way the hooks do. It is bounded
+by one outer marker pair, and everything outside that pair is the person's and is never
+read. Made of **parts**. Rules, not prose: an imperative or a concrete fact per line, with
+the reasoning left in Whiska's own ADRs, which the file it is written into does not have
+(ADR-0055). Written into the project's own `CLAUDE.md`, or into `~/.claude/CLAUDE.md` —
+see **Scope**.
 _Avoid_: section (a part is a section too, so the word cannot tell the two apart),
 template, preamble
 
+**Scope**:
+Which root an install hangs off: the project (`whiska init`) or the person's home
+(`whiska init --global`). Every path is the same relative path either way —
+`.claude/hooks/whiska.sh` is one file in two places — so a scope is a root and nothing
+else, and the merge, the `keep` semantics and the idempotency are one implementation for
+both. Per-repo is the default and the only one that travels to someone else's machine
+(ADR-0016); global is for a repo that will not carry a committed `.claude/`. Where a repo
+has both, the project's copy is **in force** and the global one **stands down**: its shim
+exits before doing anything, its block says so in its own header, and Claude Code's own
+rules settle the statusline and the skills (ADR-0056).
+_Avoid_: level, mode (build and sniff are modes), profile, target
+
+**Stands down**:
+What the global install does in a repo that wires Whiska itself — not "is overridden",
+which would suggest something still ran. The global shim exits before resolving anything,
+so for that repo it is as though it were not installed. The reason it must: Claude Code
+merges the hook arrays from both files, so a hook that did not stand down would deny
+twice and leave the same question on the doorstep twice.
+_Avoid_: override, shadow, disable, precedence
+
 **Part**:
 One separately-replaceable piece of the block, in its own named markers —
-`worktrees`, `marker`, `delivery`, `report`, `finish` today. A part is replaced where it stands
+`worktrees`, `marker`, `delivery`, `report`, `finish` today, and `scope` in the global
+block only (ADR-0056). A part a scope does not ship is one that scope never adds and
+never rewrites. A part is replaced where it stands
 on the next `whiska init`, added if its markers are missing, and left exactly alone if
 its start marker says `keep`, which is how a person claims one as their own or drops
 it for good (ADR-0045). A part Whiska no longer ships stays where it is rather than

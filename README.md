@@ -28,6 +28,8 @@ Three steps, in this order, once per repo:
 
 ```
 whiska init                  # hooks into .claude/settings.json (once, committed)
+                             # or `whiska init --global`, once per machine, for a
+                             # repo that cannot carry a committed .claude/
 ! whiska start               # from INSIDE your main Claude Code session, in the main checkout
 whiska owl install           # once per machine: the owl under launchd, restarted if it crashes
 whiska owl .                 # once per repo: open this house; the owl remembers it from then on
@@ -362,6 +364,37 @@ git commit -m "chore: enable whiska"
 the rules travel with the repo: anyone who clones it and has Whiska installed gets the
 same enforcement. It is safe to re-run, leaves unrelated settings and other people's
 hooks alone, and refuses rather than overwriting a settings file it cannot parse.
+
+### A repo that cannot carry any of this
+
+Someone else's repo, or one whose owners will not take another tool's hooks, cannot have
+a committed `.claude/` — and an uncommitted file is in no worktree git creates, so every
+branch session there starts with none of the rules. `whiska init --global` writes the same
+install into `~/.claude` instead, once, for every repo on the machine (ADR-0056):
+
+```
+whiska init --global
+```
+
+Nothing else is needed per repo. The hooks work out for themselves which worktree they are
+firing in, and the board is found from the directory the session is sitting in — so a repo
+needs only its house and, if you want one, a `## Finish` heading in its own `CLAUDE.md`.
+
+A repo that has run `whiska init` keeps winning: its own hooks, block and skills are the
+ones in force, and the global copy stands down there. To hand a repo over to the global
+install instead:
+
+```
+cd your-repo
+whiska uninstall
+git add -A .claude CLAUDE.md && git commit -m "chore: whiska is installed globally now"
+```
+
+`whiska uninstall --global` is the same against `~/.claude`. Neither touches the house —
+its mice, its questions and its doorstep are all still there — and neither touches a part
+you claimed with `keep`. If `~/.claude/CLAUDE.md` or `~/.claude/settings.json` is a symlink
+into a dotfiles repo, every write goes through the link and changes the target in place;
+`init --global` prints where each change landed so you can commit it there.
 
 What it writes, and why each part is the way it is:
 
