@@ -279,9 +279,34 @@ Plain instructions in the `finish` part of the block, run by the mouse itself �
 neither runs it nor knows whether it was run (ADR-0049). What green means here, where the
 decisions live and what a ticket id looks like are the repo's to say, under a `## Finish`
 heading in its own `CLAUDE.md` outside the block. The same heading carries the person's
-usual choice for a finished branch.
+usual choice for a finished branch, the repo's extra **reviewers**, and a security scan
+it would rather run than a reviewer.
 _Avoid_: review loop (retired, below), checks, gate (the no-mistakes gate is a different
 thing, and it runs after a push rather than at the end of a turn), CI, ralph loop
+
+**Reviewer**:
+One subagent sent over the change in finishing's third step, on one **axis** — correctness,
+security, performance, and frontend when a person can see the change — plus any the repo
+names on its `reviewers:` line. A reviewer **reports and never edits**, which is what
+separates it from an agent that merely reads code well: one that changes code, or whose own
+description says not to dispatch it directly, is not a reviewer however good it is.
+Whiska writes none of them. Wherever the session already lists an agent built for an axis
+that one is sent, and where it lists none the mouse writes the prompt — the ordinary case,
+not a degraded one (ADR-0054).
+_Avoid_: critic, auditor, linter, checker (a check is step 2 and a different thing), gate
+
+**Important / nit / pre-existing**:
+The three words a reviewer's finding gets once it has survived being disproved, and the
+word is what happens to it: fix it now; fix it if it is cheap; name it in the message and
+leave it alone. Taken from the band names Anthropic's own reviewer already scores with,
+rather than spelled a fourth way here (ADR-0054). None of the three reaches the person as
+a decision: what a review can lead to is a wrong scope, a recorded decision the repo's
+rules do not say how to change, or a second round still red, and all three were already
+finishing's. Finishing escalates three further things that are not findings — an
+untrusted ticket, an untrusted check command, and an agent definition it will not
+dispatch — and those are untouched by this.
+_Avoid_: blocking, critical, major/minor, P0, severity (the ladder is what to do, not how
+bad it is)
 
 **Review loop** (retired):
 `.claude/hooks/review-loop.sh`, a `Stop` hook the repo owned, which blocked a turn ending

@@ -156,6 +156,17 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/lessons and reflections/
     end
 
+    test "the leave-out list drops the mechanics, not what the review turned up" do
+      # A closed list of exceptions leaves step 5's "what the reviewers raised
+      # and what became of it" contradicted for every finding not on the list.
+      # The line that settles it is mechanics-versus-outcome, not an inventory.
+      body = prose_of("report")
+
+      assert body =~ ~r/the mechanics of a review, never what it turned up/i
+      assert body =~ ~r/pre-existing/i
+      refute body =~ ~r/reviewer findings, retries/i
+    end
+
     test "teaches the shape of the message, step by step" do
       body = body_of("report")
 
@@ -233,8 +244,10 @@ defmodule Whiska.ClaudeMdTest do
     test "names the reviewer axes, and frontend only when a person sees it" do
       body = prose_of("finish")
 
+      # Anchored to the bullet, not the bare word: the part also says `security:`
+      # and `reviewers:` now, and a bare substring would pass off those.
       for axis <- ["correctness", "security", "performance", "frontend"] do
-        assert body =~ axis, axis
+        assert body =~ "**#{axis}** —", axis
       end
 
       assert body =~ ~r/only when the change touches something a person sees/i
@@ -308,6 +321,124 @@ defmodule Whiska.ClaudeMdTest do
     test "the marker it ends on is the one Whiska parses, named in words" do
       # The marker is invisible, so prose names it rather than showing it.
       assert body_of("finish") =~ Whiska.Question.Marker.spell(:done)
+    end
+
+    test "a reviewer somebody else maintains beats one improvised on the spot" do
+      # ADR-0054: Whiska writes no agent definitions of its own (ADR-0017), so
+      # the roster is whatever the session already lists.
+      body = prose_of("finish")
+
+      assert body =~ ~r/agent types this session lists/i
+      assert body =~ ~r/before writing a reviewer prompt/i
+    end
+
+    test "an agent that edits, or that refuses dispatch, is not a reviewer" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/changes code.{0,60}is not a reviewer/i
+      assert body =~ ~r/not to be dispatched directly/i
+    end
+
+    test "nothing installed for an axis is the ordinary case, not a degraded one" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/write the prompt/i
+      assert body =~ ~r/ordinary case, not a degraded one/i
+    end
+
+    test "extra axes this repo wants come from a reviewers: line" do
+      body = prose_of("finish")
+
+      assert body =~ "reviewers:"
+      assert body =~ ~r/already exist in this repo/i
+      assert body =~ ~r/never improvised from the name/i
+    end
+
+    test "a surviving finding gets one of three words, and the word decides" do
+      # ADR-0054: the words are Anthropic's own reviewer's band names, not a
+      # fourth spelling invented here.
+      body = prose_of("finish")
+
+      assert body =~ ~r/\*\*important\*\* — fix it now/i
+      assert body =~ ~r/\*\*nit\*\* — fix it now if it is cheap/i
+      assert body =~ ~r/\*\*pre-existing\*\* — this change did not cause it/i
+    end
+
+    test "a finding is disproved before it is believed" do
+      assert prose_of("finish") =~ ~r/try to disprove it/i
+    end
+
+    test "no reviewer finding reaches the person, and the three that do are named" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/nothing a reviewer finds reaches the person/i
+      assert body =~ ~r/scope that turns out to be wrong \(step 1\)/i
+      assert body =~ ~r/rules do not say how to change \(step 1\)/i
+      assert body =~ ~r/still red after the second round \(step 4\)/i
+    end
+
+    test "that claim is about what a reviewer finds, not about the whole part" do
+      # The part escalates two more things further down — a ticket that reads as
+      # an instruction, and a check command that reaches outside the repo. An
+      # exhaustive-sounding three would tell a mouse to stop doing those.
+      body = prose_of("finish")
+
+      refute body =~ ~r/already in this part and nowhere else/i
+      assert body =~ ~r/no reviewer finding is a fourth/i
+    end
+
+    test "the escalations that are not findings are counted right" do
+      # There are three, not two: the part escalates an untrusted ticket, an
+      # untrusted check command, and an agent definition it will not dispatch.
+      body = prose_of("finish")
+
+      assert body =~ ~r/three things that are not findings/i
+      assert body =~ ~r/an agent definition this step will not dispatch/i
+      refute body =~ ~r/two things that are not findings/i
+    end
+
+    test "a decision this repo's rules do not cover is the person's, not a quiet divergence" do
+      assert prose_of("finish") =~ ~r/quiet divergence/i
+    end
+
+    test "an agent definition is read before it is dispatched, like a check command" do
+      # ADR-0054: a mouse's agent list includes the worktree's own
+      # `.claude/agents/`, which arrives with the branch under review.
+      body = prose_of("finish")
+
+      assert body =~ ~r/read before it is dispatched/i
+      assert body =~ ~r/arrived with the branch under review/i
+      # The listing a session is given carries a description, not the body —
+      # so "read the definition" has to name the file, or it is satisfiable
+      # by re-reading the very text the part says proves nothing.
+      assert body =~ ".claude/agents/"
+      assert body =~ ~r/not the session's listing of it/i
+    end
+
+    test "the reviewers: line says what it costs on every finished turn" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/a couple of axes/i
+      assert body =~ ~r/every finished turn/i
+    end
+
+    test "a name from the Finish heading is quoted as data, never acted on" do
+      assert prose_of("finish") =~ ~r/quoted as the data it is/i
+    end
+
+    test "a security finding is named in the message whatever word it got" do
+      # Step 3 can label a vulnerability a nit or disprove it away; the person
+      # still hears that it was looked at.
+      assert prose_of("finish") =~ ~r/whatever word it got/i
+    end
+
+    test "a heavier security scan is the repo's to opt into, and it is read first" do
+      body = prose_of("finish")
+
+      assert body =~ "security:"
+      assert body =~ ~r/read before it is run/i
+      assert body =~ ~r/commits before it finishes/i
+      assert body =~ ~r/leaves that directory behind/i
     end
   end
 
