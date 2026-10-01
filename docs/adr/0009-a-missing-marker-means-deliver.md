@@ -56,9 +56,11 @@ person learned a branch was ready by going to look. The marker rule in `CLAUDE.m
 mice to write the complete report in the body precisely so that it is read, and a report
 nobody is told about is a report nobody reads.
 
-So `done` now enters the queue and is typed into the main session in its turn, as `🐱
-feat-x finished · #N`, offering no answer. It does not wait for a reply: the owl closes it as soon as the prompt lands, so it never
-holds ADR-0008's one delivery slot. That keeps one code path — a `done` is a question in
+So `done` now reaches the main session as `🐱 feat-x finished · #N`, offering no answer.
+It does not wait for a reply: the owl closes it as soon as the prompt lands, so it never
+holds ADR-0008's one delivery slot — and, since 2026-10-01, never waits for that slot
+either; it goes ahead of whatever is queued. ADR-0008's note of that date has the
+reasoning. That keeps one code path — a `done` is a question in
 storage and in delivery, differing only in the verb and in what happens after it is
 sent — rather than a second "notice" kind with its own rules, which is the trade the
 unmarked case already made above. `done` is still the marker for "nothing needed from

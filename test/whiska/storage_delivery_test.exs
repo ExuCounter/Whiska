@@ -65,6 +65,23 @@ defmodule Whiska.StorageDeliveryTest do
       assert Storage.next_open() == nil
     end
 
+    test "next_done/0 is the oldest done report still waiting to be told, or nil" do
+      assert Storage.next_done() == nil
+      _decision = ask("m1", "first")
+      report = ask("m2", "finished", %{kind: "done"})
+      assert %Question{id: id} = Storage.next_done()
+      assert id == report.id
+    end
+
+    test "next_done/0 skips a report already told, and anything that is not a report" do
+      told = ask("m1", "told", %{kind: "done"})
+      {:ok, _} = Storage.mark_sent(told.id)
+      {:ok, _} = Storage.close_question(told.id)
+      ask("m2", "unmarked", %{kind: "unmarked"})
+      ask("m2", "worktree gone", %{kind: "done", status: "orphaned"})
+      assert Storage.next_done() == nil
+    end
+
     test "sent/0 is the question waiting for an answer, or nil" do
       assert Storage.sent() == nil
       q = ask("m1")

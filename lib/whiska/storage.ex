@@ -249,9 +249,10 @@ defmodule Whiska.Storage do
   @doc """
   Record a question the owl collected from the doorstep (ADR-0036).
 
-  `status` defaults to `open`; a `done` report passes `closed` so it is never
-  delivered (ADR-0009). Kind and status are checked against the lists on
-  `Whiska.Schema.Question`, so nothing unclassifiable is stored.
+  An entry whose worktree is gone passes `orphaned`; everything else, a `done`
+  report included, arrives `open` and is told in its turn (ADR-0009). Kind and
+  status are checked against the lists on `Whiska.Schema.Question`, so nothing
+  unclassifiable is stored.
   """
   @spec record_question(map()) :: {:ok, Question.t()} | {:error, Ecto.Changeset.t()}
   def record_question(attrs) do
@@ -297,6 +298,24 @@ defmodule Whiska.Storage do
   @spec next_open() :: Question.t() | nil
   def next_open do
     Repo.one(from(q in Question, where: q.status == "open", order_by: q.id, limit: 1))
+  end
+
+  @doc """
+  The oldest `done` report still waiting to be told, or nil.
+
+  A finished line is not a question: nothing is waiting on the person, so it
+  never waits for the one delivery slot and never holds it (ADR-0008, note of
+  2026-10-01). It is read apart from `next_open/0` for exactly that reason.
+  """
+  @spec next_done() :: Question.t() | nil
+  def next_done do
+    Repo.one(
+      from(q in Question,
+        where: q.status == "open" and q.kind == "done",
+        order_by: q.id,
+        limit: 1
+      )
+    )
   end
 
   @doc """
