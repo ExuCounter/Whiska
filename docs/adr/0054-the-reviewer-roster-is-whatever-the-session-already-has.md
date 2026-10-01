@@ -96,7 +96,12 @@ if you fail"). ADR-0049's "a claim, not a verdict" already meant this; now it sa
 ## The escalate rung names what was already there
 
 A fourth rung — what reaches the person — was considered and deliberately **not** added as
-new policy, because it was not new. The part already carried all three cases: a wrong scope
+new policy *for reviewer findings*, because it was not new. (The read-before-dispatch guard
+above does add an escalation, for a hostile agent definition. That is not a reviewer
+finding — it happens before any reviewer is sent — and it sits with the other two the part
+already escalates that are not findings either: an untrusted ticket and an untrusted check
+command. The ladder is about what a review turns up; those three are about what the session
+is handed.) For reviewer findings the part already carried all three cases: a wrong scope
 (step 1), still red after round two (step 4), and a fix that contradicts a recorded
 decision (step 1, via step 2's second limit). Only one gap was real and it is now closed in
 step 1: where a decision is out of date and the repo's own rules do not say how to change

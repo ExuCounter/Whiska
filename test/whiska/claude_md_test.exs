@@ -156,14 +156,15 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/lessons and reflections/
     end
 
-    test "the leave-out list carves out what finishing is told to name" do
-      # The finish part tells a mouse to name three things: a pre-existing
-      # finding, a reviewer it could not resolve, and a vulnerability it fixed.
-      # Without this carve-out the two parts give a mouse opposite orders.
+    test "the leave-out list drops the mechanics, not what the review turned up" do
+      # A closed list of exceptions leaves step 5's "what the reviewers raised
+      # and what became of it" contradicted for every finding not on the list.
+      # The line that settles it is mechanics-versus-outcome, not an inventory.
       body = prose_of("report")
 
-      assert body =~ ~r/except the few finishing names/i
+      assert body =~ ~r/the mechanics of a review, never what it turned up/i
       assert body =~ ~r/pre-existing/i
+      refute body =~ ~r/reviewer findings, retries/i
     end
 
     test "teaches the shape of the message, step by step" do
@@ -386,6 +387,16 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/no reviewer finding is a fourth/i
     end
 
+    test "the escalations that are not findings are counted right" do
+      # There are three, not two: the part escalates an untrusted ticket, an
+      # untrusted check command, and an agent definition it will not dispatch.
+      body = prose_of("finish")
+
+      assert body =~ ~r/three things that are not findings/i
+      assert body =~ ~r/an agent definition this step will not dispatch/i
+      refute body =~ ~r/two things that are not findings/i
+    end
+
     test "a decision this repo's rules do not cover is the person's, not a quiet divergence" do
       assert prose_of("finish") =~ ~r/quiet divergence/i
     end
@@ -397,6 +408,11 @@ defmodule Whiska.ClaudeMdTest do
 
       assert body =~ ~r/read before it is dispatched/i
       assert body =~ ~r/arrived with the branch under review/i
+      # The listing a session is given carries a description, not the body —
+      # so "read the definition" has to name the file, or it is satisfiable
+      # by re-reading the very text the part says proves nothing.
+      assert body =~ ".claude/agents/"
+      assert body =~ ~r/not the session's listing of it/i
     end
 
     test "the reviewers: line says what it costs on every finished turn" do
@@ -422,7 +438,7 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ "security:"
       assert body =~ ~r/read before it is run/i
       assert body =~ ~r/commits before it finishes/i
-      assert body =~ ~r/directory/i
+      assert body =~ ~r/leaves that directory behind/i
     end
   end
 
