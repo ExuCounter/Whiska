@@ -309,6 +309,70 @@ defmodule Whiska.ClaudeMdTest do
       # The marker is invisible, so prose names it rather than showing it.
       assert body_of("finish") =~ Whiska.Question.Marker.spell(:done)
     end
+
+    test "a reviewer somebody else maintains beats one improvised on the spot" do
+      # ADR-0054: Whiska writes no agent definitions of its own (ADR-0017), so
+      # the roster is whatever the session already lists.
+      body = prose_of("finish")
+
+      assert body =~ ~r/agent types this session lists/i
+      assert body =~ ~r/before writing a reviewer prompt/i
+    end
+
+    test "an agent that edits, or that refuses dispatch, is not a reviewer" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/changes code.{0,60}is not a reviewer/i
+      assert body =~ ~r/not to be dispatched directly/i
+    end
+
+    test "nothing installed for an axis is the ordinary case, not a degraded one" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/write the prompt/i
+      assert body =~ ~r/ordinary case, not a degraded one/i
+    end
+
+    test "extra axes this repo wants come from a reviewers: line" do
+      body = prose_of("finish")
+
+      assert body =~ "reviewers:"
+      assert body =~ ~r/already exist in this repo/i
+      assert body =~ ~r/never improvised from the name/i
+    end
+
+    test "a surviving finding gets one of three words, and the word decides" do
+      # ADR-0054: the words are Anthropic's own reviewer's band names, not a
+      # fourth spelling invented here.
+      body = prose_of("finish")
+
+      assert body =~ ~r/\*\*important\*\* — fix it now/i
+      assert body =~ ~r/\*\*nit\*\*/i
+      assert body =~ ~r/\*\*pre-existing\*\*/i
+    end
+
+    test "a finding is disproved before it is believed" do
+      assert prose_of("finish") =~ ~r/try to disprove it/i
+    end
+
+    test "no reviewer finding reaches the person, and the three that do are named" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/nothing a reviewer finds reaches the person/i
+      assert body =~ ~r/already in this part/i
+    end
+
+    test "a decision this repo's rules do not cover is the person's, not a quiet divergence" do
+      assert prose_of("finish") =~ ~r/quiet divergence/i
+    end
+
+    test "a heavier security scan is the repo's to opt into, and it is read first" do
+      body = prose_of("finish")
+
+      assert body =~ "security:"
+      assert body =~ ~r/read before it is run/i
+      assert body =~ ~r/commits before it finishes/i
+    end
   end
 
   describe "merge/1 — idempotent per part (ADR-0045)" do

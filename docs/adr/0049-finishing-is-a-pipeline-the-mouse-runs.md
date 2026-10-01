@@ -38,6 +38,11 @@ turn ending on a decision for the person, and never in the main session.
 5. **Then the marker**, and a message saying what each step found. The `report` part
    already teaches the shape of that message and this part does not repeat it.
 
+**Step 3 was extended on 2026-10-01 by ADR-0054**, which does not move the four axes:
+a reviewer is taken from the agent types the session already lists wherever one fits an
+axis, a surviving finding is labelled *important*, *nit* or *pre-existing*, and
+`reviewers:` and `security:` join the `## Finish` heading below.
+
 Per-repo facts live under a `## Finish` heading in the repo's own `CLAUDE.md`, outside
 Whiska's block, one `name: value` line each: `checks:` for step 2, `specs:` for step 1,
 `ticket:` for the prefix a ticket id carries. Missing heading, or a missing line: run
