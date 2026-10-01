@@ -488,13 +488,19 @@ defmodule Whiska.Install do
   # the only way the shipped copy and the committed copy cannot drift.
   @worktree_skills ~w(spawn-worktree send-to-worktree drop-worktree)
 
-  for name <- @worktree_skills do
+  # The finish pipeline (ADR-0055). It binds a mouse the same way the block
+  # does, and ships as a skill for the same reason the worktree skills are
+  # files: it is long, this repo uses it on itself, and a session only needs it
+  # at the moment a turn is ending.
+  @committed_skills @worktree_skills ++ ~w(whiska-finish)
+
+  for name <- @committed_skills do
     @external_resource ".claude/skills/#{name}/SKILL.md"
   end
 
-  @worktree_skill_files for name <- @worktree_skills,
-                            path = ".claude/skills/#{name}/SKILL.md",
-                            do: {path, File.read!(path)}
+  @committed_skill_files for name <- @committed_skills,
+                             path = ".claude/skills/#{name}/SKILL.md",
+                             do: {path, File.read!(path)}
 
   @doc """
   The shell that finds the whiska binary: `WHISKA_BIN`, then `PATH`, then
@@ -546,8 +552,9 @@ defmodule Whiska.Install do
   @doc """
   Where an older Whiska's review loop lives, relative to the repo root.
 
-  Retired (ADR-0049): finishing is the pipeline the `finish` part of `CLAUDE.md`
-  teaches, run by the mouse itself. The path is kept so a `Stop` entry naming it
+  Retired (ADR-0049): finishing is the pipeline the `whiska-finish` skill
+  teaches and the `finish` part of `CLAUDE.md` points at (ADR-0055), run by the
+  mouse itself. The path is kept so a `Stop` entry naming it
   is recognised as Whiska's and dropped, and so `whiska doctor` can say a file
   left on disk is no longer run by anything.
   """
@@ -632,10 +639,11 @@ defmodule Whiska.Install do
 
   Two kinds, and both are one skill per fixed command rather than bash the model
   composes itself (ADR-0022): the reading skills that wrap `whiska`, and the
-  three worktree skills that wrap `herdr` (ADR-0046).
+  three worktree skills that wrap `herdr` (ADR-0046). `whiska-finish` is
+  neither: it is the finishing pipeline the block points at (ADR-0055).
   """
   @spec skills() :: [{Path.t(), String.t()}]
-  def skills, do: @skills ++ @worktree_skill_files
+  def skills, do: @skills ++ @committed_skill_files
 
   @doc """
   Merge Whiska's hook into an existing settings map.

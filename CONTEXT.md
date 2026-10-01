@@ -241,7 +241,9 @@ be on; being on this one is the symptom)
 The region of a project's own `CLAUDE.md` that `whiska init` writes and re-writes — the
 worktree protocol, in Whiska's words, travelling with the repo the way the hooks do. It
 is bounded by one outer marker pair, and everything outside that pair is the person's
-and is never read. Made of **parts**.
+and is never read. Made of **parts**. Rules, not prose: an imperative or a concrete fact
+per line, with the reasoning left in Whiska's own ADRs, which the repo it is written into
+does not have (ADR-0055).
 _Avoid_: section (a part is a section too, so the word cannot tell the two apart),
 template, preamble
 
@@ -278,7 +280,9 @@ _Avoid_: summary, title, subject, preview
 What a mouse does before it is allowed to say `done`: read the work back against the
 brief and the repo's written decisions, run the repo's checks and fix what they catch,
 send reviewers over its own diff, go round once more, and only then write the marker.
-Plain instructions in the `finish` part of the block, run by the mouse itself — Whiska
+Plain instructions in the `whiska-finish` skill `whiska init` installs, which the block's
+`finish` part names as the trigger and nothing more — the steps only matter as a turn
+ends, so they stay out of context until then (ADR-0055). Run by the mouse itself: Whiska
 neither runs it nor knows whether it was run (ADR-0049). What green means here, where the
 decisions live and what a ticket id looks like are the repo's to say, under a `## Finish`
 heading in its own `CLAUDE.md` outside the block. The same heading carries the person's

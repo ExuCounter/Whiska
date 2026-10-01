@@ -14,6 +14,7 @@ individually citable decisions.
 - [0017](0017-judgment-lives-in-claude-md.md) — All judgment lives in CLAUDE.md; Whiska stays dumb
 - [0016](0016-hooks-and-rules-are-per-project.md) — Hooks and rules are per-project, not global
 - [0045](0045-the-claude-md-block-is-a-nest-of-named-parts.md) — The CLAUDE.md block is a nest of named parts, and a part can be claimed
+- [0055](0055-the-block-is-rules-not-prose.md) — The block is rules, not prose, and its rationale stays in Whiska's docs
 - [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
 
 ## Identity and security

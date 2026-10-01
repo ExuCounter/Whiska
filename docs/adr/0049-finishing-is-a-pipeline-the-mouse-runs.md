@@ -3,8 +3,11 @@
 ADR-0042 made "is this turn actually over?" a `Stop` hook the repo owns:
 `.claude/hooks/review-loop.sh`, with a `CHECK` command at the top, blocking the turn
 while the checks were red and once more for a single review pass. That is superseded.
-**Finishing is now a named part of the `CLAUDE.md` block (ADR-0045) — plain instructions
-the mouse runs itself, in order, before it writes `[worktree-status: done]`.**
+**Finishing is now plain instructions the mouse runs itself, in order, before it writes
+the done marker.** They shipped as a named part of the `CLAUDE.md` block (ADR-0045) and
+moved to the `whiska-finish` skill the block points at (ADR-0055); everything below about
+what the steps are and who runs them still holds, and only where they are written down
+changed.
 
 The hook is retired. `whiska init` writes no `review-loop.sh`, the shim chains none, and
 a repo that already has one keeps it: nothing runs it, `whiska doctor` says so, and

@@ -150,15 +150,19 @@ and never counted (ADR-0036), and entries still on the doorstep are counted too,
 uncollected doorstep usually means the owl is not running.
 
 `whiska init` also writes the worktree protocol into the repo's own `CLAUDE.md`
-(ADR-0045) and installs the three skills that drive it — `spawn-worktree`,
-`send-to-worktree` and `drop-worktree` (ADR-0046). The block is a nest of named markers,
-one pair per part:
+(ADR-0045) and installs the skills that drive it — `spawn-worktree`, `send-to-worktree`
+and `drop-worktree` (ADR-0046), and `whiska-finish`, which holds the finishing pipeline
+the block only points at (ADR-0055). The block is rules, not prose: an imperative or a
+concrete fact per line, with the reasoning left in these ADRs. It is a nest of named
+markers, one pair per part:
 
 ```markdown
 <!-- whiska:start -->
 <!-- whiska:worktrees:start -->   …the decision tree: route into a running mouse, or spawn
 <!-- whiska:marker:start -->      …the worktree-status marker a mouse ends every turn with
 <!-- whiska:delivery:start -->    …how its question reaches you, and why you never read its pane
+<!-- whiska:report:start -->      …the shape of the message it leaves you
+<!-- whiska:finish:start -->      …the trigger for the finishing pipeline, which lives in a skill
 <!-- whiska:end -->
 ```
 
