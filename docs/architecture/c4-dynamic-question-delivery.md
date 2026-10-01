@@ -24,7 +24,7 @@ C4Dynamic
   Container_Boundary(owl, "Owl") {
     Component(doorstep, "Doorstep", "directory", "Uncollected entries")
     Component(collection, "Collection", "per house", "Reads and marks, never deletes")
-    Component(delivery, "Delivery", "per house, a queue", "One question at a time, when idle")
+    Component(delivery, "Delivery", "per house, a queue", "One question at a time, when idle; a finished line ahead of it")
   }
 
   ContainerDb(db, "House database", "SQLite", "questions")
@@ -34,9 +34,9 @@ C4Dynamic
   Rel(herdr, collection, "Reports that mouse done or idle")
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by marker")
-  Rel(delivery, db, "Any open question, and is the slot free?")
+  Rel(delivery, db, "Any finished line to tell? otherwise any open question, and is the slot free?")
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
-  Rel(delivery, mainpane, "Type one line only if idle, nothing sent, nothing half-typed")
+  Rel(delivery, mainpane, "Type one line only if idle and nothing half-typed, and for a question nothing sent")
   Rel(person, delivery, "whiska reply, keyed to the question id")
   Rel(delivery, mousepane, "herdr types the answer into that pane")
 
@@ -82,7 +82,8 @@ No heuristics, no model reading the text. **A marker is required to be quiet, no
 heard:**
 
 - no marker at all → **deliver**. The mouse stopped and did not say why.
-- `done` → delivered as "finished", no reply offered, closed the moment it is sent.
+- `done` → delivered as "finished", no reply offered, ahead of the queue and closed the
+  moment it is sent.
 - `needs-decision` → delivered. Still valid, now redundant.
 
 Forgetting is the safe direction: a mouse that forgets its marker makes noise instead of
@@ -117,6 +118,12 @@ what stops a double ping. The one exception that earns a timer: the first questi
 fresh round waits up to 8 s, so the first thing you see is "3 open" rather than "1 open"
 with more trickling in. A newer question from the same mouse supersedes its earlier ones,
 so a mouse that moves on cannot wedge the queue (ADR-0037).
+
+The slot counts questions, and a finished line is not one: nothing is waiting on the
+person in it. It goes ahead of whatever is queued, takes no slot and is closed as it is
+typed, so a branch that is done is heard about while a decision elsewhere is still out
+(ADR-0008, note of 2026-10-01). The idle gate, the draft gate and the first-of-round wait
+all still apply to it — it lands in the same prompt box and carries the same count.
 
 A mouse that *dies* cannot wedge it either: marking it dead orphans everything it left
 waiting, sent as well as open (ADR-0007), because no answer can reach a dead mouse and a

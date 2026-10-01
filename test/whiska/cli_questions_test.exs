@@ -116,6 +116,24 @@ defmodule Whiska.CLIQuestionsTest do
       refute one =~ "answer: whiska reply"
     end
 
+    # The finished picker in the `whiska-delivered` skill (ADR-0022) reads the
+    # line and runs this, and the owl has closed the report by then.
+    test "a finished report reads back by id after it has been closed", %{main: main} do
+      q =
+        seed(main, fn ->
+          report = ask("Merged it.\n[worktree-status: done]", kind: "done")
+          {:ok, _} = Storage.mark_sent(report.id)
+          {:ok, _} = Storage.close_question(report.id)
+          report
+        end)
+
+      out = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
+      assert out =~ "feat-a"
+      assert out =~ "finished"
+      assert out =~ "Merged it."
+      assert out =~ "closed"
+    end
+
     test "--full is in the usage text" do
       out = capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
       assert out =~ "--full"

@@ -63,7 +63,7 @@ defmodule Whiska.Owl.House do
   earlier. Collecting at open does not count; that is the designed "what landed
   while the owl was down" path.
 
-  A `done` report is delivered like any other and closed the moment
+  A `done` report is delivered ahead of the queue and closed the moment
   it is sent; an entry whose worktree is no longer on disk is recorded as
   orphaned rather than delivered. Whatever a mouse
   leaves supersedes its own earlier open or sent questions: it has moved past
@@ -82,6 +82,14 @@ defmodule Whiska.Owl.House do
   carries an accurate count of what landed just behind it. Delivery is attempted
   at open, after every collection, whenever herdr reports the main pane idle,
   and on the backstop.
+
+  A finished line is outside all of that (ADR-0008, note of 2026-10-01).
+  Nothing is waiting on the person in it, so it goes ahead of whatever is
+  queued, with no regard for the slot, and is closed as it is typed. The idle
+  pane and the empty box still gate it — the line still lands in the person's
+  terminal. A round's wait only ever gathers a count for a house that was
+  quiet, so a finished line arriving while something is out starts no round and
+  waits for none.
 
   herdr's word is taken fresh at each attempt (`pane.get`), not from the last
   event: `claude` + `idle` delivers; `working` or `blocked` holds; `claude` +
@@ -667,12 +675,22 @@ defmodule Whiska.Owl.House do
   end
 
   defp deliver(state) do
-    with nil <- Storage.sent(),
-         %Question{} = question <- Storage.next_open(),
+    with %Question{} = question <- next_to_deliver(),
          {:go, notes} <- main_session_free?(state) do
       send_question(state, question, notes)
     else
       _ -> state
+    end
+  end
+
+  # What goes next, if the main session will have it. A finished line is not a
+  # question — nothing is waiting on the person in it — so it neither waits for
+  # the one slot nor holds it: it goes first, and is closed as it is sent. A
+  # real question goes only when the slot is free, exactly as before.
+  defp next_to_deliver do
+    case Storage.next_done() do
+      %Question{} = report -> report
+      nil -> if Storage.sent() == nil, do: Storage.next_open()
     end
   end
 
@@ -740,7 +758,7 @@ defmodule Whiska.Owl.House do
   end
 
   # A done report is told once and never waits for an answer: closing it as
-  # soon as it is sent frees ADR-0008's one slot for the next question.
+  # soon as it is sent means it never takes ADR-0008's one slot at all.
   defp settle_report(%Question{kind: "done", id: id}), do: {:ok, _} = Storage.close_question(id)
   defp settle_report(_question), do: :ok
 
