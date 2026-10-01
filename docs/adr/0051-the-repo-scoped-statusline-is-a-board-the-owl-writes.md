@@ -112,10 +112,15 @@ run on anyone's behalf — it is drawn, or typed by the person into their own te
 - **A repo `init`-ed before today keeps the old script and the old 15.** Nothing breaks:
   the old script runs `whiska statusline --here`, which now prints the board, at a
   fifteen-second refresh. `whiska init` replaces the whole entry and the script.
-- **Only the mice a row could be about are read.** Nothing is ever deleted (ADR-0007), so
-  a year-old repo has a mouse record for every worktree it has ever had; reading them all
-  thirty times a minute would be work that grows forever. The board reads the alive ones,
-  and a dead mouse's orphaned questions for the count underneath.
+- **Every mouse record is read, and that is the tick's own cost.** Nothing is ever deleted
+  (ADR-0007), so a year-old repo has a record for every worktree it has ever had — and
+  which of them still stand for a worktree is a question about all of them together
+  (see the note below), so the board cannot read only the ones it will draw. Measured on
+  the machine this was built for: a house of 45 records costs 3.3 ms a tick, against the
+  ~10 ms this decision budgets. The shape is one `readlink` per path segment per record
+  and a pairwise comparison on top, so a house of 500 records would be 40 ms and over
+  budget. When a repo gets there, canonicalising each distinct parent folder once is the
+  cheap fix and takes almost all of it back.
 - **Drawing the board can never stop a house.** It is wrapped: a reader that raises warns
   and leaves the board as it was, because collection and delivery must outlive anything
   that goes wrong in a picture. Without that, one malformed transcript field would

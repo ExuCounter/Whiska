@@ -450,7 +450,7 @@ defmodule Whiska.Owl.House do
       {:ok, panes} ->
         agent_panes = Enum.filter(panes, &(&1.agent != nil and is_binary(&1.cwd)))
         mice = Storage.all(Mouse)
-        current = MapSet.new(Storage.current_mice(), & &1.mouse_id)
+        current = MapSet.new(Storage.current(mice), & &1.mouse_id)
 
         matched =
           for mouse <- mice,

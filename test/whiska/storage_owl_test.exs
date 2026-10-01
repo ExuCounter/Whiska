@@ -170,6 +170,17 @@ defmodule Whiska.StorageOwlTest do
 
       assert ["m1", "new"] = Enum.map(Storage.alive_mice(), & &1.mouse_id) |> Enum.sort()
     end
+
+    test "two records made for one worktree in the same second leave one row" do
+      at = ~U[2026-09-29 10:00:00Z]
+
+      for id <- ["mz", "my"] do
+        {:ok, _} =
+          Storage.record_mouse(%{mouse_id: id, path: "/w/b", branch: "b", created_at: at})
+      end
+
+      assert ["m1", "mz"] = Enum.map(Storage.alive_mice(), & &1.mouse_id) |> Enum.sort()
+    end
   end
 
   describe "current_mice/0" do

@@ -204,8 +204,11 @@ defmodule Whiska.Storage do
   asks the same question and cannot disagree about the answer.
   """
   @spec current_mice() :: [Mouse.t()]
-  def current_mice do
-    mice = Repo.all(from(m in Mouse, order_by: m.created_at))
+  def current_mice, do: current(Repo.all(from(m in Mouse, order_by: m.created_at)))
+
+  @doc "The current records among `mice`, for a caller that has read them already."
+  @spec current([Mouse.t()]) :: [Mouse.t()]
+  def current(mice) do
     folders = Map.new(mice, &{&1.mouse_id, folder(&1)})
 
     Enum.reject(mice, fn mouse ->
@@ -229,8 +232,19 @@ defmodule Whiska.Storage do
         false
 
       {theirs, ours} ->
-        List.starts_with?(theirs, ours) and
-          (theirs != ours or DateTime.compare(other.created_at, mouse.created_at) == :gt)
+        List.starts_with?(theirs, ours) and (theirs != ours or newer?(other, mouse))
+    end
+  end
+
+  # Two records can be made for one folder within a second of each other, and
+  # one of them has to go: a house with two rows for one worktree is the thing
+  # being fixed. The id breaks the tie — arbitrary, but the same answer every
+  # time it is asked.
+  defp newer?(other, mouse) do
+    case DateTime.compare(other.created_at, mouse.created_at) do
+      :gt -> true
+      :eq -> other.mouse_id > mouse.mouse_id
+      :lt -> false
     end
   end
 
