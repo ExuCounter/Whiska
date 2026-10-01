@@ -377,11 +377,10 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ ~r/only when they ask|when the person asks/i
     end
 
-    test "the committed skills in this repo are what init writes today" do
-      for {path, body} <- Install.skills() do
-        assert File.read!(path) == body, "#{path} is stale: run whiska init and commit"
-      end
-    end
+    # No "the committed copy matches what init writes" test any more: the only
+    # copy is `priv/skills/`, which `Whiska.Install` reads at compile time
+    # (ADR-0046), so there is nothing left for it to drift from. This repo is
+    # installed globally (ADR-0056) and has no `.claude/skills/` of its own.
   end
 
   describe "whiska init writes them" do

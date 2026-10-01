@@ -121,4 +121,19 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       end
     end
   end
+
+  describe "the long skills are build inputs under priv/ (ADR-0046)" do
+    @committed_skills @worktree_skills ++ ~w(whiska-finish)
+
+    test "each is read from priv/skills/, not from this repo's own .claude/" do
+      for name <- @committed_skills do
+        source = "priv/skills/#{name}/SKILL.md"
+        assert File.exists?(source), "#{name} is not under priv/skills/"
+        assert skill(name) == File.read!(source), name
+      end
+
+      refute File.exists?(".claude/skills"),
+             "the shipped skills no longer live in this repo's own .claude/"
+    end
+  end
 end

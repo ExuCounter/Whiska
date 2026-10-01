@@ -574,24 +574,33 @@ defmodule Whiska.Install do
   # Whiska is what the protocol is for. ADR-0021 stands: there is still no
   # `whiska spawn`, and spawning still happens through a conversation.
   #
-  # Read from the committed files at compile time rather than written out here.
-  # They are long prose, this repo uses them itself, and one source of truth is
-  # the only way the shipped copy and the committed copy cannot drift.
+  # Read from files at compile time rather than written out here. They are long
+  # prose, and one source of truth is the only way the shipped copy and the
+  # committed copy cannot drift.
   @worktree_skills ~w(spawn-worktree send-to-worktree drop-worktree)
 
   # The finish pipeline (ADR-0055). It binds a mouse the same way the block
   # does, and ships as a skill for the same reason the worktree skills are
-  # files: it is long, this repo uses it on itself, and a session only needs it
-  # at the moment a turn is ending.
+  # files: it is long, and a session only needs it at the moment a turn is
+  # ending.
   @committed_skills @worktree_skills ++ ~w(whiska-finish)
 
+  # The source is `priv/skills/`, not this repo's own `.claude/skills/`. They
+  # are build inputs, and a repo installed globally (ADR-0056) has no committed
+  # `.claude/` to read them out of — sourcing them there made `whiska init
+  # --global` on this repo delete the files the next build needed. The
+  # destination is unchanged: `.claude/skills/<name>/SKILL.md` under whichever
+  # scope root is being written.
+  @skill_source "priv/skills"
+
   for name <- @committed_skills do
-    @external_resource ".claude/skills/#{name}/SKILL.md"
+    @external_resource "#{@skill_source}/#{name}/SKILL.md"
   end
 
   @committed_skill_files for name <- @committed_skills,
-                             path = ".claude/skills/#{name}/SKILL.md",
-                             do: {path, File.read!(path)}
+                             do:
+                               {".claude/skills/#{name}/SKILL.md",
+                                File.read!("#{@skill_source}/#{name}/SKILL.md")}
 
   @doc """
   The shell that finds the whiska binary: `WHISKA_BIN`, then `PATH`, then
