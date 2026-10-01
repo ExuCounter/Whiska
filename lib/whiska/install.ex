@@ -47,10 +47,17 @@ defmodule Whiska.Install do
 
   @shim_path ".claude/hooks/whiska.sh"
 
+  # The two roots the same relative paths hang off (ADR-0056): the repo, and the
+  # person's own home. `.claude/hooks/whiska.sh` is one file in two places.
+  @type scope :: :repo | :global
+
   # The shim takes the hook's name as its argument, so one committed script
   # serves every hook Whiska registers.
   @command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" pre-tool-use|
   @stop_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" stop|
+
+  @global_command ~s|bash "$HOME/#{@shim_path}" pre-tool-use|
+  @global_stop_command ~s|bash "$HOME/#{@shim_path}" stop|
 
   @shim_header """
   #!/usr/bin/env bash
@@ -142,6 +149,36 @@ defmodule Whiska.Install do
 
   @shim @shim_header <> @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
 
+  # The one thing the global copy does that the committed one does not
+  # (ADR-0056). Claude Code merges the hook arrays from `~/.claude` and the
+  # project, so in a repo carrying its own install both would fire: two denials
+  # for one tool call, and two entries on the doorstep for one finished turn.
+  # The repo's own install wins and this copy stands down, before it has
+  # resolved anything.
+  #
+  # It reads the repo's settings rather than only looking for the shim file,
+  # because a shim nothing wires runs for nobody. grep rather than jq: a hook
+  # cannot assume jq is installed, and nothing here needs the parse.
+  @shim_stand_down """
+  #!/usr/bin/env bash
+  # Whiska's hooks, the copy in ~/.claude (`whiska init --global`).
+  #
+  # A repo that wires Whiska itself wins: Claude Code runs both this and the
+  # repo's own hook, and running both would deny twice and leave two questions
+  # on the doorstep for one turn.
+  for whiska_settings in \
+    "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/settings.json" \
+    "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/settings.local.json"; do
+    if [ -r "$whiska_settings" ] && grep -q '\\.claude/hooks/whiska\\.sh' "$whiska_settings" 2>/dev/null; then
+      exit 0
+    fi
+  done
+
+  """
+
+  @global_shim @shim_stand_down <>
+                 @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
+
   # The retired review loop (ADR-0049). Nothing writes it and nothing runs it;
   # the path survives so a settings entry an older version wrote is recognised
   # as Whiska's and dropped, and so the doctor can name a leftover file.
@@ -153,6 +190,14 @@ defmodule Whiska.Install do
   # for hooks; the command runs from the project directory, so the relative path
   # is the fallback, and the variable is honoured if a later version sets it.
   @statusline_command ~s|bash "${CLAUDE_PROJECT_DIR:-.}/#{@statusline_path}"|
+
+  @global_statusline_command ~s|bash "$HOME/#{@statusline_path}"|
+
+  # Where the global line Whiska displaced is kept (ADR-0056). A project
+  # `statusLine` replaces the global one rather than merging with it, and so
+  # does the global install's own entry — so the person's line would simply be
+  # gone. It is recorded here instead, and both scripts run it first.
+  @base_statusline_path ".claude/whiska-base-statusline"
 
   # Seconds between redraws, on top of Claude Code's own event triggers, which
   # all come from the session's own conversation (ADR-0044). The board is a
@@ -186,11 +231,18 @@ defmodule Whiska.Install do
     global="$(jq -r '.statusLine.command // empty' "$HOME/.claude/settings.json" 2>/dev/null)"
   fi
 
-  base=""
+  # A global statusLine that is Whiska's own is this script, or the copy in
+  # ~/.claude. The line that one displaced is kept beside it, and that is the
+  # one to run (ADR-0056).
   case "$global" in
-    "" | *whiska-statusline.sh*) ;;
-    *) base="$(printf '%s' "$input" | bash -c "$global" 2>/dev/null)" ;;
+    *whiska-statusline.sh*) global="" ;;
   esac
+  if [ -z "$global" ] && [ -r "$HOME/#{@base_statusline_path}" ]; then
+    global="$(cat "$HOME/#{@base_statusline_path}")"
+  fi
+
+  base=""
+  [ -n "$global" ] && base="$(printf '%s' "$input" | bash -c "$global" 2>/dev/null)"
 
   [ -n "$base" ] && printf '%s\n' "$base"
 
@@ -532,6 +584,25 @@ defmodule Whiska.Install do
   def command, do: @command
 
   @doc """
+  The same, for one scope: the repo's copy names the shim through
+  `$CLAUDE_PROJECT_DIR`, the global copy names `$HOME` (ADR-0056).
+  """
+  @spec command(scope()) :: String.t()
+  def command(:repo), do: @command
+  def command(:global), do: @global_command
+
+  @doc """
+  Where a scope's files are rooted.
+
+  The relative paths are the same either way — `.claude/hooks/whiska.sh` is one
+  file in two places — so the scope is only ever the root it hangs off.
+  """
+  @spec root(scope(), Path.t() | nil) :: Path.t()
+  def root(scope, repo_root \\ nil)
+  def root(:repo, repo_root), do: repo_root
+  def root(:global, _repo_root), do: Whiska.LaunchAgent.user_home()
+
+  @doc """
   The Stop hook command: the same shim, told it is a `stop`.
 
   This is the doorstep writer (ADR-0036). No matcher — a Stop hook has no tool
@@ -539,6 +610,11 @@ defmodule Whiska.Install do
   """
   @spec stop_command() :: String.t()
   def stop_command, do: @stop_command
+
+  @doc "The Stop hook command for one scope (ADR-0056)."
+  @spec stop_command(scope()) :: String.t()
+  def stop_command(:repo), do: @stop_command
+  def stop_command(:global), do: @global_stop_command
 
   @doc """
   The shim script's contents.
@@ -548,6 +624,17 @@ defmodule Whiska.Install do
   """
   @spec shim() :: String.t()
   def shim, do: @shim
+
+  @doc """
+  The shim for one scope.
+
+  The global copy carries one thing the committed one does not: it stands down
+  for a repo that wires Whiska itself, so a repo with both installs does not
+  deny twice and leave two questions on the doorstep for one turn (ADR-0056).
+  """
+  @spec shim(scope()) :: String.t()
+  def shim(:repo), do: @shim
+  def shim(:global), do: @global_shim
 
   @doc """
   Where an older Whiska's review loop lives, relative to the repo root.
@@ -602,6 +689,97 @@ defmodule Whiska.Install do
     """
   end
 
+  @doc """
+  Which pieces of the global install are on disk right now (ADR-0056).
+
+  Four, and they are read rather than assumed because each can be removed on its
+  own: the block in `~/.claude/CLAUDE.md`, the two hooks and the statusline in
+  `~/.claude/settings.json`, and the skills. `whiska doctor` turns a half-written
+  answer into a warning; `whiska init` uses it only to say whether the global
+  install is there at all.
+  """
+  @spec global_state() :: %{
+          block?: boolean(),
+          hooks?: boolean(),
+          statusline?: boolean(),
+          skills?: boolean(),
+          links: [{Path.t(), Path.t()}]
+        }
+  def global_state do
+    home = root(:global)
+    settings = read_json(Path.join(home, ".claude/settings.json"))
+
+    %{
+      block?: home |> Path.join(".claude/CLAUDE.md") |> reads?("<!-- whiska:start -->"),
+      hooks?:
+        wired?(settings, "PreToolUse", command(:global)) and
+          wired?(settings, "Stop", stop_command(:global)) and
+          File.exists?(Path.join(home, @shim_path)),
+      statusline?:
+        get_in(settings, ["statusLine", "command"]) == statusline_command(:global) and
+          File.exists?(Path.join(home, @statusline_path)),
+      skills?: Enum.all?(skills(:global), fn {rel, _} -> File.exists?(Path.join(home, rel)) end),
+      links: global_links()
+    }
+  end
+
+  @global_pieces [:block?, :hooks?, :statusline?, :skills?]
+
+  @doc "Is any of the global install there? Part of one still counts."
+  @spec global_installed?() :: boolean()
+  def global_installed?,
+    do: global_state() |> Map.take(@global_pieces) |> Map.values() |> Enum.any?()
+
+  @doc """
+  Which of the paths the global install writes are symlinks, and where each
+  points.
+
+  A dotfiles repo is the usual reason: `~/.claude/CLAUDE.md` and
+  `~/.claude/settings.json` are links into it. Every write goes through the
+  link and changes the target in place, so the person's next move after an
+  install is to commit it where it actually landed — which is what this is for.
+  """
+  @spec global_links() :: [{Path.t(), Path.t()}]
+  def global_links do
+    home = root(:global)
+
+    paths =
+      [".claude/CLAUDE.md", ".claude/settings.json", ".claude/skills", ".claude/hooks"] ++
+        [@shim_path, @statusline_path] ++ Enum.map(skills(:global), &elem(&1, 0))
+
+    for rel <- paths,
+        {:ok, target} <- [:file.read_link(Path.join(home, rel))],
+        do: {rel, to_string(target)}
+  end
+
+  defp read_json(path) do
+    with {:ok, raw} <- File.read(path),
+         {:ok, settings} when is_map(settings) <- JSON.decode(raw) do
+      settings
+    else
+      _ -> %{}
+    end
+  end
+
+  defp reads?(path, needle) do
+    case File.read(path) do
+      {:ok, contents} -> String.contains?(contents, needle)
+      {:error, _} -> false
+    end
+  end
+
+  defp wired?(settings, event, expected) do
+    (get_in(settings, ["hooks", event]) || [])
+    |> Enum.any?(&(ours?(&1) and our_command(&1) == expected))
+  end
+
+  defp our_command(%{"hooks" => hooks}) do
+    Enum.find_value(hooks, fn
+      %{"command" => command} when is_binary(command) -> command
+      _ -> nil
+    end)
+  end
+
   @doc "Write the script into the whiska home, executable."
   @spec write_herdr_status() :: :ok | {:error, File.posix()}
   def write_herdr_status do
@@ -620,6 +798,20 @@ defmodule Whiska.Install do
   @doc "The statusLine command that goes into `settings.json`; names only the script."
   @spec statusline_command() :: String.t()
   def statusline_command, do: @statusline_command
+
+  @doc "The statusLine command for one scope (ADR-0056)."
+  @spec statusline_command(scope()) :: String.t()
+  def statusline_command(:repo), do: @statusline_command
+  def statusline_command(:global), do: @global_statusline_command
+
+  @doc """
+  Where the global statusline Whiska displaced is kept, relative to the home.
+
+  A `statusLine` is one value, not a list, so installing globally would
+  otherwise simply lose the person's own line. Both scripts read it.
+  """
+  @spec base_statusline_path() :: Path.t()
+  def base_statusline_path, do: @base_statusline_path
 
   @doc "The statusline script's contents (ADR-0027)."
   @spec statusline_script() :: String.t()
@@ -646,6 +838,23 @@ defmodule Whiska.Install do
   def skills, do: @skills ++ @committed_skill_files
 
   @doc """
+  The skills one scope writes.
+
+  The global install ships the reading skills and the finishing pipeline — the
+  four a session needs wherever it is working. The three worktree skills are
+  not among them: they wrap `herdr` rather than `whiska` (ADR-0046) and the
+  person's own dotfiles already install them globally, so shipping a second
+  global copy would only give the two something to drift apart over.
+  """
+  @spec skills(scope()) :: [{Path.t(), String.t()}]
+  def skills(:repo), do: skills()
+
+  def skills(:global) do
+    @skills ++
+      Enum.filter(@committed_skill_files, &String.contains?(elem(&1, 0), "whiska-finish"))
+  end
+
+  @doc """
   Merge Whiska's hook into an existing settings map.
 
   Idempotent, and surgical: unrelated settings, unrelated hook events, and other
@@ -655,42 +864,118 @@ defmodule Whiska.Install do
   the entry is recognised by its command rather than by its matcher.
   """
   @spec merge(map()) :: map()
-  def merge(settings) when is_map(settings) do
+  def merge(settings), do: merge(settings, :repo)
+
+  @doc """
+  The same, into one scope's `settings.json` — the repo's, or the person's own
+  `~/.claude/settings.json` (ADR-0056).
+
+  Global is where "never clobber the person's other settings" earns its keep:
+  that file is theirs, holds their model, permissions and hooks of their own,
+  and the merge is the same surgical one either way.
+  """
+  @spec merge(map(), scope()) :: map()
+  def merge(settings, scope) when is_map(settings) do
     pre_tool_use = %{
       "matcher" => @matcher,
-      "hooks" => [%{"type" => "command", "command" => @command}]
+      "hooks" => [%{"type" => "command", "command" => command(scope)}]
     }
 
-    stop = %{"hooks" => [%{"type" => "command", "command" => @stop_command}]}
+    stop = %{"hooks" => [%{"type" => "command", "command" => stop_command(scope)}]}
 
     settings
     |> Map.put_new("hooks", %{})
     |> put_ours("PreToolUse", [pre_tool_use])
     |> put_ours("Stop", [stop])
-    |> put_statusline()
+    |> put_statusline(scope)
+  end
+
+  @doc """
+  The `statusLine` command this install is about to push aside, or `nil`.
+
+  Nothing when there is none and nothing when the one there is already ours —
+  a re-init must not record Whiska's own line as the person's.
+  """
+  @spec displaced(map()) :: String.t() | nil
+  def displaced(settings) when is_map(settings) do
+    case settings["statusLine"] do
+      %{"command" => command} when is_binary(command) ->
+        if String.contains?(command, @statusline_path), do: nil, else: command
+
+      _ ->
+        nil
+    end
+  end
+
+  @doc """
+  Take Whiska back out of a settings map — `whiska uninstall`.
+
+  The mirror of `merge/2`: our hook entries go, everyone else's stay, and our
+  `statusLine` is replaced by `base` — the line this install displaced, read
+  back from where it was recorded — or removed outright when there is none. A
+  `statusLine` that was never ours is left exactly alone.
+  """
+  @spec unmerge(map(), String.t() | nil) :: map()
+  def unmerge(settings, base) when is_map(settings) do
+    settings
+    |> drop_ours("PreToolUse")
+    |> drop_ours("Stop")
+    |> restore_statusline(base)
+  end
+
+  defp drop_ours(settings, event) do
+    case get_in(settings, ["hooks", event]) do
+      nil -> settings
+      entries -> put_in(settings, ["hooks", event], Enum.reject(entries, &ours?/1))
+    end
+  end
+
+  defp restore_statusline(settings, base) do
+    case settings["statusLine"] do
+      %{"command" => command} when is_binary(command) ->
+        cond do
+          not String.contains?(command, @statusline_path) ->
+            settings
+
+          is_binary(base) and base != "" ->
+            Map.put(settings, "statusLine", %{"type" => "command", "command" => base})
+
+          true ->
+            Map.delete(settings, "statusLine")
+        end
+
+      _ ->
+        settings
+    end
   end
 
   # A project statusLine is a single value, not a list, so there is no "beside
   # the others" here: one that is ours, or missing, is set; one that is somebody
   # else's is left exactly alone rather than replaced — including its refresh
   # interval, or its want of one.
-  defp put_statusline(settings) do
+  defp put_statusline(settings, scope) do
     entry = %{
       "type" => "command",
-      "command" => @statusline_command,
+      "command" => statusline_command(scope),
       "refreshInterval" => @statusline_refresh_interval
     }
 
-    case settings["statusLine"] do
-      nil ->
+    case {scope, settings["statusLine"]} do
+      # The global install takes the line over, because without it no repo gets
+      # a board at all. What it displaces is kept beside the script, which runs
+      # it first, so the person's own line survives (ADR-0056).
+      {:global, _any} ->
         Map.put(settings, "statusLine", entry)
 
-      %{"command" => command} when is_binary(command) ->
+      {:repo, nil} ->
+        Map.put(settings, "statusLine", entry)
+
+      {:repo, %{"command" => command}} when is_binary(command) ->
         if String.contains?(command, @statusline_path),
           do: Map.put(settings, "statusLine", entry),
           else: settings
 
-      _unrecognised ->
+      {:repo, _unrecognised} ->
         settings
     end
   end

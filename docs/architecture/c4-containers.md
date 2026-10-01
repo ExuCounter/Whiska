@@ -14,9 +14,9 @@ C4Container
   System_Ext(herdr, "herdr", "Panes, sessions, agent status")
 
   Container_Boundary(built, "Built") {
-    Container(shim, "whiska.sh", "bash", "Committed hook shim; resolves runtime at fire time, fails open")
+    Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; resolves runtime at fire time, fails open. The global copy stands down where the repo has its own")
     Container(statusline, "herdr-status.sh", "bash", "Machine-level status script in ~/.whiska; herdr's tab bar runs it on a timer")
-    Container(repoline, "whiska-statusline.sh", "bash", "Committed statusline script; Claude Code runs it in this repo every 2 seconds. Starts nothing - it prints the board file")
+    Container(repoline, "whiska-statusline.sh", "bash", "Statusline script in the repo or in ~/.claude; Claude Code runs it every 2 seconds. Starts nothing - it prints the board file")
     Container(board, "Board file", "text file, ~/.whiska/board/", "The rows of this repo's mice, rewritten by its house every 2 seconds")
     Container(cli, "whiska", "Elixir escript", "Hooks, init, mode - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
@@ -33,7 +33,7 @@ C4Container
     Container(sockets, "Sockets", "Unix, per-repo and global", "Push approval, mouse identity, cross-repo reads")
   }
 
-  Rel(person, cli, "Runs whiska init / mode / owl / questions")
+  Rel(person, cli, "Runs whiska init / init --global / uninstall / mode / owl / questions")
   Rel(herdr, statusline, "Tab bar runs it every 5 seconds and shows its last line")
   Rel(statusline, cli, "Runs whiska statusline")
   Rel(repoline, board, "Prints it, or nothing when it is over a minute old")
@@ -63,6 +63,12 @@ C4Container
 ```
 
 ## Why each piece is its own container
+
+**The same two scripts hang off either root** (ADR-0056). `whiska init` writes them into
+the repo and `whiska init --global` writes the identical relative paths under `~/.claude`,
+for a repo that cannot carry a committed `.claude/`. A scope is a root and nothing else, so
+there is no second container here — only two places the same one can sit. Where a repo has
+both, the repo's copy is in force and the global shim exits before resolving anything.
 
 **Two status scripts, one per surface** (ADR-0048, amended). `whiska-statusline.sh` is
 committed to the repo like the shim, and draws that repo's own line inside Claude Code:

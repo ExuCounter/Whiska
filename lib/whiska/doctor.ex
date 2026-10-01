@@ -77,7 +77,8 @@ defmodule Whiska.Doctor do
     {binary, binary_found?} = binary(env)
     {herdr_check, panes} = herdr(env, herdr)
     settings = read_settings(main_checkout)
-    hooks = hooks(settings) ++ [statusline(settings)]
+    global_state = Install.global_state()
+    hooks = hooks(settings, global_state) ++ [statusline(settings, global_state)]
     shim_contents = read_shim(main_checkout)
     shim = shim(shim_contents)
 
@@ -96,7 +97,8 @@ defmodule Whiska.Doctor do
         owl(pids),
         launch_agent(installed?, agent, pids),
         open_houses(OpenHouses.read(record), main_checkout, pids),
-        tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path()))
+        tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
+        global(global_state)
       ] ++
         hooks ++
         [shim] ++
@@ -312,31 +314,90 @@ defmodule Whiska.Doctor do
 
   # -- this repo's hooks -------------------------------------------------------
 
-  @doc "What `.claude/settings.json` wires: one check for PreToolUse, one for Stop."
-  @spec hooks(map()) :: [Check.t()]
-  def hooks(settings) when is_map(settings) do
+  @doc """
+  Whether the global install is there, and whole (ADR-0056).
+
+  Not being installed is not a failure: a repo that carries its own `.claude/`
+  needs none of it. A half-written one is, because the person meant to have it
+  and part of it is not working — the block without the hooks is rules nothing
+  enforces, the hooks without the skills is a question nothing can read back.
+  """
+  @global_pieces [
+    {:block?, "block in CLAUDE.md"},
+    {:hooks?, "hooks"},
+    {:statusline?, "statusline"},
+    {:skills?, "skills"}
+  ]
+
+  @spec global(map()) :: Check.t()
+  def global(state) do
+    case Enum.split_with(@global_pieces, &state[elem(&1, 0)]) do
+      {_there, []} ->
+        Check.ok(
+          "global install",
+          "~/.claude — every repo on this machine is covered" <> linked(state)
+        )
+
+      {[], _missing} ->
+        Check.ok("global install", "not installed — this repo carries its own")
+
+      {_there, missing} ->
+        Check.warn(
+          "global install",
+          "half there in ~/.claude: no #{Enum.map_join(missing, ", ", &elem(&1, 1))}" <>
+            linked(state),
+          "whiska init --global"
+        )
+    end
+  end
+
+  # Said because it changes where the person commits, not because anything is
+  # wrong: a linked file is written through the link, and the change is in
+  # whatever repo owns it.
+  defp linked(state) do
+    case state[:links] || [] do
+      [] -> ""
+      links -> " · written through symlinks: #{Enum.map_join(links, ", ", &elem(&1, 0))}"
+    end
+  end
+
+  @doc """
+  What wires this repo's hooks: its own `.claude/settings.json`, or the global
+  install standing in for it.
+
+  A repo with neither is the failure. A repo with both is fine and says so: the
+  global shim stands down where the repo wires Whiska itself, so nothing fires
+  twice (ADR-0056).
+  """
+  @spec hooks(map(), map()) :: [Check.t()]
+  def hooks(settings, global \\ %{}) when is_map(settings) do
     [
       hook_check(
         "PreToolUse",
         settings,
         Install.command(),
         Install.matcher(),
-        "not wired — nothing is enforced for mice here"
+        "not wired — nothing is enforced for mice here",
+        global[:hooks?]
       ),
       hook_check(
         "Stop",
         settings,
         Install.stop_command(),
         nil,
-        "not wired — mice here cannot leave questions"
+        "not wired — mice here cannot leave questions",
+        global[:hooks?]
       )
     ]
   end
 
-  defp hook_check(event, settings, expected_command, expected_matcher, missing) do
+  defp hook_check(event, settings, expected_command, expected_matcher, missing, global?) do
     entries = get_in(settings, ["hooks", event]) || []
 
     case Enum.find(entries, &ours?/1) do
+      nil when global? ->
+        Check.ok(event, "wired globally, in ~/.claude")
+
       nil ->
         Check.fail(event, missing, @init)
 
@@ -356,10 +417,10 @@ defmodule Whiska.Doctor do
             )
 
           expected_matcher ->
-            Check.ok(event, "wired, matcher #{matcher}")
+            Check.ok(event, "wired in this repo, matcher #{matcher}")
 
           true ->
-            Check.ok(event, "wired")
+            Check.ok(event, "wired in this repo")
         end
     end
   end
@@ -378,18 +439,21 @@ defmodule Whiska.Doctor do
   decision and does replace the whole entry, interval included, every time it
   runs.
   """
-  @spec statusline(map()) :: Check.t()
-  def statusline(settings) when is_map(settings) do
+  @spec statusline(map(), map()) :: Check.t()
+  def statusline(settings, global \\ %{}) when is_map(settings) do
     case settings["statusLine"] do
       %{"command" => command} = entry when is_binary(command) ->
         ours_statusline(entry, command)
 
-      _ ->
+      _ when not is_map_key(global, :statusline?) or not :erlang.map_get(:statusline?, global) ->
         Check.warn(
           "statusLine",
           "no project statusLine — nothing here says what is waiting",
           @init
         )
+
+      _ ->
+        Check.ok("statusLine", "drawn globally, from ~/.claude")
     end
   end
 

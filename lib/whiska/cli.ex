@@ -60,9 +60,22 @@ defmodule Whiska.CLI do
                          it needs the owl's socket. `whiska owl stop` stops
                          the whole owl.
 
-    init                 Write Whiska's PreToolUse hook into this repo's own
-                         .claude/settings.json, so the rules travel with the
-                         repo. Safe to re-run.
+    init                 Write Whiska's hooks, statusline, skills and CLAUDE.md
+                         block into this repo's own .claude/, so the rules
+                         travel with the repo. Safe to re-run.
+
+    init --global        The same, into ~/.claude, for every repo on this
+                         machine — for a repo that cannot carry a committed
+                         .claude/ of its own. A repo that has run `whiska init`
+                         still wins there; this copy stands down. Safe to
+                         re-run, and it writes through a symlink rather than
+                         replacing it, so a dotfiles repo stays connected.
+
+    uninstall            Take Whiska back out of this repo: the block, the
+    uninstall --global   hooks, the scripts and the skills. The house — its
+                         mice, its questions, its doorstep — is untouched, and
+                         so is a part you claimed with `keep`. With --global,
+                         the same against ~/.claude.
 
     start [--force]      Record the herdr pane this is run from as the main
                          session for this repo: where the owl delivers
@@ -198,7 +211,13 @@ defmodule Whiska.CLI do
     end
   end
 
-  def run(["init"], cwd), do: init(cwd || File.cwd!())
+  def run(["init"], cwd), do: init(:repo, cwd || File.cwd!())
+
+  def run(["init", "--global"], _cwd), do: init(:global, Install.root(:global))
+
+  def run(["uninstall"], cwd), do: uninstall(:repo, cwd || File.cwd!())
+
+  def run(["uninstall", "--global"], _cwd), do: uninstall(:global, Install.root(:global))
 
   def run(["start" | flags], cwd) when flags in [[], ["--force"]],
     do: start(cwd || File.cwd!(), flags == ["--force"])
@@ -272,63 +291,22 @@ defmodule Whiska.CLI do
     0
   end
 
-  defp init(repo_root) do
-    path = Path.join(repo_root, ".claude/settings.json")
-    shim = Path.join(repo_root, Install.shim_path())
+  defp init(scope, root) do
+    path = Path.join(root, ".claude/settings.json")
+    shim = Path.join(root, Install.shim_path())
 
     with {:ok, settings} <- read_settings(path),
-         merged = Install.merge(settings),
+         merged = Install.merge(settings, scope),
+         :ok <- record_displaced(scope, root, settings),
          :ok <- File.mkdir_p(Path.dirname(shim)),
-         :ok <- File.write(shim, Install.shim()),
+         :ok <- File.write(shim, Install.shim(scope)),
          :ok <- File.chmod(shim, 0o755),
-         :ok <- write_statusline(repo_root),
-         :ok <- write_skills(repo_root),
-         :ok <- write_claude_md(repo_root),
+         :ok <- write_statusline(root),
+         :ok <- write_skills(scope, root),
+         :ok <- write_claude_md(scope, root),
          :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- File.write(path, JSON.encode!(merged) |> reformat()) do
-      say(
-        """
-        Wrote Whiska's PreToolUse hook to .claude/settings.json.
-
-          matcher: #{Install.matcher()}
-          command: #{Install.command()}
-
-        The shim it calls went to #{Install.shim_path()}. That is where the Whiska
-        binary and the Erlang runtime get resolved, when the hook fires — so
-        neither file names anything specific to this machine.
-
-        Also wrote the project statusline (#{Install.statusline_path()}). It runs
-        your global statusline and appends this repo's own line: what is waiting
-        in this house, and how many mice are alive here. It redraws every
-        #{Install.statusline_refresh_interval()} seconds, so a mouse that spawns or asks while you
-        sit still shows up anyway (ADR-0044). The owl's state and the
-        machine-wide view are not on it: they are drawn once on herdr's tab bar
-        (ADR-0048), and `whiska doctor` prints the entry that draws them.
-
-        And one slash command per whiska command under .claude/skills/.
-
-        And the worktree protocol went into CLAUDE.md — how a mouse gets spawned,
-        the worktree-status marker it ends a turn with, how its question reaches
-        you, the shape the message it writes takes, and what it does before it
-        says done — that last part is a pointer at the `whiska-finish` skill,
-        installed with the rest, so the five steps cost nothing until a turn is
-        actually ending (ADR-0045, ADR-0055). Each part sits in its own named markers, so the
-        next init replaces one without touching the others and nothing outside
-        them is read at all. Add `keep` to a part's start marker to make it
-        yours and Whiska will never rewrite it again.
-
-        Tell the finish part what green means here: a `## Finish` heading in
-        CLAUDE.md, outside Whiska's block, naming this repo's checks, where its
-        written decisions live and its ticket prefix. Without one a mouse runs
-        whatever the tooling obviously offers and says what it assumed.
-
-        Check them into git so the rules travel with the repo (ADR-0016):
-
-          git add .claude/settings.json .claude/hooks .claude/skills CLAUDE.md
-          git commit -m "chore: enable whiska"
-        """
-        |> String.trim()
-      )
+      say(told(scope))
     else
       {:error, :unparseable} ->
         IO.puts(
@@ -350,6 +328,248 @@ defmodule Whiska.CLI do
     end
   end
 
+  # The global statusLine Whiska is about to take over, kept where both scripts
+  # read it back and run it first (ADR-0056). Only the global install displaces
+  # anything: a project line is Claude Code's own replacement of the global one,
+  # and the repo's script already runs that one.
+  defp record_displaced(:repo, _root, _settings), do: :ok
+
+  defp record_displaced(:global, root, settings) do
+    case Install.displaced(settings) do
+      nil ->
+        :ok
+
+      command ->
+        path = Path.join(root, Install.base_statusline_path())
+
+        with :ok <- File.mkdir_p(Path.dirname(path)), do: File.write(path, command)
+    end
+  end
+
+  defp told(:repo) do
+    """
+    Wrote Whiska's PreToolUse hook to .claude/settings.json.
+
+      matcher: #{Install.matcher()}
+      command: #{Install.command()}
+
+    The shim it calls went to #{Install.shim_path()}. That is where the Whiska
+    binary and the Erlang runtime get resolved, when the hook fires — so
+    neither file names anything specific to this machine.
+
+    Also wrote the project statusline (#{Install.statusline_path()}). It runs
+    your global statusline and appends this repo's own line: what is waiting
+    in this house, and how many mice are alive here. It redraws every
+    #{Install.statusline_refresh_interval()} seconds, so a mouse that spawns or asks while you
+    sit still shows up anyway (ADR-0044). The owl's state and the
+    machine-wide view are not on it: they are drawn once on herdr's tab bar
+    (ADR-0048), and `whiska doctor` prints the entry that draws them.
+
+    And one slash command per whiska command under .claude/skills/.
+
+    And the worktree protocol went into CLAUDE.md — how a mouse gets spawned,
+    the worktree-status marker it ends a turn with, how its question reaches
+    you, the shape the message it writes takes, and what it does before it
+    says done — that last part is a pointer at the `whiska-finish` skill,
+    installed with the rest, so the five steps cost nothing until a turn is
+    actually ending (ADR-0045, ADR-0055). Each part sits in its own named markers, so the
+    next init replaces one without touching the others and nothing outside
+    them is read at all. Add `keep` to a part's start marker to make it
+    yours and Whiska will never rewrite it again.
+
+    Tell the finish part what green means here: a `## Finish` heading in
+    CLAUDE.md, outside Whiska's block, naming this repo's checks, where its
+    written decisions live and its ticket prefix. Without one a mouse runs
+    whatever the tooling obviously offers and says what it assumed.
+
+    Check them into git so the rules travel with the repo (ADR-0016):
+
+      git add .claude/settings.json .claude/hooks .claude/skills CLAUDE.md
+      git commit -m "chore: enable whiska"
+    """
+    |> String.trim()
+    |> then(&(&1 <> global_note()))
+  end
+
+  defp told(:global) do
+    """
+    Wrote Whiska into ~/.claude, for every repo on this machine.
+
+      ~/.claude/CLAUDE.md                      the worktree protocol
+      ~/#{Install.shim_path()}         the hook shim both hooks call
+      ~/#{Install.statusline_path()}  the board
+      ~/.claude/settings.json                  PreToolUse, Stop and the statusLine
+      ~/.claude/skills/                        whiska-questions, whiska-delivered,
+                                               whiska-reply, whiska-finish
+
+    Nothing else is needed per repo. The hooks work out for themselves which
+    worktree they are firing in, and the board is found by the directory the
+    session is sitting in — so a repo that cannot carry a committed `.claude/`
+    is covered by this and by its house alone.
+
+    Your own global statusline still runs first; it was kept at
+    ~/#{Install.base_statusline_path()} and the board goes under it.
+
+    Per repo there is still one thing worth writing: a `## Finish` heading in
+    that repo's own CLAUDE.md naming its checks, where its written decisions
+    live and its ticket prefix. Without one a mouse runs whatever the tooling
+    obviously offers and says what it assumed.
+
+    A repo that has run `whiska init` keeps winning — its own hooks, block and
+    skills are the ones in force, and this copy stands down there. To hand a
+    repo over to this one instead, run `whiska uninstall` inside it and commit
+    what that removes.
+    """
+    |> String.trim()
+    |> then(&(&1 <> through_links()))
+  end
+
+  # ~/.claude/CLAUDE.md and ~/.claude/settings.json are commonly links into a
+  # dotfiles repo. Every write went through the link, so the change is sitting
+  # in that repo and the person's next move is there, not here.
+  defp through_links do
+    case Install.global_links() do
+      [] ->
+        ""
+
+      links ->
+        """
+
+
+        Some of those paths are symlinks, so the change landed where they point:
+
+        #{Enum.map_join(links, "\n", fn {rel, target} -> "  ~/#{rel} → #{target}" end)}
+
+        The links themselves are untouched. Commit the change in the repo that
+        owns them.
+        """
+        |> String.trim_trailing()
+    end
+  end
+
+  # Said only where it changes what the person does next: a repo they are about
+  # to commit Whiska's files into, on a machine that already covers every repo.
+  defp global_note do
+    if Install.global_installed?() do
+      """
+
+
+      Whiska is also installed globally in ~/.claude. This repo's own copy is the
+      one in force here, and the global one stands down. If you would rather this
+      repo relied on the global install, run `whiska uninstall` here instead.
+      """
+      |> String.trim_trailing()
+    else
+      ""
+    end
+  end
+
+  defp uninstall(scope, root) do
+    path = Path.join(root, ".claude/settings.json")
+    base = read_base_statusline(scope, root)
+
+    with {:ok, settings} <- read_settings(path),
+         :ok <- rewrite_settings(path, Install.unmerge(settings, base)) do
+      {removed, linked} = remove_files(scope, root)
+      say(removal_report(scope, removed ++ remove_claude_md(scope, root), linked))
+    else
+      {:error, :unparseable} ->
+        IO.puts(:stderr, "whiska: could not parse #{path} — leaving it alone.")
+        1
+
+      {:error, reason} ->
+        IO.puts(:stderr, "whiska: could not write #{path} (#{inspect(reason)}).")
+        1
+    end
+  end
+
+  defp read_base_statusline(:repo, _root), do: nil
+
+  defp read_base_statusline(:global, root) do
+    case File.read(Path.join(root, Install.base_statusline_path())) do
+      {:ok, command} -> String.trim(command)
+      {:error, _} -> nil
+    end
+  end
+
+  # A settings file that was never there is not created just to be emptied.
+  defp rewrite_settings(path, settings) do
+    if File.exists?(path),
+      do: File.write(path, JSON.encode!(settings) |> reformat()),
+      else: :ok
+  end
+
+  # A path that is a symlink is somebody else's file seen through a link — a
+  # dotfiles repo, most often. Unlinking it would quietly disconnect that repo,
+  # so it is named and left exactly where it is.
+  defp remove_files(scope, root) do
+    paths =
+      [Install.shim_path(), Install.statusline_path()] ++
+        Enum.map(Install.skills(scope), &elem(&1, 0)) ++ base_statusline(scope)
+
+    paths
+    |> Enum.filter(&File.exists?(Path.join(root, &1)))
+    |> Enum.split_with(&(not link?(Path.join(root, &1))))
+    |> then(fn {removable, linked} ->
+      for rel <- removable do
+        File.rm(Path.join(root, rel))
+        File.rmdir(Path.dirname(Path.join(root, rel)))
+      end
+
+      {removable, linked}
+    end)
+  end
+
+  defp link?(path), do: match?({:ok, _}, :file.read_link(path))
+
+  defp base_statusline(:global), do: [Install.base_statusline_path()]
+  defp base_statusline(:repo), do: []
+
+  defp remove_claude_md(scope, root) do
+    path = claude_md_path(scope, root)
+
+    with {:ok, contents} <- File.read(path),
+         stripped when stripped != contents <- ClaudeMd.remove(contents),
+         :ok <- File.write(path, stripped) do
+      [Path.relative_to(path, root)]
+    else
+      _ -> []
+    end
+  end
+
+  defp removal_report(scope, [], linked) do
+    String.trim("Nothing of Whiska's to remove #{where(scope)}." <> left_linked(linked))
+  end
+
+  defp removal_report(scope, removed, linked) do
+    """
+    Removed Whiska #{where(scope)}:
+
+    #{Enum.map_join(removed, "\n", &("  " <> &1))}
+
+    The house is untouched: its mice, its questions and what is on its doorstep
+    are all still there, and `whiska init` puts the rest back.#{left_linked(linked)}
+    """
+    |> String.trim()
+  end
+
+  defp left_linked([]), do: ""
+
+  defp left_linked(linked) do
+    """
+
+
+    Left alone, because each is a symlink and removing it would disconnect
+    whatever it points at:
+
+    #{Enum.map_join(linked, "\n", &("  " <> &1))}
+    """
+    |> String.trim_trailing()
+  end
+
+  defp where(:repo), do: "from this repo"
+  defp where(:global), do: "from ~/.claude"
+
   defp write_statusline(repo_root) do
     script = Path.join(repo_root, Install.statusline_path())
 
@@ -359,9 +579,9 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp write_skills(repo_root) do
-    Enum.reduce_while(Install.skills(), :ok, fn {rel, body}, :ok ->
-      file = Path.join(repo_root, rel)
+  defp write_skills(scope, root) do
+    Enum.reduce_while(Install.skills(scope), :ok, fn {rel, body}, :ok ->
+      file = Path.join(root, rel)
 
       with :ok <- File.mkdir_p(Path.dirname(file)),
            :ok <- File.write(file, body) do
@@ -376,8 +596,8 @@ defmodule Whiska.CLI do
   # Rewritten on every init — that is the point of the per-part markers, and a
   # part the person has claimed with `keep` is skipped by the merge rather than
   # by refusing to write the file at all.
-  defp write_claude_md(repo_root) do
-    path = Path.join(repo_root, "CLAUDE.md")
+  defp write_claude_md(scope, root) do
+    path = claude_md_path(scope, root)
 
     existing =
       case File.read(path) do
@@ -385,11 +605,14 @@ defmodule Whiska.CLI do
         {:error, :enoent} -> ""
       end
 
-    case ClaudeMd.merge(existing) do
+    case ClaudeMd.merge(existing, scope) do
       ^existing -> :ok
-      merged -> File.write(path, merged)
+      merged -> with :ok <- File.mkdir_p(Path.dirname(path)), do: File.write(path, merged)
     end
   end
+
+  defp claude_md_path(:repo, root), do: Path.join(root, "CLAUDE.md")
+  defp claude_md_path(:global, root), do: Path.join(root, ".claude/CLAUDE.md")
 
   # A missing file is a fresh install; an unreadable one is not, and must never
   # be silently replaced.

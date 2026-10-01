@@ -25,6 +25,7 @@ C4Deployment
       Container(plist, "com.whiska.owl.plist", "~/Library/LaunchAgents/", "The job: runs owl.sh, KeepAlive on crash only")
       Container(wrapper, "owl.sh + owl.log", "~/.whiska/", "Resolves binary and runtime at launch; the owl's stdout and stderr")
       Container(cache, "exqlite cache", "~/.cache/whiska/", "Unpacked SQLite native library")
+      Container(globalinstall, "Global install - optional", "~/.claude/", "The same block, shim, board script, hooks and skills, for every repo. Often symlinks into a dotfiles repo")
     }
   }
 
@@ -33,6 +34,7 @@ C4Deployment
   Rel(owl, doorstep, "Collects on an idle signal")
   Rel(owl, sock, "Listens, one per open house")
   Rel(owl, globalsock, "Listens, one per machine")
+  Rel(mousepane, globalinstall, "Runs its hooks where the repo wires none")
   Rel(mousepane, doorstep, "Stop hook writes an entry")
   Rel(mousepane, markerf, "Hook reads or mints")
   Rel(mainpane, globalsock, "whiska projects / goto")
@@ -64,6 +66,24 @@ are the only commands that work from anywhere on the machine rather than inside 
 `dlopen`ed out of one, so the bundled SQLite library unpacks there on first run — 627 ms,
 once. It disappears with ADR-0033's native hook client.
 
+**`~/.claude/` is the second place the same install can live** (ADR-0056). A repo that
+cannot carry a committed `.claude/` — someone else's repo, or one whose owners will not
+take another tool's hooks — would otherwise spawn mice with none of the rules, because an
+uncommitted file is in no worktree git creates. `whiska init --global` writes the identical
+relative paths under `~` instead: the block in `~/.claude/CLAUDE.md`, the shim and the
+board script in `~/.claude/hooks/`, both hooks and the statusline in
+`~/.claude/settings.json`, and four skills in `~/.claude/skills/`. Nothing in the hooks was
+ever repo-specific — which worktree they are firing in comes from where the session started
+(ADR-0053), and the board file is found by walking up from the session's directory — so the
+move costs nothing. What stays in the repo is the house under `.git/whiska`, which was
+never committed anyway.
+
+The boundary that moves with it is who wins. Claude Code merges the hook arrays from both
+files, so in a repo that wires Whiska itself the global shim exits before resolving
+anything: the repo's copy is in force and this one stands down. These paths are also
+commonly symlinks into a dotfiles repo, so every write goes through the link and changes
+the target in place; replacing the link would disconnect that repo silently.
+
 **The LaunchAgent lives in the user's own `gui` domain** (ADR-0040): one job,
 `com.whiska.owl`, that starts the owl at login and restarts it on a crash. It runs the
 wrapper in `~/.whiska/` rather than the escript, because launchd's `PATH` cannot find
@@ -71,7 +91,7 @@ wrapper in `~/.whiska/` rather than the escript, because launchd's `PATH` cannot
 no arguments and opens what the open-houses record lists.
 
 **What actually exists today**: `whiska.db`, `.whiska-mouse`, `doorstep/`, the cache, the
-open-houses record, the LaunchAgent with its wrapper and log, and the owl itself with its
-houses and herdr subscription. Not yet: either socket, and `whiska stop` for one house. The
+open-houses record, the global install, the LaunchAgent with its wrapper and log, and the
+owl itself with its houses and herdr subscription. Not yet: either socket, and `whiska stop` for one house. The
 two sockets are drawn because their placement is the security argument above, not because
 they are written.
