@@ -338,7 +338,10 @@ defmodule Whiska.Doctor do
           "~/.claude — every repo on this machine is covered" <> linked(state)
         )
 
-      {[], _missing} ->
+      # The block alone is what an uninstall leaves behind when a part the
+      # person claimed with `keep` survives it (ADR-0045), so the markers on
+      # their own say nothing about whether anything is installed.
+      {there, _missing} when there == [] or there == [{:block?, "block in CLAUDE.md"}] ->
         Check.ok("global install", "not installed — this repo carries its own")
 
       {_there, missing} ->

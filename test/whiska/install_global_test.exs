@@ -64,6 +64,43 @@ defmodule Whiska.InstallGlobalTest do
       assert stand_down < resolve
     end
 
+    test "it stands down only for a repo whose shim is actually there" do
+      # The settings file is text a repo ships, so a repo that merely mentions
+      # the path must not be able to switch Whiska's enforcement off in itself.
+      assert Install.shim(:global) =~ ~s([ -f "$whiska_project_shim" ])
+    end
+
+    test "it never reads a path that is not a regular file" do
+      # `[ -r ]` is true of a FIFO, and grep on one with no writer blocks for
+      # ever — on a hook that fires on every tool call.
+      refute Install.shim(:global) =~ ~s([ -r "$whiska_settings" ])
+      assert Install.shim(:global) =~ ~s([ -f "$whiska_settings" ])
+    end
+
+    test "it skips the whole hook for a pre-tool-use call outside any worktree" do
+      # Outside a worktree PreToolUse has no mouse to apply a rule to and
+      # always allows, so the ~140 ms escript buys nothing — and the global
+      # shim now pays it in every repo on the machine.
+      shim = Install.shim(:global)
+
+      assert shim =~ ~s([ "$1" = "pre-tool-use" ])
+      assert shim =~ "*/worktrees/*"
+    end
+
+    test "it never skips a stop — a lost question is worse than a slow turn" do
+      shim = Install.shim(:global)
+      [guard, _] = String.split(shim, "*/worktrees/*", parts: 2)
+
+      # The guard is reached only for pre-tool-use, so a Stop always runs.
+      assert guard =~ ~s([ "$1" = "pre-tool-use" ])
+    end
+
+    test "it skips only when Claude Code said where the session started" do
+      # The working directory follows every `cd` the session runs (ADR-0053),
+      # so it is not safe to decide on, and an unset variable means do the work.
+      assert Install.shim(:global) =~ ~s([ -n "${CLAUDE_PROJECT_DIR:-}" ])
+    end
+
     test "the per-repo shim has no stand-down — nothing outranks it" do
       refute Install.shim(:repo) =~ "settings.local.json"
       assert Install.shim(:repo) == Install.shim()
@@ -176,6 +213,38 @@ defmodule Whiska.InstallGlobalTest do
 
       assert [%{"hooks" => [%{"command" => command}]}] = merged["hooks"]["PreToolUse"]
       assert command == Install.command(:global)
+    end
+  end
+
+  describe "a settings.json Whiska did not write" do
+    # ~/.claude/settings.json is the person's file and can hold anything. Before
+    # the global install nothing read it, and a shape that is merely odd must
+    # not take a command down.
+    @malformed [
+      %{"statusLine" => "my-line.sh"},
+      %{"statusLine" => []},
+      %{"hooks" => nil},
+      %{"hooks" => []},
+      %{"hooks" => "none"},
+      %{"hooks" => %{"PreToolUse" => %{"a" => 1}}},
+      %{"hooks" => %{"PreToolUse" => "mine.sh"}}
+    ]
+
+    test "merge/2 writes Whiska's own entries over it rather than raising" do
+      for settings <- @malformed do
+        merged = Install.merge(settings, :global)
+
+        assert [%{"hooks" => [%{"command" => command}]}] = merged["hooks"]["PreToolUse"]
+        assert command == Install.command(:global)
+        assert merged["statusLine"]["command"] == Install.statusline_command(:global)
+        assert JSON.encode!(merged)
+      end
+    end
+
+    test "unmerge/2 leaves it rather than raising" do
+      for settings <- @malformed do
+        assert JSON.encode!(Install.unmerge(settings, nil))
+      end
     end
   end
 

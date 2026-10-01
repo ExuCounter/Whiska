@@ -159,6 +159,32 @@ defmodule Whiska.Install do
   # It reads the repo's settings rather than only looking for the shim file,
   # because a shim nothing wires runs for nobody. grep rather than jq: a hook
   # cannot assume jq is installed, and nothing here needs the parse.
+  # Both halves are required, and that is the security of it: a repo's
+  # `settings.json` is text the repo ships, so a repo that merely mentions the
+  # path could otherwise switch Whiska's enforcement off inside itself. A repo
+  # that has the shim *and* wires it is a repo that ran `whiska init`.
+  #
+  # grep rather than jq: a hook cannot assume jq is installed, and nothing here
+  # needs the parse. `-f` rather than `-r`: `-r` is true of a FIFO, and grep on
+  # one with no writer waits for ever — on a hook that fires on every tool call.
+  # Both halves of the stand-down are required, and that is the security of it:
+  # a repo's `settings.json` is text the repo ships, so a repo that merely
+  # mentions the path could otherwise switch Whiska's enforcement off inside
+  # itself. A repo that has the shim *and* wires it is one that ran `whiska
+  # init`.
+  #
+  # grep rather than jq: a hook cannot assume jq is installed, and nothing here
+  # needs the parse. `-f` rather than `-r`: `-r` is true of a FIFO, and grep on
+  # one with no writer waits for ever — on a hook that fires on every tool call.
+  #
+  # The second early-out is the one the global copy needs most. Outside a
+  # worktree `Whiska.Hook.PreToolUse` has no mouse to apply a rule to and always
+  # allows, so the ~140 ms escript says nothing — and this copy pays it in every
+  # repo on the machine, on most of a working session's tool calls. It is
+  # decided on `CLAUDE_PROJECT_DIR`, which is fixed for a session's whole life,
+  # and skipped entirely when that is unset: the working directory follows every
+  # `cd` the session runs (ADR-0053) and is not safe to decide on. `Stop` never
+  # takes this path at all — a question lost is worse than a turn slowed.
   @shim_stand_down """
   #!/usr/bin/env bash
   # Whiska's hooks, the copy in ~/.claude (`whiska init --global`).
@@ -166,13 +192,26 @@ defmodule Whiska.Install do
   # A repo that wires Whiska itself wins: Claude Code runs both this and the
   # repo's own hook, and running both would deny twice and leave two questions
   # on the doorstep for one turn.
-  for whiska_settings in \
-    "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/settings.json" \
-    "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/settings.local.json"; do
-    if [ -r "$whiska_settings" ] && grep -q '\\.claude/hooks/whiska\\.sh' "$whiska_settings" 2>/dev/null; then
-      exit 0
-    fi
-  done
+  whiska_project="${CLAUDE_PROJECT_DIR:-$PWD}"
+  whiska_project_shim="$whiska_project/#{@shim_path}"
+  if [ -f "$whiska_project_shim" ]; then
+    for whiska_settings in \
+      "$whiska_project/.claude/settings.json" \
+      "$whiska_project/.claude/settings.local.json"; do
+      if [ -f "$whiska_settings" ] && grep -q '#{String.replace(@shim_path, ".", "\\.")}' "$whiska_settings" 2>/dev/null; then
+        exit 0
+      fi
+    done
+  fi
+
+  # Only a session started inside a worktree can be a mouse, and only a mouse
+  # has a rule to break.
+  if [ "$1" = "pre-tool-use" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+    case "$CLAUDE_PROJECT_DIR" in
+      */worktrees/*) ;;
+      *) exit 0 ;;
+    esac
+  fi
 
   """
 
@@ -716,7 +755,7 @@ defmodule Whiska.Install do
           wired?(settings, "Stop", stop_command(:global)) and
           File.exists?(Path.join(home, @shim_path)),
       statusline?:
-        get_in(settings, ["statusLine", "command"]) == statusline_command(:global) and
+        statusline_command_in(settings) == statusline_command(:global) and
           File.exists?(Path.join(home, @statusline_path)),
       skills?: Enum.all?(skills(:global), fn {rel, _} -> File.exists?(Path.join(home, rel)) end),
       links: global_links()
@@ -769,8 +808,24 @@ defmodule Whiska.Install do
   end
 
   defp wired?(settings, event, expected) do
-    (get_in(settings, ["hooks", event]) || [])
+    settings
+    |> entries(event)
     |> Enum.any?(&(ours?(&1) and our_command(&1) == expected))
+  end
+
+  defp statusline_command_in(%{"statusLine" => %{"command" => command}}) when is_binary(command),
+    do: command
+
+  defp statusline_command_in(_settings), do: nil
+
+  # `~/.claude/settings.json` is the person's file and `whiska init` now reads it
+  # whatever is in it. Anything but a list of entries is not a hook Whiska can
+  # recognise, and is no reason to take a command down.
+  defp entries(settings, event) do
+    case settings do
+      %{"hooks" => %{^event => entries}} when is_list(entries) -> entries
+      _ -> []
+    end
   end
 
   defp our_command(%{"hooks" => hooks}) do
@@ -884,7 +939,7 @@ defmodule Whiska.Install do
     stop = %{"hooks" => [%{"type" => "command", "command" => stop_command(scope)}]}
 
     settings
-    |> Map.put_new("hooks", %{})
+    |> sound_hooks()
     |> put_ours("PreToolUse", [pre_tool_use])
     |> put_ours("Stop", [stop])
     |> put_statusline(scope)
@@ -924,14 +979,17 @@ defmodule Whiska.Install do
   end
 
   defp drop_ours(settings, event) do
-    case get_in(settings, ["hooks", event]) do
-      nil -> settings
-      entries -> put_in(settings, ["hooks", event], Enum.reject(entries, &ours?/1))
+    case settings do
+      %{"hooks" => %{^event => entries}} when is_list(entries) ->
+        put_in(settings, ["hooks", event], Enum.reject(entries, &ours?/1))
+
+      _ ->
+        settings
     end
   end
 
   defp restore_statusline(settings, base) do
-    case settings["statusLine"] do
+    case Map.get(settings, "statusLine") do
       %{"command" => command} when is_binary(command) ->
         cond do
           not String.contains?(command, @statusline_path) ->
@@ -981,10 +1039,15 @@ defmodule Whiska.Install do
   end
 
   defp put_ours(settings, event, entries) do
-    existing = get_in(settings, ["hooks", event]) || []
-    others = Enum.reject(existing, &ours?/1)
+    others = settings |> entries(event) |> Enum.reject(&ours?/1)
     put_in(settings, ["hooks", event], others ++ entries)
   end
+
+  # Whiska's own entries go in whatever was there; a `hooks` value that is not a
+  # map of lists is not something it can add to, and is replaced rather than
+  # reached into.
+  defp sound_hooks(%{"hooks" => hooks} = settings) when is_map(hooks), do: settings
+  defp sound_hooks(settings), do: Map.put(settings, "hooks", %{})
 
   # Ours is whatever runs a `whiska ... hook ...`, or the shim that does it for
   # us, or the retired review loop — a settings.json from the version that gave

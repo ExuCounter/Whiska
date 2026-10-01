@@ -29,6 +29,13 @@ defmodule Whiska.DoctorGlobalTest do
       assert detail =~ "~/.claude"
     end
 
+    test "a block left behind by an uninstall is not a half-written install" do
+      # `remove/1` keeps the outer markers whenever a part the person claimed
+      # with `keep` survives (ADR-0045), so the markers alone mean nothing.
+      assert %Check{status: :ok, detail: detail} = Doctor.global(%{absent() | block?: true})
+      assert detail =~ "not installed"
+    end
+
     test "a half-written install is a warning naming what is missing" do
       assert %Check{status: :warn, detail: detail, fix: "whiska init --global"} =
                Doctor.global(%{installed() | skills?: false})

@@ -395,12 +395,7 @@ defmodule Whiska.CLI do
     """
     Wrote Whiska into ~/.claude, for every repo on this machine.
 
-      ~/.claude/CLAUDE.md                      the worktree protocol
-      ~/#{Install.shim_path()}         the hook shim both hooks call
-      ~/#{Install.statusline_path()}  the board
-      ~/.claude/settings.json                  PreToolUse, Stop and the statusLine
-      ~/.claude/skills/                        whiska-questions, whiska-delivered,
-                                               whiska-reply, whiska-finish
+    #{written()}
 
     Nothing else is needed per repo. The hooks work out for themselves which
     worktree they are firing in, and the board is found by the directory the
@@ -422,6 +417,20 @@ defmodule Whiska.CLI do
     """
     |> String.trim()
     |> then(&(&1 <> through_links()))
+  end
+
+  defp written do
+    [
+      {"~/.claude/CLAUDE.md", "the worktree protocol"},
+      {"~/" <> Install.shim_path(), "the hook shim both hooks call"},
+      {"~/" <> Install.statusline_path(), "the board"},
+      {"~/.claude/settings.json", "PreToolUse, Stop and the statusLine"},
+      {"~/.claude/skills/", "whiska-questions, whiska-delivered, whiska-reply,"},
+      {"", "whiska-finish"}
+    ]
+    |> Enum.map_join("\n", fn {path, what} ->
+      "  " <> String.pad_trailing(path, 40) <> what
+    end)
   end
 
   # ~/.claude/CLAUDE.md and ~/.claude/settings.json are commonly links into a
@@ -499,9 +508,11 @@ defmodule Whiska.CLI do
       else: :ok
   end
 
-  # A path that is a symlink is somebody else's file seen through a link — a
-  # dotfiles repo, most often. Unlinking it would quietly disconnect that repo,
-  # so it is named and left exactly where it is.
+  # A path that resolves outside the root is somebody else's file seen through a
+  # link — a dotfiles repo, most often. Deleting it would quietly take something
+  # out of that repo, so it is named and left exactly where it is. The whole path
+  # is resolved, not only its last segment: `~/.claude/skills` is commonly one
+  # link rather than a link per skill file.
   defp remove_files(scope, root) do
     paths =
       [Install.shim_path(), Install.statusline_path()] ++
@@ -509,7 +520,7 @@ defmodule Whiska.CLI do
 
     paths
     |> Enum.filter(&File.exists?(Path.join(root, &1)))
-    |> Enum.split_with(&(not link?(Path.join(root, &1))))
+    |> Enum.split_with(&ours_to_remove?(root, &1))
     |> then(fn {removable, linked} ->
       for rel <- removable do
         File.rm(Path.join(root, rel))
@@ -520,7 +531,9 @@ defmodule Whiska.CLI do
     end)
   end
 
-  defp link?(path), do: match?({:ok, _}, :file.read_link(path))
+  defp ours_to_remove?(root, rel) do
+    Layout.inside?(Path.join(root, rel), root)
+  end
 
   defp base_statusline(:global), do: [Install.base_statusline_path()]
   defp base_statusline(:repo), do: []
@@ -559,8 +572,9 @@ defmodule Whiska.CLI do
     """
 
 
-    Left alone, because each is a symlink and removing it would disconnect
-    whatever it points at:
+    Left alone: each of these is reached through a symlink and really lives
+    somewhere else, so removing it would take a file out of whatever repo owns
+    it:
 
     #{Enum.map_join(linked, "\n", &("  " <> &1))}
     """

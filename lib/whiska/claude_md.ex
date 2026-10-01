@@ -58,19 +58,30 @@ defmodule Whiska.ClaudeMd do
        keep -->` — and Whiska will never rewrite it again. See Whiska ADR-0045. -->\
   """
 
-  # The same block in `~/.claude/CLAUDE.md` (ADR-0056). Claude Code loads both
-  # files, so a project that carries its own copy would have the rules twice.
-  # The last sentence is what settles it, and it is a rule a session follows
-  # rather than anything Whiska can enforce: the project's copy is in force,
-  # because it is the one that can be edited to suit the project.
   @global_header """
   <!-- whiska:start -->
   <!-- Whiska wrote this block (`whiska init --global`). Each part below is replaced
        in place on the next run and nothing outside the markers is touched. To keep
        a part as your own, add `keep` to its start marker — `<!-- whiska:NAME:start
-       keep -->` — and Whiska will never rewrite it again. See Whiska ADR-0045.
-       Where this project's own CLAUDE.md carries the same block, that copy is the
-       one in force and this one is ignored. See Whiska ADR-0056. -->\
+       keep -->` — and Whiska will never rewrite it again. See Whiska ADR-0045. -->\
+  """
+
+  # Only in the global block (ADR-0056). Claude Code loads this file and the
+  # project's own, so a project carrying its own copy would have every rule
+  # twice; this is what settles which one counts. It is a part rather than a
+  # line in the header because the header is not re-added to a block that
+  # already exists, and this rule has to survive an uninstall and a reinstall.
+  @scope """
+  <!-- whiska:scope:start -->
+  ## Which copy of these rules counts
+
+  These rules are installed for every repo on this machine (`whiska init --global`).
+
+  - This project's own `CLAUDE.md` carries the same block → that copy is in force and
+    this one is ignored. Follow the project's.
+  - It does not → these are the rules.
+  - `## Finish`, and what green means here, are always the project's own `CLAUDE.md`.
+  <!-- whiska:scope:end -->\
   """
 
   @worktrees """
@@ -229,14 +240,18 @@ defmodule Whiska.ClaudeMd do
   end
 
   defp parts_for(scope) do
-    [
-      %{name: "worktrees", body: @worktrees},
-      %{name: "marker", body: @marker},
-      %{name: "delivery", body: @delivery},
-      %{name: "report", body: @report},
-      %{name: "finish", body: finish(scope)}
-    ]
+    scope_part(scope) ++
+      [
+        %{name: "worktrees", body: @worktrees},
+        %{name: "marker", body: @marker},
+        %{name: "delivery", body: @delivery},
+        %{name: "report", body: @report},
+        %{name: "finish", body: finish(scope)}
+      ]
   end
+
+  defp scope_part(:repo), do: []
+  defp scope_part(:global), do: [%{name: "scope", body: @scope}]
 
   @doc """
   The parts the block is made of, in the order they are written, each as

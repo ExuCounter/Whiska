@@ -57,6 +57,40 @@ defmodule Whiska.ClaudeMdGlobalTest do
     end
   end
 
+  describe "the scope part — the rule that settles a duplicate block" do
+    test "the global block carries it and the per-repo block does not" do
+      assert Enum.any?(ClaudeMd.parts(:global), &(&1.name == "scope"))
+      refute Enum.any?(ClaudeMd.parts(:repo), &(&1.name == "scope"))
+    end
+
+    test "it says the project's own copy is the one in force" do
+      scope = Enum.find(ClaudeMd.parts(:global), &(&1.name == "scope"))
+
+      assert scope.body =~ ~r/in force/
+      assert scope.body =~ "CLAUDE.md"
+    end
+
+    test "it comes back after an uninstall that a kept part survived" do
+      # The header is not a part, so it is not re-added to a block that already
+      # exists — which is why this rule cannot live there.
+      kept =
+        ClaudeMd.merge("# Mine\n", :global)
+        |> String.replace(
+          "<!-- whiska:report:start -->",
+          "<!-- whiska:report:start keep -->"
+        )
+
+      round_trip = kept |> ClaudeMd.remove() |> ClaudeMd.merge(:global)
+
+      assert round_trip =~ "in force"
+      assert round_trip =~ "<!-- whiska:scope:start -->"
+    end
+
+    test "a per-repo block never gains it" do
+      refute ClaudeMd.merge("", :repo) =~ "<!-- whiska:scope:start -->"
+    end
+  end
+
   describe "merge/2" do
     test "is idempotent" do
       once = ClaudeMd.merge("", :global)

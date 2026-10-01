@@ -55,12 +55,28 @@ settles it everywhere: **the per-repo install is in force and the global one sta
 - **Hooks** are the sharp case: Claude Code *merges* the hook arrays, so both would fire —
   two denials for one tool call, and two entries on the doorstep for one finished turn,
   which is the same question delivered to the person twice. The global shim therefore
-  exits before it resolves anything when the repo's own `settings.json` (or
-  `settings.local.json`) wires Whiska. It greps for the shim path rather than parsing:
-  a hook cannot assume `jq` is installed.
-- **The block** is text, so the global copy says so in its header and a session follows it.
-  Nothing can enforce this and nothing needs to: the two copies say the same thing, and the
-  cost of reading both is tokens, not behaviour.
+  exits before it resolves anything when the repo both **has** `.claude/hooks/whiska.sh`
+  and **wires** it in its own `settings.json` or `settings.local.json`. Both halves are
+  required, and that is the security of it: a repo's settings file is text the repo ships,
+  so checking only for the string would let any repo the person clones switch Whiska's
+  containment off inside itself. A repo that has the shim and wires it is a repo that ran
+  `whiska init`. It greps rather than parsing — a hook cannot assume `jq` is installed —
+  and tests `-f` rather than `-r`, because `-r` is true of a FIFO and grep on one with no
+  writer waits for ever, on a hook that fires on every tool call.
+
+  One case it does not catch: a repo whose per-repo entry predates the shim (ADR-0035) names
+  the binary directly and has no `whiska.sh` at all, so the global copy does not stand down
+  and both hooks fire. `whiska doctor` already fails such a repo by name — "older version of
+  the hook command" — with `whiska init` as the fix, and re-running it is what settles this
+  too. Teaching the bash every command shape Whiska has ever written would put the fragility
+  back where the first half of this check just took it out.
+- **The block** is text, so the global copy carries a `scope` part saying so and a session
+  follows it. Nothing can enforce this and nothing needs to: the two copies say the same
+  thing, and the cost of reading both is tokens, not behaviour. It is a part rather than a
+  sentence in the block's header because the header is written only when the block is
+  created and never re-added to one that exists, so an uninstall that a `keep` part survived
+  would leave the rule out of the block the next install writes. As a part it is replaced
+  every time, and can be claimed with `keep` like any other (ADR-0045).
 - **The statusline** needs no rule. A project `statusLine` replaces the global one rather
   than merging with it.
 - **The skills** need no rule either. Claude Code already prefers a project skill over a
@@ -70,6 +86,22 @@ So `whiska init` never refuses, and never deletes anything. A repo whose team wa
 rules committed still commits them, on a machine that also has the global install, and a
 teammate without one is unaffected. `whiska init` says the global install is there only
 because it changes what the person might do next.
+
+## The global shim skips a tool call it could never deny
+
+The per-repo shim runs only where somebody asked for it. The global one runs on most of
+every session's tool calls, in every repo on the machine — measured at ~143 ms a call,
+against ADR-0033's budget of ~124 ms for the hook itself. In a repo with no mouse that
+buys nothing: `PreToolUse` resolves the session's worktree first and allows outright when
+there is none, so outside a `worktrees/<branch>/` folder the answer is structurally always
+allow. So the global shim exits early for a `pre-tool-use` whose `CLAUDE_PROJECT_DIR` is
+not inside a worktree — ~5 ms instead of ~143 ms.
+
+Two limits make that safe. It reads `CLAUDE_PROJECT_DIR`, which is fixed for a session's
+whole life, and does nothing when it is unset: the working directory follows every `cd` a
+session runs and is not safe to decide on (ADR-0053). And `Stop` never takes this path at
+all — a question lost is worse than a turn slowed, and `Stop` fires once a turn, where the
+cost does not matter.
 
 ## The global statusline keeps the line it displaced
 
@@ -95,8 +127,18 @@ person's next move is to commit it in the repo that owns the link, not here.
 
 `whiska uninstall`, and `whiska uninstall --global`, are the mirror of `init` and the way
 to hand a repo over to the global install: they take out the block, the hook entries, the
-scripts and the skills, restore the displaced statusline, and touch nothing else. The
-house is untouched — ADR-0007 is about records, and uninstalling is about files. A part
+scripts and the skills, restore the displaced statusline, and touch nothing else. A file
+whose path resolves outside the scope's root is named and left where it is — the whole
+path is resolved, not only its last segment, because `~/.claude/skills` is commonly one
+link into a dotfiles repo rather than a link per skill file.
+
+One thing is not restored exactly: a displaced `statusLine` comes back as its `type` and
+`command`, so any other field it carried — a `padding`, a `refreshInterval` of the person's
+own — is gone. The base file holds a bare command because the scripts `cat` it and run it
+without needing `jq`, and keeping a second, richer copy of the same thing beside it is a
+worse trade than the field.
+
+The house is untouched — ADR-0007 is about records, and uninstalling is about files. A part
 claimed with `keep` is the person's and stays, markers and all (ADR-0045).
 
 ## Consequences

@@ -123,6 +123,24 @@ defmodule Whiska.CLIInitGlobalTest do
       assert {File.read!(Path.join(home, ".claude/CLAUDE.md")), File.read!(path)} == before
     end
 
+    test "survives a settings.json whose shape Whiska did not write", %{settings: path} do
+      File.mkdir_p!(Path.dirname(path))
+      File.write!(path, JSON.encode!(%{"statusLine" => "my-line.sh", "hooks" => []}))
+
+      init_global()
+
+      assert settings(path)["statusLine"]["command"] == Install.statusline_command(:global)
+    end
+
+    test "whiska init in a repo survives one too", %{repo: repo, settings: path} do
+      # `whiska init` never read ~/.claude before; a shape it cannot read there
+      # must not take the per-repo install down with it.
+      File.mkdir_p!(Path.dirname(path))
+      File.write!(path, JSON.encode!(%{"statusLine" => "my-line.sh"}))
+
+      capture_io(fn -> assert CLI.run(["init"], repo) == 0 end)
+    end
+
     test "refuses rather than overwrite settings it cannot parse", %{settings: path} do
       File.mkdir_p!(Path.dirname(path))
       File.write!(path, "{not json")

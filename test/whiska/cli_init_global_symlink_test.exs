@@ -129,6 +129,25 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
     assert output =~ "symlink"
   end
 
+  test "uninstall does not delete through a symlinked parent directory", %{
+    home: home,
+    dotfiles: dotfiles
+  } do
+    # ~/.claude/skills is commonly one link into a dotfiles repo, rather than a
+    # link per skill file. A leaf that is not itself a link still lives there.
+    skills = Path.join(dotfiles, "skills")
+    File.mkdir_p!(skills)
+    link(skills, Path.join(home, ".claude/skills"))
+
+    init_global()
+    assert File.regular?(Path.join(skills, "whiska-questions/SKILL.md"))
+
+    output = capture_io(fn -> assert CLI.run(["uninstall", "--global"], nil) == 0 end)
+
+    assert File.regular?(Path.join(skills, "whiska-questions/SKILL.md"))
+    assert output =~ "symlink"
+  end
+
   test "a real file is still removed outright", %{home: home} do
     init_global()
     capture_io(fn -> assert CLI.run(["uninstall", "--global"], nil) == 0 end)
