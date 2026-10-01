@@ -77,6 +77,39 @@ one repo's storage, the **owl** is the one background process watching every hou
 question waits on the **doorstep** until the owl collects it —
 [`CONTEXT.md`](CONTEXT.md) defines each.
 
+## What you get
+
+- **Nothing is lost while the owl is down** — a mouse writes its message into the repo and
+  carries on; the owl collects it whenever it is back.
+  [Details](docs/internals.md#the-owl-the-house-the-doorstep)
+- **One question at a time** — the next goes only when your pane is idle, you are not
+  half-way through typing, and the one before it is settled. A "finished" line waits on
+  nothing and goes ahead of the queue.
+- **A mouse that moved on cannot wedge the queue** — its newer question replaces its own
+  older ones.
+- **Answers are routed for you** — `whiska reply 12` types into mouse #12's own pane,
+  whichever branch and worktree that is.
+- **A board where you are already looking** — a row per live mouse in this repo's
+  statusline, five at most, drawn under your own line with nothing of yours replaced.
+  [Details](docs/internals.md#this-repos-board-in-claude-code)
+- **Mice stay out of each other's files** — a build mouse is denied writes into the main
+  checkout and the worktrees beside it; a sniff mouse is denied them everywhere. Not a
+  sandbox — see below.
+  [Details](docs/internals.md#what-is-enforced)
+- **The owl comes back by itself** — launchd restarts it after a crash and at login, and it
+  reopens exactly the houses it had. [Details](docs/internals.md#keeping-the-owl-awake)
+- **Nothing is ever deleted** — questions, mouse records and collected entries are kept, and
+  no worktree is ever touched.
+- **Broken Whiska never blocks your session** — the hook complains on stderr and allows the
+  call rather than denying everything.
+- **It fits the config you already have** — `init` merges into the repo's own
+  `.claude/settings.json`, leaves other people's hooks alone, refuses rather than overwrite
+  what it cannot parse, and `whiska uninstall` takes it back out. Per repo, and only after
+  you run it. [Details](docs/internals.md#what-whiska-init-writes)
+- **`whiska doctor` runs the real thing** — prerequisites, the hooks through the committed
+  shim, the house, the doorstep, the backstop, the queue, every mouse record; each failing
+  line names its own fix. [Details](docs/internals.md#a-full-whiska-doctor-run)
+
 ## Commands
 
 ```
