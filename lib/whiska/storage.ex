@@ -416,7 +416,9 @@ defmodule Whiska.Storage do
   Every question nothing can act on any more, oldest first, with its mouse.
 
   Its mouse died (ADR-0026) or its worktree is gone (ADR-0036). Kept forever
-  (ADR-0007) and shown by `whiska questions`, but never delivered or counted.
+  (ADR-0007), never delivered, and shown apart from what the person can still
+  answer: `whiska questions` lists them under their own heading and the board
+  counts them on its own `🐱 n orphaned` line (ADR-0051).
   """
   @spec orphaned_questions() :: [Question.t()]
   def orphaned_questions, do: questions_with_status(["orphaned"])
