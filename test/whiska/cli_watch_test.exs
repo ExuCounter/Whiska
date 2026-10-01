@@ -69,7 +69,7 @@ defmodule Whiska.CLIWatchTest do
       assert out =~ "which db?"
     end
 
-    test "a dead mouse has no row, and what it left is counted", %{main: main} do
+    test "a dead mouse has no row, and what it left is counted as orphaned", %{main: main} do
       seed_mouse(main, "ma", "feat-a")
       seed_question(main, "ma", "Body.\n\npick one\n\u2063\u2063")
 
@@ -82,7 +82,8 @@ defmodule Whiska.CLIWatchTest do
       out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
       refute out =~ "🐭 feat-a"
-      assert out =~ "🐱 1 waiting"
+      refute out =~ "waiting"
+      assert out =~ "🐱 1 orphaned"
     end
 
     test "a stale record for a folder a branch nests under is on neither list", %{main: main} do

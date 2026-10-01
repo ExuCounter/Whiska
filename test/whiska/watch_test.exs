@@ -190,7 +190,7 @@ defmodule Whiska.WatchTest do
       assert board.waiting == 0
     end
 
-    test "a dead mouse is not a row, and its orphaned questions are counted" do
+    test "a dead mouse is not a row, and its orphaned questions are counted apart" do
       mice = [mouse("feat-gone", died_at: @now)]
 
       board =
@@ -202,11 +202,13 @@ defmodule Whiska.WatchTest do
         )
 
       assert board.rows == []
-      assert board.waiting == 2
+      assert board.waiting == 0
+      assert board.orphaned == 2
     end
 
     test "a dead mouse with nothing waiting leaves no trace" do
-      assert board([mouse("feat-gone", died_at: @now)]) == %{rows: [], more: 0, waiting: 0}
+      assert board([mouse("feat-gone", died_at: @now)]) ==
+               %{rows: [], more: 0, waiting: 0, orphaned: 0}
     end
 
     test "a dead mouse takes no room from the live ones" do
@@ -219,7 +221,8 @@ defmodule Whiska.WatchTest do
         )
 
       assert [%{branch: "feat-a"}] = board.rows
-      assert board.waiting == 1
+      assert board.waiting == 0
+      assert board.orphaned == 1
     end
 
     test "a question whose mouse has no row is counted underneath" do
@@ -237,6 +240,19 @@ defmodule Whiska.WatchTest do
         )
 
       assert board.waiting == 0
+    end
+
+    test "an uncovered question and an orphan are counted on their own lines" do
+      board =
+        board([mouse("feat-gone", died_at: @now)],
+          questions: [
+            question(52, "feat-vanished"),
+            question(51, "feat-gone", status: "orphaned")
+          ]
+        )
+
+      assert board.waiting == 1
+      assert board.orphaned == 1
     end
   end
 
@@ -402,7 +418,19 @@ defmodule Whiska.WatchTest do
           questions: [question(51, "feat-gone", status: "orphaned")]
         )
 
-      assert Watch.render(board) == "🐱 1 waiting"
+      assert Watch.render(board) == "🐱 1 orphaned"
+    end
+
+    test "waiting and orphaned are separate lines, waiting first" do
+      board =
+        board([mouse("feat-gone", died_at: @now)],
+          questions: [
+            question(52, "feat-vanished"),
+            question(51, "feat-gone", status: "orphaned")
+          ]
+        )
+
+      assert Watch.render(board) == "🐱 1 waiting\n🐱 1 orphaned"
     end
   end
 end

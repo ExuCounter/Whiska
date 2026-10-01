@@ -46,7 +46,8 @@ jump sideways the moment the last working mouse stops.
 
 **A dead mouse (ADR-0026) has no row.** The board is what is running here, and a branch
 whose worktree the person dropped is not. What it left behind is not lost: an orphaned
-question is counted in the `🐱 n waiting` line and read in full with `whiska questions`.
+question is counted in the `🐱 n waiting` line and read in full with `whiska questions`
+(the count moved to a line of its own — see the addendum of 2026-10-01).
 **The board never acts** — it reports, and the person runs the command.
 
 **The board and `whiska mice` read one set**, `Whiska.Storage.alive_mice/0`. Two readers
@@ -163,9 +164,10 @@ Two rows the person did not want, both seen in one repo on one morning.
 **The dimmed dead row is withdrawn.** It was there so an orphaned question kept the
 `whiska close <id>` that settles it next to it. In use it reads as a branch still being
 worked on, and the person has already dropped that worktree — the row is the one thing on
-the board that is not about work in progress. The `🐱 n waiting` line counts every orphan,
-and `whiska questions` shows and settles them, so nothing is unreachable; the board is
-only live mice now.
+the board that is not about work in progress. A line underneath counts every orphan — the
+`🐱 n waiting` one until the addendum of 2026-10-01 gave them `🐱 n orphaned` — and
+`whiska questions` shows and settles them, so nothing is unreachable; the board is only
+live mice now.
 
 **A record whose folder holds another record's worktree is stale.** A branch with a slash
 nests on disk, so `worktrees/feat/checkout-form` sits under `worktrees/feat` — an ordinary
@@ -183,3 +185,22 @@ records for the same folder, the newer one stands. The rule lives in
 `Whiska.Storage.current_mice/0`, under the one set both readers use, and the owl matches
 panes against it — a stale record takes no pane, and is marked dead on the same pass like
 any other mouse with none.
+
+## Addendum (2026-10-01): an orphan is counted, but not under the word "waiting"
+
+This ADR, and the note above it, put orphans in the one count:
+
+> an orphaned question is counted in the `🐱 n waiting` line
+
+In use that line is a lie the person cannot act on. This repo's board said `🐱 1 waiting`
+with one orphan behind it, `interview-template`'s said `🐱 2 waiting` with two, and
+`whiska waiting` said nothing needs them — which was the true answer, since an orphan's
+mouse and worktree are gone and there is nowhere to reply. A count that sends the person
+to `whiska reply` for something no reply can reach is worse than no count.
+
+**The board counts the two apart**: `🐱 n waiting`, every answerable question no row
+carries, and under it `🐱 n orphaned`, everything a dead mouse left behind. Both lines are
+drawn whenever their count is non-zero, so the rule above still holds in full — nothing
+waiting leaves the board uncounted — and the person reads either in full with
+`whiska questions`. `Whiska.Watch.board/2` splits the questions it is given by status, and
+the two counts are never added.

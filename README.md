@@ -238,8 +238,8 @@ thing more — the question waiting on you when there is one, and otherwise what
 is doing, read from its own Claude Code transcript and never asked for (ADR-0050). Five
 rows at most, ordered by how much each wants you; the rest become `🐭 +3 more`, and a
 mouse with a question on you is never one of them. A dead mouse has no row: a branch whose
-worktree you dropped is not running here, and anything it left waiting is counted in the
-`🐱 n waiting` line and read with `whiska questions`. The board reports and never acts. A
+worktree you dropped is not running here, and anything it left behind is counted on a
+`🐱 n orphaned` line of its own — nobody can answer it — and read with `whiska questions`. The board reports and never acts. A
 quiet repo draws nothing at all.
 
 Your own mice's sessions draw no board: `.claude/settings.json` is committed, so every

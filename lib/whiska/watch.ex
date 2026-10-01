@@ -18,9 +18,12 @@ defmodule Whiska.Watch do
 
   A dead mouse (ADR-0026) has no row at all: its worktree is gone, and a branch
   the person dropped is not something they want to keep looking at. What it left
-  behind is not lost — an orphaned question is counted in the `🐱 n waiting`
-  line and read in full with `whiska questions`. Nothing here acts — the board
-  only reports.
+  behind is not lost — it is counted in a `🐱 n orphaned` line of its own, under
+  the `🐱 n waiting` line, and read in full with `whiska questions`. The two
+  counts are never added together: an orphaned question has nowhere to reply, so
+  calling it waiting tells the person to answer something they cannot, and
+  disagrees with `whiska waiting`, which says nothing needs them. Nothing here
+  acts — the board only reports.
   """
 
   alias Whiska.Herdr
@@ -43,6 +46,7 @@ defmodule Whiska.Watch do
   @ticker_width @frames |> Enum.map(&String.length/1) |> Enum.max()
 
   @waiting ["open", "sent"]
+  @orphaned "orphaned"
 
   @typedoc "One line of the board, already rendered as words."
   @type row :: %{
@@ -53,8 +57,16 @@ defmodule Whiska.Watch do
           detail: String.t()
         }
 
-  @typedoc "`more` is how many live mice the cap left off; `waiting` what no row covers."
-  @type t :: %{rows: [row()], more: non_neg_integer(), waiting: non_neg_integer()}
+  @typedoc """
+  `more` is how many live mice the cap left off; `waiting` what no row covers
+  and the person can still answer; `orphaned` what nothing can act on any more.
+  """
+  @type t :: %{
+          rows: [row()],
+          more: non_neg_integer(),
+          waiting: non_neg_integer(),
+          orphaned: non_neg_integer()
+        }
 
   @doc """
   The board for the house at `main_checkout`.
@@ -80,8 +92,9 @@ defmodule Whiska.Watch do
 
   Rows come from `Whiska.Storage.alive_mice/0`, which is the set `whiska mice`
   lists, so the two cannot disagree about what is running here. A dead mouse's
-  orphaned questions are read as well: they have no row, but they are waiting,
-  and the count underneath must say so.
+  orphaned questions are read as well: they have no row, and nobody can answer
+  them, but they are still open and the count underneath says so in its own
+  words.
 
   Options are `board/2`'s.
   """
@@ -98,9 +111,9 @@ defmodule Whiska.Watch do
   @doc """
   The board for a house's mice.
 
-  Options: `:questions`, its waiting and orphaned questions; `:panes`, herdr's
-  answer in `Whiska.Mice.panes/0` form; `:action`, what a mouse is doing,
-  `Whiska.Watch.Transcript.read/1` unless a test pins it.
+  Options: `:questions`, its waiting and orphaned questions, counted apart;
+  `:panes`, herdr's answer in `Whiska.Mice.panes/0` form; `:action`, what a
+  mouse is doing, `Whiska.Watch.Transcript.read/1` unless a test pins it.
   """
   @spec board([Mouse.t()], keyword()) :: t()
   def board(mice, opts \\ []) do
@@ -108,7 +121,8 @@ defmodule Whiska.Watch do
     panes = Keyword.get(opts, :panes, :no_socket)
     action = Keyword.get(opts, :action, &Transcript.read(&1.path))
 
-    by_mouse = questions |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1})
+    {orphaned, live} = Enum.split_with(questions, &(&1.status == @orphaned))
+    by_mouse = live |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1})
 
     {rows, more} =
       mice
@@ -117,7 +131,7 @@ defmodule Whiska.Watch do
       |> Enum.sort_by(&rank/1)
       |> cap()
 
-    %{rows: rows, more: more, waiting: uncovered(questions, rows)}
+    %{rows: rows, more: more, waiting: uncovered(live, rows), orphaned: length(orphaned)}
   end
 
   defp row(mouse, question, panes, action) do
@@ -180,9 +194,9 @@ defmodule Whiska.Watch do
     {waiting ++ Enum.take(quiet, room), max(length(quiet) - room, 0)}
   end
 
-  # Every question a row does not carry, so nothing waiting can leave the board
-  # without being counted: a mouse the cap left off, a mouse whose record is
-  # gone, and every orphan a dead mouse left, since dead mice have no rows.
+  # Every answerable question a row does not carry, so nothing waiting can leave
+  # the board without being counted: a mouse the cap left off, and a mouse whose
+  # record is gone. Orphans are counted on their own line, never here.
   defp uncovered(questions, rows) do
     shown = MapSet.new(rows, & &1.question_id)
 
@@ -210,13 +224,14 @@ defmodule Whiska.Watch do
   @spec render(t(), keyword()) :: String.t()
   def render(board, opts \\ [])
 
-  def render(%{rows: [], more: 0, waiting: 0}, _opts), do: ""
+  def render(%{rows: [], more: 0, waiting: 0, orphaned: 0}, _opts), do: ""
 
-  def render(%{rows: rows, more: more, waiting: waiting}, opts) do
+  def render(%{rows: rows, more: more, waiting: waiting, orphaned: orphaned}, opts) do
     tick = Keyword.get(opts, :frame)
     widths = widths(rows, tick)
 
-    (Enum.map(rows, &line(&1, widths, tick)) ++ [more_line(more), waiting_line(waiting)])
+    (Enum.map(rows, &line(&1, widths, tick)) ++
+       [more_line(more), waiting_line(waiting), orphaned_line(orphaned)])
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n")
   end
@@ -263,4 +278,9 @@ defmodule Whiska.Watch do
 
   defp waiting_line(0), do: nil
   defp waiting_line(waiting), do: "🐱 #{waiting} waiting"
+
+  # Its own word, under the waiting line: nobody can answer an orphan, so the
+  # person is being told it is there, not asked to do anything about it.
+  defp orphaned_line(0), do: nil
+  defp orphaned_line(orphaned), do: "🐱 #{orphaned} orphaned"
 end
