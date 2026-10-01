@@ -194,10 +194,11 @@ defmodule Whiska.Storage do
   stand for anything: a second record made for a worktree that was recorded
   once already, and — the case ADR-0030's note left behind — a record whose
   `path` is the ordinary folder a slashed branch nests under, `worktrees/feat`
-  holding `worktrees/feat/checkout-form`. git will not carry a branch `feat`
-  and a branch `feat/checkout-form` at once, so a record whose folder holds
-  another record's worktree is the stale one, whenever it was made; between two
-  records for the same folder, the newer one stands.
+  holding `worktrees/feat/checkout-form`. Of two records whose folders nest the
+  deeper one stands, since git will not carry a branch `feat` and a branch
+  `feat/checkout-form` at once — unless the shallower record was made later,
+  which is a branch taking back a name every nested one has left. Of two
+  records for the same folder, the newer stands.
 
   A stale record is dropped here rather than at each reader, so everything that
   asks what this house has — `whiska mice`, the board, the owl's pane matching —
@@ -232,19 +233,23 @@ defmodule Whiska.Storage do
         false
 
       {theirs, ours} ->
-        List.starts_with?(theirs, ours) and (theirs != ours or newer?(other, mouse))
+        List.starts_with?(theirs, ours) and stands_instead?(other, mouse, theirs == ours)
     end
   end
 
-  # Two records can be made for one folder within a second of each other, and
-  # one of them has to go: a house with two rows for one worktree is the thing
-  # being fixed. The id breaks the tie — arbitrary, but the same answer every
-  # time it is asked.
-  defp newer?(other, mouse) do
-    case DateTime.compare(other.created_at, mouse.created_at) do
-      :gt -> true
-      :eq -> other.mouse_id > mouse.mouse_id
-      :lt -> false
+  # Of two records for one folder, the newer one stands; a tie goes to the
+  # greater id — arbitrary, but the same answer every time it is asked, and one
+  # of the two has to go for the house to have one row per worktree.
+  #
+  # Of two records whose folders nest, the deeper one stands, unless the
+  # shallower one was made later: a branch named `feat` can only exist once
+  # every `feat/…` branch is gone, and then its record is the current one and
+  # the nested record is history.
+  defp stands_instead?(other, mouse, same_folder?) do
+    case {DateTime.compare(other.created_at, mouse.created_at), same_folder?} do
+      {:gt, _} -> true
+      {:eq, same} -> not same or other.mouse_id > mouse.mouse_id
+      {:lt, _} -> false
     end
   end
 

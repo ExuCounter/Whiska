@@ -176,9 +176,10 @@ of life), and the pane map is keyed by pane, so the two records traded that one 
 each in turn was marked dead for not having it. The board carried a branch that does not
 exist, and flapped against `whiska mice`.
 
-git will not carry a branch `feat` and a branch `feat/checkout-form` at once, so a record
-whose folder holds another record's worktree is the stale one whenever it was made;
-between two records for the same folder, the newer one stands. The rule lives in
+git will not carry a branch `feat` and a branch `feat/checkout-form` at once, so of two
+records whose folders nest the deeper one stands — unless the shallower one was made
+later, which is a branch taking back a name every nested branch has since left. Of two
+records for the same folder, the newer one stands. The rule lives in
 `Whiska.Storage.current_mice/0`, under the one set both readers use, and the owl matches
 panes against it — a stale record takes no pane, and is marked dead on the same pass like
 any other mouse with none.

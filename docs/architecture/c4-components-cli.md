@@ -149,9 +149,9 @@ the person: waiting, blocked, working, quiet, five rows at most, and never a cap
 drops a mouse with a question on it. The detail column is that question when there is
 one, and otherwise what the mouse is doing, read from its own Claude Code transcript
 (ADR-0050). A dead mouse has no row; what it left waiting is counted underneath and
-settled with `whiska questions`. `whiska watch` and `whiska statusline
---here` both print it, worked out afresh; the statusline itself prints the file the house
-keeps, and starts nothing.
+settled with `whiska questions`. Both `whiska watch` and
+`whiska statusline --here` print it, worked out afresh; the statusline itself prints the
+file the house keeps, and starts nothing.
 
 Nothing here writes or collects.
 

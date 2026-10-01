@@ -22,9 +22,9 @@ _Avoid_: worker, crewmate, agent
 Whiska's own persisted row tracking a mouse — its pane, worktree path, branch label,
 and mode — keyed by `mouse_id`. Outlives the mouse itself: a dead mouse still has a
 mouse record, marked dead rather than deleted. A record is **stale** when it no longer
-stands for a worktree of this house — another record's worktree sits inside its folder,
-or a newer record was made for the same folder. A stale record is nobody's mouse: it is
-never matched to a pane, and neither `whiska mice` nor the board has a row for it.
+stands for a worktree of this house — a record made later covers the same folder, or one
+of the worktrees nested inside its folder. A stale record is nobody's mouse: it is never
+matched to a pane, and neither `whiska mice` nor the board has a row for it.
 _Avoid_: Mouse (bare) when the distinction between the live session and the tracking
 row actually matters
 

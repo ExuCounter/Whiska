@@ -78,11 +78,10 @@ defmodule Whiska.Watch do
   @doc """
   The board for the house this process is already pointed at.
 
-  Only the mice a row could be about are read — the alive ones, which is what
-  `whiska mice` lists too (`Whiska.Storage.alive_mice/0`), so the two cannot
-  disagree about what is running here. A dead mouse's orphaned questions are
-  still read: they have no row, but they are waiting, and the count underneath
-  must say so.
+  Rows come from `Whiska.Storage.alive_mice/0`, which is the set `whiska mice`
+  lists, so the two cannot disagree about what is running here. A dead mouse's
+  orphaned questions are read as well: they have no row, but they are waiting,
+  and the count underneath must say so.
 
   Options are `board/2`'s.
   """

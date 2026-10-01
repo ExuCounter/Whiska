@@ -171,6 +171,30 @@ defmodule Whiska.StorageOwlTest do
       assert ["m1", "new"] = Enum.map(Storage.alive_mice(), & &1.mouse_id) |> Enum.sort()
     end
 
+    test "a branch takes back the folder a nested one left behind" do
+      # `feat/checkout-form` is dropped and its branch deleted, which frees the
+      # name `feat` for a branch of its own. The old record is history.
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "mnested",
+          path: "/w/feat/checkout-form",
+          branch: "feat/checkout-form",
+          created_at: ~U[2026-09-01 10:00:00Z]
+        })
+
+      {:ok, _} = Storage.mark_dead("mnested")
+
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "mfeat",
+          path: "/w/feat",
+          branch: "feat",
+          created_at: ~U[2026-10-01 10:00:00Z]
+        })
+
+      assert ["m1", "mfeat"] = Enum.map(Storage.alive_mice(), & &1.mouse_id) |> Enum.sort()
+    end
+
     test "two records made for one worktree in the same second leave one row" do
       at = ~U[2026-09-29 10:00:00Z]
 
