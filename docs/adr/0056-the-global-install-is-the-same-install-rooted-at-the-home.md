@@ -150,6 +150,14 @@ above is now load-bearing: a new file the installer writes has to be given a hom
 scopes, or the global install is quietly missing a piece — which is why `whiska doctor`
 reports the global install's four pieces separately rather than as one boolean.
 
+The trust boundary moved with the install, and that is the part to watch. Everything
+`whiska init` writes runs only where somebody asked for it; everything `--global` writes
+runs in every repo the person opens, including ones they are only reading. Two of this
+decision's rules exist solely because of that shift — the stand-down needs the shim as well
+as the string, and `pre-tool-use` skips a call it could never deny — and neither was
+necessary in the per-repo world the same code came from. A check written as a convenience
+becomes a control the moment untrusted input can reach it.
+
 `Whiska.Install` reads the filesystem now. It was pure values plus one write, and
 `global_state/0` and `global_links/0` break that. The alternative was a module whose only
 job is to stat eight paths, which is worse.
