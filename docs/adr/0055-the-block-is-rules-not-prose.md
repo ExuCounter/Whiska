@@ -29,7 +29,7 @@ ADR-0049's five steps were 1,900 of those words — 58% of the block — and the
 part that matters at a single moment, when a turn is about to end on the done marker.
 Carrying them on every turn bought nothing. They are now
 `.claude/skills/whiska-finish/SKILL.md`, installed by `init` beside the worktree skills
-and read at compile time from this repo's own copy, exactly as ADR-0046 does it. The block
+and read at compile time from `priv/skills/`, exactly as ADR-0046 does it. The block
 keeps the trigger, which is the part that has to be in context: before the done marker,
 run `whiska-finish`.
 
