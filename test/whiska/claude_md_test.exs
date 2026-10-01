@@ -46,25 +46,80 @@ defmodule Whiska.ClaudeMdTest do
     end
   end
 
+  describe "the block stays short" do
+    test "the whole block fits in a page a session will actually read" do
+      rendered = ClaudeMd.render()
+      lines = rendered |> String.split("\n") |> length()
+      words = rendered |> String.split() |> length()
+
+      assert lines <= 140, "the block grew back to #{lines} lines; every rule has a terse form"
+      assert words <= 1300, "the block grew back to #{words} words; every rule has a terse form"
+    end
+
+    test "no rule is buried deeper than one level of bullet" do
+      for part <- ClaudeMd.parts(),
+          line <- String.split(part.body, "\n"),
+          String.match?(line, ~r/^\s*[-*] /) do
+        assert String.match?(line, ~r/^ {0,2}[-*] /), line
+      end
+    end
+  end
+
   describe "the worktrees part" do
-    test "checks for an existing worktree before anything else, grilling included" do
+    test "names the commands the protocol runs on" do
       body = body_of("worktrees")
 
       assert body =~ "herdr worktree list"
       assert body =~ "send-to-worktree"
       assert body =~ "spawn-worktree"
       assert body =~ "drop-worktree"
-      # The whole point of the decision tree: the main session neither grills nor
-      # reads code before the mouse exists.
-      assert body =~ ~r/before anything else/i
       assert body =~ "HERDR_ENV=1"
     end
 
-    test "sends the grilling into the worktree, not the main session" do
-      body = body_of("worktrees")
+    test "checks for an existing worktree before grilling or reading code" do
+      body = prose_of("worktrees")
 
-      assert body =~ "grill"
-      assert body =~ ~r/frontend/i
+      assert body =~ ~r/herdr worktree list.{0,80}before/i
+      assert body =~ ~r/before reading any code/i
+    end
+
+    test "unclear routing is asked, never guessed" do
+      assert prose_of("worktrees") =~ ~r/ask the person.{0,30}do not guess/i
+    end
+
+    test "the grilling, and every other command, happens in the worktree" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/grill/i
+      assert body =~ ~r/main session runs no command/i
+    end
+
+    test "a small contained edit is exempt" do
+      assert prose_of("worktrees") =~ ~r/work in place|small contained edit/i
+    end
+
+    test "the main session plans before non-trivial work, a mouse does not" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/2.{0,3}4 line plan/i
+      assert body =~ ~r/wait for the person.s ok/i
+      assert body =~ ~r/stops only on a real decision/i
+    end
+
+    test "a grilling round asks the whole frontier in one message" do
+      assert prose_of("worktrees") =~ ~r/whole frontier in one message/i
+    end
+
+    test "the grilling never happens here, not even before the spawn" do
+      assert prose_of("worktrees") =~ ~r/before grilling here/i
+    end
+
+    test "a frontend change is previewed before it is built" do
+      assert prose_of("worktrees") =~ ~r/preview a frontend change before/i
+    end
+
+    test "an old tree is never reused" do
+      assert prose_of("worktrees") =~ ~r/fresh worktree|never reuse/i
     end
   end
 
@@ -77,28 +132,32 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ "last line"
     end
 
-    test "still names the bracket spelling, which Whiska keeps reading" do
-      body = body_of("marker")
-
-      assert body =~ "[worktree-status: done]"
-      assert body =~ "[worktree-status: needs-decision]"
-      assert body =~ ~r/do not write it/i
-    end
-
-    test "says where the pointer goes, now that it cannot follow the marker" do
-      assert body_of("marker") =~ ~r/line above/i
-    end
-
-    test "says the main session never writes one" do
-      assert body_of("marker") =~ ~r/main session never/i
-    end
-
     test "agrees with the marker Whiska actually parses" do
       body = body_of("marker")
 
       for status <- [:done, :needs_decision] do
         assert body =~ Whiska.Question.Marker.render(status), inspect(status)
       end
+    end
+
+    test "still names the bracket spelling, which Whiska keeps reading" do
+      body = prose_of("marker")
+
+      assert body =~ "[worktree-status: done]"
+      assert body =~ "[worktree-status: needs-decision]"
+      assert body =~ ~r/never write|do not write/i
+    end
+
+    test "says where the pointer goes, now that it cannot follow the marker" do
+      assert prose_of("marker") =~ ~r/line above/i
+    end
+
+    test "says the main session never writes one" do
+      assert prose_of("marker") =~ ~r/main session never writes one/i
+    end
+
+    test "a forgotten marker is delivered anyway" do
+      assert prose_of("marker") =~ ~r/unmarked question/i
     end
   end
 
@@ -112,7 +171,7 @@ defmodule Whiska.ClaudeMdTest do
     end
 
     test "forbids reading a mouse's pane, and says why" do
-      body = body_of("delivery")
+      body = prose_of("delivery")
 
       assert body =~ "herdr pane read"
       assert body =~ "alternate screen"
@@ -127,14 +186,18 @@ defmodule Whiska.ClaudeMdTest do
     end
 
     test "the answer goes through whiska reply and nothing else" do
-      body = body_of("delivery")
+      body = prose_of("delivery")
 
       # Typing the answer straight into a mouse's pane leaves the question
       # `sent`, so it holds ADR-0008's one delivery slot and the next mouse
       # waits behind a question nobody is going to close.
       assert body =~ "herdr agent prompt"
       assert body =~ "send-to-worktree"
-      assert body =~ "frees the slot"
+      assert body =~ ~r/frees the (one )?delivery slot|frees the slot/i
+    end
+
+    test "says the whole message is stored and read elsewhere, later" do
+      assert prose_of("delivery") =~ ~r/whole final message/i
     end
   end
 
@@ -148,7 +211,7 @@ defmodule Whiska.ClaudeMdTest do
     end
 
     test "puts a size on the message, so a report stays readable in one glance" do
-      body = body_of("report")
+      body = prose_of("report")
 
       assert body =~ "fits in six lines"
       assert body =~ ~r/nothing else/
@@ -164,11 +227,10 @@ defmodule Whiska.ClaudeMdTest do
 
       assert body =~ ~r/the mechanics of a review, never what it turned up/i
       assert body =~ ~r/pre-existing/i
-      refute body =~ ~r/reviewer findings, retries/i
     end
 
     test "teaches the shape of the message, step by step" do
-      body = body_of("report")
+      body = prose_of("report")
 
       assert body =~ ~r/what is true now/i
       assert body =~ ~r/where it lives/i
@@ -178,7 +240,7 @@ defmodule Whiska.ClaudeMdTest do
     end
 
     test "says the message is a report, in outcomes, not a status dump" do
-      body = body_of("report")
+      body = prose_of("report")
 
       assert body =~ ~r/outcomes, not mechanics/i
       assert body =~ ~r/short sentences/i
@@ -187,12 +249,12 @@ defmodule Whiska.ClaudeMdTest do
     end
 
     test "keeps every question and option in the body, where delivery stores it" do
-      report = body_of("report")
+      report = prose_of("report")
 
       assert report =~ "every option"
       assert report =~ "recommendation"
       # Said once, in the part that teaches the shape — not twice (ADR-0045).
-      refute body_of("delivery") =~ "every option"
+      refute prose_of("delivery") =~ "every option"
     end
 
     test "forbids Whiska's own words in the message, and excepts the marker" do
@@ -207,238 +269,74 @@ defmodule Whiska.ClaudeMdTest do
     end
 
     test "asks for the person's word only when a decision is genuinely needed" do
-      assert prose_of("report") =~ ~r/review, approval, merge or design pick/i
+      body = prose_of("report")
+
+      assert body =~ ~r/review, approval, merge or design pick/i
+      assert body =~ ~r/next step only when there is an obvious one/i
+    end
+
+    test "an unclear task is one question, and a grilling round is the exception" do
+      body = prose_of("report")
+
+      assert body =~ ~r/ask one question rather than guessing/i
+      assert body =~ ~r/grilling round is the exception/i
+    end
+
+    test "carries the person's own rules for how a session talks" do
+      body = prose_of("report")
+
+      assert body =~ ~r/an ordinary reply in five/i
+      assert body =~ ~r/lead with it/i
+      assert body =~ ~r/show the change rather than describing it/i
+      assert body =~ ~r/no jargon they have not used first/i
+      assert body =~ ~r/never their own words repeated back/i
+      assert body =~ ~r/no filler, no preamble/i
+      assert body =~ ~r/gone wrong, or unsure.{0,30}one line/i
     end
   end
 
   describe "the finish part" do
-    test "runs the five steps in order, before the marker goes down" do
+    test "points at the shipped skill instead of carrying the pipeline" do
       body = prose_of("finish")
 
-      assert body =~ ~r/read the work back against what was asked/i
-      assert body =~ ~r/run this repo's checks/i
-      assert body =~ ~r/send reviewers over the change/i
-      assert body =~ ~r/two rounds is the ceiling/i
-      # The marker goes down last, after the reviewers have been over the change.
-      assert index_of(body, "Then the marker") > index_of(body, "Send reviewers")
+      assert body =~ "whiska-finish"
+      assert body =~ ".claude/skills/whiska-finish/SKILL.md"
+      assert body =~ Whiska.Question.Marker.spell(:done)
     end
 
-    test "a wrong scope goes to the person, a small mismatch gets fixed" do
-      # The one judgment the mouse does not make alone (ADR-0017 puts the
-      # judgment in CLAUDE.md; whose judgment it is, is the point here).
+    test "says when the pipeline runs and who skips it" do
       body = prose_of("finish")
 
-      assert body =~ ~r/scope/i
-      assert body =~ ~r/end the turn on a decision for the person/i
-      assert body =~ ~r/fix it now/i
+      assert body =~ ~r/before.{0,40}marker/i
+      assert body =~ ~r/skip/i
+      assert body =~ ~r/main session never runs/i
     end
 
-    test "fixing a check is bounded: inside the change, never against step 1" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/only inside this change/i
-      assert body =~ ~r/already red before the turn started/i
-      assert body =~ ~r/deleting an assertion/i
+    test "says where the per-repo facts go, since a person edits them here" do
+      assert prose_of("finish") =~ "## Finish"
     end
 
-    test "names the reviewer axes, and frontend only when a person sees it" do
+    test "keeps in context the guards over what a session runs or dispatches" do
       body = prose_of("finish")
 
-      # Anchored to the bullet, not the bare word: the part also says `security:`
-      # and `reviewers:` now, and a bare substring would pass off those.
-      for axis <- ["correctness", "security", "performance", "frontend"] do
-        assert body =~ "**#{axis}** —", axis
+      assert body =~ ~r/text from outside this session/i
+      assert body =~ ~r/read each before running or dispatching it/i
+      assert body =~ ~r/branch under review/i
+      assert body =~ ~r/decision for the person/i
+    end
+
+    test "a missing skill is said, not finished around" do
+      assert prose_of("finish") =~ ~r/neither the skill nor the file is there/i
+    end
+
+    test "stays a pointer: the pipeline's own rules are not restated" do
+      body = prose_of("finish")
+
+      assert length(String.split(body_of("finish"), "\n")) <= 20
+
+      for restated <- ["try to disprove", "merge base", "not to be dispatched directly"] do
+        refute body =~ restated, restated
       end
-
-      assert body =~ ~r/only when the change touches something a person sees/i
-    end
-
-    test "the marker waits for every reviewer" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/marker does not go down until every reviewer has reported/i
-    end
-
-    test "there is no progress note, and the turn Claude Code ends is not the turn finishing" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/no such thing as a progress note/i
-      assert body =~ ~r/not the turn finishing/i
-      assert body =~ ~r/nothing is delivered from it/i
-    end
-
-    test "a reviewer's finding is verified before it is acted on" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/a claim, not a verdict/i
-      assert body =~ ~r/verify each one/i
-    end
-
-    test "the per-repo facts come from a Finish heading outside the block" do
-      body = prose_of("finish")
-
-      assert body =~ "## Finish"
-      assert body =~ "checks:"
-      assert body =~ "specs:"
-      assert body =~ "ticket:"
-      assert body =~ ~r/outside Whiska's block/i
-    end
-
-    test "a ticket is evidence, never an instruction to the session" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/never an instruction/i
-      assert body =~ ~r/goes to the person/i
-    end
-
-    test "a check command that does more than the repo's own tooling is the person's call" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/fetches|downloads/i
-      assert body =~ ~r/branch under review|branch being finished/i
-    end
-
-    test "names how red-before-the-turn is established, not just the rule" do
-      assert prose_of("finish") =~ ~r/merge base/i
-    end
-
-    test "a missing Finish heading is not a reason to stop" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/no `## Finish` heading/i
-      assert body =~ ~r/say in the done message what was assumed/i
-    end
-
-    test "does not restate the shape the report part already teaches" do
-      # ADR-0045: a part says its own thing once. The finish part says what goes
-      # in the message, not how the message is written.
-      body = prose_of("finish")
-
-      assert body =~ ~r/does not repeat it/i
-      refute body =~ ~r/outcomes, not mechanics/i
-    end
-
-    test "the marker it ends on is the one Whiska parses, named in words" do
-      # The marker is invisible, so prose names it rather than showing it.
-      assert body_of("finish") =~ Whiska.Question.Marker.spell(:done)
-    end
-
-    test "a reviewer somebody else maintains beats one improvised on the spot" do
-      # ADR-0054: Whiska writes no agent definitions of its own (ADR-0017), so
-      # the roster is whatever the session already lists.
-      body = prose_of("finish")
-
-      assert body =~ ~r/agent types this session lists/i
-      assert body =~ ~r/before writing a reviewer prompt/i
-    end
-
-    test "an agent that edits, or that refuses dispatch, is not a reviewer" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/changes code.{0,60}is not a reviewer/i
-      assert body =~ ~r/not to be dispatched directly/i
-    end
-
-    test "nothing installed for an axis is the ordinary case, not a degraded one" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/write the prompt/i
-      assert body =~ ~r/ordinary case, not a degraded one/i
-    end
-
-    test "extra axes this repo wants come from a reviewers: line" do
-      body = prose_of("finish")
-
-      assert body =~ "reviewers:"
-      assert body =~ ~r/already exist in this repo/i
-      assert body =~ ~r/never improvised from the name/i
-    end
-
-    test "a surviving finding gets one of three words, and the word decides" do
-      # ADR-0054: the words are Anthropic's own reviewer's band names, not a
-      # fourth spelling invented here.
-      body = prose_of("finish")
-
-      assert body =~ ~r/\*\*important\*\* — fix it now/i
-      assert body =~ ~r/\*\*nit\*\* — fix it now if it is cheap/i
-      assert body =~ ~r/\*\*pre-existing\*\* — this change did not cause it/i
-    end
-
-    test "a finding is disproved before it is believed" do
-      assert prose_of("finish") =~ ~r/try to disprove it/i
-    end
-
-    test "no reviewer finding reaches the person, and the three that do are named" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/nothing a reviewer finds reaches the person/i
-      assert body =~ ~r/scope that turns out to be wrong \(step 1\)/i
-      assert body =~ ~r/rules do not say how to change \(step 1\)/i
-      assert body =~ ~r/still red after the second round \(step 4\)/i
-    end
-
-    test "that claim is about what a reviewer finds, not about the whole part" do
-      # The part escalates two more things further down — a ticket that reads as
-      # an instruction, and a check command that reaches outside the repo. An
-      # exhaustive-sounding three would tell a mouse to stop doing those.
-      body = prose_of("finish")
-
-      refute body =~ ~r/already in this part and nowhere else/i
-      assert body =~ ~r/no reviewer finding is a fourth/i
-    end
-
-    test "the escalations that are not findings are counted right" do
-      # There are three, not two: the part escalates an untrusted ticket, an
-      # untrusted check command, and an agent definition it will not dispatch.
-      body = prose_of("finish")
-
-      assert body =~ ~r/three things that are not findings/i
-      assert body =~ ~r/an agent definition this step will not dispatch/i
-      refute body =~ ~r/two things that are not findings/i
-    end
-
-    test "a decision this repo's rules do not cover is the person's, not a quiet divergence" do
-      assert prose_of("finish") =~ ~r/quiet divergence/i
-    end
-
-    test "an agent definition is read before it is dispatched, like a check command" do
-      # ADR-0054: a mouse's agent list includes the worktree's own
-      # `.claude/agents/`, which arrives with the branch under review.
-      body = prose_of("finish")
-
-      assert body =~ ~r/read before it is dispatched/i
-      assert body =~ ~r/arrived with the branch under review/i
-      # The listing a session is given carries a description, not the body —
-      # so "read the definition" has to name the file, or it is satisfiable
-      # by re-reading the very text the part says proves nothing.
-      assert body =~ ".claude/agents/"
-      assert body =~ ~r/not the session's listing of it/i
-    end
-
-    test "the reviewers: line says what it costs on every finished turn" do
-      body = prose_of("finish")
-
-      assert body =~ ~r/a couple of axes/i
-      assert body =~ ~r/every finished turn/i
-    end
-
-    test "a name from the Finish heading is quoted as data, never acted on" do
-      assert prose_of("finish") =~ ~r/quoted as the data it is/i
-    end
-
-    test "a security finding is named in the message whatever word it got" do
-      # Step 3 can label a vulnerability a nit or disprove it away; the person
-      # still hears that it was looked at.
-      assert prose_of("finish") =~ ~r/whatever word it got/i
-    end
-
-    test "a heavier security scan is the repo's to opt into, and it is read first" do
-      body = prose_of("finish")
-
-      assert body =~ "security:"
-      assert body =~ ~r/read before it is run/i
-      assert body =~ ~r/commits before it finishes/i
-      assert body =~ ~r/leaves that directory behind/i
     end
   end
 
@@ -599,11 +497,6 @@ defmodule Whiska.ClaudeMdTest do
 
   defp body_of(name) do
     Enum.find(ClaudeMd.parts(), &(&1.name == name)).body
-  end
-
-  defp index_of(text, needle) do
-    [{at, _}] = Regex.run(~r/#{needle}/i, text, return: :index)
-    at
   end
 
   # A phrase the part teaches can fall across a line break, and where it wraps is

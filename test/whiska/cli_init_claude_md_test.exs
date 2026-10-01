@@ -71,4 +71,8 @@ defmodule Whiska.CLIInitClaudeMdTest do
     assert output =~ "## Finish"
     refute output =~ Whiska.Install.review_loop_path()
   end
+
+  test "says the finishing pipeline is a skill the block points at", %{main: main} do
+    assert init(main) =~ "whiska-finish"
+  end
 end

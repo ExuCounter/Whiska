@@ -310,7 +310,9 @@ defmodule Whiska.CLI do
         And the worktree protocol went into CLAUDE.md — how a mouse gets spawned,
         the worktree-status marker it ends a turn with, how its question reaches
         you, the shape the message it writes takes, and what it does before it
-        says done (ADR-0045). Each part sits in its own named markers, so the
+        says done — that last part is a pointer at the `whiska-finish` skill,
+        installed with the rest, so the five steps cost nothing until a turn is
+        actually ending (ADR-0045, ADR-0055). Each part sits in its own named markers, so the
         next init replaces one without touching the others and nothing outside
         them is read at all. Add `keep` to a part's start marker to make it
         yours and Whiska will never rewrite it again.
