@@ -15,6 +15,7 @@ defmodule Whiska.Storage do
 
   import Ecto.Query, only: [from: 2]
 
+  alias Whiska.Layout
   alias Whiska.Repo
   alias Whiska.Schema.House
   alias Whiska.Schema.Mouse
@@ -185,11 +186,76 @@ defmodule Whiska.Storage do
   @spec question(integer()) :: Question.t() | nil
   def question(id), do: Repo.get(Question, id)
 
-  @doc "Every mouse not marked dead, oldest first."
-  @spec alive_mice() :: [Mouse.t()]
-  def alive_mice do
-    Repo.all(from(m in Mouse, where: is_nil(m.died_at), order_by: m.created_at))
+  @doc """
+  Every mouse record that still stands for a worktree of this house, oldest
+  first, dead ones included.
+
+  Nothing is ever deleted (ADR-0007), so a house keeps records that no longer
+  stand for anything: a second record made for a worktree that was recorded
+  once already, and — the case ADR-0030's note left behind — a record whose
+  `path` is the ordinary folder a slashed branch nests under, `worktrees/feat`
+  holding `worktrees/feat/checkout-form`. Of two records whose folders nest the
+  deeper one stands, since git will not carry a branch `feat` and a branch
+  `feat/checkout-form` at once — unless the shallower record was made later,
+  which is a branch taking back a name every nested one has left. Of two
+  records for the same folder, the newer stands.
+
+  A stale record is dropped here rather than at each reader, so everything that
+  asks what this house has — `whiska mice`, the board, the owl's pane matching —
+  asks the same question and cannot disagree about the answer.
+  """
+  @spec current_mice() :: [Mouse.t()]
+  def current_mice, do: current(Repo.all(from(m in Mouse, order_by: m.created_at)))
+
+  @doc "The current records among `mice`, for a caller that has read them already."
+  @spec current([Mouse.t()]) :: [Mouse.t()]
+  def current(mice) do
+    folders = Map.new(mice, &{&1.mouse_id, folder(&1)})
+
+    Enum.reject(mice, fn mouse ->
+      Enum.any?(mice, &supersedes?(&1, mouse, folders))
+    end)
   end
+
+  defp folder(%Mouse{path: path}) when is_binary(path),
+    do: path |> Layout.canonical() |> Path.split()
+
+  defp folder(_no_path), do: nil
+
+  defp supersedes?(%Mouse{mouse_id: id}, %Mouse{mouse_id: id}, _folders), do: false
+
+  defp supersedes?(other, mouse, folders) do
+    case {folders[other.mouse_id], folders[mouse.mouse_id]} do
+      {nil, _} ->
+        false
+
+      {_, nil} ->
+        false
+
+      {theirs, ours} ->
+        List.starts_with?(theirs, ours) and stands_instead?(other, mouse, theirs == ours)
+    end
+  end
+
+  # Of two records for one folder, the newer one stands; a tie goes to the
+  # greater id — arbitrary, but the same answer every time it is asked, and one
+  # of the two has to go for the house to have one row per worktree.
+  #
+  # Of two records whose folders nest, the deeper one stands, unless the
+  # shallower one was made later: a branch named `feat` can only exist once
+  # every `feat/…` branch is gone, and then its record is the current one and
+  # the nested record is history.
+  defp stands_instead?(other, mouse, same_folder?) do
+    case {DateTime.compare(other.created_at, mouse.created_at), same_folder?} do
+      {:gt, _} -> true
+      {:eq, same} -> not same or other.mouse_id > mouse.mouse_id
+      {:lt, _} -> false
+    end
+  end
+
+  @doc "Every current mouse not marked dead, oldest first."
+  @spec alive_mice() :: [Mouse.t()]
+  def alive_mice, do: Enum.filter(current_mice(), &is_nil(&1.died_at))
 
   @doc """
   Record the pane herdr reports for a mouse.

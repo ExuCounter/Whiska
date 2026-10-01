@@ -69,9 +69,9 @@ defmodule Whiska.CLIWatchTest do
       assert out =~ "which db?"
     end
 
-    test "a dead mouse with an orphaned question keeps its row", %{main: main} do
+    test "a dead mouse has no row, and what it left is counted", %{main: main} do
       seed_mouse(main, "ma", "feat-a")
-      q = seed_question(main, "ma", "Body.\n\npick one\n\u2063\u2063")
+      seed_question(main, "ma", "Body.\n\npick one\n\u2063\u2063")
 
       {:ok, handle} = Storage.open(main, name: :seed)
       {:ok, _} = Storage.mark_dead("ma")
@@ -81,9 +81,22 @@ defmodule Whiska.CLIWatchTest do
 
       out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
-      assert out =~ "🐭 feat-a"
-      assert out =~ "dead"
-      assert out =~ "whiska close #{q.id}"
+      refute out =~ "🐭 feat-a"
+      assert out =~ "🐱 1 waiting"
+    end
+
+    test "a stale record for a folder a branch nests under is on neither list", %{main: main} do
+      seed_mouse(main, "mstale", "feat")
+      nested = seed_mouse(main, "mnested", "feat/checkout-form")
+      stub(Herdr, :list_panes, fn _ -> {:ok, [pane(nested, "working")]} end)
+
+      board = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+      mice = capture_io(fn -> assert CLI.run(["mice"], main) == 0 end)
+
+      assert board =~ "🐭 feat/checkout-form"
+      refute board =~ "🐭 feat  "
+      assert mice =~ "feat/checkout-form"
+      refute mice =~ "feat  "
     end
 
     test "a quiet house prints nothing", %{main: main} do

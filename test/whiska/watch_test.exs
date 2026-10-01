@@ -190,7 +190,7 @@ defmodule Whiska.WatchTest do
       assert board.waiting == 0
     end
 
-    test "a dead mouse's other orphaned questions are counted, not lost" do
+    test "a dead mouse is not a row, and its orphaned questions are counted" do
       mice = [mouse("feat-gone", died_at: @now)]
 
       board =
@@ -201,21 +201,15 @@ defmodule Whiska.WatchTest do
           ]
         )
 
-      assert [%{detail: "#7 orphaned · whiska close 7"}] = board.rows
-      assert board.waiting == 1
+      assert board.rows == []
+      assert board.waiting == 2
     end
 
-    test "a dead mouse is shown only while its question still needs closing" do
-      mice = [mouse("feat-gone", died_at: @now), mouse("feat-quiet", died_at: @now)]
-
-      board =
-        board(mice, questions: [question(51, "feat-gone", status: "orphaned")])
-
-      assert [%{branch: "feat-gone", status: "dead", state: :dead, detail: detail}] = board.rows
-      assert detail == "#51 orphaned · whiska close 51"
+    test "a dead mouse with nothing waiting leaves no trace" do
+      assert board([mouse("feat-gone", died_at: @now)]) == %{rows: [], more: 0, waiting: 0}
     end
 
-    test "a dead mouse sits under the live ones" do
+    test "a dead mouse takes no room from the live ones" do
       mice = [mouse("feat-gone", died_at: @now), mouse("feat-a")]
 
       board =
@@ -224,7 +218,8 @@ defmodule Whiska.WatchTest do
           bare_panes: [pane("feat-a", "working")]
         )
 
-      assert [%{branch: "feat-a"}, %{branch: "feat-gone"}] = board.rows
+      assert [%{branch: "feat-a"}] = board.rows
+      assert board.waiting == 1
     end
 
     test "a question whose mouse has no row is counted underneath" do
@@ -305,21 +300,21 @@ defmodule Whiska.WatchTest do
       assert column.("working") == column.("blocked")
     end
 
-    test "the columns line up across a working, a waiting and a dead row" do
+    test "the columns line up across a working and a waiting row" do
       board =
-        board([mouse("feat-a"), mouse("feat-b"), mouse("feat-gone", died_at: @now)],
-          questions: [question(52, "feat-b"), question(51, "feat-gone", status: "orphaned")],
+        board([mouse("feat-a"), mouse("feat-b")],
+          questions: [question(52, "feat-b")],
           bare_panes: [pane("feat-a", "working"), pane("feat-b", "working")],
           action: fn _mouse -> {:tool, "Edit x.ex"} end
         )
 
       columns =
         board
-        |> Watch.render(frame: 1, color: false)
+        |> Watch.render(frame: 1)
         |> String.split("\n")
         |> Enum.map(&detail_column/1)
 
-      assert [column, column, column] = columns
+      assert [column, column] = columns
     end
 
     test "a working row's ticker advances a frame at a time, and wraps" do
@@ -376,16 +371,6 @@ defmodule Whiska.WatchTest do
       assert Watch.render(board, frame: 1) =~ "waiting on you"
     end
 
-    test "a dead mouse's row is still" do
-      board =
-        board([mouse("feat-gone", died_at: @now)],
-          questions: [question(51, "feat-gone", status: "orphaned")]
-        )
-
-      assert Watch.render(board, frame: 1, color: false) ==
-               "🐭 feat-gone  dead       #51 orphaned · whiska close 51"
-    end
-
     test "a very long branch is cut rather than pushing the columns apart" do
       long = String.duplicate("a", 40)
       board = board([mouse(long)], bare_panes: [pane(long, "working")])
@@ -411,14 +396,13 @@ defmodule Whiska.WatchTest do
       assert Watch.render(board([])) == ""
     end
 
-    test "a dead mouse's row is dimmed when the board has colour" do
+    test "a dead mouse draws nothing but the count of what it left behind" do
       board =
         board([mouse("feat-gone", died_at: @now)],
           questions: [question(51, "feat-gone", status: "orphaned")]
         )
 
-      assert Watch.render(board, color: true) =~ "\e[2m"
-      refute Watch.render(board, color: false) =~ "\e["
+      assert Watch.render(board) == "🐱 1 waiting"
     end
   end
 end
