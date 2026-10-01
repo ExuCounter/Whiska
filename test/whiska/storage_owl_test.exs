@@ -135,6 +135,54 @@ defmodule Whiska.StorageOwlTest do
 
       assert [%Mouse{mouse_id: "m1"}] = Storage.alive_mice()
     end
+
+    test "a record whose worktree holds another mouse's worktree is stale" do
+      # A branch with a slash nests on disk, and `worktrees/feat` owns nothing
+      # (ADR-0030 note). The record made before that was understood points at it.
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "stale", path: "/w/feat", branch: "feat"})
+
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "real",
+          path: "/w/feat/csv-data-page",
+          branch: "feat/csv-data-page"
+        })
+
+      assert ["m1", "real"] = Enum.map(Storage.alive_mice(), & &1.mouse_id) |> Enum.sort()
+    end
+
+    test "the newer record for a worktree supersedes the older one" do
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "old",
+          path: "/w/b",
+          branch: "b",
+          created_at: ~U[2026-09-29 10:00:00Z]
+        })
+
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "new",
+          path: "/w/b",
+          branch: "b",
+          created_at: ~U[2026-09-30 10:00:00Z]
+        })
+
+      assert ["m1", "new"] = Enum.map(Storage.alive_mice(), & &1.mouse_id) |> Enum.sort()
+    end
+  end
+
+  describe "current_mice/0" do
+    test "keeps a dead record, and drops a stale one whatever its state" do
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "stale", path: "/w/feat", branch: "feat"})
+
+      {:ok, _} =
+        Storage.record_mouse(%{mouse_id: "real", path: "/w/feat/page", branch: "feat/page"})
+
+      {:ok, _} = Storage.mark_dead("real")
+
+      assert ["m1", "real"] = Enum.map(Storage.current_mice(), & &1.mouse_id) |> Enum.sort()
+    end
   end
 
   describe "one Repo instance per house" do

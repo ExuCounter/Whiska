@@ -140,6 +140,40 @@ defmodule Whiska.Owl.HouseTest do
       end)
     end
 
+    # The record for `feat` is what a slashed branch left behind before ADR-0030's
+    # note: `worktrees/feat` is an ordinary directory holding `feat/checkout-form`,
+    # so every pane of the real mouse sits inside it. Matching it kept clearing
+    # its `died_at`, and the board carried a branch that no longer existed.
+    test "a stale record is not revived by the mouse nested inside its folder", %{main: main} do
+      nested = worktree(main, "feat/checkout-form")
+      stale = Path.join([main, "worktrees", "feat"])
+
+      {:ok, handle} = Storage.open(main, name: :seed_stale)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "mstale", path: stale, branch: "feat"})
+
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "mnested",
+          path: nested,
+          branch: "feat/checkout-form"
+        })
+
+      Storage.close(handle)
+
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w9:p1", nested)]) end)
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+
+      house = open(main, id: :stale_house)
+
+      in_house(house, fn ->
+        assert Storage.mouse("mnested").pane == "w9:p1"
+        assert is_nil(Storage.mouse("mnested").died_at)
+        assert is_nil(Storage.mouse("mstale").pane)
+        assert %DateTime{} = Storage.mouse("mstale").died_at
+        assert "mstale" not in Enum.map(Storage.alive_mice(), & &1.mouse_id)
+      end)
+    end
+
     test "when herdr is unreachable the house still opens and nothing is marked dead", %{
       main: main
     } do

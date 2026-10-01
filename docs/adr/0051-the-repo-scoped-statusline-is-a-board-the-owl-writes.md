@@ -44,10 +44,14 @@ dot that can never move says the opposite of what the ticker is for. The column 
 whenever a frame is — on the owl's board, working mouse or not — so the detail does not
 jump sideways the moment the last working mouse stops.
 
-**A dead mouse (ADR-0026) keeps a row only while it still has an orphaned question**,
-dimmed, under the live rows, carrying the `whiska close <id>` that clears it. That
-question is the one thing left that the person can act on; a dead mouse with nothing
-waiting drops off. **The board never acts.** It shows the command; the person runs it.
+**A dead mouse (ADR-0026) has no row.** The board is what is running here, and a branch
+whose worktree the person dropped is not. What it left behind is not lost: an orphaned
+question is counted in the `🐱 n waiting` line and read in full with `whiska questions`.
+**The board never acts** — it reports, and the person runs the command.
+
+**The board and `whiska mice` read one set**, `Whiska.Storage.alive_mice/0`. Two readers
+answering "what is running here" from two queries is a board that can disagree with the
+command the person checks it against.
 
 **The owl writes the board, every two seconds, to `~/.whiska/board/<main checkout>`**, and
 the statusline script prints that file. This is the load-bearing part. ADR-0044 set the
@@ -110,8 +114,8 @@ run on anyone's behalf — it is drawn, or typed by the person into their own te
   fifteen-second refresh. `whiska init` replaces the whole entry and the script.
 - **Only the mice a row could be about are read.** Nothing is ever deleted (ADR-0007), so
   a year-old repo has a mouse record for every worktree it has ever had; reading them all
-  thirty times a minute would be work that grows forever. The board reads the alive ones
-  and the dead ones still holding a question.
+  thirty times a minute would be work that grows forever. The board reads the alive ones,
+  and a dead mouse's orphaned questions for the count underneath.
 - **Drawing the board can never stop a house.** It is wrapped: a reader that raises warns
   and leaves the board as it was, because collection and delivery must outlive anything
   that goes wrong in a picture. Without that, one malformed transcript field would
@@ -146,3 +150,30 @@ is that it is current.
 Rejected for now: it needs a key-handling terminal loop, it cannot live in a statusline at
 all, and a board that can destroy a worktree on one keystroke is a different thing to
 build than a board that reports. Nothing here forecloses it.
+
+## Note, 2026-10-01: dead rows are gone, and a stale record is not a mouse
+
+Two rows the person did not want, both seen in one repo on one morning.
+
+**The dimmed dead row is withdrawn.** It was there so an orphaned question kept the
+`whiska close <id>` that settles it next to it. In use it reads as a branch still being
+worked on, and the person has already dropped that worktree — the row is the one thing on
+the board that is not about work in progress. The `🐱 n waiting` line counts every orphan,
+and `whiska questions` shows and settles them, so nothing is unreachable; the board is
+only live mice now.
+
+**A record whose folder holds another record's worktree is stale.** A branch with a slash
+nests on disk, so `worktrees/feat/checkout-form` sits under `worktrees/feat` — an ordinary
+folder that owns nothing (ADR-0030's note). The record made before that was understood
+still points at the folder, so it holds every pane of the mouse inside it. Matching it
+cleared its `died_at` (`Storage.set_pane/2`, which treats a pane in the worktree as proof
+of life), and the pane map is keyed by pane, so the two records traded that one pane and
+each in turn was marked dead for not having it. The board carried a branch that does not
+exist, and flapped against `whiska mice`.
+
+git will not carry a branch `feat` and a branch `feat/checkout-form` at once, so a record
+whose folder holds another record's worktree is the stale one whenever it was made;
+between two records for the same folder, the newer one stands. The rule lives in
+`Whiska.Storage.current_mice/0`, under the one set both readers use, and the owl matches
+panes against it — a stale record takes no pane, and is marked dead on the same pass like
+any other mouse with none.

@@ -16,10 +16,11 @@ defmodule Whiska.Watch do
   more than five mice are waiting — the cap gives way rather than hide a
   question, which is the one failure a board must not have.
 
-  A dead mouse (ADR-0026) keeps a row only while it still has an orphaned
-  question, which is the one thing left that the person can act on: nothing can
-  be replied to, so the row carries the `whiska close` that clears it. Nothing
-  here acts — the board only reports.
+  A dead mouse (ADR-0026) has no row at all: its worktree is gone, and a branch
+  the person dropped is not something they want to keep looking at. What it left
+  behind is not lost — an orphaned question is counted in the `🐱 n waiting`
+  line and read in full with `whiska questions`. Nothing here acts — the board
+  only reports.
   """
 
   alias Whiska.Herdr
@@ -34,8 +35,6 @@ defmodule Whiska.Watch do
   @board_max 5
   @phrase_max 60
   @branch_max 24
-  @dim "\e[2m"
-  @undim "\e[0m"
 
   # The ticker: proof the board is being redrawn, on the rows where a still
   # picture and a frozen one look the same. One frame per snapshot the owl
@@ -51,8 +50,7 @@ defmodule Whiska.Watch do
           question_id: pos_integer() | nil,
           branch: String.t(),
           status: String.t(),
-          detail: String.t(),
-          state: :live | :dead
+          detail: String.t()
         }
 
   @typedoc "`more` is how many live mice the cap left off; `waiting` what no row covers."
@@ -80,10 +78,11 @@ defmodule Whiska.Watch do
   @doc """
   The board for the house this process is already pointed at.
 
-  Only the mice a row could be about are read — the alive ones, and the dead
-  ones still holding a question. Nothing is ever deleted (ADR-0007), so a repo
-  a year old has a mouse record for every worktree it has ever had and reading
-  them all, thirty times a minute, would be work that grows forever.
+  Only the mice a row could be about are read — the alive ones, which is what
+  `whiska mice` lists too (`Whiska.Storage.alive_mice/0`), so the two cannot
+  disagree about what is running here. A dead mouse's orphaned questions are
+  still read: they have no row, but they are waiting, and the count underneath
+  must say so.
 
   Options are `board/2`'s.
   """
@@ -91,21 +90,7 @@ defmodule Whiska.Watch do
   def from_house(opts \\ []) do
     questions = Storage.questions() ++ Storage.orphaned_questions()
 
-    board(mice_with_a_row(questions), Keyword.put(opts, :questions, questions))
-  end
-
-  defp mice_with_a_row(questions) do
-    alive = Storage.alive_mice()
-    known = MapSet.new(alive, & &1.mouse_id)
-
-    dead =
-      questions
-      |> Enum.map(& &1.mouse_id)
-      |> Enum.uniq()
-      |> Enum.reject(&MapSet.member?(known, &1))
-      |> Enum.flat_map(&List.wrap(Storage.mouse(&1)))
-
-    alive ++ dead
+    board(Storage.alive_mice(), Keyword.put(opts, :questions, questions))
   end
 
   defp ask_herdr(nil), do: :no_socket
@@ -125,44 +110,25 @@ defmodule Whiska.Watch do
     action = Keyword.get(opts, :action, &Transcript.read(&1.path))
 
     by_mouse = questions |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1})
-    {alive, dead} = Enum.split_with(mice, &is_nil(&1.died_at))
 
-    {shown, more} =
-      alive
-      |> Enum.map(&live_row(&1, by_mouse[&1.mouse_id], panes, action))
+    {rows, more} =
+      mice
+      |> Enum.filter(&is_nil(&1.died_at))
+      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, action))
       |> Enum.sort_by(&rank/1)
       |> cap()
-
-    dead_rows = Enum.flat_map(dead, &dead_row(&1, by_mouse[&1.mouse_id]))
-    rows = shown ++ dead_rows
 
     %{rows: rows, more: more, waiting: uncovered(questions, rows)}
   end
 
-  defp live_row(mouse, question, panes, action) do
+  defp row(mouse, question, panes, action) do
     %{
       mouse_id: mouse.mouse_id,
       question_id: question_id(question),
       branch: mouse.branch || mouse.mouse_id,
       status: status(mouse, panes),
-      detail: detail(question, mouse, action),
-      state: :live
+      detail: detail(question, mouse, action)
     }
-  end
-
-  defp dead_row(_mouse, nil), do: []
-
-  defp dead_row(mouse, %Question{} = question) do
-    [
-      %{
-        mouse_id: mouse.mouse_id,
-        question_id: question.id,
-        branch: mouse.branch || mouse.mouse_id,
-        status: "dead",
-        detail: "##{question.id} orphaned · whiska close #{question.id}",
-        state: :dead
-      }
-    ]
   end
 
   defp question_id(%Question{status: status, id: id}) when status in @waiting, do: id
@@ -217,7 +183,7 @@ defmodule Whiska.Watch do
 
   # Every question a row does not carry, so nothing waiting can leave the board
   # without being counted: a mouse the cap left off, a mouse whose record is
-  # gone, and a dead mouse's second orphan — only its oldest gets the row.
+  # gone, and every orphan a dead mouse left, since dead mice have no rows.
   defp uncovered(questions, rows) do
     shown = MapSet.new(rows, & &1.question_id)
 
@@ -229,14 +195,12 @@ defmodule Whiska.Watch do
   @doc """
   The board as the statusline draws it. Empty when the house is quiet.
 
-  Options: `:color`, whether a dead mouse's row is dimmed — true unless the
-  caller is writing somewhere that cannot show it; `:frame`, which frame of the
-  ticker a working row carries, counted in boards written rather than in
-  seconds.
+  Options: `:frame`, which frame of the ticker a working row carries, counted in
+  boards written rather than in seconds.
 
   Only a working mouse ticks. An idle one, one blocked, one waiting on the
-  person, a dead one, and one herdr cannot account for are all still — on those
-  rows the board is saying nothing is happening, and a moving dot would say the
+  person, and one herdr cannot account for are all still — on those rows the
+  board is saying nothing is happening, and a moving dot would say the
   opposite. A stale board is still for free: nobody is writing it, so the frame
   stops.
 
@@ -250,15 +214,10 @@ defmodule Whiska.Watch do
   def render(%{rows: [], more: 0, waiting: 0}, _opts), do: ""
 
   def render(%{rows: rows, more: more, waiting: waiting}, opts) do
-    color = Keyword.get(opts, :color, true)
     tick = Keyword.get(opts, :frame)
     widths = widths(rows, tick)
 
-    {live, dead} = Enum.split_with(rows, &(&1.state == :live))
-
-    (Enum.map(live, &line(&1, widths, tick, color)) ++
-       [more_line(more)] ++
-       Enum.map(dead, &line(&1, widths, tick, color)) ++ [waiting_line(waiting)])
+    (Enum.map(rows, &line(&1, widths, tick)) ++ [more_line(more), waiting_line(waiting)])
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n")
   end
@@ -277,7 +236,7 @@ defmodule Whiska.Watch do
   defp width([], _of), do: 0
   defp width(rows, of), do: rows |> Enum.map(of) |> Enum.max()
 
-  defp line(row, widths, tick, color) do
+  defp line(row, widths, tick) do
     text =
       "🐭 " <>
         String.pad_trailing(branch(row.branch), widths.branch) <>
@@ -285,7 +244,7 @@ defmodule Whiska.Watch do
         String.pad_trailing(row.status, widths.status) <>
         "  " <> ticker(row, widths.ticker, tick) <> row.detail
 
-    text |> String.trim_trailing() |> dim(row.state, color)
+    String.trim_trailing(text)
   end
 
   defp ticker(_row, 0, _tick), do: ""
@@ -296,11 +255,7 @@ defmodule Whiska.Watch do
 
   defp frame(n), do: Enum.at(@frames, Integer.mod(n, length(@frames)))
 
-  defp ticking?(row),
-    do: row.state == :live and row.status == "working" and is_nil(row.question_id)
-
-  defp dim(text, :dead, true), do: @dim <> text <> @undim
-  defp dim(text, _state, _color), do: text
+  defp ticking?(row), do: row.status == "working" and is_nil(row.question_id)
 
   defp branch(branch), do: Text.plain(branch, @branch_max)
 

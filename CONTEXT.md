@@ -21,7 +21,10 @@ _Avoid_: worker, crewmate, agent
 **Mouse record**:
 Whiska's own persisted row tracking a mouse — its pane, worktree path, branch label,
 and mode — keyed by `mouse_id`. Outlives the mouse itself: a dead mouse still has a
-mouse record, marked dead rather than deleted.
+mouse record, marked dead rather than deleted. A record is **stale** when it no longer
+stands for a worktree of this house — another record's worktree sits inside its folder,
+or a newer record was made for the same folder. A stale record is nobody's mouse: it is
+never matched to a pane, and neither `whiska mice` nor the board has a row for it.
 _Avoid_: Mouse (bare) when the distinction between the live session and the tracking
 row actually matters
 
@@ -90,12 +93,12 @@ the person is never one of the ones left off. It is kept current for the person 
 than asked for. A working mouse's row carries a **ticker**, a dot growing to three and
 starting over, one frame per redraw: on a row that says a mouse is busy, a still board
 and a frozen one look the same, and the ticker is the difference. Only a working row
-ticks; an idle mouse, a blocked one, one waiting on the person, a dead one and one herdr
-cannot account for are all still, because on those rows nothing is meant to be moving.
+ticks; an idle mouse, a blocked one, one waiting on the person and one herdr cannot
+account for are all still, because on those rows nothing is meant to be moving.
 `whiska watch` is the same rows, worked out on the spot and printed once — and with no
-ticker, since nothing is refreshing behind them. The board only reports: nothing on it
-acts, and a dead mouse's row carries the command that settles its orphaned question
-rather than settling it (ADR-0051).
+ticker, since nothing is refreshing behind them. Only a live mouse is a row: a dead one
+has none, and what it left waiting is counted in the line underneath. The board only
+reports — nothing on it acts (ADR-0051).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws, which is not this), the
 statusline (the surface, not what is drawn on it)
 

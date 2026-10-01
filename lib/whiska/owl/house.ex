@@ -433,6 +433,13 @@ defmodule Whiska.Owl.House do
 
   # Matching alone: each mouse whose worktree holds a listed agent pane's cwd
   # gets that pane, and a mouse herdr does not list is left exactly as it was.
+  #
+  # Only a current record is matched (`Storage.current_mice/0`). A stale one —
+  # the folder a slashed branch nests under — holds every pane of the mouse
+  # inside it, and matching it both cleared its `died_at`, putting a branch that
+  # no longer exists back on the board, and took the pane away from the mouse
+  # actually running there, which was then marked dead on the next line.
+  # A stale record is still marked dead below: it has no pane of its own.
   defp match_panes(%{socket: nil} = state) do
     warn(state, "no herdr socket known — mice cannot be matched to panes")
     {:error, state}
@@ -443,9 +450,11 @@ defmodule Whiska.Owl.House do
       {:ok, panes} ->
         agent_panes = Enum.filter(panes, &(&1.agent != nil and is_binary(&1.cwd)))
         mice = Storage.all(Mouse)
+        current = MapSet.new(Storage.current_mice(), & &1.mouse_id)
 
         matched =
           for mouse <- mice,
+              MapSet.member?(current, mouse.mouse_id),
               pane = Enum.find(agent_panes, &Layout.inside?(&1.cwd, mouse.path)),
               pane != nil,
               into: %{} do

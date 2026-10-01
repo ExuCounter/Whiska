@@ -15,6 +15,7 @@ defmodule Whiska.Storage do
 
   import Ecto.Query, only: [from: 2]
 
+  alias Whiska.Layout
   alias Whiska.Repo
   alias Whiska.Schema.House
   alias Whiska.Schema.Mouse
@@ -185,11 +186,57 @@ defmodule Whiska.Storage do
   @spec question(integer()) :: Question.t() | nil
   def question(id), do: Repo.get(Question, id)
 
-  @doc "Every mouse not marked dead, oldest first."
-  @spec alive_mice() :: [Mouse.t()]
-  def alive_mice do
-    Repo.all(from(m in Mouse, where: is_nil(m.died_at), order_by: m.created_at))
+  @doc """
+  Every mouse record that still stands for a worktree of this house, oldest
+  first, dead ones included.
+
+  Nothing is ever deleted (ADR-0007), so a house keeps records that no longer
+  stand for anything: a second record made for a worktree that was recorded
+  once already, and — the case ADR-0030's note left behind — a record whose
+  `path` is the ordinary folder a slashed branch nests under, `worktrees/feat`
+  holding `worktrees/feat/checkout-form`. git will not carry a branch `feat`
+  and a branch `feat/checkout-form` at once, so a record whose folder holds
+  another record's worktree is the stale one, whenever it was made; between two
+  records for the same folder, the newer one stands.
+
+  A stale record is dropped here rather than at each reader, so everything that
+  asks what this house has — `whiska mice`, the board, the owl's pane matching —
+  asks the same question and cannot disagree about the answer.
+  """
+  @spec current_mice() :: [Mouse.t()]
+  def current_mice do
+    mice = Repo.all(from(m in Mouse, order_by: m.created_at))
+    folders = Map.new(mice, &{&1.mouse_id, folder(&1)})
+
+    Enum.reject(mice, fn mouse ->
+      Enum.any?(mice, &supersedes?(&1, mouse, folders))
+    end)
   end
+
+  defp folder(%Mouse{path: path}) when is_binary(path),
+    do: path |> Layout.canonical() |> Path.split()
+
+  defp folder(_no_path), do: nil
+
+  defp supersedes?(%Mouse{mouse_id: id}, %Mouse{mouse_id: id}, _folders), do: false
+
+  defp supersedes?(other, mouse, folders) do
+    case {folders[other.mouse_id], folders[mouse.mouse_id]} do
+      {nil, _} ->
+        false
+
+      {_, nil} ->
+        false
+
+      {theirs, ours} ->
+        List.starts_with?(theirs, ours) and
+          (theirs != ours or DateTime.compare(other.created_at, mouse.created_at) == :gt)
+    end
+  end
+
+  @doc "Every current mouse not marked dead, oldest first."
+  @spec alive_mice() :: [Mouse.t()]
+  def alive_mice, do: Enum.filter(current_mice(), &is_nil(&1.died_at))
 
   @doc """
   Record the pane herdr reports for a mouse.
