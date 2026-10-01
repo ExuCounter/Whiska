@@ -68,7 +68,9 @@ defmodule Whiska.Transcript do
 
   # A launch this old is abandoned, not pending. Long enough that no reviewer
   # this repo runs comes near it, short enough that a lost hand-back costs one
-  # quiet stop rather than a whole night of them.
+  # quiet stop rather than a whole night of them. A repo that names a `security:`
+  # scan under its own `## Finish` heading (ADR-0054) can sit inside step 3 for
+  # tens of minutes, which is the one sanctioned way to approach this bound.
   @stale_after_seconds 30 * 60
 
   # The id Claude Code prints when a background Agent starts, and the two frames

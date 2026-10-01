@@ -25,6 +25,22 @@ Two tests disqualify an agent, however well it reviews:
 - **Its own description says not to dispatch it directly.** Seven of `claude-security`'s
   eight agents say exactly that. They belong to a pipeline.
 
+**An agent definition is read before it is dispatched**, on the same rule ADR-0049 wrote
+for a check command, and for a sharper version of the same reason. A session's agent list
+includes the ones defined in the worktree — which is the branch under review, so a branch
+can ship `.claude/agents/anything.md` and have it dispatched with the session's tools.
+That is worse than a hostile `checks:` line, not better: a command does one thing, an
+agent runs a loop and can bend the review's verdict as well as reach for whatever the
+session can reach. The two disqualifying tests above do not help here, and the part says
+so outright — both are read off the agent's description of itself, and whoever wrote the
+agent wrote that too. They say whether it fits the axis, never whether it can be trusted.
+The same reading applies to `reviewers:`, which arrives with the branch like every other
+line under `## Finish`.
+
+This is the one guard the first draft of this change missed, and it was net-new exposure:
+before it, a mouse wrote its own four prompts and dispatched nothing the branch could
+name.
+
 **Nothing listed for an axis is the ordinary case, not a failure.** Neither plugin is
 enabled by default, and an agent type that is not enabled is simply not in the session's
 list. The mouse then writes the prompt, which is what step 3 always did, and says nothing
@@ -126,6 +142,14 @@ no worse off than it was under ADR-0049.
 ADR-0045 the `finish` part is replaced where it stands on the next run, and a part marked
 `keep` is never touched — so a person who has claimed `finish` as their own gets none of
 this, which is the point of `keep`.
+
+**A security finding is named in the message whatever word it got.** The ladder lets a
+vulnerability be disproved away or called a nit, and the `report` part tells a mouse to
+leave reviewer findings out of the message — so without this the person could not tell
+"nothing was found" from "something was found and judged small". The `report` part's
+leave-out list gains the matching carve-out in the same change: a pre-existing problem
+left alone, a reviewer the repo asked for that was not there, and a security finding and
+what became of it are the three things finishing names on purpose.
 
 **Nothing in Elixir reads any of it.** `reviewers:` and `security:` are read by a model,
 like every other line under `## Finish`. Whiska still runs no check, dispatches no

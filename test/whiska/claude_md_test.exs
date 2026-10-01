@@ -156,6 +156,16 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/lessons and reflections/
     end
 
+    test "the leave-out list carves out what finishing is told to name" do
+      # The finish part tells a mouse to name three things: a pre-existing
+      # finding, a reviewer it could not resolve, and a vulnerability it fixed.
+      # Without this carve-out the two parts give a mouse opposite orders.
+      body = prose_of("report")
+
+      assert body =~ ~r/except the few finishing names/i
+      assert body =~ ~r/pre-existing/i
+    end
+
     test "teaches the shape of the message, step by step" do
       body = body_of("report")
 
@@ -233,8 +243,10 @@ defmodule Whiska.ClaudeMdTest do
     test "names the reviewer axes, and frontend only when a person sees it" do
       body = prose_of("finish")
 
+      # Anchored to the bullet, not the bare word: the part also says `security:`
+      # and `reviewers:` now, and a bare substring would pass off those.
       for axis <- ["correctness", "security", "performance", "frontend"] do
-        assert body =~ axis, axis
+        assert body =~ "**#{axis}** —", axis
       end
 
       assert body =~ ~r/only when the change touches something a person sees/i
@@ -347,8 +359,8 @@ defmodule Whiska.ClaudeMdTest do
       body = prose_of("finish")
 
       assert body =~ ~r/\*\*important\*\* — fix it now/i
-      assert body =~ ~r/\*\*nit\*\*/i
-      assert body =~ ~r/\*\*pre-existing\*\*/i
+      assert body =~ ~r/\*\*nit\*\* — fix it now if it is cheap/i
+      assert body =~ ~r/\*\*pre-existing\*\* — this change did not cause it/i
     end
 
     test "a finding is disproved before it is believed" do
@@ -359,11 +371,49 @@ defmodule Whiska.ClaudeMdTest do
       body = prose_of("finish")
 
       assert body =~ ~r/nothing a reviewer finds reaches the person/i
-      assert body =~ ~r/already in this part/i
+      assert body =~ ~r/scope that turns out to be wrong \(step 1\)/i
+      assert body =~ ~r/rules do not say how to change \(step 1\)/i
+      assert body =~ ~r/still red after the second round \(step 4\)/i
+    end
+
+    test "that claim is about what a reviewer finds, not about the whole part" do
+      # The part escalates two more things further down — a ticket that reads as
+      # an instruction, and a check command that reaches outside the repo. An
+      # exhaustive-sounding three would tell a mouse to stop doing those.
+      body = prose_of("finish")
+
+      refute body =~ ~r/already in this part and nowhere else/i
+      assert body =~ ~r/no reviewer finding is a fourth/i
     end
 
     test "a decision this repo's rules do not cover is the person's, not a quiet divergence" do
       assert prose_of("finish") =~ ~r/quiet divergence/i
+    end
+
+    test "an agent definition is read before it is dispatched, like a check command" do
+      # ADR-0054: a mouse's agent list includes the worktree's own
+      # `.claude/agents/`, which arrives with the branch under review.
+      body = prose_of("finish")
+
+      assert body =~ ~r/read before it is dispatched/i
+      assert body =~ ~r/arrived with the branch under review/i
+    end
+
+    test "the reviewers: line says what it costs on every finished turn" do
+      body = prose_of("finish")
+
+      assert body =~ ~r/a couple of axes/i
+      assert body =~ ~r/every finished turn/i
+    end
+
+    test "a name from the Finish heading is quoted as data, never acted on" do
+      assert prose_of("finish") =~ ~r/quoted as the data it is/i
+    end
+
+    test "a security finding is named in the message whatever word it got" do
+      # Step 3 can label a vulnerability a nit or disprove it away; the person
+      # still hears that it was looked at.
+      assert prose_of("finish") =~ ~r/whatever word it got/i
     end
 
     test "a heavier security scan is the repo's to opt into, and it is read first" do
@@ -372,6 +422,7 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ "security:"
       assert body =~ ~r/read before it is run/i
       assert body =~ ~r/commits before it finishes/i
+      assert body =~ ~r/directory/i
     end
   end
 

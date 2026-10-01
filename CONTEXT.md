@@ -299,9 +299,11 @@ _Avoid_: critic, auditor, linter, checker (a check is step 2 and a different thi
 The three words a reviewer's finding gets once it has survived being disproved, and the
 word is what happens to it: fix it now; fix it if it is cheap; name it in the message and
 leave it alone. Taken from the band names Anthropic's own reviewer already scores with,
-rather than spelled a fourth way here (ADR-0054). None of the three reaches the person —
-only a wrong scope, a recorded decision the repo's rules do not say how to change, and a
-second round still red do that, and all three were already finishing's.
+rather than spelled a fourth way here (ADR-0054). None of the three reaches the person as
+a decision: what a review can lead to is a wrong scope, a recorded decision the repo's
+rules do not say how to change, or a second round still red, and all three were already
+finishing's. Finishing escalates two further things that are not findings — an untrusted
+ticket and an untrusted check command — and those are untouched by this.
 _Avoid_: blocking, critical, major/minor, P0, severity (the ladder is what to do, not how
 bad it is)
 
