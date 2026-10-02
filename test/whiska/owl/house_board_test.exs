@@ -10,6 +10,7 @@ defmodule Whiska.Owl.HouseBoardTest do
   alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.Owl.House
   alias Whiska.Storage
+  alias Whiska.Watch.Ink
   alias Whiska.Watch.Snapshot
 
   setup :set_mox_global
@@ -67,7 +68,9 @@ defmodule Whiska.Owl.HouseBoardTest do
     end
   end
 
-  defp board(main) do
+  defp board(main), do: Ink.plain(written_board(main))
+
+  defp written_board(main) do
     eventually(fn ->
       case File.read(Snapshot.path(main)) do
         {:ok, text} -> {:ok, text}
@@ -114,18 +117,19 @@ defmodule Whiska.Owl.HouseBoardTest do
     stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
 
     open(main, [])
-    first = board(main)
+    written = written_board(main)
+    first = Ink.plain(written)
 
     second =
       eventually(fn ->
         case File.read!(Snapshot.path(main)) do
-          ^first -> :retry
-          other -> {:ok, other}
+          ^written -> :retry
+          other -> {:ok, Ink.plain(other)}
         end
       end)
 
-    assert [_, first_dots] = Regex.run(~r/working  (·+)/u, first)
-    assert [_, second_dots] = Regex.run(~r/working  (·+)/u, second)
+    assert [_, first_dots] = Regex.run(~r/working  \S+  (·+)/u, first)
+    assert [_, second_dots] = Regex.run(~r/working  \S+  (·+)/u, second)
     refute first_dots == second_dots
     assert String.replace(first, "·", "") == String.replace(second, "·", "")
   end
@@ -138,7 +142,7 @@ defmodule Whiska.Owl.HouseBoardTest do
     stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
 
     house = open(main, board_ms: 5_000)
-    assert [_, dots] = Regex.run(~r/working  (·+)/u, board(main))
+    assert [_, dots] = Regex.run(~r/working  \S+  (·+)/u, board(main))
 
     blocked = Snapshot.path(main) <> ".tmp"
     File.mkdir_p!(blocked)
@@ -147,13 +151,13 @@ defmodule Whiska.Owl.HouseBoardTest do
     send(house, :board)
     assert House.sync(house) == :ok
 
-    assert [_, ^dots] = Regex.run(~r/working  (·+)/u, File.read!(Snapshot.path(main)))
+    assert [_, ^dots] = Regex.run(~r/working  \S+  (·+)/u, File.read!(Snapshot.path(main)))
 
     File.rm_rf!(blocked)
     send(house, :board)
     assert House.sync(house) == :ok
 
-    assert [_, next] = Regex.run(~r/working  (·+)/u, File.read!(Snapshot.path(main)))
+    assert [_, next] = Regex.run(~r/working  \S+  (·+)/u, File.read!(Snapshot.path(main)))
     assert String.length(next) == String.length(dots) + 1
   end
 

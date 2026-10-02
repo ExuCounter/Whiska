@@ -11,6 +11,7 @@ defmodule Whiska.WatchTest do
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Watch
+  alias Whiska.Watch.Ink
 
   @now ~U[2026-09-29 12:00:00Z]
 
@@ -20,7 +21,7 @@ defmodule Whiska.WatchTest do
       branch: branch,
       path: "/repo/worktrees/#{branch}",
       mode: "build",
-      created_at: @now,
+      created_at: Keyword.get(opts, :created_at, @now),
       died_at: Keyword.get(opts, :died_at)
     }
   end
@@ -48,6 +49,7 @@ defmodule Whiska.WatchTest do
 
   defp board(mice, opts \\ []) do
     Watch.board(mice,
+      now: Keyword.get(opts, :now, @now),
       questions: Keyword.get(opts, :questions, []),
       panes: Keyword.get(opts, :panes, {:ok, Keyword.get(opts, :bare_panes, [])}),
       activity: activity(opts),
@@ -444,6 +446,23 @@ defmodule Whiska.WatchTest do
       assert board.waiting == 0
     end
 
+    test "a row says how long its mouse has been going" do
+      mice = [mouse("feat-a", created_at: DateTime.add(@now, -6 * 60))]
+
+      rows = board(mice, bare_panes: [pane("feat-a", "working")]).rows
+
+      assert [%{elapsed: "6m"}] = rows
+    end
+
+    test "elapsed is spelled the way `whiska mice` spells it" do
+      for seconds <- [45, 6 * 60, 5580, 200_000] do
+        mice = [mouse("feat-a", created_at: DateTime.add(@now, -seconds))]
+
+        assert [%{elapsed: elapsed}] = board(mice).rows
+        assert elapsed == Whiska.Mice.format_uptime(seconds)
+      end
+    end
+
     test "an uncovered question and an orphan are counted on their own lines" do
       board =
         board([mouse("feat-gone", died_at: @now)],
@@ -457,6 +476,10 @@ defmodule Whiska.WatchTest do
       assert board.orphaned == 1
     end
   end
+
+  # The board carries ANSI codes now (addendum of 2026-10-02). Read back plain
+  # unless the test is about the colour itself.
+  defp render(board, opts \\ []), do: Ink.plain(Watch.render(board, opts))
 
   # Where a row's detail starts, which the ticker must never move.
   defp detail_column(line) do
@@ -472,10 +495,10 @@ defmodule Whiska.WatchTest do
           action: fn m -> if m.branch == "feat-a", do: {:tool, "Edit x.ex"}, else: nil end
         )
 
-      assert Watch.render(board) ==
+      assert render(board) ==
                """
-               🐭 feat-a            working  Edit x.ex
-               🐭 feat-longer-name  idle
+               🐭 feat-a            working  0s  Edit x.ex
+               🐭 feat-longer-name  idle     0s
                """
                |> String.trim_trailing()
     end
@@ -486,7 +509,7 @@ defmodule Whiska.WatchTest do
           bare_panes: [pane("feat/a\e[2Kfake", "idle")]
         )
 
-      rendered = Watch.render(board)
+      rendered = render(board)
 
       refute rendered =~ "\e"
       assert rendered =~ "feat/a"
@@ -499,7 +522,7 @@ defmodule Whiska.WatchTest do
           action: fn _mouse -> {:tool, "Edit x.ex"} end
         )
 
-      assert Watch.render(board) == "🐭 feat-a  working  Edit x.ex"
+      assert render(board) == "🐭 feat-a  working  0s  Edit x.ex"
     end
 
     test "the ticker's column holds its place when the last working mouse stops" do
@@ -511,7 +534,7 @@ defmodule Whiska.WatchTest do
             bare_panes: [pane("feat-a", status)],
             action: fn _mouse -> {:tool, "Edit x.ex"} end
           )
-          |> Watch.render(frame: 0)
+          |> render(frame: 0)
           |> detail_column()
         end
 
@@ -528,7 +551,7 @@ defmodule Whiska.WatchTest do
 
       columns =
         board
-        |> Watch.render(frame: 1)
+        |> render(frame: 1)
         |> String.split("\n")
         |> Enum.map(&detail_column/1)
 
@@ -538,10 +561,10 @@ defmodule Whiska.WatchTest do
     test "a working row's ticker advances a frame at a time, and wraps" do
       board = board([mouse("feat-a")], bare_panes: [pane("feat-a", "working")])
 
-      assert Watch.render(board, frame: 0) == "🐭 feat-a  working  ·"
-      assert Watch.render(board, frame: 1) == "🐭 feat-a  working  ··"
-      assert Watch.render(board, frame: 2) == "🐭 feat-a  working  ···"
-      assert Watch.render(board, frame: 3) == "🐭 feat-a  working  ·"
+      assert render(board, frame: 0) == "🐭 feat-a  working  0s  ·"
+      assert render(board, frame: 1) == "🐭 feat-a  working  0s  ··"
+      assert render(board, frame: 2) == "🐭 feat-a  working  0s  ···"
+      assert render(board, frame: 3) == "🐭 feat-a  working  0s  ·"
     end
 
     test "the ticker never moves the detail column as it grows" do
@@ -553,7 +576,7 @@ defmodule Whiska.WatchTest do
 
       columns =
         Enum.map(0..2, fn frame ->
-          [line] = String.split(Watch.render(board, frame: frame), "\n")
+          [line] = String.split(render(board, frame: frame), "\n")
           line |> String.split("Edit x.ex") |> hd() |> String.length()
         end)
 
@@ -563,7 +586,7 @@ defmodule Whiska.WatchTest do
     test "an idle mouse's row is still" do
       board = board([mouse("feat-a")], bare_panes: [pane("feat-a", "idle")])
 
-      for frame <- 0..3, do: refute(Watch.render(board, frame: frame) =~ "·")
+      for frame <- 0..3, do: refute(render(board, frame: frame) =~ "·")
     end
 
     test "a mouse blocked, off its pane or behind an unreachable herdr is still" do
@@ -574,7 +597,7 @@ defmodule Whiska.WatchTest do
           ] do
         board = board([mouse("feat-a")], panes: panes)
 
-        assert Watch.render(board, frame: 1) == "🐭 feat-a  #{status}"
+        assert render(board, frame: 1) == "🐭 feat-a  #{status}  0s"
       end
     end
 
@@ -585,15 +608,15 @@ defmodule Whiska.WatchTest do
           bare_panes: [pane("feat-a", "working")]
         )
 
-      refute Watch.render(board, frame: 1) =~ "··"
-      assert Watch.render(board, frame: 1) =~ "waiting on you"
+      refute render(board, frame: 1) =~ "··"
+      assert render(board, frame: 1) =~ "waiting on you"
     end
 
     test "a very long branch is cut rather than pushing the columns apart" do
       long = String.duplicate("a", 40)
       board = board([mouse(long)], bare_panes: [pane(long, "working")])
 
-      assert [line] = String.split(Watch.render(board), "\n")
+      assert [line] = String.split(render(board), "\n")
       assert line =~ "…"
       assert String.length(line) < 50
     end
@@ -602,16 +625,124 @@ defmodule Whiska.WatchTest do
       mice = Enum.map(1..8, &mouse("feat-#{&1}"))
       panes = Enum.map(1..8, &pane("feat-#{&1}", "working"))
 
-      assert Watch.render(board(mice, bare_panes: panes)) =~ "🐭 +3 more"
+      assert render(board(mice, bare_panes: panes)) =~ "🐭 +3 more"
     end
 
     test "what no row covers is counted at the bottom" do
-      assert Watch.render(board([], questions: [question(52, "feat-vanished")])) ==
+      assert render(board([], questions: [question(52, "feat-vanished")])) ==
                "🐱 1 waiting"
     end
 
+    test "how long each mouse has been going is its own column" do
+      board =
+        board([mouse("feat-a", created_at: DateTime.add(@now, -5580))],
+          bare_panes: [pane("feat-a", "working")],
+          action: fn _mouse -> {:tool, "Edit x.ex"} end
+        )
+
+      assert render(board) == "🐭 feat-a  working  1h 33m  Edit x.ex"
+    end
+
+    test "elapsed never moves the detail column between rows" do
+      board =
+        board(
+          [
+            mouse("feat-a", created_at: DateTime.add(@now, -5580)),
+            mouse("feat-b", created_at: @now)
+          ],
+          bare_panes: [pane("feat-a", "working"), pane("feat-b", "working")],
+          action: fn _mouse -> {:tool, "Edit x.ex"} end
+        )
+
+      assert [column, column] =
+               board |> render(frame: 1) |> String.split("\n") |> Enum.map(&detail_column/1)
+    end
+
+    test "the branch is cyan, so the person's own theme picks the shade" do
+      board = board([mouse("feat-a")], bare_panes: [pane("feat-a", "working")])
+
+      assert Watch.render(board) =~ "\e[36mfeat-a"
+    end
+
+    test "a question waiting on the person is the one thing in yellow" do
+      board =
+        board([mouse("feat-a")],
+          questions: [question(52, "feat-a")],
+          bare_panes: [pane("feat-a", "idle")]
+        )
+
+      assert Watch.render(board) =~ "\e[33mwaiting on you · #52"
+    end
+
+    test "a held queue rides the waiting line, and is yellow with it" do
+      board = board([], questions: [question(52, "feat-vanished")], held: :typing)
+
+      assert Watch.render(board) ==
+               "\e[33m🐱 1 waiting · held: your prompt box isn't empty\e[39m"
+    end
+
+    test "the count of what no row carries is yellow too, and the orphans are not" do
+      board =
+        board([mouse("feat-gone", died_at: @now)],
+          questions: [
+            question(52, "feat-vanished"),
+            question(51, "feat-gone", status: "orphaned")
+          ]
+        )
+
+      assert Watch.render(board) == "\e[33m🐱 1 waiting\e[39m\n\e[2m🐱 1 orphaned\e[22m"
+    end
+
+    test "a row that has nothing waiting is never yellow" do
+      board =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working")],
+          action: fn _mouse -> {:tool, "Edit x.ex"} end
+        )
+
+      refute Watch.render(board) =~ "\e[33m"
+    end
+
+    test "elapsed is dim, not loud" do
+      board = board([mouse("feat-a")], bare_panes: [pane("feat-a", "working")])
+
+      assert Watch.render(board) =~ "\e[2m0s\e[22m"
+    end
+
+    test "colour never carries meaning on its own" do
+      board =
+        board([mouse("feat-a")],
+          questions: [question(52, "feat-a")],
+          bare_panes: [pane("feat-a", "idle")]
+        )
+
+      plain = render(board)
+
+      assert plain =~ "feat-a"
+      assert plain =~ "waiting on you · #52"
+      assert plain =~ "0s"
+    end
+
+    test "no code is a full reset, so a stale board's dim survives the row" do
+      board =
+        board([mouse("feat-a")],
+          questions: [question(52, "feat-a")],
+          bare_panes: [pane("feat-a", "idle")]
+        )
+
+      refute Watch.render(board, frame: 1) =~ "\e[0m"
+    end
+
+    test "colour does not count against a column's cap" do
+      long = String.duplicate("a", 40)
+      board = board([mouse(long)], bare_panes: [pane(long, "working")])
+
+      assert [line] = String.split(render(board), "\n")
+      assert String.length(line) < 50
+    end
+
     test "a quiet repo draws nothing at all" do
-      assert Watch.render(board([])) == ""
+      assert render(board([])) == ""
     end
 
     test "a dead mouse draws nothing but the count of what it left behind" do
@@ -620,13 +751,13 @@ defmodule Whiska.WatchTest do
           questions: [question(51, "feat-gone", status: "orphaned")]
         )
 
-      assert Watch.render(board) == "🐱 1 orphaned"
+      assert render(board) == "🐱 1 orphaned"
     end
 
     test "a held queue says so on the waiting line (ADR-0058)" do
       board = board([], questions: [question(52, "feat-vanished")], held: :typing)
 
-      assert Watch.render(board) == "🐱 1 waiting · held: your prompt box isn\'t empty"
+      assert render(board) == "🐱 1 waiting · held: your prompt box isn\'t empty"
     end
 
     test "a topic row and a held queue are drawn together" do
@@ -637,7 +768,7 @@ defmodule Whiska.WatchTest do
           held: :typing
         )
 
-      drawn = Watch.render(board)
+      drawn = render(board)
       assert drawn =~ "Order builder for distributors"
       assert drawn =~ "🐱 1 waiting · held: your prompt box isn't empty"
     end
@@ -650,17 +781,17 @@ defmodule Whiska.WatchTest do
           held: :mid_turn
         )
 
-      assert Watch.render(board) =~ "🐱 held: this session is mid-turn"
+      assert render(board) =~ "🐱 held: this session is mid-turn"
     end
 
     test "a hold Whiska cannot name is still a hold" do
       board = board([], questions: [question(52, "feat-vanished")], held: :unreachable)
 
-      assert Watch.render(board) == "🐱 1 waiting · held: your main session cannot be reached"
+      assert render(board) == "🐱 1 waiting · held: your main session cannot be reached"
     end
 
     test "nothing held adds no words" do
-      assert Watch.render(board([], questions: [question(52, "feat-vanished")])) ==
+      assert render(board([], questions: [question(52, "feat-vanished")])) ==
                "🐱 1 waiting"
     end
 
@@ -673,7 +804,7 @@ defmodule Whiska.WatchTest do
           ]
         )
 
-      assert Watch.render(board) == "🐱 1 waiting\n🐱 1 orphaned"
+      assert render(board) == "🐱 1 waiting\n🐱 1 orphaned"
     end
   end
 end

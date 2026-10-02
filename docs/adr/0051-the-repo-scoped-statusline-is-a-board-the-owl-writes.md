@@ -262,3 +262,62 @@ itself to the top of the board, taken the exemption from the five-row cap that t
 gives a real question, and pushed a real row into `+n more` — a forged question, pointing
 at an id `whiska reply` cannot answer. The row already carries the question's id, and the
 id is what the ordering and the cap read.
+
+## Addendum (2026-10-02): a row says how long, and colour says which part to read
+
+Two things the person could not get from a row: whether a mouse started a minute ago or
+has been going since before lunch, and which part of a crowded row is the part for them.
+
+**Every row carries how long its mouse has been going**, in its own column between the
+status and the detail — `45s`, `6m`, `1h 33m`, `3d 4h`. It is `whiska mice`'s uptime,
+spelled by `Whiska.Mice.format_uptime/1` itself rather than copied: the board and the
+command answer the same question about the same records, and two spellings of `1h 33m`
+would read as two answers. The column goes before the detail, which is the one column
+whose width the board does not control, so the longest thing on the row stays last and
+nothing it says pushes the elapsed time off the end.
+
+**The redraw stays at two seconds.** An elapsed time is the obvious reason to want a
+one-second statusline, and it is not worth one: the owl writes the board every two
+seconds (`@default_board_ms`) and the statusline re-reads it every two
+(`@statusline_refresh_interval`), so a one-second refresh prints the same file twice
+unless the owl doubles its write rate for every house in every open session — the cost
+this ADR picked two seconds to avoid. What the column shows moves in minutes.
+
+**Plain ANSI colour, three codes, in `Whiska.Watch.Ink`**: the branch cyan, a question
+waiting on the person yellow, the elapsed time dim. Those are the three things a row is
+scanned for — which mouse, does it want me, how long — and everything else stays plain,
+because a board where most things are coloured has nothing that stands out. The count
+lines follow the same split: `🐱 n waiting` is yellow like the question it points at — and
+the held clause of ADR-0058 rides that same line, so it is yellow with it — while
+`🐱 n orphaned` and `🐭 +n more` are dim, since neither asks anything of the person.
+
+**Plain codes, never a shade.** `36`, `33` and `2`, never a 256-colour or an RGB escape:
+the shade belongs to the person's terminal theme, so a board drawn in a solarized
+terminal is solarized, and stays right when they switch between its light and dark
+variants. A hardcoded palette would be right in one terminal and wrong in every other.
+
+**Colour never carries meaning on its own.** A waiting row still says "waiting on you ·
+#52" in words, elapsed still reads `6m`, and the branch is still the first thing after
+the `🐭`. Dropped colour changes nothing about what the board says — which is also what
+keeps the board's tests reading it as plain text.
+
+**The codes nest inside the dim a stale board is wrapped in.** The statusline script
+wraps every line of a board older than ten seconds in `ESC[2m … ESC[0m`. A row that ended
+its own colour with a full reset would end that wrapper half way along the line and leave
+the rest of a board nobody is refreshing looking live, so a row ends colour with `39`
+(default foreground) and dim with `22` (normal intensity), each turning off only itself.
+`22` still ends the wrapper's dim as well — there is one dim attribute, not a stack — so
+the script's `awk` puts a fresh `ESC[2m` after every `ESC[22m` it passes through. That is
+the whole of the interaction, and it is checked by running the script over a coloured
+board in `Whiska.InstallStatuslineBoardTest`.
+
+**`whiska watch` is coloured too**, and keeps its codes when it is piped. The board is
+one renderer (above), and splitting it into a coloured and an uncoloured one to detect a
+terminal would be two renderers that can disagree — the thing this ADR set out not to
+have. Piping the board somewhere is not something anything in Whiska does.
+
+**A repo `init`-ed before today keeps the old script**, as this ADR's consequences already
+say of the interval. Its board is coloured — the owl writes that — but its stale path dims
+only as far as the row's first `ESC[22m`, so a board between ten seconds and a minute old
+looks half live. Cosmetic, on the degraded path alone, and `whiska init` replaces the
+script.

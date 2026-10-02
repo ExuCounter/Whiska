@@ -6,6 +6,9 @@ defmodule Whiska.InstallStatuslineBoardTest do
   use ExUnit.Case, async: false
 
   alias Whiska.Install
+  alias Whiska.Schema.Mouse
+  alias Whiska.Schema.Question
+  alias Whiska.Watch
   alias Whiska.Watch.Snapshot
 
   setup do
@@ -43,6 +46,39 @@ defmodule Whiska.InstallStatuslineBoardTest do
 
     assert status == 0
     out
+  end
+
+  defp board do
+    mouse = %Mouse{
+      mouse_id: "ma",
+      branch: "feat-a",
+      path: "/repo/worktrees/feat-a",
+      mode: "build",
+      created_at: DateTime.utc_now()
+    }
+
+    question = %Question{
+      id: 52,
+      mouse_id: "ma",
+      status: "sent",
+      kind: "needs-decision",
+      text: "Body.\n\nwhich db?\n\u2063\u2063",
+      asked_at: DateTime.utc_now()
+    }
+
+    pane = %{
+      pane_id: "w1:p1",
+      cwd: mouse.path,
+      agent: "claude",
+      agent_status: "working",
+      terminal_title_stripped: nil
+    }
+
+    Watch.board([mouse],
+      questions: [question],
+      panes: {:ok, [pane]},
+      activity: fn _mouse -> %{action: {:tool, "Edit lib/auth.ex"}, silent_for: 3} end
+    )
   end
 
   defp age_file(path, seconds) do
@@ -95,6 +131,19 @@ defmodule Whiska.InstallStatuslineBoardTest do
     assert out =~ "🦉 owl down · 40s stale"
     assert out =~ "🐭 feat-a"
     assert out =~ "\e[2m"
+  end
+
+  test "a stale board stays dim across the row's own colour", context do
+    :ok = Snapshot.write(context.main, Watch.render(board(), frame: 1))
+    age_file(Snapshot.path(context.main), 40)
+
+    out = run(context, context.main)
+    [_owl, row] = out |> String.trim_trailing() |> String.split("\n")
+
+    assert row =~ "\e[33mwaiting on you · #52"
+    assert String.starts_with?(row, "\e[2m")
+    assert String.ends_with?(row, "\e[0m")
+    refute row =~ ~r/\e\[22m(?!\e\[2m)/
   end
 
   test "a board nobody has touched for a minute is not shown at all", context do

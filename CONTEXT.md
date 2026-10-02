@@ -90,7 +90,12 @@ queue (delivery's, which a doorstep entry has not reached)
 What every mouse of one house is doing, a row each, drawn where the person is already
 looking: this repo's Claude Code statusline. A row is the mouse's branch, what herdr says
 its pane is doing, and one thing more — the question waiting on the person when there is
-one, otherwise the mouse's **topic**, and otherwise its **last action**. The topic is the
+one, otherwise the mouse's **topic**, and otherwise its **last action**. A row also says
+how long its mouse has been going, in the same words `whiska mice` uses for uptime —
+`45s`, `6m`, `1h 33m`. Three things on a row are coloured, in plain ANSI the person's own
+terminal theme shades: the branch cyan, a question waiting on them yellow, the elapsed
+time dim. Colour never carries meaning on its own — every row says in words what its
+colour says. The topic is the
 short human summary of what the mouse is working on, "Order builder for distributors",
 read from herdr's pane list where Claude Code keeps it as the pane's title. The last
 action is the tool call it is in the middle of or the last thing it said, read from its
