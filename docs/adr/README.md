@@ -92,4 +92,5 @@ individually citable decisions.
 
 ## Proposed, not committed
 
-- [0032](0032-pr-opening-and-merge-tracking.md) — PR opening and merge tracking
+- [0032](0032-pr-opening-and-merge-tracking.md) — PR opening and merge tracking (superseded 2026-10-02 by 0057)
+- [0057](0057-watching-a-branch-is-the-owls-one-networked-job.md) — Watching a branch is the owl's one networked job, and it only ever reads
