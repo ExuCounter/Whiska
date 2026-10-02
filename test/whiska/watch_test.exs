@@ -629,6 +629,19 @@ defmodule Whiska.WatchTest do
       assert Watch.render(board) == "🐱 1 waiting · held: your prompt box isn\'t empty"
     end
 
+    test "a topic row and a held queue are drawn together" do
+      board =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "Order builder for distributors")],
+          questions: [question(52, "feat-vanished")],
+          held: :typing
+        )
+
+      drawn = Watch.render(board)
+      assert drawn =~ "Order builder for distributors"
+      assert drawn =~ "🐱 1 waiting · held: your prompt box isn't empty"
+    end
+
     test "a hold is still said when every question is on a row" do
       board =
         board([mouse("feat-a")],
