@@ -128,6 +128,35 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  describe "statusline_script/1 — the copy of the script this repo carries (ADR-0059)" do
+    test "the shipped script is up to date" do
+      assert %Check{status: :ok} = Doctor.statusline_script(Install.statusline_script())
+    end
+
+    test "a copy from an older init is an upgrade notice, not a fault" do
+      stale = """
+      #!/usr/bin/env bash
+      # Whiska's project statusline, as an older init wrote it.
+      exec whiska statusline --here
+      """
+
+      check = Doctor.statusline_script(stale)
+      assert %Check{status: :warn, fix: "whiska init"} = check
+      assert check.detail =~ "whiska upgrade is available"
+    end
+
+    test "a copy stamped with an older version is an upgrade notice too" do
+      older =
+        String.replace(
+          Install.statusline_script(),
+          "whiska-statusline: v#{Install.statusline_version()}",
+          "whiska-statusline: v1"
+        )
+
+      assert %Check{status: :warn, fix: "whiska init"} = Doctor.statusline_script(older)
+    end
+  end
+
   # -- the tab bar -------------------------------------------------------------
 
   describe "tab_bar/2 — the herdr entry that draws the owl's line (ADR-0048)" do
@@ -630,6 +659,33 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :fail} = find(report.checks, "shim")
       # No shim means nothing to probe; the probe must not pretend.
       refute find(report.checks, "hook stop")
+    end
+
+    test "a script an older init wrote is reported from the repo itself (ADR-0059)", %{
+      main: main,
+      env: env
+    } do
+      init(main)
+      stub(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
+
+      File.write!(
+        Path.join(main, Install.statusline_path()),
+        "#!/usr/bin/env bash\n# an older init wrote this\nexit 0\n"
+      )
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :warn, fix: "whiska init"} =
+               find(report.checks, "statusline script")
+    end
+
+    test "a repo with no copy of the script says nothing about one", %{main: main, env: env} do
+      init(main)
+      stub(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      refute find(report.checks, "statusline script")
     end
 
     test "an initialised repo with everything reachable is all ok, owl aside", %{

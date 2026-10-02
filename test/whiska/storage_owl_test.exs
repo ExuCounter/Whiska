@@ -126,6 +126,91 @@ defmodule Whiska.StorageOwlTest do
     test "refuses an unknown mouse" do
       assert {:error, :no_such_mouse} = Storage.mark_dead("ghost")
     end
+
+    # The cascade has to run on a mouse already marked dead, not only on the
+    # death itself. A question collected after the death arrives `open`, is
+    # delivered, and then holds ADR-0008's one slot with nothing alive behind
+    # it — the wedge this is here to stop.
+    test "releases a question that arrived after the death" do
+      {:ok, _} = Storage.mark_dead("m1")
+      late = ask("m1")
+      {:ok, _} = Storage.mark_sent(late.id)
+
+      {:ok, _} = Storage.mark_dead("m1")
+
+      assert Storage.question(late.id).status == "orphaned"
+    end
+  end
+
+  # Nothing that cannot be answered may hold the one delivery slot (ADR-0057):
+  # a dead mouse's sent question, and a question from a record that no longer
+  # stands for a worktree of this house.
+  describe "release_unanswerable/0 (ADR-0057)" do
+    test "releases a dead mouse's open and sent questions" do
+      open = ask("m1")
+      sent = ask("m1")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      {:ok, _} = Storage.mark_dead("m1")
+      # Put one back by hand, as a collection after the death would.
+      late = ask("m1")
+
+      # The death itself released the first two; this catches the late arrival.
+      assert [%Question{id: id}] = Storage.release_unanswerable()
+      assert id == late.id
+
+      assert Storage.question(open.id).status == "orphaned"
+      assert Storage.question(sent.id).status == "orphaned"
+      assert Storage.question(late.id).status == "orphaned"
+    end
+
+    test "releases a question from a record that no longer stands for a worktree" do
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "phantom",
+          path: "/w/quality",
+          branch: "quality",
+          created_at: ~U[2026-09-29 10:00:00Z]
+        })
+
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "real",
+          path: "/w/quality/QUAL-350",
+          branch: "quality/QUAL-350",
+          created_at: ~U[2026-09-29 11:00:00Z]
+        })
+
+      wedged = ask("phantom")
+      {:ok, _} = Storage.mark_sent(wedged.id)
+      theirs = ask("real")
+
+      assert [%Question{}] = Storage.release_unanswerable()
+
+      assert Storage.question(wedged.id).status == "orphaned"
+      assert Storage.question(theirs.id).status == "open"
+    end
+
+    test "leaves a live mouse's questions and everything already settled alone" do
+      open = ask("m1")
+      sent = ask("m1")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      answered = ask("m1", %{status: "answered"})
+
+      assert [] = Storage.release_unanswerable()
+
+      assert Storage.question(open.id).status == "open"
+      assert Storage.question(sent.id).status == "sent"
+      assert Storage.question(answered.id).status == "answered"
+    end
+  end
+
+  defp ask(mouse_id, attrs \\ %{}) do
+    {:ok, q} =
+      Storage.record_question(
+        Map.merge(%{mouse_id: mouse_id, text: "?", kind: "needs-decision"}, attrs)
+      )
+
+    q
   end
 
   describe "alive_mice/0" do

@@ -247,8 +247,15 @@ defmodule Whiska.Install do
   # used to be.
   @statusline_refresh_interval 2
 
+  # Bumped whenever the script changes, so a copy an older `whiska init` wrote
+  # can be told apart from this one (ADR-0059). The person's own copy is
+  # committed and shared with their team, so nothing rewrites it: the doctor
+  # reads the stamp and says an upgrade is available.
+  @statusline_version 2
+
   @statusline_script """
   #!/usr/bin/env bash
+  # whiska-statusline: v#{@statusline_version}
   # Whiska's project statusline (ADR-0051): a board, one row per mouse in
   # this repo — its branch, what herdr says it is doing, and the question
   # waiting on you, else what it is working on, else what it is stuck in.
@@ -880,6 +887,24 @@ defmodule Whiska.Install do
   @doc "The statusline script's contents (ADR-0027)."
   @spec statusline_script() :: String.t()
   def statusline_script, do: @statusline_script
+
+  @doc """
+  Which version of the statusline script this build ships (ADR-0059).
+
+  The script carries it in a `# whiska-statusline: v<n>` line, which is how
+  `whiska doctor` tells a repo's copy apart from this one.
+  """
+  @spec statusline_version() :: pos_integer()
+  def statusline_version, do: @statusline_version
+
+  @doc "The version stamp in a copy of the script, or `nil` when it carries none."
+  @spec statusline_version_of(String.t()) :: pos_integer() | nil
+  def statusline_version_of(contents) when is_binary(contents) do
+    case Regex.run(~r/^#\s*whiska-statusline:\s*v(\d+)/m, contents) do
+      [_, version] -> String.to_integer(version)
+      nil -> nil
+    end
+  end
 
   @doc """
   Seconds between statusline redraws, written beside the command (ADR-0044).

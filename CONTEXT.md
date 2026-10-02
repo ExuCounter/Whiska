@@ -51,7 +51,8 @@ closed the moment it is sent — it is never answered, and it neither waits for 
 delivery slot nor holds it. A question is **open** while it waits to be told, **sent** once delivered and
 waiting for its answer, then **answered**; **superseded** when its own mouse asked a
 newer one, **closed** by hand or as a `done` report once told, **orphaned** when nothing
-can act on it (its mouse died, its worktree is gone).
+can act on it (its mouse died, its worktree is gone, its record no longer stands for a
+worktree of this house).
 _Avoid_: report (as the table/record name — the word now names how a message reads,
 see **Report**), event (as the table/record name)
 
@@ -100,8 +101,9 @@ says a mouse is busy, a still board and a frozen one look the same, and the tick
 difference. Only a working row ticks; an idle mouse, a blocked one, one waiting on the
 person and one herdr cannot account for are all still, because on those rows nothing is
 meant to be moving. `whiska watch` is the same rows, worked out on the spot and printed
-once — and with no ticker, since nothing is refreshing behind them. Only a live mouse is a
-row: a dead one has none, and what it left behind is counted on an `orphaned` line of its
+once — and with no ticker, since nothing is refreshing behind them. The `waiting` line
+carries why nothing is being delivered while delivery is held (ADR-0058). Only a live
+mouse is a row: a dead one has none, and what it left behind is counted on an `orphaned` line of its
 own, under the `waiting` one — nobody can answer an orphan, so it is never counted as
 waiting. The board only reports — nothing on it acts (ADR-0051).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws, which is not this), the
@@ -119,7 +121,12 @@ _Avoid_: primary, parent, captain
 The owl typing one question's line into the main session — only when that pane is idle
 and no other question is already sent. A queue, not a batch: the next question goes when
 the previous one is answered (or superseded, or closed, or orphaned, when its own mouse
-dies while holding the slot) and the session is idle again. A finished line is outside
+dies while holding the slot) and the session is idle again. Nothing that cannot be
+answered ever holds the slot: before each attempt, everything still waiting for a mouse
+that is dead, or for a record that no longer stands for a worktree of this house, is
+released to **orphaned** (ADR-0057). While the gate holds — the session mid-turn, or a
+draft in its box — the queue is **held**, and the board says so once the hold has lasted
+ten seconds (ADR-0058). A finished line is outside
 the queue: nothing is waiting on the person in it, so it goes ahead of whatever is
 waiting, takes no slot, and is closed as it is typed.
 What is typed is a one-line pointer with the id and no command; the full text is

@@ -72,15 +72,20 @@ defmodule Whiska.Watch do
           detail: String.t()
         }
 
+  @typedoc "Why delivery is holding, when it has been holding long enough to say."
+  @type held :: :typing | :mid_turn | :unreachable | nil
+
   @typedoc """
   `more` is how many live mice the cap left off; `waiting` what no row covers
-  and the person can still answer; `orphaned` what nothing can act on any more.
+  and the person can still answer; `orphaned` what nothing can act on any more;
+  `held` why nothing is being delivered.
   """
   @type t :: %{
           rows: [row()],
           more: non_neg_integer(),
           waiting: non_neg_integer(),
-          orphaned: non_neg_integer()
+          orphaned: non_neg_integer(),
+          held: held()
         }
 
   @doc """
@@ -129,7 +134,8 @@ defmodule Whiska.Watch do
   Options: `:questions`, its waiting and orphaned questions, counted apart;
   `:panes`, herdr's answer in `Whiska.Mice.panes/0` form; `:activity`, what a
   mouse is doing and how long it has been silent,
-  `Whiska.Watch.Transcript.activity/1` unless a test pins it.
+  `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:held`, why
+  delivery is holding (ADR-0058).
   """
   @spec board([Mouse.t()], keyword()) :: t()
   def board(mice, opts \\ []) do
@@ -147,7 +153,13 @@ defmodule Whiska.Watch do
       |> Enum.sort_by(&rank/1)
       |> cap()
 
-    %{rows: rows, more: more, waiting: uncovered(live, rows), orphaned: length(orphaned)}
+    %{
+      rows: rows,
+      more: more,
+      waiting: uncovered(live, rows),
+      orphaned: length(orphaned),
+      held: Keyword.get(opts, :held)
+    }
   end
 
   defp row(mouse, question, panes, activity) do
@@ -278,14 +290,15 @@ defmodule Whiska.Watch do
   @spec render(t(), keyword()) :: String.t()
   def render(board, opts \\ [])
 
-  def render(%{rows: [], more: 0, waiting: 0, orphaned: 0}, _opts), do: ""
+  def render(%{rows: [], more: 0, waiting: 0, orphaned: 0, held: nil}, _opts), do: ""
 
-  def render(%{rows: rows, more: more, waiting: waiting, orphaned: orphaned}, opts) do
+  def render(%{rows: rows, more: more, waiting: waiting, orphaned: orphaned} = board, opts) do
     tick = Keyword.get(opts, :frame)
     widths = widths(rows, tick)
+    held = Map.get(board, :held)
 
     (Enum.map(rows, &line(&1, widths, tick)) ++
-       [more_line(more), waiting_line(waiting), orphaned_line(orphaned)])
+       [more_line(more), waiting_line(waiting, held), orphaned_line(orphaned)])
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n")
   end
@@ -330,8 +343,17 @@ defmodule Whiska.Watch do
   defp more_line(0), do: nil
   defp more_line(more), do: "🐭 +#{more} more"
 
-  defp waiting_line(0), do: nil
-  defp waiting_line(waiting), do: "🐱 #{waiting} waiting"
+  # Why nothing is being delivered, where the person is already looking
+  # (ADR-0058). The gate itself is untouched: this is the queue saying it
+  # exists, in the one place a hold was otherwise silent.
+  defp waiting_line(0, nil), do: nil
+  defp waiting_line(0, held), do: "🐱 held: #{reason(held)}"
+  defp waiting_line(waiting, nil), do: "🐱 #{waiting} waiting"
+  defp waiting_line(waiting, held), do: "🐱 #{waiting} waiting · held: #{reason(held)}"
+
+  defp reason(:typing), do: "your prompt box isn't empty"
+  defp reason(:mid_turn), do: "this session is mid-turn"
+  defp reason(_unreachable), do: "your main session cannot be reached"
 
   # Its own word, under the waiting line: nobody can answer an orphan, so the
   # person is being told it is there, not asked to do anything about it.

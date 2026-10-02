@@ -3,7 +3,9 @@
 **All of this is built and tested**: the doorstep and collection (ADR-0036),
 classification (ADR-0009), the hook's reading of the transcript before it writes anything
 (ADR-0052), the idle-gated delivery queue (ADR-0008) with its hold while
-the person is typing (ADR-0047), and the reply keyed to a question id (ADR-0005). Shown as a dynamic diagram because the ordering is the
+the person is typing (ADR-0047) — said on the board once it has lasted (ADR-0058) — the
+release of anything nothing can answer (ADR-0057), and the reply keyed to a question id
+(ADR-0005). Shown as a dynamic diagram because the ordering is the
 design. Nothing here crosses into another repo: the nudge that once did was deleted by
 ADR-0044.
 
@@ -34,7 +36,7 @@ C4Dynamic
   Rel(herdr, collection, "Reports that mouse done or idle")
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by marker")
-  Rel(delivery, db, "Any finished line to tell? otherwise any open question, and is the slot free?")
+  Rel(delivery, db, "Release what nothing can answer; then any finished line to tell, otherwise any open question if the slot is free")
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
   Rel(delivery, mainpane, "Type one line only if idle and nothing half-typed, and for a question nothing sent")
   Rel(person, delivery, "whiska reply, keyed to the question id")
@@ -129,8 +131,16 @@ A mouse that *dies* cannot wedge it either: marking it dead orphans everything i
 waiting, sent as well as open (ADR-0007), because no answer can reach a dead mouse and a
 question nobody can answer would otherwise hold the one slot forever. The owl frees it by
 itself — at house open, where reconciling against `pane.list` catches whatever died while
-the owl was down, and on the backstop. `whiska doctor` says so meanwhile: a sent question
-whose mouse is dead is a warning naming that mouse, not a passing check.
+the owl was down, and on the backstop.
+
+Nor can anything else that cannot be answered (ADR-0057). The release runs **before every
+delivery attempt**, so the order of a death and a collection stops mattering: a question
+left on the doorstep by a mouse that was marked dead in the meantime is released rather
+than delivered, and so is one belonging to a record that no longer stands for a worktree
+of this house (ADR-0051). Released means orphaned — kept, counted on the board's own
+`orphaned` line, and read with `whiska questions`, which says there is nowhere to reply.
+`whiska doctor` still names a dead mouse holding the slot, now as a thing that should not
+be there rather than a state to wait out.
 
 When herdr reports `claude` + `unknown` — the integration is broken — **deliver anyway
 and say so**. Holding there is not caution, it is choosing silence, and the person would
@@ -141,7 +151,10 @@ person can have a half-typed prompt sitting in the box while the pane is every b
 idle, and the line would land inside it or submit it. herdr has no input signal, so
 delivery reads the pane's visible screen and looks for Claude Code's prompt box. A draft
 in it holds the question — open, first in the queue, gone on the next trigger once the
-box clears — and `whiska doctor` says `held: person is typing` meanwhile. A screen with
+box clears — and `whiska doctor` says `held: person is typing` meanwhile. A hold that
+lasts more than ten seconds also says so on the board, on its waiting line:
+`🐱 3 waiting · held: your prompt box isn't empty` (ADR-0058). The gate itself is
+unchanged — nothing is ever typed into a box the person is mid-sentence in. A screen with
 no box on it is an unavailable signal, and delivers for the reason above.
 
 ## Steps 9–10 — answers are keyed to a question id (ADR-0005)

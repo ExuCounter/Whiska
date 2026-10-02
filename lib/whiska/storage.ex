@@ -296,20 +296,63 @@ defmodule Whiska.Storage do
         {:error, :no_such_mouse}
 
       %Mouse{died_at: %DateTime{}} = mouse ->
+        release(mouse_id)
         {:ok, mouse}
 
       mouse ->
         Repo.transaction(fn ->
-          Repo.update_all(
-            from(q in Question, where: q.mouse_id == ^mouse_id and q.status in ^@waiting),
-            set: [status: "orphaned"]
-          )
+          release(mouse_id)
 
           mouse
           |> Ecto.Changeset.change(%{died_at: now()})
           |> Repo.update!()
         end)
     end
+  end
+
+  @doc """
+  Release every question nothing can act on any more (ADR-0057).
+
+  Nothing that cannot be answered may hold ADR-0008's one delivery slot, so
+  what is still waiting for a mouse that is dead (ADR-0026), or for a record
+  that no longer stands for a worktree of this house — the phantom a slashed
+  branch's parent folder used to mint, and any other stale record — is settled
+  as `orphaned` here. It is kept with that status (ADR-0007), counted on the
+  board's own `orphaned` line (ADR-0051) and listed apart by
+  `whiska questions`, which says there is nowhere to reply.
+
+  `mark_dead/1` does the same for one mouse at the moment it dies; this is the
+  sweep that catches what arrived after it, and it is run before every delivery
+  so the slot is judged by what is alive now. Returns what it released.
+  """
+  @spec release_unanswerable() :: [Question.t()]
+  def release_unanswerable do
+    answerable =
+      current_mice()
+      |> Enum.filter(&is_nil(&1.died_at))
+      |> MapSet.new(& &1.mouse_id)
+
+    questions()
+    |> Enum.reject(&MapSet.member?(answerable, &1.mouse_id))
+    |> case do
+      [] ->
+        []
+
+      unanswerable ->
+        ids = Enum.map(unanswerable, & &1.id)
+        Repo.update_all(from(q in Question, where: q.id in ^ids), set: [status: "orphaned"])
+        unanswerable
+    end
+  end
+
+  # Everything one mouse left waiting, out of the slot and into `orphaned`.
+  # Anything already answered, closed or superseded is history and is left
+  # alone.
+  defp release(mouse_id) do
+    Repo.update_all(
+      from(q in Question, where: q.mouse_id == ^mouse_id and q.status in ^@waiting),
+      set: [status: "orphaned"]
+    )
   end
 
   @doc """

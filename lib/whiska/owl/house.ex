@@ -104,6 +104,10 @@ defmodule Whiska.Owl.House do
   question — open, first in the queue, delivered on the next trigger — and a
   screen with no box on it delivers anyway, for ADR-0008's reason.
 
+  A hold is remembered — since when, and which half of the gate held — so the
+  board can say why nothing is being delivered once it has outlasted the fuse
+  (ADR-0058). Only the saying is new: the gate decides exactly as it did.
+
   A house tells no other house anything, and nothing is ever typed into
   another repo's session (ADR-0044): the other repo's own statusline redraws
   on its `refreshInterval` timer and reads what is waiting here off disk.
@@ -135,6 +139,8 @@ defmodule Whiska.Owl.House do
   @default_round_wait_ms 8_000
   @default_retry_ms [2_000, 5_000]
   @default_board_ms 2_000
+  # How long delivery has to be holding before the board says so (ADR-0058).
+  @default_hold_notice_ms 10_000
 
   defstruct [
     :main_checkout,
@@ -146,6 +152,9 @@ defmodule Whiska.Owl.House do
     :round_wait_ms,
     :retry_ms,
     :board_ms,
+    :hold_notice_ms,
+    held_since: nil,
+    held_reason: nil,
     subscription: nil,
     board_frame: 0,
     panes: %{},
@@ -167,7 +176,8 @@ defmodule Whiska.Owl.House do
   Options: `:main_checkout` (required), `:herdr_socket` (defaults to
   `HERDR_SOCKET_PATH`), `:backstop_ms`, `:resubscribe_ms`, `:round_wait_ms`,
   `:retry_ms` (the delays, in order, of the re-collections after an idle event
-  that found nothing), `:board_ms` (how often the board is written), `:name`.
+  that found nothing), `:board_ms` (how often the board is written),
+  `:hold_notice_ms` (how long a hold lasts before the board says why), `:name`.
   """
   def start_link(opts) do
     {name, opts} = Keyword.pop(opts, :name)
@@ -215,6 +225,7 @@ defmodule Whiska.Owl.House do
           round_wait_ms: Keyword.get(opts, :round_wait_ms, @default_round_wait_ms),
           retry_ms: Keyword.get(opts, :retry_ms, @default_retry_ms),
           board_ms: Keyword.get(opts, :board_ms, @default_board_ms),
+          hold_notice_ms: Keyword.get(opts, :hold_notice_ms, @default_hold_notice_ms),
           main_pane: Storage.main_pane()
         }
 
@@ -335,7 +346,7 @@ defmodule Whiska.Owl.House do
   # working row's ticker moves exactly when the board behind it was refreshed: a
   # house that has stopped writing leaves the dots where they were.
   defp write_board(state) do
-    board = Watch.from_house(panes: state.last_panes)
+    board = Watch.from_house(panes: state.last_panes, held: held_reason(state))
 
     case Snapshot.write(state.main_checkout, Watch.render(board, frame: state.board_frame)) do
       :ok -> %{state | board_frame: state.board_frame + 1}
@@ -672,23 +683,71 @@ defmodule Whiska.Owl.House do
 
   defp deliver(%{main_pane: nil} = state) do
     if Storage.open_count() > 0 do
-      warn_once(
-        state,
+      state
+      |> warn_once(
         :no_main,
         "questions are waiting but no main session is recorded — " <>
           "run `whiska start` in the main session's pane"
       )
+      |> hold(:unreachable)
     else
-      state
+      release_hold(state)
     end
   end
 
   defp deliver(state) do
-    with %Question{} = question <- next_to_deliver(),
-         {:go, notes} <- main_session_free?(state) do
-      send_question(state, question, notes)
+    release_unanswerable(state)
+
+    case next_to_deliver() do
+      nil ->
+        release_hold(state)
+
+      %Question{} = question ->
+        case main_session_free?(state) do
+          {:go, notes, state} -> send_question(release_hold(state), question, notes)
+          {:hold, reason, state} -> hold(state, reason)
+        end
+    end
+  end
+
+  # How long delivery has been holding, and why. The gate is unchanged
+  # (ADR-0008, ADR-0047); this only remembers what it decided, so the board can
+  # say it (ADR-0058). A hold starts over when its reason changes.
+  defp hold(%{held_reason: reason} = state, reason), do: state
+  defp hold(state, reason), do: %{state | held_since: now(), held_reason: reason}
+
+  defp release_hold(state), do: %{state | held_since: nil, held_reason: nil}
+
+  # Said only once the hold has outlasted the fuse, and only while something is
+  # actually queued behind it.
+  defp held_reason(state) do
+    with %DateTime{} = since <- state.held_since,
+         true <- DateTime.diff(now(), since, :millisecond) >= state.hold_notice_ms,
+         true <- Storage.open_count() > 0 do
+      state.held_reason
     else
-      _ -> state
+      _ -> nil
+    end
+  end
+
+  defp now, do: DateTime.utc_now()
+
+  # Nothing that cannot be answered may hold the one slot (ADR-0057). A mouse
+  # dies and is marked dead; a doorstep entry it left behind is collected after
+  # that, arrives `open` and is delivered, and then holds the slot with nothing
+  # alive behind it. Judging the queue here, on every trigger, is what makes
+  # the rule hold whatever order those two happen in.
+  defp release_unanswerable(state) do
+    case Storage.release_unanswerable() do
+      [] ->
+        :ok
+
+      released ->
+        warn(
+          state,
+          "released #{length(released)} question(s) nothing can answer any more: " <>
+            Enum.map_join(released, ", ", &"##{&1.id}")
+        )
     end
   end
 
@@ -703,8 +762,11 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  defp main_session_free?(%{socket: nil} = state),
-    do: warn_once(state, :no_socket, "no herdr socket known — cannot deliver")
+  defp main_session_free?(%{socket: nil} = state) do
+    state
+    |> warn_once(:no_socket, "no herdr socket known — cannot deliver")
+    |> then(&{:hold, :unreachable, &1})
+  end
 
   defp main_session_free?(state) do
     case state.herdr.pane(state.socket, state.main_pane) do
@@ -715,25 +777,29 @@ defmodule Whiska.Owl.House do
         not_typing(state, [:status_unknown])
 
       {:ok, %{agent: "claude"}} ->
-        :hold
+        {:hold, :mid_turn, state}
 
       {:ok, %{agent: nil}} ->
-        warn_once(
-          state,
+        state
+        |> warn_once(
           :main_dead,
           "the main session's pane #{state.main_pane} is not running Claude — " <>
             "questions are held; run `whiska start` where it is"
         )
+        |> then(&{:hold, :unreachable, &1})
 
       {:ok, %{agent: other}} ->
-        warn_once(state, :main_dead, "the main session's pane runs #{other}, not Claude — held")
+        state
+        |> warn_once(:main_dead, "the main session's pane runs #{other}, not Claude — held")
+        |> then(&{:hold, :unreachable, &1})
 
       {:error, reason} ->
-        warn_once(
-          state,
+        state
+        |> warn_once(
           :main_lookup,
           "could not ask herdr about the main pane (#{inspect(reason)})"
         )
+        |> then(&{:hold, :unreachable, &1})
     end
   end
 
@@ -744,8 +810,13 @@ defmodule Whiska.Owl.House do
   # read. An unreadable one is ADR-0008's unavailable signal — deliver anyway.
   defp not_typing(state, notes) do
     case state.herdr.read_screen(state.socket, state.main_pane) do
-      {:ok, screen} -> if Draft.read(screen) == :typing, do: :hold, else: {:go, notes}
-      {:error, _reason} -> {:go, notes}
+      {:ok, screen} ->
+        if Draft.read(screen) == :typing,
+          do: {:hold, :typing, state},
+          else: {:go, notes, state}
+
+      {:error, _reason} ->
+        {:go, notes, state}
     end
   end
 

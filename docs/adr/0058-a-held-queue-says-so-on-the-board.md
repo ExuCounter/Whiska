@@ -1,0 +1,58 @@
+# A held queue says so on the board
+
+Delivery holds while the main session is mid-turn (ADR-0008) and while the person has
+something half-typed in its prompt box (ADR-0047). Both holds are correct and neither is
+negotiable: a line typed into an occupied box lands inside what the person is writing.
+
+Both are also silent. ADR-0047 says being held is never silent and points at
+`whiska doctor`'s `held: person is typing` — but the doctor has to be run, and the person
+only runs it once they suspect something. While they work in that pane, every question
+queues with no sign at all, which is an afternoon of not knowing a queue exists.
+
+## Decision
+
+**The board says why nothing is being delivered**, on the waiting line it already draws in
+this repo's Claude Code statusline (ADR-0051) — the surface the person is already looking
+at, and one that never interrupts:
+
+```
+🐱 3 waiting · held: your prompt box isn't empty
+🐱 1 waiting · held: this session is mid-turn
+```
+
+With every waiting question already carried by a row of its own, the reason is a line of
+its own — `🐱 held: …` — so a hold is never invisible for want of a count to hang off.
+
+**The fuse is 10 seconds.** A hold that has lasted less than that says nothing, so an
+ordinary pause between triggers draws no words; past it, the reason stands until the queue
+moves. Ten rather than a minute is the person's own call: a reason that flickers on during
+a pause is cheaper than a queue nobody knows about.
+
+**The gate does not change.** This is the queue reporting itself, not a new reason to
+deliver, and nothing is ever typed into a box the person is mid-sentence in.
+
+## Consequences
+
+- **The house remembers what the gate decided** — since when, and which half held — and the
+  board reads it. The hold is cleared by a delivery and by an empty queue, so the line
+  cannot outlive what it describes.
+- **A reason Whiska cannot name is still a hold.** No main session recorded, a pane not
+  running Claude, herdr unreachable: all of them draw
+  `held: your main session cannot be reached`, which is true and points at `whiska doctor`
+  for which one it is.
+- **`whiska watch` draws no hold.** It is the board worked out on the spot, outside the
+  owl, and the hold is the owl's own state.
+- **The doctor's line stays.** It says more than the board has room for, and it is still
+  the place that catches a box read as occupied when it is not.
+
+## Considered options
+
+**A macOS notification.** Rejected by the person whose screen it is: the whole point of the
+gate is not to interrupt, and a notification is an interruption with none of the gate's
+care.
+
+**Leave it to `whiska doctor`.** Rejected: that is the situation this fixes. A diagnosis
+only works once you know to ask for one.
+
+**Deliver anyway after a timeout.** Rejected outright. It is the one thing ADR-0047 exists
+to prevent, and no delay makes typing into somebody's draft acceptable.

@@ -95,6 +95,17 @@ defmodule Whiska.InstallStatuslineTest do
       assert script =~ ~s(probe="$dir")
     end
 
+    test "carries the version stamp that tells an old copy apart (ADR-0059)" do
+      script = Install.statusline_script()
+
+      assert script =~ "whiska-statusline: v#{Install.statusline_version()}"
+      assert is_integer(Install.statusline_version())
+    end
+
+    test "falls back to the base line the global install kept (ADR-0056)" do
+      assert Install.statusline_script() =~ Install.base_statusline_path()
+    end
+
     test "the settings.json command names only the script, under the project dir" do
       assert Install.statusline_command() =~ "CLAUDE_PROJECT_DIR"
       assert Install.statusline_command() =~ Install.statusline_path()

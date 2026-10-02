@@ -198,6 +198,45 @@ defmodule Whiska.Owl.HouseBoardTest do
     end)
   end
 
+  # A hold is never silent (ADR-0058): the board says why, where the person is
+  # already looking.
+  describe "a held queue" do
+    setup %{main: main, worktree: worktree} do
+      stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "working")]} end)
+      stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+      stub(Herdr, :pane, fn @socket, "w1:p2" ->
+        {:ok, %{pane_id: "w1:p2", cwd: "/main", agent: "claude", agent_status: "working"}}
+      end)
+
+      {:ok, handle} = Storage.open(main, name: :seed)
+      :ok = Storage.set_main_pane("w1:p2")
+
+      {:ok, _} =
+        Storage.record_question(%{mouse_id: "ma", text: "which db?", kind: "needs-decision"})
+
+      Storage.close(handle)
+      :ok
+    end
+
+    test "says why nothing is being delivered once the hold has lasted", %{main: main} do
+      open(main, hold_notice_ms: 0)
+
+      eventually(fn ->
+        if File.read!(Snapshot.path(main)) =~ "held: this session is mid-turn",
+          do: {:ok, :said},
+          else: :retry
+      end)
+    end
+
+    test "says nothing while the hold is younger than the fuse", %{main: main} do
+      house = open(main, hold_notice_ms: 60_000)
+      assert House.sync(house) == :ok
+
+      refute board(main) =~ "held"
+    end
+  end
+
   defp in_house(house, fun) do
     Storage.point_at(House.repo(house))
     fun.()
