@@ -138,6 +138,27 @@ Delivery is the only thing Whiska types anywhere, and it only ever types into th
 session of the question's own house (ADR-0044).
 _Avoid_: notify, ping, relay (the old bash mechanism), push
 
+**Held**:
+What delivery is while the gate says no and something is queued behind it: the main
+session mid-turn, a draft in its box, or no main session it can reach. The question stays
+open and first in the queue, and the hold lasts until the gate lets go — one hold however
+its reason changes. Said in two places in the same word: the board's waiting line once it
+has lasted ten seconds (ADR-0058), and `whiska doctor` whenever it is asked. Being held is
+never a question's own status; it is what delivery is doing, or not doing, to the queue.
+_Avoid_: blocked (a mouse's herdr status), stuck (a mouse that is not progressing),
+paused, queued (every question behind the first is that anyway)
+
+**Unplaced**:
+A directory under a house's `worktrees/` container that is no checkout of its own — the
+ordinary folder a slashed branch nests under, or a worktree laid out by hand. It is
+**nobody**: no mouse, no `mouse_id`, no mode, and nothing it leaves is a question. It is
+not nowhere, though — the main checkout is still above it, and a session sitting there is
+denied a write into it exactly as a mouse would be (ADR-0013). Reading such a folder as a
+mouse is what minted a mouse called `quality` for `quality/QUAL-350-lnkd-emails` and let
+its question wedge a queue (ADR-0030's note, ADR-0057).
+_Avoid_: phantom mouse (it is no mouse), ghost, orphan (a question's status), the
+container (the `worktrees/` folder itself, which is not this)
+
 **Draft**:
 Whatever the person has half-typed in the main session's prompt box and not yet sent. A
 draft *holds* delivery — the question stays open and first in the queue — however idle
