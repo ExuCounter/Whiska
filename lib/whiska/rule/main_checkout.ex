@@ -104,6 +104,22 @@ defmodule Whiska.Rule.MainCheckout do
     end
   end
 
+  defp reason(target, %Layout{branch_label: nil} = layout) do
+    """
+    Whiska denied this edit: #{target} is in the main checkout.
+
+    This session started in #{layout.worktree_root}, which sits under
+    `worktrees/` but is no worktree of this repo — so it is no mouse, and it is
+    the last place an edit to the main checkout should come from.
+
+    Edits in the main checkout are blocked (ADR-0013) — they bypass worktree
+    containment, the finish pipeline, diff review and push approval. If this
+    genuinely belongs in the main checkout, that is a decision for the main
+    session.
+    """
+    |> String.trim()
+  end
+
   defp reason(target, layout) do
     """
     Whiska denied this edit: #{target} is outside this mouse's worktree.

@@ -21,6 +21,15 @@ checkout, not something a worker does from inside a worktree. So from a worktree
 main-checkout edit is denied, config files included — v0.0.1 implements exactly that (see
 ADR-0030).
 
+**It reaches a session that is no mouse at all, when that session sits under
+`worktrees/`.** A folder there which is no checkout of its own mints no mouse (ADR-0030's
+note, rewritten 2026-10-02) — and losing identity must not mean losing containment, which
+would hand a session Whiska cannot account for the one permission a mouse does not have.
+So the main-checkout rule is applied from such a folder too, with the folder itself
+standing in for the worktree: a write below it is left alone, a write into the main
+checkout is denied, and nothing is minted or recorded either way. The main session is
+untouched — it is recognised by its pane (ADR-0053), and it does not start there.
+
 This rule aims at the main session. It is the mirror image of the standing permission for
 mice, which may use subagents freely inside their own worktree — that work never leaves
 the worktree, so none of Whiska's rules apply to it.

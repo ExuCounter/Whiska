@@ -39,7 +39,10 @@ transcript. Which session a hook is firing in — which mouse, or none — is de
 this and from the pane it runs in, and never from the working directory the hook is
 handed: that one follows every `cd` the session runs, so a main session that stepped into
 a worktree read as that branch's mouse and a mouse that stepped out read as nobody
-(ADR-0053).
+(ADR-0053). A start directory under `worktrees/` that is no checkout of its own — the
+ordinary folder a slashed branch nests under — is **nobody**: no mouse, no mode, no
+marker (ADR-0030's note). It keeps containment all the same, and a write into the main
+checkout from there is denied (ADR-0013).
 _Avoid_: cwd, working directory (both name the thing that moves)
 
 **Question**:

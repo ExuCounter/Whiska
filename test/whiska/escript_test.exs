@@ -30,6 +30,7 @@ defmodule Whiska.EscriptTest do
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(Path.join(worktree, "lib"))
+    File.write!(Path.join(worktree, ".git"), "gitdir: #{main}/.git/worktrees/feat-thing\n")
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, main: main, worktree: worktree}
   end

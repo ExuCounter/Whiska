@@ -34,13 +34,55 @@ defmodule Whiska.Hook.PreToolUse do
   """
   @spec run(String.t()) :: decision()
   def run(raw_payload) do
-    with {:ok, payload} when is_map(payload) <- decode(raw_payload),
-         {:ok, layout} <- Session.worktree(payload),
-         {:mouse, mode} <- identity(layout) do
-      decide(tool_name(payload), tool_input(payload), layout, mode)
+    case decode(raw_payload) do
+      {:ok, payload} when is_map(payload) -> placed(payload)
+      _ -> :allow
+    end
+  end
+
+  # A session that started in a worktree is a mouse and gets both rules. One
+  # that started in a folder under `worktrees/` which is no worktree of its own
+  # is nobody — no identity, no mode, nothing recorded (ADR-0030's note) — and
+  # still gets containment: the main checkout is the one place it must not
+  # write, and a folder Whiska cannot identify is where it is least able to
+  # vouch for what happens (ADR-0013).
+  defp placed(payload) do
+    case Session.worktree(payload) do
+      {:ok, layout} -> as_mouse(payload, layout)
+      {:error, :not_a_mouse} -> as_nobody(payload)
+    end
+  end
+
+  defp as_mouse(payload, layout) do
+    case identity(layout) do
+      {:mouse, mode} -> decide(tool_name(payload), tool_input(payload), layout, mode)
+      _ -> :allow
+    end
+  end
+
+  defp as_nobody(payload) do
+    with {:ok, layout} <- Session.unplaced(payload),
+         false <- main_session?(layout) do
+      MainCheckout.decide(tool_name(payload), tool_input(payload), layout)
     else
       _ -> :allow
     end
+  end
+
+  defp main_session?(layout) do
+    Isolated.run(fn ->
+      case Storage.open(layout.main_checkout) do
+        {:ok, handle} ->
+          try do
+            Session.main_pane?(Storage.main_pane())
+          after
+            Storage.close(handle)
+          end
+
+        _ ->
+          false
+      end
+    end) == true
   end
 
   @doc """

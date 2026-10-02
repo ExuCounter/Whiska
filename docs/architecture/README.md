@@ -86,7 +86,11 @@ still waiting for a dead mouse or for a record that no longer stands for a workt
 draft in its box — is said on the board's waiting line once it has lasted ten seconds
 (ADR-0058). The statusline script `whiska init` writes now carries a version stamp, and
 `whiska doctor` reads a repo's copy and says an upgrade is available rather than
-rewriting a committed file (ADR-0059). 1126 tests.
+rewriting a committed file (ADR-0059). And the phantom those first two were chasing is
+gone: a folder under `worktrees/` that is no checkout of its own is no worktree, so
+nothing mints a mouse for the directory a slashed branch nests under — while a session
+sitting there is still denied a write into the main checkout, because losing identity
+must not mean losing containment (ADR-0030's note, ADR-0013). 1138 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;

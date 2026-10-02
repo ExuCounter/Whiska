@@ -20,6 +20,7 @@ defmodule Whiska.Hook.StopTest do
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(Path.join(worktree, "lib"))
+    File.write!(Path.join(worktree, ".git"), "gitdir: #{main}/.git/worktrees/feat-thing\n")
 
     was = System.get_env("HERDR_PANE_ID")
     System.delete_env("HERDR_PANE_ID")

@@ -25,6 +25,7 @@ defmodule Whiska.CLIDeliveryTest do
     worktree = Path.join(main, "worktrees/feat-a")
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(worktree)
+    File.write!(Path.join(worktree, ".git"), "gitdir: #{main}/.git/worktrees/feat-a\n")
 
     was = {System.get_env("HERDR_PANE_ID"), System.get_env("HERDR_SOCKET_PATH")}
     System.put_env("HERDR_PANE_ID", "w1:p2")
