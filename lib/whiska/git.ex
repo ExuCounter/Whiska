@@ -1,6 +1,6 @@
 defmodule Whiska.Git do
   @moduledoc """
-  The local git questions behind cleanup (ADR-0058).
+  The local git questions behind cleanup (ADR-0061).
 
   Whether a branch has landed, a worktree is clean and every commit is on a
   remote are questions git answers on this machine, with no network, no forge

@@ -1,7 +1,7 @@
 # Nothing is ever deleted — not questions, not mice, not worktrees
 
 **The worktree half is superseded on 2026-10-02 by
-[ADR-0058](0058-a-merged-worktree-is-taken-down-by-the-owl.md)**: the owl takes a merged
+[ADR-0061](0061-a-merged-worktree-is-taken-down-by-the-owl.md)**: the owl takes a merged
 worktree down by itself, pane and all, with no human trigger. The title is no longer true
 as written. Everything else below still holds — answered questions are kept forever, a dead
 mouse is marked rather than deleted, collection still never touches disk, and a removed
@@ -31,6 +31,6 @@ decision made.
 
 ~~Removing a worktree for good is only ever a deliberate, human-triggered `whiska cleanup`,
 which checks the branch is actually merged and refuses without an explicit override.~~
-Superseded by ADR-0058: the owl does it, unattended, once the branch is merged, the
+Superseded by ADR-0061: the owl does it, unattended, once the branch is merged, the
 worktree is clean, nothing is unpushed and the mouse is quiet. The mouse row itself still
 is not deleted — just permanently inert.

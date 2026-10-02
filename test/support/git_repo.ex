@@ -3,7 +3,7 @@ defmodule Whiska.Test.GitRepo do
   A real git repo on disk, for the cleanup tests.
 
   Whether a branch is merged, a worktree clean and a commit pushed are git's
-  questions and nobody else's (ADR-0058), so the tests ask real git rather than
+  questions and nobody else's (ADR-0061), so the tests ask real git rather than
   a fake of it — the mocking this codebase allows is confined to the herdr
   boundary (ADR-0031), and git is not that boundary.
 

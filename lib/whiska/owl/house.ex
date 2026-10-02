@@ -539,7 +539,7 @@ defmodule Whiska.Owl.House do
   # -- collection --------------------------------------------------------------
 
   # Cleanup rides the backstop rather than an event: a branch lands outside
-  # Whiska entirely, so there is nothing to be told about (ADR-0058).
+  # Whiska entirely, so there is nothing to be told about (ADR-0061).
   defp clean_up(%{socket: nil} = state), do: state
 
   defp clean_up(state) do

@@ -25,7 +25,7 @@ defmodule Whiska.Schema.Mouse do
     # Set when herdr reports the pane gone (ADR-0026); cleared if a pane comes
     # back on the same worktree. Never a reason to delete the row (ADR-0007).
     field(:died_at, :utc_datetime)
-    # Set when the owl takes the worktree down (ADR-0058). The row stays; this
+    # Set when the owl takes the worktree down (ADR-0061). The row stays; this
     # is what makes it permanently inert.
     field(:removed_at, :utc_datetime)
   end

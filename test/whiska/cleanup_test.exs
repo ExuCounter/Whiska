@@ -1,6 +1,6 @@
 defmodule Whiska.CleanupTest do
   @moduledoc """
-  Taking a landed worktree down, pane and all (ADR-0058).
+  Taking a landed worktree down, pane and all (ADR-0061).
 
   Real git, a real house, and herdr faked at the one boundary that allows it
   (ADR-0031). Most of these tests are about *not* removing something: the four

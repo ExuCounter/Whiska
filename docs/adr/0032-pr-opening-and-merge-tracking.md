@@ -5,7 +5,7 @@ status: proposed
 # PR opening and merge tracking — designed, not committed
 
 **Superseded while still proposed, on 2026-10-02, by
-[ADR-0057](0057-watching-a-branch-is-the-owls-one-networked-job.md)**, which keeps the
+[ADR-0060](0060-watching-a-branch-is-the-owls-one-networked-job.md)**, which keeps the
 shape below and changes two things: the forge is not always GitHub, and Whiska reads
 status but never writes — no `gh pr merge` of its own. What it said:
 

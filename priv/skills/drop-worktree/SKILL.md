@@ -12,7 +12,7 @@ workspace leaves the worktree on disk.
 Use this to take a worktree down **early** — before its branch has landed, or when the
 person asks for it now. A worktree whose branch has already been merged needs nothing:
 the owl removes it, closes its pane and deletes its branch on its own, once the mouse is
-quiet (Whiska ADR-0058).
+quiet (Whiska ADR-0061).
 
 Installed by `whiska init` (Whiska ADR-0046). Dropping a worktree does not delete
 anything of Whiska's: the mouse record survives the mouse, marked dead rather than

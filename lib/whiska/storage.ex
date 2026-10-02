@@ -379,7 +379,7 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  Mark a mouse's worktree taken down (ADR-0058).
+  Mark a mouse's worktree taken down (ADR-0061).
 
   The row is stamped, never deleted: ADR-0007's reasoning about the record is
   untouched by its worktree half being superseded, and a stamped row is what

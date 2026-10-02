@@ -1,6 +1,6 @@
 defmodule Whiska.GitTest do
   @moduledoc """
-  The local git questions cleanup is allowed to act on (ADR-0058).
+  The local git questions cleanup is allowed to act on (ADR-0061).
 
   Every one of them is asked of real git in a real repo: these are the four
   preconditions, and a fake of git would be a fake of the only thing keeping a

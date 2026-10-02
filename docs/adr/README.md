@@ -31,8 +31,8 @@ individually citable decisions.
 
 - [0028](0028-storage-stays-sqlite.md) — Storage stays SQLite rather than reverting to flat files
 - [0006](0006-both-tables-persist-live-activity-does-not.md) — Both Mouse and Question are persisted; live activity is memory-only
-- [0007](0007-nothing-is-ever-deleted.md) — Nothing is ever deleted: not questions, not mice, not worktrees (the worktree half superseded 2026-10-02 by 0058)
-- [0058](0058-a-merged-worktree-is-taken-down-by-the-owl.md) — A merged worktree is taken down by the owl, pane and all
+- [0007](0007-nothing-is-ever-deleted.md) — Nothing is ever deleted: not questions, not mice, not worktrees (the worktree half superseded 2026-10-02 by 0061)
+- [0061](0061-a-merged-worktree-is-taken-down-by-the-owl.md) — A merged worktree is taken down by the owl, pane and all
 
 ## Questions and delivery
 
@@ -93,5 +93,5 @@ individually citable decisions.
 
 ## Proposed, not committed
 
-- [0032](0032-pr-opening-and-merge-tracking.md) — PR opening and merge tracking (superseded 2026-10-02 by 0057)
-- [0057](0057-watching-a-branch-is-the-owls-one-networked-job.md) — Watching a branch is the owl's one networked job, and it only ever reads
+- [0032](0032-pr-opening-and-merge-tracking.md) — PR opening and merge tracking (superseded 2026-10-02 by 0060)
+- [0060](0060-watching-a-branch-is-the-owls-one-networked-job.md) — Watching a branch is the owl's one networked job, and it only ever reads

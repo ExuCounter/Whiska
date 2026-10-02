@@ -1,6 +1,6 @@
 defmodule Whiska.Cleanup do
   @moduledoc """
-  Taking a landed worktree down, pane and all (ADR-0058).
+  Taking a landed worktree down, pane and all (ADR-0061).
 
   One pass over this house's mice, run from the backstop. A worktree goes only
   when all four preconditions hold — the branch is merged into the base, the

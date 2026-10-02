@@ -1,6 +1,6 @@
 defmodule Whiska.Owl.HouseCleanupTest do
   @moduledoc """
-  The house taking a landed worktree down on its backstop (ADR-0058).
+  The house taking a landed worktree down on its backstop (ADR-0061).
 
   A real git repo, because the preconditions are git's answers and nothing
   else's, and herdr faked at its one boundary (ADR-0031).

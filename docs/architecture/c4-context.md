@@ -40,7 +40,7 @@ C4Context
   mocking is allowed in tests (ADR-0031).
 - **git is asked, and now also answered to.** Whether a branch has landed is a local git
   question, and it is the one that lets the owl take a merged worktree down by itself
-  (ADR-0058). No forge, no network, no credentials are involved in it.
+  (ADR-0061). No forge, no network, no credentials are involved in it.
 - **launchd** matters because there is exactly one owl per machine, not one process per
   repo (ADR-0001). `whiska owl install` writes the user LaunchAgent `com.whiska.owl`,
   which starts the owl at login and restarts it if it crashes (ADR-0040). The foreground

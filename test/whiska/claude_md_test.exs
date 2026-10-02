@@ -76,7 +76,7 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ "HERDR_ENV=1"
     end
 
-    test "a landed worktree is the owl's to take down, not the session's (ADR-0058)" do
+    test "a landed worktree is the owl's to take down, not the session's (ADR-0061)" do
       body = prose_of("worktrees")
 
       assert body =~ ~r/after the merge.{0,120}owl/is

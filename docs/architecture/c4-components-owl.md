@@ -75,7 +75,7 @@ kept being retried while herdr is down.
 opening, and a slow backstop. An idle collection that finds nothing retries after 2 s and
 5 s, since the idle event can beat the mouse's `Stop` hook to the doorstep. Collection
 reads and marks; it never deletes and never touches the worktree (ADR-0007). Cleanup, on
-the same backstop, is the one thing in the owl that does (ADR-0058).
+the same backstop, is the one thing in the owl that does (ADR-0061).
 
 **The backstop is loud about what it finds.** Anything it collects is something the idle
 trigger should have brought a minute earlier, so the house warns on stderr and marks it
@@ -126,7 +126,7 @@ house off disk on its own timer (ADR-0048). The open-houses record is still writ
 still read, but only by the statusline and the doctor asking questions, never by anything
 acting.
 
-**Cleanup asks this machine first and herdr last** (ADR-0058). Each mouse is judged by what
+**Cleanup asks this machine first and herdr last** (ADR-0061). Each mouse is judged by what
 git and the house's own database can answer alone — the branch merged into the base, the
 worktree clean, nothing unpushed, and the mouse quiet: its last word a `done` report,
 nothing of its open or sent, nothing of its left uncollected on the doorstep. Only once

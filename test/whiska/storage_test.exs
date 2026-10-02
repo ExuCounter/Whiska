@@ -200,7 +200,7 @@ defmodule Whiska.StorageTest do
     end
   end
 
-  describe "mark_removed/1 (ADR-0058)" do
+  describe "mark_removed/1 (ADR-0061)" do
     setup %{main: main} do
       {:ok, handle} = Storage.open(main)
       on_exit(fn -> Storage.close(handle) end)

@@ -105,7 +105,7 @@ defmodule Whiska.Herdr do
   Remove a worktree and close the workspace it is open in, in one call.
 
   Never forced: herdr refusing a worktree with work in it is the refusal
-  cleanup wants (ADR-0058), and the owl has no way to ask again harder.
+  cleanup wants (ADR-0061), and the owl has no way to ask again harder.
   """
   @callback remove_worktree(socket :: Path.t(), workspace_id :: String.t()) ::
               :ok | {:error, term()}

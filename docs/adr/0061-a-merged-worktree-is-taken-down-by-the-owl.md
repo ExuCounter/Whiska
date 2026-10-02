@@ -136,7 +136,7 @@ whose branch has landed and whose session has nothing left to do.
 - **This is the first thing in Whiska that deletes anything.** ADR-0007's title is no longer
   true as written, which is why it is superseded here rather than quietly amended.
 - **Nothing here touches a forge.** Merged is answered by local git. The networked half of
-  following a branch after its last message is ADR-0057, which is proposed, separate, and
+  following a branch after its last message is ADR-0060, which is proposed, separate, and
   chains onto this one rather than being part of it.
 
 ## Considered options

@@ -270,7 +270,7 @@ subagent that is out)
 **Cleanup**:
 Taking a landed worktree down: the worktree removed, the mouse's pane closed with it, the
 branch deleted, and the mouse record stamped removed — unattended, by the owl, on its
-backstop (ADR-0058). It happens only to a **quiet** mouse whose branch has landed: the
+backstop (ADR-0061). It happens only to a **quiet** mouse whose branch has landed: the
 branch merged into the base, the worktree clean, nothing on it unpushed. Nothing is ever
 forced, and anything that cannot be established leaves the worktree exactly where it is.
 The mouse record survives, as every record does (ADR-0007); only the folder, the pane and

@@ -102,7 +102,7 @@ of its waiting on the person, nothing of its uncollected, and herdr not calling 
 working) — so herdr is asked nothing until something has passed them, and then only for
 whether the pane is busy and which workspace to remove, with `force: false`. Unknown is
 never permission: a detached head, an unnameable base, a silent herdr or a live pane whose
-workspace herdr does not name all leave the worktree standing (ADR-0058, superseding
+workspace herdr does not name all leave the worktree standing (ADR-0061, superseding
 ADR-0007's worktree half). 1162 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
@@ -112,7 +112,7 @@ a GitLab adapter behind one port — and a red build goes to the live mouse that
 branch, or to the person when that mouse is dead. Unknown is never a question. It would be
 the owl's first outbound network call of any kind, and it is gated on reopening ADR-0044,
 which forbids typing into any session but a house's main one. It chains onto cleanup rather
-than being part of it: green, then merged, then the worktree goes (ADR-0057, superseding
+than being part of it: green, then merged, then the worktree goes (ADR-0060, superseding
 ADR-0032). Then the per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;
 the machine-wide line reading the owl over the
