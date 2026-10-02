@@ -39,7 +39,10 @@ transcript. Which session a hook is firing in — which mouse, or none — is de
 this and from the pane it runs in, and never from the working directory the hook is
 handed: that one follows every `cd` the session runs, so a main session that stepped into
 a worktree read as that branch's mouse and a mouse that stepped out read as nobody
-(ADR-0053).
+(ADR-0053). A start directory under `worktrees/` that is no checkout of its own — the
+ordinary folder a slashed branch nests under — is **nobody**: no mouse, no mode, no
+marker (ADR-0030's note). It keeps containment all the same, and a write into the main
+checkout from there is denied (ADR-0013).
 _Avoid_: cwd, working directory (both name the thing that moves)
 
 **Question**:
@@ -51,7 +54,8 @@ closed the moment it is sent — it is never answered, and it neither waits for 
 delivery slot nor holds it. A question is **open** while it waits to be told, **sent** once delivered and
 waiting for its answer, then **answered**; **superseded** when its own mouse asked a
 newer one, **closed** by hand or as a `done` report once told, **orphaned** when nothing
-can act on it (its mouse died, its worktree is gone).
+can act on it (its mouse died, its worktree is gone, its record no longer stands for a
+worktree of this house).
 _Avoid_: report (as the table/record name — the word now names how a message reads,
 see **Report**), event (as the table/record name)
 
@@ -100,8 +104,9 @@ says a mouse is busy, a still board and a frozen one look the same, and the tick
 difference. Only a working row ticks; an idle mouse, a blocked one, one waiting on the
 person and one herdr cannot account for are all still, because on those rows nothing is
 meant to be moving. `whiska watch` is the same rows, worked out on the spot and printed
-once — and with no ticker, since nothing is refreshing behind them. Only a live mouse is a
-row: a dead one has none, and what it left behind is counted on an `orphaned` line of its
+once — and with no ticker, since nothing is refreshing behind them. The `waiting` line
+carries why nothing is being delivered while delivery is held (ADR-0058). Only a live
+mouse is a row: a dead one has none, and what it left behind is counted on an `orphaned` line of its
 own, under the `waiting` one — nobody can answer an orphan, so it is never counted as
 waiting. The board only reports — nothing on it acts (ADR-0051).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws, which is not this), the
@@ -119,7 +124,12 @@ _Avoid_: primary, parent, captain
 The owl typing one question's line into the main session — only when that pane is idle
 and no other question is already sent. A queue, not a batch: the next question goes when
 the previous one is answered (or superseded, or closed, or orphaned, when its own mouse
-dies while holding the slot) and the session is idle again. A finished line is outside
+dies while holding the slot) and the session is idle again. Nothing that cannot be
+answered ever holds the slot: before each attempt, everything still waiting for a mouse
+that is dead, or for a record that no longer stands for a worktree of this house, is
+released to **orphaned** (ADR-0057). While the gate holds — the session mid-turn, or a
+draft in its box — the queue is **held**, and the board says so once the hold has lasted
+ten seconds (ADR-0058). A finished line is outside
 the queue: nothing is waiting on the person in it, so it goes ahead of whatever is
 waiting, takes no slot, and is closed as it is typed.
 What is typed is a one-line pointer with the id and no command; the full text is
@@ -127,6 +137,27 @@ What is typed is a one-line pointer with the id and no command; the full text is
 Delivery is the only thing Whiska types anywhere, and it only ever types into the main
 session of the question's own house (ADR-0044).
 _Avoid_: notify, ping, relay (the old bash mechanism), push
+
+**Held**:
+What delivery is while the gate says no and something is queued behind it: the main
+session mid-turn, a draft in its box, or no main session it can reach. The question stays
+open and first in the queue, and the hold lasts until the gate lets go — one hold however
+its reason changes. Said in two places in the same word: the board's waiting line once it
+has lasted ten seconds (ADR-0058), and `whiska doctor` whenever it is asked. Being held is
+never a question's own status; it is what delivery is doing, or not doing, to the queue.
+_Avoid_: blocked (a mouse's herdr status), stuck (a mouse that is not progressing),
+paused, queued (every question behind the first is that anyway)
+
+**Unplaced**:
+A directory under a house's `worktrees/` container that is no checkout of its own — the
+ordinary folder a slashed branch nests under, or a worktree laid out by hand. It is
+**nobody**: no mouse, no `mouse_id`, no mode, and nothing it leaves is a question. It is
+not nowhere, though — the main checkout is still above it, and a session sitting there is
+denied a write into it exactly as a mouse would be (ADR-0013). Reading such a folder as a
+mouse is what minted a mouse called `quality` for `quality/QUAL-350-lnkd-emails` and let
+its question wedge a queue (ADR-0030's note, ADR-0057).
+_Avoid_: phantom mouse (it is no mouse), ghost, orphan (a question's status), the
+container (the `worktrees/` folder itself, which is not this)
 
 **Draft**:
 Whatever the person has half-typed in the main session's prompt box and not yet sent. A

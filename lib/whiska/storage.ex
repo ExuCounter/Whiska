@@ -296,20 +296,85 @@ defmodule Whiska.Storage do
         {:error, :no_such_mouse}
 
       %Mouse{died_at: %DateTime{}} = mouse ->
+        release(mouse_id)
         {:ok, mouse}
 
       mouse ->
         Repo.transaction(fn ->
-          Repo.update_all(
-            from(q in Question, where: q.mouse_id == ^mouse_id and q.status in ^@waiting),
-            set: [status: "orphaned"]
-          )
+          release(mouse_id)
 
           mouse
           |> Ecto.Changeset.change(%{died_at: now()})
           |> Repo.update!()
         end)
     end
+  end
+
+  @doc """
+  Release every question nothing can act on any more (ADR-0057).
+
+  Nothing that cannot be answered may hold ADR-0008's one delivery slot, so
+  what is still waiting for a mouse that is dead (ADR-0026), or for a record
+  that no longer stands for a worktree of this house — the phantom a slashed
+  branch's parent folder used to mint, and any other stale record — is settled
+  as `orphaned` here. It is kept with that status (ADR-0007), counted on the
+  board's own `orphaned` line (ADR-0051) and listed apart by
+  `whiska questions`, which says there is nowhere to reply.
+
+  `mark_dead/1` does the same for one mouse at the moment it dies; this is the
+  sweep that catches what arrived after it, and it is run before every delivery
+  so the slot is judged by what is alive now. Returns what it released.
+
+  A `done` report is outside it. Nothing is waiting on the person in one, so it
+  neither takes the slot nor holds it (ADR-0008, note of 2026-10-01) — and a
+  branch whose mouse is gone is exactly the one the person still wants to hear
+  finished.
+  """
+  @spec release_unanswerable() :: [Question.t()]
+  def release_unanswerable do
+    # The waiting questions are an indexed read of a handful of rows; working
+    # out which records are current walks every record's path. A house with
+    # nothing waiting is the common case and pays only the first.
+    case Enum.reject(questions(), &(&1.kind == "done")) do
+      [] -> []
+      waiting -> release_all(unanswerable(waiting))
+    end
+  end
+
+  defp unanswerable(waiting) do
+    answerable =
+      current_mice()
+      |> Enum.filter(&is_nil(&1.died_at))
+      |> MapSet.new(& &1.mouse_id)
+
+    Enum.reject(waiting, &MapSet.member?(answerable, &1.mouse_id))
+  end
+
+  defp release_all([]), do: []
+
+  # The status is read and written in two statements, and `whiska reply` runs in
+  # a process of its own: the guard is what stops an answer that landed in
+  # between being stamped over.
+  defp release_all(questions) do
+    ids = Enum.map(questions, & &1.id)
+
+    {_, _} =
+      Repo.update_all(
+        from(q in Question, where: q.id in ^ids and q.status in ^@waiting),
+        set: [status: "orphaned"]
+      )
+
+    questions
+  end
+
+  # Everything one mouse left waiting, out of the slot and into `orphaned`.
+  # Anything already answered, closed or superseded is history and is left
+  # alone.
+  defp release(mouse_id) do
+    Repo.update_all(
+      from(q in Question, where: q.mouse_id == ^mouse_id and q.status in ^@waiting),
+      set: [status: "orphaned"]
+    )
   end
 
   @doc """

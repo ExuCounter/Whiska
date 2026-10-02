@@ -10,10 +10,45 @@ defmodule Whiska.Rule.MainCheckoutTest do
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(worktree, "lib"))
     File.mkdir_p!(Path.join(main, "lib"))
+    File.write!(Path.join(worktree, ".git"), "gitdir: #{main}/.git/worktrees/feat-thing\n")
     on_exit(fn -> File.rm_rf!(root) end)
 
     {:ok, layout} = Layout.resolve(worktree)
     {:ok, root: root, main: main, worktree: worktree, layout: layout}
+  end
+
+  describe "a folder under worktrees that is no worktree" do
+    setup %{main: main} do
+      folder = Path.join(main, "worktrees/quality")
+      File.mkdir_p!(folder)
+      {:ok, layout} = Layout.unplaced(folder)
+      {:ok, folder: folder, unplaced: layout}
+    end
+
+    test "denies a write into the main checkout", %{main: main, unplaced: layout} do
+      input = %{"file_path" => Path.join(main, "lib/leak.ex")}
+
+      assert {:deny, _} = MainCheckout.decide("Write", input, layout)
+    end
+
+    test "allows a write below the folder itself", %{folder: folder, unplaced: layout} do
+      input = %{"file_path" => Path.join(folder, "notes.md")}
+
+      assert :allow = MainCheckout.decide("Write", input, layout)
+    end
+
+    test "says where the call came from without calling it a mouse", %{
+      main: main,
+      folder: folder,
+      unplaced: layout
+    } do
+      input = %{"file_path" => Path.join(main, "lib/leak.ex")}
+
+      assert {:deny, reason} = MainCheckout.decide("Write", input, layout)
+      assert reason =~ folder
+      assert reason =~ "no worktree"
+      refute reason =~ "this mouse's worktree"
+    end
   end
 
   describe "file-path tools targeting the main checkout" do

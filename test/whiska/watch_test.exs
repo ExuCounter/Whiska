@@ -50,7 +50,8 @@ defmodule Whiska.WatchTest do
     Watch.board(mice,
       questions: Keyword.get(opts, :questions, []),
       panes: Keyword.get(opts, :panes, {:ok, Keyword.get(opts, :bare_panes, [])}),
-      activity: activity(opts)
+      activity: activity(opts),
+      held: Keyword.get(opts, :held)
     )
   end
 
@@ -409,7 +410,7 @@ defmodule Whiska.WatchTest do
 
     test "a dead mouse with nothing waiting leaves no trace" do
       assert board([mouse("feat-gone", died_at: @now)]) ==
-               %{rows: [], more: 0, waiting: 0, orphaned: 0}
+               %{rows: [], more: 0, waiting: 0, orphaned: 0, held: nil}
     end
 
     test "a dead mouse takes no room from the live ones" do
@@ -620,6 +621,47 @@ defmodule Whiska.WatchTest do
         )
 
       assert Watch.render(board) == "🐱 1 orphaned"
+    end
+
+    test "a held queue says so on the waiting line (ADR-0058)" do
+      board = board([], questions: [question(52, "feat-vanished")], held: :typing)
+
+      assert Watch.render(board) == "🐱 1 waiting · held: your prompt box isn\'t empty"
+    end
+
+    test "a topic row and a held queue are drawn together" do
+      board =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "Order builder for distributors")],
+          questions: [question(52, "feat-vanished")],
+          held: :typing
+        )
+
+      drawn = Watch.render(board)
+      assert drawn =~ "Order builder for distributors"
+      assert drawn =~ "🐱 1 waiting · held: your prompt box isn't empty"
+    end
+
+    test "a hold is still said when every question is on a row" do
+      board =
+        board([mouse("feat-a")],
+          questions: [question(52, "feat-a", status: "open")],
+          bare_panes: [pane("feat-a", "idle")],
+          held: :mid_turn
+        )
+
+      assert Watch.render(board) =~ "🐱 held: this session is mid-turn"
+    end
+
+    test "a hold Whiska cannot name is still a hold" do
+      board = board([], questions: [question(52, "feat-vanished")], held: :unreachable)
+
+      assert Watch.render(board) == "🐱 1 waiting · held: your main session cannot be reached"
+    end
+
+    test "nothing held adds no words" do
+      assert Watch.render(board([], questions: [question(52, "feat-vanished")])) ==
+               "🐱 1 waiting"
     end
 
     test "waiting and orphaned are separate lines, waiting first" do

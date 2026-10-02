@@ -79,7 +79,18 @@ block and into a skill the session loads only as a turn ends (ADR-0055). Both us
 every repo whether Whiska was there or not. A session is identified by where it started
 and which herdr pane it runs in, never by where its shell currently stands, so the
 person's own main session can step into a worktree without being mistaken for the mouse
-that lives there (ADR-0053, `Whiska.Session`). 1015 tests.
+that lives there (ADR-0053, `Whiska.Session`). Then the delivery slot's own guarantee:
+nothing that cannot be answered ever holds it, so every attempt first releases what is
+still waiting for a dead mouse or for a record that no longer stands for a worktree
+(ADR-0057), and a hold the person cannot otherwise see — their session mid-turn, or a
+draft in its box — is said on the board's waiting line once it has lasted ten seconds
+(ADR-0058). The statusline script `whiska init` writes now carries a version stamp, and
+`whiska doctor` reads a repo's copy and says an upgrade is available rather than
+rewriting a committed file (ADR-0059). And the phantom those first two were chasing is
+gone: a folder under `worktrees/` that is no checkout of its own is no worktree, so
+nothing mints a mouse for the directory a slashed branch nests under — while a session
+sitting there is still denied a write into the main checkout, because losing identity
+must not mean losing containment (ADR-0030's note, ADR-0013). 1167 tests.
 
 **Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;

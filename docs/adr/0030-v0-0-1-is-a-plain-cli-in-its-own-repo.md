@@ -55,9 +55,25 @@ Nothing about the shape of the tree says where a nested branch name ends, so `La
 now reads one piece of git state: the `.git` file git writes into every linked worktree.
 The worktree root is the deepest directory between `worktrees/` and the working
 directory that has one, and the branch label is that root's path relative to
-`worktrees/`. With no such file anywhere — every existing test fixture, and any layout
-built by hand — the root is still the folder directly under `worktrees/`, so the flat
-case is untouched.
+`worktrees/`.
+
+*Rewritten 2026-10-02.* This once kept a fallback: with no such file anywhere, the root
+was still the folder directly under `worktrees/`. That fallback minted a phantom. An
+invocation sitting in `worktrees/quality` — the folder `quality/QUAL-350-lnkd-emails`
+nests under — was read as a mouse called `quality`, with a marker file of its own and a
+record of its own, and in one work repo a question from that phantom took the one
+delivery slot and wedged every later question behind it (ADR-0057). **So there is no
+fallback: a folder under the container that is no checkout of its own is no worktree.**
+git answers that question directly, and the answer does not change as the folder's
+children come and go — an inference from the neighbours would have minted the phantom
+again the day both branches under it were dropped.
+
+What that costs: a worktree laid out by hand or by another tool, with no `.git` file in
+it, is nobody — no mouse record, no mode, no marker. **Identity goes; containment does
+not.** A session whose start directory is such a folder is still denied a write into the
+main checkout (ADR-0013), through `Layout.unplaced/1`, which reads the folder for that
+rule alone and carries no branch. A folder Whiska cannot identify is the one it can
+vouch for least, so the one path that bypasses every other guard fails closed there.
 
 This narrows the rule above: no `git worktree list`, and the main checkout is still
 found by path arithmetic rather than by probing. One `File.stat` per level is all git is

@@ -20,6 +20,7 @@ defmodule Whiska.CLIOwlTest do
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(worktree)
+    File.write!(Path.join(worktree, ".git"), "gitdir: #{main}/.git/worktrees/feat-thing\n")
 
     previous_home = Application.get_env(:whiska, :home)
     Application.put_env(:whiska, :home, Path.join(root, "dot-whiska"))

@@ -15,10 +15,17 @@ defmodule Whiska.Layout do
   container and the working directory that is a checkout of its own, recognised by
   the `.git` file git writes into every linked worktree — the one pointing into the
   main checkout's own `.git/worktrees/`, which is what tells a linked worktree apart
-  from a submodule carrying a `.git` file of the same shape. With no such directory the
-  root is the one directly under the container, which is the flat case unchanged.
-  The branch label is then the root's path relative to the container, so it reads
-  back as `feat/csv-data-page`.
+  from a submodule carrying a `.git` file of the same shape. The branch label is
+  then the root's path relative to the container, so it reads back as
+  `feat/csv-data-page`.
+
+  **A folder under the container that is no checkout of its own is not a worktree**
+  (ADR-0030's note, rewritten 2026-10-02). git answers the question directly, and
+  the answer does not change as the folder's children come and go, so a session
+  sitting in `worktrees/feat` is nobody rather than a mouse called `feat`.
+  `unplaced/1` is that same folder read for containment alone: it carries the main
+  checkout, and `Whiska.Rule.MainCheckout` denies a write into it from there
+  (ADR-0013). Identity is never minted from it.
 
   Re-derived on every invocation rather than recorded anywhere. That keeps the
   marker file a bare opaque id exactly as ADR-0002 describes it ("no parsing
@@ -48,9 +55,47 @@ defmodule Whiska.Layout do
   def resolve(cwd) do
     cwd = Path.expand(cwd)
 
+    case innermost_candidate(cwd) do
+      nil -> {:error, :not_in_worktree}
+      candidate -> from_candidate(candidate, cwd) || {:error, :not_in_worktree}
+    end
+  end
+
+  # The innermost folder whose parent is the container, and the only one ever
+  # considered: a nested layout belongs to the container it sits in, so a folder
+  # that turns out to be no worktree of that one is nobody rather than a mouse
+  # of the container above it.
+  defp innermost_candidate(cwd) do
     cwd
     |> ancestors()
-    |> Enum.find_value({:error, :not_in_worktree}, &from_candidate(&1, cwd))
+    |> Enum.find(&(&1 |> Path.dirname() |> Path.basename() == @container))
+  end
+
+  @doc """
+  The folder a directory sits in when it is under a `worktrees/` container but
+  in no worktree of it.
+
+  For containment only (ADR-0013): `worktree_root` is that folder, so a write
+  below it is left alone and one into the main checkout is denied, and
+  `branch_label` is `nil` because there is no branch and no mouse here. A
+  directory that resolves to a real worktree is not this, and neither is the
+  container itself or anywhere outside one.
+  """
+  @spec unplaced(Path.t()) :: {:ok, t()} | {:error, :not_in_worktree}
+  def unplaced(cwd) do
+    cwd = Path.expand(cwd)
+
+    with {:error, :not_in_worktree} <- resolve(cwd),
+         candidate when is_binary(candidate) <- innermost_candidate(cwd) do
+      {:ok,
+       %__MODULE__{
+         worktree_root: candidate,
+         main_checkout: candidate |> Path.dirname() |> Path.dirname(),
+         branch_label: nil
+       }}
+    else
+      _ -> {:error, :not_in_worktree}
+    end
   end
 
   # Every path from `path` up to the filesystem root, innermost first. Innermost
@@ -66,25 +111,28 @@ defmodule Whiska.Layout do
   defp from_candidate(candidate, cwd) do
     container = Path.dirname(candidate)
 
-    if Path.basename(container) == @container do
-      root = deepest_checkout(candidate, cwd)
+    case deepest_checkout(candidate, cwd) do
+      nil ->
+        nil
 
-      {:ok,
-       %__MODULE__{
-         worktree_root: root,
-         main_checkout: Path.dirname(container),
-         branch_label: Path.relative_to(root, container)
-       }}
+      root ->
+        {:ok,
+         %__MODULE__{
+           worktree_root: root,
+           main_checkout: Path.dirname(container),
+           branch_label: Path.relative_to(root, container)
+         }}
     end
   end
 
   # Innermost first, and never above `shallowest`, so a sibling branch's folder
-  # cannot be picked and the container itself is never considered.
+  # cannot be picked and the container itself is never considered. Nothing that
+  # is a checkout of its own means there is no worktree here at all.
   defp deepest_checkout(shallowest, cwd) do
     cwd
     |> ancestors()
     |> Enum.take_while(&(&1 != Path.dirname(shallowest)))
-    |> Enum.find(shallowest, &checkout?/1)
+    |> Enum.find(&checkout?/1)
   end
 
   # A submodule's `.git` file has the same shape and points into `.git/modules/`,

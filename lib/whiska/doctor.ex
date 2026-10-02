@@ -102,6 +102,7 @@ defmodule Whiska.Doctor do
       ] ++
         hooks ++
         [shim] ++
+        repo_statusline_script(main_checkout) ++
         retired(main_checkout) ++
         probes ++
         [
@@ -485,6 +486,47 @@ defmodule Whiska.Doctor do
   end
 
   @doc """
+  The copy of the statusline script this repo carries (ADR-0059).
+
+  `contents` is the repo's own `.claude/hooks/whiska-statusline.sh`, which is
+  committed and shared with whoever else works here, so nothing rewrites it.
+  A copy an older `whiska init` wrote still runs, and what it leaves out is
+  silent: the one this build ships falls back to the base line the global
+  install kept beside it (ADR-0056), and without that fallback the person's
+  own model-and-branch line disappears along with the board.
+
+  So the stamp is compared and the answer is an upgrade notice rather than a
+  fault — nothing here is broken, there is simply a newer script to write. A
+  repo whose copy is *newer* than this build is the other direction: somebody
+  else ran a newer `whiska init` and committed it, and running this one would
+  write the older script back over a shared file, so the fix named is the
+  binary rather than `init`.
+  """
+  @spec statusline_script(String.t()) :: Check.t()
+  def statusline_script(contents) when is_binary(contents) do
+    shipped = Install.statusline_version()
+
+    case Install.statusline_version_of(contents) do
+      ^shipped ->
+        Check.ok("statusline script", "up to date (v#{shipped})")
+
+      nil ->
+        Check.warn("statusline script", "whiska upgrade is available", @init)
+
+      newer when newer > shipped ->
+        Check.warn(
+          "statusline script",
+          "v#{newer} — newer than this whiska (v#{shipped}); `whiska init` would write " <>
+            "the older one back over it",
+          @reinstall
+        )
+
+      older ->
+        Check.warn("statusline script", "v#{older}; whiska upgrade is available", @init)
+    end
+  end
+
+  @doc """
   The herdr entry that draws the owl's line, and the script it names
   (ADR-0048).
 
@@ -600,6 +642,15 @@ defmodule Whiska.Doctor do
           "rm #{path}"
         ),
       else: Check.ok("review loop", "none")
+  end
+
+  # A repo with no copy of its own has nothing to say here: the global install
+  # draws the line, and `statusline/2` already reports on that.
+  defp repo_statusline_script(main_checkout) do
+    case File.read(Path.join(main_checkout, Install.statusline_path())) do
+      {:ok, contents} -> [statusline_script(contents)]
+      {:error, _} -> []
+    end
   end
 
   defp retired(main_checkout) do

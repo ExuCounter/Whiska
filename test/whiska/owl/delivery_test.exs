@@ -622,6 +622,120 @@ defmodule Whiska.Owl.DeliveryTest do
     end
   end
 
+  # Nothing that cannot be answered may hold the one delivery slot (ADR-0057).
+  describe "a question nothing can answer" do
+    setup %{main: main} do
+      record_main(main)
+      :ok
+    end
+
+    test "a question collected after its mouse died never takes the slot",
+         %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      # feat-a's pane is gone, so the house marks it dead at open; its entry is
+      # collected afterwards, which is how #5 wedged platform's queue.
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [%{pane_id: "w1R:p9", cwd: b, agent: "claude", agent_status: "working"}]}
+      end)
+
+      house = open(main)
+      in_house(house, fn -> assert Storage.mouse("ma").died_at != nil end)
+
+      leave(main, a, "[worktree-status: needs-decision] too late")
+      House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 3
+
+      leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] mine")
+      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: b, branch: "feat-b"})
+      Storage.close(handle)
+      House.collect(house)
+
+      assert_receive {:prompted, @main_pane, text}, @wait * 3
+      assert text =~ "feat-b"
+
+      in_house(house, fn ->
+        assert Storage.question(1).status == "orphaned"
+        assert Storage.question(2).status == "sent"
+      end)
+    end
+
+    test "a finished line from a dead mouse is still told", %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [%{pane_id: "w1R:p9", cwd: b, agent: "claude", agent_status: "working"}]}
+      end)
+
+      house = open(main)
+      in_house(house, fn -> assert Storage.mouse("ma").died_at != nil end)
+
+      leave(main, a, "All done.\n\u2063\u2063\u2063")
+      House.collect(house)
+
+      assert_receive {:prompted, @main_pane, text}, @wait * 3
+      assert text =~ "finished"
+    end
+
+    test "a record that no longer stands for a worktree lets the slot go",
+         %{main: main} do
+      main_is("idle")
+      expect_prompts()
+
+      # The phantom a slashed branch's parent folder used to mint, with the
+      # real mouse nested inside it (ADR-0051's addendum, ADR-0030's note).
+      phantom = Path.join([main, "worktrees", "quality"])
+      real = Path.join(phantom, "QUAL-350")
+      File.mkdir_p!(real)
+
+      {:ok, handle} = Storage.open(main, name: :seed)
+
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "phantom",
+          path: phantom,
+          branch: "quality",
+          created_at: ~U[2026-09-29 10:00:00Z]
+        })
+
+      {:ok, _} =
+        Storage.record_mouse(%{
+          mouse_id: "qual",
+          path: real,
+          branch: "quality/QUAL-350",
+          created_at: ~U[2026-09-29 11:00:00Z]
+        })
+
+      {:ok, wedged} =
+        Storage.record_question(%{mouse_id: "phantom", text: "#5", kind: "needs-decision"})
+
+      {:ok, _} = Storage.mark_sent(wedged.id)
+      Storage.close(handle)
+
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [%{pane_id: "w1R:p9", cwd: real, agent: "claude", agent_status: "working"}]}
+      end)
+
+      house = open(main)
+      leave_from(main, "qual", "quality/QUAL-350", real, "[worktree-status: needs-decision] mine")
+      House.collect(house)
+
+      assert_receive {:prompted, @main_pane, text}, @wait * 3
+      assert text =~ "quality/QUAL-350"
+
+      in_house(house, fn -> assert Storage.question(wedged.id).status == "orphaned" end)
+    end
+  end
+
   describe "while the person is typing in the main session (ADR-0047)" do
     setup %{main: main} do
       record_main(main)
@@ -679,6 +793,50 @@ defmodule Whiska.Owl.DeliveryTest do
     end
   end
 
+  describe "a hold the board can see (ADR-0058)" do
+    setup %{main: main} do
+      record_main(main)
+      :ok
+    end
+
+    test "a delivery herdr refuses is a hold, not a clean slate", %{main: main, a: a} do
+      main_is("idle")
+
+      stub(Herdr, :prompt, fn @socket, @main_pane, _text ->
+        {:error, {:herdr, %{"code" => "agent_blocked"}}}
+      end)
+
+      house = open(main, hold_notice_ms: 0)
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      assert House.sync(house) == :ok
+
+      assert House.held(house) == :unreachable
+    end
+
+    test "a hold that changes its reason is still one hold", %{main: main, a: a} do
+      main_is("working")
+      expect_prompts()
+
+      house = open(main, hold_notice_ms: 60_000)
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      assert House.sync(house) == :ok
+      first = House.held_since(house)
+      assert House.held(house) == :mid_turn
+
+      main_is("idle")
+      box_holds("half a sentence")
+      idle(house, @main_pane)
+      assert House.sync(house) == :ok
+
+      assert House.held(house) == :typing
+      assert House.held_since(house) == first
+    end
+  end
+
   describe "with no main session recorded" do
     test "nothing is delivered and the question stays open, waiting for whiska start", %{
       main: main,
@@ -692,6 +850,23 @@ defmodule Whiska.Owl.DeliveryTest do
       House.sync(house)
 
       in_house(house, fn -> assert Storage.question(1).status == "open" end)
+    end
+
+    test "a question nothing can answer is still released", %{main: main, a: a} do
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [%{pane_id: "w1R:p9", cwd: b, agent: "claude", agent_status: "working"}]}
+      end)
+
+      house = open(main)
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      assert House.sync(house) == :ok
+
+      in_house(house, fn -> assert Storage.question(1).status == "orphaned" end)
     end
 
     test "recording one later is picked up by the backstop", %{main: main, a: a} do

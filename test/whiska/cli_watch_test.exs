@@ -24,6 +24,7 @@ defmodule Whiska.CLIWatchTest do
     {:ok, handle} = Storage.open(main, name: :seed)
     path = Path.join(main, "worktrees/#{branch}")
     File.mkdir_p!(path)
+    File.write!(Path.join(path, ".git"), "gitdir: #{main}/.git/worktrees/#{branch}\n")
     {:ok, _} = Storage.record_mouse(%{mouse_id: id, path: path, branch: branch})
     Storage.close(handle)
     path

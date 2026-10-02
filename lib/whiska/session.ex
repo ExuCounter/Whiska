@@ -42,6 +42,22 @@ defmodule Whiska.Session do
   end
 
   @doc """
+  The folder this session started in when it is under a `worktrees/` container
+  but in no worktree of it.
+
+  Read the same way as `worktree/1` — the transcript's first entry, then the
+  payload's working directory (ADR-0053) — and carried only for containment,
+  never for identity (`Whiska.Layout.unplaced/1`).
+  """
+  @spec unplaced(map()) :: {:ok, Layout.t()} | {:error, :not_a_mouse}
+  def unplaced(payload) do
+    case payload |> started_in() |> Layout.unplaced() do
+      {:ok, layout} -> {:ok, layout}
+      _no_folder -> {:error, :not_a_mouse}
+    end
+  end
+
+  @doc """
   Is this hook firing in the pane the house calls its main session?
 
   For a caller that has the house open already and can read the pane itself.

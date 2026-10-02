@@ -137,7 +137,7 @@ defmodule Whiska.Questions do
           nil
 
         _ ->
-          "#{length(orphaned)} orphaned — the mouse or its worktree is gone, so there is nowhere to reply:\n" <>
+          "#{length(orphaned)} orphaned — nothing is left to answer to, so there is nowhere to reply:\n" <>
             Enum.map_join(orphaned, "\n", &line/1)
       end
 

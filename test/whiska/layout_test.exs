@@ -38,7 +38,7 @@ defmodule Whiska.LayoutTest do
   describe "resolve/1 inside a worktree" do
     test "derives the worktree root and the main checkout from the layout", %{root: root} do
       main = make(root, "myrepo")
-      worktree = make(root, "myrepo/worktrees/feat-thing")
+      worktree = checkout(root, "myrepo/worktrees/feat-thing")
 
       assert {:ok, layout} = Layout.resolve(worktree)
       assert layout.worktree_root == worktree
@@ -47,7 +47,7 @@ defmodule Whiska.LayoutTest do
 
     test "works from a nested directory deep inside the worktree", %{root: root} do
       main = make(root, "myrepo")
-      worktree = make(root, "myrepo/worktrees/feat-thing")
+      worktree = checkout(root, "myrepo/worktrees/feat-thing")
       nested = make(root, "myrepo/worktrees/feat-thing/lib/whiska/deep")
 
       assert {:ok, layout} = Layout.resolve(nested)
@@ -66,7 +66,7 @@ defmodule Whiska.LayoutTest do
 
     test "carries the worktree directory name as the branch label", %{root: root} do
       make(root, "myrepo")
-      worktree = make(root, "myrepo/worktrees/feat-thing")
+      worktree = checkout(root, "myrepo/worktrees/feat-thing")
 
       assert {:ok, layout} = Layout.resolve(worktree)
       assert layout.branch_label == "feat-thing"
@@ -131,13 +131,19 @@ defmodule Whiska.LayoutTest do
       assert layout.branch_label == "feat/two"
     end
 
-    test "falls back to the directory under worktrees when nothing is a checkout", %{root: root} do
+    test "a folder under worktrees that is no checkout of its own is not a worktree",
+         %{root: root} do
       worktree = make(root, "myrepo/worktrees/feat-thing")
       make(root, "myrepo/worktrees/feat-thing/lib")
 
-      assert {:ok, layout} = Layout.resolve(worktree <> "/lib")
-      assert layout.worktree_root == worktree
-      assert layout.branch_label == "feat-thing"
+      assert {:error, :not_in_worktree} = Layout.resolve(worktree <> "/lib")
+    end
+
+    test "the folder a slashed branch nests under is not a worktree either", %{root: root} do
+      parent = make(root, "myrepo/worktrees/quality")
+      checkout(root, "myrepo/worktrees/quality/QUAL-350")
+
+      assert {:error, :not_in_worktree} = Layout.resolve(parent)
     end
 
     test "a submodule inside a worktree is not the worktree root", %{root: root} do
@@ -161,6 +167,7 @@ defmodule Whiska.LayoutTest do
 
     test "never takes a checkout above the container as the root", %{root: root} do
       outer = checkout(root, "myrepo/worktrees/outer")
+      checkout(root, "myrepo/worktrees/outer/worktrees/inner")
       inner = make(root, "myrepo/worktrees/outer/worktrees/inner/lib")
 
       assert {:ok, layout} = Layout.resolve(inner)
@@ -173,8 +180,7 @@ defmodule Whiska.LayoutTest do
       plain = make(root, "myrepo/worktrees/vendored/clone")
       File.mkdir_p!(Path.join(plain, ".git"))
 
-      assert {:ok, layout} = Layout.resolve(plain)
-      assert layout.branch_label == "vendored"
+      assert {:error, :not_in_worktree} = Layout.resolve(plain)
     end
   end
 
@@ -197,6 +203,48 @@ defmodule Whiska.LayoutTest do
       container = make(root, "myrepo/worktrees")
 
       assert {:error, :not_in_worktree} = Layout.resolve(container)
+    end
+  end
+
+  describe "resolve/1 never escapes the container it found" do
+    test "a folder under an inner container is not the outer worktree", %{root: root} do
+      inner_main = checkout(root, "myrepo/worktrees/fix/deliv")
+      folder = make(root, "myrepo/worktrees/fix/deliv/worktrees/feat")
+
+      assert {:error, :not_in_worktree} = Layout.resolve(folder)
+
+      assert {:ok, layout} = Layout.unplaced(folder)
+      assert layout.worktree_root == folder
+      assert layout.main_checkout == inner_main
+    end
+  end
+
+  describe "unplaced/1 — a folder under worktrees that is no worktree" do
+    test "names the folder and the main checkout, for containment alone", %{root: root} do
+      main = make(root, "myrepo")
+      parent = make(root, "myrepo/worktrees/quality")
+      checkout(root, "myrepo/worktrees/quality/QUAL-350")
+
+      assert {:ok, layout} = Layout.unplaced(Path.join(parent, "notes"))
+      assert layout.worktree_root == parent
+      assert layout.main_checkout == main
+      assert layout.branch_label == nil
+    end
+
+    test "a real worktree is placed, so it is not this", %{root: root} do
+      worktree = checkout(root, "myrepo/worktrees/feat-thing")
+
+      assert {:error, :not_in_worktree} = Layout.unplaced(worktree)
+    end
+
+    test "anywhere with no worktrees container above it is not this", %{root: root} do
+      assert {:error, :not_in_worktree} = Layout.unplaced(make(root, "somewhere/else"))
+    end
+
+    test "the container itself is not this", %{root: root} do
+      make(root, "myrepo")
+
+      assert {:error, :not_in_worktree} = Layout.unplaced(make(root, "myrepo/worktrees"))
     end
   end
 

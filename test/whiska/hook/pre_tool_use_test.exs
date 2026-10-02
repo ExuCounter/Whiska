@@ -14,6 +14,7 @@ defmodule Whiska.Hook.PreToolUseTest do
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(Path.join(worktree, "lib"))
+    File.write!(Path.join(worktree, ".git"), "gitdir: #{main}/.git/worktrees/feat-thing\n")
 
     was = System.get_env("HERDR_PANE_ID")
     System.delete_env("HERDR_PANE_ID")
@@ -62,6 +63,55 @@ defmodule Whiska.Hook.PreToolUseTest do
     end
   end
 
+  # A folder under `worktrees/` that is no checkout of its own is nobody — no
+  # mouse, no mode, no marker (ADR-0030's note). Containment does not go with
+  # identity: a session there still cannot write into the main checkout
+  # (ADR-0013).
+  describe "a folder under worktrees that is no worktree" do
+    test "cannot write into the main checkout", %{main: main} do
+      folder = Path.join(main, "worktrees/quality")
+      File.mkdir_p!(Path.join(folder, "QUAL-350"))
+
+      assert {:deny, reason} =
+               run(%{
+                 "cwd" => folder,
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+               })
+
+      assert reason =~ "ADR-0013"
+    end
+
+    test "mints no mouse and no marker file", %{main: main} do
+      folder = Path.join(main, "worktrees/quality")
+      File.mkdir_p!(folder)
+
+      run(%{
+        "cwd" => folder,
+        "tool_name" => "Write",
+        "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+      })
+
+      refute File.exists?(Marker.path(folder))
+
+      {:ok, handle} = Storage.open(main)
+      on_exit(fn -> Storage.close(handle) end)
+      assert Storage.all(Mouse) == []
+    end
+
+    test "a mutating bash command into the main checkout is denied too", %{main: main} do
+      folder = Path.join(main, "worktrees/quality")
+      File.mkdir_p!(folder)
+
+      assert {:deny, _} =
+               run(%{
+                 "cwd" => folder,
+                 "tool_name" => "Bash",
+                 "tool_input" => %{"command" => "rm -rf #{main}/lib"}
+               })
+    end
+  end
+
   describe "allowing" do
     test "a write inside the mouse's own worktree", %{worktree: worktree} do
       assert :allow =
@@ -81,6 +131,18 @@ defmodule Whiska.Hook.PreToolUseTest do
                  "cwd" => main,
                  "tool_name" => "Write",
                  "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+               })
+    end
+
+    test "a write below a folder under worktrees that is no worktree", %{main: main} do
+      folder = Path.join(main, "worktrees/quality")
+      File.mkdir_p!(folder)
+
+      assert :allow =
+               run(%{
+                 "cwd" => folder,
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(folder, "notes.md")}
                })
     end
 

@@ -47,8 +47,17 @@ override both.
 **Steps 3 and 4 read an identity, not a position.** The directory Claude Code passes the
 hook follows every `cd` the session runs, so the worktree comes from the directory the
 session *started* in, read from the first entry of its own transcript (ADR-0053). Step 4
-can fail, and that is an allow: a start directory outside `worktrees/<branch>/` — the main
-checkout itself included — returns `{:error, :not_a_mouse}` and the call goes through.
+can fail, and that is usually an allow: a start directory outside `worktrees/<branch>/` —
+the main checkout itself included — returns `{:error, :not_a_mouse}` and the call goes
+through.
+
+**One failure is not an allow.** A start directory *under* the `worktrees/` container
+that is no checkout of its own — the ordinary folder a slashed branch nests under — is
+nobody: no mouse, no mode, no marker minted (ADR-0030's note). Containment does not go
+with identity. `Layout.unplaced/1` reads the same folder for the main-checkout rule
+alone, and a write into the main checkout from there is denied like any other
+(ADR-0013). A folder Whiska cannot identify is where it can vouch for least, so it fails
+closed on the one path that bypasses every other guard.
 
 **Step 5 settles whose pane this is, then reads the mode.** A tool call firing in the pane
 `whiska start` recorded is the person's own session: no mouse, no rules, nothing recorded,
