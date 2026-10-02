@@ -34,10 +34,18 @@ deliver, and nothing is ever typed into a box the person is mid-sentence in.
 ## Consequences
 
 - **The house remembers what the gate decided** — since when, and which half held — and the
-  board reads it. The hold is cleared by a delivery and by an empty queue, so the line
-  cannot outlive what it describes.
+  board reads it. The hold is cleared by a delivery and by an empty queue. A hold whose
+  reason changes is one hold: the clock keeps running, so alternating between mid-turn and
+  a draft cannot reset the fuse forever.
+- **The line is as current as the last delivery attempt, and no more.** The gate is only
+  consulted on a trigger — a collection, herdr reporting the main pane idle, the backstop —
+  so a person who deletes their draft and walks away without submitting leaves the board
+  saying `held: your prompt box isn't empty` until the next trigger, at worst one backstop
+  (a minute). That is the same worst case ADR-0047 already accepts for the question itself
+  being late, and the alternative is asking herdr for the main pane's screen every two
+  seconds, which is a cost ADR-0051 priced and refused.
 - **A reason Whiska cannot name is still a hold.** No main session recorded, a pane not
-  running Claude, herdr unreachable: all of them draw
+  running Claude, herdr unreachable, a prompt herdr keeps refusing: all of them draw
   `held: your main session cannot be reached`, which is true and points at `whiska doctor`
   for which one it is.
 - **`whiska watch` draws no hold.** It is the board worked out on the spot, outside the

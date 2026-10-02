@@ -324,25 +324,47 @@ defmodule Whiska.Storage do
   `mark_dead/1` does the same for one mouse at the moment it dies; this is the
   sweep that catches what arrived after it, and it is run before every delivery
   so the slot is judged by what is alive now. Returns what it released.
+
+  A `done` report is outside it. Nothing is waiting on the person in one, so it
+  neither takes the slot nor holds it (ADR-0008, note of 2026-10-01) — and a
+  branch whose mouse is gone is exactly the one the person still wants to hear
+  finished.
   """
   @spec release_unanswerable() :: [Question.t()]
   def release_unanswerable do
+    # The waiting questions are an indexed read of a handful of rows; working
+    # out which records are current walks every record's path. A house with
+    # nothing waiting is the common case and pays only the first.
+    case Enum.reject(questions(), &(&1.kind == "done")) do
+      [] -> []
+      waiting -> release_all(unanswerable(waiting))
+    end
+  end
+
+  defp unanswerable(waiting) do
     answerable =
       current_mice()
       |> Enum.filter(&is_nil(&1.died_at))
       |> MapSet.new(& &1.mouse_id)
 
-    questions()
-    |> Enum.reject(&MapSet.member?(answerable, &1.mouse_id))
-    |> case do
-      [] ->
-        []
+    Enum.reject(waiting, &MapSet.member?(answerable, &1.mouse_id))
+  end
 
-      unanswerable ->
-        ids = Enum.map(unanswerable, & &1.id)
-        Repo.update_all(from(q in Question, where: q.id in ^ids), set: [status: "orphaned"])
-        unanswerable
-    end
+  defp release_all([]), do: []
+
+  # The status is read and written in two statements, and `whiska reply` runs in
+  # a process of its own: the guard is what stops an answer that landed in
+  # between being stamped over.
+  defp release_all(questions) do
+    ids = Enum.map(questions, & &1.id)
+
+    {_, _} =
+      Repo.update_all(
+        from(q in Question, where: q.id in ^ids and q.status in ^@waiting),
+        set: [status: "orphaned"]
+      )
+
+    questions
   end
 
   # Everything one mouse left waiting, out of the slot and into `orphaned`.

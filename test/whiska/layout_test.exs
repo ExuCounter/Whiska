@@ -206,6 +206,19 @@ defmodule Whiska.LayoutTest do
     end
   end
 
+  describe "resolve/1 never escapes the container it found" do
+    test "a folder under an inner container is not the outer worktree", %{root: root} do
+      inner_main = checkout(root, "myrepo/worktrees/fix/deliv")
+      folder = make(root, "myrepo/worktrees/fix/deliv/worktrees/feat")
+
+      assert {:error, :not_in_worktree} = Layout.resolve(folder)
+
+      assert {:ok, layout} = Layout.unplaced(folder)
+      assert layout.worktree_root == folder
+      assert layout.main_checkout == inner_main
+    end
+  end
+
   describe "unplaced/1 — a folder under worktrees that is no worktree" do
     test "names the folder and the main checkout, for containment alone", %{root: root} do
       main = make(root, "myrepo")

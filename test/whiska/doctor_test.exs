@@ -145,6 +145,20 @@ defmodule Whiska.DoctorTest do
       assert check.detail =~ "whiska upgrade is available"
     end
 
+    test "a copy newer than this build says so, and does not advise overwriting it" do
+      newer =
+        String.replace(
+          Install.statusline_script(),
+          "whiska-statusline: v#{Install.statusline_version()}",
+          "whiska-statusline: v#{Install.statusline_version() + 1}"
+        )
+
+      check = Doctor.statusline_script(newer)
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "newer than this whiska"
+      refute check.fix == "whiska init"
+    end
+
     test "a copy stamped with an older version is an upgrade notice too" do
       older =
         String.replace(

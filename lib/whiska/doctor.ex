@@ -496,7 +496,11 @@ defmodule Whiska.Doctor do
   own model-and-branch line disappears along with the board.
 
   So the stamp is compared and the answer is an upgrade notice rather than a
-  fault — nothing here is broken, there is simply a newer script to write.
+  fault — nothing here is broken, there is simply a newer script to write. A
+  repo whose copy is *newer* than this build is the other direction: somebody
+  else ran a newer `whiska init` and committed it, and running this one would
+  write the older script back over a shared file, so the fix named is the
+  binary rather than `init`.
   """
   @spec statusline_script(String.t()) :: Check.t()
   def statusline_script(contents) when is_binary(contents) do
@@ -508,6 +512,14 @@ defmodule Whiska.Doctor do
 
       nil ->
         Check.warn("statusline script", "whiska upgrade is available", @init)
+
+      newer when newer > shipped ->
+        Check.warn(
+          "statusline script",
+          "v#{newer} — newer than this whiska (v#{shipped}); `whiska init` would write " <>
+            "the older one back over it",
+          @reinstall
+        )
 
       older ->
         Check.warn("statusline script", "v#{older}; whiska upgrade is available", @init)

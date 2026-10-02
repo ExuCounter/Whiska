@@ -55,9 +55,20 @@ defmodule Whiska.Layout do
   def resolve(cwd) do
     cwd = Path.expand(cwd)
 
+    case innermost_candidate(cwd) do
+      nil -> {:error, :not_in_worktree}
+      candidate -> from_candidate(candidate, cwd) || {:error, :not_in_worktree}
+    end
+  end
+
+  # The innermost folder whose parent is the container, and the only one ever
+  # considered: a nested layout belongs to the container it sits in, so a folder
+  # that turns out to be no worktree of that one is nobody rather than a mouse
+  # of the container above it.
+  defp innermost_candidate(cwd) do
     cwd
     |> ancestors()
-    |> Enum.find_value({:error, :not_in_worktree}, &from_candidate(&1, cwd))
+    |> Enum.find(&(&1 |> Path.dirname() |> Path.basename() == @container))
   end
 
   @doc """
@@ -75,22 +86,15 @@ defmodule Whiska.Layout do
     cwd = Path.expand(cwd)
 
     with {:error, :not_in_worktree} <- resolve(cwd),
-         %{} = folder <- cwd |> ancestors() |> Enum.find_value(&under_container(&1)) do
-      {:ok, folder}
+         candidate when is_binary(candidate) <- innermost_candidate(cwd) do
+      {:ok,
+       %__MODULE__{
+         worktree_root: candidate,
+         main_checkout: candidate |> Path.dirname() |> Path.dirname(),
+         branch_label: nil
+       }}
     else
       _ -> {:error, :not_in_worktree}
-    end
-  end
-
-  defp under_container(candidate) do
-    container = Path.dirname(candidate)
-
-    if Path.basename(container) == @container do
-      %__MODULE__{
-        worktree_root: candidate,
-        main_checkout: Path.dirname(container),
-        branch_label: nil
-      }
     end
   end
 
@@ -107,16 +111,17 @@ defmodule Whiska.Layout do
   defp from_candidate(candidate, cwd) do
     container = Path.dirname(candidate)
 
-    with true <- Path.basename(container) == @container,
-         root when is_binary(root) <- deepest_checkout(candidate, cwd) do
-      {:ok,
-       %__MODULE__{
-         worktree_root: root,
-         main_checkout: Path.dirname(container),
-         branch_label: Path.relative_to(root, container)
-       }}
-    else
-      _ -> nil
+    case deepest_checkout(candidate, cwd) do
+      nil ->
+        nil
+
+      root ->
+        {:ok,
+         %__MODULE__{
+           worktree_root: root,
+           main_checkout: Path.dirname(container),
+           branch_label: Path.relative_to(root, container)
+         }}
     end
   end
 

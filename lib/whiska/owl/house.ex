@@ -200,6 +200,14 @@ defmodule Whiska.Owl.House do
   @spec repo(GenServer.server()) :: pid()
   def repo(house), do: GenServer.call(house, :repo)
 
+  @doc "Why delivery is holding, or `nil`. For tests and the board."
+  @spec held(GenServer.server()) :: Watch.held()
+  def held(house), do: GenServer.call(house, :held)
+
+  @doc "Since when delivery has been holding, or `nil`."
+  @spec held_since(GenServer.server()) :: DateTime.t() | nil
+  def held_since(house), do: GenServer.call(house, :held_since)
+
   @doc "This house's main checkout."
   @spec main_checkout(GenServer.server()) :: Path.t()
   def main_checkout(house), do: GenServer.call(house, :main_checkout)
@@ -276,6 +284,12 @@ defmodule Whiska.Owl.House do
   end
 
   def handle_call(:reconcile, _from, state), do: {:reply, :ok, refresh(state)}
+
+  @impl true
+  def handle_call(:held, _from, state), do: {:reply, state.held_reason, state}
+
+  @impl true
+  def handle_call(:held_since, _from, state), do: {:reply, state.held_since, state}
   def handle_call(:sync, _from, state), do: {:reply, :ok, state}
   def handle_call(:repo, _from, state), do: {:reply, state.repo, state}
   def handle_call(:main_checkout, _from, state), do: {:reply, state.main_checkout, state}
@@ -679,9 +693,16 @@ defmodule Whiska.Owl.House do
 
   # The gate. Every branch that holds returns the state unchanged, so calling
   # this on every trigger is safe; only a delivery changes anything.
-  defp deliver(%{round_timer: timer} = state) when timer != nil, do: state
+  # The sweep runs whatever the gate then decides, a round's wait included: a
+  # question nothing can answer must not sit in the count that wait is
+  # gathering (ADR-0057).
+  defp deliver(state) do
+    release_unanswerable(state)
 
-  defp deliver(%{main_pane: nil} = state) do
+    if state.round_timer, do: state, else: to_main_session(state)
+  end
+
+  defp to_main_session(%{main_pane: nil} = state) do
     if Storage.open_count() > 0 do
       state
       |> warn_once(
@@ -695,16 +716,14 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  defp deliver(state) do
-    release_unanswerable(state)
-
+  defp to_main_session(state) do
     case next_to_deliver() do
       nil ->
         release_hold(state)
 
       %Question{} = question ->
         case main_session_free?(state) do
-          {:go, notes, state} -> send_question(release_hold(state), question, notes)
+          {:go, notes, state} -> send_question(state, question, notes)
           {:hold, reason, state} -> hold(state, reason)
         end
     end
@@ -712,8 +731,9 @@ defmodule Whiska.Owl.House do
 
   # How long delivery has been holding, and why. The gate is unchanged
   # (ADR-0008, ADR-0047); this only remembers what it decided, so the board can
-  # say it (ADR-0058). A hold starts over when its reason changes.
-  defp hold(%{held_reason: reason} = state, reason), do: state
+  # say it (ADR-0058). A hold whose reason changes — mid-turn, then a draft in
+  # the box — is one hold that has not let go, so the clock keeps running.
+  defp hold(%{held_since: %DateTime{}} = state, reason), do: %{state | held_reason: reason}
   defp hold(state, reason), do: %{state | held_since: now(), held_reason: reason}
 
   defp release_hold(state), do: %{state | held_since: nil, held_reason: nil}
@@ -828,12 +848,17 @@ defmodule Whiska.Owl.House do
       :ok ->
         {:ok, _} = Storage.mark_sent(question.id)
         settle_report(question)
-        %{state | warned: MapSet.new()}
+        %{release_hold(state) | warned: MapSet.new()}
 
       {:error, reason} ->
-        # Stays open; the next trigger tries again.
-        warn(state, "could not deliver ##{question.id} (#{inspect(reason)}) — will retry")
+        # Stays open, and stays held: a delivery herdr keeps refusing is the
+        # silence ADR-0058 exists for, not a clean slate.
         state
+        |> warn_once(
+          :prompt_failed,
+          "could not deliver ##{question.id} (#{inspect(reason)}) — will retry"
+        )
+        |> hold(:unreachable)
     end
   end
 

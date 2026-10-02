@@ -33,6 +33,9 @@ writes it, which is what it is for.
   for it, and the existing `statusLine` check already reports on that.
 - **The stamp is the only comparison.** Not the file's bytes: a person who edits their copy
   deliberately is not out of date, and a diff would call them out every time.
+- **A copy newer than this build is reported the other way round.** Somebody else ran a
+  newer `whiska init` and committed it; running this one would write the older script back
+  over a shared file. The doctor says so and names the binary, not `init`.
 - **An old copy is still found the moment the doctor runs**, which is also the moment the
   person is already asking what is wrong.
 

@@ -62,27 +62,11 @@ defmodule Whiska.Hook.PreToolUse do
 
   defp as_nobody(payload) do
     with {:ok, layout} <- Session.unplaced(payload),
-         false <- main_session?(layout) do
+         false <- Session.main_session?(layout.main_checkout) do
       MainCheckout.decide(tool_name(payload), tool_input(payload), layout)
     else
       _ -> :allow
     end
-  end
-
-  defp main_session?(layout) do
-    Isolated.run(fn ->
-      case Storage.open(layout.main_checkout) do
-        {:ok, handle} ->
-          try do
-            Session.main_pane?(Storage.main_pane())
-          after
-            Storage.close(handle)
-          end
-
-        _ ->
-          false
-      end
-    end) == true
   end
 
   @doc """

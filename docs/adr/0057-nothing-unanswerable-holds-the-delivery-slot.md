@@ -25,6 +25,12 @@ with that status (ADR-0007), counted on the board's own `orphaned` line rather t
 `waiting` (ADR-0051's addendum), and listed apart by `whiska questions`, which says there
 is nowhere to reply.
 
+**A `done` report is outside the sweep.** Nothing is waiting on the person in one, so it
+neither takes the slot nor holds it (ADR-0008, note of 2026-10-01) — this rule has no
+business with it, and releasing it would turn the ordinary end of a mouse's life (write
+the finished line, close the pane) into silence. The cascade at the moment of death still
+orphans a report, which is ADR-0036's recorded decision and is left exactly as it stands.
+
 `Whiska.Storage.mark_dead/1` keeps its cascade and now runs it for a mouse already marked
 dead, so a question collected after the death is released at the next reconcile as well as
 at the next delivery.
@@ -39,6 +45,14 @@ at the next delivery.
   a diagnosis the person has to act on.
 - **A released question is told about, not hidden.** The owl says on stderr what it
   released and by which id, and the board's `orphaned` count carries it afterwards.
+- **A mouse that was only momentarily dead keeps the orphan.** Death is reversible —
+  `Whiska.Storage.set_pane/2` clears `died_at` when the pane is seen again — and orphaning
+  is not. A pane herdr lists for a moment without an agent is enough to mark a mouse dead,
+  and anything it was waiting on is released; if it comes back, the question it asked is
+  settled and `whiska close`'s counterpart is a fresh ask. The sweep widens the window in
+  which that can happen from the death itself to every delivery attempt. Accepted for now:
+  the alternative is un-orphaning on revival, which would mean a question could leave a
+  settled status, and that is a larger decision than this one.
 - **An orphan is still kept.** Whether an orphaned question should be dropped outright when
   its worktree is dropped is a separate question, deliberately left open; today's
   behaviour — kept, never deleted — stands (ADR-0007).
