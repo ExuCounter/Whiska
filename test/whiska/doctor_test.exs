@@ -171,6 +171,67 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  # -- the hoot ----------------------------------------------------------------
+
+  describe "hoot/1 — whether herdr will show the owl's notification (ADR-0060)" do
+    test "a delivery setting that shows popups passes, and says where they go" do
+      for {delivery, where} <- [
+            {"system", "system"},
+            {"terminal", "terminal"},
+            {"herdr", "herdr"}
+          ] do
+        check = Doctor.hoot(~s([ui.toast]\ndelivery = "#{delivery}"\n))
+
+        assert %Check{status: :ok} = check
+        assert check.detail =~ where
+      end
+    end
+
+    test "popups turned off is a warning: the question still arrives, unheard" do
+      check = Doctor.hoot(~s([ui.toast]\ndelivery = "off"\n))
+
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "off"
+      assert check.fix =~ "ui.toast"
+      assert check.fix =~ "system"
+      assert check.fix =~ Whiska.Herdr.config_path()
+    end
+
+    test "an unset delivery is herdr's own default, which is off" do
+      check = Doctor.hoot("[ui]\ntab_bar_right = []\n")
+
+      assert %Check{status: :warn} = check
+      assert check.fix =~ "ui.toast"
+    end
+
+    test "no herdr config to read is a warning, with the same thing to paste" do
+      check = Doctor.hoot(nil)
+
+      assert %Check{status: :warn} = check
+      assert check.fix =~ "ui.toast"
+    end
+
+    test "never a failure: a silent hoot loses no question (ADR-0038)" do
+      for config <- [
+            nil,
+            "",
+            "[ui.toast]\ndelivery = \"off\"\n",
+            ~s([ui.toast]\ndelivery = "system"\n)
+          ] do
+        assert %Check{status: status} = Doctor.hoot(config)
+        assert status in [:ok, :warn]
+      end
+    end
+
+    test "the sound is mentioned when it is off, since that is half the point" do
+      check = Doctor.hoot(~s([ui.toast]\ndelivery = "system"\n\n[ui.sound]\nenabled = false\n))
+
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "sound"
+      assert check.fix =~ "ui.sound"
+    end
+  end
+
   # -- the tab bar -------------------------------------------------------------
 
   describe "tab_bar/2 — the herdr entry that draws the owl's line (ADR-0048)" do

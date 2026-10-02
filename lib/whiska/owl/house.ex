@@ -108,6 +108,14 @@ defmodule Whiska.Owl.House do
   board can say why nothing is being delivered once it has outlasted the fuse
   (ADR-0058). Only the saying is new: the gate decides exactly as it did.
 
+  The line is typed and a hoot goes out with it (ADR-0060): one desktop
+  notification per delivered question, raised in the same breath as the line
+  so the two can never disagree, and never raised for a question that is only
+  collected or held. It carries the house, the branch, the verb and the id —
+  `Whiska.Delivery.Hoot`, which says it in the line's own words. It is a
+  courtesy, not the job: a hoot that errors or raises is swallowed, and the
+  question stays delivered.
+
   A house tells no other house anything, and nothing is ever typed into
   another repo's session (ADR-0044): the other repo's own statusline redraws
   on its `refreshInterval` timer and reads what is waiting here off disk.
@@ -118,6 +126,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Backstop
   alias Whiska.Cleanup
   alias Whiska.Delivery.Draft
+  alias Whiska.Delivery.Hoot
   alias Whiska.Delivery.Text
   alias Whiska.Doorstep
   alias Whiska.Herdr
@@ -877,12 +886,14 @@ defmodule Whiska.Owl.House do
 
   defp send_question(state, question, notes) do
     branch = branch_of(question.mouse_id)
-    line = Text.compose(question, branch, Storage.open_count() - 1, notes)
+    more_open = Storage.open_count() - 1
+    line = Text.compose(question, branch, more_open, notes)
 
     case state.herdr.prompt(state.socket, state.main_pane, line) do
       :ok ->
         {:ok, _} = Storage.mark_sent(question.id)
         settle_report(question)
+        hoot(state, question, branch, more_open)
         %{release_hold(state) | warned: MapSet.new()}
 
       {:error, reason} ->
@@ -895,6 +906,24 @@ defmodule Whiska.Owl.House do
         )
         |> hold(:unreachable)
     end
+  end
+
+  # The hoot (ADR-0060), raised from inside the same branch that typed the
+  # line, so the two can never disagree about what reached the person.
+  #
+  # Delivery is the job and the hoot is a courtesy, so it is wrapped twice
+  # over: the question is already recorded sent before this runs, and anything
+  # herdr does here — an error, a timeout, a raise because the socket went away
+  # between the two calls — is swallowed rather than allowed to fail the
+  # delivery or take the house down. A silent hoot is also what the person's
+  # own `[ui.toast] delivery = "off"` produces, with herdr answering `:ok`
+  # throughout, which is why nothing is warned here and `whiska doctor` reads
+  # that setting instead.
+  defp hoot(state, question, branch, more_open) do
+    notification = Hoot.compose(question, Path.basename(state.main_checkout), branch, more_open)
+    state.herdr.notify(state.socket, notification)
+  catch
+    _kind, _reason -> :ok
   end
 
   # A done report is told once and never waits for an answer: closing it as

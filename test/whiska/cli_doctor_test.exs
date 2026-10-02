@@ -49,6 +49,14 @@ defmodule Whiska.CLIDoctorTest do
     assert out =~ "whiska doctor — myrepo"
   end
 
+  test "the report says whether a delivered question will be heard (ADR-0060)", %{main: main} do
+    stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+    {out, _status} = with_status(fn -> CLI.run(["doctor"], main) end)
+
+    assert out =~ ~r/(ok|warn)\s+hoot/
+  end
+
   test "help lists it" do
     out = capture_io(fn -> CLI.run(["--help"]) end)
     assert out =~ "doctor"

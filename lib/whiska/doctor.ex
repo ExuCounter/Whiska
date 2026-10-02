@@ -94,6 +94,8 @@ defmodule Whiska.Doctor do
     {house, in_house} =
       house(main_checkout, panes, herdr, env["HERDR_SOCKET_PATH"], now, env)
 
+    herdr_config = read_herdr_config(env)
+
     checks =
       [binary] ++
         built(main_checkout, installed_at, binary_path) ++
@@ -104,6 +106,7 @@ defmodule Whiska.Doctor do
           launch_agent(installed?, agent, pids),
           open_houses(OpenHouses.read(record), main_checkout, pids),
           tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
+          hoot(read_herdr_config(env)),
           global(global_state)
         ] ++
         hooks ++
@@ -653,6 +656,85 @@ defmodule Whiska.Doctor do
       older ->
         Check.warn("statusline script", "v#{older}; whiska upgrade is available", @init)
     end
+  end
+
+  @doc """
+  Whether herdr will actually show the hoot the owl raises on every delivery
+  (ADR-0060).
+
+  `config` is the contents of herdr's `config.toml`, or `nil` when there is
+  none. `notification.show` answers `:ok` whether or not anything appears — it
+  honours `[ui.toast] delivery`, which herdr defaults to `off` — so the owl
+  cannot tell a hoot nobody saw from one they did, and this is the only place
+  the person can learn it.
+
+  A warning, never a failure (ADR-0038): the question is delivered either way,
+  the line is in the main session, and `whiska questions` still lists it. What
+  is lost is hearing about it while looking at something else. The file is the
+  person's and machine-global, so the doctor prints what to put in it and never
+  writes it (ADR-0016).
+  """
+  @spec hoot(String.t() | nil) :: Check.t()
+  def hoot(config) do
+    config = config || ""
+
+    case {toast_delivery(config), sound_enabled?(config)} do
+      {nil, _} ->
+        Check.warn("hoot", "herdr shows no popups, so a delivered question is silent", hoot_fix())
+
+      {"off", _} ->
+        Check.warn(
+          "hoot",
+          "[ui.toast] delivery is off, so a delivered question is silent",
+          hoot_fix()
+        )
+
+      {where, false} ->
+        Check.warn(
+          "hoot",
+          "popups go to the #{where}, but [ui.sound] is off — a hoot arrives with no sound",
+          hoot_fix()
+        )
+
+      {where, true} ->
+        Check.ok("hoot", "a delivered question pops up on the #{where}")
+    end
+  end
+
+  defp hoot_fix do
+    """
+    put this in #{Herdr.config_path()}:
+
+    [ui.toast]
+    delivery = "system"
+
+    [ui.sound]
+    enabled = true
+    """
+  end
+
+  # herdr's config is TOML and Whiska has no TOML parser, so the two settings
+  # that matter are read off their own sections by hand. A key outside the
+  # section it belongs to is not the key.
+  defp toast_delivery(config) do
+    with [_, value] <- Regex.run(~r/delivery\s*=\s*"([a-z]+)"/, section(config, "ui.toast")) do
+      value
+    else
+      _ -> nil
+    end
+  end
+
+  defp sound_enabled?(config) do
+    not Regex.match?(~r/enabled\s*=\s*false/, section(config, "ui.sound"))
+  end
+
+  defp section(config, name) do
+    config
+    |> String.split("\n")
+    |> Enum.drop_while(&(String.trim(&1) != "[#{name}]"))
+    |> Enum.drop(1)
+    |> Enum.take_while(&(not String.starts_with?(String.trim(&1), "[")))
+    |> Enum.join("\n")
   end
 
   @doc """

@@ -109,6 +109,21 @@ defmodule Whiska.Herdr.Socket do
     %{path: raw["path"], branch: raw["branch"], workspace_id: raw["open_workspace_id"]}
   end
 
+  # `position` is deliberately not sent: herdr documents it as affecting its
+  # own in-app toast only, and where that toast sits is the person's taste,
+  # already settled in their config.
+  @impl true
+  def notify(socket, %{title: title, body: body, sound: sound}) do
+    params = %{"title" => title, "body" => body, "sound" => Atom.to_string(sound)}
+
+    with {:ok, %{"result" => _}} <- request(socket, "notification.show", params) do
+      :ok
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
   defp pane(raw) do
     %{
       pane_id: raw["pane_id"],
