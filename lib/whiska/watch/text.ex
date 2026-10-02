@@ -12,6 +12,10 @@ defmodule Whiska.Watch.Text do
     terminal, not shown: a title change, a screen clear, an alternate-screen
     switch, a carriage return that overwrites the line. The board redraws every
     couple of seconds in every open session, so one would keep happening.
+  - **Nothing invisible that reorders the line.** A bidi override or an isolate
+    makes a row read differently from the bytes the board wrote, and a
+    zero-width character hides inside a phrase. Neither can cross a line
+    boundary, but both can make a row say something it does not.
   - **One line, one row.** A newline in what a tool is doing would forge a whole
     extra row — `🐭 main  idle  all clear` is 27 characters — and a forged row
     can say that nothing is waiting. That is the one failure the board must not
@@ -23,6 +27,10 @@ defmodule Whiska.Watch.Text do
   def plain(text, max) do
     text
     |> String.replace(~r/[\x{0}-\x{8}\x{b}-\x{1f}\x{7f}-\x{9f}]/u, "")
+    |> String.replace(
+      ~r/[\x{ad}\x{200b}-\x{200f}\x{202a}-\x{202e}\x{2066}-\x{2069}\x{feff}]/u,
+      ""
+    )
     |> String.replace(~r/\s+/u, " ")
     |> String.trim()
     |> cut(max)

@@ -250,8 +250,8 @@ defmodule Whiska.Install do
   @statusline_script """
   #!/usr/bin/env bash
   # Whiska's project statusline (ADR-0051): a board, one row per mouse in
-  # this repo — its branch, what herdr says it is doing, and either the
-  # question waiting on you or its last action.
+  # this repo — its branch, what herdr says it is doing, and the question
+  # waiting on you, else what it is working on, else what it is stuck in.
   #
   # A project-level statusLine replaces the global one rather than merging
   # with it, so your global statusline runs first and the board goes under

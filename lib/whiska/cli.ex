@@ -146,8 +146,9 @@ defmodule Whiska.CLI do
                          mouse — branch, mode, what its pane is doing, uptime.
 
     watch                Print this repo's board once: a row per mouse — its
-                         branch, what its pane is doing, and either the
-                         question waiting on you or its last action. The owl
+                         branch, what its pane is doing, and the question
+                         waiting on you, else what it is working on, else what
+                         it is stuck in. The owl
                          writes this every couple of seconds for the
                          statusline to print; run it yourself when that looks
                          wrong.

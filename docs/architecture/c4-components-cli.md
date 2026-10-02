@@ -29,7 +29,7 @@ C4Component
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, orphaned apart, the doorstep count")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question and per uncollected doorstep entry, oldest first, each with its mouse pane")
     Component(statusline, "Statusline", "one line", "herdr's tab bar: the owl always, and what is waiting machine-wide")
-    Component(watch, "Watch", "the board", "A row per mouse of this repo: its branch, what its pane is doing, and either the question waiting on you or its last action")
+    Component(watch, "Watch", "the board", "A row per mouse of this repo: its branch, what its pane is doing, and the question waiting on you, its topic, or what it is stuck in")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live, and reads herdr's config")
     Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
     Component(backstop, "Backstop", "text file", "The house's mark of what only its backstop collected")
@@ -147,8 +147,8 @@ The repo-scoped line is no longer this component's: it is the board (ADR-0051), 
 **`Watch` is the board** — a row per mouse of this repo, ordered by how much each wants
 the person: waiting, blocked, working, quiet, five rows at most, and never a cap that
 drops a mouse with a question on it. The detail column is that question when there is
-one, and otherwise what the mouse is doing, read from its own Claude Code transcript
-(ADR-0050). A dead mouse has no row; what it left waiting is counted underneath and
+one, otherwise the mouse's topic from herdr's pane list, and otherwise what it is stuck
+in, read from its own Claude Code transcript (ADR-0050). A dead mouse has no row; what it left waiting is counted underneath and
 settled with `whiska questions`. Both `whiska watch` and
 `whiska statusline --here` print it, worked out afresh; the statusline itself prints the
 file the house keeps, and starts nothing.

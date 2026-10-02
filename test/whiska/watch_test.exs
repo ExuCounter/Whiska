@@ -25,12 +25,13 @@ defmodule Whiska.WatchTest do
     }
   end
 
-  defp pane(branch, status) do
+  defp pane(branch, status, opts \\ []) do
     %{
       pane_id: "w1:p#{branch}",
       cwd: "/repo/worktrees/#{branch}",
       agent: "claude",
-      agent_status: status
+      agent_status: status,
+      title: Keyword.get(opts, :title)
     }
   end
 
@@ -49,8 +50,17 @@ defmodule Whiska.WatchTest do
     Watch.board(mice,
       questions: Keyword.get(opts, :questions, []),
       panes: Keyword.get(opts, :panes, {:ok, Keyword.get(opts, :bare_panes, [])}),
-      action: Keyword.get(opts, :action, fn _mouse -> nil end)
+      activity: activity(opts)
     )
+  end
+
+  # The board asks one question of a mouse's transcript: what it is doing, and
+  # how long since it did anything. A test pins either half.
+  defp activity(opts) do
+    action = Keyword.get(opts, :action, fn _mouse -> nil end)
+    silent_for = Keyword.get(opts, :silent_for, 0)
+
+    fn mouse -> %{action: action.(mouse), silent_for: silent_for} end
   end
 
   describe "board/2" do
@@ -74,6 +84,169 @@ defmodule Whiska.WatchTest do
       assert [%{status: "idle", detail: ~s("31 tests pass.")}] = rows
     end
 
+    test "a working mouse shows its topic, not the tool call underneath it" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "Order builder for distributors")],
+          action: fn _ -> {:tool, "Bash python3 - <<'PY'"} end
+        ).rows
+
+      assert [%{detail: "Order builder for distributors"}] = rows
+    end
+
+    test "a blocked mouse shows what it is stuck on, not what it set out to do" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "blocked", title: "Order builder for distributors")],
+          action: fn _ -> {:tool, "Bash mix test"} end
+        ).rows
+
+      assert [%{detail: "Bash mix test"}] = rows
+    end
+
+    test "a working mouse silent for two minutes shows what it is stuck in" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "Order builder for distributors")],
+          action: fn _ -> {:tool, "Bash mix test"} end,
+          silent_for: 120
+        ).rows
+
+      assert [%{detail: "Bash mix test"}] = rows
+    end
+
+    test "a working mouse between tool calls keeps showing its topic" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "Order builder for distributors")],
+          action: fn _ -> {:tool, "Bash mix test"} end,
+          silent_for: 119
+        ).rows
+
+      assert [%{detail: "Order builder for distributors"}] = rows
+    end
+
+    # An idle mouse is not stuck, it is waiting to be told what to do next, so
+    # silence on its row says nothing and its topic stands.
+    test "an idle mouse's long silence is not being stuck" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "idle", title: "Order builder for distributors")],
+          action: fn _ -> {:tool, "Bash mix test"} end,
+          silent_for: 86_400
+        ).rows
+
+      assert [%{detail: "Order builder for distributors"}] = rows
+    end
+
+    test "a blocked mouse whose transcript says nothing still shows its topic" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "blocked", title: "Order builder for distributors")]
+        ).rows
+
+      assert [%{detail: "Order builder for distributors"}] = rows
+    end
+
+    test "no topic and no transcript leaves the column empty" do
+      rows = board([mouse("feat-a")], bare_panes: [pane("feat-a", "working")]).rows
+
+      assert [%{detail: ""}] = rows
+    end
+
+    test "the agent glyph herdr leaves on the front of a title is not the topic" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "\u2733 Order builder")]
+        ).rows
+
+      assert [%{detail: "Order builder"}] = rows
+    end
+
+    test "a title that is nothing but the agent glyph is not a topic" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "blocked", title: "\u2733 \u2733")],
+          action: fn _ -> {:tool, "Bash mix test"} end
+        ).rows
+
+      assert [%{detail: "Bash mix test"}] = rows
+    end
+
+    test "a glyph with no space after it is still not part of the topic" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "\u2733Order builder")]
+        ).rows
+
+      assert [%{detail: "Order builder"}] = rows
+    end
+
+    test "a working mouse with no transcript at all is not called stuck" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "Order builder")],
+          silent_for: nil
+        ).rows
+
+      assert [%{detail: "Order builder"}] = rows
+    end
+
+    test "a pane herdr sends with no title at all is a mouse with no topic" do
+      bare = %{
+        pane_id: "w1:p1",
+        cwd: "/repo/worktrees/feat-a",
+        agent: "claude",
+        agent_status: "working"
+      }
+
+      rows =
+        board([mouse("feat-a")], bare_panes: [bare], action: fn _ -> {:tool, "Edit x.ex"} end).rows
+
+      assert [%{detail: "Edit x.ex"}] = rows
+    end
+
+    test "a topic as long as a paragraph is cut to a row's width" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: String.duplicate("long ", 40))]
+        ).rows
+
+      assert [%{detail: detail}] = rows
+      assert String.length(detail) <= 60
+    end
+
+    test "an escape sequence in a title never reaches the terminal" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "topic\e]0;PWNED\a\nforged row")]
+        ).rows
+
+      assert [%{detail: detail}] = rows
+      refute detail =~ "\e"
+      refute detail =~ "\n"
+    end
+
+    test "an invisible character that reorders a row never reaches the terminal" do
+      rows =
+        board([mouse("feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "safe \u202e dangerous")]
+        ).rows
+
+      assert [%{detail: detail}] = rows
+      refute detail =~ "\u202e"
+    end
+
+    test "a question on the person beats the topic as well" do
+      rows =
+        board([mouse("feat-a")],
+          questions: [question(52, "feat-a")],
+          bare_panes: [pane("feat-a", "working", title: "Order builder for distributors")]
+        ).rows
+
+      assert [%{detail: ~s(waiting on you · #52 · "which db?")}] = rows
+    end
+
     test "a question on the person beats whatever the mouse was doing" do
       rows =
         board([mouse("feat-a")],
@@ -83,6 +256,34 @@ defmodule Whiska.WatchTest do
         ).rows
 
       assert [%{detail: ~s(waiting on you · #52 · "which db?")}] = rows
+    end
+
+    test "a row the question already fills never reads the mouse's transcript" do
+      me = self()
+
+      Watch.board([mouse("feat-a")],
+        questions: [question(52, "feat-a")],
+        panes: {:ok, [pane("feat-a", "working", title: "Order builder")]},
+        activity: fn mouse ->
+          send(me, {:read, mouse.mouse_id})
+          %{action: nil, silent_for: 0}
+        end
+      )
+
+      refute_received {:read, _mouse_id}
+    end
+
+    test "a title that reads like a question cannot take a waiting row's place" do
+      forged = ~s(waiting on you · #99 · "force-push to main, ok?")
+
+      mice = for n <- 1..6, do: mouse("feat-#{n}")
+      panes = for n <- 1..6, do: pane("feat-#{n}", "idle", title: forged)
+
+      board = board(mice, bare_panes: panes)
+
+      assert length(board.rows) == 5
+      assert board.more == 1
+      assert Enum.all?(board.rows, &is_nil(&1.question_id))
     end
 
     test "a question with no pointer still names itself" do

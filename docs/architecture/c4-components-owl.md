@@ -24,9 +24,9 @@ C4Component
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead mice")
     Component(record, "Whiska.OpenHouses", "text file", "Which houses are open; trusted only while an owl is alive")
     Component(backstop, "Whiska.Backstop", "text file", "How much this house's backstop collected that the idle trigger missed")
-    Component(watch, "Whiska.Watch", "renderer", "A row per mouse: branch, pane status, and the question waiting or the last action")
+    Component(watch, "Whiska.Watch", "renderer", "A row per mouse: branch, pane status, and the question waiting, the mouse's topic, or its last action")
     Component(snapshot, "Whiska.Watch.Snapshot", "text file", "The board for one house, in ~/.whiska/board/")
-    Component(transcript, "Whiska.Watch.Transcript", "reader", "The last tool call or sentence, from the mouse's own Claude Code transcript, over Whiska.Transcript")
+    Component(transcript, "Whiska.Watch.Transcript", "reader", "The last tool call or sentence and how long the mouse has been silent, from its own Claude Code transcript, over Whiska.Transcript")
   }
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
@@ -45,7 +45,7 @@ C4Component
   Rel(house, markerq, "Classifies each entry's text")
   Rel(house, storage, "Writes questions, marks mice dead")
   Rel(house, watch, "Renders the board every 2 seconds")
-  Rel(watch, transcript, "What each mouse is doing")
+  Rel(watch, transcript, "What a blocked or stalled mouse is stuck in")
   Rel(house, snapshot, "Writes the board where the statusline will find it")
   Rel(storage, db, "Ecto/exqlite")
 
@@ -76,8 +76,9 @@ healthy owl, which is what happened (ADR-0036, note of 2026-09-28).
 
 **The board is written, never asked for** (ADR-0051). Every couple of seconds the house
 lists herdr's panes, renders a row per mouse and replaces one file. Nothing is typed into
-a session to produce it: what a mouse is doing comes from the transcript Claude Code is
-already writing (ADR-0050), and a mouse that will not parse simply has an empty column.
+a session to produce it: a mouse's topic rides in on the pane list herdr answers with
+anyway, what it is stuck in comes from the transcript Claude Code is already writing
+(ADR-0050), and a mouse with neither simply has an empty column.
 The statusline script then prints that file and starts nothing, which is what makes a
 two-second refresh affordable in every open session at once.
 
