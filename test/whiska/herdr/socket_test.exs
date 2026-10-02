@@ -83,7 +83,9 @@ defmodule Whiska.Herdr.SocketTest do
                "pane_id" => "w1:p1",
                "cwd" => "/a",
                "agent" => "claude",
-               "agent_status" => "idle"
+               "agent_status" => "idle",
+               "terminal_title" => "\u2733 Order builder",
+               "terminal_title_stripped" => "Order builder"
              },
              %{"pane_id" => "w1:p2", "cwd" => nil, "agent" => nil, "agent_status" => "unknown"}
            ]
@@ -94,8 +96,14 @@ defmodule Whiska.Herdr.SocketTest do
       assert_received {:fake_got, %{"method" => "pane.list", "params" => %{}}}
 
       assert panes == [
-               %{pane_id: "w1:p1", cwd: "/a", agent: "claude", agent_status: "idle"},
-               %{pane_id: "w1:p2", cwd: nil, agent: nil, agent_status: "unknown"}
+               %{
+                 pane_id: "w1:p1",
+                 cwd: "/a",
+                 agent: "claude",
+                 agent_status: "idle",
+                 title: "Order builder"
+               },
+               %{pane_id: "w1:p2", cwd: nil, agent: nil, agent_status: "unknown", title: nil}
              ]
     end
 
@@ -185,7 +193,14 @@ defmodule Whiska.Herdr.SocketTest do
 
       assert {:ok, pane} = Socket.pane(path, "w1:p2")
       assert_received {:fake_got, %{"method" => "pane.get", "params" => %{"pane_id" => "w1:p2"}}}
-      assert pane == %{pane_id: "w1:p2", cwd: "/main", agent: "claude", agent_status: "idle"}
+
+      assert pane == %{
+               pane_id: "w1:p2",
+               cwd: "/main",
+               agent: "claude",
+               agent_status: "idle",
+               title: nil
+             }
     end
 
     test "a pane herdr does not know is an error carrying herdr's code" do

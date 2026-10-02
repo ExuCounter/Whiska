@@ -87,7 +87,8 @@ defmodule Whiska.Herdr.Socket do
       pane_id: raw["pane_id"],
       cwd: raw["cwd"],
       agent: raw["agent"],
-      agent_status: raw["agent_status"] || "unknown"
+      agent_status: raw["agent_status"] || "unknown",
+      title: raw["terminal_title_stripped"]
     }
   end
 

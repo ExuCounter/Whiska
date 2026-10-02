@@ -12,12 +12,23 @@ defmodule Whiska.Herdr do
   The module in use is read from the `:herdr` application key.
   """
 
-  @typedoc "What the owl needs to know about a pane. Everything else herdr sends is dropped."
+  @typedoc """
+  What the owl needs to know about a pane. Everything else herdr sends is
+  dropped.
+
+  `title` is herdr's `terminal_title_stripped`, which for a Claude Code pane is
+  the short summary the agent keeps of what it is working on — the mouse's topic,
+  and the first thing the board says about it (ADR-0051's addendum of
+  2026-10-02). It is somebody else's free text: it can be empty, it can be a
+  shell command in a pane running one, and in some panes it still carries the
+  agent's status glyph on the front.
+  """
   @type pane :: %{
           pane_id: String.t(),
           cwd: String.t() | nil,
           agent: String.t() | nil,
-          agent_status: String.t()
+          agent_status: String.t(),
+          title: String.t() | nil
         }
 
   @typedoc "One subscription, in herdr's own terms: `%{type: \"pane.closed\"}`."

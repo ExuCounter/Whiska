@@ -86,9 +86,13 @@ queue (delivery's, which a doorstep entry has not reached)
 What every mouse of one house is doing, a row each, drawn where the person is already
 looking: this repo's Claude Code statusline. A row is the mouse's branch, what herdr says
 its pane is doing, and one thing more — the question waiting on the person when there is
-one, and otherwise the mouse's **last action**, the tool call it is in the middle of or
-the last thing it said, read from its own Claude Code transcript and never asked for
-(ADR-0050). Five rows, unless more mice than that are waiting: a mouse with a question on
+one, otherwise the mouse's **topic**, and otherwise its **last action**. The topic is the
+short human summary of what the mouse is working on, "Order builder for distributors",
+read from herdr's pane list where Claude Code keeps it as the pane's title. The last
+action is the tool call it is in the middle of or the last thing it said, read from its
+own Claude Code transcript and never asked for (ADR-0050); it takes the column back when
+the mouse is blocked, or working and silent for two minutes, which is when what it is
+stuck in says more than what it set out to do. Five rows, unless more mice than that are waiting: a mouse with a question on
 the person is never one of the ones left off. It is kept current for the person rather
 than asked for. A working mouse's row carries a **ticker**, a dot growing to three and
 starting over, one frame per redraw: on a row that says a mouse is busy, a still board
@@ -101,7 +105,8 @@ has none, and what it left behind is counted on an `orphaned` line of its own, u
 `waiting` one — nobody can answer an orphan, so it is never counted as waiting. The board only
 reports — nothing on it acts (ADR-0051).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws, which is not this), the
-statusline (the surface, not what is drawn on it)
+statusline (the surface, not what is drawn on it), title (herdr's and Claude Code's word
+for where the topic is read from, not for what the board says)
 
 **Main session**:
 The one herdr pane per house that questions are delivered to — the person's own Claude

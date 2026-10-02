@@ -204,3 +204,51 @@ drawn whenever their count is non-zero, so the rule above still holds in full �
 waiting leaves the board uncounted — and the person reads either in full with
 `whiska questions`. `Whiska.Watch.board/2` splits the questions it is given by status, and
 the two counts are never added.
+
+## Addendum (2026-10-02): the detail column is the mouse's topic, and the action is the fallback
+
+This ADR made the detail column two-way:
+
+> one row per mouse — branch, herdr's status, and one column of detail, which is the
+> question waiting on the person if there is one and otherwise what the mouse is doing
+> (ADR-0050).
+
+In use, "what the mouse is doing" is a raw tool call, and a raw tool call is machine
+output: a row reading `Bash python3 - <<'PY'` says nothing about which piece of work the
+mouse is on, which is the question the person opened the board with. The board had eight
+rows of it and answered none of them.
+
+**The column is three-way: the waiting question, else the mouse's topic, else its last
+action.** The topic is herdr's `terminal_title_stripped` — the short human summary Claude
+Code keeps of what a session is working on, `Order builder for distributors`,
+`README for open source` — which herdr 0.8.2 already carries in the pane list the board
+asks for anyway, so the topic costs no new call and no upgrade. `Whiska.Herdr`'s pane
+shape, which dropped every field it had no use for, now keeps it.
+
+**The action is what the person needs when the mouse is not getting on with it**, and the
+board falls back to it in exactly two cases: a mouse herdr says is `blocked`, which is
+sitting at a dialog, and a mouse herdr says is `working` that has written nothing to its
+transcript for **two minutes**. Claude Code appends to that transcript every few seconds
+while a turn runs, so two minutes of nothing is a genuinely long tool call or a stall —
+and on a row that claims the mouse is busy, naming the thing it is stuck in is worth more
+than naming the feature. The threshold is not shorter because an ordinary full test run
+would then flip the column back to raw tool output for no reason, and the ticker already
+proves the board itself is alive (that is a claim about the owl, this is a claim about
+the mouse). Silence is read from the transcript file's own mtime, so it costs the stat
+the board already does to find the newest session file.
+
+**Silence counts only on a working row.** An idle mouse is silent by definition — it has
+finished and is waiting to be told what is next — so its quiet says nothing about it
+being stuck, and its topic stands however long it lasts.
+
+**Nothing else moves.** A question waiting on the person still wins the column
+(`whiska reply` is still the only thing the board is trying to get the person to do), and
+a mouse with no title and nothing readable in its transcript still gets an empty column
+rather than a guess. ADR-0050 is untouched: the action still comes from the mouse's own
+transcript and is still never asked for. It is no longer the first thing the column says.
+
+**The title is somebody else's string, and is treated as one.** It can be empty, it is
+not a path, and in some panes it arrives with the agent's status glyph still on the
+front, so a leading run of non-letters is dropped and `Whiska.Watch.Text` does the rest —
+one line, no control characters, cut to the column's width. The board file is still the
+trust boundary this ADR made it.

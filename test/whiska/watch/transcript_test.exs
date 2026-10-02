@@ -174,4 +174,32 @@ defmodule Whiska.Watch.TranscriptTest do
       assert Transcript.read("/repo/worktrees/gone", user_home: tmp) == nil
     end
   end
+
+  describe "activity/2" do
+    setup do
+      tmp = Path.join(System.tmp_dir!(), "whiska-act-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp)
+      on_exit(fn -> File.rm_rf!(tmp) end)
+      {:ok, tmp: tmp}
+    end
+
+    test "says how long the mouse has been silent, alongside what it is doing", %{tmp: tmp} do
+      worktree = "/repo/worktrees/feat-a"
+      dir = Transcript.project_dir(worktree, tmp)
+      File.mkdir_p!(dir)
+      file = Path.join(dir, "s.jsonl")
+      File.write!(file, tool("Edit", %{"file_path" => "#{worktree}/x.ex"}))
+      File.touch!(file, System.os_time(:second) - 300)
+
+      assert %{action: {:tool, "Edit x.ex"}, silent_for: silent} =
+               Transcript.activity(worktree, user_home: tmp)
+
+      assert_in_delta silent, 300, 5
+    end
+
+    test "a mouse with no transcript is not silent, it is unknown", %{tmp: tmp} do
+      assert Transcript.activity("/repo/worktrees/gone", user_home: tmp) ==
+               %{action: nil, silent_for: nil}
+    end
+  end
 end

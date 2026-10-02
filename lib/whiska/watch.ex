@@ -8,9 +8,16 @@ defmodule Whiska.Watch do
   they work on something else.
 
   A row is branch, herdr's status, and one column of detail — the question
-  waiting on the person if there is one, otherwise what the mouse is doing
-  (`Whiska.Watch.Transcript`), and, on a working mouse's row, a ticker that
-  moves one frame per redraw so a frozen board can be told from a quiet one.
+  waiting on the person if there is one, otherwise the mouse's topic, and
+  otherwise what it is doing (`Whiska.Watch.Transcript`) — and, on a working
+  mouse's row, a ticker that moves one frame per redraw so a frozen board can be
+  told from a quiet one.
+
+  The topic is herdr's `terminal_title_stripped`, the short summary Claude Code
+  keeps of what a session is working on — "Order builder for distributors". The
+  last tool call is what the person needs only when the mouse is not getting on
+  with it: blocked at a dialog, or working and silent for two minutes
+  (ADR-0051's addendum of 2026-10-02).
   Live mice first, ordered by how much they want the person: waiting, blocked,
   working, then the quiet ones. Five rows, unless
   more than five mice are waiting — the cap gives way rather than hide a
@@ -44,6 +51,13 @@ defmodule Whiska.Watch do
   # writes, so at ADR-0051's two seconds the cycle takes six.
   @frames ["·", "··", "···"]
   @ticker_width @frames |> Enum.map(&String.length/1) |> Enum.max()
+
+  # Two minutes of nothing written to a transcript, on a row that says the mouse
+  # is working. Claude Code appends every few seconds while a turn runs, so this
+  # is a long tool call or a stall — the one case where a raw tool call says
+  # more than a topic. Short enough to catch a stall, long enough that an
+  # ordinary full test run does not flip the column.
+  @stuck_after 120
 
   @waiting ["open", "sent"]
   @orphaned "orphaned"
@@ -112,14 +126,15 @@ defmodule Whiska.Watch do
   The board for a house's mice.
 
   Options: `:questions`, its waiting and orphaned questions, counted apart;
-  `:panes`, herdr's answer in `Whiska.Mice.panes/0` form; `:action`, what a
-  mouse is doing, `Whiska.Watch.Transcript.read/1` unless a test pins it.
+  `:panes`, herdr's answer in `Whiska.Mice.panes/0` form; `:activity`, what a
+  mouse is doing and how long it has been silent,
+  `Whiska.Watch.Transcript.activity/1` unless a test pins it.
   """
   @spec board([Mouse.t()], keyword()) :: t()
   def board(mice, opts \\ []) do
     questions = Keyword.get(opts, :questions, [])
     panes = Keyword.get(opts, :panes, :no_socket)
-    action = Keyword.get(opts, :action, &Transcript.read(&1.path))
+    activity = Keyword.get(opts, :activity, &Transcript.activity(&1.path))
 
     {orphaned, live} = Enum.split_with(questions, &(&1.status == @orphaned))
     by_mouse = live |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1})
@@ -127,36 +142,41 @@ defmodule Whiska.Watch do
     {rows, more} =
       mice
       |> Enum.filter(&is_nil(&1.died_at))
-      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, action))
+      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, activity))
       |> Enum.sort_by(&rank/1)
       |> cap()
 
     %{rows: rows, more: more, waiting: uncovered(live, rows), orphaned: length(orphaned)}
   end
 
-  defp row(mouse, question, panes, action) do
+  defp row(mouse, question, panes, activity) do
+    pane = pane(mouse, panes)
+    status = status(pane)
+
     %{
       mouse_id: mouse.mouse_id,
       question_id: question_id(question),
       branch: mouse.branch || mouse.mouse_id,
-      status: status(mouse, panes),
-      detail: detail(question, mouse, action)
+      status: status,
+      detail: detail(question, pane, status, activity.(mouse))
     }
   end
 
   defp question_id(%Question{status: status, id: id}) when status in @waiting, do: id
   defp question_id(_other), do: nil
 
-  defp status(mouse, {:ok, panes}) do
-    panes
-    |> Enum.find(&(&1.agent != nil and is_binary(&1.cwd) and Layout.inside?(&1.cwd, mouse.path)))
-    |> case do
-      nil -> "no pane"
-      pane -> said_status(pane.agent_status)
-    end
+  defp pane(mouse, {:ok, panes}) do
+    Enum.find(
+      panes,
+      &(&1.agent != nil and is_binary(&1.cwd) and Layout.inside?(&1.cwd, mouse.path))
+    )
   end
 
-  defp status(_mouse, _unreachable), do: "?"
+  defp pane(_mouse, _unreachable), do: :unreachable
+
+  defp status(nil), do: "no pane"
+  defp status(:unreachable), do: "?"
+  defp status(pane), do: said_status(pane.agent_status)
 
   # herdr's `done` is the same state as `idle` in a tab the person has not
   # looked at, which every mouse works in (ADR-0026 note in `Whiska.Owl.House`).
@@ -164,20 +184,47 @@ defmodule Whiska.Watch do
   defp said_status("unknown"), do: "?"
   defp said_status(status), do: status
 
-  defp detail(%Question{status: status} = question, _mouse, _action) when status in @waiting do
+  defp detail(%Question{status: status} = question, _pane, _status, _activity)
+       when status in @waiting do
     case Text.plain(Marker.pointer(question.text), @phrase_max) do
       "" -> "waiting on you · ##{question.id}"
       pointer -> ~s(waiting on you · ##{question.id} · "#{pointer}")
     end
   end
 
-  defp detail(_question, mouse, action) do
-    case action.(mouse) do
-      {:tool, phrase} -> phrase
-      {:said, sentence} -> ~s("#{sentence}")
-      nil -> ""
+  defp detail(_question, pane, status, activity) do
+    topic = topic(pane)
+    doing = doing(activity.action)
+
+    if stuck?(status, activity.silent_for),
+      do: doing || topic || "",
+      else: topic || doing || ""
+  end
+
+  defp stuck?("blocked", _silent_for), do: true
+  defp stuck?("working", silent_for), do: is_integer(silent_for) and silent_for >= @stuck_after
+  defp stuck?(_quiet, _silent_for), do: false
+
+  defp doing({:tool, phrase}), do: phrase
+  defp doing({:said, sentence}), do: ~s("#{sentence}")
+  defp doing(nil), do: nil
+
+  # The title is a mouse's own free text and arrives in some panes with the
+  # agent's status glyph still on the front, so the glyph comes off and
+  # `Whiska.Watch.Text` does the rest.
+  defp topic(pane) when is_map(pane) do
+    case pane |> Map.get(:title) |> glyphless() |> Text.plain(@phrase_max) do
+      "" -> nil
+      topic -> topic
     end
   end
+
+  defp topic(_paneless), do: nil
+
+  defp glyphless(title) when is_binary(title),
+    do: String.replace(title, ~r/^[^\p{L}\p{N}]+\s+/u, "")
+
+  defp glyphless(_absent), do: ""
 
   defp rank(%{detail: "waiting on you" <> _}), do: 0
   defp rank(%{status: "blocked"}), do: 1

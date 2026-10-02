@@ -27,6 +27,13 @@ defmodule Whiska.Watch.Transcript do
   @typedoc "The phrase a row shows: a tool call, the last thing said, or nothing."
   @type action :: {:tool, String.t()} | {:said, String.t()} | nil
 
+  @typedoc """
+  What the board asks of a transcript: the mouse's last action, and how many
+  seconds since Claude Code last wrote to the file. `silent_for` is `nil` when
+  there is no transcript to be silent in.
+  """
+  @type activity :: %{action: action(), silent_for: non_neg_integer() | nil}
+
   # What one column of a statusline row has room for.
   @phrase_max 60
 
@@ -44,12 +51,34 @@ defmodule Whiska.Watch.Transcript do
   unless a test pins it.
   """
   @spec read(Path.t(), keyword()) :: action()
-  def read(worktree_root, opts \\ []) do
+  def read(worktree_root, opts \\ []), do: activity(worktree_root, opts).action
+
+  @doc """
+  The mouse's last action and how long it has been silent, from one look at the
+  transcript.
+
+  Silence is the board's signal that a working mouse is stuck in something
+  rather than moving through it (ADR-0051's addendum of 2026-10-02): Claude Code
+  appends to this file every few seconds while a turn runs, so the file's own
+  mtime is when the mouse last did anything.
+
+  Options: `:user_home`, the home to look under — `Whiska.LaunchAgent.user_home/0`
+  unless a test pins it; `:now`, the second to measure silence from.
+  """
+  @spec activity(Path.t(), keyword()) :: activity()
+  def activity(worktree_root, opts \\ []) do
     home = Keyword.get_lazy(opts, :user_home, &LaunchAgent.user_home/0)
+    now = Keyword.get_lazy(opts, :now, fn -> System.os_time(:second) end)
 
     case newest_transcript(project_dir(worktree_root, home)) do
-      nil -> nil
-      file -> file |> Transcript.tail(@tail_bytes) |> last_action(worktree_root)
+      nil ->
+        %{action: nil, silent_for: nil}
+
+      file ->
+        %{
+          action: file |> Transcript.tail(@tail_bytes) |> last_action(worktree_root),
+          silent_for: max(now - mtime(file), 0)
+        }
     end
   end
 
