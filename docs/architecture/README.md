@@ -103,7 +103,7 @@ working) — so herdr is asked nothing until something has passed them, and then
 whether the pane is busy and which workspace to remove, with `force: false`. Unknown is
 never permission: a detached head, an unnameable base, a silent herdr or a live pane whose
 workspace herdr does not name all leave the worktree standing (ADR-0061, superseding
-ADR-0007's worktree half). 1162 tests.
+ADR-0007's worktree half). 1223 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with its own tools, the owl reads status only
