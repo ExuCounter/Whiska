@@ -109,11 +109,17 @@ defmodule Whiska.Git do
     with {:ok, out} <- git(worktree, ["status", "--porcelain"]), do: {:ok, out == ""}
   end
 
-  @doc "Is any commit on this branch absent from every remote?"
+  @doc """
+  Is any commit on this branch absent from every remote?
+
+  One commit is enough to answer, and asking for one keeps the cost flat: with
+  no remote-tracking branch covering it, `--not --remotes` excludes nothing and
+  git would otherwise walk and print the whole history for a boolean.
+  """
   @spec unpushed?(Path.t(), branch()) :: {:ok, boolean()} | {:error, term()}
   def unpushed?(worktree, branch) do
-    with {:ok, out} <- git(worktree, ["log", "--format=%H", branch, "--not", "--remotes"]),
-         do: {:ok, out != ""}
+    args = ["log", "--max-count=1", "--format=%H", branch, "--not", "--remotes"]
+    with {:ok, out} <- git(worktree, args), do: {:ok, out != ""}
   end
 
   @doc "Remove a worktree, never forcing. Git refuses a dirty one, and that refusal stands."
