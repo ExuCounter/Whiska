@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (863 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (1162 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -56,7 +56,8 @@ C4Container
   Rel(house, doorstep, "Collects on idle, at open, and on a backstop")
   Rel(house, backstop, "Marks what the backstop collected; clears it at open")
   Rel(cli, backstop, "doctor reads it: has the last resort been doing the trigger's job")
-  Rel(house, db, "Records questions and marks mice dead; reads the next open one")
+  Rel(house, db, "Records questions, marks mice dead and removed; reads the next open one")
+  Rel(house, herdr, "Removes a landed worktree and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
 
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")

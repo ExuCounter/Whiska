@@ -31,6 +31,18 @@ defmodule Whiska.Herdr do
           title: String.t() | nil
         }
 
+  @typedoc """
+  A linked worktree herdr knows about, and the workspace it is open in.
+
+  `workspace_id` is `nil` when no workspace is open on it — the mouse's pane is
+  already gone, and the worktree is git's alone to remove.
+  """
+  @type worktree :: %{
+          path: String.t(),
+          branch: String.t() | nil,
+          workspace_id: String.t() | nil
+        }
+
   @typedoc "One subscription, in herdr's own terms: `%{type: \"pane.closed\"}`."
   @type subscription :: %{required(:type) => String.t(), optional(:pane_id) => String.t()}
 
@@ -84,6 +96,19 @@ defmodule Whiska.Herdr do
   """
   @callback subscribe(socket :: Path.t(), [subscription()], listener :: pid()) ::
               {:ok, pid()} | {:error, term()}
+
+  @doc "The linked worktrees of one checkout, each with the workspace it is open in."
+  @callback worktrees(socket :: Path.t(), checkout :: Path.t()) ::
+              {:ok, [worktree()]} | {:error, term()}
+
+  @doc """
+  Remove a worktree and close the workspace it is open in, in one call.
+
+  Never forced: herdr refusing a worktree with work in it is the refusal
+  cleanup wants (ADR-0058), and the owl has no way to ask again harder.
+  """
+  @callback remove_worktree(socket :: Path.t(), workspace_id :: String.t()) ::
+              :ok | {:error, term()}
 
   @doc "The implementation in use."
   @spec impl() :: module()

@@ -21,7 +21,8 @@ _Avoid_: worker, crewmate, agent
 **Mouse record**:
 Whiska's own persisted row tracking a mouse — its pane, worktree path, branch label,
 and mode — keyed by `mouse_id`. Outlives the mouse itself: a dead mouse still has a
-mouse record, marked dead rather than deleted. A record is **stale** when it no longer
+mouse record, marked dead rather than deleted, and a mouse whose worktree has been cleaned
+up is marked removed and left there, permanently inert. A record is **stale** when it no longer
 stands for a worktree of this house — a record made later covers the same folder, or one
 of the worktrees nested inside its folder. A stale record is nobody's mouse: it is never
 matched to a pane, and neither `whiska mice` nor the board has a row for it.
@@ -74,7 +75,9 @@ as a merge request, left alone to be talked to further, or dropped unmerged. The
 picks one when a "finished" question is told; a repo may name its usual choice, and that
 one is recommended. A finish is never an answer — a finished question has nothing to
 answer — and it is only ever offered for a finished one.
-_Avoid_: close (which a question does), cleanup, disposition, land
+_Avoid_: close (which a question does), disposition, land. **Cleanup** now names something
+else — what becomes of the worktree after the branch has landed, not what becomes of the
+branch
 
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,
@@ -82,7 +85,7 @@ and the entries still sitting uncollected on its doorstep. A `done` report is wa
 until the person has been told, and a doorstep entry is waiting although no question
 exists for it yet. It is a state of the house, not a status on a row: the statusline
 and `whiska waiting` both ask exactly this, so the two cannot disagree about it. A house is quiet when nothing is waiting; there is no other
-word for the state.
+word for the state, and **Quiet** is that same word said of one mouse.
 _Avoid_: pending, outstanding, open (a question's own status, which is narrower), the
 queue (delivery's, which a doorstep entry has not reached)
 
@@ -263,6 +266,27 @@ the hand-back that clears it is stamped on the entry, and a turn the person type
 whatever was out. Never read from what the mouse said.
 _Avoid_: running, pending, busy, mid-turn (all of them describe the mouse, and it is the
 subagent that is out)
+
+**Cleanup**:
+Taking a landed worktree down: the worktree removed, the mouse's pane closed with it, the
+branch deleted, and the mouse record stamped removed — unattended, by the owl, on its
+backstop (ADR-0058). It happens only to a **quiet** mouse whose branch has landed: the
+branch merged into the base, the worktree clean, nothing on it unpushed. Nothing is ever
+forced, and anything that cannot be established leaves the worktree exactly where it is.
+The mouse record survives, as every record does (ADR-0007); only the folder, the pane and
+the branch go.
+_Avoid_: teardown, reaping, archiving, drop (`drop-worktree` is the person's own way to
+take a worktree down, which stays)
+
+**Quiet**:
+Said of a house with nothing waiting, and of a mouse with nothing left to do — the same
+word, one subject down. A quiet mouse has nothing of its open or sent, nothing of its
+left uncollected on the doorstep, its last word a `done` report, and a pane herdr does
+not call `working`. A mouse with no pane at all is quiet too: that is ADR-0026's dead
+mouse. It is what cleanup waits for, and it is deliberately stricter than "nobody is
+waiting on it": a mouse that never said it finished is never cleaned up after.
+_Avoid_: idle (herdr's word for a pane, which is one of the four things this reads),
+finished (a mouse's own claim; **Finishing** is the pipeline it runs), done (the marker)
 
 **Collection**:
 The owl taking what a mouse left on the doorstep. Overwhelmingly event-driven — herdr

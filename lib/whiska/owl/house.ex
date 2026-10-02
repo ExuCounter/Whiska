@@ -116,6 +116,7 @@ defmodule Whiska.Owl.House do
   use GenServer
 
   alias Whiska.Backstop
+  alias Whiska.Cleanup
   alias Whiska.Delivery.Draft
   alias Whiska.Delivery.Text
   alias Whiska.Doorstep
@@ -311,7 +312,7 @@ defmodule Whiska.Owl.House do
   def handle_info(:resubscribe, state), do: {:noreply, subscribe(state)}
 
   def handle_info(:backstop, state) do
-    state = state |> refresh() |> collect_on_backstop() |> deliver()
+    state = state |> refresh() |> collect_on_backstop() |> deliver() |> clean_up()
     Process.send_after(self(), :backstop, state.backstop_ms)
     {:noreply, state}
   end
@@ -536,6 +537,34 @@ defmodule Whiska.Owl.House do
   end
 
   # -- collection --------------------------------------------------------------
+
+  # Cleanup rides the backstop rather than an event: a branch lands outside
+  # Whiska entirely, so there is nothing to be told about (ADR-0058).
+  defp clean_up(%{socket: nil} = state), do: state
+
+  defp clean_up(state) do
+    %{main_checkout: state.main_checkout, herdr: state.herdr, socket: state.socket}
+    |> Cleanup.sweep()
+    |> Enum.each(fn
+      {mouse_id, :removed} ->
+        warn(state, "#{label(mouse_id)} landed — worktree, pane and branch gone")
+
+      {mouse_id, {:removed, {:branch_kept, _}}} ->
+        warn(state, "#{label(mouse_id)} landed — worktree and pane gone, branch kept")
+
+      {_mouse_id, {:left, _reason}} ->
+        :ok
+    end)
+
+    state
+  end
+
+  defp label(mouse_id) do
+    case Storage.mouse(mouse_id) do
+      %Mouse{branch: branch} when is_binary(branch) -> branch
+      _ -> mouse_id
+    end
+  end
 
   defp collect_now(state), do: state |> collect_and_count() |> elem(1)
 
