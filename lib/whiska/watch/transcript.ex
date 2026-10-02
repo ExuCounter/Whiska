@@ -74,13 +74,18 @@ defmodule Whiska.Watch.Transcript do
       nil ->
         %{action: nil, silent_for: nil}
 
-      file ->
+      {file, mtime} ->
         %{
           action: file |> Transcript.tail(@tail_bytes) |> last_action(worktree_root),
-          silent_for: max(now - mtime(file), 0)
+          silent_for: silent_for(now, mtime)
         }
     end
   end
+
+  # A file whose stat failed has no mtime to be silent since, and 1970 would
+  # read as a mouse stuck forever.
+  defp silent_for(_now, 0), do: nil
+  defp silent_for(now, mtime), do: max(now - mtime, 0)
 
   @doc """
   Claude Code's own folder for this worktree — `Whiska.Transcript.project_dir/2`,
@@ -200,8 +205,8 @@ defmodule Whiska.Watch.Transcript do
       {:ok, names} ->
         names
         |> Enum.filter(&String.ends_with?(&1, ".jsonl"))
-        |> Enum.map(&Path.join(dir, &1))
-        |> Enum.max_by(&mtime/1, fn -> nil end)
+        |> Enum.map(&{Path.join(dir, &1), mtime(Path.join(dir, &1))})
+        |> Enum.max_by(&elem(&1, 1), fn -> nil end)
 
       {:error, _gone} ->
         nil

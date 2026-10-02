@@ -18,10 +18,11 @@ defmodule Whiska.Watch do
   last tool call is what the person needs only when the mouse is not getting on
   with it: blocked at a dialog, or working and silent for two minutes
   (ADR-0051's addendum of 2026-10-02).
+
   Live mice first, ordered by how much they want the person: waiting, blocked,
-  working, then the quiet ones. Five rows, unless
-  more than five mice are waiting — the cap gives way rather than hide a
-  question, which is the one failure a board must not have.
+  working, then the quiet ones. Five rows, unless more than five mice are
+  waiting — the cap gives way rather than hide a question, which is the one
+  failure a board must not have.
 
   A dead mouse (ADR-0026) has no row at all: its worktree is gone, and a branch
   the person dropped is not something they want to keep looking at. What it left
@@ -86,7 +87,7 @@ defmodule Whiska.Watch do
   The board for the house at `main_checkout`.
 
   Options: `:herdr_socket` (defaults to `HERDR_SOCKET_PATH`), and `board/2`'s
-  `:action`.
+  `:activity`.
   """
   @spec house(Path.t(), keyword()) :: {:ok, t()} | {:error, term()}
   def house(main_checkout, opts \\ []) do
@@ -158,7 +159,7 @@ defmodule Whiska.Watch do
       question_id: question_id(question),
       branch: mouse.branch || mouse.mouse_id,
       status: status,
-      detail: detail(question, pane, status, activity.(mouse))
+      detail: detail(question, pane, status, fn -> activity.(mouse) end)
     }
   end
 
@@ -193,10 +194,11 @@ defmodule Whiska.Watch do
   end
 
   defp detail(_question, pane, status, activity) do
+    %{action: action, silent_for: silent_for} = activity.()
     topic = topic(pane)
-    doing = doing(activity.action)
+    doing = doing(action)
 
-    if stuck?(status, activity.silent_for),
+    if stuck?(status, silent_for),
       do: doing || topic || "",
       else: topic || doing || ""
   end
@@ -210,8 +212,9 @@ defmodule Whiska.Watch do
   defp doing(nil), do: nil
 
   # The title is a mouse's own free text and arrives in some panes with the
-  # agent's status glyph still on the front, so the glyph comes off and
-  # `Whiska.Watch.Text` does the rest.
+  # agent's status glyph still on the front, so the topic starts at the title's
+  # first letter or digit and `Whiska.Watch.Text` does the rest. A title with
+  # neither is all glyph, and says nothing a row could show.
   defp topic(pane) when is_map(pane) do
     case pane |> Map.get(:title) |> glyphless() |> Text.plain(@phrase_max) do
       "" -> nil
@@ -222,11 +225,15 @@ defmodule Whiska.Watch do
   defp topic(_paneless), do: nil
 
   defp glyphless(title) when is_binary(title),
-    do: String.replace(title, ~r/^[^\p{L}\p{N}]+\s+/u, "")
+    do: String.replace(title, ~r/^[^\p{L}\p{N}]+/u, "")
 
   defp glyphless(_absent), do: ""
 
-  defp rank(%{detail: "waiting on you" <> _}), do: 0
+  # Off the question's own id, never off the rendered words: a mouse's topic is
+  # free text it can set, and a row that sorted itself to the top by saying
+  # "waiting on you" would be a forged question, exempt from the cap and
+  # answerable by nothing.
+  defp rank(%{question_id: id}) when is_integer(id), do: 0
   defp rank(%{status: "blocked"}), do: 1
   defp rank(%{status: "working"}), do: 2
   defp rank(_quiet), do: 3

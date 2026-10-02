@@ -352,16 +352,20 @@ replaced:
 
 ```
 ~/projects/whiska  main ✔
-🐭 feat-watch-board     working  Edit lib/whiska/watch.ex
+🐭 feat-watch-board     working  A board the owl writes
 🐭 feat-quiet-marker    idle     waiting on you · #52 · "sqlite or a plain file?"
 🐭 fix-doctor-probe     working  Bash mix test
 🐭 feat-owl-snapshot    blocked  permission prompt in pane
-🐭 style-header-polish  idle     "31 tests pass, nothing waiting"
+🐭 style-header-polish  idle     Header spacing on narrow panes
 ```
 
 One row per mouse of this repo: its branch, what herdr says its pane is doing, and one
-thing more — the question waiting on you when there is one, and otherwise what the mouse
-is doing, read from its own Claude Code transcript and never asked for (ADR-0050). Five
+thing more — the question waiting on you when there is one, otherwise what the mouse is
+working on, which is the summary its own session keeps as its pane's title, and otherwise
+what it is stuck in: the tool call it is sitting in, read from its own Claude Code
+transcript and never asked for (ADR-0050). That last one takes the column when the mouse
+is blocked, or has been working with nothing written to its transcript for two minutes —
+`fix-doctor-probe` above is in a long `mix test`. Five
 rows at most, ordered by how much each wants you; the rest become `🐭 +3 more`, and a
 mouse with a question on you is never one of them. A dead mouse has no row: a branch whose
 worktree you dropped is not running here, and anything it left behind is counted on a

@@ -197,6 +197,15 @@ defmodule Whiska.Watch.TranscriptTest do
       assert_in_delta silent, 300, 5
     end
 
+    test "a transcript that cannot be stat'd is not silent since 1970", %{tmp: tmp} do
+      worktree = "/repo/worktrees/feat-a"
+      dir = Transcript.project_dir(worktree, tmp)
+      File.mkdir_p!(dir)
+      File.ln_s!(Path.join(dir, "gone.jsonl"), Path.join(dir, "s.jsonl"))
+
+      assert %{silent_for: nil} = Transcript.activity(worktree, user_home: tmp)
+    end
+
     test "a mouse with no transcript is not silent, it is unknown", %{tmp: tmp} do
       assert Transcript.activity("/repo/worktrees/gone", user_home: tmp) ==
                %{action: nil, silent_for: nil}

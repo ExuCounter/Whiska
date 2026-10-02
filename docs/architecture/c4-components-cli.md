@@ -147,8 +147,8 @@ The repo-scoped line is no longer this component's: it is the board (ADR-0051), 
 **`Watch` is the board** — a row per mouse of this repo, ordered by how much each wants
 the person: waiting, blocked, working, quiet, five rows at most, and never a cap that
 drops a mouse with a question on it. The detail column is that question when there is
-one, and otherwise what the mouse is doing, read from its own Claude Code transcript
-(ADR-0050). A dead mouse has no row; what it left waiting is counted underneath and
+one, otherwise the mouse's topic from herdr's pane list, and otherwise what it is stuck
+in, read from its own Claude Code transcript (ADR-0050). A dead mouse has no row; what it left waiting is counted underneath and
 settled with `whiska questions`. Both `whiska watch` and
 `whiska statusline --here` print it, worked out afresh; the statusline itself prints the
 file the house keeps, and starts nothing.

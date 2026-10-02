@@ -249,6 +249,16 @@ transcript and is still never asked for. It is no longer the first thing the col
 
 **The title is somebody else's string, and is treated as one.** It can be empty, it is
 not a path, and in some panes it arrives with the agent's status glyph still on the
-front, so a leading run of non-letters is dropped and `Whiska.Watch.Text` does the rest —
-one line, no control characters, cut to the column's width. The board file is still the
-trust boundary this ADR made it.
+front, so the topic starts at the title's first letter or digit — a title with neither is
+all glyph and is no topic at all — and `Whiska.Watch.Text` does the rest: one line, no
+control characters, nothing invisible that reorders what is left, cut to the column's
+width. The board file is still the trust boundary this ADR made it.
+
+**Which row is a question is read from the question, not from the words in the column.**
+The board used to find its waiting rows by matching the rendered detail against
+`waiting on you`, which was safe only while no free text could reach that column first. A
+topic can: a mouse whose title begins `waiting on you · #99` would otherwise have sorted
+itself to the top of the board, taken the exemption from the five-row cap that this ADR
+gives a real question, and pushed a real row into `+n more` — a forged question, pointing
+at an id `whiska reply` cannot answer. The row already carries the question's id, and the
+id is what the ordering and the cap read.

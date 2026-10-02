@@ -65,11 +65,11 @@ silently. Your statusline shows them, drawn under your own:
 
 ```
 ~/projects/whiska  main ✔
-🐭 feat-watch-board     working  Edit lib/whiska/watch.ex
+🐭 feat-watch-board     working  A board the owl writes
 🐭 feat-quiet-marker    idle     waiting on you · #52 · "sqlite or a plain file?"
 🐭 fix-doctor-probe     working  Bash mix test
 🐭 feat-owl-snapshot    blocked  permission prompt in pane
-🐭 style-header-polish  idle     "31 tests pass, nothing waiting"
+🐭 style-header-polish  idle     Header spacing on narrow panes
 ```
 
 The words are the project's own: a **mouse** is one of those task sessions, a **house** is
