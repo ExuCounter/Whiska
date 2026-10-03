@@ -271,21 +271,25 @@ defmodule Whiska.Pickup do
   defp act(_mouse, _pane, :ok, :unknown, _house), do: {:left, :no_herdr}
 
   defp act(mouse, pane, :ok, {:ok, ours}, house) do
-    cond do
-      not MapSet.member?(ours, Layout.canonical(mouse.path)) -> {:left, :not_our_worktree}
-      typing?(pane, house) -> {:left, :typing}
-      true -> nudge(mouse, pane, house)
-    end
+    if MapSet.member?(ours, Layout.canonical(mouse.path)),
+      do: act_on_box(mouse, pane, house, box(pane, house)),
+      else: {:left, :not_our_worktree}
   end
+
+  defp act_on_box(_mouse, _pane, _house, held) when held in [:typing, :no_box], do: {:left, held}
+  defp act_on_box(mouse, pane, house, _free), do: nudge(mouse, pane, house)
 
   # The second half of delivery's gate, asked of the mouse's pane for the same
   # reason (ADR-0047): herdr's idle is the model's word, and a line typed into
-  # a box somebody is halfway through lands inside what they are writing. An
-  # unreadable screen is an unavailable signal, so it types anyway.
-  defp typing?(pane, house) do
+  # a box somebody is halfway through lands inside what they are writing. A box
+  # that is not on the screen at all is the same refusal as a draft, for the
+  # reason ADR-0068 gives: the marker Whiska would read is the person's last
+  # message, not their prompt. An unreadable screen is an unavailable signal,
+  # so it types anyway.
+  defp box(pane, house) do
     case house.herdr.read_screen(house.socket, pane.pane_id) do
-      {:ok, screen} -> Draft.read(screen) == :typing
-      {:error, _reason} -> false
+      {:ok, screen} -> Draft.read(screen)
+      {:error, _reason} -> :empty
     end
   end
 

@@ -378,7 +378,7 @@ defmodule Whiska.PickupTest do
       m = mouse(repo, "feat-a")
       seen = died(repo, m)
 
-      stub(Herdr, :read_screen, fn _, _ -> {:ok, "❯ what about the\n"} end)
+      stub(Herdr, :read_screen, fn _, _ -> {:ok, screen("box-holds-a-draft")} end)
 
       assert {[{_, {:left, :typing}}], _} = sweep(repo, @settled, seen)
       assert Storage.mouse(m.id).picked_up_at == nil
@@ -388,10 +388,23 @@ defmodule Whiska.PickupTest do
       m = mouse(repo, "feat-a")
       seen = died(repo, m)
 
-      stub(Herdr, :read_screen, fn _, _ -> {:ok, "❯ \u00a0\n"} end)
+      stub(Herdr, :read_screen, fn _, _ ->
+        {:ok, screen("main-session-empty-box-under-a-past-message")}
+      end)
+
       expect(Herdr, :prompt, fn _, _, _ -> :ok end)
 
       assert {[{_, :picked_up}], _} = sweep(repo, @settled, seen)
+    end
+
+    test "a screen with no box on it holds, exactly as it holds a delivery", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+
+      stub(Herdr, :read_screen, fn _, _ -> {:ok, screen("box-scrolled-off-screen")} end)
+
+      assert {[{_, {:left, :no_box}}], _} = sweep(repo, @settled, seen)
+      assert Storage.mouse(m.id).picked_up_at == nil
     end
   end
 
@@ -448,4 +461,8 @@ defmodule Whiska.PickupTest do
       assert {[{_, {:left, :gone}}], _} = sweep(repo, @settled, seen)
     end
   end
+
+  @screens Path.expand("../support/screens", __DIR__)
+
+  defp screen(name), do: File.read!(Path.join(@screens, name <> ".txt"))
 end
