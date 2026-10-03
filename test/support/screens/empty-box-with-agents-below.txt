@@ -1,0 +1,48 @@
+      125  whiska mode [build|sniff]       this mouse's mode; sniff writes nothing, a
+           nywhere                                                                                                                                                   ✕
+  ⎿  Updated specs/spec.md (+4 -1)
+      772     normal question to you, same as everything else in this spec. The main
+           session never
+      773     infers, extrapolates, or decides something new here.
+      774  3. **One corrective nudge.** A single message into the mouse's pane — "you
+           're stuck on
+      775 -   X, try Y" — one shot, not an ongoing back-and-forth.
+      775 +   X, try Y" — one shot, not an ongoing back-and-forth. *Built for one kin
+          +d of stuck
+      776 +   (ADR-0065): a turn that ended without reaching the doorstep. The line r
+          +e-states the
+      777 +   situation and decides nothing, rungs 1 and 2 are preconditions of the d
+          +etector rather
+      778 +   than steps, and a branch whose nudged turn dies as well is never nudged
+          + again.*
+      779  4. **Relaunch**, same as `whiska reopen` — a fresh session against the sam
+           e worktree.
+      780     Uncommitted work is safe regardless (it's just files on disk), but bein                                 No changes this session
+           g deliberate
+      781     about it here matters.
+  ⎿  Allowed by auto mode classifier
+
+⏺ Skill(whiska-finish)
+  ⎿  Successfully loaded skill
+
+  Ran 1 shell command
+
+⏺ 3 background agents launched (↓ to manage)
+   ├ Correctness review
+   ├ Security review
+   └ Performance review
+
+⏺ Three reviewers are out. Waiting on them before the turn ends.
+
+✻ Waiting for 3 background agents to finish
+                                                                                                                      Update available! Run: brew upgrade claude-code
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5 (1M context)·medium | feat/a-turn-that-died-is-picked-up ⑂a-turn-that-died-is-picked-up  [████░░░░░░░░░░░] 26% (263k/1.0M ⚡98%)
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents
+
+  ⏺ main
+  ◯ general-purpose  Inspecting note_working and refresh in house.ex                                                                          1m 28s · ↓ 82.7k tokens
+  ◯ general-purpose  Inspecting collect_entry and Layout.inside?                                                                              1m 28s · ↓ 88.6k tokens
+  ◯ general-purpose  Tracing write_board in house.ex                                                                                          1m 28s · ↓ 78.4k tokens

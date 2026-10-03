@@ -153,13 +153,20 @@ never learn why the mice went quiet.
 Step 6 is the second half of the same gate (ADR-0047). Idle is the model's word: the
 person can have a half-typed prompt sitting in the box while the pane is every bit as
 idle, and the line would land inside it or submit it. herdr has no input signal, so
-delivery reads the pane's visible screen and looks for Claude Code's prompt box. A draft
-in it holds the question — open, first in the queue, gone on the next trigger once the
-box clears — and `whiska doctor` says `held: person is typing` meanwhile. A hold that
-lasts more than ten seconds also says so on the board, on its waiting line:
-`🐱 3 waiting · held: your prompt box isn't empty` (ADR-0058). The gate itself is
-unchanged — nothing is ever typed into a box the person is mid-sentence in. A screen with
-no box on it is an unavailable signal, and delivers for the reason above.
+delivery reads the pane's visible screen and looks for Claude Code's prompt box, which is
+the lowest frame of horizontal rules at column 0 that holds a prompt line (ADR-0068 — the
+marker `❯` is also how Claude Code redraws past messages, and a stray rule under the box
+would frame the status lines). A draft in it holds the question — open,
+first in the queue, gone on the next trigger once the box clears — and `whiska doctor`
+says `held: person is typing` meanwhile. A hold that lasts more than ten seconds also
+says so on the board, on its waiting line: `🐱 3 waiting · held: your prompt box isn't
+empty` (ADR-0058). Nothing is ever typed into a box the person is mid-sentence in.
+
+A screen with **no box at all** holds too, and says `held: your prompt box isn't on
+screen`: a permission prompt or a picker is waiting on the person, or the pane is
+scrolled away, and in the first case the line's own return key would answer the dialog. A
+frame whose contents Whiska cannot read is the unavailable signal, and delivers for the
+reason above.
 
 ## Steps 9–10 — the hoot goes out with the line (ADR-0062)
 

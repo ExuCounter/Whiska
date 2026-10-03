@@ -23,7 +23,7 @@ C4Component
     Component(doorstep, "Whiska.Doorstep", "file store", "Reads entries, marks them collected by rename")
     Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text")
     Component(markerq, "Whiska.Question.Marker", "classifier", "done / needs-decision / unmarked, by marker alone")
-    Component(draft, "Whiska.Delivery.Draft", "classifier", "Is the main session's prompt box empty? empty / typing / unknown")
+    Component(draft, "Whiska.Delivery.Draft", "classifier", "Where would the line land? empty / typing / no box / unknown")
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead and removed mice")
     Component(hoot, "Whiska.Delivery.Hoot", "composer", "The desktop notification for a delivered question, in the delivered line's own words")
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead mice")
@@ -99,7 +99,8 @@ one being delivered to without starting anything either (ADR-0065).
 
 **The screen is read in one place** (ADR-0047). herdr has no input signal, so the
 delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible text and
-`Whiska.Delivery.Draft` decides whether the person is mid-sentence. The boundary returns
+`Whiska.Delivery.Draft` finds the box by its frame and decides whether there is anywhere
+safe for the line to land (ADR-0068). The boundary returns
 text and judges nothing; the classifier judges text and talks to nothing — the same split
 as `Whiska.Question.Marker`, for the same reason (ADR-0031).
 

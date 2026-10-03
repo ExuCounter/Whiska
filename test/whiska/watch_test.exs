@@ -886,6 +886,12 @@ defmodule Whiska.WatchTest do
       assert render(board) == "🐱 1 waiting · held: your prompt box isn\'t empty"
     end
 
+    test "a queue held because the box is off the screen says so (ADR-0068)" do
+      board = board([], questions: [question(52, "feat-vanished")], held: :no_box)
+
+      assert render(board) == "🐱 1 waiting · held: your prompt box isn\'t on screen"
+    end
+
     test "a topic row and a held queue are drawn together" do
       board =
         board([mouse("feat-a")],

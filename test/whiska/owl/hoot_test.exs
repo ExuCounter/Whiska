@@ -46,10 +46,19 @@ defmodule Whiska.Owl.HootTest do
       {:ok, spawn(fn -> receive do: (:stop -> :ok) end)}
     end)
 
-    stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, "❯ "} end)
+    box_holds("")
     stub(Herdr, :prompt, fn @socket, _pane, _text -> :ok end)
 
     {:ok, main: main, a: a}
+  end
+
+  # Claude Code's prompt box, framed the way it is drawn on the screen, with
+  # whatever the person has half-typed in it (ADR-0047, ADR-0068).
+  defp box_holds(draft) do
+    rule = String.duplicate("─", 40)
+    screen = "✻ Baked for 46s\n\n#{rule}\n❯\u00a0#{draft}\n#{rule}\n  ⏵⏵ auto mode on\n"
+
+    stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, screen} end)
   end
 
   defp open(main) do
@@ -146,7 +155,7 @@ defmodule Whiska.Owl.HootTest do
   } do
     main_is("idle")
     expect_hoots()
-    stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, "❯ rebase onto"} end)
+    box_holds("rebase onto")
     house = open(main)
 
     leave(main, a, "[worktree-status: needs-decision] pick one")

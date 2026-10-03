@@ -85,7 +85,8 @@ defmodule Whiska.Herdr.SocketTest do
                "agent" => "claude",
                "agent_status" => "idle",
                "terminal_title" => "\u2733 Order builder",
-               "terminal_title_stripped" => "Order builder"
+               "terminal_title_stripped" => "Order builder",
+               "scroll" => %{"offset_from_bottom" => 12, "max_offset_from_bottom" => 400}
              },
              %{"pane_id" => "w1:p2", "cwd" => nil, "agent" => nil, "agent_status" => "unknown"}
            ]
@@ -102,7 +103,8 @@ defmodule Whiska.Herdr.SocketTest do
                  agent: "claude",
                  agent_status: "idle",
                  title: "Order builder",
-                 session: nil
+                 session: nil,
+                 scroll_offset: 12
                },
                %{
                  pane_id: "w1:p2",
@@ -110,7 +112,8 @@ defmodule Whiska.Herdr.SocketTest do
                  agent: nil,
                  agent_status: "unknown",
                  title: nil,
-                 session: nil
+                 session: nil,
+                 scroll_offset: nil
                }
              ]
     end
@@ -194,7 +197,8 @@ defmodule Whiska.Herdr.SocketTest do
              "cwd" => "/main",
              "agent" => "claude",
              "agent_status" => "idle",
-             "focused" => true
+             "focused" => true,
+             "scroll" => %{"offset_from_bottom" => 0, "max_offset_from_bottom" => 0}
            }
          }}
       )
@@ -208,7 +212,8 @@ defmodule Whiska.Herdr.SocketTest do
                agent: "claude",
                agent_status: "idle",
                title: nil,
-               session: nil
+               session: nil,
+               scroll_offset: 0
              }
     end
 

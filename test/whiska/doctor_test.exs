@@ -662,6 +662,47 @@ defmodule Whiska.DoctorTest do
 
   # -- questions ---------------------------------------------------------------
 
+  describe "prompt_box/2 — the one place a Claude Code redesign shows up by name" do
+    test "a box on the screen is what the gate expects" do
+      assert %Check{status: :ok, detail: detail} = Doctor.prompt_box(:empty, 0)
+      assert detail =~ "empty"
+
+      assert %Check{status: :ok, detail: detail} = Doctor.prompt_box(:typing, 0)
+      assert detail =~ "typed in it"
+    end
+
+    test "no box on a pane the person has scrolled up is not a fault" do
+      assert %Check{status: :ok, detail: detail} = Doctor.prompt_box(:no_box, 340)
+      assert detail =~ "scrolled"
+      refute detail =~ "Claude Code"
+    end
+
+    test "no box on a pane sitting at the bottom warns, naming both causes" do
+      assert %Check{status: :warn, detail: detail, fix: fix} = Doctor.prompt_box(:no_box, 0)
+      assert detail =~ "no prompt box"
+      assert detail =~ "dialog"
+      assert detail =~ "Claude Code"
+      assert detail =~ "held"
+      assert fix =~ "main session"
+    end
+
+    test "a pane whose scroll herdr did not report is judged as sitting at the bottom" do
+      assert %Check{status: :warn} = Doctor.prompt_box(:no_box, nil)
+    end
+
+    test "a frame with no prompt line in it warns that the gate is going ahead blind" do
+      assert %Check{status: :warn, detail: detail, fix: fix} = Doctor.prompt_box(:unknown, 0)
+      assert detail =~ "Claude Code"
+      assert detail =~ "delivering anyway"
+      assert fix =~ "herdr pane read"
+    end
+
+    test "a screen nobody read says it was not checked" do
+      assert %Check{status: :ok, detail: detail} = Doctor.prompt_box(:not_checked, nil)
+      assert detail =~ "not checked"
+    end
+  end
+
   describe "questions/5 — the queue as a diagnosis, not a listing" do
     test "nothing open and nothing sent is ok" do
       assert %Check{status: :ok, detail: "none waiting"} =
@@ -681,6 +722,17 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :ok, detail: detail} = Doctor.questions(2, nil, true, :typing, now())
       assert detail =~ "2 open"
       assert detail =~ "held: person is typing"
+    end
+
+    test "a question held because the box is off the screen says so (ADR-0068)" do
+      assert %Check{status: :ok, detail: detail} = Doctor.questions(2, nil, true, :no_box, now())
+      assert detail =~ "2 open"
+      assert detail =~ "held: the prompt box is not on screen"
+    end
+
+    test "a box Whiska cannot read is not a hold" do
+      assert %Check{status: :ok, detail: detail} = Doctor.questions(2, nil, true, :unknown, now())
+      refute detail =~ "held"
     end
 
     test "nothing open is not held, whatever is in the box" do
@@ -892,8 +944,15 @@ defmodule Whiska.DoctorTest do
       }
 
       stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
+      stub(Herdr, :read_screen, fn _socket, _pane -> {:ok, box("")} end)
 
       {:ok, root: root, main: main, env: env}
+    end
+
+    # Claude Code's prompt box, framed the way it draws it (ADR-0068).
+    defp box(draft) do
+      rule = String.duplicate("─", 40)
+      "✻ Baked for 46s\n\n#{rule}\n❯\u00a0#{draft}\n#{rule}\n  ⏵⏵ auto mode on\n"
     end
 
     defp init(main) do
@@ -1181,6 +1240,47 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :ok} = find(report.checks, "questions")
     end
 
+    test "a main session showing no prompt box warns on its own line, with nothing queued", %{
+      main: main,
+      env: env,
+      root: root
+    } do
+      init(main)
+      File.touch!(Path.join(root, "herdr.sock"))
+      {:ok, handle} = Storage.open(main, name: :seed)
+      :ok = Storage.set_main_pane("w1:p2")
+      Storage.close(handle)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+      stub(Herdr, :pane, fn _, "w1:p2" -> {:ok, Map.put(claude("idle"), :scroll_offset, 0)} end)
+      stub(Herdr, :read_screen, fn _, "w1:p2" -> {:ok, "a dialog is up\n"} end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :warn, detail: detail} = find(report.checks, "prompt box")
+      assert detail =~ "dialog"
+      assert %Check{status: :ok, detail: "none waiting"} = find(report.checks, "questions")
+    end
+
+    test "a main session the person has scrolled up in does not warn", %{
+      main: main,
+      env: env,
+      root: root
+    } do
+      init(main)
+      File.touch!(Path.join(root, "herdr.sock"))
+      {:ok, handle} = Storage.open(main, name: :seed)
+      :ok = Storage.set_main_pane("w1:p2")
+      Storage.close(handle)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+      stub(Herdr, :pane, fn _, "w1:p2" -> {:ok, Map.put(claude("idle"), :scroll_offset, 340)} end)
+      stub(Herdr, :read_screen, fn _, "w1:p2" -> {:ok, "scrolled right up\n"} end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :ok, detail: detail} = find(report.checks, "prompt box")
+      assert detail =~ "scrolled 340 rows up"
+    end
+
     # A pane id is not something a person recognises on sight (ADR-0065), so
     # the line says whether it is the pane they are asking from.
     test "the main session line says whether this is that pane", %{
@@ -1223,9 +1323,7 @@ defmodule Whiska.DoctorTest do
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
       stub(Herdr, :pane, fn _, "w1:p2" -> {:ok, claude("idle")} end)
 
-      stub(Herdr, :read_screen, fn _, "w1:p2" ->
-        {:ok, "──────\n❯\u00a0half a thought\n──────\n"}
-      end)
+      stub(Herdr, :read_screen, fn _, "w1:p2" -> {:ok, box("half a thought")} end)
 
       report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
 

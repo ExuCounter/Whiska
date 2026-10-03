@@ -1,0 +1,19 @@
+⏺ The two queues now share one worker pool, so a slow job in either one no longer           4 files changed +57 -35
+  starves the other. The pool size is read once at boot.                                    lib/app/queue.ex
+                                                                                            lib/app/queue/worker.ex
+  Verified: 41 tests, typecheck clean. I broke each fix again and watched the
+  matching test fail first.                                                                 ↓ 2 more below (opt+↓ to scroll)
+
+  One thing worth knowing: the retry count is per job, not per queue, so a job that
+  moves between them keeps the attempts it has already spent.
+                                                                                            ─────────────────────────────────────────────────────────────────────────
+                                                                                            lib/app/queue/pool.ex (untracked)
+                                                                                            ─────────────────────────────────────────────────────────────────────────
+                                                                                            New file not yet staged.
+
+✻ Brewed for 1m 4s · done 4:11 PM
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ wait for the rest of the reviews
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5 (1M context)·medium | feat/one-pool ⑂one-pool +57-35  [███░░░░░░░░░░░░] 23% (231k/1.0M ⚡99%)
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents

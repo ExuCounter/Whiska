@@ -98,12 +98,14 @@ defmodule Whiska.Owl.House do
   silence with no explanation; no agent at all is a dead pane, held with a
   warning. What is typed is one line (`Whiska.Delivery.Text`), not the message.
 
-  A pane that passes all of that is asked one more thing (ADR-0047): whether
-  the person has a draft in its prompt box, read off the screen by
-  `Whiska.Delivery.Draft`. herdr's idle is the model's word, and typing into an
-  occupied box would land inside what the person is writing. A draft holds the
-  question — open, first in the queue, delivered on the next trigger — and a
-  screen with no box on it delivers anyway, for ADR-0008's reason.
+  A pane that passes all of that is asked one more thing (ADR-0047): where the
+  owl's line would land, read off the screen by `Whiska.Delivery.Draft`. herdr's
+  idle is the model's word, and typing into an occupied box would land inside
+  what the person is writing. A draft holds the question — open, first in the
+  queue, delivered on the next trigger. A screen with no box on it at all holds
+  it too (ADR-0068): there is nowhere for the line to land, and a dialog waiting
+  on the person is one of the ways to get there. A box whose contents Whiska
+  cannot read is the unreadable signal ADR-0008 rules on, and delivers anyway.
 
   A hold is remembered — since when, and which half of the gate held — so the
   board can say why nothing is being delivered once it has outlasted the fuse
@@ -855,10 +857,10 @@ defmodule Whiska.Owl.House do
   defp main_session_free?(state) do
     case state.herdr.pane(state.socket, state.main_pane) do
       {:ok, %{agent: "claude", agent_status: status}} when status in ["idle", "done"] ->
-        not_typing(state, [])
+        box_is_free(state, [])
 
       {:ok, %{agent: "claude", agent_status: "unknown"}} ->
-        not_typing(state, [:status_unknown])
+        box_is_free(state, [:status_unknown])
 
       {:ok, %{agent: "claude"}} ->
         {:hold, :mid_turn, state}
@@ -891,13 +893,16 @@ defmodule Whiska.Owl.House do
   # not the person's: a half-typed prompt sits in the box while the pane is
   # every bit as idle, and a line typed into that box lands inside the draft or
   # submits it. The screen is the only place that shows it, so the screen is
-  # read. An unreadable one is ADR-0008's unavailable signal — deliver anyway.
-  defp not_typing(state, notes) do
+  # read. A `pane.read` herdr refuses is ADR-0008's unavailable signal — deliver
+  # anyway.
+  defp box_is_free(state, notes) do
     case state.herdr.read_screen(state.socket, state.main_pane) do
       {:ok, screen} ->
-        if Draft.read(screen) == :typing,
-          do: {:hold, :typing, state},
-          else: {:go, notes, state}
+        case Draft.read(screen) do
+          :typing -> {:hold, :typing, state}
+          :no_box -> {:hold, :no_box, state}
+          _empty_or_unreadable -> {:go, notes, state}
+        end
 
       {:error, _reason} ->
         {:go, notes, state}

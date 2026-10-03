@@ -1,0 +1,30 @@
+
+  The risk of fixing it. The opposite failure is real: if Whiska types into a box that                                                                               ✕
+  genuinely has a half-written draft, the line lands inside your text or submits it. So the
+  fix has to actually find the box, not just loosen the rule.
+
+  Ran 3 shell commands
+
+⏺ Sent to fix/the-prompt-box-is-not-your-last-message, with the reproduction rather than a
+  theory.
+
+  I gave it one thing it may have to come back to you on, because I don't want it guessing:
+  when the box is missing because a dialog is up, the session genuinely can't take a typed
+  line. Holding is arguably right there — but the reason on your board is wrong, and a wrong
+  reason is what sent me chasing this in the first place. If "a dialog is up" turns out to
+  be reliably detectable, it should get its own held reason.
+
+  Three branches running in whiska now:
+
+  - feat/this-session-is-the-whiska — rebasing onto the orphan fix
+  - feat/a-turn-that-died-is-picked-up — building, after you amended ADR-0044
+  - fix/the-prompt-box-is-not-your-last-message — this one                                                            No changes this session
+
+  One more thing this turned up that I should say plainly: I've been showing you a lot of
+  pickers today, and every picker takes the prompt box off screen. So I've been actively
+  triggering this bug while asking you questions.
+
+✻ Brewed for 2m 32s · done 5:25 PM
+
+❯ 🐱 feat/this-session-is-the-whiska finished · #108
+

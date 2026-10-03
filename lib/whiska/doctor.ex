@@ -965,6 +965,7 @@ defmodule Whiska.Doctor do
 
             open = Storage.open_count()
             sent = Storage.sent()
+            box = draft(main_pane, word, herdr, socket)
 
             in_house =
               [
@@ -973,13 +974,8 @@ defmodule Whiska.Doctor do
                   session_started_at(word, main_checkout, env),
                   settings_changes(main_checkout, env)
                 ),
-                questions(
-                  open,
-                  sent,
-                  main_pane != nil,
-                  draft(open, sent, main_pane, word, herdr, socket),
-                  now
-                )
+                prompt_box(box, scroll_offset(word)),
+                questions(open, sent, main_pane != nil, box, now)
               ] ++ mice(Storage.all(Mouse), panes)
 
             {Check.ok("house", "#{path}, schema v#{version}"), in_house}
@@ -995,18 +991,22 @@ defmodule Whiska.Doctor do
     end
   end
 
-  # The same screen read the delivery gate makes (ADR-0047), and only where the
-  # answer could change the questions line: something open, nothing already
-  # sent, and a main pane herdr can be asked about.
-  defp draft(open, nil, pane, {:ok, %{agent: "claude"}}, herdr, socket)
-       when open > 0 and is_binary(pane) do
+  # The same screen read the delivery gate makes (ADR-0047, ADR-0068), taken
+  # whenever there is a main pane running Claude to ask about. It is read even
+  # with nothing queued: a box the gate can no longer find stops delivery
+  # whether or not anything is waiting yet, and that is the warning worth
+  # arriving early.
+  defp draft(pane, {:ok, %{agent: "claude"}}, herdr, socket) when is_binary(pane) do
     case herdr.read_screen(socket, pane) do
       {:ok, screen} -> Draft.read(screen)
-      {:error, _reason} -> :unknown
+      {:error, _reason} -> :not_checked
     end
   end
 
-  defp draft(_open, _sent, _pane, _word, _herdr, _socket), do: :unknown
+  defp draft(_pane, _word, _herdr, _socket), do: :not_checked
+
+  defp scroll_offset({:ok, pane}), do: Map.get(pane, :scroll_offset)
+  defp scroll_offset(_no_word), do: nil
 
   # herdr's fresh word on the main pane — the same call the delivery gate
   # makes, so the doctor and the owl agree on what "running Claude" means.
@@ -1074,10 +1074,69 @@ defmodule Whiska.Doctor do
   defp named(pane, _elsewhere), do: "#{pane} (not this pane)"
 
   @doc """
+  Whether the main session is showing a prompt box at all (ADR-0068).
+
+  The delivery gate reads this screen before every line it types, and two of
+  its four answers mean nothing will be typed again until something changes.
+  Neither is visible from outside: the queue simply stops moving. This is the
+  line that names it, so a Claude Code that has changed how it draws the box
+  reads as one warning about the box rather than as every mouse going quiet.
+
+  `scroll_offset` is how far above the bottom the pane's viewport is sitting.
+  The person scrolling up past their own prompt box is the ordinary way to have
+  no box on the screen, it is nobody's fault, and it ends the moment they scroll
+  back — so it is reported and not warned about. A check that cries wolf at
+  someone reading their own scrollback is worse than none.
+
+  A box on the screen is always `ok`, whatever is typed in it: a draft holds
+  delivery for seconds, by design, and the queue's own line says so.
+  """
+  @typedoc "A `Whiska.Delivery.Draft` reading, or the screen nobody read."
+  @type reading :: Draft.t() | :not_checked
+
+  @spec prompt_box(reading(), non_neg_integer() | nil) :: Check.t()
+  def prompt_box(:not_checked, _scroll_offset),
+    do: Check.ok("prompt box", "not checked — herdr was not asked for the main session's screen")
+
+  def prompt_box(:empty, _scroll_offset), do: Check.ok("prompt box", "on screen, empty")
+
+  def prompt_box(:typing, _scroll_offset),
+    do: Check.ok("prompt box", "on screen, with something typed in it")
+
+  def prompt_box(:no_box, scrolled) when is_integer(scrolled) and scrolled > 0,
+    do:
+      Check.ok(
+        "prompt box",
+        "not on screen — the pane is scrolled #{scrolled} rows up from it, and delivery " <>
+          "waits until it is back"
+      )
+
+  def prompt_box(:no_box, _at_the_bottom),
+    do:
+      Check.warn(
+        "prompt box",
+        "no prompt box on the main session's screen, and the pane is not scrolled away " <>
+          "from one — either a dialog is waiting on you there, or Claude Code has changed " <>
+          "how it draws the box. Questions are held until one is found",
+        "look at the main session's pane: answer whatever is waiting there"
+      )
+
+  def prompt_box(:unknown, _scroll_offset),
+    do:
+      Check.warn(
+        "prompt box",
+        "the box's frame is on the main session's screen and the line inside it is not one " <>
+          "Whiska can read — Claude Code has changed how it draws the box, and delivery is " <>
+          "delivering anyway rather than guessing",
+        "herdr pane read <main pane> --source visible --format text, then fix " <>
+          "Whiska.Delivery.Draft against what it prints"
+      )
+
+  @doc """
   The queue as a diagnosis, not a listing (`whiska questions` is the listing):
   how many are open, whether one is sent and for how long, whether the queue is
-  held because the person has a half-typed prompt in the main session's box
-  (ADR-0047) — and a warning for
+  held because the main session's prompt box has something half-typed in it or
+  is not on the screen at all (ADR-0047, ADR-0068) — and a warning for
   each combination that means nothing can move: open questions with no main
   session to deliver them to, and a sent question whose mouse is dead. The
   second holds ADR-0008's one slot with nothing behind it able to move — no
@@ -1090,7 +1149,7 @@ defmodule Whiska.Doctor do
           non_neg_integer(),
           Question.t() | nil,
           boolean(),
-          :empty | :typing | :unknown,
+          reading(),
           DateTime.t()
         ) :: Check.t()
   def questions(0, nil, _main?, _draft, _now), do: Check.ok("questions", "none waiting")
@@ -1116,13 +1175,14 @@ defmodule Whiska.Doctor do
     parts =
       ["#{open} open"] ++
         if(sent, do: [out_for(sent, now)], else: []) ++
-        if(open > 0 and is_nil(sent) and draft == :typing,
-          do: ["held: person is typing"],
-          else: []
-        )
+        if(open > 0 and is_nil(sent), do: held(draft), else: [])
 
     Check.ok("questions", Enum.join(parts, ", "))
   end
+
+  defp held(:typing), do: ["held: person is typing"]
+  defp held(:no_box), do: ["held: the prompt box is not on screen"]
+  defp held(_free), do: []
 
   defp out_for(%Question{id: id, sent_at: at}, now),
     do: "1 sent (id #{id}, waiting #{age(DateTime.diff(now, at, :second))})"
