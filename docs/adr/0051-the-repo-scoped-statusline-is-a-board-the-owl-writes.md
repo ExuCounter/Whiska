@@ -346,11 +346,15 @@ branch at all, and a question can reach the board without its mouse row; both ar
 genuinely nameless, and neither gets a guess. The id is not a name invented for the
 occasion: it is the handle `whiska questions <id>` takes, which is the one thing the
 person can do with an orphan. Its `mouse_id` is not used — an opaque marker id names
-nothing to a reader and is wider than the branch column.
+nothing to a reader and is wider than the branch column. A live row still falls back to
+`mouse_id` for a branchless mouse, and keeps that: a row is not a question and has no
+question id to use.
 
 **Two orphans off one branch are one name with a count**, `feat-gone ×2`. The branch is
 named once because the person recognises the work, not the question; the `×2` is there so
-the names still add up to the count in front of them.
+the names still add up to the count in front of them. One branch means the whole branch:
+the grouping happens before the name is cut to the column, so two branches that share
+their first 23 characters stay two names rather than becoming one that left two.
 
 **More names than fit become `+n more`, and `n` counts questions.** The names take at most
 60 characters — the detail column is the one the board lets run long, and this line sits

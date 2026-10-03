@@ -94,7 +94,7 @@ defmodule Whiska.CLIWatchTest do
 
       refute out =~ "🐭 feat-a"
       refute out =~ "waiting"
-      assert out =~ "🐱 1 orphaned"
+      assert out =~ "🐱 1 orphaned (feat-a)"
     end
 
     test "a stale record for a folder a branch nests under is on neither list", %{main: main} do
