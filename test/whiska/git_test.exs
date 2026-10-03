@@ -39,6 +39,52 @@ defmodule Whiska.GitTest do
     end
   end
 
+  describe "branch_head/2 and reached_by_merge?/3 (ADR-0063)" do
+    test "names the commit a branch points at", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a")
+      head = String.trim(GitRepo.git!(repo.checkout, ["rev-parse", "refs/heads/feat-a"]))
+
+      assert {:ok, ^head} = Git.branch_head(repo.checkout, "feat-a")
+    end
+
+    test "a branch nobody carries is unknown, never a guess", %{repo: repo} do
+      assert {:error, :no_such_branch} = Git.branch_head(repo.checkout, "feat-gone")
+      assert {:error, :no_such_branch} = Git.branch_head(repo.checkout, "feat-a^{tree}")
+    end
+
+    test "a merged branch was reached by a merge", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a")
+      GitRepo.land(repo, "feat-a")
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:ok, true} = Git.reached_by_merge?(repo.checkout, head, "main")
+    end
+
+    test "a branch that never left the base's own line was not", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a", commit: false)
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:ok, true} = Git.ancestor?(repo.checkout, head, "main")
+      assert {:ok, false} = Git.reached_by_merge?(repo.checkout, head, "main")
+    end
+
+    test "nor was one cut off the base and left behind by it", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a", commit: false)
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+
+      assert {:ok, false} = Git.reached_by_merge?(repo.checkout, head, "main")
+    end
+
+    test "a base that resolves to nothing is an error, not a false", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a")
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:error, {:no_base_ref, "trunk"}} =
+               Git.reached_by_merge?(repo.checkout, head, "trunk")
+    end
+  end
+
   describe "head_branch/1" do
     test "names the branch a worktree is on", %{repo: repo} do
       path = GitRepo.worktree(repo, "feat-a")

@@ -27,9 +27,33 @@ Two new things carry it:
   and frees the slot exactly as orphaning did (ADR-0057). Not orphaned, so it is counted
   on neither of the board's lines and listed by neither half of `whiska questions`.
 - **`landed_at` on the mouse record**, stamped by the owl's sweep the first time it sees
-  that branch merged into the base. It is the same `merge-base --is-ancestor` question
-  ADR-0061's first precondition asks, asked of every mouse rather than only of the ones
-  about to be torn down.
+  that branch's work reach the base. ADR-0061's first precondition — `merge-base
+  --is-ancestor` — is asked of every mouse rather than only of the ones about to be torn
+  down, and one more question is asked behind it.
+
+### Landed is not the same question the teardown asks
+
+A commit is its own ancestor, so **a branch cut an hour ago and not yet written to is an
+ancestor of the base**. A mouse record is minted on its first tool call, seconds after
+`spawn-worktree`, and the sweep runs every minute — so an ancestor test alone would stamp
+nearly every mouse while its branch was still empty, and then settle its questions however
+the work ended. That is the orphan count inverted rather than fixed: permanently zero
+instead of only ever growing.
+
+So a landing is **work the base reached through a merge**: an ancestor of the base that is
+*not* on the base's own first-parent line. A branch that never moved sits on that line; a
+branch merged with a merge commit hangs off it as a second parent. Two cheap commands
+answer it — how far back along the line the base reaches this commit, and what is actually
+there.
+
+A branch fast-forwarded into the base is on the line like any other and reads as no
+landing. That is the conservative answer and it is the honest one: afterwards nothing
+distinguishes a fast-forwarded branch from one that never moved. A squashed or rebased
+branch is not an ancestor of the base at all, so it never reaches this question — the same
+limit ADR-0061's teardown already has.
+
+For the same reason, the **base branch is never read as a landing**: it is merged into
+itself by construction.
 
 ### Which teardown paths this covers: none of them, deliberately
 
@@ -60,9 +84,11 @@ Reading the landing survives the worktree going. While the worktree stands its o
 is the authority. Once it is gone, the branch ref in the main checkout answers the same
 question, which covers a worktree dropped by hand with its branch kept.
 
-**Both orders give the same answer.** The branch may land before the mouse dies or after
-it, so the stamp settles what the mouse already had `orphaned` as well as deciding what it
-cascades later. Neither order leaves a question in the wrong state.
+**Every order gives the same answer.** The branch may land before the mouse dies or after
+it, and a question may be collected from the doorstep after both. So the stamp settles
+what the mouse already had `orphaned`, the cascade reads the stamp, and collection asks
+the same thing of a mouse whose worktree has gone. No order leaves a question in the wrong
+state.
 
 ### What it does not reach, and why that is the safe side
 
@@ -77,6 +103,14 @@ which is a great deal of machinery for a minute's race.
 off a ref that is no longer the mouse's. The consequence is one old question reading
 `settled` rather than `orphaned`; nothing is deleted and nothing is delivered. Bounded
 and accepted.
+
+The deliberate version of that is a forged doorstep entry naming a branch that has
+obviously landed, which would make a real unanswered question read as dealt with. It is
+bounded by the same thing ADR-0061 bounds the record's `path` by — anything able to write
+the doorstep already runs as the person and could write the database directly — and the
+one cheap case is closed outright: **the base branch is never read as a landing**, since
+it is merged into itself by construction. A branch ref is only ever consulted for a
+worktree that has gone; while one stands, its own head is the authority.
 
 ### Why `settled` is its own status rather than `closed`
 
@@ -109,12 +143,19 @@ reading.
   else on the board moves: a settled question was never counted as waiting.
 - **`whiska questions` lists settled questions nowhere.** They are history, like
   `answered` and `superseded`. The id still reads in full with `whiska questions <id>`,
-  and `whiska reply` to one says it is already settled.
+  `whiska reply` to one says it is already settled, and `whiska close` still takes it —
+  the way out if one is ever settled wrongly.
 - **Migration V005** adds `landed_at`. Existing records have none, so questions orphaned
   before this shipped stay orphaned; they are bookkeeping, not a migration's job.
-- **The sweep asks git a little more.** Two or three local git commands per standing
-  worktree per minute, for a handful of worktrees. The merge check was already paid for
-  every quiet mouse.
+- **The sweep asks git a little more.** Three or four local git commands per minute for
+  every mouse record not yet stamped — which is more than the standing worktrees, since a
+  record whose worktree was dropped by hand is never stamped `removed_at` and keeps being
+  asked about for as long as its branch exists. At a handful of worktrees it is a fifth of
+  a second per sweep; it grows with the house's lifetime record count rather than with
+  anything in flight, and the cheap fix if it ever bites is to stamp such a record. One
+  sweep asks one standing worktree the ancestor question once: the teardown reads the
+  answer this step already got. The two commands behind the merge question are paid once
+  per mouse, on the sweep that stamps it.
 - **Nothing here deletes anything** and nothing here takes a worktree down. ADR-0061's
   four preconditions are untouched, and so is the rule that a question the person has not
   answered holds its mouse's worktree in place.

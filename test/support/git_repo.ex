@@ -37,11 +37,17 @@ defmodule Whiska.Test.GitRepo do
     %{root: root, remote: remote, checkout: checkout}
   end
 
-  @doc "A worktree on a new branch, with one commit of its own, pushed unless `push: false`."
+  @doc """
+  A worktree on a new branch, with one commit of its own, pushed unless
+  `push: false`.
+
+  `commit: false` leaves the branch exactly where it was cut, which is where a
+  worktree spawned a minute ago sits.
+  """
   def worktree(repo, branch, opts \\ []) do
     path = Path.join([repo.root, "worktrees", branch])
     git!(repo.checkout, ["worktree", "add", "-b", branch, path])
-    commit!(path, "#{branch}.md", "work")
+    if Keyword.get(opts, :commit, true), do: commit!(path, "#{branch}.md", "work")
     if Keyword.get(opts, :push, true), do: git!(path, ["push", "-u", "origin", branch])
     path
   end

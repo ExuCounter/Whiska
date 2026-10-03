@@ -697,16 +697,24 @@ defmodule Whiska.Owl.House do
     end
   end
 
+  # A done report is open like any other and delivered in its turn (ADR-0009);
+  # it is closed the moment it is sent, in send_question/3. An entry whose
+  # worktree has already gone has nowhere to reply to, so it arrives where the
+  # rest of that mouse's questions went — settled if its branch landed,
+  # orphaned if it did not (ADR-0063). The mouse is recorded first, so the
+  # question of a mouse nobody had heard of is asked of a row that exists.
+  defp arriving(entry) do
+    if File.dir?(entry.worktree_root),
+      do: "open",
+      else: Storage.terminal_status(entry.mouse_id)
+  end
+
   defp start_round(state) do
     %{state | round_timer: Process.send_after(self(), :round_over, state.round_wait_ms)}
   end
 
   defp collect_entry(state, file, entry) do
     kind = Marker.classify(entry.text)
-
-    # A done report is open like any other and delivered in its turn
-    # (ADR-0009); it is closed the moment it is sent, in send_question/3.
-    status = if File.dir?(entry.worktree_root), do: "open", else: "orphaned"
 
     with {:ok, _} <-
            Storage.record_mouse(%{
@@ -719,7 +727,7 @@ defmodule Whiska.Owl.House do
              mouse_id: entry.mouse_id,
              text: entry.text,
              kind: kind,
-             status: status,
+             status: arriving(entry),
              asked_at: DateTime.truncate(entry.stamped_at, :second)
            }),
          {:ok, _} <- Storage.supersede_earlier(question),

@@ -331,6 +331,23 @@ defmodule Whiska.Owl.HouseTest do
       in_house(house, fn -> assert [%Question{status: "orphaned"}] = Storage.all(Question) end)
     end
 
+    test "an entry whose worktree is gone but whose branch landed arrives settled (ADR-0063)",
+         %{main: main, house: house} do
+      gone = Path.join([main, "worktrees", "feat-gone"])
+
+      in_house(house, fn ->
+        {:ok, _} =
+          Storage.record_mouse(%{mouse_id: "ma", path: gone, branch: "feat-gone"})
+
+        {:ok, _} = Storage.mark_landed("ma")
+      end)
+
+      leave(main, "ma", gone, "[worktree-status: needs-decision] anyone?")
+      House.collect(house)
+
+      in_house(house, fn -> assert [%Question{status: "settled"}] = Storage.all(Question) end)
+    end
+
     test "an entry from a mouse the house has never seen records that mouse first", %{
       main: main,
       house: house

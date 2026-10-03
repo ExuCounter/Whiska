@@ -19,7 +19,7 @@ C4Component
     Component(herdrb, "Whiska.Herdr", "behaviour", "The one mocked boundary (ADR-0031)")
     Component(sock, "Whiska.Herdr.Socket", "gen_tcp on a Unix socket", "Newline-delimited JSON; list_panes, subscribe, worktree remove")
     Component(cleanup, "Whiska.Cleanup", "sweep", "One pass per backstop: note every landed branch, then take down the clean, pushed, quiet ones")
-    Component(gitq, "Whiska.Git", "git", "Merged, clean, unpushed - and the removals, never forced")
+    Component(gitq, "Whiska.Git", "git", "Merged, reached by a merge, clean, unpushed - and the removals, never forced")
     Component(doorstep, "Whiska.Doorstep", "file store", "Reads entries, marks them collected by rename")
     Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text")
     Component(markerq, "Whiska.Question.Marker", "classifier", "done / needs-decision / unmarked, by marker alone")
@@ -124,7 +124,8 @@ of judgment on the side that can be changed without touching every mouse's `sett
 **A `done` report skips the queue and closes at once** — typed as "finished" with no
 reply command, ahead of whatever is waiting and with no regard for the delivery slot,
 and closed as soon as the prompt lands (ADR-0009 revised 2026-09-27, ADR-0008's note of
-2026-10-01). An entry whose worktree is gone is `orphaned`:
+2026-10-01). An entry whose worktree is gone is settled or orphaned by its branch
+(ADR-0063):
 recorded, surfaced, never interrupting, because there is nowhere to reply and nothing
 left to change.
 
@@ -153,10 +154,12 @@ pane whose workspace herdr does not name — leaves the worktree standing. It is
 thing in Whiska that deletes anything, and the first that can close a session.
 
 **Every landed branch is noted, torn down or not.** The same sweep stamps `landed_at` on
-a mouse the first time it sees its branch merged into the base — from the worktree's own
-head while it stands, from the branch ref in the main checkout once it has gone (V005,
-ADR-0063). Nothing is removed on the strength of it; it is what later decides whether a
-question that mouse left waiting is `settled` or `orphaned`.
+a mouse the first time it sees the base reach that branch's work through a merge — from
+the worktree's own head while it stands, from the branch ref in the main checkout once it
+has gone (V005, ADR-0063). An ancestor of the base is not enough on its own: a branch cut
+an hour ago is one too. Nothing is removed on the strength of the stamp; it is what later
+decides whether a question that mouse left waiting is `settled` or `orphaned`, and
+collection reads it too, for an entry arriving after its worktree has gone.
 
 **Dead mice are marked, not deleted.** `pane.closed` or `pane.exited` on a known mouse
 pane stamps `died_at` (the V002 migration's one column) and cascades that mouse's open

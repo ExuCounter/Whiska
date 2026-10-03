@@ -35,7 +35,7 @@ defmodule Whiska.CleanupTest do
   end
 
   defp mouse(repo, branch, opts \\ []) do
-    path = GitRepo.worktree(repo, branch, Keyword.take(opts, [:push]))
+    path = GitRepo.worktree(repo, branch, Keyword.take(opts, [:push, :commit]))
     id = "m-#{branch}"
 
     {:ok, _} =
@@ -167,6 +167,43 @@ defmodule Whiska.CleanupTest do
 
       assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
       assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+    end
+
+    test "a branch carrying no work of its own is no landing, however fresh", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent", commit: false)
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+      assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+    end
+
+    test "a branch cut off an older base is no landing either", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent", commit: false)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.git!(repo.checkout, ["push", "origin", "main"])
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+      assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+    end
+
+    test "never reads the base branch as a landing — it is merged into itself", %{repo: repo} do
+      {:ok, _} =
+        Storage.record_mouse(%{mouse_id: "m-forged", path: "/w/gone", branch: "main"})
+
+      {:ok, q} =
+        Storage.record_question(%{
+          mouse_id: "m-forged",
+          text: "?",
+          kind: "needs-decision",
+          status: "orphaned"
+        })
+
+      herdr(repo, [], [])
+      sweep(repo)
+
+      assert %{landed_at: nil} = Storage.mouse("m-forged")
+      assert Storage.question(q.id).status == "orphaned"
     end
 
     test "settles what the mouse had already left orphaned", %{repo: repo} do

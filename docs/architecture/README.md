@@ -112,7 +112,7 @@ now means abandoned work or a record that never stood for a worktree, not an ord
 merge (ADR-0063). And delivery now reaches the person wherever they are: every
 question it types raises one desktop notification in the same breath, carrying the house,
 the branch, the verb and the id, with herdr showing it and `whiska doctor` probing with a
-hoot of its own to say whether one is seen (ADR-0062). 1327 tests.
+hoot of its own to say whether one is seen (ADR-0062). 1340 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

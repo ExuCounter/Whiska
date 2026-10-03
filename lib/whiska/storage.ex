@@ -388,14 +388,26 @@ defmodule Whiska.Storage do
   defp release(%Mouse{mouse_id: mouse_id} = mouse) do
     Repo.update_all(
       from(q in Question, where: q.mouse_id == ^mouse_id and q.status in ^@waiting),
-      set: [status: terminal_status(mouse)]
+      set: [status: terminal_for(mouse)]
     )
   end
 
-  # A branch that landed answered what its mouse was still waiting on; one that
-  # never did left it with nobody to deal with it (ADR-0063).
-  defp terminal_status(%Mouse{landed_at: %DateTime{}}), do: "settled"
-  defp terminal_status(%Mouse{}), do: "orphaned"
+  @doc """
+  What a question of this mouse becomes once nothing can act on it (ADR-0063).
+
+  `settled` where the branch landed, since the merge was the answer, and
+  `orphaned` where it did not. A mouse nobody has a record of is `orphaned`:
+  nothing is known to have landed.
+
+  Read by collection as well as by the cascade, so a question arriving after
+  its worktree has gone lands in the same place as one that was already there.
+  """
+  @spec terminal_status(String.t()) :: String.t()
+  def terminal_status(mouse_id) when is_binary(mouse_id),
+    do: Mouse |> Repo.get(mouse_id) |> terminal_for()
+
+  defp terminal_for(%Mouse{landed_at: %DateTime{}}), do: "settled"
+  defp terminal_for(_no_landing), do: "orphaned"
 
   @doc """
   Mark a mouse's branch landed in the base (ADR-0063).
@@ -606,12 +618,13 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  Close a question by hand, with no answer. Open, sent, or orphaned: an
-  orphaned question's answer went to its dead mouse's worktree some other way.
+  Close a question by hand, with no answer. Open, sent, orphaned or settled: an
+  orphaned question's answer went to its dead mouse's worktree some other way,
+  and a settled one the branch answered can still be put right by hand.
   """
   @spec close_question(integer()) ::
           {:ok, Question.t()} | {:error, :no_such_question | :not_answerable | Ecto.Changeset.t()}
-  def close_question(id), do: settle(id, %{status: "closed"}, @waiting ++ ["orphaned"])
+  def close_question(id), do: settle(id, %{status: "closed"}, @waiting ++ ~w(orphaned settled))
 
   defp settle(id, attrs, from \\ @waiting) do
     case Repo.get(Question, id) do
