@@ -224,6 +224,109 @@ defmodule Whiska.StorageOwlTest do
     q
   end
 
+  # A branch that landed answered everything its mouse was still waiting on:
+  # the merge was the answer (ADR-0064). Settled is kept apart from orphaned so
+  # that an orphan still means something went wrong.
+  describe "mark_landed/1 (ADR-0064)" do
+    test "stamps landed_at and keeps the first date on a second sweep" do
+      assert {:ok, %Mouse{landed_at: %DateTime{}} = first} = Storage.mark_landed("m1")
+      assert {:ok, again} = Storage.mark_landed("m1")
+      assert again.landed_at == first.landed_at
+    end
+
+    test "settles what this mouse already had orphaned, and nothing of another's" do
+      mine = ask("m1")
+      {:ok, _} = Storage.mark_dead("m1")
+      assert Storage.question(mine.id).status == "orphaned"
+
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "b"})
+      theirs = ask("m2")
+      {:ok, _} = Storage.mark_dead("m2")
+
+      {:ok, _} = Storage.mark_landed("m1")
+
+      assert Storage.question(mine.id).status == "settled"
+      assert Storage.question(theirs.id).status == "orphaned"
+    end
+
+    test "leaves a live mouse's open question answerable — landing is not an answer yet" do
+      open = ask("m1")
+      {:ok, _} = Storage.mark_landed("m1")
+      assert Storage.question(open.id).status == "open"
+    end
+
+    test "refuses an unknown mouse" do
+      assert {:error, :no_such_mouse} = Storage.mark_landed("ghost")
+    end
+  end
+
+  describe "terminal_status/1 (ADR-0064)" do
+    test "is settled for a landed mouse and orphaned for every other" do
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "b"})
+      {:ok, _} = Storage.mark_landed("m1")
+
+      assert Storage.terminal_status("m1") == "settled"
+      assert Storage.terminal_status("m2") == "orphaned"
+      assert Storage.terminal_status("ghost") == "orphaned"
+    end
+  end
+
+  describe "a landed mouse's cascade (ADR-0064)" do
+    test "mark_dead/1 settles what it left waiting rather than orphaning it" do
+      open = ask("m1")
+      sent = ask("m1")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      {:ok, _} = Storage.mark_landed("m1")
+
+      {:ok, _} = Storage.mark_dead("m1")
+
+      assert Storage.question(open.id).status == "settled"
+      assert Storage.question(sent.id).status == "settled"
+    end
+
+    test "release_unanswerable/0 settles a landed mouse's and orphans an abandoned one's" do
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "b"})
+      {:ok, _} = Storage.mark_landed("m1")
+      {:ok, _} = Storage.mark_dead("m1")
+      {:ok, _} = Storage.mark_dead("m2")
+
+      landed = ask("m1")
+      abandoned = ask("m2")
+
+      assert [_, _] = Storage.release_unanswerable()
+
+      assert Storage.question(landed.id).status == "settled"
+      assert Storage.question(abandoned.id).status == "orphaned"
+    end
+
+    test "a question collected after the landing arrives settled, not orphaned" do
+      {:ok, _} = Storage.mark_landed("m1")
+
+      late = ask("m1", %{status: Storage.terminal_status("m1")})
+
+      assert Storage.question(late.id).status == "settled"
+    end
+
+    test "a settled question can still be closed by hand" do
+      q = ask("m1")
+      {:ok, _} = Storage.mark_landed("m1")
+      {:ok, _} = Storage.mark_dead("m1")
+
+      assert {:ok, _} = Storage.close_question(q.id)
+      assert Storage.question(q.id).status == "closed"
+    end
+
+    test "a settled question is neither waiting nor orphaned, so neither count moves" do
+      q = ask("m1")
+      {:ok, _} = Storage.mark_landed("m1")
+      {:ok, _} = Storage.mark_dead("m1")
+
+      assert Storage.question(q.id).status == "settled"
+      assert [] = Storage.questions()
+      assert [] = Storage.orphaned_questions()
+    end
+  end
+
   describe "alive_mice/0" do
     test "lists mice that have not died, oldest first" do
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "b"})

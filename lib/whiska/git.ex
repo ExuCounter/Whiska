@@ -84,8 +84,38 @@ defmodule Whiska.Git do
   """
   @spec merged?(Path.t(), Path.t(), branch()) :: {:ok, boolean()} | {:error, term()}
   def merged?(checkout, worktree, base) do
-    with {:ok, head} <- git(worktree, ["rev-parse", "HEAD"]),
-         {:ok, base_ref} <- base_ref(checkout, base) do
+    with {:ok, head} <- head(worktree), do: ancestor?(checkout, head, base)
+  end
+
+  @doc "The commit a worktree is sitting on, detached head included."
+  @spec head(Path.t()) :: {:ok, String.t()} | {:error, term()}
+  def head(worktree), do: git(worktree, ["rev-parse", "HEAD"])
+
+  @doc """
+  The commit a branch points at, by name.
+
+  The only way left to ask anything about a mouse's work once its worktree has
+  gone (ADR-0064). A branch nobody carries any more is `{:error,
+  :no_such_branch}`, never a guess.
+  """
+  @spec branch_head(Path.t(), branch()) :: {:ok, String.t()} | {:error, term()}
+  def branch_head(checkout, branch) do
+    case run(checkout, ["rev-parse", "--verify", "--quiet", "refs/heads/" <> branch]) do
+      {out, 0} -> {:ok, String.trim(out)}
+      _ -> {:error, :no_such_branch}
+    end
+  end
+
+  @doc """
+  Is this commit an ancestor of the base branch — has the work landed at all?
+
+  ADR-0061's first precondition, which is also true of a branch cut an hour ago
+  that carries nothing: a commit is its own ancestor. `reached_by_merge?/3` is
+  what tells the two apart.
+  """
+  @spec ancestor?(Path.t(), String.t(), branch()) :: {:ok, boolean()} | {:error, term()}
+  def ancestor?(checkout, head, base) do
+    with {:ok, base_ref} <- base_ref(checkout, base) do
       case run(checkout, ["merge-base", "--is-ancestor", head, base_ref]) do
         {_, 0} -> {:ok, true}
         {_, 1} -> {:ok, false}
@@ -100,6 +130,31 @@ defmodule Whiska.Git do
     |> case do
       nil -> {:error, {:no_base_ref, base}}
       ref -> {:ok, ref}
+    end
+  end
+
+  @doc """
+  Did the base reach this commit through a merge, rather than simply walking
+  past it?
+
+  The base's own first-parent line is where a branch sits that has done nothing
+  yet — cut off the base and never moved — and sitting there is not landing
+  (ADR-0064). A branch merged with a merge commit hangs off that line as a
+  second parent, so its head is not on it.
+
+  Asked by walking the line back as far as this commit and checking what is
+  there, which is two cheap commands and no history to read. A branch
+  fast-forwarded into the base is on the line like any other and reads as no
+  landing: the conservative answer, since nothing distinguishes it afterwards
+  from a branch that never moved.
+  """
+  @spec reached_by_merge?(Path.t(), String.t(), branch()) :: {:ok, boolean()} | {:error, term()}
+  def reached_by_merge?(checkout, head, base) do
+    with {:ok, base_ref} <- base_ref(checkout, base),
+         {:ok, steps} <-
+           git(checkout, ["rev-list", "--first-parent", "--count", "#{head}..#{base_ref}"]),
+         {:ok, reached} <- git(checkout, ["rev-parse", "#{base_ref}~#{steps}"]) do
+      {:ok, reached != head}
     end
   end
 

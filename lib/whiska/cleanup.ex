@@ -14,6 +14,11 @@ defmodule Whiska.Cleanup do
   live pane whose workspace herdr does not name — leaves the worktree exactly
   where it is. Nothing is forced, and nothing is retried harder next time.
 
+  The pass has a second job, which refuses nothing and removes nothing
+  (ADR-0064): noting that a branch has landed, for every mouse rather than only
+  for the ones that may go. That stamp is what later settles a question its
+  mouse left waiting rather than orphaning it.
+
   The mouse record is stamped, never deleted: ADR-0007's reasoning about the
   record survives its worktree half being superseded.
   """
@@ -52,8 +57,68 @@ defmodule Whiska.Cleanup do
 
     Storage.current_mice()
     |> Enum.reject(& &1.removed_at)
-    |> Enum.map(&{&1, local_verdict(&1, local)})
+    |> Enum.map(&note_landing(&1, local))
+    |> Enum.map(fn {mouse, asked} ->
+      {mouse, local_verdict(mouse, Map.put(local, :merged, asked))}
+    end)
     |> finish(house, local)
+  end
+
+  # The sweep's other job, and the one it does for every standing and every
+  # vanished worktree alike (ADR-0064): noting that a branch has landed. A
+  # mouse holding a question is never torn down, but its branch landing is what
+  # settles that question when there is finally nobody left to answer to.
+  # Returns the mouse with git's answer to "is this an ancestor of the base",
+  # which the teardown asks for again a line later: carrying it across is what
+  # keeps one sweep to one such check per standing worktree. A mouse already
+  # stamped is asked nothing at all.
+  defp note_landing(%Mouse{landed_at: %DateTime{}} = mouse, _local), do: {mouse, nil}
+
+  defp note_landing(mouse, local) do
+    with {:ok, base} <- local.base,
+         {:ok, head} <- head_of(mouse, local, base),
+         {:ok, true} = asked <- Git.ancestor?(local.checkout, head, base) do
+      {landed_by_merge(mouse, local, head, base), shareable(mouse, asked)}
+    else
+      {:ok, false} = asked -> {mouse, shareable(mouse, asked)}
+      _ -> {mouse, nil}
+    end
+  end
+
+  # An ancestor of the base is not yet a landing: a branch cut an hour ago and
+  # never moved is one too. Only work the base reached through a merge settles
+  # anything (ADR-0064).
+  defp landed_by_merge(mouse, local, head, base) do
+    case Git.reached_by_merge?(local.checkout, head, base) do
+      {:ok, true} -> stamp_landing(mouse)
+      _ -> mouse
+    end
+  end
+
+  defp stamp_landing(mouse) do
+    case Storage.mark_landed(mouse.mouse_id) do
+      {:ok, stamped} -> stamped
+      {:error, _} -> mouse
+    end
+  end
+
+  # While the worktree stands its own head is the authority, the same one the
+  # teardown reads. Once it is gone the branch ref is all that is left, and a
+  # branch deleted with it leaves the landing unknown — which is not a landing.
+  # The base branch is never read as one: it is merged into itself.
+  defp head_of(%Mouse{path: path, branch: branch}, local, base) do
+    cond do
+      is_binary(path) and File.dir?(path) -> Git.head(path)
+      branch == base -> {:error, :base_branch}
+      is_binary(branch) -> Git.branch_head(local.checkout, branch)
+      true -> {:error, :nothing_to_ask}
+    end
+  end
+
+  # Only a standing worktree's own head answers the teardown's first
+  # precondition, so only that answer is ever carried across to it (ADR-0061).
+  defp shareable(%Mouse{path: path}, asked) do
+    if is_binary(path) and File.dir?(path), do: asked, else: nil
   end
 
   # herdr is asked only once something has passed every check this machine can
@@ -169,15 +234,15 @@ defmodule Whiska.Cleanup do
   defp landed(%Mouse{path: path}, %{checkout: checkout} = context) do
     with {:ok, base} <- leave_on_error(context.base),
          {:ok, branch} <- leave_on_error(Git.head_branch(path)),
-         {:ok, true} <- merged(checkout, path, base),
+         {:ok, true} <- merged(checkout, path, base, context[:merged]),
          {:ok, true} <- clean(path),
          {:ok, false} <- unpushed(path, branch) do
       {:ok, branch}
     end
   end
 
-  defp merged(checkout, path, base) do
-    case Git.merged?(checkout, path, base) do
+  defp merged(checkout, path, base, asked) do
+    case asked || Git.merged?(checkout, path, base) do
       {:ok, false} -> {:leave, :not_merged}
       other -> leave_on_error(other)
     end

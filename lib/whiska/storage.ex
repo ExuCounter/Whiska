@@ -25,7 +25,8 @@ defmodule Whiska.Storage do
     {1, Whiska.Migrations.V001CreateMiceAndQuestions},
     {2, Whiska.Migrations.V002OwlCollection},
     {3, Whiska.Migrations.V003Delivery},
-    {4, Whiska.Migrations.V004Cleanup}
+    {4, Whiska.Migrations.V004Cleanup},
+    {5, Whiska.Migrations.V005Landing}
   ]
 
   @modes ~w(build sniff)
@@ -283,12 +284,14 @@ defmodule Whiska.Storage do
   Mark a mouse dead: its pane is gone (ADR-0026).
 
   The row stays (ADR-0007). Everything of its that was still waiting on the
-  person — open *and* sent — cascades to `orphaned` rather than sitting there
-  forever: a sent question whose mouse is dead can never be answered, since
-  there is nowhere for the answer to land, and while it stayed `sent` it held
-  ADR-0008's one delivery slot against every later question. Anything already
-  answered, closed or superseded is history and is left alone. Marking an
-  already-dead mouse changes nothing.
+  person — open *and* sent — cascades out of the queue rather than sitting
+  there forever: a sent question whose mouse is dead can never be answered,
+  since there is nowhere for the answer to land, and while it stayed `sent` it
+  held ADR-0008's one delivery slot against every later question. Where it
+  cascades to depends on the branch: `settled` for a mouse whose branch has
+  landed, since the merge was the answer, and `orphaned` for one whose work
+  never did (ADR-0064). Anything already answered, closed or superseded is
+  history and is left alone. Marking an already-dead mouse changes nothing.
   """
   @spec mark_dead(String.t()) :: {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
   def mark_dead(mouse_id) do
@@ -297,12 +300,12 @@ defmodule Whiska.Storage do
         {:error, :no_such_mouse}
 
       %Mouse{died_at: %DateTime{}} = mouse ->
-        release(mouse_id)
+        release(mouse)
         {:ok, mouse}
 
       mouse ->
         Repo.transaction(fn ->
-          release(mouse_id)
+          release(mouse)
 
           mouse
           |> Ecto.Changeset.change(%{died_at: now()})
@@ -317,9 +320,10 @@ defmodule Whiska.Storage do
   Nothing that cannot be answered may hold ADR-0008's one delivery slot, so
   what is still waiting for a mouse that is dead (ADR-0026), or for a record
   that no longer stands for a worktree of this house — the phantom a slashed
-  branch's parent folder used to mint, and any other stale record — is settled
-  as `orphaned` here. It is kept with that status (ADR-0007), counted on the
-  board's own `orphaned` line (ADR-0051) and listed apart by
+  branch's parent folder used to mint, and any other stale record — is taken
+  out of the queue here: `settled` where the mouse's branch landed, `orphaned`
+  where it did not (ADR-0064). Either is kept (ADR-0007); an orphan is counted
+  on the board's own `orphaned` line (ADR-0051) and listed apart by
   `whiska questions`, which says there is nowhere to reply.
 
   `mark_dead/1` does the same for one mouse at the moment it dies; this is the
@@ -353,29 +357,94 @@ defmodule Whiska.Storage do
 
   defp release_all([]), do: []
 
+  defp release_all(questions) do
+    landed =
+      Repo.all(from(m in Mouse, where: not is_nil(m.landed_at), select: m.mouse_id))
+      |> MapSet.new()
+
+    questions
+    |> Enum.group_by(&if(MapSet.member?(landed, &1.mouse_id), do: "settled", else: "orphaned"))
+    |> Enum.each(fn {status, released} -> stamp(released, status) end)
+
+    questions
+  end
+
   # The status is read and written in two statements, and `whiska reply` runs in
   # a process of its own: the guard is what stops an answer that landed in
   # between being stamped over.
-  defp release_all(questions) do
+  defp stamp(questions, status) do
     ids = Enum.map(questions, & &1.id)
 
     {_, _} =
       Repo.update_all(
         from(q in Question, where: q.id in ^ids and q.status in ^@waiting),
-        set: [status: "orphaned"]
+        set: [status: status]
       )
-
-    questions
   end
 
-  # Everything one mouse left waiting, out of the slot and into `orphaned`.
-  # Anything already answered, closed or superseded is history and is left
-  # alone.
-  defp release(mouse_id) do
+  # Everything one mouse left waiting, out of the slot and into its terminal
+  # status. Anything already answered, closed or superseded is history and is
+  # left alone.
+  defp release(%Mouse{mouse_id: mouse_id} = mouse) do
     Repo.update_all(
       from(q in Question, where: q.mouse_id == ^mouse_id and q.status in ^@waiting),
-      set: [status: "orphaned"]
+      set: [status: terminal_for(mouse)]
     )
+  end
+
+  @doc """
+  What a question of this mouse becomes once nothing can act on it (ADR-0064).
+
+  `settled` where the branch landed, since the merge was the answer, and
+  `orphaned` where it did not. A mouse nobody has a record of is `orphaned`:
+  nothing is known to have landed.
+
+  Read by collection as well as by the cascade, so a question arriving after
+  its worktree has gone lands in the same place as one that was already there.
+  """
+  @spec terminal_status(String.t()) :: String.t()
+  def terminal_status(mouse_id) when is_binary(mouse_id),
+    do: Mouse |> Repo.get(mouse_id) |> terminal_for()
+
+  defp terminal_for(%Mouse{landed_at: %DateTime{}}), do: "settled"
+  defp terminal_for(_no_landing), do: "orphaned"
+
+  @doc """
+  Mark a mouse's branch landed in the base (ADR-0064).
+
+  The merge is the answer to everything that mouse left waiting, so a question
+  of its that nothing can reach any more settles rather than orphaning. Two
+  orders have to give the same result — the branch landing before its pane goes
+  and after it — so this settles what the mouse already had `orphaned` as well
+  as stamping the row, and `mark_dead/1` reads the stamp for the other order.
+
+  Anything still answerable is untouched: a live mouse's open question is the
+  person's to answer whether or not the branch has landed.
+
+  Idempotent: the first landing date stands.
+  """
+  @spec mark_landed(String.t()) ::
+          {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def mark_landed(mouse_id) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      %Mouse{landed_at: %DateTime{}} = mouse ->
+        {:ok, mouse}
+
+      mouse ->
+        Repo.transaction(fn ->
+          Repo.update_all(
+            from(q in Question, where: q.mouse_id == ^mouse_id and q.status == "orphaned"),
+            set: [status: "settled"]
+          )
+
+          mouse
+          |> Ecto.Changeset.change(%{landed_at: now()})
+          |> Repo.update!()
+        end)
+    end
   end
 
   @doc """
@@ -511,9 +580,11 @@ defmodule Whiska.Storage do
   def questions, do: questions_with_status(@waiting)
 
   @doc """
-  Every question nothing can act on any more, oldest first, with its mouse.
+  Every question nothing can act on and nothing answered, oldest first, with
+  its mouse.
 
-  Its mouse died (ADR-0026) or its worktree is gone (ADR-0036). Kept forever
+  Its mouse died (ADR-0026) or its worktree is gone (ADR-0036), and its branch
+  never landed — one that did is `settled` instead (ADR-0064). Kept forever
   (ADR-0007), never delivered, and shown apart from what the person can still
   answer: `whiska questions` lists them under their own heading and the board
   counts them on its own `🐱 n orphaned` line (ADR-0051).
@@ -547,12 +618,13 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  Close a question by hand, with no answer. Open, sent, or orphaned: an
-  orphaned question's answer went to its dead mouse's worktree some other way.
+  Close a question by hand, with no answer. Open, sent, orphaned or settled: an
+  orphaned question's answer went to its dead mouse's worktree some other way,
+  and a settled one the branch answered can still be put right by hand.
   """
   @spec close_question(integer()) ::
           {:ok, Question.t()} | {:error, :no_such_question | :not_answerable | Ecto.Changeset.t()}
-  def close_question(id), do: settle(id, %{status: "closed"}, @waiting ++ ["orphaned"])
+  def close_question(id), do: settle(id, %{status: "closed"}, @waiting ++ ~w(orphaned settled))
 
   defp settle(id, attrs, from \\ @waiting) do
     case Repo.get(Question, id) do

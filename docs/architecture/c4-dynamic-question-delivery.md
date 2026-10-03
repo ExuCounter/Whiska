@@ -129,8 +129,8 @@ typed, so a branch that is done is heard about while a decision elsewhere is sti
 (ADR-0008, note of 2026-10-01). The idle gate, the draft gate and the first-of-round wait
 all still apply to it — it lands in the same prompt box and carries the same count.
 
-A mouse that *dies* cannot wedge it either: marking it dead orphans everything it left
-waiting, sent as well as open (ADR-0007), because no answer can reach a dead mouse and a
+A mouse that *dies* cannot wedge it either: marking it dead takes everything it left
+waiting out of the queue, sent as well as open (ADR-0007), because no answer can reach a dead mouse and a
 question nobody can answer would otherwise hold the one slot forever. The owl frees it by
 itself — at house open, where reconciling against `pane.list` catches whatever died while
 the owl was down, and on the backstop.
@@ -139,8 +139,10 @@ Nor can anything else that cannot be answered (ADR-0057). The release runs **bef
 delivery attempt**, so the order of a death and a collection stops mattering: a question
 left on the doorstep by a mouse that was marked dead in the meantime is released rather
 than delivered, and so is one belonging to a record that no longer stands for a worktree
-of this house (ADR-0051). Released means orphaned — kept, counted on the board's own
-`orphaned` line, and read with `whiska questions`, which says there is nowhere to reply.
+of this house (ADR-0051). Released means `settled` where the mouse's branch landed — the
+merge was the answer, and it is counted on no line at all — and `orphaned` where it did
+not, which is kept, counted on the board's own `orphaned` line, and read with
+`whiska questions`, which says there is nowhere to reply (ADR-0064).
 `whiska doctor` still names a dead mouse holding the slot, now as a thing that should not
 be there rather than a state to wait out.
 

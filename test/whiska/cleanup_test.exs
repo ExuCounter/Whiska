@@ -35,7 +35,7 @@ defmodule Whiska.CleanupTest do
   end
 
   defp mouse(repo, branch, opts \\ []) do
-    path = GitRepo.worktree(repo, branch, Keyword.take(opts, [:push]))
+    path = GitRepo.worktree(repo, branch, Keyword.take(opts, [:push, :commit]))
     id = "m-#{branch}"
 
     {:ok, _} =
@@ -130,6 +130,93 @@ defmodule Whiska.CleanupTest do
 
       herdr(repo, [], [])
       assert [] = sweep(repo)
+    end
+  end
+
+  # The sweep's other job (ADR-0064): noting that a branch has landed, whether
+  # or not the worktree may go. A mouse holding a question is never torn down
+  # here, but its branch landing is what later settles that question instead of
+  # orphaning it.
+  describe "noting a landing (ADR-0064)" do
+    test "stamps a mouse whose branch has landed, even while a question holds it",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+      assert %{landed_at: %DateTime{}} = Storage.mouse("m-feat-a")
+      assert File.dir?(m.path)
+    end
+
+    test "stamps a mouse whose worktree was taken down by hand, from the branch alone",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      GitRepo.land(repo, "feat-a")
+      GitRepo.git!(repo.checkout, ["worktree", "remove", m.path])
+      herdr(repo, [], [])
+
+      assert [{"m-feat-a", {:left, :gone}}] = sweep(repo)
+      assert %{landed_at: %DateTime{}} = Storage.mouse("m-feat-a")
+    end
+
+    test "leaves an unmerged branch unstamped — abandoned work is still an orphan",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+      assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+    end
+
+    test "a branch carrying no work of its own is no landing, however fresh", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent", commit: false)
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+      assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+    end
+
+    test "a branch cut off an older base is no landing either", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent", commit: false)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.git!(repo.checkout, ["push", "origin", "main"])
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+      assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+    end
+
+    test "never reads the base branch as a landing — it is merged into itself", %{repo: repo} do
+      {:ok, _} =
+        Storage.record_mouse(%{mouse_id: "m-forged", path: "/w/gone", branch: "main"})
+
+      {:ok, q} =
+        Storage.record_question(%{
+          mouse_id: "m-forged",
+          text: "?",
+          kind: "needs-decision",
+          status: "orphaned"
+        })
+
+      herdr(repo, [], [])
+      sweep(repo)
+
+      assert %{landed_at: nil} = Storage.mouse("m-forged")
+      assert Storage.question(q.id).status == "orphaned"
+    end
+
+    test "settles what the mouse had already left orphaned", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      [q] = Storage.all(Whiska.Schema.Question)
+      {:ok, _} = Storage.mark_dead(m.id)
+      assert Storage.question(q.id).status == "orphaned"
+
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+      sweep(repo)
+
+      assert Storage.question(q.id).status == "settled"
     end
   end
 

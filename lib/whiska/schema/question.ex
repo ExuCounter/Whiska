@@ -15,10 +15,13 @@ defmodule Whiska.Schema.Question do
 
   # `open` waits in the queue; `sent` has been delivered and waits for its
   # answer (ADR-0008). `closed` is a `done` report closed once sent (ADR-0009),
-  # or a question closed by hand. `orphaned` is a question nothing can act on
-  # any more — its mouse died (ADR-0026) or its worktree is gone (ADR-0036).
-  # `superseded` is a question its own mouse moved past by asking a newer one.
-  @statuses ~w(open sent answered orphaned closed superseded)
+  # or a question closed by hand. `settled` is one its mouse's branch landed on
+  # with nothing left alive to answer to: the merge was the answer (ADR-0064).
+  # `orphaned` is a question nothing can act on any more and nothing answered
+  # either — its mouse died (ADR-0026) or its worktree is gone (ADR-0036) with
+  # the work still not landed. `superseded` is a question its own mouse moved
+  # past by asking a newer one.
+  @statuses ~w(open sent answered settled orphaned closed superseded)
   # `unmarked` is a turn that ended with no marker at all, which is delivered
   # like a question but recorded as such (ADR-0009).
   @kinds ~w(needs-decision done unmarked)

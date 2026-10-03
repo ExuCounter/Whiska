@@ -17,8 +17,8 @@ defmodule Whiska.Owl.House do
 
   Only the first two judge liveness: a mouse with no pane anywhere is dead
   (ADR-0026), and is marked, never deleted (ADR-0007). Matching on collection
-  never marks anything dead — a dead mouse's open and sent questions cascade to
-  `orphaned`, and the question just collected would be the casualty of a pane
+  never marks anything dead — a dead mouse's open and sent questions cascade out
+  of the queue, and the question just collected would be the casualty of a pane
   list that happened to be a moment stale.
 
   herdr's `pane.agent_status_changed` subscription is per pane, so the house
@@ -75,7 +75,8 @@ defmodule Whiska.Owl.House do
   (ADR-0020) — only when that pane runs Claude and reports idle, and no other
   question is already out waiting for its answer. "Already out" means a live
   mouse is waiting on it: a mouse that dies with a question sent has that
-  question orphaned with the rest of what it left waiting (ADR-0007), which
+  question settled or orphaned with the rest of what it left waiting, by whether
+  its branch landed (ADR-0007, ADR-0064), which
   frees the slot rather than holding it against every later question. Anything
   else joins the queue silently. The one exception is the first question of a
   fresh round, which waits `round_wait_ms` (8 s) so that the line it delivers
@@ -696,16 +697,24 @@ defmodule Whiska.Owl.House do
     end
   end
 
+  # A done report is open like any other and delivered in its turn (ADR-0009);
+  # it is closed the moment it is sent, in send_question/3. An entry whose
+  # worktree has already gone has nowhere to reply to, so it arrives where the
+  # rest of that mouse's questions went — settled if its branch landed,
+  # orphaned if it did not (ADR-0064). The mouse is recorded first, so the
+  # question of a mouse nobody had heard of is asked of a row that exists.
+  defp arriving(entry) do
+    if File.dir?(entry.worktree_root),
+      do: "open",
+      else: Storage.terminal_status(entry.mouse_id)
+  end
+
   defp start_round(state) do
     %{state | round_timer: Process.send_after(self(), :round_over, state.round_wait_ms)}
   end
 
   defp collect_entry(state, file, entry) do
     kind = Marker.classify(entry.text)
-
-    # A done report is open like any other and delivered in its turn
-    # (ADR-0009); it is closed the moment it is sent, in send_question/3.
-    status = if File.dir?(entry.worktree_root), do: "open", else: "orphaned"
 
     with {:ok, _} <-
            Storage.record_mouse(%{
@@ -718,7 +727,7 @@ defmodule Whiska.Owl.House do
              mouse_id: entry.mouse_id,
              text: entry.text,
              kind: kind,
-             status: status,
+             status: arriving(entry),
              asked_at: DateTime.truncate(entry.stamped_at, :second)
            }),
          {:ok, _} <- Storage.supersede_earlier(question),
