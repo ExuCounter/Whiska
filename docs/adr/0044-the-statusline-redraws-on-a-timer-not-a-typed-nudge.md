@@ -19,8 +19,18 @@ below is what still sets the number. What it keeps current is different: a mouse
 spawning or dying, and a second question in a house whose delivery slot is
 already held — neither of which types anything into the session.
 
-What this ADR decided about the *nudge* was never reopened and still holds:
-nothing in Whiska types into a session that is not its own house's main session.
+**Amended 2026-10-03 by
+[ADR-0065](0065-a-turn-that-died-is-picked-up.md)**, which gives the rule below its one
+exception.
+
+What this ADR decided about the *nudge* otherwise still holds: nothing in Whiska types
+into a session that is not its own house's main session, **except a mouse's own pane,
+when that mouse's own turn died, once**. The reasoning below is about a line typed into
+*another house's* session, about work that session had nothing to do with, where the turn
+it cost was pure waste. ADR-0065 is the opposite case — the stalled mouse's own
+unfinished work — and the turn is the point of it. The rejection of "gate it and
+rate-limit it" further down stands for a redraw, which needs no turn at all, and does not
+reach resuming work, which cannot happen without one.
 
 **Supersedes [ADR-0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md)**,
 which had the owl type `⚡ <folders> waiting` into every other open house's idle main

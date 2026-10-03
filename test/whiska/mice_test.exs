@@ -31,6 +31,25 @@ defmodule Whiska.MiceTest do
 
   defp pane(id, cwd, status), do: %{pane_id: id, cwd: cwd, agent: "claude", agent_status: status}
 
+  describe "a branch the owl picked up (ADR-0065)" do
+    test "says so, and when, for as long as the mouse lives" do
+      mice = [%{mouse("ma", "feat-a") | picked_up_at: DateTime.add(@now, -7200, :second)}]
+
+      assert [%{note: "picked up 2h 0m ago"}] = Mice.rows(mice, {:ok, []}, @now)
+    end
+
+    test "a mouse nobody picked up says nothing" do
+      assert [%{note: ""}] = Mice.rows([mouse("ma", "feat-a")], {:ok, []}, @now)
+    end
+
+    test "a listing with no pickup in it carries no column for one" do
+      rows = Mice.rows([mouse("ma", "feat-a")], {:ok, []}, @now)
+
+      refute Mice.render(rows) =~ "picked up"
+      refute String.ends_with?(Mice.render(rows), " ")
+    end
+  end
+
   describe "rows/3" do
     test "takes a mouse's status from the herdr pane sitting in its worktree (ADR-0020)" do
       mice = [mouse("ma", "feat-a"), mouse("mb", "feat-b", mode: "sniff")]
@@ -86,14 +105,20 @@ defmodule Whiska.MiceTest do
   describe "render/1" do
     test "one line per mouse, columns lined up, in the order given" do
       rows = [
-        %{branch: "feat-a", mode: "build", status: "working", uptime: "2h 15m"},
-        %{branch: "feat-longer-name", mode: "sniff", status: "no pane", uptime: "4m"}
+        %{branch: "feat-a", mode: "build", status: "working", uptime: "2h 15m", note: ""},
+        %{
+          branch: "feat-longer-name",
+          mode: "sniff",
+          status: "no pane",
+          uptime: "4m",
+          note: "picked up 4m ago"
+        }
       ]
 
       assert Mice.render(rows) ==
                """
                feat-a            build  working  2h 15m
-               feat-longer-name  sniff  no pane  4m
+               feat-longer-name  sniff  no pane  4m      picked up 4m ago
                """
                |> String.trim_trailing()
     end

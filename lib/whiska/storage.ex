@@ -26,7 +26,8 @@ defmodule Whiska.Storage do
     {2, Whiska.Migrations.V002OwlCollection},
     {3, Whiska.Migrations.V003Delivery},
     {4, Whiska.Migrations.V004Cleanup},
-    {5, Whiska.Migrations.V005Landing}
+    {5, Whiska.Migrations.V005Landing},
+    {6, Whiska.Migrations.V006Pickup}
   ]
 
   @modes ~w(build sniff)
@@ -477,6 +478,58 @@ defmodule Whiska.Storage do
           |> Repo.update()
         end
     end
+  end
+
+  @doc """
+  Record that herdr has seen this mouse's pane start working (ADR-0065).
+
+  The only evidence Whiska keeps that a turn began. A turn ends by reaching the
+  doorstep, so a stamp with nothing collected after it is a turn that died.
+  """
+  @spec set_working(String.t(), DateTime.t()) ::
+          {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def set_working(mouse_id, at), do: stamp_mouse(mouse_id, :worked_at, at)
+
+  @doc """
+  Record that the owl has typed a line into this mouse's pane to carry a died
+  turn on, or take that record back (ADR-0065).
+
+  `nil` is what a refused line writes back: nothing was typed, so the one
+  attempt has not been spent.
+  """
+  @spec set_picked_up(String.t(), DateTime.t() | nil) ::
+          {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def set_picked_up(mouse_id, at), do: stamp_mouse(mouse_id, :picked_up_at, at)
+
+  defp stamp_mouse(mouse_id, field, at) do
+    case Repo.get(Mouse, mouse_id) do
+      nil -> {:error, :no_such_mouse}
+      mouse -> mouse |> Ecto.Changeset.change(%{field => truncate(at)}) |> Repo.update()
+    end
+  end
+
+  defp truncate(%DateTime{} = at), do: DateTime.truncate(at, :second)
+  defp truncate(nil), do: nil
+
+  @doc """
+  Every mouse whose last pickup has not been followed by anything reaching the
+  doorstep, and when it was picked up (ADR-0065).
+
+  The branches the board says were picked up: once the nudged turn ends, the
+  pickup is history rather than news, and the row goes back to saying what the
+  mouse is doing.
+  """
+  @spec picked_up() :: %{String.t() => DateTime.t()}
+  def picked_up do
+    from(m in Mouse,
+      where: not is_nil(m.picked_up_at) and is_nil(m.removed_at),
+      left_join: q in Question,
+      on: q.mouse_id == m.mouse_id and q.asked_at >= m.picked_up_at,
+      where: is_nil(q.id),
+      select: {m.mouse_id, m.picked_up_at}
+    )
+    |> Repo.all()
+    |> Map.new()
   end
 
   @doc """

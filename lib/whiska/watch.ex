@@ -134,7 +134,12 @@ defmodule Whiska.Watch do
   def from_house(opts \\ []) do
     questions = Storage.questions() ++ Storage.orphaned_questions()
 
-    board(Storage.alive_mice(), Keyword.put(opts, :questions, questions))
+    board(
+      Storage.alive_mice(),
+      opts
+      |> Keyword.put(:questions, questions)
+      |> Keyword.put_new_lazy(:picked_up, &Storage.picked_up/0)
+    )
   end
 
   defp ask_herdr(nil), do: :no_socket
@@ -147,7 +152,8 @@ defmodule Whiska.Watch do
   `:panes`, herdr's answer in `Whiska.Mice.panes/0` form; `:activity`, what a
   mouse is doing and how long it has been silent,
   `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:held`, why
-  delivery is holding (ADR-0058); `:now`, what to measure each mouse's age
+  delivery is holding (ADR-0058); `:picked_up`, when each branch the owl picked
+  up was picked up (ADR-0065); `:now`, what to measure each mouse's age
   against.
   """
   @spec board([Mouse.t()], keyword()) :: t()
@@ -155,6 +161,7 @@ defmodule Whiska.Watch do
     questions = Keyword.get(opts, :questions, [])
     panes = Keyword.get(opts, :panes, :no_socket)
     activity = Keyword.get(opts, :activity, &Transcript.activity(&1.path))
+    picked_up = Keyword.get(opts, :picked_up, %{})
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
 
     {orphaned, live} = Enum.split_with(questions, &(&1.status == @orphaned))
@@ -163,7 +170,7 @@ defmodule Whiska.Watch do
     {rows, more} =
       mice
       |> Enum.filter(&is_nil(&1.died_at))
-      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, activity, now))
+      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, activity, picked_up[&1.mouse_id], now))
       |> Enum.sort_by(&rank/1)
       |> cap()
 
@@ -177,7 +184,7 @@ defmodule Whiska.Watch do
     }
   end
 
-  defp row(mouse, question, panes, activity, now) do
+  defp row(mouse, question, panes, activity, picked_up, now) do
     pane = pane(mouse, panes)
     status = status(pane)
 
@@ -187,7 +194,7 @@ defmodule Whiska.Watch do
       branch: mouse.branch || mouse.mouse_id,
       status: status,
       elapsed: elapsed(mouse, now),
-      detail: detail(question, pane, status, fn -> activity.(mouse) end)
+      detail: detail(question, pane, status, picked_up, now, fn -> activity.(mouse) end)
     }
   end
 
@@ -218,7 +225,7 @@ defmodule Whiska.Watch do
   defp said_status("unknown"), do: "?"
   defp said_status(status), do: status
 
-  defp detail(%Question{status: status} = question, _pane, _status, _activity)
+  defp detail(%Question{status: status} = question, _pane, _status, _picked_up, _now, _activity)
        when status in @waiting do
     case Text.plain(Marker.pointer(question.text), @phrase_max) do
       "" -> "waiting on you · ##{question.id}"
@@ -226,7 +233,13 @@ defmodule Whiska.Watch do
     end
   end
 
-  defp detail(_question, pane, status, activity) do
+  # News, and only while it is news: the turn the owl started has not ended, so
+  # the row says a person did not ask for this one (ADR-0065). `whiska mice`
+  # keeps saying it afterwards.
+  defp detail(_question, _pane, _status, %DateTime{} = picked_up, now, _activity),
+    do: "picked up #{Mice.format_uptime(DateTime.diff(now, picked_up))} ago"
+
+  defp detail(_question, pane, status, _picked_up, _now, activity) do
     %{action: action, silent_for: silent_for} = activity.()
     topic = topic(pane)
     doing = doing(action)

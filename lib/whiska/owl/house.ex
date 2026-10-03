@@ -132,6 +132,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Doorstep
   alias Whiska.Herdr
   alias Whiska.Layout
+  alias Whiska.Pickup
   alias Whiska.Question.Marker
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -152,6 +153,10 @@ defmodule Whiska.Owl.House do
   @default_board_ms 2_000
   # How long delivery has to be holding before the board says so (ADR-0058).
   @default_hold_notice_ms 10_000
+  # How long a mouse's pane has to have been quiet before a died turn is picked
+  # up (ADR-0065). Two backstops, so a laptop waking cannot have a whole fleet
+  # picked up on the strength of one reconnection's pane list.
+  @default_settle_ms 120_000
 
   defstruct [
     :main_checkout,
@@ -164,11 +169,13 @@ defmodule Whiska.Owl.House do
     :retry_ms,
     :board_ms,
     :hold_notice_ms,
+    :settle_ms,
     held_since: nil,
     held_reason: nil,
     subscription: nil,
     board_frame: 0,
     panes: %{},
+    seen: %{},
     last_panes: :no_socket,
     main_pane: nil,
     round_timer: nil,
@@ -188,7 +195,9 @@ defmodule Whiska.Owl.House do
   `HERDR_SOCKET_PATH`), `:backstop_ms`, `:resubscribe_ms`, `:round_wait_ms`,
   `:retry_ms` (the delays, in order, of the re-collections after an idle event
   that found nothing), `:board_ms` (how often the board is written),
-  `:hold_notice_ms` (how long a hold lasts before the board says why), `:name`.
+  `:hold_notice_ms` (how long a hold lasts before the board says why),
+  `:settle_ms` (how long a mouse's pane must have been quiet before a died turn
+  is picked up), `:name`.
   """
   def start_link(opts) do
     {name, opts} = Keyword.pop(opts, :name)
@@ -223,6 +232,10 @@ defmodule Whiska.Owl.House do
   @spec main_checkout(GenServer.server()) :: Path.t()
   def main_checkout(house), do: GenServer.call(house, :main_checkout)
 
+  @doc "What the house remembers about each mouse's pane between sweeps (ADR-0065)."
+  @spec seen(GenServer.server()) :: Pickup.seen()
+  def seen(house), do: GenServer.call(house, :seen)
+
   # -- lifecycle ---------------------------------------------------------------
 
   @impl true
@@ -245,6 +258,7 @@ defmodule Whiska.Owl.House do
           retry_ms: Keyword.get(opts, :retry_ms, @default_retry_ms),
           board_ms: Keyword.get(opts, :board_ms, @default_board_ms),
           hold_notice_ms: Keyword.get(opts, :hold_notice_ms, @default_hold_notice_ms),
+          settle_ms: Keyword.get(opts, :settle_ms, @default_settle_ms),
           main_pane: Storage.main_pane()
         }
 
@@ -272,6 +286,7 @@ defmodule Whiska.Owl.House do
       |> subscribe()
       |> collect_now()
       |> deliver()
+      |> pick_up()
 
     Process.send_after(self(), :backstop, state.backstop_ms)
     state = write_board(state)
@@ -304,6 +319,7 @@ defmodule Whiska.Owl.House do
   def handle_call(:sync, _from, state), do: {:reply, :ok, state}
   def handle_call(:repo, _from, state), do: {:reply, state.repo, state}
   def handle_call(:main_checkout, _from, state), do: {:reply, state.main_checkout, state}
+  def handle_call(:seen, _from, state), do: {:reply, state.seen, state}
 
   # -- herdr events ------------------------------------------------------------
 
@@ -316,13 +332,16 @@ defmodule Whiska.Owl.House do
 
   def handle_info({:herdr_subscription_lost, reason}, state) do
     warn(state, "herdr subscription lost (#{inspect(reason)}) — will reopen it")
-    {:noreply, schedule_resubscribe(%{state | subscription: nil})}
+    # Everything the house thought it knew about a pane was learnt before the
+    # drop, so every settling clock starts again rather than counting through
+    # the gap (ADR-0065).
+    {:noreply, schedule_resubscribe(%{state | subscription: nil, seen: %{}})}
   end
 
   def handle_info(:resubscribe, state), do: {:noreply, subscribe(state)}
 
   def handle_info(:backstop, state) do
-    state = state |> refresh() |> collect_on_backstop() |> deliver() |> clean_up()
+    state = state |> refresh() |> collect_on_backstop() |> deliver() |> clean_up() |> pick_up()
     Process.send_after(self(), :backstop, state.backstop_ms)
     {:noreply, state}
   end
@@ -428,6 +447,9 @@ defmodule Whiska.Owl.House do
           do: collect_after_idle(state),
           else: state
 
+      %{"pane_id" => pane_id, "agent_status" => "working"} ->
+        note_working(state, Map.get(state.panes, pane_id))
+
       _ ->
         state
     end
@@ -447,6 +469,16 @@ defmodule Whiska.Owl.House do
 
   defp herdr_event("pane_agent_detected", _data, state), do: refresh(state)
   defp herdr_event(_other, _data, state), do: state
+
+  # A turn beginning, which is the only evidence Whiska keeps that one was ever
+  # asked for (ADR-0065). The sweep notices it too, a minute later at worst;
+  # this is what catches a turn shorter than a backstop.
+  defp note_working(state, nil), do: state
+
+  defp note_working(state, mouse_id) do
+    Storage.set_working(mouse_id, DateTime.utc_now())
+    %{state | seen: Map.put(state.seen, mouse_id, %{status: "working", ready_since: nil})}
+  end
 
   # -- panes and the subscription ----------------------------------------------
 
@@ -584,6 +616,41 @@ defmodule Whiska.Owl.House do
     end)
 
     state
+  end
+
+  # Picking up a turn that died, on the same backstop and for the same reason
+  # cleanup rides it: a turn dies outside Whiska entirely, so there is nothing
+  # to be told about (ADR-0065).
+  defp pick_up(%{socket: nil} = state), do: state
+
+  defp pick_up(state) do
+    {outcomes, seen} =
+      Pickup.sweep(%{
+        main_checkout: state.main_checkout,
+        herdr: state.herdr,
+        socket: state.socket,
+        panes: state.last_panes,
+        seen: state.seen,
+        settle_ms: state.settle_ms,
+        now: DateTime.utc_now()
+      })
+
+    Enum.each(outcomes, fn
+      {mouse_id, :picked_up} ->
+        warn(state, "#{label(mouse_id)}'s turn ended without finishing — picked it up")
+
+      {mouse_id, {:left, {:refused, reason}}} ->
+        warn(
+          state,
+          "#{label(mouse_id)}'s turn ended without finishing and herdr would not " <>
+            "take the line (#{inspect(reason)})"
+        )
+
+      {_mouse_id, {:left, _reason}} ->
+        :ok
+    end)
+
+    %{state | seen: seen}
   end
 
   defp label(mouse_id) do

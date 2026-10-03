@@ -3,7 +3,8 @@
 Level 3 for the owl, which is real code as of the owl slice. Everything here is in
 `lib/whiska/owl/`, `lib/whiska/doorstep*`, `lib/whiska/herdr*`, `lib/whiska/delivery/`,
 `lib/whiska/open_houses.ex`, `lib/whiska/backstop.ex`, `lib/whiska/watch*`,
-`lib/whiska/cleanup.ex`, `lib/whiska/git.ex` and `lib/whiska/question/marker.ex`, each
+`lib/whiska/cleanup.ex`, `lib/whiska/pickup.ex`, `lib/whiska/git.ex` and
+`lib/whiska/question/marker.ex`, each
 with a test beside it.
 
 ```mermaid
@@ -19,6 +20,7 @@ C4Component
     Component(herdrb, "Whiska.Herdr", "behaviour", "The one mocked boundary (ADR-0031)")
     Component(sock, "Whiska.Herdr.Socket", "gen_tcp on a Unix socket", "Newline-delimited JSON; list_panes, subscribe, worktree remove")
     Component(cleanup, "Whiska.Cleanup", "sweep", "One pass per backstop: note every landed branch, then take down the clean, pushed, quiet ones")
+    Component(pickup, "Whiska.Pickup", "sweep", "One pass per backstop: whose turn ended without reaching the doorstep, and one line into that pane")
     Component(gitq, "Whiska.Git", "git", "Merged, reached by a merge, clean, unpushed - and the removals, never forced")
     Component(doorstep, "Whiska.Doorstep", "file store", "Reads entries, marks them collected by rename")
     Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text")
@@ -55,6 +57,11 @@ C4Component
   Rel(cleanup, gitq, "Asks the four preconditions, removes the worktree and the branch")
   Rel(cleanup, herdrb, "Removes a landed worktree and closes its pane, never forced")
   Rel(cleanup, storage, "Stamps the mouse removed")
+  Rel(house, pickup, "Sweeps on the backstop, handing it the pane list it already has")
+  Rel(pickup, draft, "Judges the mouse's own screen before typing into it")
+  Rel(pickup, herdrb, "Types one line into the mouse's own pane")
+  Rel(pickup, doorstep, "Is anything of this mouse's still uncollected")
+  Rel(pickup, storage, "Reads worked_at, stamps picked_up_at")
   Rel(house, watch, "Renders the board every 2 seconds")
   Rel(watch, transcript, "What a blocked or stalled mouse is stuck in")
   Rel(watch, ink, "Colours the branch, the question and the elapsed time")
@@ -170,3 +177,12 @@ delivery's one slot and nothing can answer it any more. They go to `settled` whe
 branch landed and `orphaned` when it did not (ADR-0064). A mouse with no pane anywhere at
 house open is dead too, found by reconciling against `pane.list`; delivery is attempted
 straight after, so a slot freed that way does not wait for the backstop.
+
+**Pickup is cleanup's mirror image, and runs on the same tick** (ADR-0065). Cleanup asks
+whether a branch is finished with; pickup asks whether a turn ended without finishing.
+Both are judged from what this machine already knows — the doorstep, the mouse record,
+the pane list the house re-listed a moment earlier — and both treat unknown as a refusal.
+The difference is what they do with the answer: cleanup takes a session away, pickup
+makes one work. Pickup is the only thing in Whiska that types into a pane that is not its
+house's main session, and it does so once per dead turn.
+
