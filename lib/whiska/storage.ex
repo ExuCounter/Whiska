@@ -34,6 +34,8 @@ defmodule Whiska.Storage do
   # The statuses still waiting on the person (ADR-0008).
   @waiting ~w(open sent)
 
+  @busy_timeout 5_000
+
   @doc "The modes a mouse can be in (ADR-0018)."
   def modes, do: @modes
 
@@ -63,10 +65,34 @@ defmodule Whiska.Storage do
     with {:ok, _} <- Whiska.BundledNIF.ensure_loadable(),
          {:ok, _} <- Application.ensure_all_started(:ecto_sql),
          {:ok, _} <- Application.ensure_all_started(:ecto_sqlite3),
+         :ok <- openable(path),
          {:ok, pid} <- Repo.start_link([name: name] ++ repo_opts(path)) do
       point_at(name || pid)
       migrate()
       {:ok, pid}
+    end
+  end
+
+  # A file SQLite cannot open or read — a directory in its place, no
+  # permission, something that is not a database — is tried once here, because
+  # the pool retries a failed connect with backoff and only gives up, raising,
+  # seconds later inside the migration. SQLite opens lazily, so it is read too,
+  # with the pool's own busy timeout so a house mid-write is waited for.
+  defp openable(path) do
+    case read_once(path) do
+      :ok -> :ok
+      {:error, reason} -> {:error, {:cannot_open, path, reason}}
+    end
+  end
+
+  defp read_once(path) do
+    with {:ok, conn} <- Exqlite.Sqlite3.open(path) do
+      result =
+        with :ok <- Exqlite.Sqlite3.execute(conn, "PRAGMA busy_timeout = #{@busy_timeout}"),
+             do: Exqlite.Sqlite3.execute(conn, "PRAGMA schema_version")
+
+      Exqlite.Sqlite3.close(conn)
+      result
     end
   end
 
@@ -106,7 +132,7 @@ defmodule Whiska.Storage do
       database: path,
       pool_size: 1,
       journal_mode: :wal,
-      busy_timeout: 5_000,
+      busy_timeout: @busy_timeout,
       log: false
     ]
   end

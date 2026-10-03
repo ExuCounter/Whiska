@@ -1,5 +1,5 @@
 defmodule Whiska.StorageTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -21,7 +21,7 @@ defmodule Whiska.StorageTest do
 
   describe "open/1" do
     test "creates the database and migrates it", %{main: main} do
-      {:ok, handle} = Storage.open(main)
+      {:ok, handle} = Storage.open(main, name: nil)
       on_exit(fn -> Storage.close(handle) end)
 
       assert File.exists?(Storage.database_path(main))
@@ -32,20 +32,40 @@ defmodule Whiska.StorageTest do
     end
 
     test "is idempotent — the CLI reopens the same file on every invocation", %{main: main} do
-      {:ok, handle} = Storage.open(main)
+      {:ok, handle} = Storage.open(main, name: nil)
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
       Storage.close(handle)
 
-      {:ok, handle2} = Storage.open(main)
+      {:ok, handle2} = Storage.open(main, name: nil)
       on_exit(fn -> Storage.close(handle2) end)
 
       assert [%Mouse{mouse_id: "m1"}] = Storage.all(Mouse)
+    end
+
+    test "a file sqlite cannot open is an error at once, not after the pool gives up",
+         %{main: main} do
+      File.mkdir_p!(Storage.database_path(main))
+
+      {micros, result} = :timer.tc(fn -> Storage.open(main, name: nil) end)
+
+      assert {:error, _} = result
+      assert micros < 500_000
+    end
+
+    test "a file that is not a database is an error at once, too", %{main: main} do
+      File.mkdir_p!(Path.dirname(Storage.database_path(main)))
+      File.write!(Storage.database_path(main), "not a database")
+
+      {micros, result} = :timer.tc(fn -> Storage.open(main, name: nil) end)
+
+      assert {:error, _} = result
+      assert micros < 500_000
     end
   end
 
   describe "record_mouse/1" do
     setup %{main: main} do
-      {:ok, handle} = Storage.open(main)
+      {:ok, handle} = Storage.open(main, name: nil)
       on_exit(fn -> Storage.close(handle) end)
       :ok
     end
@@ -90,7 +110,7 @@ defmodule Whiska.StorageTest do
 
   describe "the Question table" do
     setup %{main: main} do
-      {:ok, handle} = Storage.open(main)
+      {:ok, handle} = Storage.open(main, name: nil)
       on_exit(fn -> Storage.close(handle) end)
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
       :ok
@@ -154,7 +174,7 @@ defmodule Whiska.StorageTest do
 
   describe "set_mode/2 and mode/1 (ADR-0018)" do
     setup %{main: main} do
-      {:ok, handle} = Storage.open(main)
+      {:ok, handle} = Storage.open(main, name: nil)
       on_exit(fn -> Storage.close(handle) end)
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
       :ok
@@ -202,7 +222,7 @@ defmodule Whiska.StorageTest do
 
   describe "mark_removed/1 (ADR-0061)" do
     setup %{main: main} do
-      {:ok, handle} = Storage.open(main)
+      {:ok, handle} = Storage.open(main, name: nil)
       on_exit(fn -> Storage.close(handle) end)
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
       :ok
