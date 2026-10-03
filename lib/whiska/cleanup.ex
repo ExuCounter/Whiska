@@ -52,8 +52,44 @@ defmodule Whiska.Cleanup do
 
     Storage.current_mice()
     |> Enum.reject(& &1.removed_at)
+    |> Enum.map(&note_landing(&1, local))
     |> Enum.map(&{&1, local_verdict(&1, local)})
     |> finish(house, local)
+  end
+
+  # The sweep's other job, and the one it does for every standing and every
+  # vanished worktree alike (ADR-0063): noting that a branch has landed. A
+  # mouse holding a question is never torn down, but its branch landing is what
+  # settles that question when there is finally nobody left to answer to.
+  defp note_landing(%Mouse{landed_at: %DateTime{}} = mouse, _local), do: mouse
+
+  defp note_landing(mouse, local) do
+    with true <- landed?(mouse, local),
+         {:ok, stamped} <- Storage.mark_landed(mouse.mouse_id) do
+      stamped
+    else
+      _ -> mouse
+    end
+  end
+
+  # While the worktree stands its own head is the authority, the same one the
+  # teardown checks. Once it is gone the branch ref is all that is left, and a
+  # branch deleted with it leaves the landing unknown — which is not a landing.
+  defp landed?(mouse, local) do
+    with {:ok, base} <- local.base,
+         {:ok, true} <- landing(mouse, local.checkout, base) do
+      true
+    else
+      _ -> false
+    end
+  end
+
+  defp landing(%Mouse{path: path, branch: branch}, checkout, base) do
+    cond do
+      is_binary(path) and File.dir?(path) -> Git.merged?(checkout, path, base)
+      is_binary(branch) -> Git.branch_merged?(checkout, branch, base)
+      true -> {:error, :nothing_to_ask}
+    end
   end
 
   # herdr is asked only once something has passed every check this machine can

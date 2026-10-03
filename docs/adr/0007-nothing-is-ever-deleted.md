@@ -13,7 +13,12 @@ decision made.
 
 - **Answered questions are kept forever**, not cleaned up.
 - **A mouse whose pane has died is marked dead, not deleted.** Everything it left waiting
-  cascades to `orphaned` rather than sitting there forever — sent as well as open. It drops
+  cascades out of the queue rather than sitting there forever — sent as well as open.
+
+  *Where it cascades to, refined on 2026-10-03 by
+  [ADR-0063](0063-a-landed-branch-settles-what-its-mouse-left-waiting.md)*: `settled`
+  when the mouse's branch landed, since the merge was the answer, and `orphaned` only
+  when the work never landed. Both are kept; neither is a deletion. It drops
   out of `whiska mice` and the statusline count, but the row stays — which is what lets
   `whiska reopen` update that same row's `pane` column and carry its whole question history
   along, since everything was always keyed by `mouse_id` and never by the pane.

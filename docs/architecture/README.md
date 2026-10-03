@@ -105,10 +105,14 @@ checks, and then only for what is sitting in the worktree and which workspace to
 with `force: false`. Unknown is
 never permission: a detached head, an unnameable base, a silent herdr or a live pane whose
 workspace herdr does not name all leave the worktree standing (ADR-0061, superseding
-ADR-0007's worktree half). And delivery now reaches the person wherever they are: every
+ADR-0007's worktree half). The same sweep notes, for every mouse rather than only the ones
+it may tear down, that its branch has landed, which is what settles a question that mouse
+left waiting rather than orphaning it once there is nobody left to answer to — an orphan
+now means abandoned work or a record that never stood for a worktree, not an ordinary
+merge (ADR-0063). And delivery now reaches the person wherever they are: every
 question it types raises one desktop notification in the same breath, carrying the house,
 the branch, the verb and the id, with herdr showing it and `whiska doctor` probing with a
-hoot of its own to say whether one is seen (ADR-0062). 1272 tests.
+hoot of its own to say whether one is seen (ADR-0062). 1327 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

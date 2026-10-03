@@ -160,6 +160,12 @@ record. Anything able to write that file already runs as the person.
 
 ## Consequences
 
+- **The sweep gained a second job on 2026-10-03**
+  ([ADR-0063](0063-a-landed-branch-settles-what-its-mouse-left-waiting.md)): it notes
+  that a branch has landed for every mouse, not only for the ones it may tear down, so a
+  question a landed mouse left waiting settles rather than orphaning. The four
+  preconditions here are untouched, the third one included — a mouse with a question
+  outstanding is still never torn down.
 - **The mouse record gains `removed_at`**, and ADR-0007's "the row is never deleted" still
   holds — a removed mouse is permanently inert, not gone. It is already dead by then, so
   nothing on the board or in `whiska mice` changes.

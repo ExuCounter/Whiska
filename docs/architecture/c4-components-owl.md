@@ -18,7 +18,7 @@ C4Component
     Component(house, "Whiska.Owl.House", "GenServer", "Pane discovery, subscription, collection, delivery")
     Component(herdrb, "Whiska.Herdr", "behaviour", "The one mocked boundary (ADR-0031)")
     Component(sock, "Whiska.Herdr.Socket", "gen_tcp on a Unix socket", "Newline-delimited JSON; list_panes, subscribe, worktree remove")
-    Component(cleanup, "Whiska.Cleanup", "sweep", "One pass per backstop: is this worktree landed, clean, pushed and its mouse quiet")
+    Component(cleanup, "Whiska.Cleanup", "sweep", "One pass per backstop: note every landed branch, then take down the clean, pushed, quiet ones")
     Component(gitq, "Whiska.Git", "git", "Merged, clean, unpushed - and the removals, never forced")
     Component(doorstep, "Whiska.Doorstep", "file store", "Reads entries, marks them collected by rename")
     Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text")
@@ -152,9 +152,16 @@ always has. Anything unknown — a detached head, an unnameable base, a silent h
 pane whose workspace herdr does not name — leaves the worktree standing. It is the first
 thing in Whiska that deletes anything, and the first that can close a session.
 
+**Every landed branch is noted, torn down or not.** The same sweep stamps `landed_at` on
+a mouse the first time it sees its branch merged into the base — from the worktree's own
+head while it stands, from the branch ref in the main checkout once it has gone (V005,
+ADR-0063). Nothing is removed on the strength of it; it is what later decides whether a
+question that mouse left waiting is `settled` or `orphaned`.
+
 **Dead mice are marked, not deleted.** `pane.closed` or `pane.exited` on a known mouse
 pane stamps `died_at` (the V002 migration's one column) and cascades that mouse's open
-*and sent* questions to `orphaned` (ADR-0026, ADR-0007) — the sent one because it holds
-delivery's one slot and nothing can answer it any more. A mouse with no pane anywhere at
+*and sent* questions out of the queue (ADR-0026, ADR-0007) — the sent one because it holds
+delivery's one slot and nothing can answer it any more. They go to `settled` when the
+branch landed and `orphaned` when it did not (ADR-0063). A mouse with no pane anywhere at
 house open is dead too, found by reconciling against `pane.list`; delivery is attempted
 straight after, so a slot freed that way does not wait for the backstop.

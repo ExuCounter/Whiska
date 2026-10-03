@@ -17,8 +17,8 @@ defmodule Whiska.Owl.House do
 
   Only the first two judge liveness: a mouse with no pane anywhere is dead
   (ADR-0026), and is marked, never deleted (ADR-0007). Matching on collection
-  never marks anything dead — a dead mouse's open and sent questions cascade to
-  `orphaned`, and the question just collected would be the casualty of a pane
+  never marks anything dead — a dead mouse's open and sent questions cascade out
+  of the queue, and the question just collected would be the casualty of a pane
   list that happened to be a moment stale.
 
   herdr's `pane.agent_status_changed` subscription is per pane, so the house
@@ -75,7 +75,8 @@ defmodule Whiska.Owl.House do
   (ADR-0020) — only when that pane runs Claude and reports idle, and no other
   question is already out waiting for its answer. "Already out" means a live
   mouse is waiting on it: a mouse that dies with a question sent has that
-  question orphaned with the rest of what it left waiting (ADR-0007), which
+  question settled or orphaned with the rest of what it left waiting, by whether
+  its branch landed (ADR-0007, ADR-0063), which
   frees the slot rather than holding it against every later question. Anything
   else joins the queue silently. The one exception is the first question of a
   fresh round, which waits `round_wait_ms` (8 s) so that the line it delivers

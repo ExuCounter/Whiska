@@ -84,8 +84,27 @@ defmodule Whiska.Git do
   """
   @spec merged?(Path.t(), Path.t(), branch()) :: {:ok, boolean()} | {:error, term()}
   def merged?(checkout, worktree, base) do
-    with {:ok, head} <- git(worktree, ["rev-parse", "HEAD"]),
-         {:ok, base_ref} <- base_ref(checkout, base) do
+    with {:ok, head} <- git(worktree, ["rev-parse", "HEAD"]), do: ancestor?(checkout, head, base)
+  end
+
+  @doc """
+  Has this branch landed in the base branch?
+
+  The same question as `merged?/3` asked of a branch name rather than a
+  worktree, which is the only way left to ask it once the worktree has gone
+  (ADR-0063). A branch nobody carries any more is `{:error, :no_such_branch}`,
+  never a `false`: it is unknown, not a refusal.
+  """
+  @spec branch_merged?(Path.t(), branch(), branch()) :: {:ok, boolean()} | {:error, term()}
+  def branch_merged?(checkout, branch, base) do
+    case run(checkout, ["rev-parse", "--verify", "--quiet", "refs/heads/" <> branch]) do
+      {out, 0} -> ancestor?(checkout, String.trim(out), base)
+      _ -> {:error, :no_such_branch}
+    end
+  end
+
+  defp ancestor?(checkout, head, base) do
+    with {:ok, base_ref} <- base_ref(checkout, base) do
       case run(checkout, ["merge-base", "--is-ancestor", head, base_ref]) do
         {_, 0} -> {:ok, true}
         {_, 1} -> {:ok, false}
