@@ -313,6 +313,16 @@ defmodule Whiska.CLITest do
       end
     end
 
+    test "a mode that drifted wider is still put back — init is the repair", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+      shim = Path.join(main, Whiska.Install.shim_path())
+      File.chmod!(shim, 0o777)
+
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      assert Bitwise.band(File.stat!(shim).mode, 0o7777) == 0o755
+    end
+
     test "still writes a file whose contents have changed", %{main: main} do
       capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
       path = Path.join(main, Whiska.Install.statusline_path())

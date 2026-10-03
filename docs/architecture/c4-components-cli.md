@@ -209,9 +209,9 @@ the probe silently; and it asks herdr about the recorded main session with the s
 the delivery gate uses. It also asks how old each running thing is, because up and old
 looks exactly like up: the owl's process against the installed binary, that binary
 against the escript built in the checkout, the repo's statusline script against the
-version this build ships (ADR-0059), and the main session — aged from its own transcript,
-found through the session id herdr names for its pane — against the `settings.json` it
-read at startup. Every finding prints its fix. `fail` means a mouse's question
+version this build ships (ADR-0059), and the main session — aged by the creation time of its own
+transcript file, found through the session id herdr names for its pane — against the
+settings files it read at startup. Every finding prints its fix. `fail` means a mouse's question
 here would be lost or never written; `warn` means degraded but nothing lost.
 
 **`LaunchAgent` is pure values plus writes under a given home (ADR-0040).** The plist and

@@ -100,7 +100,7 @@ defmodule Whiska.Doctor do
         [
           runtime(env),
           herdr_check,
-          owl(pids, oldest_owl(pids, owl_started_at), installed_at),
+          owl(pids, oldest_owl(pids, owl_started_at), installed_at, binary_path),
           launch_agent(installed?, agent, pids),
           open_houses(OpenHouses.read(record), main_checkout, pids),
           tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
@@ -222,21 +222,26 @@ defmodule Whiska.Doctor do
   leaves the plain line, never a guess.
 
   A warning, not a failure: the old owl collects and delivers perfectly well
-  (ADR-0038), it is just not the code the person thinks they are running.
+  (ADR-0038), it is just not the code the person thinks they are running. The
+  binary is named rather than implied, because the owl under launchd resolves
+  it in launchd's environment and the doctor resolves it in this shell's: where
+  `WHISKA_BIN` is exported in one and not the other, the two are different
+  files and the person can see that here.
   """
-  @spec owl([pos_integer()], DateTime.t() | nil, DateTime.t() | nil) :: Check.t()
-  def owl(pids, started_at \\ nil, installed_at \\ nil)
+  @spec owl([pos_integer()], DateTime.t() | nil, DateTime.t() | nil, Path.t() | nil) :: Check.t()
+  def owl(pids, started_at \\ nil, installed_at \\ nil, installed \\ nil)
 
-  def owl([], _started_at, _installed_at),
+  def owl([], _started_at, _installed_at, _installed),
     do: Check.warn("owl", "not running — nothing collects the doorstep", @owl)
 
-  def owl(pids, %DateTime{} = started_at, %DateTime{} = installed_at) do
+  def owl(pids, %DateTime{} = started_at, %DateTime{} = installed_at, installed) do
     case DateTime.diff(installed_at, started_at, :second) do
       behind when behind > 0 ->
         Check.warn(
           "owl",
-          "running (pid #{Enum.join(pids, ", ")}), started #{age(behind)} before the binary " <>
-            "it runs was installed — it is serving the code that replaced it",
+          "running (pid #{Enum.join(pids, ", ")}), started #{age(behind)} before " <>
+            "#{installed || "the binary it runs"} was installed — it is serving the code " <>
+            "that replaced it",
           @restart_owl
         )
 
@@ -245,7 +250,7 @@ defmodule Whiska.Doctor do
     end
   end
 
-  def owl(pids, _started_at, _installed_at),
+  def owl(pids, _started_at, _installed_at, _installed),
     do: Check.ok("owl", "running (pid #{Enum.join(pids, ", ")})")
 
   @doc """
@@ -260,39 +265,49 @@ defmodule Whiska.Doctor do
 
   A warning: what is installed still works, it is simply not what was built
   here. Only ever reported where there is a build to compare — a checkout
-  nobody has built in gets no line (the `review loop` check's rule).
+  nobody has built in gets no line (the `review loop` check's rule). Both paths
+  are absolute, because `whiska doctor` runs from any worktree of the repo and
+  a relative `cp whiska` pasted from there would copy a different build.
   """
-  @spec build(DateTime.t(), DateTime.t(), Path.t()) :: Check.t()
-  def build(%DateTime{} = built_at, %DateTime{} = installed_at, installed) do
+  @spec build(DateTime.t(), DateTime.t(), Path.t(), Path.t()) :: Check.t()
+  def build(%DateTime{} = built_at, %DateTime{} = installed_at, built, installed) do
     case DateTime.diff(built_at, installed_at, :second) do
       ahead when ahead > 0 ->
         Check.warn(
           "build",
-          "./whiska here was built #{age(ahead)} after #{installed} was installed — " <>
+          "#{built} was built #{age(ahead)} after #{installed} was installed — " <>
             "nothing runs this build until it is copied over",
-          "cp whiska #{installed}"
+          "cp #{built} #{installed}"
         )
 
       _current ->
-        Check.ok("build", "./whiska here is no newer than #{installed}")
+        Check.ok("build", "#{built} is no newer than #{installed}")
     end
   end
 
   @doc """
   The main session, against the wiring it loaded (ADR-0038).
 
-  Claude Code reads `settings.json` once, when the session starts, so a session
-  older than its own hook wiring is running the wiring from before the change
-  and nothing in that session ever says so. `started_at` is when it started,
-  read from its transcript (`Whiska.Transcript.started_at/1`, found through
-  herdr's session id for the recorded pane); `changes` are the settings files
-  that wire it, each with when it last changed.
+  Claude Code reads its settings files once, when the session starts, so a
+  session older than a change to one of them is running what they said before
+  it, and nothing in that session ever says so. `started_at` is when it
+  started, read from its own transcript file
+  (`Whiska.Transcript.started_at/1`, found through herdr's session id for the
+  recorded pane); `changes` are the settings files it loads, each with when it
+  last changed.
 
-  Only `settings.json` is compared. The shim and the statusline script are run
-  afresh every time they are needed, so a change to either is live the moment
-  it lands and would be a false alarm here. A session whose transcript cannot
-  be found says it was not checked rather than guessing: a check that cries
-  wolf about a restart the person has already done is worse than none.
+  The line says what the clock can know and no more: that a settings file
+  changed after this session started, and that hooks are read at startup. It
+  does not claim the hooks themselves changed — only an mtime is compared, and
+  a model, a permission or an MCP server moves it exactly as a hook does. The
+  person knows which they edited; the doctor knows only that the session
+  predates it.
+
+  Only the settings files are compared. The shim and the statusline script are
+  run afresh every time they are needed, so a change to either is live the
+  moment it lands and would be a false alarm here. A session whose transcript
+  cannot be found says it was not checked rather than guessing: a check that
+  cries wolf about a restart the person has already done is worse than none.
   """
   @spec session_wiring(DateTime.t() | nil, [{String.t(), DateTime.t()}]) :: Check.t()
   def session_wiring(nil, _changes),
@@ -313,8 +328,9 @@ defmodule Whiska.Doctor do
         Check.warn(
           "session wiring",
           "the main session started #{age(DateTime.diff(at, started_at, :second))} before " <>
-            "#{file} last changed — it is running the hooks from before that",
-          "restart Claude in the main session's pane: its hooks are read once, at startup"
+            "#{file} last changed — if that change touched hooks or the statusline, this " <>
+            "session is still running the ones from before it",
+          "restart Claude in the main session's pane: its settings are read once, at startup"
         )
     end
   end
@@ -1046,6 +1062,7 @@ defmodule Whiska.Doctor do
   defp entries(1), do: "1 entry"
   defp entries(n), do: "#{n} entries"
 
+  defp age(seconds) when seconds < 60, do: "#{seconds} s"
   defp age(seconds) when seconds < 3600, do: "#{div(seconds, 60)} min"
   defp age(seconds), do: "#{div(seconds, 3600)} h #{div(rem(seconds, 3600), 60)} min"
 
@@ -1136,19 +1153,22 @@ defmodule Whiska.Doctor do
          true <- executable?(escript),
          %DateTime{} = built_at <- changed_at(escript),
          %DateTime{} <- installed_at do
-      [build(built_at, installed_at, installed)]
+      [build(built_at, installed_at, escript, installed)]
     else
       _nothing_to_compare -> []
     end
   end
 
   # The files Claude Code reads once, at startup, and the session wiring check
-  # compares itself against. Both can be absent; a repo wired globally has only
-  # the second.
+  # compares itself against — the repo's and the home's, each with the `.local`
+  # one beside it, since a hook can live in any of them. Any of them can be
+  # absent; a repo wired globally has only the home's.
   defp settings_changes(main_checkout, env) do
     [
       {".claude/settings.json", Path.join(main_checkout, ".claude/settings.json")},
-      {"~/.claude/settings.json", Path.join(home(env), ".claude/settings.json")}
+      {".claude/settings.local.json", Path.join(main_checkout, ".claude/settings.local.json")},
+      {"~/.claude/settings.json", Path.join(home(env), ".claude/settings.json")},
+      {"~/.claude/settings.local.json", Path.join(home(env), ".claude/settings.local.json")}
     ]
     |> Enum.flat_map(fn {label, path} ->
       case changed_at(path) do
@@ -1158,18 +1178,27 @@ defmodule Whiska.Doctor do
     end)
   end
 
+  # herdr's answer is somebody else's string, and it is about to become a file
+  # path: anything but a plain id is not a session this can find, and a `/` or a
+  # `..` in one would be a read outside Claude Code's own folder.
+  @session_id ~r/^[A-Za-z0-9_-]+$/
+
   # When the main session started, found the way ADR-0053 identifies a session:
   # herdr names the session id for the pane, and that is the transcript's name
   # inside Claude Code's folder for the directory it started in.
   defp session_started_at({:ok, %{session: session}}, main_checkout, env)
        when is_binary(session) do
+    if Regex.match?(@session_id, session), do: transcript_start(session, main_checkout, env)
+  end
+
+  defp session_started_at(_word, _main_checkout, _env), do: nil
+
+  defp transcript_start(session, main_checkout, env) do
     main_checkout
     |> Transcript.project_dir(home(env))
     |> Path.join(session <> ".jsonl")
     |> Transcript.started_at()
   end
-
-  defp session_started_at(_word, _main_checkout, _env), do: nil
 
   defp changed_at(nil), do: nil
 

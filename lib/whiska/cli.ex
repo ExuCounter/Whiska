@@ -597,16 +597,18 @@ defmodule Whiska.CLI do
     end
   end
 
+  @mode 0o755
+
   # `File.chmod/2` writes the whole file_info record back, mtime included, so an
   # unconditional chmod moves the clock exactly as a rewrite would — the thing
-  # `write_unchanged/2` above is there to avoid.
+  # `write_unchanged/2` above is there to avoid. The whole mode is compared, not
+  # the execute bits: a shim left group- or world-writable is exactly what
+  # re-running `init` is supposed to put right, and a mode that really is wrong
+  # is a change, so moving its clock is honest.
   defp make_executable(path) do
     case File.stat(path) do
-      {:ok, %File.Stat{mode: mode}} ->
-        if Bitwise.band(mode, 0o111) == 0o111, do: :ok, else: File.chmod(path, 0o755)
-
-      {:error, _} ->
-        File.chmod(path, 0o755)
+      {:ok, %File.Stat{mode: mode}} when Bitwise.band(mode, 0o7777) == @mode -> :ok
+      _wrong_or_missing -> File.chmod(path, @mode)
     end
   end
 

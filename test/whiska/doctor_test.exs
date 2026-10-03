@@ -318,13 +318,33 @@ defmodule Whiska.DoctorTest do
     end
   end
 
-  describe "owl/3 — an owl that is up, against the binary on disk" do
+  describe "owl/4 — an owl that is up, against the binary on disk" do
     test "an owl started before the binary was written is running the code it replaced" do
       assert %Check{status: :warn, detail: detail, fix: "whiska owl stop && whiska owl start"} =
                Doctor.owl([4242], ~U[2026-10-02 09:00:00Z], ~U[2026-10-02 10:00:00Z])
 
       assert detail =~ "4242"
       assert detail =~ "1 h"
+    end
+
+    test "a gap of seconds is said in seconds, not rounded down to nothing" do
+      assert %Check{status: :warn, detail: detail} =
+               Doctor.owl([4242], ~U[2026-10-02 09:59:30Z], ~U[2026-10-02 10:00:00Z])
+
+      assert detail =~ "30 s"
+      refute detail =~ "0 min"
+    end
+
+    test "the binary it is measured against is named, since the doctor resolves it its own way" do
+      assert %Check{status: :warn, detail: detail} =
+               Doctor.owl(
+                 [4242],
+                 ~U[2026-10-02 09:00:00Z],
+                 ~U[2026-10-02 10:00:00Z],
+                 "/home/me/bin/whiska"
+               )
+
+      assert detail =~ "/home/me/bin/whiska"
     end
 
     test "an owl started after it is ok and says so" do
@@ -343,17 +363,18 @@ defmodule Whiska.DoctorTest do
     end
   end
 
-  describe "build/3 — the escript built here, against the one on PATH" do
+  describe "build/4 — the escript built here, against the one on PATH" do
     test "a newer build in the checkout means the fix never reached the binary" do
       assert %Check{status: :warn, detail: detail, fix: fix} =
                Doctor.build(
                  ~U[2026-10-02 10:00:00Z],
                  ~U[2026-10-02 09:00:00Z],
+                 "/repo/whiska",
                  "/home/me/bin/whiska"
                )
 
       assert detail =~ "nothing runs this build"
-      assert fix == "cp whiska /home/me/bin/whiska"
+      assert fix == "cp /repo/whiska /home/me/bin/whiska"
     end
 
     test "an installed binary at least as new as the build here is ok" do
@@ -361,12 +382,13 @@ defmodule Whiska.DoctorTest do
                Doctor.build(
                  ~U[2026-10-02 09:00:00Z],
                  ~U[2026-10-02 09:00:00Z],
+                 "/repo/whiska",
                  "/home/me/bin/whiska"
                )
     end
   end
 
-  describe "session_wiring/2 — a session older than the hooks it loaded" do
+  describe "session_wiring/2 — a session older than the settings it loaded" do
     test "a session that started before settings.json changed is running the old wiring" do
       assert %Check{status: :warn, detail: detail, fix: fix} =
                Doctor.session_wiring(~U[2026-10-02 09:00:00Z], [
@@ -376,6 +398,9 @@ defmodule Whiska.DoctorTest do
 
       assert detail =~ ".claude/settings.json"
       assert detail =~ "30 min"
+      # What is known is that the file changed, not that the hooks in it did —
+      # the line must not claim more than the clock can tell it.
+      assert detail =~ "if that change touched"
       assert fix =~ "restart"
     end
 
@@ -921,7 +946,7 @@ defmodule Whiska.DoctorTest do
 
       assert %Check{status: :warn, detail: detail, fix: fix} = find(report.checks, "build")
       assert detail =~ "nothing runs this build"
-      assert fix =~ "cp whiska"
+      assert fix == "cp #{built} #{env["WHISKA_BIN"]}"
     end
 
     test "a checkout with nothing built in it gets no build line at all", %{
@@ -952,12 +977,11 @@ defmodule Whiska.DoctorTest do
 
       File.mkdir_p!(Path.dirname(transcript))
 
-      started = DateTime.add(DateTime.utc_now(), -7200, :second)
-
-      File.write!(
-        transcript,
-        JSON.encode!(%{"timestamp" => DateTime.to_iso8601(started)}) <> "\n"
-      )
+      # The transcript is born now, so the settings change has to land after
+      # it: a session is aged by when its file was created, never by the
+      # timestamps inside, which a resumed session inherits from the one before.
+      File.write!(transcript, JSON.encode!(%{"timestamp" => "2026-09-01T00:00:00.000Z"}) <> "\n")
+      File.touch!(Path.join(main, ".claude/settings.json"), System.os_time(:second) + 1800)
 
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
 

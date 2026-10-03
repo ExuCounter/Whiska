@@ -118,6 +118,7 @@ defmodule Whiska.OwlTest do
       assert Owl.started_at(1, now, fn 1 -> nil end) == nil
       assert Owl.started_at(1, now, fn 1 -> "" end) == nil
       assert Owl.started_at(1, now, fn 1 -> "not a time\n" end) == nil
+      assert Owl.started_at(1, now, fn 1 -> "900\n" end) == nil
     end
 
     test "the owl running these tests is not it, but this process has a real start time" do

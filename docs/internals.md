@@ -460,13 +460,20 @@ already replaced, so the doctor checks all three by age rather than by liveness.
 - **Nothing runs an escript you built but did not install.** The hooks, the statusline and
   the owl all run the binary on PATH. `mix escript.build` alone changes nothing. The
   `build` line compares `./whiska` in the checkout with the installed copy.
-- **A Claude Code session reads `settings.json` once, at startup.** A session that began
+- **A Claude Code session reads its settings once, at startup.** A session that began
   before `whiska init` changed the wiring is running the wiring from before it, and
   nothing in that session ever says so — restart Claude in that pane. The `session wiring`
-  line compares when the main session started, read from its own transcript, against when
-  the settings files it loaded last changed. Only `settings.json`: the shim and the
-  statusline script are executed afresh every time, so a change to either is live the
-  moment it lands.
+  line compares when the main session started against when the settings files it loads
+  last changed: `.claude/settings.json` and `~/.claude/settings.json`, each with the
+  `.local` one beside it. The session's age is the creation time of its own transcript
+  file, not the first timestamp inside it — a resumed session is a new process that read
+  the settings afresh, but Claude Code copies the previous session's entries into the new
+  transcript, timestamps and all, so the entries would age a session that had just been
+  restarted at hours old. The line says only what the clock knows: that a settings file
+  changed after the session started. It does not claim the hooks in it changed — a model,
+  a permission or an MCP server moves that mtime exactly as a hook does. Only the settings
+  files are compared: the shim and the statusline script are executed afresh every time,
+  so a change to either is live the moment it lands.
 
 `whiska init` leaves a file alone when what it would write is already there, mtime
 included — otherwise a harmless re-init would make every live session look stale. The

@@ -108,17 +108,19 @@ defmodule Whiska.Owl do
 
   # `[[dd-]hh:]mm:ss`, which is every width ps prints it in.
   defp elapsed(text) do
-    with [clock | days] <- text |> String.split("-") |> Enum.reverse(),
-         parts when parts != [] <- String.split(clock, ":"),
-         [_ | _] = numbers <- Enum.map(days ++ parts, &number/1),
-         false <- Enum.any?(numbers, &is_nil/1) do
-      [seconds, minutes | rest] = Enum.reverse(numbers)
-      hours = Enum.at(rest, 0, 0)
-      days = Enum.at(rest, 1, 0)
+    [clock | days] = text |> String.split("-") |> Enum.reverse()
+    numbers = Enum.map(days ++ String.split(clock, ":"), &number/1)
 
-      seconds + minutes * 60 + hours * 3600 + days * 86_400
-    else
-      _unreadable -> nil
+    case Enum.reverse(numbers) do
+      [seconds, minutes | rest] when is_integer(seconds) and is_integer(minutes) ->
+        if Enum.all?(rest, &is_integer/1) do
+          hours = Enum.at(rest, 0, 0)
+          days = Enum.at(rest, 1, 0)
+          seconds + minutes * 60 + hours * 3600 + days * 86_400
+        end
+
+      _not_a_clock ->
+        nil
     end
   end
 
