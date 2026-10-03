@@ -108,7 +108,7 @@ defmodule Whiska.Owl.House do
   board can say why nothing is being delivered once it has outlasted the fuse
   (ADR-0058). Only the saying is new: the gate decides exactly as it did.
 
-  The line is typed and a hoot goes out with it (ADR-0060): one desktop
+  The line is typed and a hoot goes out with it (ADR-0062): one desktop
   notification per delivered question, raised in the same breath as the line
   so the two can never disagree, and never raised for a question that is only
   collected or held. It carries the house, the branch, the verb and the id —
@@ -908,7 +908,7 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  # The hoot (ADR-0060), raised from inside the same branch that typed the
+  # The hoot (ADR-0062), raised from inside the same branch that typed the
   # line, so the two can never disagree about what reached the person.
   #
   # Delivery is the job and the hoot is a courtesy, so it is wrapped twice

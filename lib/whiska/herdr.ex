@@ -91,7 +91,7 @@ defmodule Whiska.Herdr do
 
   @doc """
   Raise a desktop notification — the hoot that goes out with a delivered line
-  (ADR-0060).
+  (ADR-0062).
 
   The only call here that is not about a pane. herdr decides how it is shown,
   from the person's own `[ui.toast]` and `[ui.sound]` settings: `delivery =

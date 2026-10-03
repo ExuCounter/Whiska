@@ -660,7 +660,7 @@ defmodule Whiska.Doctor do
 
   @doc """
   Whether herdr will actually show the hoot the owl raises on every delivery
-  (ADR-0060).
+  (ADR-0062).
 
   `config` is the contents of herdr's `config.toml`, or `nil` when there is
   none. `notification.show` answers `:ok` whether or not anything appears — it

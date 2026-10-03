@@ -7,7 +7,7 @@ defmodule Whiska.Delivery.Hoot do
   a question on the doorstep is that they are somewhere else. The hoot is the
   part that reaches them there, and it goes out at the same moment the line is
   typed, from the same place in the code, so the two can never disagree about
-  what happened (ADR-0060).
+  what happened (ADR-0062).
 
   It says what the line says, in the line's own words — `Text.verb/1`,
   `Text.pointer/1` and `Text.more/1` are shared rather than copied, because a

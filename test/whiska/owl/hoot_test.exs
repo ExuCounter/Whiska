@@ -1,7 +1,7 @@
 defmodule Whiska.Owl.HootTest do
   @moduledoc """
   When the owl raises a desktop notification, and what happens when it cannot
-  (ADR-0060). One hoot per delivered question, at the moment the line is typed;
+  (ADR-0062). One hoot per delivered question, at the moment the line is typed;
   a question merely collected and held is not on the person's screen yet, so it
   does not hoot. A hoot that fails never costs the delivery.
   """

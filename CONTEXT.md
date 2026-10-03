@@ -143,8 +143,20 @@ waiting, takes no slot, and is closed as it is typed.
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska questions <id>`, which the `whiska-delivered` skill runs when the line lands.
 Delivery is the only thing Whiska types anywhere, and it only ever types into the main
-session of the question's own house (ADR-0044).
+session of the question's own house (ADR-0044). Every delivery raises a **hoot**.
 _Avoid_: notify, ping, relay (the old bash mechanism), push
+
+**Hoot**:
+The desktop notification the owl raises as it delivers a question — one per delivered
+question, sent in the same breath as the line so the two can never disagree (ADR-0062).
+It carries the house, the mouse's branch, the verb and the id, in the line's own words,
+because the line only reaches somebody already looking at the main session and the point
+of leaving a question is that they are not. A question that is only collected, or held,
+has not hooted yet. herdr shows it, from the person's own `[ui.toast]` and `[ui.sound]`
+settings; `request` is its sound when a decision is waiting and `done` when a branch
+finished. A hoot that fails is swallowed: delivery is the job and the hoot is a courtesy.
+_Avoid_: toast, alert, desktop notification as a term of its own (it is herdr's word for
+how a hoot is shown, not for the thing)
 
 **Held**:
 What delivery is while the gate says no and something is queued behind it: the main

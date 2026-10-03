@@ -173,7 +173,7 @@ defmodule Whiska.DoctorTest do
 
   # -- the hoot ----------------------------------------------------------------
 
-  describe "hoot/1 — whether herdr will show the owl's notification (ADR-0060)" do
+  describe "hoot/1 — whether herdr will show the owl's notification (ADR-0062)" do
     test "a delivery setting that shows popups passes, and says where they go" do
       for {delivery, where} <- [
             {"system", "system"},
