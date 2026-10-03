@@ -630,8 +630,6 @@ defmodule Whiska.Owl.House do
   defp pick_up(%{socket: nil} = state), do: state
 
   defp pick_up(state) do
-    now = DateTime.utc_now()
-
     {outcomes, seen} =
       Pickup.sweep(%{
         main_checkout: state.main_checkout,
@@ -643,26 +641,54 @@ defmodule Whiska.Owl.House do
         last_sweep_at: state.last_sweep_at,
         max_gap_ms: state.max_gap_ms,
         settle_ms: state.settle_ms,
-        now: now
+        now: DateTime.utc_now()
       })
 
-    Enum.each(outcomes, fn
-      {mouse_id, :picked_up} ->
-        warn(state, "#{label(mouse_id)}'s turn ended without finishing — picked it up")
+    state = Enum.reduce(outcomes, state, &said/2)
 
-      {mouse_id, {:left, {:refused, reason}}} ->
-        warn(
-          state,
-          "#{label(mouse_id)}'s turn ended without finishing and herdr would not " <>
-            "take the line (#{inspect(reason)})"
-        )
-
-      {_mouse_id, {:left, _reason}} ->
-        :ok
-    end)
-
-    %{state | seen: seen, last_sweep_at: now}
+    # Stamped when the sweep finished, not when it started: the gap the next
+    # sweep measures is the time nobody was watching, and a slow tick is time
+    # this one was.
+    %{state | seen: seen, last_sweep_at: DateTime.utc_now()}
   end
+
+  defp said({mouse_id, :picked_up}, state) do
+    warn(state, "#{label(mouse_id)}'s turn ended without finishing — picked it up")
+    state
+  end
+
+  defp said({mouse_id, {:left, {:refused, reason}}}, state) do
+    warn(
+      state,
+      "#{label(mouse_id)}'s turn ended without finishing and herdr would not " <>
+        "take the line (#{inspect(reason)})"
+    )
+
+    state
+  end
+
+  defp said({mouse_id, {:left, {:uncapped, reason}}}, state) do
+    warn(
+      state,
+      "#{label(mouse_id)}'s turn ended without finishing but its pickup could not be " <>
+        "recorded (#{inspect(reason)}) — nothing was typed"
+    )
+
+    state
+  end
+
+  # Nothing in this house can be picked up while it stands, and nothing moves
+  # it: the owl never deletes a doorstep entry (ADR-0007). So it is said, once.
+  defp said({_mouse_id, {:left, :doorstep_unreadable}}, state) do
+    warn_once(
+      state,
+      :doorstep_unreadable,
+      "an entry on the doorstep will not parse — no turn in this house can be picked " <>
+        "up until it is moved out of #{Doorstep.path(state.main_checkout)}"
+    )
+  end
+
+  defp said({_mouse_id, {:left, _reason}}, state), do: state
 
   defp label(mouse_id) do
     case Storage.mouse(mouse_id) do

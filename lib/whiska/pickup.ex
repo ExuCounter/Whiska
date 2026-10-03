@@ -71,7 +71,12 @@ defmodule Whiska.Pickup do
 
   @typedoc "What one sweep did about one mouse."
   @type outcome ::
-          :picked_up | {:left, atom() | {:refused, term()} | {:not_ready, String.t()}}
+          :picked_up
+          | {:left,
+             atom()
+             | {:refused, term()}
+             | {:uncapped, term()}
+             | {:not_ready, String.t()}}
 
   @doc """
   The line the owl types. One sentence of fact and one caution, and no decision
@@ -213,12 +218,13 @@ defmodule Whiska.Pickup do
   defp turn_died(%Mouse{mouse_id: id, worked_at: worked_at}, local) do
     cond do
       Enum.any?(questions(local, id), &asked_since?(&1, worked_at)) -> {:leave, :finished}
+      waiting_for?(local.doorstep, id) == :unreadable -> {:leave, :doorstep_unreadable}
       waiting_for?(local.doorstep, id) -> {:leave, :uncollected}
       true -> :ok
     end
   end
 
-  defp waiting_for?(:unreadable, _mouse_id), do: true
+  defp waiting_for?(:unreadable, _mouse_id), do: :unreadable
   defp waiting_for?({:ok, ids}, mouse_id), do: MapSet.member?(ids, mouse_id)
 
   defp nothing_waiting(%Mouse{mouse_id: id}, local) do

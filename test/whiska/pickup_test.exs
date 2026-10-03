@@ -228,7 +228,7 @@ defmodule Whiska.PickupTest do
       File.mkdir_p!(dir)
       File.write!(Path.join(dir, "9999-whoever-xx.json"), "{not json")
 
-      assert {[{_, {:left, :uncollected}}], _} = sweep(repo, @settled, seen)
+      assert {[{_, {:left, :doorstep_unreadable}}], _} = sweep(repo, @settled, seen)
     end
 
     test "is left alone when no turn was ever seen", %{repo: repo} do
@@ -276,6 +276,14 @@ defmodule Whiska.PickupTest do
       herdr(panes(m, "done") ++ panes(m, "done", pane_id: "w1:p2"))
 
       assert {[{_, {:left, :many_panes}}], _} = sweep(repo, @settled, seen)
+    end
+
+    test "an ordinary sweep asks herdr nothing of its own", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      stub(Herdr, :worktrees, fn _, _ -> flunk("herdr was asked with nothing to pick up") end)
+      {_, seen} = look(repo, @before, %{}, m, "idle")
+
+      assert {[{_, {:left, :never_worked}}], _} = sweep(repo, @worked, seen)
     end
 
     test "a herdr that will not answer judges nothing and restarts every clock", %{repo: repo} do

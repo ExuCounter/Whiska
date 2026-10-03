@@ -192,7 +192,9 @@ larger in what it starts, and it deserves the same plain accounting:
   enforcing it would have been the same as not having it.
 - An entry on the doorstep that will not parse belongs to a mouse nobody can name, so while
   one is sitting there nothing is picked up at all: it could be the very turn about to be
-  called dead.
+  called dead. Nothing ever moves such a file — the owl does not delete (ADR-0007) — so
+  that is a standing hold on the whole house, and the owl says so once rather than going
+  quiet.
 - Accepted on the grounds that a mouse whose turn died has, by construction, work it was
   halfway through and nobody coming to ask about it.
 

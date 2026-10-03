@@ -117,6 +117,30 @@ defmodule Whiska.Owl.HousePickupTest do
     check(repo, fn -> assert %{picked_up_at: %DateTime{}} = Storage.mouse("ma") end)
   end
 
+  test "the sweep's own sighting of a pane starting to work is enough",
+       %{repo: repo, path: path} do
+    status = :counters.new(1, [])
+    :counters.put(status, 1, 1)
+
+    stub(Herdr, :list_panes, fn @socket ->
+      {:ok, [pane(path, if(:counters.get(status, 1) == 2, do: "working", else: "done"))]}
+    end)
+
+    test_pid = self()
+    stub(Herdr, :prompt, fn _, _, _ -> send(test_pid, :typed) && :ok end)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, backstop_ms: 20)
+      :counters.put(status, 1, 2)
+      Process.sleep(100)
+      :counters.put(status, 1, 3)
+      Process.sleep(300)
+      House.sync(house)
+    end)
+
+    assert_receive :typed, 1_000
+  end
+
   test "a pane that never stopped working is left alone", %{repo: repo, path: path} do
     stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(path, "working")]} end)
 
