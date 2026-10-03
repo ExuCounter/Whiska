@@ -108,7 +108,7 @@ workspace herdr does not name all leave the worktree standing (ADR-0061, superse
 ADR-0007's worktree half). 1250 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
-the mouse pushes and opens the merge request with its own tools, the owl reads status only
+the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only
 — one `curl` per branch on the existing backstop, a read-only token per forge, a GitHub and
 a GitLab adapter behind one port — and a red build goes to the live mouse that owns the
 branch, or to the person when that mouse is dead. Unknown is never a question. It would be

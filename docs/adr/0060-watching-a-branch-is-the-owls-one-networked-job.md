@@ -52,7 +52,7 @@ would be an absurdity.
 
 This is the design, and it is a security boundary before it is a convenience.
 
-- **The mouse pushes and opens the merge request**, with its own tools, under its own
+- **The mouse pushes and opens the merge request**, with `gh` or `glab`, under its own
   `PreToolUse` rules and the existing push approval. Write credentials stay exactly where
   they are today and Whiska never acquires one.
 - **The owl only reads status.** It cannot push, merge, comment, close or re-run, because
@@ -65,34 +65,55 @@ This is the design, and it is a security boundary before it is a convenience.
 That the owl's credential is *read-only* is the part doing the work. A token that can only
 read is the enforcement; everything else is a promise.
 
-## Credentials: a read-only token through `curl`, not a forge CLI
+## Credentials: the CLI writes, `curl` reads
 
-**`gh` is not installed on this machine, and neither is `glab`.** `curl` and `jq` are.
-This repo is GitHub and the work repo is GitLab, so any version of this needs both forges
-reachable. Three ways to get there:
+`gh` 2.102.0 and `glab` 1.120.0 are both installed on this machine, neither authenticated
+yet; `curl` and `jq` are there as always. This repo is GitHub and the work repo is GitLab,
+so any version of this needs both forges reachable. **Each half uses the tool that fits
+what it is allowed to do**, and that is the decision rather than a consequence of what
+happens to be installed:
 
-1. **Install `gh` and `glab` and shell out to them** — ADR-0032's assumption. Rejected,
-   and the reason is the split above, not the install: `gh auth login` mints a credential
-   that can push, merge, comment and delete. Handing the owl a forge CLI hands it a
-   write-capable credential, and the read-only boundary becomes a promise about which
-   subcommands the code calls. Two interactive logins to maintain, for a GET.
-2. **An HTTP client in the owl** — `req`, which brings `finch`, `mint` and a CA bundle
-   into an escript that today depends on Ecto and SQLite and nothing else. Rejected: a
-   TLS stack and a certificate store are a real dependency to carry, and the escript ships
-   as one file.
-3. **`curl`, with a read-only token per forge.** Recommended. One `GET` per branch per
-   check, parsed with the `jq` that is already there or in Elixir. The token is a
-   fine-grained GitHub PAT scoped to read Checks and Pull requests, and a GitLab personal
-   token with `read_api`, each in `~/.whiska/forge/<host>` at `0600`, written by the
-   person and never by Whiska.
+- **The mouse writes through `gh` / `glab`.** Opening a merge request means a title, a
+  body, a base and a head, and reading back a number — `gh pr create` and `glab mr create`
+  are each one line where hand-rolled HTTP would be a request builder, a JSON body, an
+  error taxonomy and two API versions to track, for the half that is *meant* to have write
+  access. The person authenticates each CLI once, with `gh auth login` and `glab auth
+  login`, and that credential stays where that forge's own tooling expects it. Whiska
+  neither stores it nor reads it.
+- **The owl reads through `curl` and a read-only token.** A status check is one `GET` per
+  branch, parsed with the `jq` that is already there or in Elixir. The token is a
+  fine-grained GitHub PAT scoped to read Checks and Pull requests, and a GitLab personal
+  token with `read_api`, each in `~/.whiska/forge/<host>` at `0600`, written by the person
+  and never by Whiska.
+
+**The reason the owl does not simply reuse the CLI is the split, not the install.** `gh
+auth login` mints a credential that can push, merge, comment and delete. Polling through
+it would hand the always-awake half a write-capable credential and reduce the read-only
+boundary to a promise about which subcommands the code happens to call. A token that can
+only read is the one version of that boundary which survives a bug.
+
+**The honest limit:** the owl runs as the person, and the person's `gh` is on the same
+machine with the same file permissions, so this is not an OS-level barrier — nothing stops
+a future line of code from invoking `gh` directly. What it buys is that the owl's own
+adapters have no write verb and need no write credential to do their job, so the
+destructive capability is never in reach of the code path that polls. That is worth having
+and worth not overclaiming.
+
+Rejected along the way: **an HTTP client inside the owl** — `req`, which brings `finch`,
+`mint` and a CA bundle into an escript that today depends on Ecto and SQLite and nothing
+else. A TLS stack and a certificate store are a real dependency to carry, and the escript
+ships as one file.
 
 The token is passed to `curl` in a header read from a file (`--config` or `@-`), never on
 a command line and never in the environment Whiska builds, so it cannot reach a process
 listing, the owl's log, a crash dump, or a mouse's transcript.
 
 `whiska doctor` gains a line per watched repo: the token file exists, its mode is `0600`,
-and one cheap authenticated call succeeds. Missing or expired is a `warn`, never a `fail`
-(ADR-0038) — nothing is lost when a branch is not watched.
+and one cheap authenticated call succeeds. The write side gets a line of its own — the
+forge CLI is present and `gh auth status` / `glab auth status` says it is logged in —
+since neither is authenticated today and a mouse that cannot open a merge request is the
+first thing anyone would notice. Missing or expired is a `warn`, never a `fail` (ADR-0038):
+nothing is lost when a branch is not watched.
 
 ## The forge is a port
 
@@ -150,7 +171,8 @@ adapter did not recognise what came back.
 
 ### Cost 3: credentials
 
-Above. It is the reason the recommendation is `curl` and not a CLI.
+Above. It is the reason the reading half is `curl` and a read-only token even though a
+forge CLI is sitting right there.
 
 ## Where it is blocked: typing into a mouse's pane
 
@@ -234,9 +256,9 @@ sleeping laptop, are the whole reason the feature exists.
 tunnel, a far larger change to a daemon that listens on nothing, for latency measured
 against a timer nobody is watching.
 
-**`gh pr checks --watch`**, holding the connection until the run finishes. Rejected with
-the CLIs: a held process per branch, no GitLab equivalent of the same shape, and a
-write-capable credential.
+**`gh pr checks --watch`**, holding the connection until the run finishes. Rejected: a held
+process per branch, no GitLab equivalent of the same shape, and it would put the polling
+back on the write-capable credential.
 
 **Whiska running the merge itself**, as ADR-0032 had it. Rejected: it is the one write
 that would force a write-capable credential into the owl, and it buys a keystroke.
