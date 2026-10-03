@@ -1,0 +1,323 @@
+defmodule Whiska.Pickup do
+  @moduledoc """
+  Carrying on a turn that died (ADR-0067).
+
+  One pass over this house's mice, run from the backstop beside the cleanup
+  sweep. A turn ends by reaching the doorstep (ADR-0036), so a mouse that was
+  seen working, has gone quiet, and has left nothing behind is a mouse whose
+  turn ended without finishing — the session is still sitting there with its
+  whole context and an error on the screen, and from the outside it is
+  indistinguishable from a branch quietly working.
+
+  The owl types one short line into that mouse's own pane and nothing else.
+  Never the original prompt: the session still knows what it did, and re-asking
+  risks redoing a file already written or a commit already made.
+
+  **One attempt per died turn.** A pickup that produces no finished turn is
+  never repeated — the branch is ADR-0026's stuck mouse from then on, which is
+  where the rest of that ladder lives. A turn that does finish earns the branch
+  another pickup the next time one dies, which is not a loop: a finished turn
+  stands between every two.
+
+  **Unknown is never permission**, the same rule cleanup runs on (ADR-0061). A
+  pane herdr cannot classify, a worktree with no pane or with two, a herdr that
+  will not answer — every one of them leaves the branch alone.
+
+  ## What bounds the pane it types into
+
+  A mouse record's `path` is minted from a doorstep entry, which is a JSON file
+  anything running in this repo can write (ADR-0061). It is therefore not on
+  its own a statement that a folder is a worktree of this house, and a record
+  pointed at the main checkout or at another repo would otherwise name a pane
+  the owl has no business in. Two things bound it, and both are asked of
+  somebody other than the record:
+
+  - **herdr's own `worktree.list` for this checkout** has to name the folder,
+    the same answer cleanup takes as the last word on which workspace it may
+    remove. herdr is asked only once a mouse has passed everything this machine
+    can answer by itself, so an ordinary sweep opens no socket.
+  - **The pane `whiska start` recorded as the main session is never typed into
+    here.** That is the person's own pane, and nothing about a mouse record can
+    make it one (ADR-0053).
+
+  ## Why a settling window
+
+  A laptop waking brings herdr's socket back with everything else, and for a
+  moment the owl's picture of every pane is whatever reconnection happened to
+  produce. A mouse is only picked up once its pane has been reported ready for
+  `settle_ms` across separate sweeps, so a reconnect storm cannot read a whole
+  fleet of branches as having died at once. herdr failing to answer throws the
+  clocks away, so they start again rather than counting through a gap.
+  """
+
+  alias Whiska.Delivery.Draft
+  alias Whiska.Doorstep
+  alias Whiska.Layout
+  alias Whiska.Schema.Mouse
+  alias Whiska.Schema.Question
+  alias Whiska.Storage
+
+  @ready ~w(idle done)
+  @waiting ~w(open sent)
+
+  @typedoc """
+  What the owl remembers about one mouse's pane between sweeps: herdr's last
+  word on it, and since when it has been ready for input.
+  """
+  @type look :: %{status: String.t(), ready_since: DateTime.t() | nil}
+
+  @typedoc "That memory, by mouse. The owl's, not the database's."
+  @type seen :: %{String.t() => look()}
+
+  @typedoc "What one sweep did about one mouse."
+  @type outcome ::
+          :picked_up
+          | {:left,
+             atom()
+             | {:refused, term()}
+             | {:uncapped, term()}
+             | {:not_ready, String.t()}}
+
+  @doc """
+  The line the owl types. One sentence of fact and one caution, and no decision
+  of any kind — the session is told what happened to it, never what to do
+  differently (ADR-0026).
+  """
+  @spec line() :: String.t()
+  def line do
+    "Your last turn ended on an error before it finished. Carry on from where " <>
+      "you stopped, and check what you already did before redoing any of it."
+  end
+
+  @doc """
+  One pass over every mouse of this house, returning what became of each and
+  the pane memory the next sweep starts from.
+
+  Keys: `:main_checkout`, `:herdr`, `:socket`, `:panes` (herdr's last full
+  answer, which the house already holds), `:main_pane`, `:seen` (the previous
+  pass's memory), `:last_sweep_at` (when that memory was taken), `:settle_ms`,
+  `:now`.
+
+  herdr is not asked for its panes here. The house re-lists them on the same
+  backstop to match mice and judge liveness (ADR-0026), and a second list a
+  moment later would be a second answer to the same question.
+  """
+  @spec sweep(map()) :: {[{String.t(), outcome()}], seen()}
+  def sweep(%{panes: {:ok, panes}} = house), do: run(house, panes)
+  def sweep(_no_panes), do: {[], %{}}
+
+  defp run(house, panes) do
+    house = %{house | seen: carried_memory(house)}
+    mice = Enum.reject(Storage.alive_mice(), & &1.removed_at)
+
+    local = %{
+      questions: Enum.group_by(Storage.all(Question), & &1.mouse_id),
+      doorstep: doorstep(house.main_checkout)
+    }
+
+    {judged, seen} =
+      Enum.map_reduce(mice, %{}, fn mouse, seen ->
+        {look, pane} = observe(mouse, panes, house)
+
+        {{mouse, pane, verdict(mouse, look, pane, local, house)},
+         Map.put(seen, mouse.mouse_id, look)}
+      end)
+
+    ours = ours(judged, house)
+
+    {Enum.map(judged, fn {mouse, pane, v} ->
+       {mouse.mouse_id, act(mouse, pane, v, ours, house)}
+     end), seen}
+  end
+
+  # A sweep that comes a long time after the last one was not watching in
+  # between — the owl was suspended with the laptop, which is exactly when a
+  # fleet of turns dies at once. The window has to be two sweeps the owl
+  # actually took, so a gap of several backstops throws every clock away rather
+  # than letting one count through it.
+  defp carried_memory(%{last_sweep_at: %DateTime{} = last} = house) do
+    if DateTime.diff(house.now, last, :millisecond) > house.max_gap_ms, do: %{}, else: house.seen
+  end
+
+  defp carried_memory(_first_sweep), do: %{}
+
+  # Which folders herdr calls linked worktrees of this checkout. Asked only
+  # when something has already passed every check this machine can answer by
+  # itself, so a house with nothing to pick up opens no socket.
+  defp ours(judged, house) do
+    if Enum.any?(judged, &match?({_mouse, _pane, :ok}, &1)) do
+      case house.herdr.worktrees(house.socket, house.main_checkout) do
+        {:ok, worktrees} -> {:ok, MapSet.new(worktrees, &Layout.canonical(&1.path))}
+        {:error, _reason} -> :unknown
+      end
+    else
+      :unknown
+    end
+  end
+
+  # herdr's word on this mouse's pane, folded into what the last sweep saw.
+  #
+  # `worked_at` is stamped on a turn *starting* and nowhere else, which takes
+  # two things. A sighting of a working pane is not one: the `Stop` hook writes
+  # the entry while the pane is still working, and herdr flips it to quiet
+  # afterwards, so a stamp on any sighting would post-date a turn that ended
+  # cleanly and read as one that died. And a sweep with no memory of the pane
+  # knows of no transition at all, so it stamps nothing and only remembers —
+  # the conservative direction, since the cost is a turn that began while the
+  # owl was not watching going unpicked-up rather than a finished one nudged.
+  defp observe(mouse, panes, house) do
+    was = Map.get(house.seen, mouse.mouse_id)
+
+    case agent_panes(mouse, panes) do
+      [pane] -> {seen_pane(mouse, pane, was, house), pane}
+      [] -> {%{status: "no pane", ready_since: nil}, nil}
+      _many -> {%{status: "many panes", ready_since: nil}, nil}
+    end
+  end
+
+  defp seen_pane(mouse, %{agent_status: "working"}, was, house) do
+    if was && was.status != "working", do: Storage.set_working(mouse.mouse_id, house.now)
+    %{status: "working", ready_since: nil}
+  end
+
+  defp seen_pane(_mouse, %{agent_status: status}, was, house) when status in @ready do
+    %{status: status, ready_since: carried(was) || house.now}
+  end
+
+  defp seen_pane(_mouse, %{agent_status: status}, _was, _house) do
+    %{status: status, ready_since: nil}
+  end
+
+  defp carried(%{status: status, ready_since: since}) when status in @ready, do: since
+  defp carried(_otherwise), do: nil
+
+  defp agent_panes(%Mouse{path: path}, panes) when is_binary(path) do
+    Enum.filter(panes, &(&1.agent != nil and is_binary(&1.cwd) and Layout.inside?(&1.cwd, path)))
+  end
+
+  defp agent_panes(_no_path, _panes), do: []
+
+  # The checks run cheapest first and the first to refuse is the answer, so a
+  # reason names the nearest thing standing in the way rather than the worst.
+  defp verdict(mouse, look, pane, local, house) do
+    with :ok <- standing(mouse),
+         :ok <- turn_died(mouse, local),
+         :ok <- nothing_waiting(mouse, local),
+         :ok <- one_attempt(mouse, local),
+         :ok <- quiet_long_enough(look, house),
+         :ok <- claude?(pane),
+         do: not_the_person(pane, house)
+  end
+
+  defp standing(%Mouse{path: path}) do
+    if is_binary(path) and File.dir?(path), do: :ok, else: {:leave, :gone}
+  end
+
+  defp turn_died(%Mouse{worked_at: nil}, _local), do: {:leave, :never_worked}
+
+  defp turn_died(%Mouse{mouse_id: id, worked_at: worked_at}, local) do
+    cond do
+      Enum.any?(questions(local, id), &asked_since?(&1, worked_at)) -> {:leave, :finished}
+      waiting_for?(local.doorstep, id) == :unreadable -> {:leave, :doorstep_unreadable}
+      waiting_for?(local.doorstep, id) -> {:leave, :uncollected}
+      true -> :ok
+    end
+  end
+
+  defp waiting_for?(:unreadable, _mouse_id), do: :unreadable
+  defp waiting_for?({:ok, ids}, mouse_id), do: MapSet.member?(ids, mouse_id)
+
+  defp nothing_waiting(%Mouse{mouse_id: id}, local) do
+    if Enum.any?(questions(local, id), &(&1.status in @waiting)),
+      do: {:leave, :waiting},
+      else: :ok
+  end
+
+  # The cap. A pickup that was followed by a turn reaching the doorstep did its
+  # job and is spent; one that was not is this branch's one attempt, already
+  # made.
+  defp one_attempt(%Mouse{picked_up_at: nil}, _local), do: :ok
+
+  defp one_attempt(%Mouse{mouse_id: id, picked_up_at: picked_up_at}, local) do
+    if Enum.any?(questions(local, id), &asked_since?(&1, picked_up_at)),
+      do: :ok,
+      else: {:leave, :already}
+  end
+
+  defp questions(local, mouse_id), do: Map.get(local.questions, mouse_id, [])
+
+  defp asked_since?(%Question{asked_at: asked_at}, stamp),
+    do: DateTime.compare(asked_at, stamp) != :lt
+
+  defp quiet_long_enough(%{status: status, ready_since: %DateTime{} = since}, house)
+       when status in @ready do
+    if DateTime.diff(house.now, since, :millisecond) >= house.settle_ms,
+      do: :ok,
+      else: {:leave, :settling}
+  end
+
+  defp quiet_long_enough(%{status: "no pane"}, _house), do: {:leave, :no_pane}
+  defp quiet_long_enough(%{status: "many panes"}, _house), do: {:leave, :many_panes}
+  defp quiet_long_enough(%{status: status}, _house), do: {:leave, {:not_ready, status}}
+
+  defp claude?(%{agent: "claude"}), do: :ok
+  defp claude?(_other), do: {:leave, :no_claude}
+
+  defp not_the_person(%{pane_id: pane_id}, %{main_pane: pane_id}), do: {:leave, :main_session}
+  defp not_the_person(_pane, _house), do: :ok
+
+  defp act(_mouse, _pane, {:leave, reason}, _ours, _house), do: {:left, reason}
+
+  defp act(_mouse, _pane, :ok, :unknown, _house), do: {:left, :no_herdr}
+
+  defp act(mouse, pane, :ok, {:ok, ours}, house) do
+    cond do
+      not MapSet.member?(ours, Layout.canonical(mouse.path)) -> {:left, :not_our_worktree}
+      typing?(pane, house) -> {:left, :typing}
+      true -> nudge(mouse, pane, house)
+    end
+  end
+
+  # The second half of delivery's gate, asked of the mouse's pane for the same
+  # reason (ADR-0047): herdr's idle is the model's word, and a line typed into
+  # a box somebody is halfway through lands inside what they are writing. An
+  # unreadable screen is an unavailable signal, so it types anyway.
+  defp typing?(pane, house) do
+    case house.herdr.read_screen(house.socket, pane.pane_id) do
+      {:ok, screen} -> Draft.read(screen) == :typing
+      {:error, _reason} -> false
+    end
+  end
+
+  # The stamp goes down before the line does, and comes back up if herdr
+  # refuses it. A cap that depended on a write landing *after* the owl had
+  # already typed would be no cap on the one run where that write failed.
+  defp nudge(%Mouse{mouse_id: id, picked_up_at: was}, pane, house) do
+    case Storage.set_picked_up(id, house.now) do
+      {:ok, _} -> typed(id, was, pane, house)
+      {:error, reason} -> {:left, {:uncapped, reason}}
+    end
+  end
+
+  defp typed(id, was, pane, house) do
+    case house.herdr.prompt(house.socket, pane.pane_id, line()) do
+      :ok ->
+        :picked_up
+
+      {:error, reason} ->
+        Storage.set_picked_up(id, was)
+        {:left, {:refused, reason}}
+    end
+  end
+
+  # A waiting entry that will not parse belongs to a mouse nobody can name, so
+  # no mouse is picked up at all while one is sitting there: it could be the
+  # very turn that is about to be called dead.
+  defp doorstep(checkout) do
+    waiting = Doorstep.waiting(checkout)
+
+    if length(waiting) == Doorstep.count_waiting(checkout),
+      do: {:ok, MapSet.new(waiting, fn {_file, entry} -> entry.mouse_id end)},
+      else: :unreadable
+  end
+end

@@ -34,3 +34,21 @@ Getting the pane back is easy, since the worktree folder is still on disk. Getti
 *conversation* back is not confirmed: whether Claude Code's session-resume works through
 herdr is unverified, and is deliberately not promised. `whiska reopen` degrades gracefully
 either way.
+
+## Note, 2026-10-03: rung three is built, for one kind of stuck
+
+[ADR-0067](0067-a-turn-that-died-is-picked-up.md) builds "one corrective nudge, one shot"
+for the one kind of stuck that can be diagnosed exactly: a turn that ended without
+reaching the doorstep. The ladder above is unchanged and so is the word — a dead turn is
+a stuck mouse, not a third thing.
+
+Two rungs are satisfied rather than skipped. Rung one, "check its own unanswered
+questions first", is a precondition of the detector: a mouse with anything `open` or
+`sent` is never picked up. Rung two, "re-state existing instructions, never a new
+decision", is what the line says and the whole of what it says.
+
+The detector is not the one this ADR guessed at. "The last-tool-call excerpt has not
+changed in a long while" is a proxy and was never built; a turn that reached the doorstep
+or did not is a fact Whiska already owns. The proxy still stands for the rest of stuck —
+a mouse genuinely looping or gone quiet mid-turn — which is still unbuilt, along with
+rungs four and five.

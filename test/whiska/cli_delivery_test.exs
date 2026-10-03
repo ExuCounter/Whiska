@@ -345,6 +345,16 @@ defmodule Whiska.CLIDeliveryTest do
       {0, _, _} = run(["reply", "1", "yes"], main)
     end
 
+    test "an answer is a turn beginning, so the owl can pick it up if it dies (ADR-0067)",
+         %{main: main} do
+      seed(main, fn -> ask("?") end)
+      expect(Herdr, :prompt, fn @socket, "w1R:p1", "yes" -> :ok end)
+
+      {0, _, _} = run(["reply", "1", "yes"], main)
+
+      in_house(main, fn -> assert %DateTime{} = Storage.mouse("ma").worked_at end)
+    end
+
     test "joins several words into one answer", %{main: main} do
       seed(main, fn -> ask("?") end)
       expect(Herdr, :prompt, fn @socket, "w1R:p1", "yes please do" -> :ok end)

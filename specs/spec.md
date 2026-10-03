@@ -772,7 +772,10 @@ bounded-retry pattern already built for failed checks:**
    normal question to you, same as everything else in this spec. The main session never
    infers, extrapolates, or decides something new here.
 3. **One corrective nudge.** A single message into the mouse's pane — "you're stuck on
-   X, try Y" — one shot, not an ongoing back-and-forth.
+   X, try Y" — one shot, not an ongoing back-and-forth. *Built for one kind of stuck
+   (ADR-0067): a turn that ended without reaching the doorstep. The line re-states the
+   situation and decides nothing, rungs 1 and 2 are preconditions of the detector rather
+   than steps, and a branch whose nudged turn dies as well is never nudged again.*
 4. **Relaunch**, same as `whiska reopen` — a fresh session against the same worktree.
    Uncommitted work is safe regardless (it's just files on disk), but being deliberate
    about it here matters.

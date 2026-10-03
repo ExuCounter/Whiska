@@ -122,7 +122,7 @@ whiska close <id>               settle one by hand, with no answer
 whiska waiting [--json]         the same, across every repo on the machine
 whiska jump [<repo|branch>]     focus the session of whatever needs you most
 whiska watch                    this repo's board, printed once
-whiska mice                     what is alive here — branch, mode, pane, uptime
+whiska mice                     what is alive here — branch, mode, pane, uptime, pickups
 whiska doctor                   check this repo end to end; exits 1 on any failure
 whiska statusline [--here]      the tab-bar line, or this repo's board
 whiska mode [build|sniff]       this mouse's mode; sniff writes nothing, anywhere

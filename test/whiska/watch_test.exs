@@ -54,7 +54,8 @@ defmodule Whiska.WatchTest do
       questions: Keyword.get(opts, :questions, []),
       panes: Keyword.get(opts, :panes, {:ok, Keyword.get(opts, :bare_panes, [])}),
       activity: activity(opts),
-      held: Keyword.get(opts, :held)
+      held: Keyword.get(opts, :held),
+      picked_up: Keyword.get(opts, :picked_up, %{})
     )
   end
 
@@ -65,6 +66,39 @@ defmodule Whiska.WatchTest do
     silent_for = Keyword.get(opts, :silent_for, 0)
 
     fn mouse -> %{action: action.(mouse), silent_for: silent_for} end
+  end
+
+  describe "a branch the owl picked up (ADR-0067)" do
+    test "says so, and how long ago, while the turn it started is still running" do
+      picked_up = %{"m-feat-a" => DateTime.add(@now, -180, :second)}
+
+      assert [%{detail: "picked up 3m ago"}] =
+               board([mouse("feat-a")],
+                 panes: {:ok, [pane("feat-a", "working", title: "Order builder")]},
+                 picked_up: picked_up
+               ).rows
+    end
+
+    test "gives way to a question waiting on the person" do
+      picked_up = %{"m-feat-a" => DateTime.add(@now, -180, :second)}
+
+      assert [%{detail: detail}] =
+               board([mouse("feat-a")],
+                 questions: [question(7, "feat-a")],
+                 panes: {:ok, [pane("feat-a", "working")]},
+                 picked_up: picked_up
+               ).rows
+
+      assert detail =~ "waiting on you"
+    end
+
+    test "is gone from the row once the turn it started has ended" do
+      assert [%{detail: "Order builder"}] =
+               board([mouse("feat-a")],
+                 panes: {:ok, [pane("feat-a", "idle", title: "Order builder")]},
+                 picked_up: %{}
+               ).rows
+    end
   end
 
   describe "board/2" do

@@ -30,7 +30,13 @@ defmodule Whiska.Mice do
   alias Whiska.Storage
 
   @typedoc "One line of the listing, already rendered as words."
-  @type row :: %{branch: String.t(), mode: String.t(), status: String.t(), uptime: String.t()}
+  @type row :: %{
+          branch: String.t(),
+          mode: String.t(),
+          status: String.t(),
+          uptime: String.t(),
+          note: String.t()
+        }
 
   @typedoc "herdr's answer, or why it was not asked."
   @type panes :: {:ok, [Herdr.pane()]} | {:error, term()} | :no_socket
@@ -65,7 +71,8 @@ defmodule Whiska.Mice do
         branch: mouse.branch || mouse.mouse_id,
         mode: mouse.mode,
         status: status(mouse, panes),
-        uptime: format_uptime(DateTime.diff(now, mouse.created_at))
+        uptime: format_uptime(DateTime.diff(now, mouse.created_at)),
+        note: note(mouse, now)
       }
     end)
   end
@@ -82,6 +89,15 @@ defmodule Whiska.Mice do
 
   defp status(_mouse, _unreachable), do: "?"
 
+  # The one thing a listing says that herdr cannot: that the owl typed into
+  # this mouse's pane to carry a died turn on, and when (ADR-0067). It stays
+  # for the mouse's whole life — the board drops it the moment the turn it
+  # started ends, and this is where the person looks afterwards.
+  defp note(%Mouse{picked_up_at: %DateTime{} = at}, now),
+    do: "picked up #{format_uptime(DateTime.diff(now, at))} ago"
+
+  defp note(_never_picked_up, _now), do: ""
+
   @doc "Seconds as a person would say them: `45s`, `4m`, `2h 15m`, `3d 4h`."
   @spec format_uptime(integer()) :: String.t()
   def format_uptime(seconds) when seconds < 60, do: "#{max(seconds, 0)}s"
@@ -97,7 +113,7 @@ defmodule Whiska.Mice do
   def render([]), do: "No mice alive."
 
   def render(rows) do
-    columns = [:branch, :mode, :status, :uptime]
+    columns = [:branch, :mode, :status, :uptime, :note]
 
     widths =
       Map.new(columns, fn c ->
