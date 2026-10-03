@@ -83,7 +83,7 @@ defmodule Whiska.Watch do
   @type orphan_name :: %{name: String.t(), count: pos_integer()}
 
   @typedoc "Why delivery is holding, when it has been holding long enough to say."
-  @type held :: :typing | :mid_turn | :unreachable | nil
+  @type held :: :typing | :no_box | :mid_turn | :unreachable | nil
 
   @typedoc """
   `more` is how many live mice the cap left off; `waiting` what no row covers
@@ -435,6 +435,7 @@ defmodule Whiska.Watch do
     do: Ink.yellow("🐱 #{waiting} waiting · held: #{reason(held)}")
 
   defp reason(:typing), do: "your prompt box isn't empty"
+  defp reason(:no_box), do: "your prompt box isn't on screen"
   defp reason(:mid_turn), do: "this session is mid-turn"
   defp reason(_unreachable), do: "your main session cannot be reached"
 

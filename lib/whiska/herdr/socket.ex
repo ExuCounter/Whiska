@@ -147,9 +147,13 @@ defmodule Whiska.Herdr.Socket do
       agent: raw["agent"],
       agent_status: raw["agent_status"] || "unknown",
       title: raw["terminal_title_stripped"],
-      session: session(raw["agent_session"])
+      session: session(raw["agent_session"]),
+      scroll_offset: scroll_offset(raw["scroll"])
     }
   end
+
+  defp scroll_offset(%{"offset_from_bottom" => rows}) when is_integer(rows), do: rows
+  defp scroll_offset(_unsaid), do: nil
 
   # herdr names the agent's own session under `agent_session`, and only for a
   # pane running one. For Claude Code the value is the session id, which is the

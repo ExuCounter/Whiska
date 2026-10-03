@@ -76,6 +76,7 @@ C4Component
   Rel(main, doctor, "Delegates doctor")
   Rel(doctor, shim, "Runs each hook with a no-op payload", "outside any worktree")
   Rel(doctor, install, "Compares the shim and hook commands with what init writes")
+  Rel(doctor, herdr, "Is the main session's prompt box on its screen?", "pane.get, pane.read")
   Rel(doctor, storage, "Opens the house; reads main session, questions, mice")
   Rel(doctor, doorstep, "Counts what is waiting")
   Rel(doctor, tx, "When did the main session start, and so what wiring did it load")
@@ -207,7 +208,10 @@ runs the repo's committed shim for both hooks with a payload whose `cwd` is outs
 worktree, so the whole resolution path runs and nothing is written; it compares the
 shim byte for byte with what `Install` writes, because the old no-argument shim passes
 the probe silently; and it asks herdr about the recorded main session with the same call
-the delivery gate uses. It also asks how old each running thing is, because up and old
+the delivery gate uses. It reads that session's screen with the same call too, and warns
+when nothing on it is a prompt box while the pane is not scrolled away from one — the one
+check that would catch a Claude Code redesign, which otherwise shows up only as delivery
+stopping everywhere at once (ADR-0068). It also asks how old each running thing is, because up and old
 looks exactly like up: the owl's process against the installed binary, that binary
 against the escript built in the checkout, the repo's statusline script against the
 version this build ships (ADR-0059), and the main session — aged by the creation time of its own

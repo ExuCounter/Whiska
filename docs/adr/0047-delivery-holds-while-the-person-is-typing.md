@@ -67,3 +67,41 @@ for `agent_status: "unknown"`.
 **Being held is never silent.** `whiska doctor`'s questions line says
 `N open, held: person is typing`. That is the check that catches the failure this design
 can have — a box Whiska reads as occupied when it is not, holding the queue forever.
+
+## Amendment, 2026-10-03: no box on the screen holds (ADR-0068)
+
+Two things above are wrong and are corrected here rather than in a superseding decision,
+because the gate itself stands: the box must still be empty, and the screen is still the
+only place to read it from.
+
+**Finding the box.** "The last line that begins with `❯`" is not the box. Claude Code
+redraws the person's own past messages with the same marker at the same column, so
+whenever the box was not on the screen the rule found a message — and a message always
+has text in it. The gate failed closed to `:typing` and held delivery, saying *your
+prompt box isn't empty* about a box that was not there. The box is now found by its
+frame, the pair of horizontal rules at column 0 that nothing else on the screen has, and
+the marker is read only inside it.
+
+**The dialog case is what made the paragraph above wrong.** It lists "a pane scrolled
+away from the prompt" and stops there, and on that case it was right. The case it does
+not name is a permission prompt or a picker: Claude Code takes the box off the screen
+while one is open, and the session cannot accept a typed line at all. Delivering then is
+not a slightly rude interruption, which is what this paragraph weighed. `agent.prompt`
+types the line *and presses return*, and the return goes to whatever the dialog had
+highlighted — so the person answers something they never read, and loses the question
+with it. That is unrecoverable, and no board can undo it.
+
+**So a screen with no box on it holds**, under its own reason — *your prompt box isn't on
+screen* — true of the dialog, of the scrolled-away pane, and of a Claude Code that has
+stopped drawing a frame. The reason given above for delivering was that holding "would be
+choosing silence with no explanation"; ADR-0058 ended that, and a hold now says itself on
+the board and in `whiska doctor`. The other two cases still deliver: a `pane.read` herdr
+refuses never reaches the reading, and a frame whose contents cannot be read is
+`:unknown`, which is ADR-0008's unavailable signal and genuinely reachable now.
+
+`whiska doctor` grew a `prompt box` line for the cost that comes with this: a Claude Code
+that changes its frame would read as no box on every screen and hold everything. That
+line reads the live main session's screen whether or not anything is queued, and warns
+when there is no box and the pane is not scrolled away from one.
+
+ADR-0068 has the captured screens and the full reasoning.

@@ -22,6 +22,11 @@ defmodule Whiska.Herdr do
   2026-10-02). It is somebody else's free text: it can be empty, it can be a
   shell command in a pane running one, and in some panes it still carries the
   agent's status glyph on the front.
+
+  `scroll_offset` is how many rows above the bottom the viewport is sitting —
+  `0` when the pane is showing the live end of its output, and `nil` when herdr
+  did not say. It is what tells a screen with no prompt box on it apart from a
+  person who has simply scrolled up past one (ADR-0068).
   """
   @type pane :: %{
           pane_id: String.t(),
@@ -29,7 +34,8 @@ defmodule Whiska.Herdr do
           agent: String.t() | nil,
           agent_status: String.t(),
           title: String.t() | nil,
-          session: String.t() | nil
+          session: String.t() | nil,
+          scroll_offset: non_neg_integer() | nil
         }
 
   @typedoc """

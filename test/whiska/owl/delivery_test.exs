@@ -773,9 +773,36 @@ defmodule Whiska.Owl.DeliveryTest do
       in_house(house, fn -> assert Storage.question(1).status == "sent" end)
     end
 
-    test "a screen with no prompt box on it delivers anyway — ADR-0008's unavailable signal",
+    test "a screen with no prompt box on it holds — there is nowhere to type (ADR-0068)",
          %{main: main, a: a} do
-      stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, "scrolled right away\n"} end)
+      stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, "a dialog is up\n"} end)
+      house = open(main, hold_notice_ms: 0)
+
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+
+      refute_receive {:prompted, _, _}, @wait * 3
+      assert House.sync(house) == :ok
+      assert House.held(house) == :no_box
+      in_house(house, fn -> assert Storage.question(1).status == "open" end)
+    end
+
+    test "the box coming back on screen releases the hold", %{main: main, a: a} do
+      stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, "a dialog is up\n"} end)
+      house = open(main, backstop_ms: @wait)
+
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      box_holds("")
+      assert_receive {:prompted, @main_pane, _}, @wait * 6
+    end
+
+    test "a box Whiska cannot read delivers anyway — ADR-0008's unavailable signal",
+         %{main: main, a: a} do
+      screen = "────────────────\n» some later Claude Code\n────────────────\n"
+      stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, screen} end)
       house = open(main)
 
       leave(main, a, "[worktree-status: needs-decision] ?")

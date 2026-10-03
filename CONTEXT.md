@@ -164,8 +164,8 @@ dies while holding the slot) and the session is idle again. Nothing that cannot 
 answered ever holds the slot: before each attempt, everything still waiting for a mouse
 that is dead, or for a record that no longer stands for a worktree of this house, is
 released — **settled** where its mouse's branch landed, **orphaned** where it did not
-(ADR-0057, ADR-0064). While the gate holds — the session mid-turn, or a
-draft in its box — the queue is **held**, and the board says so once the hold has lasted
+(ADR-0057, ADR-0064). While the gate holds — the session mid-turn, a
+draft in its box, or no box on its screen — the queue is **held**, and the board says so once the hold has lasted
 ten seconds (ADR-0058). A finished line is outside
 the queue: nothing is waiting on the person in it, so it goes ahead of whatever is
 waiting, takes no slot, and is closed as it is typed.
@@ -192,7 +192,8 @@ how a hoot is shown, not for the thing)
 
 **Held**:
 What delivery is while the gate says no and something is queued behind it: the main
-session mid-turn, a draft in its box, or no main session it can reach. The question stays
+session mid-turn, a draft in its box, no prompt box on its screen at all (ADR-0068), or
+no main session it can reach. The question stays
 open and first in the queue, and the hold lasts until the gate lets go — one hold however
 its reason changes. Said in two places in the same word: the board's waiting line once it
 has lasted ten seconds (ADR-0058), and `whiska doctor` whenever it is asked. Being held is
@@ -215,7 +216,16 @@ container (the `worktrees/` folder itself, which is not this)
 Whatever the person has half-typed in the main session's prompt box and not yet sent. A
 draft *holds* delivery — the question stays open and first in the queue — however idle
 herdr says the pane is (ADR-0047): idle is the model's word, and a line typed into an
-occupied box lands inside the draft or submits it. A box Whiska cannot see is no draft.
+occupied box lands inside the draft or submits it. The box is the lowest **frame** on the
+screen — a pair of horizontal rules at column 0 — that holds a prompt line, and the whole
+of it is read, not its first line. Neither half finds it alone: the marker `❯` is also how
+Claude Code redraws the person's past messages and how a picker marks its highlighted row,
+and a stray rule under the box would frame the status lines (ADR-0068). A screen with **no box on it**
+holds too, and for a different reason — not a draft, but nowhere for the line to land,
+which is what a dialog waiting on the person looks like. A frame Whiska cannot read is no
+draft, and delivers. `whiska doctor` has a line of its own for the box, because a Claude
+Code that changes how it draws one would otherwise show up only as every mouse going
+quiet; a pane the person has scrolled up in is reported there, not warned about.
 _Avoid_: input, buffer, typing state, pending prompt
 
 **Dead turn**:

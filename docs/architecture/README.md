@@ -85,9 +85,9 @@ person's own main session can step into a worktree without being mistaken for th
 that lives there (ADR-0053, `Whiska.Session`). Then the delivery slot's own guarantee:
 nothing that cannot be answered ever holds it, so every attempt first releases what is
 still waiting for a dead mouse or for a record that no longer stands for a worktree
-(ADR-0057), and a hold the person cannot otherwise see — their session mid-turn, or a
-draft in its box — is said on the board's waiting line once it has lasted ten seconds
-(ADR-0058). The statusline script `whiska init` writes now carries a version stamp, and
+(ADR-0057), and a hold the person cannot otherwise see — their session mid-turn, a draft
+in its box, or no prompt box on the screen at all — is said on the board's waiting line
+once it has lasted ten seconds (ADR-0058, ADR-0068). The statusline script `whiska init` writes now carries a version stamp, and
 `whiska doctor` reads a repo's copy and says an upgrade is available rather than
 rewriting a committed file (ADR-0059). And the phantom those first two were chasing is
 gone: a folder under `worktrees/` that is no checkout of its own is no worktree, so
