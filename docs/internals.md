@@ -398,7 +398,9 @@ Delivery only happens when the owl is up and a main session is recorded and idle
 the tab bar only tells you whether the owl is watching. From
 the main terminal a broken pipe and a quiet fleet look much the same. The
 doctor is what you run when the mice have gone quiet, to learn which silence you are in
-(ADR-0038). It checks this repo's prerequisites (binary, runtime, herdr, owl), its hooks
+(ADR-0038) — including the silence of something that is up and running code you have
+already replaced, which is what the next section is about. It checks this repo's
+prerequisites (binary, runtime, herdr, owl), its hooks
 and shim — **by running them**, through the committed shim with a payload outside any
 worktree, so nothing is minted or left behind — then its house, its doorstep, its
 backstop, its main session and question queue, and whether each mouse record still
@@ -421,6 +423,8 @@ whiska doctor — myrepo (/Users/me/projects/myrepo)
 
   warn  binary      /Users/me/.local/bin/whiska — not on PATH; the shim falls back here
                     fix: export PATH="$HOME/.local/bin:$PATH"
+  warn  build       ./whiska here was built 1 h 0 min after /Users/me/.local/bin/whiska was installed — nothing runs this build until it is copied over
+                    fix: cp whiska /Users/me/.local/bin/whiska
   ok    runtime     /Users/me/.asdf/installs/erlang/28.1.1/bin/escript
   ok    herdr       reachable at /Users/me/.config/herdr/herdr.sock (12 panes)
   warn  owl         not running — nothing collects the doorstep
@@ -436,11 +440,45 @@ whiska doctor — myrepo (/Users/me/projects/myrepo)
                     fix: whiska owl stop && whiska owl start
   warn  main session  not recorded — nothing is delivered until it is
                     fix: whiska start  (from the main checkout's pane)
+  ok    session wiring  not checked — herdr did not name the main session, or its transcript is gone
   ok    questions   none waiting
   ok    mice        feat-thing: live pane w1:p3
 
-1 failed, 3 warnings.
+1 failed, 6 warnings.
 ```
+
+## A change is not live until the thing running it is restarted
+
+Three pieces of this run from a copy taken when they started, and keep running it until
+something restarts them. Each one has looked fine for hours while serving code that was
+already replaced, so the doctor checks all three by age rather than by liveness.
+
+- **The owl holds the binary it started with.** `cp whiska ~/.local/bin/whiska` replaces
+  the file; the running owl is unaffected and the board keeps drawing the old behaviour.
+  `whiska owl stop && whiska owl start`. The doctor's `owl` line compares the process
+  against the binary's mtime and says so.
+- **Nothing runs an escript you built but did not install.** The hooks, the statusline and
+  the owl all run the binary on PATH. `mix escript.build` alone changes nothing. The
+  `build` line compares `./whiska` in the checkout with the installed copy.
+- **A Claude Code session reads its settings once, at startup.** A session that began
+  before `whiska init` changed the wiring is running the wiring from before it, and
+  nothing in that session ever says so — restart Claude in that pane. The `session wiring`
+  line compares when the main session started against when the settings files it loads
+  last changed: `.claude/settings.json` and `~/.claude/settings.json`, each with the
+  `.local` one beside it. The session's age is the creation time of its own transcript
+  file, not the first timestamp inside it — a resumed session is a new process that read
+  the settings afresh, but Claude Code copies the previous session's entries into the new
+  transcript, timestamps and all, so the entries would age a session that had just been
+  restarted at hours old. The line says only what the clock knows: that a settings file
+  changed after the session started. It does not claim the hooks in it changed — a model,
+  a permission or an MCP server moves that mtime exactly as a hook does. Only the settings
+  files are compared: the shim and the statusline script are executed afresh every time,
+  so a change to either is live the moment it lands.
+
+`whiska init` leaves a file alone when what it would write is already there, mtime
+included — otherwise a harmless re-init would make every live session look stale. The
+repo's statusline script is the fourth of these and is versioned rather than timed
+(ADR-0059): the stamp in the copy on disk against the one this build ships.
 
 ## Cold start
 

@@ -494,4 +494,56 @@ defmodule Whiska.TranscriptTest do
       assert Transcript.started_in(path) == nil
     end
   end
+
+  describe "started_at/1 — when the session began (the doctor's staleness check)" do
+    setup do
+      dir = Path.join(System.tmp_dir!(), "whiska-startat-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      on_exit(fn -> File.rm_rf!(dir) end)
+      {:ok, path: Path.join(dir, "session.jsonl")}
+    end
+
+    test "is when the file was created, to the second", %{path: path} do
+      before = DateTime.utc_now()
+      File.write!(path, JSON.encode!(%{"type" => "mode"}) <> "\n")
+
+      assert %DateTime{} = at = Transcript.started_at(path)
+      assert DateTime.diff(at, before, :second) |> abs() <= 2
+    end
+
+    # A resumed session is a new process reading `settings.json` afresh, but
+    # Claude Code copies its predecessor's entries into the new transcript
+    # verbatim, timestamps and all. Read from two real transcripts on
+    # 2026-10-02, 64 minutes apart and sharing a first timestamp: the entries
+    # say when the first session began, and only the file says when this one
+    # did.
+    test "is not the first timestamp inside, which a resumed session inherits", %{path: path} do
+      File.write!(path, JSON.encode!(%{"timestamp" => "2026-09-01T00:00:00.000Z"}) <> "\n")
+
+      assert %DateTime{} = at = Transcript.started_at(path)
+      assert DateTime.diff(DateTime.utc_now(), at, :second) < 60
+    end
+
+    test "a file that is not there is nil, never a crash", %{path: path} do
+      assert Transcript.started_at(path) == nil
+    end
+
+    test "a directory, or a stat that answers nothing readable, is nil", %{path: path} do
+      File.write!(path, "{}\n")
+
+      assert Transcript.started_at(Path.dirname(path)) == nil
+      assert Transcript.started_at(path, fn _ -> nil end) == nil
+      assert Transcript.started_at(path, fn _ -> "not a number" end) == nil
+      assert Transcript.started_at(path, fn _ -> "0" end) == nil
+    end
+
+    # `stat -f %B` is macOS's birth time and GNU coreutils' filesystem block
+    # size, and GNU exits 0 for it — so a plausible-timestamp check is what
+    # keeps a block size from reading as a session that started in 1970.
+    test "a number too small to be a timestamp is nil, not 1970", %{path: path} do
+      File.write!(path, "{}\n")
+
+      assert Transcript.started_at(path, fn _ -> "4096" end) == nil
+    end
+  end
 end

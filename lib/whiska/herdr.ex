@@ -28,7 +28,8 @@ defmodule Whiska.Herdr do
           cwd: String.t() | nil,
           agent: String.t() | nil,
           agent_status: String.t(),
-          title: String.t() | nil
+          title: String.t() | nil,
+          session: String.t() | nil
         }
 
   @typedoc """

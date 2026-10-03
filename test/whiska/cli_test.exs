@@ -287,4 +287,51 @@ defmodule Whiska.CLITest do
       assert [_only_one] = settings["hooks"]["PreToolUse"]
     end
   end
+
+  describe "whiska init, run a second time with nothing to change" do
+    # Claude Code reads settings.json once, at startup, and `whiska doctor`
+    # compares the main session's age against when that file last changed. A
+    # re-init that rewrote identical bytes would move that clock and make every
+    # live session look stale, so an unchanged file is left alone.
+    test "leaves the files it already wrote untouched", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      touched = [
+        Path.join(main, ".claude/settings.json"),
+        Path.join(main, Whiska.Install.shim_path()),
+        Path.join(main, Whiska.Install.statusline_path())
+      ]
+
+      long_ago = System.os_time(:second) - 86_400
+      for path <- touched, do: File.touch!(path, long_ago)
+
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      for path <- touched do
+        assert File.stat!(path, time: :posix).mtime == long_ago,
+               "#{Path.basename(path)} was rewritten with the same contents"
+      end
+    end
+
+    test "a mode that drifted wider is still put back — init is the repair", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+      shim = Path.join(main, Whiska.Install.shim_path())
+      File.chmod!(shim, 0o777)
+
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      assert Bitwise.band(File.stat!(shim).mode, 0o7777) == 0o755
+    end
+
+    test "still writes a file whose contents have changed", %{main: main} do
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+      path = Path.join(main, Whiska.Install.statusline_path())
+      File.write!(path, "#!/usr/bin/env bash\n# an older one\n")
+      File.touch!(path, System.os_time(:second) - 86_400)
+
+      capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      assert File.read!(path) == Whiska.Install.statusline_script()
+    end
+  end
 end

@@ -66,6 +66,10 @@ defmodule Whiska.Transcript do
   @head_bytes 1024 * 1024
   @line_bytes 64 * 1024
 
+  # Nothing Claude Code wrote started before this; a smaller number is some
+  # other field, not a creation time (GNU `stat -f %B` is a block size).
+  @plausible_from 1_000_000_000
+
   # A launch this old is abandoned, not pending. Long enough that no reviewer
   # this repo runs comes near it, short enough that a lost hand-back costs one
   # quiet stop rather than a whole night of them. A repo that names a `security:`
@@ -117,6 +121,62 @@ defmodule Whiska.Transcript do
     end
   end
 
+  @doc """
+  When the session began: the moment its transcript file was created.
+
+  What `whiska doctor` compares the hook wiring against — Claude Code reads
+  `settings.json` once, at startup, so a session older than its own wiring is
+  running the wiring from before.
+
+  Deliberately not the first timestamp *inside* the file. A resumed session is
+  a new process that read `settings.json` afresh, and Claude Code copies its
+  predecessor's entries into the new transcript verbatim, timestamps and all —
+  so the entries say when the first session began. Read from a real
+  `~/.claude/projects` on 2026-10-02: of 264 transcripts, two were resumes
+  whose first entry predated their own file by up to 64 minutes, and the
+  session that had just been restarted would have been reported as the stale
+  one. Only the file itself says when this session started.
+
+  `birthtime` is there for tests and gives the creation time in seconds, or
+  `nil`; anything unreadable — no birth time on this filesystem, no `stat`, not
+  a plain file — is `nil`, which the doctor reports as unchecked rather than
+  guessing at.
+  """
+  @spec started_at(Path.t(), (Path.t() -> String.t() | nil)) :: DateTime.t() | nil
+  def started_at(path, birthtime \\ &birthtime/1) do
+    with {:ok, %File.Stat{type: :regular}} <- File.stat(path),
+         seconds when is_binary(seconds) <- birthtime.(path),
+         {at, ""} <- Integer.parse(String.trim(seconds)),
+         true <- at >= @plausible_from do
+      DateTime.from_unix!(at)
+    else
+      _unknown -> nil
+    end
+  end
+
+  # macOS spells the birth time `-f %B` and GNU coreutils spells it `-c %W`.
+  # Neither is a safe default: on GNU, `-f %B` is the filesystem's block size
+  # and exits 0, so its answer is checked for being a plausible timestamp at
+  # all rather than trusted for having parsed.
+  defp birthtime(path) do
+    Enum.find_value([["-f", "%B"], ["-c", "%W"]], fn flags ->
+      case System.cmd("stat", flags ++ [path], stderr_to_stdout: true) do
+        {out, 0} ->
+          case Integer.parse(String.trim(out)) do
+            {at, ""} when at >= @plausible_from -> String.trim(out)
+            _implausible -> nil
+          end
+
+        _no_answer ->
+          nil
+      end
+    end)
+  rescue
+    ErlangError -> nil
+  end
+
+  # The session's own header and the start of its first turn, read under the
+  # three ceilings above.
   defp first_cwd(_io, 0, _bytes), do: nil
   defp first_cwd(_io, _lines, bytes) when bytes <= 0, do: nil
 

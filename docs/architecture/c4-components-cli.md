@@ -62,7 +62,7 @@ C4Component
   Rel(waiting, doorstep, "Reads each house's uncollected entries")
   Rel(main, herdr, "jump: focuses one house's main session", "pane.focus")
   Rel(statusline, owl, "Is it running? Same probe as the doctor", "process table")
-  Rel(doctor, owl, "Is it running?", "process table")
+  Rel(doctor, owl, "Is it running, and older than the binary it runs?", "process table, ps")
   Rel(doctor, record, "Which houses are open, and is this repo one of them")
   Rel(doctor, backstop, "Has the backstop been doing the idle trigger's job")
   Rel(doctor, herdr, "Is the tab bar entry that draws the line in herdr's config?", "config.toml")
@@ -77,6 +77,7 @@ C4Component
   Rel(doctor, install, "Compares the shim and hook commands with what init writes")
   Rel(doctor, storage, "Opens the house; reads main session, questions, mice")
   Rel(doctor, doorstep, "Counts what is waiting")
+  Rel(doctor, tx, "When did the main session start, and so what wiring did it load")
   Rel(hook, session, "Whose session is this?")
   Rel(session, tx, "Where did this session start?")
   Rel(session, layout, "Resolves the start directory to a worktree")
@@ -205,7 +206,12 @@ runs the repo's committed shim for both hooks with a payload whose `cwd` is outs
 worktree, so the whole resolution path runs and nothing is written; it compares the
 shim byte for byte with what `Install` writes, because the old no-argument shim passes
 the probe silently; and it asks herdr about the recorded main session with the same call
-the delivery gate uses. Every finding prints its fix. `fail` means a mouse's question
+the delivery gate uses. It also asks how old each running thing is, because up and old
+looks exactly like up: the owl's process against the installed binary, that binary
+against the escript built in the checkout, the repo's statusline script against the
+version this build ships (ADR-0059), and the main session — aged by the creation time of its own
+transcript file, found through the session id herdr names for its pane — against the
+settings files it read at startup. Every finding prints its fix. `fail` means a mouse's question
 here would be lost or never written; `warn` means degraded but nothing lost.
 
 **`LaunchAgent` is pure values plus writes under a given home (ADR-0040).** The plist and

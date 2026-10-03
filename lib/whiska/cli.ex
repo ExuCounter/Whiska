@@ -300,13 +300,13 @@ defmodule Whiska.CLI do
          merged = Install.merge(settings, scope),
          :ok <- record_displaced(scope, root, settings),
          :ok <- File.mkdir_p(Path.dirname(shim)),
-         :ok <- File.write(shim, Install.shim(scope)),
-         :ok <- File.chmod(shim, 0o755),
+         :ok <- write_unchanged(shim, Install.shim(scope)),
+         :ok <- make_executable(shim),
          :ok <- write_statusline(root),
          :ok <- write_skills(scope, root),
          :ok <- write_claude_md(scope, root),
          :ok <- File.mkdir_p(Path.dirname(path)),
-         :ok <- File.write(path, JSON.encode!(merged) |> reformat()) do
+         :ok <- write_unchanged(path, JSON.encode!(merged) |> reformat()) do
       say(told(scope))
     else
       {:error, :unparseable} ->
@@ -585,12 +585,39 @@ defmodule Whiska.CLI do
   defp where(:repo), do: "from this repo"
   defp where(:global), do: "from ~/.claude"
 
+  # A file whose contents are already what we would write is left alone, mtime
+  # and all. `whiska doctor` reads the main session's age against when its
+  # wiring last changed (Claude Code loads hooks once, at startup), and a
+  # re-init that rewrote identical bytes would make every live session look
+  # stale when nothing had moved.
+  defp write_unchanged(path, contents) do
+    case File.read(path) do
+      {:ok, ^contents} -> :ok
+      _different_or_missing -> File.write(path, contents)
+    end
+  end
+
+  @mode 0o755
+
+  # `File.chmod/2` writes the whole file_info record back, mtime included, so an
+  # unconditional chmod moves the clock exactly as a rewrite would — the thing
+  # `write_unchanged/2` above is there to avoid. The whole mode is compared, not
+  # the execute bits: a shim left group- or world-writable is exactly what
+  # re-running `init` is supposed to put right, and a mode that really is wrong
+  # is a change, so moving its clock is honest.
+  defp make_executable(path) do
+    case File.stat(path) do
+      {:ok, %File.Stat{mode: mode}} when Bitwise.band(mode, 0o7777) == @mode -> :ok
+      _wrong_or_missing -> File.chmod(path, @mode)
+    end
+  end
+
   defp write_statusline(repo_root) do
     script = Path.join(repo_root, Install.statusline_path())
 
     with :ok <- File.mkdir_p(Path.dirname(script)),
-         :ok <- File.write(script, Install.statusline_script()) do
-      File.chmod(script, 0o755)
+         :ok <- write_unchanged(script, Install.statusline_script()) do
+      make_executable(script)
     end
   end
 
