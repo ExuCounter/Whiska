@@ -140,7 +140,11 @@ defmodule Whiska.InstallStatuslineBoardTest do
 
     out = run(context, context.main)
 
-    assert out =~ "🦉 owl down · 40s stale"
+    # Not the exact second: the file is stamped 40s ago and the script reads
+    # `date +%s` a moment later, so the clock can tick between the two and the
+    # line says `41s`. What is under test is that an old board says it is
+    # stale, not the arithmetic of one second.
+    assert out =~ ~r/🦉 owl down · 4\ds stale/
     assert out =~ "🐭 feat-a"
     assert out =~ "\e[2m"
   end
