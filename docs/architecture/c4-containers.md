@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (1162 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (1250 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid

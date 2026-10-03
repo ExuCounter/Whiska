@@ -38,6 +38,16 @@ skips them.
    it is a local git question — no network, no forge, no credentials.
 2. **The worktree is clean.** `git status --porcelain` says nothing, untracked files
    included. An untracked file is work nobody has saved anywhere.
+
+   **Gitignored files are not covered, and they go with the worktree.** `--porcelain`
+   does not list them and `git worktree remove` deletes them without the refusal this
+   relies on elsewhere, so a `.env`, a local database or a build cache inside a landed
+   worktree is destroyed. Adding `--ignored` was considered and rejected: in a repo with
+   build output under the worktree — `_build/`, `deps/`, `node_modules/` — it would refuse
+   every worktree forever, which is the feature not existing. This is the same deletion
+   `drop-worktree` has always performed by hand; what changes is that nobody is watching
+   when it happens. A worktree holding a local secret that is not in the base branch is
+   the one case to take down by hand before it lands.
 3. **Nothing is unpushed.** No commit on the branch is absent from every remote.
    Belt-and-braces behind the merge check, and the one that catches "merged locally into a
    base branch that itself has not been pushed".
@@ -78,10 +88,21 @@ A **quiet** mouse is one with nothing left to do and nothing anyone is waiting o
 - **Its doorstep is empty of it.** A turn it has ended that the owl has not read yet is a
   question that does not exist yet, and tearing down on the strength of an older `done`
   would race it (ADR-0036).
-- **herdr does not say its pane is working.** `idle` and `done` both mean ready for input
-  and both pass; `working` and `blocked` do not; `unknown` is herdr unable to classify the
-  pane, so it does not either. **No pane at all passes** — that is ADR-0026's dead mouse,
-  which was the old precondition and is still a perfectly good state to clean up from.
+- **herdr does not say any pane in the worktree is working.** `idle` and `done` both mean
+  ready for input and both pass; `working` and `blocked` do not; `unknown` is herdr unable
+  to classify the pane, so it does not either. **No pane at all passes** — that is
+  ADR-0026's dead mouse, which was the old precondition and is still a perfectly good state
+  to clean up from.
+
+  **Read from herdr's own pane list, by where each pane sits, never from the mouse
+  record's `pane` column.** A record whose pane match has gone stale — herdr restarted, the
+  pane was re-attached, the list was momentarily short — reads as "no pane", which would
+  have closed a session somebody was using on the strength of Whiska having lost track of
+  it. So a pane whose working directory is inside the worktree counts whether or not the
+  record knows about it, and what herdr says about the worktree has to agree with itself:
+  **an open workspace with no pane in it, or a pane with no open workspace, is unknown**,
+  and the worktree stays. Both halves of that were found by the reviewers on this change,
+  which is the first version of it being wrong.
 
 This is deliberately strict on one case: a branch the person merged themselves, for a mouse
 that never said `done`, is never cleaned up automatically. That is the conservative side of
@@ -120,6 +141,22 @@ far longer than one afternoon and carry far more context. The preconditions are 
 that acceptable: a long-lived worktree is one that is being worked in, and a worktree being
 worked in is not quiet, not clean, or not merged. Longevity is not a reason to keep a folder
 whose branch has landed and whose session has nothing left to do.
+
+### What a mouse record is trusted for
+
+A mouse record's `path` now decides what gets deleted, and a record is minted from a
+doorstep entry — a JSON file in the repo's own `.git/whiska/doorstep/`, which anything
+running in this repo can write (ADR-0036). That is a trust boundary this change moves:
+before it, a forged entry could at worst produce a question nobody asked.
+
+It is bounded rather than closed, and these are the bounds: `git worktree remove` refuses a
+path that is not a registered worktree of this checkout, and herdr's workspace ids come
+from its own `worktree.list` for this checkout, so only this repo's own worktrees are
+reachable either way; the branch deleted is read from the worktree's own `HEAD`, never from
+the record; and all four preconditions still have to hold at that path, so nothing
+committed can be lost. What a forged entry buys is pointing cleanup at a worktree that
+would have qualified anyway — which is why the pane rule above reads herdr rather than the
+record. Anything able to write that file already runs as the person.
 
 ## Consequences
 

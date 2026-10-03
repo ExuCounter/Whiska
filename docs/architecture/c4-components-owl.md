@@ -131,8 +131,10 @@ git and the house's own database can answer alone — the branch merged into the
 worktree clean, nothing unpushed, and the mouse quiet: its last word a `done` report,
 nothing of its open or sent, nothing of its left uncollected on the doorstep. Only once
 something has passed all of that is herdr asked anything, so a house with nothing landed
-opens no socket. herdr then supplies the last two facts, whether the pane is working and
-which workspace the worktree is open in, and performs the removal: one `worktree.remove`
+opens no socket. herdr then supplies the last two facts — what is sitting in the worktree, by
+each pane's own working directory rather than by the record's remembered pane id, and
+which workspace the worktree is open in, which have to agree with each other — and
+performs the removal: one `worktree.remove`
 with `force: false`, which takes the worktree and the pane together the way `drop-worktree`
 always has. Anything unknown — a detached head, an unnameable base, a silent herdr, a live
 pane whose workspace herdr does not name — leaves the worktree standing. It is the first

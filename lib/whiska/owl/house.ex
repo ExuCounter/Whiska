@@ -552,6 +552,12 @@ defmodule Whiska.Owl.House do
       {mouse_id, {:removed, {:branch_kept, _}}} ->
         warn(state, "#{label(mouse_id)} landed — worktree and pane gone, branch kept")
 
+      {mouse_id, {:removed, {:unrecorded, reason}}} ->
+        warn(
+          state,
+          "#{mouse_id}'s worktree is gone but its row is not stamped (#{inspect(reason)})"
+        )
+
       {_mouse_id, {:left, _reason}} ->
         :ok
     end)

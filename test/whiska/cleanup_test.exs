@@ -205,6 +205,24 @@ defmodule Whiska.CleanupTest do
       assert [{"m-feat-a", {:left, :not_finished}}] = sweep(repo)
     end
 
+    test "latest is when the mouse asked, not the order the owl collected", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "done", status: "closed")
+      GitRepo.land(repo, "feat-a")
+
+      {:ok, _} =
+        Storage.record_question(%{
+          mouse_id: m.id,
+          text: "which way?",
+          kind: "needs-decision",
+          status: "answered",
+          asked_at: ~U[2026-01-01 09:00:00Z]
+        })
+
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+    end
+
     test "done is the mouse's latest word, not any word it ever said", %{repo: repo} do
       m = mouse(repo, "feat-a")
       GitRepo.land(repo, "feat-a")
@@ -249,6 +267,51 @@ defmodule Whiska.CleanupTest do
     end
   end
 
+  describe "the pane herdr sees, not the one the record remembers" do
+    test "a pane working in the worktree holds it, though the record lost its pane id",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.land(repo, "feat-a")
+
+      herdr(repo, [%{path: m.path, branch: "feat-a", workspace_id: "ws-7"}], [
+        %{
+          pane_id: "w9:p9",
+          cwd: Path.join(m.path, "lib"),
+          agent: "claude",
+          agent_status: "working"
+        }
+      ])
+
+      assert [{"m-feat-a", {:left, :working}}] = sweep(repo)
+      assert File.dir?(m.path)
+    end
+
+    test "a workspace herdr still has open with no pane in it is unexplained", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.land(repo, "feat-a")
+      herdr(repo, [%{path: m.path, branch: "feat-a", workspace_id: "ws-7"}], [])
+
+      assert [{"m-feat-a", {:left, :unknown_workspace}}] = sweep(repo)
+      assert File.dir?(m.path)
+    end
+
+    test "a ready pane the record never matched still goes through herdr", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.land(repo, "feat-a")
+
+      herdr(repo, [%{path: m.path, branch: "feat-a", workspace_id: "ws-7"}], [
+        %{pane_id: "w9:p9", cwd: m.path, agent: "claude", agent_status: "idle"}
+      ])
+
+      expect(Herdr, :remove_worktree, fn _, "ws-7" ->
+        File.rm_rf!(m.path)
+        :ok
+      end)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+    end
+  end
+
   describe "unknown is never permission" do
     test "a live pane whose workspace herdr does not name is left alone", %{repo: repo} do
       m = mouse(repo, "feat-a", pane: "w1:p1")
@@ -287,14 +350,49 @@ defmodule Whiska.CleanupTest do
       assert [{"m-feat-a", {:left, :ambiguous_base}}] = sweep(repo)
     end
 
-    test "a herdr that will not answer stops the whole sweep", %{repo: repo} do
+    test "a herdr that will not answer stops the sweep without relabelling what it refused",
+         %{repo: repo} do
       m = mouse(repo, "feat-a")
+      mouse(repo, "feat-b")
       GitRepo.land(repo, "feat-a")
       stub(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
       stub(Herdr, :worktrees, fn _, _ -> {:error, :econnrefused} end)
 
-      assert [{"m-feat-a", {:left, :no_herdr}}] = sweep(repo)
+      assert [{"m-feat-a", {:left, :no_herdr}}, {"m-feat-b", {:left, :not_merged}}] = sweep(repo)
       assert File.dir?(m.path)
+    end
+
+    test "herdr's path and the record's are compared with symlinks resolved", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.land(repo, "feat-a")
+      resolved = Whiska.Layout.canonical(m.path)
+      refute resolved == m.path
+
+      herdr(repo, [%{path: resolved, branch: "feat-a", workspace_id: "ws-7"}], [
+        %{pane_id: "w9:p9", cwd: resolved, agent: "claude", agent_status: "idle"}
+      ])
+
+      expect(Herdr, :remove_worktree, fn _, "ws-7" ->
+        File.rm_rf!(m.path)
+        :ok
+      end)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+    end
+
+    test "a record that vanishes mid-teardown is reported, never a crash", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      expect(Herdr, :worktrees, fn _, _ ->
+        Whiska.Repo.delete_all(Whiska.Schema.Question)
+        Whiska.Repo.delete_all(Whiska.Schema.Mouse)
+        {:ok, [%{path: m.path, branch: "feat-a", workspace_id: nil}]}
+      end)
+
+      assert [{"m-feat-a", {:removed, {:unrecorded, :no_such_mouse}}}] = sweep(repo)
+      refute File.dir?(m.path)
     end
 
     test "herdr refusing the removal leaves the branch alone too", %{repo: repo} do

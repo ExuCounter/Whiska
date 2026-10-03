@@ -20,6 +20,7 @@ defmodule Whiska.Cleanup do
 
   alias Whiska.Doorstep
   alias Whiska.Git
+  alias Whiska.Layout
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -29,7 +30,9 @@ defmodule Whiska.Cleanup do
 
   @typedoc "What one sweep did to one mouse."
   @type outcome ::
-          :removed | {:removed, {:branch_kept, term()}} | {:left, atom() | {atom(), term()}}
+          :removed
+          | {:removed, {:branch_kept | :unrecorded, term()}}
+          | {:left, atom() | {atom(), term()}}
 
   @doc """
   One pass over every mouse of this house whose worktree is still standing.
@@ -62,7 +65,10 @@ defmodule Whiska.Cleanup do
           Enum.map(judged, fn {mouse, v} -> {mouse.mouse_id, act(mouse, v, context)} end)
 
         {:error, reason} ->
-          Enum.map(judged, &{elem(&1, 0).mouse_id, {:left, reason}})
+          Enum.map(judged, fn
+            {mouse, {:leave, refused}} -> {mouse.mouse_id, {:left, refused}}
+            {mouse, {:ok, _}} -> {mouse.mouse_id, {:left, reason}}
+          end)
       end
     else
       Enum.map(judged, fn {mouse, {:leave, reason}} -> {mouse.mouse_id, {:left, reason}} end)
@@ -72,13 +78,38 @@ defmodule Whiska.Cleanup do
   defp act(_mouse, {:leave, reason}, _context), do: {:left, reason}
 
   defp act(mouse, {:ok, branch}, context) do
-    with :ok <- idle(mouse, context),
-         {:ok, workspace_id} <- workspace(mouse, context) do
-      take_down(mouse, %{path: mouse.path, branch: branch, workspace_id: workspace_id}, context)
-    else
+    case teardown(mouse, branch, context) do
+      {:ok, plan} -> take_down(mouse, plan, context)
       {:leave, reason} -> {:left, reason}
     end
   end
+
+  # What herdr says about the worktree, which is the last word on whether it may
+  # go. A pane sitting in the worktree and an open workspace on it have to agree:
+  # a workspace nothing accounts for, or a pane herdr opened no workspace for, is
+  # unknown — and the record's own `pane` column is never the authority, since a
+  # match that has gone stale would read as "no pane" and close a live session.
+  defp teardown(%Mouse{path: path} = mouse, branch, context) do
+    statuses = statuses_in(mouse, context)
+    workspace_id = Map.get(context.workspaces, Layout.canonical(path))
+    plan = %{path: path, branch: branch, workspace_id: workspace_id}
+
+    cond do
+      Enum.any?(statuses, &(&1 not in @ready)) -> {:leave, :working}
+      statuses == [] and is_nil(workspace_id) -> {:ok, plan}
+      statuses != [] and is_binary(workspace_id) -> {:ok, plan}
+      true -> {:leave, :unknown_workspace}
+    end
+  end
+
+  defp statuses_in(%Mouse{path: path, pane: pane}, context) do
+    context.panes
+    |> Enum.filter(&(in_worktree?(&1, path) or &1.pane_id == pane))
+    |> Enum.map(& &1.agent_status)
+  end
+
+  defp in_worktree?(%{cwd: cwd}, path) when is_binary(cwd), do: Layout.inside?(cwd, path)
+  defp in_worktree?(_pane, _path), do: false
 
   defp context(%{herdr: herdr, socket: socket}, local) do
     with {:ok, panes} <- herdr.list_panes(socket),
@@ -87,8 +118,8 @@ defmodule Whiska.Cleanup do
        Map.merge(local, %{
          herdr: herdr,
          socket: socket,
-         panes: Map.new(panes, &{&1.pane_id, &1.agent_status}),
-         workspaces: Map.new(worktrees, &{Path.expand(&1.path), &1.workspace_id})
+         panes: panes,
+         workspaces: Map.new(worktrees, &{Layout.canonical(&1.path), &1.workspace_id})
        })}
     else
       {:error, _} -> {:error, :no_herdr}
@@ -130,21 +161,10 @@ defmodule Whiska.Cleanup do
     end
   end
 
-  defp idle(%Mouse{pane: pane}, context) do
-    if busy?(pane, context.panes), do: {:leave, :working}, else: :ok
-  end
-
   defp finished?([]), do: false
-  defp finished?(questions), do: Enum.max_by(questions, & &1.id).kind == "done"
-
-  defp busy?(nil, _panes), do: false
-
-  defp busy?(pane, panes) do
-    case Map.fetch(panes, pane) do
-      {:ok, status} -> status not in @ready
-      :error -> false
-    end
-  end
+  # When it was asked, not when the owl happened to collect it.
+  defp finished?(questions),
+    do: Enum.max_by(questions, &{DateTime.to_unix(&1.asked_at), &1.id}).kind == "done"
 
   defp landed(%Mouse{path: path}, %{checkout: checkout} = context) do
     with {:ok, base} <- leave_on_error(context.base),
@@ -181,24 +201,15 @@ defmodule Whiska.Cleanup do
   defp leave_on_error({:error, reason}), do: {:leave, {:unreadable, reason}}
   defp leave_on_error(ok), do: ok
 
-  defp workspace(%Mouse{path: path, pane: pane}, context) do
-    case {Map.get(context.workspaces, Path.expand(path)), live?(pane, context.panes)} do
-      {nil, true} -> {:leave, :unknown_workspace}
-      {workspace_id, _} -> {:ok, workspace_id}
-    end
-  end
-
-  defp live?(nil, _panes), do: false
-  defp live?(pane, panes), do: Map.has_key?(panes, pane)
-
   defp take_down(mouse, plan, context) do
     with :ok <- remove(plan, context) do
       Git.prune_worktrees(context.checkout)
-      {:ok, _} = Storage.mark_removed(mouse.mouse_id)
+      recorded = Storage.mark_removed(mouse.mouse_id)
 
-      case Git.delete_branch(context.checkout, plan.branch) do
-        :ok -> :removed
-        {:error, reason} -> {:removed, {:branch_kept, reason}}
+      case {recorded, Git.delete_branch(context.checkout, plan.branch)} do
+        {{:ok, _}, :ok} -> :removed
+        {{:error, reason}, _} -> {:removed, {:unrecorded, reason}}
+        {_, {:error, reason}} -> {:removed, {:branch_kept, reason}}
       end
     else
       {:error, reason} -> {:left, {:not_removed, reason}}

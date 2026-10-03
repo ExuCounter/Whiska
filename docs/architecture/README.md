@@ -99,11 +99,13 @@ has its worktree removed, its pane closed with it and its branch deleted, and it
 stamped removed rather than dropped. All four preconditions are local — merged into the
 base, clean, nothing unpushed, and the mouse quiet (its last word a `done` report, nothing
 of its waiting on the person, nothing of its uncollected, and herdr not calling its pane
-working) — so herdr is asked nothing until something has passed them, and then only for
-whether the pane is busy and which workspace to remove, with `force: false`. Unknown is
+working, read from herdr's own pane list by where each pane sits rather than from the
+record's remembered pane) — so herdr is asked nothing until something has passed the local
+checks, and then only for what is sitting in the worktree and which workspace to remove,
+with `force: false`. Unknown is
 never permission: a detached head, an unnameable base, a silent herdr or a live pane whose
 workspace herdr does not name all leave the worktree standing (ADR-0061, superseding
-ADR-0007's worktree half). 1223 tests.
+ADR-0007's worktree half). 1250 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with its own tools, the owl reads status only

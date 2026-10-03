@@ -281,8 +281,9 @@ take a worktree down, which stays)
 **Quiet**:
 Said of a house with nothing waiting, and of a mouse with nothing left to do — the same
 word, one subject down. A quiet mouse has nothing of its open or sent, nothing of its
-left uncollected on the doorstep, its last word a `done` report, and a pane herdr does
-not call `working`. A mouse with no pane at all is quiet too: that is ADR-0026's dead
+left uncollected on the doorstep, its last word a `done` report, and no pane working in
+its worktree — read from herdr's own pane list, by where each pane sits, never from the
+mouse record's remembered pane. A mouse with no pane at all is quiet too: that is ADR-0026's dead
 mouse. It is what cleanup waits for, and it is deliberately stricter than "nobody is
 waiting on it": a mouse that never said it finished is never cleaned up after.
 _Avoid_: idle (herdr's word for a pane, which is one of the four things this reads),

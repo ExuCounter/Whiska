@@ -118,7 +118,7 @@ defmodule Whiska.Git do
   """
   @spec unpushed?(Path.t(), branch()) :: {:ok, boolean()} | {:error, term()}
   def unpushed?(worktree, branch) do
-    args = ["log", "--max-count=1", "--format=%H", branch, "--not", "--remotes"]
+    args = ["log", "--max-count=1", "--format=%H", branch, "--not", "--remotes", "--"]
     with {:ok, out} <- git(worktree, args), do: {:ok, out != ""}
   end
 
