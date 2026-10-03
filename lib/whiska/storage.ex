@@ -24,7 +24,8 @@ defmodule Whiska.Storage do
   @migrations [
     {1, Whiska.Migrations.V001CreateMiceAndQuestions},
     {2, Whiska.Migrations.V002OwlCollection},
-    {3, Whiska.Migrations.V003Delivery}
+    {3, Whiska.Migrations.V003Delivery},
+    {4, Whiska.Migrations.V004Cleanup}
   ]
 
   @modes ~w(build sniff)
@@ -375,6 +376,38 @@ defmodule Whiska.Storage do
       from(q in Question, where: q.mouse_id == ^mouse_id and q.status in ^@waiting),
       set: [status: "orphaned"]
     )
+  end
+
+  @doc """
+  Mark a mouse's worktree taken down (ADR-0061).
+
+  The row is stamped, never deleted: ADR-0007's reasoning about the record is
+  untouched by its worktree half being superseded, and a stamped row is what
+  keeps the sweep from ever looking at that folder again. The mouse is marked
+  dead in the same breath — its pane went with its worktree, so everything
+  `mark_dead/1` does to what it left waiting applies here too.
+
+  Idempotent: a mouse already marked is returned unchanged, so a second sweep
+  over the same worktree is a no-op rather than a fresh timestamp.
+  """
+  @spec mark_removed(String.t()) ::
+          {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def mark_removed(mouse_id) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      %Mouse{removed_at: %DateTime{}} = mouse ->
+        {:ok, mouse}
+
+      _ ->
+        with {:ok, _} <- mark_dead(mouse_id) do
+          Mouse
+          |> Repo.get(mouse_id)
+          |> Ecto.Changeset.change(%{removed_at: now()})
+          |> Repo.update()
+        end
+    end
   end
 
   @doc """

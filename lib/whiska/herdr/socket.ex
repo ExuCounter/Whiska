@@ -82,6 +82,33 @@ defmodule Whiska.Herdr.Socket do
     end
   end
 
+  @impl true
+  def worktrees(socket, checkout) do
+    with {:ok, %{"result" => %{"worktrees" => worktrees}}} when is_list(worktrees) <-
+           request(socket, "worktree.list", %{"cwd" => checkout}) do
+      {:ok, worktrees |> Enum.filter(& &1["is_linked_worktree"]) |> Enum.map(&worktree/1)}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  @impl true
+  def remove_worktree(socket, workspace_id) do
+    params = %{"workspace_id" => workspace_id, "force" => false}
+
+    with {:ok, %{"result" => _}} <- request(socket, "worktree.remove", params) do
+      :ok
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp worktree(raw) do
+    %{path: raw["path"], branch: raw["branch"], workspace_id: raw["open_workspace_id"]}
+  end
+
   defp pane(raw) do
     %{
       pane_id: raw["pane_id"],

@@ -23,9 +23,9 @@ C4Context
   Rel(person, claude, "Types into the main session")
   Rel(claude, whiska, "Sends hook events", "JSON on stdin / socket")
   Rel(whiska, claude, "Denies a tool call, or types an answer into a mouse")
-  Rel(whiska, herdr, "Opens panes, reads agent status", "herdr CLI")
+  Rel(whiska, herdr, "Opens panes, reads agent status, closes a landed mouse's pane", "herdr CLI")
   Rel(herdr, claude, "Starts and hosts every session")
-  Rel(whiska, git, "Derives layout from, stores house under .git/")
+  Rel(whiska, git, "Derives layout from, stores house under .git/, removes a merged worktree")
   Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
@@ -38,6 +38,9 @@ C4Context
 - **herdr is unchanged by this project** (ADR-0020). A mouse is not a new runtime thing —
   it is a name for a herdr pane running Claude Code. This is also the one boundary where
   mocking is allowed in tests (ADR-0031).
+- **git is asked, and now also answered to.** Whether a branch has landed is a local git
+  question, and it is the one that lets the owl take a merged worktree down by itself
+  (ADR-0061). No forge, no network, no credentials are involved in it.
 - **launchd** matters because there is exactly one owl per machine, not one process per
   repo (ADR-0001). `whiska owl install` writes the user LaunchAgent `com.whiska.owl`,
   which starts the owl at login and restarts it if it crashes (ADR-0040). The foreground

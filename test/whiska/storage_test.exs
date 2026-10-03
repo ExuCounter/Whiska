@@ -199,4 +199,34 @@ defmodule Whiska.StorageTest do
       assert Storage.mode("ghost") == {:error, :no_such_mouse}
     end
   end
+
+  describe "mark_removed/1 (ADR-0061)" do
+    setup %{main: main} do
+      {:ok, handle} = Storage.open(main)
+      on_exit(fn -> Storage.close(handle) end)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
+      :ok
+    end
+
+    test "stamps the row rather than deleting it — ADR-0007 still holds for the record" do
+      assert {:ok, mouse} = Storage.mark_removed("m1")
+      assert %DateTime{} = mouse.removed_at
+      assert %Mouse{removed_at: %DateTime{}} = Storage.mouse("m1")
+    end
+
+    test "is idempotent, so a second sweep over the same worktree changes nothing" do
+      {:ok, first} = Storage.mark_removed("m1")
+      {:ok, again} = Storage.mark_removed("m1")
+      assert first.removed_at == again.removed_at
+    end
+
+    test "marks the mouse dead too: its pane went with its worktree" do
+      {:ok, mouse} = Storage.mark_removed("m1")
+      assert %DateTime{} = mouse.died_at
+    end
+
+    test "reports an unknown mouse rather than inventing one" do
+      assert Storage.mark_removed("ghost") == {:error, :no_such_mouse}
+    end
+  end
 end

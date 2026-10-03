@@ -92,9 +92,30 @@ rewriting a committed file (ADR-0059). And the phantom those first two were chas
 gone: a folder under `worktrees/` that is no checkout of its own is no worktree, so
 nothing mints a mouse for the directory a slashed branch nests under — while a session
 sitting there is still denied a write into the main checkout, because losing identity
-must not mean losing containment (ADR-0030's note, ADR-0013). 1167 tests.
+must not mean losing containment (ADR-0030's note, ADR-0013).
+Then cleanup, which is the first thing in
+Whiska that deletes anything: on the same 60 s backstop, a mouse whose branch has landed
+has its worktree removed, its pane closed with it and its branch deleted, and its record
+stamped removed rather than dropped. All four preconditions are local — merged into the
+base, clean, nothing unpushed, and the mouse quiet (its last word a `done` report, nothing
+of its waiting on the person, nothing of its uncollected, and herdr not calling its pane
+working, read from herdr's own pane list by where each pane sits rather than from the
+record's remembered pane) — so herdr is asked nothing until something has passed the local
+checks, and then only for what is sitting in the worktree and which workspace to remove,
+with `force: false`. Unknown is
+never permission: a detached head, an unnameable base, a silent herdr or a live pane whose
+workspace herdr does not name all leave the worktree standing (ADR-0061, superseding
+ADR-0007's worktree half). 1250 tests.
 
-**Designed, decided, not yet written.** The per-repo and global sockets (ADR-0024,
+**Designed, decided, not yet written.** Watching a branch after its mouse's last message:
+the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only
+— one `curl` per branch on the existing backstop, a read-only token per forge, a GitHub and
+a GitLab adapter behind one port — and a red build goes to the live mouse that owns the
+branch, or to the person when that mouse is dead. Unknown is never a question. It would be
+the owl's first outbound network call of any kind, and it is gated on reopening ADR-0044,
+which forbids typing into any session but a house's main one. It chains onto cleanup rather
+than being part of it: green, then merged, then the worktree goes (ADR-0060, superseding
+ADR-0032). Then the per-repo and global sockets (ADR-0024,
 ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;
 the machine-wide line reading the owl over the
 global socket instead of the process table (ADR-0027); cross-repo commands. The doctor and the statusline find the

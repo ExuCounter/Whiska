@@ -259,4 +259,97 @@ defmodule Whiska.Herdr.SocketTest do
       assert {:error, _} = Socket.focus("/nonexistent/herdr.sock", "w1:p2")
     end
   end
+
+  describe "worktrees/2" do
+    test "asks worktree.list for one checkout and keeps the linked worktrees" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "worktree_list",
+           "worktrees" => [
+             %{
+               "path" => "/main",
+               "label" => "main",
+               "branch" => "main",
+               "is_bare" => false,
+               "is_detached" => false,
+               "is_prunable" => false,
+               "is_linked_worktree" => false,
+               "open_workspace_id" => "ws-main"
+             },
+             %{
+               "path" => "/main/worktrees/feat-a",
+               "label" => "feat-a",
+               "branch" => "feat-a",
+               "is_bare" => false,
+               "is_detached" => false,
+               "is_prunable" => false,
+               "is_linked_worktree" => true,
+               "open_workspace_id" => "ws-7"
+             }
+           ]
+         }}
+      )
+
+      assert {:ok, worktrees} = Socket.worktrees(path, "/main")
+
+      assert_received {:fake_got, %{"method" => "worktree.list", "params" => %{"cwd" => "/main"}}}
+
+      assert worktrees == [
+               %{path: "/main/worktrees/feat-a", branch: "feat-a", workspace_id: "ws-7"}
+             ]
+    end
+
+    test "a worktree herdr has no workspace open for carries no id" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "worktree_list",
+           "worktrees" => [
+             %{
+               "path" => "/main/worktrees/feat-b",
+               "label" => "feat-b",
+               "branch" => "feat-b",
+               "is_bare" => false,
+               "is_detached" => false,
+               "is_prunable" => false,
+               "is_linked_worktree" => true,
+               "open_workspace_id" => nil
+             }
+           ]
+         }}
+      )
+
+      assert {:ok, [%{workspace_id: nil}]} = Socket.worktrees(path, "/main")
+    end
+  end
+
+  describe "remove_worktree/2" do
+    test "asks worktree.remove for that workspace and never forces" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_reply, %{"type" => "worktree_removed"}})
+
+      assert :ok = Socket.remove_worktree(path, "ws-7")
+
+      assert_received {:fake_got,
+                       %{
+                         "method" => "worktree.remove",
+                         "params" => %{"workspace_id" => "ws-7", "force" => false}
+                       }}
+    end
+
+    test "herdr refusing is an error carrying its code, never a retry with force" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_error, %{"code" => "worktree_dirty", "message" => "uncommitted changes"}})
+
+      assert {:error, {:herdr, %{"code" => "worktree_dirty"}}} =
+               Socket.remove_worktree(path, "ws-7")
+    end
+  end
 end

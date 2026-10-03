@@ -4,6 +4,11 @@ status: proposed
 
 # PR opening and merge tracking — designed, not committed
 
+**Superseded while still proposed, on 2026-10-02, by
+[ADR-0060](0060-watching-a-branch-is-the-owls-one-networked-job.md)**, which keeps the
+shape below and changes two things: the forge is not always GitHub, and Whiska reads
+status but never writes — no `gh pr merge` of its own. What it said:
+
 How often these worktree branches actually go through a PR is a genuine 50/50, so this is
 not built for the MVP. The shape is worked out for whenever it is wanted, recorded here so
 it does not get redesigned from scratch:
