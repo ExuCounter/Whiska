@@ -101,9 +101,17 @@ defmodule Whiska.Herdr.SocketTest do
                  cwd: "/a",
                  agent: "claude",
                  agent_status: "idle",
-                 title: "Order builder"
+                 title: "Order builder",
+                 session: nil
                },
-               %{pane_id: "w1:p2", cwd: nil, agent: nil, agent_status: "unknown", title: nil}
+               %{
+                 pane_id: "w1:p2",
+                 cwd: nil,
+                 agent: nil,
+                 agent_status: "unknown",
+                 title: nil,
+                 session: nil
+               }
              ]
     end
 
@@ -199,8 +207,33 @@ defmodule Whiska.Herdr.SocketTest do
                cwd: "/main",
                agent: "claude",
                agent_status: "idle",
-               title: nil
+               title: nil,
+               session: nil
              }
+    end
+
+    test "the agent's own session id comes through — the doctor finds the transcript by it" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "pane_info",
+           "pane" => %{
+             "pane_id" => "w1:p2",
+             "agent" => "claude",
+             "agent_session" => %{
+               "agent" => "claude",
+               "kind" => "id",
+               "value" => "bea77b20-9a0e-444f-b49a-cc0f1ae493cb"
+             }
+           }
+         }}
+      )
+
+      assert {:ok, %{session: "bea77b20-9a0e-444f-b49a-cc0f1ae493cb"}} =
+               Socket.pane(path, "w1:p2")
     end
 
     test "a pane herdr does not know is an error carrying herdr's code" do

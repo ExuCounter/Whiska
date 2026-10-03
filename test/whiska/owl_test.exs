@@ -100,4 +100,31 @@ defmodule Whiska.OwlTest do
     assert {:ok, new} = Owl.house(a)
     assert new != pid
   end
+
+  describe "started_at/1 — how long the running owl has been running" do
+    test "reads the elapsed time ps prints, in each of its three widths" do
+      now = ~U[2026-10-02 12:00:00Z]
+
+      assert Owl.started_at(1, now, fn 1 -> "        12:34\n" end) ==
+               ~U[2026-10-02 11:47:26Z]
+
+      assert Owl.started_at(1, now, fn 1 -> "01:02:03\n" end) == ~U[2026-10-02 10:57:57Z]
+      assert Owl.started_at(1, now, fn 1 -> "2-01:00:00\n" end) == ~U[2026-09-30 11:00:00Z]
+    end
+
+    test "a pid ps knows nothing about, or output it cannot read, is nil" do
+      now = ~U[2026-10-02 12:00:00Z]
+
+      assert Owl.started_at(1, now, fn 1 -> nil end) == nil
+      assert Owl.started_at(1, now, fn 1 -> "" end) == nil
+      assert Owl.started_at(1, now, fn 1 -> "not a time\n" end) == nil
+    end
+
+    test "the owl running these tests is not it, but this process has a real start time" do
+      self = String.to_integer(System.pid())
+
+      assert %DateTime{} = at = Owl.started_at(self)
+      assert DateTime.compare(at, DateTime.utc_now()) == :lt
+    end
+  end
 end

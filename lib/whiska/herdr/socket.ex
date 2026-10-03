@@ -115,9 +115,16 @@ defmodule Whiska.Herdr.Socket do
       cwd: raw["cwd"],
       agent: raw["agent"],
       agent_status: raw["agent_status"] || "unknown",
-      title: raw["terminal_title_stripped"]
+      title: raw["terminal_title_stripped"],
+      session: session(raw["agent_session"])
     }
   end
+
+  # herdr names the agent's own session under `agent_session`, and only for a
+  # pane running one. For Claude Code the value is the session id, which is the
+  # transcript's filename (ADR-0053's folder, this file's name).
+  defp session(%{"value" => value}) when is_binary(value) and value != "", do: value
+  defp session(_none), do: nil
 
   @impl true
   def subscribe(socket, subscriptions, listener) do

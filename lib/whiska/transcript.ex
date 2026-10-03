@@ -104,11 +104,28 @@ defmodule Whiska.Transcript do
   is what makes this an identity rather than a position (ADR-0053).
   """
   @spec started_in(Path.t()) :: Path.t() | nil
-  def started_in(path) do
+  def started_in(path), do: head(path, &cwd_in/1)
+
+  @doc """
+  When the session began, read from the first entry that carries a timestamp —
+  `nil` for a transcript that is not there or carries none.
+
+  What `whiska doctor` compares the hook wiring against: Claude Code reads
+  `settings.json` once, at startup, so a session older than its own wiring is
+  running the wiring from before. Checked against a real `~/.claude/projects`
+  on 2026-10-02: for every transcript there, the first entry's timestamp and
+  the file's own creation time were the same second.
+  """
+  @spec started_at(Path.t()) :: DateTime.t() | nil
+  def started_at(path), do: head(path, &timestamp_in/1)
+
+  # The session's own header and the start of its first turn, read under the
+  # three ceilings above: the first line that answers wins.
+  defp head(path, answer) do
     with {:ok, %File.Stat{type: :regular}} <- File.stat(path),
          {:ok, io} <- File.open(path, [:read, :binary]) do
       try do
-        first_cwd(io, @head_lines, @head_bytes)
+        first(io, answer, @head_lines, @head_bytes)
       after
         File.close(io)
       end
@@ -117,27 +134,39 @@ defmodule Whiska.Transcript do
     end
   end
 
-  defp first_cwd(_io, 0, _bytes), do: nil
-  defp first_cwd(_io, _lines, bytes) when bytes <= 0, do: nil
+  defp first(_io, _answer, 0, _bytes), do: nil
+  defp first(_io, _answer, _lines, bytes) when bytes <= 0, do: nil
 
-  defp first_cwd(io, lines, bytes) do
+  defp first(io, answer, lines, bytes) do
     case IO.read(io, :line) do
       line when is_binary(line) ->
-        cwd_in(line) || first_cwd(io, lines - 1, bytes - byte_size(line))
+        entry(line, answer) || first(io, answer, lines - 1, bytes - byte_size(line))
 
       _eof_or_error ->
         nil
     end
   end
 
-  defp cwd_in(line) when byte_size(line) > @line_bytes, do: nil
+  defp entry(line, _answer) when byte_size(line) > @line_bytes, do: nil
 
-  defp cwd_in(line) do
+  defp entry(line, answer) do
     case JSON.decode(line) do
-      {:ok, %{"cwd" => cwd}} when is_binary(cwd) and cwd != "" -> cwd
+      {:ok, entry} when is_map(entry) -> answer.(entry)
       _other -> nil
     end
   end
+
+  defp cwd_in(%{"cwd" => cwd}) when is_binary(cwd) and cwd != "", do: cwd
+  defp cwd_in(_entry), do: nil
+
+  defp timestamp_in(%{"timestamp" => at}) when is_binary(at) do
+    case DateTime.from_iso8601(at) do
+      {:ok, at, _offset} -> at
+      _unparseable -> nil
+    end
+  end
+
+  defp timestamp_in(_entry), do: nil
 
   @doc """
   The last `bytes` of a transcript, with the first line dropped when it may have

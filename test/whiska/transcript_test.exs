@@ -494,4 +494,47 @@ defmodule Whiska.TranscriptTest do
       assert Transcript.started_in(path) == nil
     end
   end
+
+  describe "started_at/1 — when the session began (the doctor's staleness check)" do
+    setup do
+      path = Path.join(System.tmp_dir!(), "whiska-startat-#{System.unique_integer([:positive])}")
+      on_exit(fn -> File.rm_rf!(path) end)
+      {:ok, path: path}
+    end
+
+    test "is the first timestamp the transcript carries, not the last", %{path: path} do
+      File.write!(path, [
+        JSON.encode!(%{"type" => "mode"}),
+        "\n",
+        JSON.encode!(%{"type" => "user", "timestamp" => "2026-10-01T11:13:58.133Z"}),
+        "\n",
+        JSON.encode!(%{"type" => "user", "timestamp" => "2026-10-02T08:00:00.000Z"}),
+        "\n"
+      ])
+
+      assert Transcript.started_at(path) == ~U[2026-10-01 11:13:58.133Z]
+    end
+
+    test "skips lines that will not parse, and timestamps that will not", %{path: path} do
+      File.write!(path, [
+        "{half a line\n",
+        JSON.encode!(%{"timestamp" => "not a time"}),
+        "\n",
+        JSON.encode!(%{"timestamp" => "2026-10-01T11:13:58.133Z"}),
+        "\n"
+      ])
+
+      assert Transcript.started_at(path) == ~U[2026-10-01 11:13:58.133Z]
+    end
+
+    test "a transcript with no timestamp at all is nil", %{path: path} do
+      File.write!(path, JSON.encode!(%{"type" => "mode"}) <> "\n")
+
+      assert Transcript.started_at(path) == nil
+    end
+
+    test "a file that is not there is nil, never a crash", %{path: path} do
+      assert Transcript.started_at(path) == nil
+    end
+  end
 end

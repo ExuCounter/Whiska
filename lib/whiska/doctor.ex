@@ -45,6 +45,7 @@ defmodule Whiska.Doctor do
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
+  alias Whiska.Transcript
 
   @reinstall "mix escript.build && cp whiska ~/.local/bin/whiska"
   @init "whiska init"
@@ -61,7 +62,8 @@ defmodule Whiska.Doctor do
   of running owls, the process table by default), `:herdr` (the herdr module,
   ADR-0031's boundary), `:open_houses` (the record's path, the real one by
   default), `:launch_agent` (a function returning `{installed?, status}` for
-  the owl's LaunchAgent, launchd's own answer by default).
+  the owl's LaunchAgent, launchd's own answer by default), `:owl_started_at`
+  (a function giving when a pid started, `ps` by default).
   """
   @spec run(Path.t(), keyword()) :: Report.t()
   def run(main_checkout, opts \\ []) do
@@ -70,11 +72,13 @@ defmodule Whiska.Doctor do
     herdr = Keyword.get(opts, :herdr, Herdr.impl())
     record = Keyword.get_lazy(opts, :open_houses, &OpenHouses.path/0)
     launch_agent = Keyword.get(opts, :launch_agent, &launch_agent_state/0)
+    owl_started_at = Keyword.get(opts, :owl_started_at, &Whiska.Owl.started_at/1)
     now = DateTime.utc_now()
     pids = owl_pids.()
     {installed?, agent} = launch_agent.()
 
-    {binary, binary_found?} = binary(env)
+    {binary, binary_path} = binary(env)
+    installed_at = changed_at(binary_path)
     {herdr_check, panes} = herdr(env, herdr)
     settings = read_settings(main_checkout)
     global_state = Install.global_state()
@@ -83,23 +87,25 @@ defmodule Whiska.Doctor do
     shim = shim(shim_contents)
 
     probes =
-      if binary_found? and shim.status == :ok,
+      if binary_path != nil and shim.status == :ok,
         do: [probe(main_checkout, "pre-tool-use", env), probe(main_checkout, "stop", env)],
         else: []
 
-    {house, in_house} = house(main_checkout, panes, herdr, env["HERDR_SOCKET_PATH"], now)
+    {house, in_house} =
+      house(main_checkout, panes, herdr, env["HERDR_SOCKET_PATH"], now, env)
 
     checks =
-      [
-        binary,
-        runtime(env),
-        herdr_check,
-        owl(pids),
-        launch_agent(installed?, agent, pids),
-        open_houses(OpenHouses.read(record), main_checkout, pids),
-        tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
-        global(global_state)
-      ] ++
+      [binary] ++
+        built(main_checkout, installed_at, binary_path) ++
+        [
+          runtime(env),
+          herdr_check,
+          owl(pids, oldest_owl(pids, owl_started_at), installed_at),
+          launch_agent(installed?, agent, pids),
+          open_houses(OpenHouses.read(record), main_checkout, pids),
+          tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
+          global(global_state)
+        ] ++
         hooks ++
         [shim] ++
         repo_statusline_script(main_checkout) ++
@@ -125,20 +131,20 @@ defmodule Whiska.Doctor do
 
     cond do
       executable?(override) ->
-        {Check.ok("binary", "#{override} (WHISKA_BIN)"), true}
+        {Check.ok("binary", "#{override} (WHISKA_BIN)"), override}
 
       path = find_on_path(env, "whiska") ->
-        {Check.ok("binary", path), true}
+        {Check.ok("binary", path), path}
 
       executable?(fallback) ->
         {Check.warn(
            "binary",
            "#{fallback} — not on PATH; the shim falls back here",
            ~s|export PATH="$HOME/.local/bin:$PATH"|
-         ), true}
+         ), fallback}
 
       true ->
-        {Check.fail("binary", "no whiska binary found", @reinstall), false}
+        {Check.fail("binary", "no whiska binary found", @reinstall), nil}
     end
   end
 
@@ -204,10 +210,117 @@ defmodule Whiska.Doctor do
     end
   end
 
-  @doc "Is an owl running? `pids` are the owl processes found."
-  @spec owl([pos_integer()]) :: Check.t()
-  def owl([]), do: Check.warn("owl", "not running — nothing collects the doorstep", @owl)
-  def owl(pids), do: Check.ok("owl", "running (pid #{Enum.join(pids, ", ")})")
+  @doc """
+  Is an owl running — and is it running the binary that is installed now?
+
+  `pids` are the owl processes found, `started_at` when the oldest of them
+  started, `installed_at` when the binary on disk was last written. A process
+  older than its own binary is the gap this moduledoc already claimed to cover
+  and did not: nothing about a running owl changes when the escript under it is
+  replaced, so a fix lands, the board keeps drawing the behaviour from before
+  it, and the owl line says `running` throughout. Either time being unknown
+  leaves the plain line, never a guess.
+
+  A warning, not a failure: the old owl collects and delivers perfectly well
+  (ADR-0038), it is just not the code the person thinks they are running.
+  """
+  @spec owl([pos_integer()], DateTime.t() | nil, DateTime.t() | nil) :: Check.t()
+  def owl(pids, started_at \\ nil, installed_at \\ nil)
+
+  def owl([], _started_at, _installed_at),
+    do: Check.warn("owl", "not running — nothing collects the doorstep", @owl)
+
+  def owl(pids, %DateTime{} = started_at, %DateTime{} = installed_at) do
+    case DateTime.diff(installed_at, started_at, :second) do
+      behind when behind > 0 ->
+        Check.warn(
+          "owl",
+          "running (pid #{Enum.join(pids, ", ")}), started #{age(behind)} before the binary " <>
+            "it runs was installed — it is serving the code that replaced it",
+          @restart_owl
+        )
+
+      _current ->
+        Check.ok("owl", "running (pid #{Enum.join(pids, ", ")}), from the installed binary")
+    end
+  end
+
+  def owl(pids, _started_at, _installed_at),
+    do: Check.ok("owl", "running (pid #{Enum.join(pids, ", ")})")
+
+  @doc """
+  The escript built in this checkout, against the one on PATH (ADR-0038).
+
+  `built_at` is when `mix escript.build` last wrote `./whiska` here,
+  `installed_at` when `installed` was last written. A build newer than the
+  installed binary is the half-finished step everything downstream inherits:
+  the hooks, the statusline and the owl all run the installed one, so a fix
+  built and not copied is a fix nobody is running — including the person
+  reading this report to find out why it is missing.
+
+  A warning: what is installed still works, it is simply not what was built
+  here. Only ever reported where there is a build to compare — a checkout
+  nobody has built in gets no line (the `review loop` check's rule).
+  """
+  @spec build(DateTime.t(), DateTime.t(), Path.t()) :: Check.t()
+  def build(%DateTime{} = built_at, %DateTime{} = installed_at, installed) do
+    case DateTime.diff(built_at, installed_at, :second) do
+      ahead when ahead > 0 ->
+        Check.warn(
+          "build",
+          "./whiska here was built #{age(ahead)} after #{installed} was installed — " <>
+            "nothing runs this build until it is copied over",
+          "cp whiska #{installed}"
+        )
+
+      _current ->
+        Check.ok("build", "./whiska here is no newer than #{installed}")
+    end
+  end
+
+  @doc """
+  The main session, against the wiring it loaded (ADR-0038).
+
+  Claude Code reads `settings.json` once, when the session starts, so a session
+  older than its own hook wiring is running the wiring from before the change
+  and nothing in that session ever says so. `started_at` is when it started,
+  read from its transcript (`Whiska.Transcript.started_at/1`, found through
+  herdr's session id for the recorded pane); `changes` are the settings files
+  that wire it, each with when it last changed.
+
+  Only `settings.json` is compared. The shim and the statusline script are run
+  afresh every time they are needed, so a change to either is live the moment
+  it lands and would be a false alarm here. A session whose transcript cannot
+  be found says it was not checked rather than guessing: a check that cries
+  wolf about a restart the person has already done is worse than none.
+  """
+  @spec session_wiring(DateTime.t() | nil, [{String.t(), DateTime.t()}]) :: Check.t()
+  def session_wiring(nil, _changes),
+    do:
+      Check.ok(
+        "session wiring",
+        "not checked — herdr did not name the main session, or its transcript is gone"
+      )
+
+  def session_wiring(%DateTime{} = started_at, changes) do
+    case changes
+         |> Enum.filter(&(DateTime.compare(elem(&1, 1), started_at) == :gt))
+         |> newest() do
+      nil ->
+        Check.ok("session wiring", "started after the last change to it")
+
+      {file, at} ->
+        Check.warn(
+          "session wiring",
+          "the main session started #{age(DateTime.diff(at, started_at, :second))} before " <>
+            "#{file} last changed — it is running the hooks from before that",
+          "restart Claude in the main session's pane: its hooks are read once, at startup"
+        )
+    end
+  end
+
+  defp newest([]), do: nil
+  defp newest(changes), do: Enum.max_by(changes, &DateTime.to_unix(elem(&1, 1)))
 
   defp launch_agent_state,
     do: {LaunchAgent.installed?(LaunchAgent.paths()), LaunchAgent.status()}
@@ -737,7 +850,7 @@ defmodule Whiska.Doctor do
 
   # -- this repo's house -------------------------------------------------------
 
-  defp house(main_checkout, panes, herdr, socket, now) do
+  defp house(main_checkout, panes, herdr, socket, now, env) do
     path = Storage.database_path(main_checkout)
 
     try do
@@ -754,6 +867,10 @@ defmodule Whiska.Doctor do
             in_house =
               [
                 main_session(main_pane, word),
+                session_wiring(
+                  session_started_at(word, main_checkout, env),
+                  settings_changes(main_checkout, env)
+                ),
                 questions(
                   open,
                   sent,
@@ -995,6 +1112,71 @@ defmodule Whiska.Doctor do
     case File.read(Path.join(main_checkout, Install.shim_path())) do
       {:ok, contents} -> contents
       _ -> nil
+    end
+  end
+
+  # The oldest of the owls running: with two of them the older one is the one
+  # serving stale code, and the launch-agent check is what names the pair.
+  defp oldest_owl([], _started_at), do: nil
+
+  defp oldest_owl(pids, started_at) do
+    pids
+    |> Enum.map(started_at)
+    |> Enum.filter(&match?(%DateTime{}, &1))
+    |> Enum.min(DateTime, fn -> nil end)
+  end
+
+  # Only where this checkout has both a build and a binary to compare it with:
+  # elsewhere the line could only ever say "nothing built here" (ADR-0038's
+  # rule, as the retired review loop reads it).
+  defp built(main_checkout, installed_at, installed) do
+    escript = Path.join(main_checkout, "whiska")
+
+    with true <- File.regular?(Path.join(main_checkout, "mix.exs")),
+         true <- executable?(escript),
+         %DateTime{} = built_at <- changed_at(escript),
+         %DateTime{} <- installed_at do
+      [build(built_at, installed_at, installed)]
+    else
+      _nothing_to_compare -> []
+    end
+  end
+
+  # The files Claude Code reads once, at startup, and the session wiring check
+  # compares itself against. Both can be absent; a repo wired globally has only
+  # the second.
+  defp settings_changes(main_checkout, env) do
+    [
+      {".claude/settings.json", Path.join(main_checkout, ".claude/settings.json")},
+      {"~/.claude/settings.json", Path.join(home(env), ".claude/settings.json")}
+    ]
+    |> Enum.flat_map(fn {label, path} ->
+      case changed_at(path) do
+        %DateTime{} = at -> [{label, at}]
+        nil -> []
+      end
+    end)
+  end
+
+  # When the main session started, found the way ADR-0053 identifies a session:
+  # herdr names the session id for the pane, and that is the transcript's name
+  # inside Claude Code's folder for the directory it started in.
+  defp session_started_at({:ok, %{session: session}}, main_checkout, env)
+       when is_binary(session) do
+    main_checkout
+    |> Transcript.project_dir(home(env))
+    |> Path.join(session <> ".jsonl")
+    |> Transcript.started_at()
+  end
+
+  defp session_started_at(_word, _main_checkout, _env), do: nil
+
+  defp changed_at(nil), do: nil
+
+  defp changed_at(path) do
+    case File.stat(path, time: :posix) do
+      {:ok, %File.Stat{type: :regular, mtime: at}} -> DateTime.from_unix!(at)
+      _unreadable -> nil
     end
   end
 

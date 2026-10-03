@@ -79,6 +79,66 @@ defmodule Whiska.Owl do
   end
 
   @doc """
+  When a running process started, from `ps`.
+
+  The doctor's one way to tell an owl that is merely up from an owl that is up
+  and old: a process started before the binary on disk was written is running
+  code the person has already replaced (ADR-0038 — the doctor says so and never
+  restarts it). Elapsed time rather than a start date, because `ps -o lstart`
+  prints a local-time string in the machine's own locale and this needs no
+  parsing of either.
+
+  `now` and `etime` are there so the arithmetic can be tested without a process
+  of a known age; `nil` for a pid `ps` does not know, or output it cannot read.
+  """
+  @spec started_at(pos_integer(), DateTime.t(), (pos_integer() -> String.t() | nil)) ::
+          DateTime.t() | nil
+  def started_at(pid, now \\ DateTime.utc_now(), etime \\ &etime/1) do
+    case etime.(pid) do
+      text when is_binary(text) ->
+        case elapsed(String.trim(text)) do
+          nil -> nil
+          seconds -> DateTime.add(now, -seconds, :second)
+        end
+
+      _unknown ->
+        nil
+    end
+  end
+
+  # `[[dd-]hh:]mm:ss`, which is every width ps prints it in.
+  defp elapsed(text) do
+    with [clock | days] <- text |> String.split("-") |> Enum.reverse(),
+         parts when parts != [] <- String.split(clock, ":"),
+         [_ | _] = numbers <- Enum.map(days ++ parts, &number/1),
+         false <- Enum.any?(numbers, &is_nil/1) do
+      [seconds, minutes | rest] = Enum.reverse(numbers)
+      hours = Enum.at(rest, 0, 0)
+      days = Enum.at(rest, 1, 0)
+
+      seconds + minutes * 60 + hours * 3600 + days * 86_400
+    else
+      _unreadable -> nil
+    end
+  end
+
+  defp number(text) do
+    case Integer.parse(text) do
+      {n, ""} -> n
+      _ -> nil
+    end
+  end
+
+  defp etime(pid) do
+    case System.cmd("ps", ["-o", "etime=", "-p", Integer.to_string(pid)], stderr_to_stdout: true) do
+      {out, 0} -> out
+      _ -> nil
+    end
+  rescue
+    ErlangError -> nil
+  end
+
+  @doc """
   Open a house, or return the one already open for that checkout. Either way
   it is in the open-houses record afterwards.
   """

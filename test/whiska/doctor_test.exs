@@ -318,6 +318,82 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  describe "owl/3 — an owl that is up, against the binary on disk" do
+    test "an owl started before the binary was written is running the code it replaced" do
+      assert %Check{status: :warn, detail: detail, fix: "whiska owl stop && whiska owl start"} =
+               Doctor.owl([4242], ~U[2026-10-02 09:00:00Z], ~U[2026-10-02 10:00:00Z])
+
+      assert detail =~ "4242"
+      assert detail =~ "1 h"
+    end
+
+    test "an owl started after it is ok and says so" do
+      assert %Check{status: :ok, detail: detail} =
+               Doctor.owl([4242], ~U[2026-10-02 11:00:00Z], ~U[2026-10-02 10:00:00Z])
+
+      assert detail =~ "4242"
+    end
+
+    test "no start time and no binary is the plain running line" do
+      assert %Check{status: :ok, detail: detail} =
+               Doctor.owl([4242], nil, ~U[2026-10-02 10:00:00Z])
+
+      assert detail =~ "4242"
+      assert %Check{status: :ok} = Doctor.owl([4242], ~U[2026-10-02 10:00:00Z], nil)
+    end
+  end
+
+  describe "build/3 — the escript built here, against the one on PATH" do
+    test "a newer build in the checkout means the fix never reached the binary" do
+      assert %Check{status: :warn, detail: detail, fix: fix} =
+               Doctor.build(
+                 ~U[2026-10-02 10:00:00Z],
+                 ~U[2026-10-02 09:00:00Z],
+                 "/home/me/bin/whiska"
+               )
+
+      assert detail =~ "nothing runs this build"
+      assert fix == "cp whiska /home/me/bin/whiska"
+    end
+
+    test "an installed binary at least as new as the build here is ok" do
+      assert %Check{status: :ok} =
+               Doctor.build(
+                 ~U[2026-10-02 09:00:00Z],
+                 ~U[2026-10-02 09:00:00Z],
+                 "/home/me/bin/whiska"
+               )
+    end
+  end
+
+  describe "session_wiring/2 — a session older than the hooks it loaded" do
+    test "a session that started before settings.json changed is running the old wiring" do
+      assert %Check{status: :warn, detail: detail, fix: fix} =
+               Doctor.session_wiring(~U[2026-10-02 09:00:00Z], [
+                 {".claude/settings.json", ~U[2026-10-02 09:30:00Z]},
+                 {"~/.claude/settings.json", ~U[2026-10-02 08:00:00Z]}
+               ])
+
+      assert detail =~ ".claude/settings.json"
+      assert detail =~ "30 min"
+      assert fix =~ "restart"
+    end
+
+    test "a session that started after every change is ok" do
+      assert %Check{status: :ok} =
+               Doctor.session_wiring(~U[2026-10-02 10:00:00Z], [
+                 {".claude/settings.json", ~U[2026-10-02 09:30:00Z]}
+               ])
+    end
+
+    test "a session whose transcript could not be found is said to be unchecked, never guessed" do
+      assert %Check{status: :ok, detail: detail} =
+               Doctor.session_wiring(nil, [{".claude/settings.json", ~U[2026-10-02 09:30:00Z]}])
+
+      assert detail =~ "not checked"
+    end
+  end
+
   describe "open_houses/3 — the owl's record, and whether this repo is in it (ADR-0039)" do
     test "this repo open, alone, is ok" do
       assert %Check{status: :ok, detail: detail} =
@@ -793,6 +869,128 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :warn, detail: detail} = find(report.checks, "doorstep")
       assert detail =~ "1 waiting"
       assert [%Check{status: :warn}] = Enum.filter(report.checks, &(&1.name == "mice"))
+    end
+
+    test "an owl that predates the installed binary is warned about, pid and all", %{
+      main: main,
+      env: env
+    } do
+      init(main)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+      started = DateTime.add(DateTime.utc_now(), -3600, :second)
+
+      report =
+        Doctor.run(main,
+          env: env,
+          owl_pids: fn -> [4242] end,
+          owl_started_at: fn 4242 -> started end
+        )
+
+      assert %Check{status: :warn, detail: detail, fix: "whiska owl stop && whiska owl start"} =
+               find(report.checks, "owl")
+
+      assert detail =~ "4242"
+      assert detail =~ "serving the code that replaced it"
+    end
+
+    test "an owl younger than the binary is ok", %{main: main, env: env} do
+      init(main)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      report =
+        Doctor.run(main,
+          env: env,
+          owl_pids: fn -> [4242] end,
+          owl_started_at: fn 4242 -> DateTime.utc_now() end
+        )
+
+      assert %Check{status: :ok} = find(report.checks, "owl")
+    end
+
+    test "an escript built here and never copied over is its own line", %{
+      main: main,
+      env: env
+    } do
+      init(main)
+      File.write!(Path.join(main, "mix.exs"), "# a project that builds whiska\n")
+      built = script(main, "whiska", "#!/bin/sh\nexit 0\n")
+      File.touch!(built, System.os_time(:second) + 120)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :warn, detail: detail, fix: fix} = find(report.checks, "build")
+      assert detail =~ "nothing runs this build"
+      assert fix =~ "cp whiska"
+    end
+
+    test "a checkout with nothing built in it gets no build line at all", %{
+      main: main,
+      env: env
+    } do
+      init(main)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      refute find(Doctor.run(main, env: env, owl_pids: fn -> [] end).checks, "build")
+    end
+
+    test "a main session older than settings.json is running the hooks from before it", %{
+      main: main,
+      env: env,
+      root: root
+    } do
+      init(main)
+      File.touch!(Path.join(root, "herdr.sock"))
+      {:ok, handle} = Storage.open(main, name: :seed)
+      :ok = Storage.set_main_pane("w1:p2")
+      Storage.close(handle)
+
+      transcript =
+        main
+        |> Whiska.Transcript.project_dir(root)
+        |> Path.join("a-session.jsonl")
+
+      File.mkdir_p!(Path.dirname(transcript))
+
+      started = DateTime.add(DateTime.utc_now(), -7200, :second)
+
+      File.write!(
+        transcript,
+        JSON.encode!(%{"timestamp" => DateTime.to_iso8601(started)}) <> "\n"
+      )
+
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      stub(Herdr, :pane, fn _, "w1:p2" ->
+        {:ok, Map.put(claude("idle"), :session, "a-session")}
+      end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :warn, detail: detail, fix: fix} =
+               find(report.checks, "session wiring")
+
+      assert detail =~ ".claude/settings.json"
+      assert fix =~ "restart Claude"
+    end
+
+    test "a main session herdr names no session for is unchecked, not guessed at", %{
+      main: main,
+      env: env,
+      root: root
+    } do
+      init(main)
+      File.touch!(Path.join(root, "herdr.sock"))
+      {:ok, handle} = Storage.open(main, name: :seed)
+      :ok = Storage.set_main_pane("w1:p2")
+      Storage.close(handle)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+      stub(Herdr, :pane, fn _, "w1:p2" -> {:ok, claude("idle")} end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :ok, detail: detail} = find(report.checks, "session wiring")
+      assert detail =~ "not checked"
     end
 
     test "a recorded main session is checked against herdr's fresh word on that pane", %{
