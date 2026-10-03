@@ -968,7 +968,7 @@ defmodule Whiska.Doctor do
 
             in_house =
               [
-                main_session(main_pane, word),
+                main_session(main_pane, word, env["HERDR_PANE_ID"]),
                 session_wiring(
                   session_started_at(word, main_checkout, env),
                   settings_changes(main_checkout, env)
@@ -1021,9 +1021,14 @@ defmodule Whiska.Doctor do
   holds the queue and nothing is lost — but it is the first thing to read when
   the mice have gone quiet.
   """
-  @spec main_session(String.t() | nil, {:ok, Herdr.pane()} | {:error, term()} | :unknown) ::
-          Check.t()
-  def main_session(nil, _word) do
+  @spec main_session(
+          String.t() | nil,
+          {:ok, Herdr.pane()} | {:error, term()} | :unknown,
+          String.t() | nil
+        ) :: Check.t()
+  def main_session(pane, word, here \\ nil)
+
+  def main_session(nil, _word, _here) do
     Check.warn(
       "main session",
       "not recorded — nothing is delivered until it is",
@@ -1031,25 +1036,42 @@ defmodule Whiska.Doctor do
     )
   end
 
-  def main_session(pane, :unknown),
-    do: Check.ok("main session", "#{pane}, not checked (herdr unreachable)")
+  def main_session(pane, :unknown, here),
+    do: Check.ok("main session", "#{named(pane, here)}, not checked (herdr unreachable)")
 
-  def main_session(pane, {:ok, %{agent: "claude", agent_status: status}}),
-    do: Check.ok("main session", "#{pane}, claude #{status}")
+  def main_session(pane, {:ok, %{agent: "claude", agent_status: status}}, here),
+    do: Check.ok("main session", "#{named(pane, here)}, claude #{status}")
 
-  def main_session(pane, {:ok, %{agent: nil}}),
-    do: Check.warn("main session", "#{pane} is not running Claude — questions are held", @restart)
-
-  def main_session(pane, {:ok, %{agent: other}}),
+  def main_session(pane, {:ok, %{agent: nil}}, here),
     do:
       Check.warn(
         "main session",
-        "#{pane} runs #{other}, not Claude — questions are held",
+        "#{named(pane, here)} is not running Claude — questions are held",
         @restart
       )
 
-  def main_session(pane, {:error, _reason}),
-    do: Check.warn("main session", "recorded as #{pane}, but herdr has no such pane", @restart)
+  def main_session(pane, {:ok, %{agent: other}}, here),
+    do:
+      Check.warn(
+        "main session",
+        "#{named(pane, here)} runs #{other}, not Claude — questions are held",
+        @restart
+      )
+
+  def main_session(pane, {:error, _reason}, here),
+    do:
+      Check.warn(
+        "main session",
+        "recorded as #{named(pane, here)}, but herdr has no such pane",
+        @restart
+      )
+
+  # A pane id is not something a person recognises on sight, so the line says
+  # whether it is the pane they are asking from (ADR-0065). Outside a herdr
+  # pane there is nothing to compare it with, and the id stands alone.
+  defp named(pane, here) when here in [nil, ""], do: pane
+  defp named(pane, pane), do: "#{pane} (this pane)"
+  defp named(pane, _elsewhere), do: "#{pane} (not this pane)"
 
   @doc """
   The queue as a diagnosis, not a listing (`whiska questions` is the listing):

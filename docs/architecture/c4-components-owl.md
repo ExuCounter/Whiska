@@ -31,7 +31,7 @@ C4Component
     Component(backstop, "Whiska.Backstop", "text file", "How much this house's backstop collected that the idle trigger missed")
     Component(watch, "Whiska.Watch", "renderer", "A row per mouse: branch, pane status, how long it has been going, and the question waiting, the mouse's topic, or its last action")
     Component(ink, "Whiska.Watch.Ink", "renderer", "Plain ANSI for the branch, a waiting question and the elapsed time; never a full reset, so a stale board's dim survives the row")
-    Component(snapshot, "Whiska.Watch.Snapshot", "text file", "The board for one house, in ~/.whiska/board/")
+    Component(snapshot, "Whiska.Watch.Snapshot", "text files", "The board for one house, in ~/.whiska/board/, and the pane it delivers to beside it")
     Component(transcript, "Whiska.Watch.Transcript", "reader", "The last tool call or sentence and how long the mouse has been silent, from its own Claude Code transcript, over Whiska.Transcript")
   }
 
@@ -93,7 +93,9 @@ a session to produce it: a mouse's topic rides in on the pane list herdr answers
 anyway, what it is stuck in comes from the transcript Claude Code is already writing
 (ADR-0050), and a mouse with neither simply has an empty column.
 The statusline script then prints that file and starts nothing, which is what makes a
-two-second refresh affordable in every open session at once.
+two-second refresh affordable in every open session at once. The recorded main pane is
+written beside it in the same breath, which is how a session finds out whether it is the
+one being delivered to without starting anything either (ADR-0065).
 
 **The screen is read in one place** (ADR-0047). herdr has no input signal, so the
 delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible text and

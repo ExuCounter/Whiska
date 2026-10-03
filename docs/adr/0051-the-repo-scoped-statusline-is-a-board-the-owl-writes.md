@@ -373,3 +373,13 @@ the names on the board map alongside the count, worked out from the questions an
 mouse records; `render/2` decides only how many of them fit. A branch name is somebody
 else's string like a topic is, so it goes through `Whiska.Watch.Text` before it reaches
 the board file.
+
+## Addendum, 2026-10-03: one line on it is not a mouse's row
+
+The board gained a line above the rows that says, when it is true, that this pane is not
+the one this repo's questions are delivered to (ADR-0065). It is written by the statusline
+script rather than by the owl, because it is the only thing on the board that differs
+between two sessions reading the same file: the owl writes the recorded pane beside the
+board and the script compares it with the pane it is drawing in. Everything else here
+stands — the board is still one file per house, still written rather than asked for, and
+still reports without acting.

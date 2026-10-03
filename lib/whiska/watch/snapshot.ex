@@ -11,6 +11,13 @@ defmodule Whiska.Watch.Snapshot do
   statusline reading it mid-write sees the old board rather than half of the
   new one. A quiet house writes an empty file: the last board must not stay on
   the screen after the mice are gone.
+
+  Beside the board lies one more file, `<board>.main`: the pane this house's
+  questions are delivered to, or nothing when no main session is recorded
+  (ADR-0065). The statusline compares it with the pane it is drawing in, which
+  is how a session finds out whether it is the whiska. It is kept apart from
+  the board so the board file stays exactly the lines the statusline prints,
+  and the script needs no parsing to tell the two apart.
   """
 
   alias Whiska.OpenHouses
@@ -34,16 +41,31 @@ defmodule Whiska.Watch.Snapshot do
   end
 
   @doc """
+  Where the pane a house delivers to is written down, beside its board.
+  """
+  @spec main_path(Path.t()) :: Path.t()
+  def main_path(main_checkout), do: path(main_checkout) <> ".main"
+
+  @doc """
   Replace a house's board.
 
   The board is the person's alone — it carries file paths, command excerpts and
   sentences out of their private sessions — so the folder and the file are
   theirs to read and nobody else's. The temporary neighbour is removed before it
   is written, so a symlink planted in its place is replaced rather than followed.
+
+  The pane is named by every caller, `nil` for a house with no main session
+  recorded: a caller that simply left it out would blank the file and have every
+  session in the repo told there is no main session.
   """
-  @spec write(Path.t(), String.t()) :: :ok | {:error, term()}
-  def write(main_checkout, text) do
-    file = path(main_checkout)
+  @spec write(Path.t(), String.t(), String.t() | nil) :: :ok | {:error, term()}
+  def write(main_checkout, text, main_pane) do
+    with :ok <- replace(path(main_checkout), text) do
+      replace(main_path(main_checkout), main_pane || "")
+    end
+  end
+
+  defp replace(file, text) do
     tmp = file <> ".tmp"
 
     with :ok <- File.mkdir_p(Path.dirname(file)),

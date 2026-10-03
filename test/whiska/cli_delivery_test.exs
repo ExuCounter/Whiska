@@ -41,8 +41,18 @@ defmodule Whiska.CLIDeliveryTest do
         else: System.delete_env("HERDR_SOCKET_PATH")
     end)
 
+    # Unless a test says otherwise, every pane is already running Claude, so
+    # `whiska start` records and starts nothing (ADR-0066).
+    stub(Herdr, :pane, fn @socket, pane ->
+      {:ok, %{pane_id: pane, cwd: main, agent: "claude", agent_status: "idle"}}
+    end)
+
     {:ok, root: root, main: main, worktree: worktree}
   end
+
+  # A pane sitting at a shell prompt: nothing running in it.
+  defp empty_pane(id, cwd),
+    do: {:ok, %{pane_id: id, cwd: cwd, agent: nil, agent_status: "unknown"}}
 
   # Run a command, returning {status, stdout, stderr}.
   defp run(argv, cwd) do
@@ -142,8 +152,9 @@ defmodule Whiska.CLIDeliveryTest do
     test "replaces a recorded pane that is gone or no longer running Claude", %{main: main} do
       in_house(main, fn -> Storage.set_main_pane("w1:p9") end)
 
-      stub(Herdr, :pane, fn @socket, "w1:p9" ->
-        {:error, {:herdr, %{"code" => "pane_not_found", "message" => "gone"}}}
+      stub(Herdr, :pane, fn
+        @socket, "w1:p9" -> {:error, {:herdr, %{"code" => "pane_not_found", "message" => "gone"}}}
+        @socket, "w1:p2" -> {:ok, %{pane_id: "w1:p2", cwd: main, agent: "claude"}}
       end)
 
       {0, _, _} = run(["start"], main)
@@ -153,6 +164,89 @@ defmodule Whiska.CLIDeliveryTest do
     test "running it again from the same pane is fine", %{main: main} do
       {0, _, _} = run(["start"], main)
       {0, _, _} = run(["start"], main)
+    end
+
+    test "starts Claude in the pane when nothing is running there (ADR-0066)", %{main: main} do
+      stub(Herdr, :pane, fn @socket, "w1:p2" -> empty_pane("w1:p2", main) end)
+      expect(Herdr, :run_command, fn @socket, "w1:p2", "claude" -> :ok end)
+
+      {0, out, _} = run(["start"], main)
+
+      assert out =~ "Starting Claude Code"
+      in_house(main, fn -> assert Storage.main_pane() == "w1:p2" end)
+    end
+
+    test "starts Claude in a pane that is already the recorded main session", %{main: main} do
+      in_house(main, fn -> Storage.set_main_pane("w1:p2") end)
+      stub(Herdr, :pane, fn @socket, "w1:p2" -> empty_pane("w1:p2", main) end)
+      expect(Herdr, :run_command, fn @socket, "w1:p2", "claude" -> :ok end)
+
+      {0, out, _} = run(["start"], main)
+
+      assert out =~ "Starting Claude Code"
+    end
+
+    test "starts nothing when the pane is already running Claude", %{main: main} do
+      {0, out, _} = run(["start"], main)
+
+      refute out =~ "Starting Claude Code"
+    end
+
+    test "--no-claude records the pane and starts nothing", %{main: main} do
+      stub(Herdr, :pane, fn @socket, "w1:p2" -> empty_pane("w1:p2", main) end)
+
+      {0, out, _} = run(["start", "--no-claude"], main)
+
+      refute out =~ "Starting Claude Code"
+      assert out =~ "until Claude Code is running"
+      in_house(main, fn -> assert Storage.main_pane() == "w1:p2" end)
+    end
+
+    test "the pane stays recorded when Claude cannot be started, and it says so", %{main: main} do
+      stub(Herdr, :pane, fn @socket, "w1:p2" -> empty_pane("w1:p2", main) end)
+
+      stub(Herdr, :run_command, fn @socket, "w1:p2", "claude" ->
+        {:error, {:herdr, %{"code" => "pane_not_found", "message" => "gone"}}}
+      end)
+
+      {1, _, err} = run(["start"], main)
+
+      assert err =~ "could not start Claude Code"
+      in_house(main, fn -> assert Storage.main_pane() == "w1:p2" end)
+    end
+
+    test "with no way to reach herdr, it records the pane and says so", %{main: main, root: root} do
+      home = Path.join(root, "nowhere")
+      File.mkdir_p!(home)
+      was = System.get_env("HOME")
+      System.delete_env("HERDR_SOCKET_PATH")
+      System.put_env("HOME", home)
+      on_exit(fn -> System.put_env("HOME", was) end)
+
+      {0, out, _} = run(["start"], main)
+
+      assert out =~ "Could not reach herdr"
+      in_house(main, fn -> assert Storage.main_pane() == "w1:p2" end)
+    end
+
+    test "an unknown flag is refused by name", %{main: main} do
+      {1, _, err} = run(["start", "--launch"], main)
+
+      assert err =~ "--launch"
+      in_house(main, fn -> assert Storage.main_pane() == nil end)
+    end
+
+    test "the refusal to replace a live main session still stands", %{main: main} do
+      in_house(main, fn -> Storage.set_main_pane("w1:p9") end)
+
+      stub(Herdr, :pane, fn @socket, "w1:p9" ->
+        {:ok, %{pane_id: "w1:p9", cwd: main, agent: "claude", agent_status: "idle"}}
+      end)
+
+      {1, _, err} = run(["start"], main)
+
+      assert err =~ "--force"
+      in_house(main, fn -> assert Storage.main_pane() == "w1:p9" end)
     end
   end
 

@@ -39,7 +39,7 @@ C4Component
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
   Container_Ext(doorstep, "Doorstep", "directory", "Uncollected entries")
-  System_Ext(herdr, "herdr", "pane list, and main-session focus for jump")
+  System_Ext(herdr, "herdr", "pane list, main-session focus for jump, and starting Claude in a pane")
   Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
 
   Rel(shim, main, "Execs", "JSON on stdin")
@@ -61,6 +61,7 @@ C4Component
   Rel(waiting, storage, "Opens each house read-only: questions, mouse panes, main session")
   Rel(waiting, doorstep, "Reads each house's uncollected entries")
   Rel(main, herdr, "jump: focuses one house's main session", "pane.focus")
+  Rel(main, herdr, "start: types claude at this pane's prompt when nothing runs there", "pane.send_text")
   Rel(statusline, owl, "Is it running? Same probe as the doctor", "process table")
   Rel(doctor, owl, "Is it running, and older than the binary it runs?", "process table, ps")
   Rel(doctor, record, "Which houses are open, and is this repo one of them")

@@ -81,6 +81,19 @@ defmodule Whiska.Herdr do
               :ok | {:error, term()}
 
   @doc """
+  Type a command at a pane's shell prompt and run it — how `whiska start`
+  starts Claude Code in the pane it has just recorded (ADR-0066).
+
+  The only call here that puts text anywhere but into an agent, and it is the
+  person's own command landing in the person's own pane, at the moment they
+  asked for it. A pane with something already running in it keeps the text
+  until its prompt comes back, which is what makes it work at all: `whiska
+  start` is itself the thing running there.
+  """
+  @callback run_command(socket :: Path.t(), pane_id :: String.t(), command :: String.t()) ::
+              :ok | {:error, term()}
+
+  @doc """
   Bring a pane into view — the person's screen moves to it, in whichever
   workspace and tab it lives (ADR-0043).
 

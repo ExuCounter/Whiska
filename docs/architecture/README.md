@@ -18,7 +18,7 @@ worktree containment and sniff mode enforced through `PreToolUse` (ADR-0030). Th
 owl slice: the owl supervisor with one independently supervised house per project, each
 house's herdr subscription and pane discovery, the doorstep and the `Stop` hook that
 writes to it, collection on idle, and dead-mouse marking (ADR-0001, ADR-0036, ADR-0026).
-Then delivery: `whiska start` recording the main session, the idle-gated queue that types
+Then delivery: `whiska start` recording the main session and starting Claude in its pane (ADR-0066), the idle-gated queue that types
 one question at a time into it, `reply` and `close`, and a newer question superseding its
 mouse's earlier ones (ADR-0008, ADR-0037). Then `whiska questions` and the statusline, both
 reading what is waiting — open and sent questions, orphaned ones apart, and what is still
@@ -61,8 +61,9 @@ herdr's pane list, else what it is stuck in, read from the mouse's own transcrip
 branch, a waiting question and the elapsed time are coloured in plain ANSI the person's
 own terminal theme shades, and nothing is said in colour alone. The house
 renders it into `~/.whiska/board/` and the script prints that file, so the line starts
-nothing and carries no owl (ADR-0051, ADR-0050, ADR-0048 and its amendment, ADR-0027,
-ADR-0044). Then the `Stop` hook reading the turn before it records it: the finish pipeline
+nothing and carries no owl — and above the rows, only when it is true, the script says
+that this pane is not the one this repo's questions are delivered to (ADR-0051, ADR-0050,
+ADR-0048 and its amendment, ADR-0027, ADR-0044, ADR-0065). Then the `Stop` hook reading the turn before it records it: the finish pipeline
 sends its reviewers off as background subagents and Claude Code ends the mouse's turn
 while they run, so the hook reads the tail of the transcript it is handed and writes
 nothing at all while an agent it launched has not handed its report back — every one of

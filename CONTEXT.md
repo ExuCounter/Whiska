@@ -137,16 +137,23 @@ mouse is a row: a dead one has none, and what it left behind unanswered is count
 is never counted as waiting. A question its mouse's branch landed on is **settled**
 rather than orphaned, and is counted on neither line: an orphan means something went
 wrong, not that a branch merged (ADR-0064). That line names the branches the orphans came off, and an orphan whose record
-kept no branch is named by its own question id. The board only reports — nothing on it acts (ADR-0051).
+kept no branch is named by its own question id. Above the rows, and only when it is true,
+one line says that this pane is not the one this repo's questions are delivered to
+(ADR-0065). It is the one thing on the board that differs between two sessions reading
+it, drawn by the statusline script from the pane the owl wrote down beside the board; a
+mouse never sees it, because a mouse draws no board. The board only reports — nothing on it acts (ADR-0051).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws, which is not this), the
 statusline (the surface, not what is drawn on it), title (herdr's and Claude Code's word
 for where the topic is read from, not for what the board says)
 
 **Main session**:
 The one herdr pane per house that questions are delivered to — the person's own Claude
-Code session in the main checkout, recorded by `whiska start` from the pane it is run in.
+Code session in the main checkout, recorded by `whiska start` from the pane it is run in —
+which also starts Claude Code there when nothing is running in that pane yet (ADR-0066).
 A house has at most one; nothing is delivered until one is recorded, and it is also where
-a Jump lands.
+a Jump lands. Every other session in the main checkout is told it is not the one, on the
+board (ADR-0065); a session cannot be asked which it is, so it is never guessed at from
+anything but the recorded pane.
 _Avoid_: primary, parent, captain
 
 **Delivery**:

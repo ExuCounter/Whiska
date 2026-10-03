@@ -78,13 +78,15 @@ defmodule Whiska.CLI do
                          the same against ~/.claude.
 
     start [--force]      Record the herdr pane this is run from as the main
-                         session for this repo: where the owl delivers
-                         questions. Run it in the main checkout, from the
-                         pane your main Claude Code session lives in — from
-                         inside that session, `! whiska start` does it.
+         [--no-claude]   session for this repo: where the owl delivers
+                         questions. Run it in the main checkout, in the pane
+                         you want your main Claude Code session in — and if
+                         nothing is running there, it starts Claude Code for
+                         you. From inside a session already running,
+                         `! whiska start` records the pane and starts nothing.
                          Refuses to replace a main session still running
-                         Claude unless --force. Does not launch Claude Code
-                         itself yet.
+                         Claude unless --force. --no-claude records the pane
+                         and leaves starting Claude to you.
 
     questions [<id>]     What is waiting on you: one line per open or
     questions --full     delivered question, then any orphaned ones, then
@@ -220,8 +222,15 @@ defmodule Whiska.CLI do
 
   def run(["uninstall", "--global"], _cwd), do: uninstall(:global, Install.root(:global))
 
-  def run(["start" | flags], cwd) when flags in [[], ["--force"]],
-    do: start(cwd || File.cwd!(), flags == ["--force"])
+  def run(["start" | flags], cwd) do
+    case Enum.split_with(flags, &(&1 in ["--force", "--no-claude"])) do
+      {known, []} ->
+        start(cwd || File.cwd!(), "--force" in known, "--no-claude" not in known)
+
+      {_known, [unknown | _]} ->
+        fail("whiska: `start` takes --force and --no-claude, not #{unknown}.")
+    end
+  end
 
   def run(["questions"], cwd), do: questions(cwd || File.cwd!(), :listing)
 
@@ -1019,21 +1028,26 @@ defmodule Whiska.CLI do
 
   # -- the main session (ADR-0020) --------------------------------------------
 
-  defp start(cwd, force?) do
+  defp start(cwd, force?, claude?) do
     with {:ok, pane} <- current_pane(),
          {:ok, main} <- main_checkout_only(cwd) do
       with_house(main, fn ->
         case Storage.main_pane() do
           ^pane ->
             say("#{pane} is already the main session for #{Path.basename(main)}.")
+            start_claude(pane, claude?)
 
           nil ->
             record_main(main, pane)
+            start_claude(pane, claude?)
 
           other ->
-            if force? or not running_claude?(other),
-              do: record_main(main, pane),
-              else: refuse_to_replace(other)
+            if force? or not running_claude?(other) do
+              record_main(main, pane)
+              start_claude(pane, claude?)
+            else
+              refuse_to_replace(other)
+            end
         end
       end)
     else
@@ -1066,6 +1080,54 @@ defmodule Whiska.CLI do
     )
   end
 
+  # The second half of `whiska start` (ADR-0066): the pane is recorded, and a
+  # pane with no Claude Code in it has nothing to deliver into, so the command
+  # starts one rather than leaving the person a second command to remember.
+  #
+  # The pane is recorded first because this is the last thing that happens
+  # here — whiska is itself what is running in that pane, and starting Claude
+  # means handing the pane over and getting out of the way. The line is typed
+  # at the shell prompt and waits there until this process exits.
+  defp start_claude(pane, claude?) do
+    cond do
+      running_claude?(pane) -> 0
+      not claude? -> say("Nothing is delivered until Claude Code is running in this pane.")
+      true -> run_claude(pane)
+    end
+  end
+
+  # With no herdr to ask, neither half of this is knowable: whether Claude is
+  # already running in the pane, and whether it could be started. The pane is
+  # recorded either way, and saying so is the whole of what is left to do —
+  # not a failure, because nothing was attempted and failed.
+  defp run_claude(pane) do
+    case Herdr.socket() do
+      {:ok, socket} ->
+        case Herdr.impl().run_command(socket, pane, "claude") do
+          :ok -> say("Starting Claude Code here.")
+          {:error, reason} -> could_not_start(pane, reason)
+        end
+
+      {:error, {:no_socket, _default}} ->
+        say(
+          "Could not reach herdr to start Claude Code; start it here yourself if it is not running."
+        )
+    end
+  end
+
+  # The recording stands: it is the fact the person asked for, re-running the
+  # command is harmless, and `whiska doctor` says the same thing afterwards —
+  # a main session recorded with no Claude in it holds its questions rather
+  # than losing them.
+  defp could_not_start(pane, reason) do
+    fail("""
+    whiska: #{pane} is recorded as the main session, but Whiska
+    could not start Claude Code in it (#{inspect(reason)}).
+
+    Start it yourself in this pane; nothing is delivered until it is running.
+    """)
+  end
+
   defp refuse_to_replace(other) do
     fail("""
     whiska: #{other} is already this repo's main session, and is still running Claude.
@@ -1076,12 +1138,9 @@ defmodule Whiska.CLI do
   end
 
   defp running_claude?(pane) do
-    case Herdr.socket_path() do
-      nil ->
-        false
-
-      socket ->
-        match?({:ok, %{agent: "claude"}}, Herdr.impl().pane(socket, pane))
+    case Herdr.socket() do
+      {:ok, socket} -> match?({:ok, %{agent: "claude"}}, Herdr.impl().pane(socket, pane))
+      {:error, {:no_socket, _default}} -> false
     end
   end
 

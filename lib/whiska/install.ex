@@ -251,7 +251,7 @@ defmodule Whiska.Install do
   # can be told apart from this one (ADR-0059). The person's own copy is
   # committed and shared with their team, so nothing rewrites it: the doctor
   # reads the stamp and says an upgrade is available.
-  @statusline_version 2
+  @statusline_version 3
 
   @statusline_script """
   #!/usr/bin/env bash
@@ -259,6 +259,9 @@ defmodule Whiska.Install do
   # Whiska's project statusline (ADR-0051): a board, one row per mouse in
   # this repo — its branch, what herdr says it is doing, and the question
   # waiting on you, else what it is working on, else what it is stuck in.
+  #
+  # Above the rows, and only when it is true, one line saying that this pane
+  # is not where this repo's answers are delivered (ADR-0065).
   #
   # A project-level statusLine replaces the global one rather than merging
   # with it, so your global statusline runs first and the board goes under
@@ -292,9 +295,13 @@ defmodule Whiska.Install do
 
   [ -n "$base" ] && printf '%s\n' "$base"
 
+  # The project directory before the current one, because the current one
+  # follows every cd the session runs (Whiska ADR-0053): a session speaks for
+  # the repo it started in, and a mouse that steps into the main checkout must
+  # still read as a mouse.
   dir=""
   if command -v jq >/dev/null 2>&1; then
-    dir="$(printf '%s' "$input" | jq -r '.workspace.current_dir // .workspace.project_dir // .cwd // empty' 2>/dev/null)"
+    dir="$(printf '%s' "$input" | jq -r '.workspace.project_dir // .workspace.current_dir // .cwd // empty' 2>/dev/null)"
   fi
   [ -d "$dir" ] || dir="$PWD"
 
@@ -320,7 +327,32 @@ defmodule Whiska.Install do
     probe="$(dirname "$probe")"
   done
 
-  [ -n "$board" ] && [ -s "$board" ] || exit 0
+  [ -n "$board" ] || exit 0
+
+  # Whose questions land here (ADR-0065). The owl writes the main session's
+  # pane beside the board; this pane either is it or is not, and only the
+  # second case is worth a line. No pane id in the environment means herdr is
+  # not around to say, which is not the same as being the wrong pane — say
+  # nothing.
+  #
+  # `-f` rather than `-r`, like the stand-down check above: `-r` is true of a
+  # FIFO, and reading one with no writer waits for ever — here on a line
+  # Claude Code redraws every two seconds.
+  notice=""
+  if [ -n "${HERDR_PANE_ID:-}" ] && [ -f "$board.main" ]; then
+    recorded=""
+    read -r recorded < "$board.main" 2>/dev/null
+    if [ -z "$recorded" ]; then
+      notice='🐱 no main session here — nothing is delivered until `whiska start` records this pane'
+    elif [ "$recorded" != "$HERDR_PANE_ID" ]; then
+      notice='🐱 not the main session — answers go to another pane; `whiska start` moves them here'
+    fi
+  fi
+
+  # Nothing to print and nothing to say: a quiet house writes an empty board,
+  # which is most houses most of the time, and this is the line that keeps
+  # them out of the two stat probes and the date below.
+  [ -s "$board" ] || [ -n "$notice" ] || exit 0
 
   # BSD stat first, then GNU, and each answer is checked rather than trusted:
   # `stat -f` on GNU means --file-system and prints a paragraph.
@@ -339,6 +371,17 @@ defmodule Whiska.Install do
   # down either way (ADR-0048). Ten seconds, not five: a house waiting on a
   # slow herdr can miss a couple of its own two-second writes without the owl
   # being down at all.
+
+  # Only over a board the owl is currently writing: the pane beside it is the
+  # owl's answer too, and a house nobody is refreshing may have recorded a new
+  # main session since — telling the pane that just ran `whiska start` that it
+  # is the wrong one is the one false alarm this line must not raise.
+  if [ "$age" -le 10 ] && [ -n "$notice" ]; then
+    printf '\\e[33m%s\\e[0m\\n' "$notice"
+  fi
+
+  [ -s "$board" ] || exit 0
+
   if [ "$age" -le 10 ]; then
     cat "$board"
   elif [ "$age" -le 60 ]; then
