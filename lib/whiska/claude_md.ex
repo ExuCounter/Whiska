@@ -99,17 +99,21 @@ defmodule Whiska.ClaudeMd do
     reading any code and before grilling here, on whatever branch name the request
     suggests.
   - Unclear which → ask the person, do not guess.
-  - Skip the spawn for a one-line tweak or a quick fix, or when the person says to work in
-    place.
-  - The mouse grills a thin brief from inside the worktree — what "done" looks like, which
-    part of the app, what data, the edge cases — asking the whole frontier in one message
-    and ending each round with the status marker.
+  - Skip the spawn for a tweak or quick fix, or when the person says to work in place.
+  - Before writing code, say what "done" looks like and name the failing test that proves
+    it. Both off the brief with no guess → build; never grill what is already spelled out.
+  - Either needs a guess the person has an opinion on — a bug report with no stated right
+    behaviour, two readings that lead to different work → grill first: what "done" looks
+    like, which part of the app, what data, the edge cases. A round asks the whole frontier
+    in one message and ends with the status marker.
   - Every command for the task runs in the worktree, investigation included; the main
     session runs no command for it.
   - Preview a frontend change before building it; the response body and its marker carry
     the preview link.
   - Before anything non-trivial this session does itself, give a 2–4 line plan and wait
-    for the person's ok. A mouse does not: it builds, and stops only on a real decision.
+    for the person's ok. A mouse does not wait for an ok, which is not leave to skip naming
+    "done" and grilling what is not pinned down; it builds, and stops only on a real
+    decision.
   - After the merge, leave the worktree: the owl removes a landed one, pane and branch.
     `drop-worktree` drops one early.
   - Never reuse an old tree: a new mouse gets a fresh one off the latest base branch.
