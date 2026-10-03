@@ -32,6 +32,7 @@ defmodule Whiska.Owl.HouseBoardTest do
     on_exit(fn ->
       File.rm_rf!(root)
       File.rm_rf!(Snapshot.path(main))
+      File.rm_rf!(Snapshot.main_path(main))
     end)
 
     {:ok, main: main, worktree: worktree}
@@ -200,6 +201,39 @@ defmodule Whiska.Owl.HouseBoardTest do
     eventually(fn ->
       if File.read!(Snapshot.path(main)) == "", do: {:ok, :emptied}, else: :retry
     end)
+  end
+
+  # Which pane the questions go to, beside the board the statusline already
+  # reads, so a session can tell whether it is the one (ADR-0063).
+  describe "the main session's pane, beside the board" do
+    test "is written with the board", %{main: main, worktree: worktree} do
+      stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "working")]} end)
+      stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+      {:ok, handle} = Storage.open(main, name: :seed2)
+      :ok = Storage.set_main_pane("w1:p9")
+      Storage.close(handle)
+
+      open(main, [])
+      assert board(main) =~ "🐭 feat-a"
+
+      assert eventually(fn ->
+               case File.read(Snapshot.main_path(main)) do
+                 {:ok, "w1:p9"} -> {:ok, :written}
+                 _ -> :retry
+               end
+             end) == :written
+    end
+
+    test "is empty while no main session is recorded", %{main: main, worktree: worktree} do
+      stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "working")]} end)
+      stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+      open(main, [])
+      assert board(main) =~ "🐭 feat-a"
+
+      assert File.read!(Snapshot.main_path(main)) == ""
+    end
   end
 
   # A hold is never silent (ADR-0058): the board says why, where the person is

@@ -1181,6 +1181,32 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :ok} = find(report.checks, "questions")
     end
 
+    # A pane id is not something a person recognises on sight (ADR-0063), so
+    # the line says whether it is the pane they are asking from.
+    test "the main session line says whether this is that pane", %{
+      main: main,
+      env: env,
+      root: root
+    } do
+      init(main)
+      File.touch!(Path.join(root, "herdr.sock"))
+      {:ok, handle} = Storage.open(main, name: :seed)
+      :ok = Storage.set_main_pane("w1:p2")
+      Storage.close(handle)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+      stub(Herdr, :pane, fn _, "w1:p2" -> {:ok, claude("idle")} end)
+
+      here = Doctor.run(main, env: Map.put(env, "HERDR_PANE_ID", "w1:p2"), owl_pids: fn -> [] end)
+      assert %Check{detail: detail} = find(here.checks, "main session")
+      assert detail =~ "this pane"
+
+      there =
+        Doctor.run(main, env: Map.put(env, "HERDR_PANE_ID", "w1:p7"), owl_pids: fn -> [] end)
+
+      assert %Check{detail: detail} = find(there.checks, "main session")
+      assert detail =~ "not this pane"
+    end
+
     test "an open question held because the person is typing says so on the questions line", %{
       main: main,
       env: env,

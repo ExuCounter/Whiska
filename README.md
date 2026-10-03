@@ -32,14 +32,17 @@ whiska owl .                   # record this repo — runs in the foreground, Ct
 whiska owl install             # the owl under launchd: at login, and after a crash
 ```
 
-Then, **from inside your main Claude Code session** in the main checkout:
+Then, in the herdr pane you want your main session in — the one pane questions are
+delivered to:
 
-```
-! whiska start
+```bash
+whiska start                   # records this pane, and starts Claude Code in it
 ```
 
-That records the pane as this repo's main session — the one pane questions are delivered
-to. The `!` prefix runs it inside the session, so one already running needs no restart.
+From inside a session that is already running, `! whiska start` records the pane and
+starts nothing; the `!` prefix runs it inside the session, so no restart is needed.
+Every other session in this checkout is told on its own statusline that answers do not
+land there.
 
 ```bash
 whiska doctor                  # is it working? every failing line names its own fix
@@ -125,7 +128,8 @@ whiska statusline [--here]      the tab-bar line, or this repo's board
 whiska mode [build|sniff]       this mouse's mode; sniff writes nothing, anywhere
 whiska init [--global]          install into this repo's .claude/, or into ~/.claude
 whiska uninstall [--global]     take it back out; the house is untouched
-whiska start [--force]          record this herdr pane as the repo's main session
+whiska start [--force]          record this herdr pane as the repo's main session, and
+      [--no-claude]             start Claude Code in it if nothing is running there
 whiska owl [install|start|stop|uninstall]
 ```
 

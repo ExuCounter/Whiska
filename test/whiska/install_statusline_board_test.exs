@@ -34,13 +34,25 @@ defmodule Whiska.InstallStatuslineBoardTest do
     {:ok, root: root, home: home, main: main, script: script}
   end
 
-  defp run(%{script: script, home: home}, cwd) do
-    payload = JSON.encode!(%{"workspace" => %{"current_dir" => cwd}})
+  defp run(context, cwd, opts \\ [])
+
+  defp run(%{script: script, home: home}, cwd, opts) do
+    payload =
+      JSON.encode!(%{
+        "workspace" => %{
+          "current_dir" => cwd,
+          "project_dir" => Keyword.get(opts, :project_dir, cwd)
+        }
+      })
+
+    # Explicitly nil rather than left out: the suite itself runs inside a herdr
+    # pane, whose id the command would otherwise inherit.
+    pane = [{"HERDR_PANE_ID", Keyword.get(opts, :pane)}]
 
     {out, status} =
       System.cmd("sh", ["-c", "printf '%s' '#{payload}' | bash #{script}"],
         cd: cwd,
-        env: [{"HOME", home}, {"WHISKA_HOME", Path.join(home, ".whiska")}],
+        env: [{"HOME", home}, {"WHISKA_HOME", Path.join(home, ".whiska")}] ++ pane,
         stderr_to_stdout: false
       )
 
@@ -174,6 +186,83 @@ defmodule Whiska.InstallStatuslineBoardTest do
     assert [first, second] = String.split(String.trim_trailing(out), "\n")
     assert first == "my line"
     assert second =~ "🐭 feat-a"
+  end
+
+  describe "which session is the main session (ADR-0063)" do
+    test "the main session's own pane is told nothing", context do
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", "w1:p9")
+
+      out = run(context, context.main, pane: "w1:p9")
+
+      assert out =~ "🐭 feat-a"
+      refute out =~ "main session"
+    end
+
+    test "any other pane in the repo is told it is not the main session", context do
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", "w1:p9")
+
+      out = run(context, context.main, pane: "w1:p2")
+
+      assert out =~ "not the main session"
+      assert out =~ "whiska start"
+      assert out =~ "🐭 feat-a"
+    end
+
+    test "a repo with no main session recorded says nothing is delivered", context do
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", nil)
+
+      out = run(context, context.main, pane: "w1:p2")
+
+      assert out =~ "no main session"
+      assert out =~ "whiska start"
+    end
+
+    test "the notice stands on its own when no mouse is running", context do
+      :ok = Snapshot.write(context.main, "", "w1:p9")
+
+      assert run(context, context.main, pane: "w1:p2") =~ "not the main session"
+    end
+
+    test "a mouse is never told it is missing a main session", context do
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", nil)
+
+      assert run(context, Path.join(context.main, "worktrees/feat-a"), pane: "w1:p1") == ""
+    end
+
+    test "a mouse that stepped into the main checkout is still a mouse", context do
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", "w1:p9")
+
+      out =
+        run(context, context.main,
+          pane: "w1:p1",
+          project_dir: Path.join(context.main, "worktrees/feat-a")
+        )
+
+      assert out == ""
+    end
+
+    test "a pane herdr cannot name is told nothing", context do
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", "w1:p9")
+
+      out = run(context, context.main)
+
+      assert out =~ "🐭 feat-a"
+      refute out =~ "main session"
+    end
+
+    test "a repo the owl has never opened says nothing either way", context do
+      assert run(context, context.main, pane: "w1:p2") == ""
+    end
+
+    test "a board going stale still carries the notice", context do
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", "w1:p9")
+      age_file(Snapshot.path(context.main), 40)
+
+      out = run(context, context.main, pane: "w1:p2")
+
+      assert out =~ "not the main session"
+      assert out =~ "40s stale"
+    end
   end
 
   test "is redrawn often enough to be live" do

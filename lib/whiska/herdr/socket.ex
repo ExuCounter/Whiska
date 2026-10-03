@@ -73,6 +73,21 @@ defmodule Whiska.Herdr.Socket do
   end
 
   @impl true
+  def run_command(socket, pane_id, command) do
+    # The newline is the Enter that runs it: herdr sends the text as
+    # keystrokes, so an alias or a shell function in the person's own profile
+    # is honoured exactly as if they had typed the line themselves.
+    params = %{"pane_id" => pane_id, "text" => command <> "\n"}
+
+    with {:ok, %{"result" => _}} <- request(socket, "pane.send_text", params) do
+      :ok
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  @impl true
   def focus(socket, pane_id) do
     with {:ok, %{"result" => _}} <- request(socket, "pane.focus", %{"pane_id" => pane_id}) do
       :ok

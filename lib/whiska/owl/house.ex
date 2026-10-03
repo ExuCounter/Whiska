@@ -373,7 +373,18 @@ defmodule Whiska.Owl.House do
   defp write_board(state) do
     board = Watch.from_house(panes: state.last_panes, held: held_reason(state))
 
-    case Snapshot.write(state.main_checkout, Watch.render(board, frame: state.board_frame)) do
+    # The recorded pane is read here rather than taken from `state.main_pane`,
+    # which only moves when the house refreshes: a session that has just run
+    # `whiska start` must stop being told it is not the main session on the
+    # next redraw, not on the next backstop (ADR-0063).
+    written =
+      Snapshot.write(
+        state.main_checkout,
+        Watch.render(board, frame: state.board_frame),
+        Storage.main_pane()
+      )
+
+    case written do
       :ok -> %{state | board_frame: state.board_frame + 1}
       {:error, _reason} -> state
     end
