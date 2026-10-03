@@ -32,7 +32,11 @@ defmodule Whiska.Owl.HousePickupTest do
     Storage.close(handle)
 
     stub(Herdr, :subscribe, fn @socket, _subs, _listener -> {:ok, spawn(fn -> :ok end)} end)
-    stub(Herdr, :worktrees, fn @socket, _checkout -> {:ok, []} end)
+
+    stub(Herdr, :worktrees, fn @socket, _checkout ->
+      {:ok, [%{path: path, branch: "feat-a", workspace_id: "ws-1"}]}
+    end)
+
     stub(Herdr, :read_screen, fn _, _ -> {:error, :no_screen} end)
     stub(Herdr, :pane, fn _, _ -> {:error, :no_pane} end)
 
@@ -54,7 +58,13 @@ defmodule Whiska.Owl.HousePickupTest do
   defp open(repo, opts) do
     opts =
       Keyword.merge(
-        [main_checkout: repo.checkout, herdr_socket: @socket, board_ms: 60_000, settle_ms: 1],
+        [
+          main_checkout: repo.checkout,
+          herdr_socket: @socket,
+          board_ms: 60_000,
+          settle_ms: 1,
+          max_gap_ms: 5_000
+        ],
         opts
       )
 
@@ -75,15 +85,7 @@ defmodule Whiska.Owl.HousePickupTest do
 
   test "a pane that worked and went quiet with nothing collected is picked up",
        %{repo: repo, path: path} do
-    status = :counters.new(1, [])
-    :counters.put(status, 1, 1)
-
-    stub(Herdr, :list_panes, fn @socket ->
-      case :counters.get(status, 1) do
-        1 -> {:ok, [pane(path, "working")]}
-        _ -> {:ok, [pane(path, "done")]}
-      end
-    end)
+    stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(path, "done")]} end)
 
     test_pid = self()
 
@@ -95,13 +97,19 @@ defmodule Whiska.Owl.HousePickupTest do
     log =
       capture_io(:stderr, fn ->
         house = open(repo, backstop_ms: 20)
-        Process.sleep(100)
-        :counters.put(status, 1, 2)
+
+        send(
+          house,
+          {:herdr_event, "pane.agent_status_changed",
+           %{"pane_id" => "w1:p1", "agent_status" => "working"}}
+        )
+
+        House.sync(house)
         Process.sleep(300)
         House.sync(house)
       end)
 
-    assert_received {:typed, line}
+    assert_receive {:typed, line}, 1_000
     assert line == Whiska.Pickup.line()
     assert log =~ "feat-a"
     assert log =~ "picked it up"

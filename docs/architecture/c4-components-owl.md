@@ -59,7 +59,7 @@ C4Component
   Rel(cleanup, storage, "Stamps the mouse removed")
   Rel(house, pickup, "Sweeps on the backstop, handing it the pane list it already has")
   Rel(pickup, draft, "Judges the mouse's own screen before typing into it")
-  Rel(pickup, herdrb, "Types one line into the mouse's own pane")
+  Rel(pickup, herdrb, "Which worktrees are this checkout's, then one line into the mouse's own pane")
   Rel(pickup, doorstep, "Is anything of this mouse's still uncollected")
   Rel(pickup, storage, "Reads worked_at, stamps picked_up_at")
   Rel(house, watch, "Renders the board every 2 seconds")

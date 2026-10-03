@@ -32,22 +32,37 @@ Two edges the sentence has to get right, and both come down to one word:
 - **"Was seen working."** A mouse idle before it was ever prompted has not had a turn die;
   it has not had a turn. So the owl keeps `worked_at` on the mouse record: when herdr last
   reported that pane *starting* to work. A stamp on every sighting of a working pane would
-  be wrong — herdr can still be calling a pane working a second after its entry landed, and
-  a stamp then would read as a turn that died. Only the transition into working is a turn
-  beginning.
+  be wrong — the `Stop` hook writes the entry while the pane is still working and herdr
+  flips it to quiet afterwards, so a stamp in that gap would post-date a turn that ended
+  cleanly and read as one that died. Only a transition into working is a turn beginning,
+  and **a sweep with no memory of a pane knows of no transition**, so it stamps nothing and
+  only remembers. That is the conservative direction: the cost is a turn that began while
+  the owl was not watching going unpicked-up, rather than a finished one being nudged.
 - **"Nothing of its collected."** A question whose `asked_at` is at or after `worked_at` is
   that turn arriving. An entry still sitting on the doorstep is the same thing a moment
   earlier, so it counts too.
 
 `worked_at` is on the record rather than in the owl's memory because a turn can die while
 the owl is restarting, and the owl must not come back having forgotten that one was in
-flight. It is stamped from two places: herdr's status subscription, which catches a turn
-shorter than a backstop, and the sweep itself, which catches a turn that began while the
-owl was down.
+flight. It is stamped from three places: herdr's status subscription, which catches a turn
+shorter than a backstop; the sweep, when it sees a pane it already knew was quiet start
+working; and `whiska reply`, because an answer typed into a mouse is itself a prompt and
+Whiska is the one typing it.
 
-**Its limit, stated plainly:** a mouse whose very first turn dies before it has run a single
-tool has no record at all, since a record is minted on the first `PreToolUse` (ADR-0030).
-Nothing picks that up. In practice a turn reaches a tool call within seconds.
+**Its limits, stated plainly.** Two turns are not picked up, and both are a miss rather
+than a wrong nudge:
+
+- A mouse whose very first turn dies before it has run a single tool has no record at all,
+  since a record is minted on the first `PreToolUse` (ADR-0030). In practice a turn reaches
+  a tool call within seconds.
+- A turn that both began and died while the owl was down: the owl comes back to a quiet
+  pane, sees no transition, and the last stamp it holds is the previous turn's, which has
+  an entry after it. `whiska reply` closes the common case of this — the person answering a
+  question — and a prompt the person typed by hand into a mouse while the owl was down does
+  not.
+A laptop that sleeps is neither of those: the owl is suspended rather than restarted, so
+the stamp it took before the lid closed is the one it wakes up with. That is the case this
+exists for, and it is covered.
 
 ## A nudge, never the original prompt
 
@@ -96,6 +111,13 @@ a window out; a pane that works again drops its clock; and **herdr failing to an
 every clock away** rather than letting one count through the gap. The subscription dropping
 does the same, since that is usually the first sign of a wake.
 
+"Across separate sweeps" has to be enforced rather than assumed, because a suspended owl
+wakes holding a clock that now reads hours. **A sweep taken much longer after the last one
+than a backstop is not the second of two sweeps** — nobody was watching in between — so it
+throws the memory away and starts the window again. Without that, the first look after a
+wake would see eight hours of "ready" and nudge immediately, which is the exact failure the
+window exists to prevent.
+
 **Unknown is never permission**, exactly as cleanup has it (ADR-0061). `idle` and `done`
 both pass. `working`, `blocked` and `unknown` do not. No pane at all is ADR-0026's dead
 mouse and not this. Two panes in one worktree is nobody's pane to type into. A pane running
@@ -106,9 +128,11 @@ cheap explanations first: nothing of the mouse's may be `open` or `sent` (rung o
 not stuck, it is waiting for an answer), and the person must not have a draft in that pane's
 prompt box, read exactly as delivery reads the main session's (ADR-0047).
 
-**The stamp goes down before the line does**, and comes back up if herdr refuses to type it.
-A cap that depended on a write landing *after* the owl had already typed would be no cap on
-the one run where that write failed.
+**The stamp goes down before the line does, and the line is typed only if that write
+landed**; the stamp comes back up if herdr then refuses. A cap that depended on a write
+happening *after* the owl had already typed would be no cap on the run where that write
+failed — and a cap written without checking would be no cap either, which is the same bug
+one step along.
 
 ## It says what it did
 
@@ -116,7 +140,9 @@ Unattended is fine; silent is not. A pickup lands in three places:
 
 - **The owl's log**, one line naming the branch, beside cleanup's.
 - **The board** (ADR-0051), in the row's detail column, while it is news — "picked up 3m
-  ago", until the turn it started ends. A question waiting on the person still outranks it.
+  ago", until something of that mouse's reaches the doorstep. A branch whose picked-up turn
+  died as well therefore keeps saying it, which is the stuck branch being visible rather
+  than a bug. A question waiting on the person still outranks it.
 - **`whiska mice`**, in a column of its own, for the rest of that mouse's life. That is
   where the person looks afterwards, and the board has by then gone back to saying what the
   mouse is doing.
@@ -154,9 +180,19 @@ larger in what it starts, and it deserves the same plain accounting:
 - A person looking at that pane sees a line appear that they did not type.
 - When the detector is wrong, the cost is one turn spent in a session that was legitimately
   idle, on a message that tells it to carry on with its own work. Nothing is destroyed.
-- It is bounded to panes Whiska knows as mice of its own house, each matched to a worktree
-  this repo owns. The owl types into nothing else, and never into the main session as if it
-  were a mouse.
+- It is bounded to panes Whiska knows as mice of its own house, and that bound is enforced
+  rather than asserted. A mouse record's `path` is minted from a doorstep entry, which is a
+  JSON file anything running in this repo can write (ADR-0061), so the record is not on its
+  own a statement that a folder is a worktree of this house. Two things that are asked of
+  somebody else decide it: **herdr's own `worktree.list` for this checkout** has to name the
+  folder, the same answer cleanup takes as its last word, and **the pane `whiska start`
+  recorded as the main session is never typed into** (ADR-0053). Without both, a forged
+  entry pointing at the main checkout or at another repo would have named a pane the owl
+  has no business in — which is what ADR-0044 forbids, so claiming the bound and not
+  enforcing it would have been the same as not having it.
+- An entry on the doorstep that will not parse belongs to a mouse nobody can name, so while
+  one is sitting there nothing is picked up at all: it could be the very turn about to be
+  called dead.
 - Accepted on the grounds that a mouse whose turn died has, by construction, work it was
   halfway through and nobody coming to ask about it.
 
@@ -164,8 +200,10 @@ larger in what it starts, and it deserves the same plain accounting:
 
 - **The mouse record gains `worked_at` and `picked_up_at`** (migration 6). Both are stamps,
   never cleared — ADR-0007's reading of a record as history, not state.
-- **The sweep rides the existing 60 s backstop**, beside cleanup, and asks herdr nothing of
-  its own: it is handed the pane list the house already re-listed that tick.
+- **The sweep rides the existing 60 s backstop**, beside cleanup, and is handed the pane
+  list the house already re-listed that tick. The one call of its own is `worktree.list`,
+  and only once a mouse has passed everything this machine can answer by itself — so an
+  ordinary sweep opens no socket, exactly as cleanup does not.
 - **It runs at open too**, where it can never act — the clocks are all fresh — purely so the
   first backstop after an owl restart is the second sweep rather than the first.
 - **A branch picked up twice does not exist.** If the ladder's later rungs are ever built,

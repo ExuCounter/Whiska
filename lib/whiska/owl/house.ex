@@ -170,12 +170,14 @@ defmodule Whiska.Owl.House do
     :board_ms,
     :hold_notice_ms,
     :settle_ms,
+    :max_gap_ms,
     held_since: nil,
     held_reason: nil,
     subscription: nil,
     board_frame: 0,
     panes: %{},
     seen: %{},
+    last_sweep_at: nil,
     last_panes: :no_socket,
     main_pane: nil,
     round_timer: nil,
@@ -197,7 +199,8 @@ defmodule Whiska.Owl.House do
   that found nothing), `:board_ms` (how often the board is written),
   `:hold_notice_ms` (how long a hold lasts before the board says why),
   `:settle_ms` (how long a mouse's pane must have been quiet before a died turn
-  is picked up), `:name`.
+  is picked up), `:max_gap_ms` (how long a gap between backstops means the owl
+  was not watching, so its pane memory is thrown away), `:name`.
   """
   def start_link(opts) do
     {name, opts} = Keyword.pop(opts, :name)
@@ -238,6 +241,8 @@ defmodule Whiska.Owl.House do
 
   # -- lifecycle ---------------------------------------------------------------
 
+  defp backstop_ms(opts), do: Keyword.get(opts, :backstop_ms, @default_backstop_ms)
+
   @impl true
   def init(opts) do
     # Trapping exits is what makes terminate/2 run on shutdown, and what turns
@@ -252,13 +257,14 @@ defmodule Whiska.Owl.House do
           socket: Keyword.get(opts, :herdr_socket) || Herdr.socket_path(),
           herdr: Herdr.impl(),
           repo: repo,
-          backstop_ms: Keyword.get(opts, :backstop_ms, @default_backstop_ms),
+          backstop_ms: backstop_ms(opts),
           resubscribe_ms: Keyword.get(opts, :resubscribe_ms, @default_resubscribe_ms),
           round_wait_ms: Keyword.get(opts, :round_wait_ms, @default_round_wait_ms),
           retry_ms: Keyword.get(opts, :retry_ms, @default_retry_ms),
           board_ms: Keyword.get(opts, :board_ms, @default_board_ms),
           hold_notice_ms: Keyword.get(opts, :hold_notice_ms, @default_hold_notice_ms),
           settle_ms: Keyword.get(opts, :settle_ms, @default_settle_ms),
+          max_gap_ms: Keyword.get(opts, :max_gap_ms, backstop_ms(opts) * 3),
           main_pane: Storage.main_pane()
         }
 
@@ -624,15 +630,20 @@ defmodule Whiska.Owl.House do
   defp pick_up(%{socket: nil} = state), do: state
 
   defp pick_up(state) do
+    now = DateTime.utc_now()
+
     {outcomes, seen} =
       Pickup.sweep(%{
         main_checkout: state.main_checkout,
         herdr: state.herdr,
         socket: state.socket,
         panes: state.last_panes,
+        main_pane: state.main_pane,
         seen: state.seen,
+        last_sweep_at: state.last_sweep_at,
+        max_gap_ms: state.max_gap_ms,
         settle_ms: state.settle_ms,
-        now: DateTime.utc_now()
+        now: now
       })
 
     Enum.each(outcomes, fn
@@ -650,7 +661,7 @@ defmodule Whiska.Owl.House do
         :ok
     end)
 
-    %{state | seen: seen}
+    %{state | seen: seen, last_sweep_at: now}
   end
 
   defp label(mouse_id) do
