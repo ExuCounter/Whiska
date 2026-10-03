@@ -18,6 +18,7 @@ defmodule Whiska.CLIDoctorTest do
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(worktree)
     on_exit(fn -> File.rm_rf!(root) end)
+    stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
     {:ok, root: root, main: main, worktree: worktree}
   end
 
@@ -47,6 +48,14 @@ defmodule Whiska.CLIDoctorTest do
     {out, _status} = with_status(fn -> CLI.run(["doctor"], worktree) end)
 
     assert out =~ "whiska doctor — myrepo"
+  end
+
+  test "the report says whether a delivered question will be heard (ADR-0062)", %{main: main} do
+    stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+    {out, _status} = with_status(fn -> CLI.run(["doctor"], main) end)
+
+    assert out =~ ~r/(ok|warn)\s+hoot/
   end
 
   test "help lists it" do

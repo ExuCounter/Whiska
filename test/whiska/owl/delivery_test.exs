@@ -46,6 +46,8 @@ defmodule Whiska.Owl.DeliveryTest do
     # Nobody is typing unless a test says so (ADR-0047).
     box_holds("")
 
+    stub(Herdr, :notify, fn @socket, _notification -> :ok end)
+
     {:ok, main: main, a: a}
   end
 

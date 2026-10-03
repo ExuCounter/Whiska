@@ -44,6 +44,13 @@ defmodule Whiska.Herdr do
           workspace_id: String.t() | nil
         }
 
+  @typedoc """
+  A desktop notification, in herdr's own terms. `sound` is one of herdr's three
+  — `:none`, `:done` (its finished sound) and `:request` (its needs-attention
+  one).
+  """
+  @type notification :: %{title: String.t(), body: String.t(), sound: :none | :done | :request}
+
   @typedoc "One subscription, in herdr's own terms: `%{type: \"pane.closed\"}`."
   @type subscription :: %{required(:type) => String.t(), optional(:pane_id) => String.t()}
 
@@ -81,6 +88,24 @@ defmodule Whiska.Herdr do
   refuses with its own code when the pane is gone; the error carries it.
   """
   @callback focus(socket :: Path.t(), pane_id :: String.t()) :: :ok | {:error, term()}
+
+  @typedoc """
+  What herdr did with a notification. It decides from the person's own
+  `[ui.toast]` and `[ui.sound]` settings, and says outright whether it drew
+  anything — `{:not_shown, "disabled"}` when popups are turned off, carrying
+  herdr's own reason string.
+  """
+  @type notify_result :: {:ok, :shown} | {:ok, {:not_shown, String.t()}} | {:error, term()}
+
+  @doc """
+  Raise a desktop notification — the hoot that goes out with a delivered line
+  (ADR-0062).
+
+  The only call here that is not about a pane, and the only one whose answer
+  says what the person saw rather than what a pane is doing: a delivery ignores
+  it, and `whiska doctor` probes with it (ADR-0038).
+  """
+  @callback notify(socket :: Path.t(), notification :: notification()) :: notify_result()
 
   @doc """
   Open a subscription and stream its events to `listener`.

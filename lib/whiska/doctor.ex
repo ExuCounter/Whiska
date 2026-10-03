@@ -94,6 +94,8 @@ defmodule Whiska.Doctor do
     {house, in_house} =
       house(main_checkout, panes, herdr, env["HERDR_SOCKET_PATH"], now, env)
 
+    herdr_config = read_herdr_config(env)
+
     checks =
       [binary] ++
         built(main_checkout, installed_at, binary_path) ++
@@ -104,6 +106,7 @@ defmodule Whiska.Doctor do
           launch_agent(installed?, agent, pids),
           open_houses(OpenHouses.read(record), main_checkout, pids),
           tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
+          hoot(hoot_probe(herdr, env)),
           global(global_state)
         ] ++
         hooks ++
@@ -653,6 +656,66 @@ defmodule Whiska.Doctor do
       older ->
         Check.warn("statusline script", "v#{older}; whiska upgrade is available", @init)
     end
+  end
+
+  @doc """
+  Whether herdr showed the hoot the owl raises on every delivery (ADR-0062).
+
+  `probe` is what `Whiska.Herdr.notify/2` answered to a notification sent for
+  this check, or `:no_socket` when there was no herdr to send one to. herdr
+  says outright whether it displayed the notification and, when it did not,
+  which of its own reasons stopped it — so the doctor asks herdr rather than
+  reading its config and guessing. A probe is what this check is for
+  (ADR-0038): the person sees the notification exactly when it works, which is
+  the answer and the demonstration in one.
+
+  A warning, never a failure: the question is delivered either way, the line is
+  in the main session, and `whiska questions` still lists it. What is lost is
+  hearing about it while looking at something else. herdr's config is the
+  person's and machine-global, so the fix says what to change in the table they
+  already have and never writes it (ADR-0016).
+  """
+  @spec hoot(Herdr.notify_result() | :no_socket) :: Check.t()
+  def hoot({:ok, :shown}), do: Check.ok("hoot", "a delivered question is shown by herdr")
+
+  def hoot({:ok, {:not_shown, reason}}),
+    do:
+      Check.warn(
+        "hoot",
+        "herdr did not show it (#{reason}), so a delivered question is silent",
+        hoot_fix()
+      )
+
+  def hoot({:error, reason}),
+    do: Check.warn("hoot", "could not ask herdr to show one (#{inspect(reason)})")
+
+  def hoot(:no_socket), do: Check.warn("hoot", "no herdr to ask — a delivered question is silent")
+
+  # Never a block to paste. `[ui.toast]` and `[ui.sound]` are in herdr's own
+  # stock config, and a second table of either name is a TOML duplicate key,
+  # which herdr refuses — dropping the whole file back to defaults, the tab bar
+  # entry that draws the owl's line (ADR-0048) with it.
+  # The probe (ADR-0038): ask herdr to show one and read what it says it did.
+  # The person sees it exactly when the hoot works, so the check is its own
+  # demonstration — and when it does not work there is nothing to see, which is
+  # the finding.
+  defp hoot_probe(herdr, env) do
+    case Herdr.socket(env) do
+      {:ok, socket} ->
+        herdr.notify(socket, %{
+          title: "🐱 whiska doctor",
+          body: "this is what a delivered question looks like",
+          sound: :none
+        })
+
+      {:error, {:no_socket, _}} ->
+        :no_socket
+    end
+  end
+
+  defp hoot_fix do
+    ~s(in #{Herdr.config_path()}, set delivery = "system" under the ) <>
+      ~s([ui.toast] table and enabled = true under [ui.sound])
   end
 
   @doc """

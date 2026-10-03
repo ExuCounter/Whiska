@@ -25,6 +25,8 @@ C4Component
     Component(markerq, "Whiska.Question.Marker", "classifier", "done / needs-decision / unmarked, by marker alone")
     Component(draft, "Whiska.Delivery.Draft", "classifier", "Is the main session's prompt box empty? empty / typing / unknown")
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead and removed mice")
+    Component(hoot, "Whiska.Delivery.Hoot", "composer", "The desktop notification for a delivered question, in the delivered line's own words")
+    Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead mice")
     Component(record, "Whiska.OpenHouses", "text file", "Which houses are open; trusted only while an owl is alive")
     Component(backstop, "Whiska.Backstop", "text file", "How much this house's backstop collected that the idle trigger missed")
     Component(watch, "Whiska.Watch", "renderer", "A row per mouse: branch, pane status, how long it has been going, and the question waiting, the mouse's topic, or its last action")
@@ -39,10 +41,11 @@ C4Component
   Rel(cliboot, sup, "Starts with the repos to open")
   Rel(sup, house, "Opens and shuts")
   Rel(sup, record, "Adds on open, removes on shut")
-  Rel(house, herdrb, "Lists panes, subscribes")
+  Rel(house, herdrb, "Lists panes, subscribes, raises the hoot")
   Rel(herdrb, sock, "Dispatched to the configured implementation")
   Rel(sock, herdrd, "One request per connection; events stream")
   Rel(house, draft, "Judges the main pane's screen before typing into it")
+  Rel(house, hoot, "Composes the hoot for the question it has just typed")
   Rel(house, doorstep, "Collects")
   Rel(house, backstop, "Marks what only the backstop found; clears it at open")
   Rel(doorstep, entry, "Decodes each JSON file")
@@ -97,6 +100,15 @@ delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible text
 `Whiska.Delivery.Draft` decides whether the person is mid-sentence. The boundary returns
 text and judges nothing; the classifier judges text and talks to nothing — the same split
 as `Whiska.Question.Marker`, for the same reason (ADR-0031).
+
+**The hoot is composed where the line is** (ADR-0062). A delivered question raises one
+desktop notification, and `Whiska.Delivery.Hoot` builds it out of the same
+`Whiska.Delivery.Text` functions that build the line, so there is one phrasing of one
+event rather than two. The house sends it through `Whiska.Herdr.notify/2` in the same
+branch that typed the line, and swallows whatever comes back — herdr's own word on whether
+it drew anything included: the question is already recorded sent, and an owl that crashed
+on a failed notification would lose the thing the notification was about. `whiska doctor`
+is where that word is read, from a hoot it sends itself.
 
 **Classification is the marker and nothing else** (ADR-0009). `Whiska.Question.Marker`
 reads the last marker line — a line of invisible separators, three for `done` and two for

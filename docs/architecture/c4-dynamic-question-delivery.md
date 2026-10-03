@@ -4,8 +4,8 @@
 classification (ADR-0009), the hook's reading of the transcript before it writes anything
 (ADR-0052), the idle-gated delivery queue (ADR-0008) with its hold while
 the person is typing (ADR-0047) — said on the board once it has lasted (ADR-0058) — the
-release of anything nothing can answer (ADR-0057), and the reply keyed to a question id
-(ADR-0005). Shown as a dynamic diagram because the ordering is the
+release of anything nothing can answer (ADR-0057), the hoot that goes out with the line
+(ADR-0062), and the reply keyed to a question id (ADR-0005). Shown as a dynamic diagram because the ordering is the
 design. Nothing here crosses into another repo: the nudge that once did was deleted by
 ADR-0044.
 
@@ -39,6 +39,8 @@ C4Dynamic
   Rel(delivery, db, "Release what nothing can answer; then any finished line to tell, otherwise any open question if the slot is free")
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
   Rel(delivery, mainpane, "Type one line only if idle and nothing half-typed, and for a question nothing sent")
+  Rel(delivery, herdr, "Hoot: one desktop notification, raised in the same breath as the line")
+  Rel(herdr, person, "Shows it, wherever they are")
   Rel(person, delivery, "whiska reply, keyed to the question id")
   Rel(delivery, mousepane, "herdr types the answer into that pane")
 
@@ -157,7 +159,29 @@ lasts more than ten seconds also says so on the board, on its waiting line:
 unchanged — nothing is ever typed into a box the person is mid-sentence in. A screen with
 no box on it is an unavailable signal, and delivers for the reason above.
 
-## Steps 9–10 — answers are keyed to a question id (ADR-0005)
+## Steps 9–10 — the hoot goes out with the line (ADR-0062)
+
+The line only reaches somebody already looking at the main session, and the reason a mouse
+leaves a question on the doorstep is that they are not. So delivery raises a desktop
+notification as it types — one per delivered question, from the same branch of the same
+function, so there is no state in which the line exists and the hoot does not. It carries
+the house, the branch, the verb and the id, in the line's own words: `🐱 whiska · feat-a
+needs a decision` over `#12 · "pick one" · 2 more open`. A decision takes herdr's
+`request` sound, a finished branch its `done` one; both arrive, and the one that must not
+be missed is told from the other without looking.
+
+A question that is only collected, or held by any part of the gate above, does not hoot —
+it is not on the person's screen yet, and a hoot would announce something they could not
+go and read.
+
+herdr shows it, from the person's own `[ui.toast]` and `[ui.sound]` settings, and its reply
+says whether it drew anything and why not. The owl drops that answer — somebody who turned
+popups off has not asked to hear about it once per delivery — and `whiska doctor` asks
+instead, by sending a hoot of its own and reporting what herdr did with it, which is the
+answer and the demonstration in one. Everything the hoot can do wrong is swallowed, because
+the question is already recorded sent by then and delivery is the job.
+
+## Steps 11–12 — answers are keyed to a question id (ADR-0005)
 
 Not to a branch. That is what stops an answer landing on whichever question Whiska
 happened to guess. `whiska reply <id>` writes the answer to the house; the owl looks up

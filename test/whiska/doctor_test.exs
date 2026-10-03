@@ -171,6 +171,60 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  # -- the hoot ----------------------------------------------------------------
+
+  describe "hoot/1 — whether herdr showed the owl's notification (ADR-0062)" do
+    test "herdr saying it showed the notification passes" do
+      check = Doctor.hoot({:ok, :shown})
+
+      assert %Check{status: :ok} = check
+      assert check.detail =~ "shown"
+    end
+
+    test "herdr saying it did not, and why, is a warning that repeats herdr's reason" do
+      check = Doctor.hoot({:ok, {:not_shown, "disabled"}})
+
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "disabled"
+      assert check.fix =~ "ui.toast"
+      assert check.fix =~ "system"
+      assert check.fix =~ Whiska.Herdr.config_path()
+    end
+
+    test "the fix edits the person's existing table rather than handing them one to paste" do
+      %Check{fix: fix} = Doctor.hoot({:ok, {:not_shown, "disabled"}})
+
+      refute fix =~ ~r/^\[ui\.toast\]$/m
+      assert fix =~ ~r/set .*delivery/i
+    end
+
+    test "herdr unreachable is a warning, and says the probe could not be made" do
+      check = Doctor.hoot({:error, :enoent})
+
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "could not ask herdr"
+    end
+
+    test "no socket to probe is a warning, not a verdict about the setting" do
+      check = Doctor.hoot(:no_socket)
+
+      assert %Check{status: :warn} = check
+      refute check.detail =~ "shown"
+    end
+
+    test "never a failure: a silent hoot loses no question (ADR-0038)" do
+      for probe <- [
+            {:ok, :shown},
+            {:ok, {:not_shown, "disabled"}},
+            {:error, :enoent},
+            :no_socket
+          ] do
+        assert %Check{status: status} = Doctor.hoot(probe)
+        assert status in [:ok, :warn]
+      end
+    end
+  end
+
   # -- the tab bar -------------------------------------------------------------
 
   describe "tab_bar/2 — the herdr entry that draws the owl's line (ADR-0048)" do
@@ -749,6 +803,8 @@ defmodule Whiska.DoctorTest do
         "HOME" => root,
         "HERDR_SOCKET_PATH" => Path.join(root, "herdr.sock")
       }
+
+      stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
 
       {:ok, root: root, main: main, env: env}
     end

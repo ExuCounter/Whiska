@@ -48,11 +48,25 @@ defmodule Whiska.Delivery.Text do
     |> String.replace(~r/\s*\n\s*/, " ")
   end
 
-  defp verb("unmarked"), do: "stopped without saying why"
-  defp verb("done"), do: "finished"
-  defp verb(_), do: "needs a decision"
+  @doc """
+  What the mouse did, in the words the line says it in: `needs a decision`,
+  `finished`, or `stopped without saying why`.
 
-  defp pointer(text) do
+  Public because the hoot that goes out with the line says the same thing
+  (`Whiska.Delivery.Hoot`), and the person must never meet two phrasings of one
+  event.
+  """
+  @spec verb(String.t()) :: String.t()
+  def verb("unmarked"), do: "stopped without saying why"
+  def verb("done"), do: "finished"
+  def verb(_), do: "needs a decision"
+
+  @doc """
+  The mouse's own pointer, quoted and cut to length, or `nil` when it left
+  none. Shared with the hoot, for the reason `verb/1` is.
+  """
+  @spec pointer(String.t()) :: String.t() | nil
+  def pointer(text) do
     case Marker.pointer(text) do
       "" -> nil
       p when byte_size(p) > @pointer_max -> ~s("#{String.slice(p, 0, @pointer_max)}…")
@@ -60,8 +74,10 @@ defmodule Whiska.Delivery.Text do
     end
   end
 
-  defp more(0), do: nil
-  defp more(n), do: "#{n} more open"
+  @doc "How many questions are still waiting behind this one, or `nil` for none."
+  @spec more(non_neg_integer()) :: String.t() | nil
+  def more(0), do: nil
+  def more(n), do: "#{n} more open"
 
   defp note(:status_unknown),
     do: "delivered blind: herdr cannot tell whether you are idle, so this may interrupt"
