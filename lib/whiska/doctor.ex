@@ -49,6 +49,7 @@ defmodule Whiska.Doctor do
 
   @reinstall "mix escript.build && cp whiska ~/.local/bin/whiska"
   @init "whiska init"
+  @init_global "whiska init --global"
   @owl "whiska owl"
   @install "whiska owl install"
   @restart "whiska start --force  (from the main checkout's pane)"
@@ -83,12 +84,15 @@ defmodule Whiska.Doctor do
     settings = read_settings(main_checkout)
     global_state = Install.global_state()
     hooks = hooks(settings, global_state) ++ [statusline(settings, global_state)]
-    shim_contents = read_shim(main_checkout)
-    shim = shim(shim_contents)
+    {shim_scope, shim_root} = shim_in_force(main_checkout, global_state)
+    shim = shim(read_shim(shim_root), shim_scope)
 
     probes =
       if binary_path != nil and shim.status == :ok,
-        do: [probe(main_checkout, "pre-tool-use", env), probe(main_checkout, "stop", env)],
+        do: [
+          probe(main_checkout, "pre-tool-use", env, shim_root),
+          probe(main_checkout, "stop", env, shim_root)
+        ],
         else: []
 
     {house, in_house} =
@@ -805,14 +809,33 @@ defmodule Whiska.Doctor do
     end)
   end
 
-  @doc "The committed shim, compared with what `init` writes today."
-  @spec shim(String.t() | nil) :: Check.t()
-  def shim(nil), do: Check.fail("shim", "#{Install.shim_path()} is missing", @init)
+  @doc """
+  The shim in force, compared with what `init` writes today for its scope.
 
-  def shim(contents) do
-    if contents == Install.shim(),
-      do: Check.ok("shim", "#{Install.shim_path()} is current"),
-      else: Check.fail("shim", "#{Install.shim_path()} differs from what init writes", @init)
+  Which scope that is matters: under a global install (ADR-0056) the shim lives
+  in `~/.claude` and the repo deliberately has none. Reading only the repo's
+  reported it missing in every repo on this machine and prescribed `whiska
+  init`, which would have written a repo-local install over the global one the
+  person chose — and, because the probes only run behind a passing shim check,
+  silently skipped the two checks that prove a hook fires at all.
+
+  The two shims are not the same script, so each is compared with its own:
+  the global copy stands down for a repo that wires Whiska itself.
+  """
+  @spec shim(String.t() | nil, Install.scope()) :: Check.t()
+  def shim(contents, scope \\ :repo)
+
+  def shim(nil, scope), do: Check.fail("shim", "#{shim_path(scope)} is missing", init_fix(scope))
+
+  def shim(contents, scope) do
+    if contents == Install.shim(scope),
+      do: Check.ok("shim", "#{shim_path(scope)} is current"),
+      else:
+        Check.fail(
+          "shim",
+          "#{shim_path(scope)} differs from what init writes",
+          init_fix(scope)
+        )
   end
 
   @doc """
@@ -863,10 +886,10 @@ defmodule Whiska.Doctor do
   The shim fails open by design (ADR-0035), so exit 0 is not enough: its
   complaint on stderr is what says the call was allowed by accident.
   """
-  @spec probe(Path.t(), String.t(), map()) :: Check.t()
-  def probe(repo_root, hook, env) do
+  @spec probe(Path.t(), String.t(), map(), Path.t() | nil) :: Check.t()
+  def probe(repo_root, hook, env, shim_root \\ nil) do
     name = "hook #{hook}"
-    shim = Path.join(repo_root, Install.shim_path())
+    shim = Path.join(shim_root || repo_root, Install.shim_path())
 
     tmp =
       Path.join(System.tmp_dir!(), "whiska-doctor-probe-#{System.unique_integer([:positive])}")
@@ -904,7 +927,7 @@ defmodule Whiska.Doctor do
           )
 
         true ->
-          Check.ok(name, "runs through #{Install.shim_path()}")
+          Check.ok(name, "runs through #{shim}")
       end
     after
       File.rm_rf(tmp)
@@ -1188,12 +1211,32 @@ defmodule Whiska.Doctor do
     end
   end
 
-  defp read_shim(main_checkout) do
-    case File.read(Path.join(main_checkout, Install.shim_path())) do
+  defp read_shim(root) do
+    case File.read(Path.join(root, Install.shim_path())) do
       {:ok, contents} -> contents
       _ -> nil
     end
   end
+
+  # Which install's shim this repo actually runs. The repo's own wins when it
+  # is there (ADR-0056: a repo that wires Whiska itself keeps winning, and the
+  # global shim stands down for it); otherwise a global install is what is
+  # running, and its shim is the one to check. With neither, the repo is the
+  # honest subject of the complaint and `whiska init` the honest fix.
+  defp shim_in_force(main_checkout, global_state) do
+    cond do
+      File.exists?(Path.join(main_checkout, Install.shim_path())) -> {:repo, main_checkout}
+      global_state[:hooks?] -> {:global, Install.root(:global)}
+      true -> {:repo, main_checkout}
+    end
+  end
+
+  # How the person would type the path, so the two scopes cannot be read as one.
+  defp shim_path(:repo), do: Install.shim_path()
+  defp shim_path(:global), do: "~/#{Install.shim_path()}"
+
+  defp init_fix(:repo), do: @init
+  defp init_fix(:global), do: @init_global
 
   # The oldest of the owls running: with two of them the older one is the one
   # serving stale code, and the launch-agent check is what names the pair.

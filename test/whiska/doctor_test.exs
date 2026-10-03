@@ -311,6 +311,31 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  describe "shim/2 — the scope whose shim is actually in force" do
+    # Under a global install (ADR-0056) the shim lives in `~/.claude`, and the
+    # repo has none on purpose. Reading only the repo's reported it missing in
+    # every repo on the machine and prescribed `whiska init`, which would have
+    # written a repo-local install over the global one the person chose.
+    test "the global shim is read as the global one" do
+      assert %Check{status: :ok} = Doctor.shim(Install.shim(:global), :global)
+    end
+
+    test "a missing global shim says to reinstall globally, never plain `whiska init`" do
+      assert %Check{status: :fail, fix: "whiska init --global"} = Doctor.shim(nil, :global)
+    end
+
+    test "the repo's shim is not the global one — the global copy stands down, it does not" do
+      assert %Check{status: :fail} = Doctor.shim(Install.shim(:repo), :global)
+    end
+
+    test "the detail names the file it actually read, so the two scopes cannot be confused" do
+      assert %Check{detail: global} = Doctor.shim(Install.shim(:global), :global)
+      assert %Check{detail: repo} = Doctor.shim(Install.shim(:repo), :repo)
+      assert global =~ "~/"
+      refute repo =~ "~/"
+    end
+  end
+
   # -- doorstep ----------------------------------------------------------------
 
   describe "doorstep/2" do
@@ -779,6 +804,68 @@ defmodule Whiska.DoctorTest do
       %{"cwd" => cwd} = File.read!(Path.join(tmp, "payload")) |> JSON.decode!()
       refute cwd =~ "/worktrees/"
       refute File.exists?(Path.join(repo, ".git/whiska/doorstep"))
+    end
+  end
+
+  # -- run, under a global install ---------------------------------------------
+
+  describe "run/2 — a repo covered by the global install, with no `.claude` of its own" do
+    setup do
+      previous = Application.get_env(:whiska, :user_home)
+
+      root =
+        Path.join(System.tmp_dir!(), "whiska-doctor-global-#{System.unique_integer([:positive])}")
+
+      home = Path.join(root, "home")
+      main = Path.join(root, "myrepo")
+      File.mkdir_p!(Path.join(main, ".git"))
+      File.mkdir_p!(Path.join(home, ".claude/hooks"))
+      Application.put_env(:whiska, :user_home, home)
+
+      File.write!(
+        Path.join(home, ".claude/settings.json"),
+        JSON.encode!(Install.merge(%{}, :global))
+      )
+
+      File.write!(Path.join(home, Install.shim_path()), Install.shim(:global))
+      File.chmod!(Path.join(home, Install.shim_path()), 0o755)
+
+      whiska = script(root, "whiska", "#!/bin/sh\nexit 0\n")
+      escript = script(root, "escript", ~s|#!/bin/sh\nexec "$@"\n|)
+
+      env = %{
+        "WHISKA_BIN" => whiska,
+        "WHISKA_ESCRIPT" => escript,
+        "PATH" => @stripped_path,
+        "HOME" => home,
+        "HERDR_SOCKET_PATH" => Path.join(root, "herdr.sock")
+      }
+
+      stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
+      stub(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
+
+      on_exit(fn ->
+        Application.put_env(:whiska, :user_home, previous)
+        File.rm_rf!(root)
+      end)
+
+      {:ok, main: main, env: env}
+    end
+
+    test "the shim is found where the global install put it", %{main: main, env: env} do
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :ok} = find(report.checks, "shim")
+    end
+
+    test "the hooks are probed for real — a repo-shaped shim check skipped them", %{
+      main: main,
+      env: env
+    } do
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :ok} = find(report.checks, "hook pre-tool-use")
+      assert %Check{status: :ok} = find(report.checks, "hook stop")
     end
   end
 
