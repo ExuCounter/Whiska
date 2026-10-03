@@ -52,7 +52,7 @@ behaviour is still unprotected and would hurt if it broke?
    - **Risk:** `MainCheckout.decide("Bash")` expands every path-like token against the
      worktree (`rule/main_checkout.ex:97`). A token the shell parser does not clean ends
      up inside the worktree, and `judge` allows it. Confirmed by **run**:
-     `Shell.paths/1` returns these tokens raw:
+     `Shell.paths/1` returns these tokens raw, and `Shell.mutating?/1` counts each command as mutating:
      - `echo x 2>/main/f` gives `["2>/main/f"]`
      - `dd of=/main/f` gives `["of=/main/f"]`
      - `rm $HOME/…/main/f` gives `["$HOME/…/main/f"]`
@@ -78,7 +78,8 @@ behaviour is still unprotected and would hurt if it broke?
      `Marker.pointer/1` only splits on `\n`. The branch name comes from the doorstep
      entry unchanged (`owl/house.ex:840`, `:1017`). Confirmed by **run**: the regex
      leaves `"hi\rthere\e[201~x"` untouched. Hoot titles (`delivery/hoot.ex:61`) have
-     the same gap.
+     a smaller gap: `Hoot.name/1` already collapses `\s+`, so only `\e` and `\x03` get
+     through there.
    - **Nearest test:** `delivery/text_test.exs:72`, which only checks for `\n`.
    - **Assertion that would fail:** compose with text and a branch containing `\r`,
      `\e[201~`, `\x03` and `\t`, then
@@ -97,8 +98,9 @@ behaviour is still unprotected and would hurt if it broke?
      - doctor reads the screen a third time: `doctor.ex:999`
 
      Today the three blocks agree (**read**). Nothing keeps them agreeing.
-   - **Nearest tests:** the pickup tests use 3 of the 7 saved screens, and never try
-     `:unknown` or a deliberate read error.
+   - **Nearest tests:** the pickup tests use 3 of the 7 saved screens and never try
+     `:unknown`. A read error is only the default stub (`pickup_test.exs:54`), never a
+     named case.
    - **Assertion that would fail:** for every file in `test/support/screens`, plus a
      read error, delivery's hold reason equals pickup's `{:left, reason}`, and a go
      equals `:picked_up`. A cheaper alternative is to move the decision into one
@@ -116,12 +118,13 @@ behaviour is still unprotected and would hurt if it broke?
    - **Impact:** silent data loss in `~/.claude/CLAUDE.md`, which is usually a symlink
      into a dotfiles checkout. A `keep` part the person claimed can be lost too.
    - **Risk:** this is **read**, traced through `claude_md.ex`:
-     1. When a part's start marker has no matching end, `segments/1` returns the whole
-        block as `{:other, inside}` (`:422-436`). So `seen` is empty, and `rebuild`
-        appends all six parts again.
+     1. When a part's start marker has no matching end, `segments/1` (`:425-443`)
+        returns the rest of the block as `{:other, …}`. That part and every part after
+        it go missing from `seen`, and `rebuild` appends them again. If the broken part
+        is the first one, all six parts are appended.
      2. On the next run, `close/3` pairs the orphaned start marker with the newly
         appended end marker. It replaces everything between them with one fresh body.
-     3. This breaks the comment at `:418-420`, which says a half-written marker is
+     3. This breaks the comment at `:422-424`, which says a half-written marker is
         copied through unchanged.
 
      Deleting the outer `<!-- whiska:end -->` has the same shape and writes a second
@@ -141,8 +144,9 @@ behaviour is still unprotected and would hurt if it broke?
      owl, so the statusline keeps saying "watching".
    - **Risk:** houses run under one `DynamicSupervisor`, inside a `rest_for_one`
      supervisor (`owl.ex:43-48`). Both use the default limit of 3 restarts in 5 s
-     (**read**). A house whose `init` keeps returning `{:stop, …}`
-     (`owl/house.ex:275`, `:382`) uses that budget up. The `DynamicSupervisor` then
+     (**read**). A house that keeps stopping, through `init` returning `{:stop, …}`
+     (`owl/house.ex:275`) or `{:stop, {:repo_down, _}}` on an exit (`:382`), uses that
+     budget up. The `DynamicSupervisor` then
      restarts empty, and nothing reopens the remembered houses.
    - **Nearest test:** `owl_test.exs:92`, which kills a house once.
    - **Assertion that would fail:** open houses a and b, then kill a 4 times. Assert
@@ -183,7 +187,7 @@ behaviour is still unprotected and would hurt if it broke?
 
      Pickup stamps first and types after, on purpose (`pickup.ex:299-306`). Delivery
      does not.
-   - **Nearest tests:** `delivery_test.exs:333` and `:831`, which use a clean
+   - **Nearest tests:** `owl/delivery_test.exs:333` and `:831`, which use a clean
      `{:error, _}` only.
    - **Assertion:** a fake herdr accepts the line, then the record fails or the call
      times out. `prompt` is called exactly once across two triggers and a restart.
@@ -207,7 +211,7 @@ behaviour is still unprotected and would hurt if it broke?
    - **Impact:** the person gets no warning. Pickup stays refused until someone finds
      the file.
    - **Risk:** `Doorstep.waiting/1` skips a file it cannot parse, but `count_waiting/1`
-     counts it (`doorstep.ex:76-81`). Pickup then refuses everything
+     counts it (`doorstep.ex:76-81` and `:89-95`). Pickup then refuses everything
      (`pickup.ex:323`), while `questions` and `doctor` show nothing. Invalid UTF-8, a
      lone surrogate, or a torn write from anything other than `leave/2` all trigger it.
    - **Nearest tests:** `doorstep_test.exs:82` and `pickup_test.exs:229` check the skip
@@ -294,11 +298,8 @@ Only these would change the ranking:
 4. **Does Claude Code reset `cwd` when the shell leaves the project?** If yes, the
    `cwd` half of #1 matters less. The redirect half stands either way.
 
-**Side finding, the opposite failure from #1:** the PreToolUse hook denied read-only
-commands during this scan, calling them "edits outside the worktree". Two cases:
-
-- a `cd <worktree>; ls`: it read `<worktree>;`, semicolon included, as a path
-- a `ls`/`grep` that ended in `2>/dev/null` and touched the main checkout's `deps/`
-
-A false deny costs less than #1's false allow, but it shares #1's fix in
-`Shell.paths/1`, so the same test table should pin it.
+**Side finding, the opposite failure from #1:** the PreToolUse hook denied a read-only
+`ls`/`grep` during this scan because it ended in `2>/dev/null` and named the main
+checkout's `deps/`. `Shell.mutating?/1` counts any `2>` redirect as mutating, even one
+to `/dev/null`. A false deny costs less than #1's false allow, but it lives in the same
+`Shell` code, so the same test table should pin it.
