@@ -16,7 +16,7 @@ decision made.
   cascades out of the queue rather than sitting there forever — sent as well as open.
 
   *Where it cascades to, refined on 2026-10-03 by
-  [ADR-0063](0063-a-landed-branch-settles-what-its-mouse-left-waiting.md)*: `settled`
+  [ADR-0064](0064-a-landed-branch-settles-what-its-mouse-left-waiting.md)*: `settled`
   when the mouse's branch landed, since the merge was the answer, and `orphaned` only
   when the work never landed. Both are kept; neither is a deletion. It drops
   out of `whiska mice` and the statusline count, but the row stays — which is what lets

@@ -133,11 +133,11 @@ defmodule Whiska.CleanupTest do
     end
   end
 
-  # The sweep's other job (ADR-0063): noting that a branch has landed, whether
+  # The sweep's other job (ADR-0064): noting that a branch has landed, whether
   # or not the worktree may go. A mouse holding a question is never torn down
   # here, but its branch landing is what later settles that question instead of
   # orphaning it.
-  describe "noting a landing (ADR-0063)" do
+  describe "noting a landing (ADR-0064)" do
     test "stamps a mouse whose branch has landed, even while a question holds it",
          %{repo: repo} do
       m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")

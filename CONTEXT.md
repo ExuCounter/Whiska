@@ -72,7 +72,7 @@ delivery slot nor holds it. A question is **open** while it waits to be told, **
 waiting for its answer, then **answered**; **superseded** when its own mouse asked a
 newer one, **closed** by hand or as a `done` report once told, **settled** when its
 mouse's branch landed and there is nothing left to answer to — the merge was the answer
-(ADR-0063) — and **orphaned** when nothing can act on it and nothing ever answered it
+(ADR-0064) — and **orphaned** when nothing can act on it and nothing ever answered it
 (its mouse died, its worktree is gone, its record no longer stands for a worktree of this
 house) with the work still not landed.
 _Avoid_: report (as the table/record name — the word now names how a message reads,
@@ -136,7 +136,7 @@ mouse is a row: a dead one has none, and what it left behind unanswered is count
 `orphaned` line of its own, under the `waiting` one — nobody can answer an orphan, so it
 is never counted as waiting. A question its mouse's branch landed on is **settled**
 rather than orphaned, and is counted on neither line: an orphan means something went
-wrong, not that a branch merged (ADR-0063). That line names the branches the orphans came off, and an orphan whose record
+wrong, not that a branch merged (ADR-0064). That line names the branches the orphans came off, and an orphan whose record
 kept no branch is named by its own question id. The board only reports — nothing on it acts (ADR-0051).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws, which is not this), the
 statusline (the surface, not what is drawn on it), title (herdr's and Claude Code's word
@@ -157,7 +157,7 @@ dies while holding the slot) and the session is idle again. Nothing that cannot 
 answered ever holds the slot: before each attempt, everything still waiting for a mouse
 that is dead, or for a record that no longer stands for a worktree of this house, is
 released — **settled** where its mouse's branch landed, **orphaned** where it did not
-(ADR-0057, ADR-0063). While the gate holds — the session mid-turn, or a
+(ADR-0057, ADR-0064). While the gate holds — the session mid-turn, or a
 draft in its box — the queue is **held**, and the board says so once the hold has lasted
 ten seconds (ADR-0058). A finished line is outside
 the queue: nothing is waiting on the person in it, so it goes ahead of whatever is

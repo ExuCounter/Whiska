@@ -1,6 +1,6 @@
 defmodule Whiska.Migrations.V005Landing do
   @moduledoc """
-  Somewhere to say a branch has landed (ADR-0063).
+  Somewhere to say a branch has landed (ADR-0064).
 
   `landed_at` is when Whiska first saw this mouse's branch merged into the
   base. It is stamped while the worktree still stands, or from the branch ref

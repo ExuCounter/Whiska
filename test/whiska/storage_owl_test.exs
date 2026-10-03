@@ -225,9 +225,9 @@ defmodule Whiska.StorageOwlTest do
   end
 
   # A branch that landed answered everything its mouse was still waiting on:
-  # the merge was the answer (ADR-0063). Settled is kept apart from orphaned so
+  # the merge was the answer (ADR-0064). Settled is kept apart from orphaned so
   # that an orphan still means something went wrong.
-  describe "mark_landed/1 (ADR-0063)" do
+  describe "mark_landed/1 (ADR-0064)" do
     test "stamps landed_at and keeps the first date on a second sweep" do
       assert {:ok, %Mouse{landed_at: %DateTime{}} = first} = Storage.mark_landed("m1")
       assert {:ok, again} = Storage.mark_landed("m1")
@@ -260,7 +260,7 @@ defmodule Whiska.StorageOwlTest do
     end
   end
 
-  describe "terminal_status/1 (ADR-0063)" do
+  describe "terminal_status/1 (ADR-0064)" do
     test "is settled for a landed mouse and orphaned for every other" do
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "b"})
       {:ok, _} = Storage.mark_landed("m1")
@@ -271,7 +271,7 @@ defmodule Whiska.StorageOwlTest do
     end
   end
 
-  describe "a landed mouse's cascade (ADR-0063)" do
+  describe "a landed mouse's cascade (ADR-0064)" do
     test "mark_dead/1 settles what it left waiting rather than orphaning it" do
       open = ask("m1")
       sent = ask("m1")

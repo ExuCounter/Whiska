@@ -15,7 +15,7 @@ defmodule Whiska.Cleanup do
   where it is. Nothing is forced, and nothing is retried harder next time.
 
   The pass has a second job, which refuses nothing and removes nothing
-  (ADR-0063): noting that a branch has landed, for every mouse rather than only
+  (ADR-0064): noting that a branch has landed, for every mouse rather than only
   for the ones that may go. That stamp is what later settles a question its
   mouse left waiting rather than orphaning it.
 
@@ -65,7 +65,7 @@ defmodule Whiska.Cleanup do
   end
 
   # The sweep's other job, and the one it does for every standing and every
-  # vanished worktree alike (ADR-0063): noting that a branch has landed. A
+  # vanished worktree alike (ADR-0064): noting that a branch has landed. A
   # mouse holding a question is never torn down, but its branch landing is what
   # settles that question when there is finally nobody left to answer to.
   # Returns the mouse with git's answer to "is this an ancestor of the base",
@@ -87,7 +87,7 @@ defmodule Whiska.Cleanup do
 
   # An ancestor of the base is not yet a landing: a branch cut an hour ago and
   # never moved is one too. Only work the base reached through a merge settles
-  # anything (ADR-0063).
+  # anything (ADR-0064).
   defp landed_by_merge(mouse, local, head, base) do
     case Git.reached_by_merge?(local.checkout, head, base) do
       {:ok, true} -> stamp_landing(mouse)

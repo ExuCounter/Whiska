@@ -95,7 +95,7 @@ defmodule Whiska.Git do
   The commit a branch points at, by name.
 
   The only way left to ask anything about a mouse's work once its worktree has
-  gone (ADR-0063). A branch nobody carries any more is `{:error,
+  gone (ADR-0064). A branch nobody carries any more is `{:error,
   :no_such_branch}`, never a guess.
   """
   @spec branch_head(Path.t(), branch()) :: {:ok, String.t()} | {:error, term()}
@@ -139,7 +139,7 @@ defmodule Whiska.Git do
 
   The base's own first-parent line is where a branch sits that has done nothing
   yet — cut off the base and never moved — and sitting there is not landing
-  (ADR-0063). A branch merged with a merge commit hangs off that line as a
+  (ADR-0064). A branch merged with a merge commit hangs off that line as a
   second parent, so its head is not on it.
 
   Asked by walking the line back as far as this commit and checking what is

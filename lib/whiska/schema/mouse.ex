@@ -28,7 +28,7 @@ defmodule Whiska.Schema.Mouse do
     # Set when the owl takes the worktree down (ADR-0061). The row stays; this
     # is what makes it permanently inert.
     field(:removed_at, :utc_datetime)
-    # Set when the sweep first sees this branch merged into the base (ADR-0063).
+    # Set when the sweep first sees this branch merged into the base (ADR-0064).
     # What makes the difference between a question this mouse left that the
     # merge answered and one nobody ever dealt with.
     field(:landed_at, :utc_datetime)

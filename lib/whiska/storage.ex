@@ -290,7 +290,7 @@ defmodule Whiska.Storage do
   held ADR-0008's one delivery slot against every later question. Where it
   cascades to depends on the branch: `settled` for a mouse whose branch has
   landed, since the merge was the answer, and `orphaned` for one whose work
-  never did (ADR-0063). Anything already answered, closed or superseded is
+  never did (ADR-0064). Anything already answered, closed or superseded is
   history and is left alone. Marking an already-dead mouse changes nothing.
   """
   @spec mark_dead(String.t()) :: {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
@@ -322,7 +322,7 @@ defmodule Whiska.Storage do
   that no longer stands for a worktree of this house — the phantom a slashed
   branch's parent folder used to mint, and any other stale record — is taken
   out of the queue here: `settled` where the mouse's branch landed, `orphaned`
-  where it did not (ADR-0063). Either is kept (ADR-0007); an orphan is counted
+  where it did not (ADR-0064). Either is kept (ADR-0007); an orphan is counted
   on the board's own `orphaned` line (ADR-0051) and listed apart by
   `whiska questions`, which says there is nowhere to reply.
 
@@ -393,7 +393,7 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  What a question of this mouse becomes once nothing can act on it (ADR-0063).
+  What a question of this mouse becomes once nothing can act on it (ADR-0064).
 
   `settled` where the branch landed, since the merge was the answer, and
   `orphaned` where it did not. A mouse nobody has a record of is `orphaned`:
@@ -410,7 +410,7 @@ defmodule Whiska.Storage do
   defp terminal_for(_no_landing), do: "orphaned"
 
   @doc """
-  Mark a mouse's branch landed in the base (ADR-0063).
+  Mark a mouse's branch landed in the base (ADR-0064).
 
   The merge is the answer to everything that mouse left waiting, so a question
   of its that nothing can reach any more settles rather than orphaning. Two
@@ -584,7 +584,7 @@ defmodule Whiska.Storage do
   its mouse.
 
   Its mouse died (ADR-0026) or its worktree is gone (ADR-0036), and its branch
-  never landed — one that did is `settled` instead (ADR-0063). Kept forever
+  never landed — one that did is `settled` instead (ADR-0064). Kept forever
   (ADR-0007), never delivered, and shown apart from what the person can still
   answer: `whiska questions` lists them under their own heading and the board
   counts them on its own `🐱 n orphaned` line (ADR-0051).

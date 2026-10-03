@@ -76,7 +76,7 @@ defmodule Whiska.Owl.House do
   question is already out waiting for its answer. "Already out" means a live
   mouse is waiting on it: a mouse that dies with a question sent has that
   question settled or orphaned with the rest of what it left waiting, by whether
-  its branch landed (ADR-0007, ADR-0063), which
+  its branch landed (ADR-0007, ADR-0064), which
   frees the slot rather than holding it against every later question. Anything
   else joins the queue silently. The one exception is the first question of a
   fresh round, which waits `round_wait_ms` (8 s) so that the line it delivers
@@ -701,7 +701,7 @@ defmodule Whiska.Owl.House do
   # it is closed the moment it is sent, in send_question/3. An entry whose
   # worktree has already gone has nowhere to reply to, so it arrives where the
   # rest of that mouse's questions went — settled if its branch landed,
-  # orphaned if it did not (ADR-0063). The mouse is recorded first, so the
+  # orphaned if it did not (ADR-0064). The mouse is recorded first, so the
   # question of a mouse nobody had heard of is asked of a row that exists.
   defp arriving(entry) do
     if File.dir?(entry.worktree_root),

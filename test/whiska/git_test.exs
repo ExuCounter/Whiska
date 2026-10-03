@@ -39,7 +39,7 @@ defmodule Whiska.GitTest do
     end
   end
 
-  describe "branch_head/2 and reached_by_merge?/3 (ADR-0063)" do
+  describe "branch_head/2 and reached_by_merge?/3 (ADR-0064)" do
     test "names the commit a branch points at", %{repo: repo} do
       GitRepo.worktree(repo, "feat-a")
       head = String.trim(GitRepo.git!(repo.checkout, ["rev-parse", "refs/heads/feat-a"]))

@@ -1061,7 +1061,7 @@ defmodule Whiska.Doctor do
   second holds ADR-0008's one slot with nothing behind it able to move — no
   answer can reach a dead mouse, so it is never settled by being answered.
   `mark_dead/1` takes a dead mouse's sent question out of the queue for exactly
-  that reason — settled or orphaned by its branch (ADR-0063) —
+  that reason — settled or orphaned by its branch (ADR-0064) —
   so seeing one here means the owl has not reconciled it yet, or is not running.
   """
   @spec questions(

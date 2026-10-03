@@ -142,7 +142,7 @@ than delivered, and so is one belonging to a record that no longer stands for a 
 of this house (ADR-0051). Released means `settled` where the mouse's branch landed — the
 merge was the answer, and it is counted on no line at all — and `orphaned` where it did
 not, which is kept, counted on the board's own `orphaned` line, and read with
-`whiska questions`, which says there is nowhere to reply (ADR-0063).
+`whiska questions`, which says there is nowhere to reply (ADR-0064).
 `whiska doctor` still names a dead mouse holding the slot, now as a thing that should not
 be there rather than a state to wait out.
 

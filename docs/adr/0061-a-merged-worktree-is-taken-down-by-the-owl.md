@@ -161,7 +161,7 @@ record. Anything able to write that file already runs as the person.
 ## Consequences
 
 - **The sweep gained a second job on 2026-10-03**
-  ([ADR-0063](0063-a-landed-branch-settles-what-its-mouse-left-waiting.md)): it notes
+  ([ADR-0064](0064-a-landed-branch-settles-what-its-mouse-left-waiting.md)): it notes
   that a branch has landed for every mouse, not only for the ones it may tear down, so a
   question a landed mouse left waiting settles rather than orphaning. The four
   preconditions here are untouched, the third one included — a mouse with a question

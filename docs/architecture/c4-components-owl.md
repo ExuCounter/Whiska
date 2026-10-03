@@ -125,7 +125,7 @@ of judgment on the side that can be changed without touching every mouse's `sett
 reply command, ahead of whatever is waiting and with no regard for the delivery slot,
 and closed as soon as the prompt lands (ADR-0009 revised 2026-09-27, ADR-0008's note of
 2026-10-01). An entry whose worktree is gone is settled or orphaned by its branch
-(ADR-0063):
+(ADR-0064):
 recorded, surfaced, never interrupting, because there is nowhere to reply and nothing
 left to change.
 
@@ -156,7 +156,7 @@ thing in Whiska that deletes anything, and the first that can close a session.
 **Every landed branch is noted, torn down or not.** The same sweep stamps `landed_at` on
 a mouse the first time it sees the base reach that branch's work through a merge — from
 the worktree's own head while it stands, from the branch ref in the main checkout once it
-has gone (V005, ADR-0063). An ancestor of the base is not enough on its own: a branch cut
+has gone (V005, ADR-0064). An ancestor of the base is not enough on its own: a branch cut
 an hour ago is one too. Nothing is removed on the strength of the stamp; it is what later
 decides whether a question that mouse left waiting is `settled` or `orphaned`, and
 collection reads it too, for an entry arriving after its worktree has gone.
@@ -165,6 +165,6 @@ collection reads it too, for an entry arriving after its worktree has gone.
 pane stamps `died_at` (the V002 migration's one column) and cascades that mouse's open
 *and sent* questions out of the queue (ADR-0026, ADR-0007) — the sent one because it holds
 delivery's one slot and nothing can answer it any more. They go to `settled` when the
-branch landed and `orphaned` when it did not (ADR-0063). A mouse with no pane anywhere at
+branch landed and `orphaned` when it did not (ADR-0064). A mouse with no pane anywhere at
 house open is dead too, found by reconciling against `pane.list`; delivery is attempted
 straight after, so a slot freed that way does not wait for the backstop.

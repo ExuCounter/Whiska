@@ -109,10 +109,10 @@ ADR-0007's worktree half). The same sweep notes, for every mouse rather than onl
 it may tear down, that its branch has landed, which is what settles a question that mouse
 left waiting rather than orphaning it once there is nobody left to answer to — an orphan
 now means abandoned work or a record that never stood for a worktree, not an ordinary
-merge (ADR-0063). And delivery now reaches the person wherever they are: every
+merge (ADR-0064). And delivery now reaches the person wherever they are: every
 question it types raises one desktop notification in the same breath, carrying the house,
 the branch, the verb and the id, with herdr showing it and `whiska doctor` probing with a
-hoot of its own to say whether one is seen (ADR-0062). 1340 tests.
+hoot of its own to say whether one is seen (ADR-0062). 1344 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

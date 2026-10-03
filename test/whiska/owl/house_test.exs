@@ -331,7 +331,7 @@ defmodule Whiska.Owl.HouseTest do
       in_house(house, fn -> assert [%Question{status: "orphaned"}] = Storage.all(Question) end)
     end
 
-    test "an entry whose worktree is gone but whose branch landed arrives settled (ADR-0063)",
+    test "an entry whose worktree is gone but whose branch landed arrives settled (ADR-0064)",
          %{main: main, house: house} do
       gone = Path.join([main, "worktrees", "feat-gone"])
 
