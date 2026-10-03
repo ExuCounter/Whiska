@@ -343,7 +343,12 @@ defmodule Whiska.Install do
     cat "$board"
   elif [ "$age" -le 60 ]; then
     printf '🦉 owl down · %ss stale\n' "$age"
-    awk '{ printf "%c[2m%s%c[0m%c", 27, $0, 27, 10 }' "$board"
+    # Dim the whole of every row, over the colour the row already carries
+    # (`Whiska.Watch.Ink`). A row ends its own dim with `[22m`, which would end
+    # this one too and leave the rest of the line looking live, so each one is
+    # followed by a fresh `[2m`.
+    awk 'BEGIN { esc = sprintf("%c", 27); dim = esc "[2m" }
+         { gsub(esc "\\\\[22m", esc "[22m" dim); print dim $0 esc "[0m" }' "$board"
   fi
   """
 

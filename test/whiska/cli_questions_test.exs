@@ -11,6 +11,7 @@ defmodule Whiska.CLIQuestionsTest do
   alias Whiska.CLI
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
+  alias Whiska.Watch.Ink
   alias Whiska.Storage
 
   setup :set_mox_global
@@ -208,14 +209,14 @@ defmodule Whiska.CLIQuestionsTest do
     test "gives the mouse a row, with what it is waiting on", %{main: main} do
       seed(main, fn -> ask("Body.\n\npick one\n\u2063\u2063") end)
 
-      out = capture_io(fn -> assert CLI.run(["statusline", "--here"], main) == 0 end)
+      out = Ink.plain(capture_io(fn -> assert CLI.run(["statusline", "--here"], main) == 0 end))
 
       assert out =~ "🐭 feat-a"
       assert out =~ "waiting on you · #1 · \"pick one\""
     end
 
     test "says nothing at all when this repo is quiet", %{main: main} do
-      out = capture_io(fn -> assert CLI.run(["statusline", "--here"], main) == 0 end)
+      out = Ink.plain(capture_io(fn -> assert CLI.run(["statusline", "--here"], main) == 0 end))
       assert out == ""
     end
 

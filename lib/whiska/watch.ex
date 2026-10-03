@@ -36,10 +36,12 @@ defmodule Whiska.Watch do
 
   alias Whiska.Herdr
   alias Whiska.Layout
+  alias Whiska.Mice
   alias Whiska.Question.Marker
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
+  alias Whiska.Watch.Ink
   alias Whiska.Watch.Text
   alias Whiska.Watch.Transcript
 
@@ -69,6 +71,7 @@ defmodule Whiska.Watch do
           question_id: pos_integer() | nil,
           branch: String.t(),
           status: String.t(),
+          elapsed: String.t(),
           detail: String.t()
         }
 
@@ -135,13 +138,15 @@ defmodule Whiska.Watch do
   `:panes`, herdr's answer in `Whiska.Mice.panes/0` form; `:activity`, what a
   mouse is doing and how long it has been silent,
   `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:held`, why
-  delivery is holding (ADR-0058).
+  delivery is holding (ADR-0058); `:now`, what to measure each mouse's age
+  against.
   """
   @spec board([Mouse.t()], keyword()) :: t()
   def board(mice, opts \\ []) do
     questions = Keyword.get(opts, :questions, [])
     panes = Keyword.get(opts, :panes, :no_socket)
     activity = Keyword.get(opts, :activity, &Transcript.activity(&1.path))
+    now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
 
     {orphaned, live} = Enum.split_with(questions, &(&1.status == @orphaned))
     by_mouse = live |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1})
@@ -149,7 +154,7 @@ defmodule Whiska.Watch do
     {rows, more} =
       mice
       |> Enum.filter(&is_nil(&1.died_at))
-      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, activity))
+      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, activity, now))
       |> Enum.sort_by(&rank/1)
       |> cap()
 
@@ -162,7 +167,7 @@ defmodule Whiska.Watch do
     }
   end
 
-  defp row(mouse, question, panes, activity) do
+  defp row(mouse, question, panes, activity, now) do
     pane = pane(mouse, panes)
     status = status(pane)
 
@@ -171,9 +176,15 @@ defmodule Whiska.Watch do
       question_id: question_id(question),
       branch: mouse.branch || mouse.mouse_id,
       status: status,
+      elapsed: elapsed(mouse, now),
       detail: detail(question, pane, status, fn -> activity.(mouse) end)
     }
   end
+
+  # How long this mouse has been going, in `whiska mice`'s own spelling — the
+  # board and the command answer the same question about the same records, and
+  # two spellings of `1h 33m` would be two answers.
+  defp elapsed(mouse, now), do: Mice.format_uptime(DateTime.diff(now, mouse.created_at))
 
   defp question_id(%Question{status: status, id: id}) when status in @waiting, do: id
   defp question_id(_other), do: nil
@@ -307,6 +318,7 @@ defmodule Whiska.Watch do
     %{
       branch: width(rows, &String.length(branch(&1.branch))),
       status: width(rows, &String.length(&1.status)),
+      elapsed: width(rows, &String.length(&1.elapsed)),
       # The column is as wide as the longest frame and is there whether or not
       # anything is working, so a row's detail sits in the same place while the
       # dots grow, and stays there when the last working mouse stops.
@@ -317,16 +329,31 @@ defmodule Whiska.Watch do
   defp width([], _of), do: 0
   defp width(rows, of), do: rows |> Enum.map(of) |> Enum.max()
 
+  # A column is as wide as the words in it and the codes sit inside that width:
+  # an escape is not a character the person sees, so counting one would push the
+  # detail column sideways and let a branch past the cap that cuts it.
   defp line(row, widths, tick) do
+    branch = branch(row.branch)
+
     text =
       "🐭 " <>
-        String.pad_trailing(branch(row.branch), widths.branch) <>
+        pad(Ink.cyan(branch), branch, widths.branch) <>
         "  " <>
         String.pad_trailing(row.status, widths.status) <>
-        "  " <> ticker(row, widths.ticker, tick) <> row.detail
+        "  " <>
+        pad(Ink.dim(row.elapsed), row.elapsed, widths.elapsed) <>
+        "  " <> ticker(row, widths.ticker, tick) <> detail(row)
 
     String.trim_trailing(text)
   end
+
+  defp pad(inked, words, width),
+    do: inked <> String.duplicate(" ", max(width - String.length(words), 0))
+
+  # The question is the one thing on the board the person has to act on, so it
+  # is the one thing in yellow; what a mouse is doing stays plain.
+  defp detail(%{question_id: nil} = row), do: row.detail
+  defp detail(row), do: Ink.yellow(row.detail)
 
   defp ticker(_row, 0, _tick), do: ""
 
@@ -341,15 +368,17 @@ defmodule Whiska.Watch do
   defp branch(branch), do: Text.plain(branch, @branch_max)
 
   defp more_line(0), do: nil
-  defp more_line(more), do: "🐭 +#{more} more"
+  defp more_line(more), do: Ink.dim("🐭 +#{more} more")
 
   # Why nothing is being delivered, where the person is already looking
   # (ADR-0058). The gate itself is untouched: this is the queue saying it
   # exists, in the one place a hold was otherwise silent.
   defp waiting_line(0, nil), do: nil
-  defp waiting_line(0, held), do: "🐱 held: #{reason(held)}"
-  defp waiting_line(waiting, nil), do: "🐱 #{waiting} waiting"
-  defp waiting_line(waiting, held), do: "🐱 #{waiting} waiting · held: #{reason(held)}"
+  defp waiting_line(0, held), do: Ink.yellow("🐱 held: #{reason(held)}")
+  defp waiting_line(waiting, nil), do: Ink.yellow("🐱 #{waiting} waiting")
+
+  defp waiting_line(waiting, held),
+    do: Ink.yellow("🐱 #{waiting} waiting · held: #{reason(held)}")
 
   defp reason(:typing), do: "your prompt box isn't empty"
   defp reason(:mid_turn), do: "this session is mid-turn"
@@ -358,5 +387,5 @@ defmodule Whiska.Watch do
   # Its own word, under the waiting line: nobody can answer an orphan, so the
   # person is being told it is there, not asked to do anything about it.
   defp orphaned_line(0), do: nil
-  defp orphaned_line(orphaned), do: "🐱 #{orphaned} orphaned"
+  defp orphaned_line(orphaned), do: Ink.dim("🐱 #{orphaned} orphaned")
 end

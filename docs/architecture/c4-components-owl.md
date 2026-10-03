@@ -24,7 +24,8 @@ C4Component
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead mice")
     Component(record, "Whiska.OpenHouses", "text file", "Which houses are open; trusted only while an owl is alive")
     Component(backstop, "Whiska.Backstop", "text file", "How much this house's backstop collected that the idle trigger missed")
-    Component(watch, "Whiska.Watch", "renderer", "A row per mouse: branch, pane status, and the question waiting, the mouse's topic, or its last action")
+    Component(watch, "Whiska.Watch", "renderer", "A row per mouse: branch, pane status, how long it has been going, and the question waiting, the mouse's topic, or its last action")
+    Component(ink, "Whiska.Watch.Ink", "renderer", "Plain ANSI for the branch, a waiting question and the elapsed time; never a full reset, so a stale board's dim survives the row")
     Component(snapshot, "Whiska.Watch.Snapshot", "text file", "The board for one house, in ~/.whiska/board/")
     Component(transcript, "Whiska.Watch.Transcript", "reader", "The last tool call or sentence and how long the mouse has been silent, from its own Claude Code transcript, over Whiska.Transcript")
   }
@@ -46,6 +47,7 @@ C4Component
   Rel(house, storage, "Writes questions, marks mice dead")
   Rel(house, watch, "Renders the board every 2 seconds")
   Rel(watch, transcript, "What a blocked or stalled mouse is stuck in")
+  Rel(watch, ink, "Colours the branch, the question and the elapsed time")
   Rel(house, snapshot, "Writes the board where the statusline will find it")
   Rel(storage, db, "Ecto/exqlite")
 

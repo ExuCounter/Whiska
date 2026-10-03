@@ -352,11 +352,11 @@ replaced:
 
 ```
 ~/projects/whiska  main ✔
-🐭 feat-watch-board     working  A board the owl writes
-🐭 feat-quiet-marker    idle     waiting on you · #52 · "sqlite or a plain file?"
-🐭 fix-doctor-probe     working  Bash mix test
-🐭 feat-owl-snapshot    blocked  permission prompt in pane
-🐭 style-header-polish  idle     Header spacing on narrow panes
+🐭 feat-watch-board     working  12m     A board the owl writes
+🐭 feat-quiet-marker    idle     1h 33m  waiting on you · #52 · "sqlite or a plain file?"
+🐭 fix-doctor-probe     working  4m      Bash mix test
+🐭 feat-owl-snapshot    blocked  2h 5m   permission prompt in pane
+🐭 style-header-polish  idle     3d 4h   Header spacing on narrow panes
 ```
 
 One row per mouse of this repo: its branch, what herdr says its pane is doing, and one
@@ -367,7 +367,11 @@ transcript and never asked for (ADR-0050). That last one takes the column when t
 is blocked, or has been working with nothing written to its transcript for two minutes —
 `fix-doctor-probe` above is in a long `mix test`. Five
 rows at most, ordered by how much each wants you; the rest become `🐭 +3 more`, and a
-mouse with a question on you is never one of them. A dead mouse has no row: a branch whose
+mouse with a question on you is never one of them. Each row also says how long that mouse
+has been going, in the words `whiska mice` uses for uptime. Three things are coloured —
+the branch, a question waiting on you, and the elapsed time, which is dim — in plain ANSI,
+so your terminal's own theme picks the shades and a light and a dark theme are both right.
+Nothing is said in colour alone. A dead mouse has no row: a branch whose
 worktree you dropped is not running here, and anything it left behind is counted on a
 `🐱 n orphaned` line of its own — nobody can answer it — and read with `whiska questions`. The board reports and never acts. A
 quiet repo draws nothing at all.

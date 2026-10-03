@@ -55,9 +55,11 @@ their own herdr config running the `~/.whiska/herdr-status.sh` that `whiska owl 
 writes — the owl always, and what is waiting anywhere — with the doctor reading herdr's
 config and printing the entry to paste; the repo-scoped one is back in Claude Code's
 statusline and is now a board, written by `whiska init` and redrawn every 2 seconds: a row
-per mouse of this repo — its branch, what its pane is doing, and one column more: the
-question waiting on the person, else the mouse's topic from herdr's pane list, else what
-it is stuck in, read from the mouse's own transcript. The house
+per mouse of this repo — its branch, what its pane is doing, how long it has been going,
+and one column more: the question waiting on the person, else the mouse's topic from
+herdr's pane list, else what it is stuck in, read from the mouse's own transcript. The
+branch, a waiting question and the elapsed time are coloured in plain ANSI the person's
+own terminal theme shades, and nothing is said in colour alone. The house
 renders it into `~/.whiska/board/` and the script prints that file, so the line starts
 nothing and carries no owl (ADR-0051, ADR-0050, ADR-0048 and its amendment, ADR-0027,
 ADR-0044). Then the `Stop` hook reading the turn before it records it: the finish pipeline

@@ -7,6 +7,7 @@ defmodule Whiska.CLIWatchTest do
 
   alias Whiska.CLI
   alias Whiska.Herdr.Mock, as: Herdr
+  alias Whiska.Watch.Ink
   alias Whiska.Storage
 
   setup :set_mox_global
@@ -53,10 +54,19 @@ defmodule Whiska.CLIWatchTest do
       path = seed_mouse(main, "ma", "feat-a")
       stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "working")]} end)
 
-      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+      out = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end))
 
       assert out =~ "🐭 feat-a"
       assert out =~ "working"
+    end
+
+    test "the board it prints is coloured, piped or not", %{main: main} do
+      path = seed_mouse(main, "ma", "feat-a")
+      stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "working")]} end)
+
+      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+
+      assert out =~ "\e[36mfeat-a\e[39m"
     end
 
     test "a mouse waiting on the person shows its question id", %{main: main} do
@@ -64,7 +74,7 @@ defmodule Whiska.CLIWatchTest do
       q = seed_question(main, "ma", "Body.\n\nwhich db?\n⁣⁣")
       stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "idle")]} end)
 
-      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+      out = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end))
 
       assert out =~ "waiting on you · ##{q.id}"
       assert out =~ "which db?"
@@ -80,7 +90,7 @@ defmodule Whiska.CLIWatchTest do
 
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
 
-      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+      out = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end))
 
       refute out =~ "🐭 feat-a"
       refute out =~ "waiting"
@@ -92,7 +102,7 @@ defmodule Whiska.CLIWatchTest do
       nested = seed_mouse(main, "mnested", "feat/checkout-form")
       stub(Herdr, :list_panes, fn _ -> {:ok, [pane(nested, "working")]} end)
 
-      board = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+      board = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end))
       mice = capture_io(fn -> assert CLI.run(["mice"], main) == 0 end)
 
       assert board =~ "🐭 feat/checkout-form"
@@ -104,7 +114,7 @@ defmodule Whiska.CLIWatchTest do
     test "a quiet house prints nothing", %{main: main} do
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
 
-      assert capture_io(fn -> assert CLI.run(["watch"], main) == 0 end) == ""
+      assert Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)) == ""
     end
 
     test "is in the usage text" do
@@ -124,7 +134,7 @@ defmodule Whiska.CLIWatchTest do
       path = seed_mouse(main, "ma", "feat-a")
       stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "working")]} end)
 
-      out = capture_io(fn -> assert CLI.run(["watch"], path) == 0 end)
+      out = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], path) == 0 end))
 
       assert out =~ "🐭 feat-a"
     end
