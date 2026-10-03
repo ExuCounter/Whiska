@@ -31,6 +31,8 @@ defmodule Whiska.CLITest do
     end
 
     test "prints nothing at all for an allowed call", %{worktree: worktree} do
+      capture_io(fn -> CLI.run(["mode", "build"], worktree) end)
+
       payload =
         JSON.encode!(%{
           "cwd" => worktree,
@@ -78,9 +80,9 @@ defmodule Whiska.CLITest do
   end
 
   describe "whiska mode" do
-    test "reports build for a fresh mouse", %{worktree: worktree} do
+    test "reports a fresh mouse as never shaped (ADR-0069)", %{worktree: worktree} do
       out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
-      assert out =~ "build"
+      assert out =~ "unshaped"
     end
 
     test "switches a mouse to sniff and back", %{worktree: worktree} do
@@ -108,6 +110,56 @@ defmodule Whiska.CLITest do
     test "explains itself when run outside a worktree", %{main: main} do
       stderr = capture_io(:stderr, fn -> assert CLI.run(["mode"], main) == 1 end)
       assert stderr =~ "worktree"
+    end
+  end
+
+  describe "whiska shape" do
+    test "a sniff mouse is recorded as sniff and starts on sonnet", %{worktree: worktree} do
+      out = capture_io(fn -> assert CLI.run(["shape", "sniff"], worktree) == 0 end)
+      assert String.trim(out) == "sonnet"
+
+      out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
+      assert out =~ "sniff"
+    end
+
+    test "a build mouse keeps the person's own default model", %{worktree: worktree} do
+      out = capture_io(fn -> assert CLI.run(["shape", "build"], worktree) == 0 end)
+      assert String.trim(out) == ""
+    end
+
+    test "a spawn can name the model itself", %{worktree: worktree} do
+      out =
+        capture_io(fn -> assert CLI.run(["shape", "sniff", "--model", "opus"], worktree) == 0 end)
+
+      assert String.trim(out) == "opus"
+    end
+
+    test "says what it recorded, on stderr, so stdout stays the model", %{worktree: worktree} do
+      stderr =
+        capture_io(:stderr, fn ->
+          capture_io(fn -> assert CLI.run(["shape", "sniff"], worktree) == 0 end)
+        end)
+
+      assert stderr =~ "feat-thing is a sniff mouse on sonnet"
+    end
+
+    test "refuses a model it does not know", %{worktree: worktree} do
+      stderr =
+        capture_io(:stderr, fn ->
+          assert CLI.run(["shape", "sniff", "--model", "gpt"], worktree) == 1
+        end)
+
+      assert stderr =~ "fable"
+      refute File.exists?(Whiska.Marker.path(worktree))
+    end
+
+    test "refuses a mode that is not build or sniff", %{worktree: worktree} do
+      stderr = capture_io(:stderr, fn -> assert CLI.run(["shape", "lurk"], worktree) == 1 end)
+      assert stderr =~ "build or sniff"
+    end
+
+    test "fails outside a worktree, so a spawn stops before Claude starts", %{main: main} do
+      capture_io(:stderr, fn -> assert CLI.run(["shape", "sniff"], main) == 1 end)
     end
   end
 
@@ -161,6 +213,8 @@ defmodule Whiska.CLITest do
     end
 
     test "allows a write inside its own worktree", %{nested: nested} do
+      capture_io(fn -> CLI.run(["mode", "build"], nested) end)
+
       payload =
         JSON.encode!(%{
           "cwd" => nested,

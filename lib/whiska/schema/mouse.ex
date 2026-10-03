@@ -11,7 +11,7 @@ defmodule Whiska.Schema.Mouse do
   use Ecto.Schema
 
   @primary_key {:mouse_id, :string, autogenerate: false}
-  @derive {Inspect, only: [:mouse_id, :branch, :mode]}
+  @derive {Inspect, only: [:mouse_id, :branch, :mode, :model]}
 
   schema "mice" do
     # The herdr pane hosting this mouse, found by matching the pane's cwd to
@@ -19,8 +19,14 @@ defmodule Whiska.Schema.Mouse do
     field(:pane, :string)
     field(:path, :string)
     field(:branch, :string)
-    # Stored from day one, read by nothing in v0.0.1 (ADR-0018, ADR-0030).
+    # Read by the sniff rule on every tool call (ADR-0018).
     field(:mode, :string, default: "build")
+    # The Claude model alias the spawn started this mouse on; nil is the
+    # person's own default (ADR-0069).
+    field(:model, :string)
+    # When somebody chose this mouse's mode — `whiska shape`, or `whiska mode`.
+    # Nil means nobody did, and the mouse may read but not write (ADR-0069).
+    field(:shaped_at, :utc_datetime)
     field(:created_at, :utc_datetime)
     # Set when herdr reports the pane gone (ADR-0026); cleared if a pane comes
     # back on the same worktree. Never a reason to delete the row (ADR-0007).

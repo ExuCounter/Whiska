@@ -25,7 +25,8 @@ defmodule Whiska.MiceTest do
       branch: branch,
       path: Keyword.get(opts, :path, "/repo/worktrees/#{branch}"),
       mode: Keyword.get(opts, :mode, "build"),
-      created_at: Keyword.get(opts, :created_at, @now)
+      created_at: Keyword.get(opts, :created_at, @now),
+      shaped_at: Keyword.get(opts, :shaped_at)
     }
   end
 
@@ -52,7 +53,7 @@ defmodule Whiska.MiceTest do
 
   describe "rows/3" do
     test "takes a mouse's status from the herdr pane sitting in its worktree (ADR-0020)" do
-      mice = [mouse("ma", "feat-a"), mouse("mb", "feat-b", mode: "sniff")]
+      mice = [mouse("ma", "feat-a"), mouse("mb", "feat-b", mode: "sniff", shaped_at: @now)]
 
       panes =
         {:ok,
@@ -63,7 +64,7 @@ defmodule Whiska.MiceTest do
          ]}
 
       assert [
-               %{branch: "feat-a", mode: "build", status: "working"},
+               %{branch: "feat-a", mode: "never shaped, reads only", status: "working"},
                %{branch: "feat-b", mode: "sniff", status: "idle"}
              ] = Mice.rows(mice, panes, @now)
     end

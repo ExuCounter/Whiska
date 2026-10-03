@@ -31,11 +31,22 @@ defmodule Whiska.Hook.PreToolUseTest do
 
   defp run(fields), do: PreToolUse.run(payload(fields))
 
+  # A mouse a spawn shaped as build, the way every real one starts (ADR-0069).
+  defp shaped_build(main, worktree) do
+    {:ok, mouse_id} = Marker.read_or_mint(worktree)
+    {:ok, handle} = Storage.open(main)
+    Storage.record_mouse(%{mouse_id: mouse_id, path: worktree, branch: "feat-thing"})
+    {:ok, _} = Storage.shape(mouse_id, "build", nil)
+    Storage.close(handle)
+  end
+
   describe "denying" do
     test "returns a PreToolUse deny decision for a main-checkout write", %{
       main: main,
       worktree: worktree
     } do
+      shaped_build(main, worktree)
+
       assert {:deny, reason} =
                run(%{
                  "cwd" => worktree,
@@ -113,7 +124,9 @@ defmodule Whiska.Hook.PreToolUseTest do
   end
 
   describe "allowing" do
-    test "a write inside the mouse's own worktree", %{worktree: worktree} do
+    test "a write inside the mouse's own worktree", %{main: main, worktree: worktree} do
+      shaped_build(main, worktree)
+
       assert :allow =
                run(%{
                  "cwd" => worktree,
@@ -250,6 +263,56 @@ defmodule Whiska.Hook.PreToolUseTest do
       end)
 
       assert File.exists?(Marker.path(worktree))
+    end
+  end
+
+  describe "a mouse nobody shaped reads but does not write (ADR-0069)" do
+    test "its first edit is denied, and the reason sends it to the person", %{worktree: worktree} do
+      assert {:deny, reason} =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+               })
+
+      assert reason =~ "never given a shape"
+      assert reason =~ "whiska mode build"
+    end
+
+    test "it may still read", %{worktree: worktree} do
+      assert :allow =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Bash",
+                 "tool_input" => %{"command" => "git log"}
+               })
+    end
+
+    test "it may not shape itself", %{worktree: worktree} do
+      assert {:deny, _} =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Bash",
+                 "tool_input" => %{"command" => "whiska mode build"}
+               })
+    end
+
+    test "the person choosing build with whiska mode lets it write", %{
+      main: main,
+      worktree: worktree
+    } do
+      run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
+      {:ok, mouse_id} = Marker.read_or_mint(worktree)
+      {:ok, handle} = Storage.open(main)
+      {:ok, _} = Storage.set_mode(mouse_id, "build")
+      Storage.close(handle)
+
+      assert :allow =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+               })
     end
   end
 

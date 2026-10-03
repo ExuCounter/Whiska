@@ -27,6 +27,7 @@ defmodule Whiska.Mice do
   alias Whiska.Herdr
   alias Whiska.Layout
   alias Whiska.Schema.Mouse
+  alias Whiska.Shape
   alias Whiska.Storage
 
   @typedoc "One line of the listing, already rendered as words."
@@ -69,13 +70,19 @@ defmodule Whiska.Mice do
     Enum.map(mice, fn mouse ->
       %{
         branch: mouse.branch || mouse.mouse_id,
-        mode: mouse.mode,
+        mode: mode(mouse),
         status: status(mouse, panes),
         uptime: format_uptime(DateTime.diff(now, mouse.created_at)),
         note: note(mouse, now)
       }
     end)
   end
+
+  # A mouse nobody shaped may read but not write until the person chooses its
+  # mode, and the listing says so: it is also what a spawn that skipped
+  # `whiska shape` looks like (ADR-0069).
+  defp mode(%Mouse{shaped_at: nil}), do: "never shaped, reads only"
+  defp mode(%Mouse{mode: mode, model: model}), do: Shape.describe(mode, model)
 
   defp status(mouse, {:ok, panes}) do
     case Enum.find(

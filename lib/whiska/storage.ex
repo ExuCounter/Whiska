@@ -27,7 +27,8 @@ defmodule Whiska.Storage do
     {3, Whiska.Migrations.V003Delivery},
     {4, Whiska.Migrations.V004Cleanup},
     {5, Whiska.Migrations.V005Landing},
-    {6, Whiska.Migrations.V006Pickup}
+    {6, Whiska.Migrations.V006Pickup},
+    {7, Whiska.Migrations.V007Shape}
   ]
 
   @modes ~w(build sniff)
@@ -143,9 +144,11 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  This mouse's mode.
+  This mouse's mode, as the rules read it.
 
-  Read by the sniff rule on every invocation (ADR-0018). Returns
+  Read by the sniff rule on every invocation (ADR-0018). A mouse nobody shaped
+  is `"unshaped"` whatever its stored mode, and may read but not write
+  (ADR-0069). Returns
   `{:error, :no_such_mouse}` rather than guessing, so the caller decides what an
   unreadable mode means — see `Whiska.Hook.PreToolUse`, which treats it as
   `build` and says so loudly.
@@ -154,6 +157,7 @@ defmodule Whiska.Storage do
   def mode(mouse_id) do
     case Repo.get(Mouse, mouse_id) do
       nil -> {:error, :no_such_mouse}
+      %Mouse{shaped_at: nil} -> {:ok, "unshaped"}
       mouse -> {:ok, mouse.mode}
     end
   end
@@ -164,6 +168,9 @@ defmodule Whiska.Storage do
   The mode lives here rather than in the marker file so it stays keyed to
   `mouse_id` — a renamed branch or a moved worktree does not disturb it — and so
   the marker stays the bare opaque id ADR-0002 describes.
+
+  A mode somebody chose is a shape: this stamps `shaped_at` if nothing has, so
+  `whiska mode build` is what lets a mouse nobody shaped write (ADR-0069).
   """
   @spec set_mode(String.t(), String.t()) ::
           {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}
@@ -176,7 +183,30 @@ defmodule Whiska.Storage do
 
       mouse ->
         mouse
-        |> Ecto.Changeset.change(%{mode: mode})
+        |> Ecto.Changeset.change(%{mode: mode, shaped_at: mouse.shaped_at || now()})
+        |> Repo.update()
+    end
+  end
+
+  @doc """
+  Give a mouse its shape: the mode, and the model it was started on (ADR-0069).
+
+  Run by the spawn, in the new worktree, before Claude starts — so the first
+  tool call a sniff mouse makes is already judged as sniff. `shaped_at` is what
+  tells this mouse apart from one nobody shaped, which may not write.
+  """
+  @spec shape(String.t(), String.t(), String.t() | nil) ::
+          {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}
+  def shape(_mouse_id, mode, _model) when mode not in @modes, do: {:error, :invalid_mode}
+
+  def shape(mouse_id, mode, model) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      mouse ->
+        mouse
+        |> Ecto.Changeset.change(%{mode: mode, model: model, shaped_at: now()})
         |> Repo.update()
     end
   end

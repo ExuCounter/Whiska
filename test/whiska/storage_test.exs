@@ -152,6 +152,77 @@ defmodule Whiska.StorageTest do
     end
   end
 
+  describe "shape/3 (ADR-0069)" do
+    setup %{main: main} do
+      {:ok, handle} = Storage.open(main)
+      on_exit(fn -> Storage.close(handle) end)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
+      :ok
+    end
+
+    test "a mouse minted without a shape says so" do
+      mouse = Storage.mouse("m1")
+      assert mouse.mode == "build"
+      assert mouse.shaped_at == nil
+      assert mouse.model == nil
+    end
+
+    test "records the mode, the model and when" do
+      assert {:ok, _} = Storage.shape("m1", "sniff", "sonnet")
+      mouse = Storage.mouse("m1")
+      assert {mouse.mode, mouse.model} == {"sniff", "sonnet"}
+      assert %DateTime{} = mouse.shaped_at
+    end
+
+    test "a build mouse on the person's own default has no model" do
+      assert {:ok, _} = Storage.shape("m1", "build", nil)
+      assert Storage.mouse("m1").model == nil
+      assert Storage.mouse("m1").shaped_at
+    end
+
+    test "refuses a mode that is not build or sniff" do
+      assert {:error, :invalid_mode} = Storage.shape("m1", "lurk", nil)
+    end
+  end
+
+  describe "a mode chosen by whiska mode counts as a shape (ADR-0069)" do
+    setup %{main: main} do
+      {:ok, handle} = Storage.open(main)
+      on_exit(fn -> Storage.close(handle) end)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
+      :ok
+    end
+
+    test "set_mode stamps shaped_at and leaves the model alone" do
+      {:ok, _} = Storage.shape("m1", "sniff", "sonnet")
+      {:ok, _} = Storage.set_mode("m1", "build")
+      mouse = Storage.mouse("m1")
+      assert {mouse.mode, mouse.model} == {"build", "sonnet"}
+      assert mouse.shaped_at
+
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "b"})
+      {:ok, _} = Storage.set_mode("m2", "build")
+      assert Storage.mouse("m2").shaped_at
+    end
+
+    test "a mouse recorded before shapes existed is not blocked by them" do
+      # Migration 7 grandfathers every mouse already in the house: it was
+      # running as build when the rule arrived, and stopping it mid-task
+      # would punish a spawn that could not have shaped it.
+      alias Whiska.Migrations.V007Shape
+      Ecto.Migrator.run(Whiska.Repo, [{7, V007Shape}], :down, all: true, log: false)
+
+      Whiska.Repo.query!(
+        "INSERT INTO mice (mouse_id, mode, created_at) VALUES ('old', 'build', '2026-09-01T00:00:00Z')"
+      )
+
+      Ecto.Migrator.run(Whiska.Repo, [{7, V007Shape}], :up, all: true, log: false)
+
+      assert Storage.mouse("old").shaped_at
+      assert Storage.mouse("m1").shaped_at
+    end
+  end
+
   describe "set_mode/2 and mode/1 (ADR-0018)" do
     setup %{main: main} do
       {:ok, handle} = Storage.open(main)
@@ -160,8 +231,8 @@ defmodule Whiska.StorageTest do
       :ok
     end
 
-    test "a mouse starts in build mode" do
-      assert Storage.mode("m1") == {:ok, "build"}
+    test "a mouse nobody shaped reads as unshaped, whatever is stored (ADR-0069)" do
+      assert Storage.mode("m1") == {:ok, "unshaped"}
     end
 
     test "switches a mouse to sniff" do
@@ -179,7 +250,7 @@ defmodule Whiska.StorageTest do
 
     test "refuses a mode that is not build or sniff" do
       assert {:error, :invalid_mode} = Storage.set_mode("m1", "lurk")
-      assert Storage.mode("m1") == {:ok, "build"}
+      assert Storage.mode("m1") == {:ok, "unshaped"}
     end
 
     test "refuses to set the mode of a mouse that does not exist" do

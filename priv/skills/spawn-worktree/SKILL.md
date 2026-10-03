@@ -100,16 +100,48 @@ Skip it silently when the worktree already has a `settings.json` (the folder is
 committed there, which is the Whiska ADR-0016 shape) or when the main checkout has no
 Whiska. The copy is untracked in the worktree and disappears with it.
 
+## Give the mouse its shape — before Claude starts
+
+A mouse is spawned as one of two shapes (Whiska ADR-0069). **sniff** investigates and
+reports: it may not write anything, and it starts on a cheaper model. **build** makes a
+real change and keeps the person's own default model. Pick from the request:
+
+- Sniff when the outcome is an answer, not a change: "find out why", "look into",
+  "investigate", "how does", "is it safe to", a report or a recommendation.
+- Build when the outcome is a change: a feature, a fix, a refactor, docs.
+- Unclear → ask the person which. Never default a request that reads as investigation
+  to build.
+
+Name a model only if the person named one — `--model fable`, `opus` or `sonnet`.
+
+```bash
+model="$(cd worktrees/<branch-name> && whiska shape <build|sniff>)" || { echo "shape failed"; exit 1; }
+```
+
+This records the mode in Whiska before Claude exists, so the mouse's very first tool
+call is already judged by it. It prints the model to start on, or nothing for the
+person's own default, and says on stderr what it recorded — keep that line, it goes in
+the report. **If it fails, stop and report the error. Do not start Claude anyway:** a
+mouse started without its shape may not write anything until the person runs
+`whiska mode` in its worktree, so it would stall at its first edit.
+
 ## Start the mouse
 
 This is the default. Only skip it if the person said "don't start Claude" or equivalent.
 
 `agent start` polls for shell readiness itself — do not sleep first, just call it with a
-generous timeout:
+generous timeout. Everything after `--` is passed to `claude` as it is:
 
 ```bash
-herdr agent start <branch-name> --kind claude --pane <root-pane-id> --timeout 15000
+if [ -n "$model" ]; then
+  herdr agent start <branch-name> --kind claude --pane <root-pane-id> --timeout 15000 -- --model "$model"
+else
+  herdr agent start <branch-name> --kind claude --pane <root-pane-id> --timeout 15000
+fi
 ```
+
+The JSON response carries `.result.argv`; for a sniff mouse it must end in `--model`
+and the model. If it does not, say so in the report.
 
 ## Hand off the task
 
@@ -136,6 +168,8 @@ truncated tail.
 ## Report back
 
 One line: "Created worktree <branch> at worktrees/<branch>, a mouse is working on it
-there." Say that it will not interrupt them and that Whiska delivers its question when
+there.", followed by the line `whiska shape` printed on stderr — "<branch> is a sniff
+mouse on sonnet." — word for word. That line is Whiska saying what it recorded, not this
+skill saying what it meant to do, so a shape that went wrong shows up here. Say that it will not interrupt them and that Whiska delivers its question when
 it has one. Do not linger, and do not do any of the task yourself in this session —
 that is what the mouse is for.
