@@ -53,9 +53,13 @@ defmodule Whiska.Watch.Snapshot do
   sentences out of their private sessions — so the folder and the file are
   theirs to read and nobody else's. The temporary neighbour is removed before it
   is written, so a symlink planted in its place is replaced rather than followed.
+
+  The pane is named by every caller, `nil` for a house with no main session
+  recorded: a caller that simply left it out would blank the file and have every
+  session in the repo told there is no main session.
   """
   @spec write(Path.t(), String.t(), String.t() | nil) :: :ok | {:error, term()}
-  def write(main_checkout, text, main_pane \\ nil) do
+  def write(main_checkout, text, main_pane) do
     with :ok <- replace(path(main_checkout), text) do
       replace(main_path(main_checkout), main_pane || "")
     end

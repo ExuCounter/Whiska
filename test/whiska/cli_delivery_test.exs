@@ -215,6 +215,27 @@ defmodule Whiska.CLIDeliveryTest do
       in_house(main, fn -> assert Storage.main_pane() == "w1:p2" end)
     end
 
+    test "with no way to reach herdr, it records the pane and says so", %{main: main, root: root} do
+      home = Path.join(root, "nowhere")
+      File.mkdir_p!(home)
+      was = System.get_env("HOME")
+      System.delete_env("HERDR_SOCKET_PATH")
+      System.put_env("HOME", home)
+      on_exit(fn -> System.put_env("HOME", was) end)
+
+      {0, out, _} = run(["start"], main)
+
+      assert out =~ "Could not reach herdr"
+      in_house(main, fn -> assert Storage.main_pane() == "w1:p2" end)
+    end
+
+    test "an unknown flag is refused by name", %{main: main} do
+      {1, _, err} = run(["start", "--launch"], main)
+
+      assert err =~ "--launch"
+      in_house(main, fn -> assert Storage.main_pane() == nil end)
+    end
+
     test "the refusal to replace a live main session still stands", %{main: main} do
       in_house(main, fn -> Storage.set_main_pane("w1:p9") end)
 

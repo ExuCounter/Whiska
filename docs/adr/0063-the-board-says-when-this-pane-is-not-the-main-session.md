@@ -40,6 +40,11 @@ current one follows every `cd` the session runs (ADR-0053) — a mouse that step
 main checkout would otherwise be handed the main checkout's board and told it is not the
 main session, which is true of a mouse and is not a problem a mouse can have.
 
+That directory also decides *which* repo's board a session draws, and so this moves too:
+a session now draws the board of the repo it started in rather than the repo it has
+wandered into. That is the same reading of identity ADR-0053 settled for hooks, applied
+to the one other place a session is asked what it speaks for.
+
 **The owl writes the pane down beside the board**, at `~/.whiska/board/<slug>.main`, and
 the statusline script compares it with `HERDR_PANE_ID` from its own environment. Two files
 rather than a header line in the board: the script `cat`s the board exactly as the owl left
@@ -55,12 +60,14 @@ the pane they are running in.
 
 ## Consequences
 
-**The notice can only appear where the board can.** No house open, no owl running, no board
-file — no line, in exactly the cases ADR-0051 already draws nothing. The line is shown over
-a board up to a minute stale, though, and undimmed: which pane the questions go to is not a
-fact the owl is currently reporting, and a board going stale says nothing about it either
-way. A repo nobody has run `whiska init` in has no statusline at all and this is invisible
-there; that is the same gap the board itself has.
+**The notice can only appear where the board can, and only while it is fresh.** No house
+open, no owl running, no board file — no line, in exactly the cases ADR-0051 already draws
+nothing. Nor over a board more than ten seconds old: the recorded pane is written by the
+same owl in the same breath as the board, so a board nobody is refreshing means the pane
+beside it may have changed since. The case that forces this is a person running `whiska
+start` while the owl is down — they would be told, in the pane they had just recorded,
+that it is the wrong one. A repo nobody has run `whiska init` in has no statusline at all
+and this is invisible there; that is the same gap the board itself has.
 
 **It appears with no mice running.** The board file exists and is empty while a house is
 quiet, and the notice is printed in its own right — the point is to be told before the

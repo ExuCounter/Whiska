@@ -295,17 +295,16 @@ defmodule Whiska.Install do
 
   [ -n "$base" ] && printf '%s\n' "$base"
 
+  # The project directory before the current one, because the current one
+  # follows every cd the session runs (Whiska ADR-0053): a session speaks for
+  # the repo it started in, and a mouse that steps into the main checkout must
+  # still read as a mouse.
   dir=""
   if command -v jq >/dev/null 2>&1; then
     dir="$(printf '%s' "$input" | jq -r '.workspace.project_dir // .workspace.current_dir // .cwd // empty' 2>/dev/null)"
   fi
   [ -d "$dir" ] || dir="$PWD"
 
-  # The project directory before the current one, because the current one
-  # follows every cd the session runs (Whiska ADR-0053): a mouse that steps
-  # into the main checkout must still read as a mouse, or it would be told it
-  # is not the main session when it was never meant to be one.
-  #
   # A mouse's own pane never draws the board: it is the person's view of
   # their mice, and a mouse has no use for its siblings' rows.
   case "$dir" in
@@ -335,15 +334,25 @@ defmodule Whiska.Install do
   # second case is worth a line. No pane id in the environment means herdr is
   # not around to say, which is not the same as being the wrong pane — say
   # nothing.
+  #
+  # `-f` rather than `-r`, like the stand-down check above: `-r` is true of a
+  # FIFO, and reading one with no writer waits for ever — here on a line
+  # Claude Code redraws every two seconds.
   notice=""
-  if [ -n "${HERDR_PANE_ID:-}" ] && [ -r "$board.main" ]; then
-    recorded="$(cat "$board.main" 2>/dev/null)"
+  if [ -n "${HERDR_PANE_ID:-}" ] && [ -f "$board.main" ]; then
+    recorded=""
+    read -r recorded < "$board.main" 2>/dev/null
     if [ -z "$recorded" ]; then
       notice='🐱 no main session here — nothing is delivered until `whiska start` records this pane'
     elif [ "$recorded" != "$HERDR_PANE_ID" ]; then
       notice='🐱 not the main session — answers go to another pane; `whiska start` moves them here'
     fi
   fi
+
+  # Nothing to print and nothing to say: a quiet house writes an empty board,
+  # which is most houses most of the time, and this is the line that keeps
+  # them out of the two stat probes and the date below.
+  [ -s "$board" ] || [ -n "$notice" ] || exit 0
 
   # BSD stat first, then GNU, and each answer is checked rather than trusted:
   # `stat -f` on GNU means --file-system and prints a paragraph.
@@ -362,10 +371,13 @@ defmodule Whiska.Install do
   # down either way (ADR-0048). Ten seconds, not five: a house waiting on a
   # slow herdr can miss a couple of its own two-second writes without the owl
   # being down at all.
-  # The notice is about this pane, not about the owl, so it is printed in its
-  # own right — and never dimmed along with a board going stale.
-  if [ "$age" -le 60 ] && [ -n "$notice" ]; then
-    printf '\e[33m%s\e[0m\n' "$notice"
+
+  # Only over a board the owl is currently writing: the pane beside it is the
+  # owl's answer too, and a house nobody is refreshing may have recorded a new
+  # main session since — telling the pane that just ran `whiska start` that it
+  # is the wrong one is the one false alarm this line must not raise.
+  if [ "$age" -le 10 ] && [ -n "$notice" ]; then
+    printf '\\e[33m%s\\e[0m\\n' "$notice"
   fi
 
   [ -s "$board" ] || exit 0

@@ -98,7 +98,7 @@ defmodule Whiska.InstallStatuslineBoardTest do
   end
 
   test "prints the board the owl wrote for this repo", context do
-    :ok = Snapshot.write(context.main, "🐭 feat-a  working  Edit lib/auth.ex")
+    :ok = Snapshot.write(context.main, "🐭 feat-a  working  Edit lib/auth.ex", nil)
 
     assert run(context, context.main) =~ "🐭 feat-a  working  Edit lib/auth.ex"
   end
@@ -111,7 +111,7 @@ defmodule Whiska.InstallStatuslineBoardTest do
   end
 
   test "a session inside a worktree draws no board", context do
-    :ok = Snapshot.write(context.main, "🐭 feat-a  working  Edit lib/auth.ex")
+    :ok = Snapshot.write(context.main, "🐭 feat-a  working  Edit lib/auth.ex", nil)
 
     assert run(context, Path.join(context.main, "worktrees/feat-a")) == ""
   end
@@ -119,13 +119,13 @@ defmodule Whiska.InstallStatuslineBoardTest do
   test "finds the board from a subdirectory of the repo", context do
     lib = Path.join(context.main, "lib")
     File.mkdir_p!(lib)
-    :ok = Snapshot.write(context.main, "🐭 feat-a  working")
+    :ok = Snapshot.write(context.main, "🐭 feat-a  working", nil)
 
     assert run(context, lib) =~ "🐭 feat-a"
   end
 
   test "a board a few seconds behind is still drawn as it is", context do
-    :ok = Snapshot.write(context.main, "🐭 feat-a  working")
+    :ok = Snapshot.write(context.main, "🐭 feat-a  working", nil)
     age_file(Snapshot.path(context.main), 8)
 
     out = run(context, context.main)
@@ -135,7 +135,7 @@ defmodule Whiska.InstallStatuslineBoardTest do
   end
 
   test "a board going stale says so, and dims what it still shows", context do
-    :ok = Snapshot.write(context.main, "🐭 feat-a  working")
+    :ok = Snapshot.write(context.main, "🐭 feat-a  working", nil)
     age_file(Snapshot.path(context.main), 40)
 
     out = run(context, context.main)
@@ -146,7 +146,7 @@ defmodule Whiska.InstallStatuslineBoardTest do
   end
 
   test "a stale board stays dim across the row's own colour", context do
-    :ok = Snapshot.write(context.main, Watch.render(board(), frame: 1))
+    :ok = Snapshot.write(context.main, Watch.render(board(), frame: 1), nil)
     age_file(Snapshot.path(context.main), 40)
 
     out = run(context, context.main)
@@ -159,14 +159,14 @@ defmodule Whiska.InstallStatuslineBoardTest do
   end
 
   test "a board nobody has touched for a minute is not shown at all", context do
-    :ok = Snapshot.write(context.main, "🐭 feat-a  working")
+    :ok = Snapshot.write(context.main, "🐭 feat-a  working", nil)
     age_file(Snapshot.path(context.main), 300)
 
     assert run(context, context.main) == ""
   end
 
   test "a quiet repo draws nothing", context do
-    :ok = Snapshot.write(context.main, "")
+    :ok = Snapshot.write(context.main, "", nil)
 
     assert run(context, context.main) == ""
   end
@@ -179,7 +179,7 @@ defmodule Whiska.InstallStatuslineBoardTest do
     settings = Path.join(context.home, ".claude/settings.json")
     File.mkdir_p!(Path.dirname(settings))
     File.write!(settings, JSON.encode!(%{"statusLine" => %{"command" => "printf 'my line'"}}))
-    :ok = Snapshot.write(context.main, "🐭 feat-a  working")
+    :ok = Snapshot.write(context.main, "🐭 feat-a  working", nil)
 
     out = run(context, context.main)
 
@@ -254,14 +254,14 @@ defmodule Whiska.InstallStatuslineBoardTest do
       assert run(context, context.main, pane: "w1:p2") == ""
     end
 
-    test "a board going stale still carries the notice", context do
+    test "a board going stale drops the notice, which nobody is refreshing either", context do
       :ok = Snapshot.write(context.main, "🐭 feat-a  working", "w1:p9")
       age_file(Snapshot.path(context.main), 40)
 
       out = run(context, context.main, pane: "w1:p2")
 
-      assert out =~ "not the main session"
-      assert out =~ "40s stale"
+      refute out =~ "not the main session"
+      assert out =~ "stale"
     end
   end
 

@@ -1092,15 +1092,26 @@ defmodule Whiska.CLI do
     cond do
       running_claude?(pane) -> 0
       not claude? -> say("Nothing is delivered until Claude Code is running in this pane.")
-      socket = Herdr.socket_path() -> run_claude(socket, pane)
-      true -> could_not_start(pane, :no_socket)
+      true -> run_claude(pane)
     end
   end
 
-  defp run_claude(socket, pane) do
-    case Herdr.impl().run_command(socket, pane, "claude") do
-      :ok -> say("Starting Claude Code here.")
-      {:error, reason} -> could_not_start(pane, reason)
+  # With no herdr to ask, neither half of this is knowable: whether Claude is
+  # already running in the pane, and whether it could be started. The pane is
+  # recorded either way, and saying so is the whole of what is left to do —
+  # not a failure, because nothing was attempted and failed.
+  defp run_claude(pane) do
+    case Herdr.socket() do
+      {:ok, socket} ->
+        case Herdr.impl().run_command(socket, pane, "claude") do
+          :ok -> say("Starting Claude Code here.")
+          {:error, reason} -> could_not_start(pane, reason)
+        end
+
+      {:error, {:no_socket, _default}} ->
+        say(
+          "Could not reach herdr to start Claude Code; start it here yourself if it is not running."
+        )
     end
   end
 
@@ -1127,12 +1138,9 @@ defmodule Whiska.CLI do
   end
 
   defp running_claude?(pane) do
-    case Herdr.socket_path() do
-      nil ->
-        false
-
-      socket ->
-        match?({:ok, %{agent: "claude"}}, Herdr.impl().pane(socket, pane))
+    case Herdr.socket() do
+      {:ok, socket} -> match?({:ok, %{agent: "claude"}}, Herdr.impl().pane(socket, pane))
+      {:error, {:no_socket, _default}} -> false
     end
   end
 

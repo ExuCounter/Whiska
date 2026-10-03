@@ -1069,7 +1069,7 @@ defmodule Whiska.Doctor do
   # A pane id is not something a person recognises on sight, so the line says
   # whether it is the pane they are asking from (ADR-0063). Outside a herdr
   # pane there is nothing to compare it with, and the id stands alone.
-  defp named(pane, nil), do: pane
+  defp named(pane, here) when here in [nil, ""], do: pane
   defp named(pane, pane), do: "#{pane} (this pane)"
   defp named(pane, _elsewhere), do: "#{pane} (not this pane)"
 

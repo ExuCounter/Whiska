@@ -10,9 +10,15 @@ at all, which is the failure ADR-0063 exists to make visible.
 
 **`whiska start` records the pane and then starts Claude Code in it, when nothing is
 running there.** One command. The discriminator is the question Whiska already asks herdr
-about that pane: a pane running Claude is recorded and left alone — which is exactly what
-`! whiska start` from inside a session does today — and a pane sitting at a shell prompt is
-recorded and handed to Claude.
+about that pane: a pane herdr says is running Claude is recorded and left alone — which is
+exactly what `! whiska start` from inside a session does today — and a pane herdr says is
+running nothing is recorded and handed to Claude.
+
+"Running nothing" is herdr's answer, not an inspection of the pane: a pane sitting in
+`vim`, in `psql` or on a password prompt also reads as no agent, and the line would be
+typed into that. It is the right reading anyway — the person just typed this command in
+that pane, so the prompt is theirs — and a pane running Claude, the one case where typing
+would land inside somebody's conversation, is exactly the case this refuses.
 
 **`--no-claude` records and starts nothing**, for a script, and for a person who means to
 start Claude themselves. It is the escape hatch, not the default: a recorded pane with no
@@ -35,8 +41,9 @@ so, exits non-zero, and says the recording stands.
 
 **`--force` is untouched, and agrees with this.** The refusal is about replacing *another*
 pane that is still running Claude; the launch only ever happens in *this* pane, and only
-when this pane has no Claude. Both read the same answer from the same `pane.get` call, so
-they cannot disagree about what "running Claude" means.
+when this pane has no Claude. Both ask it through the same predicate over the same
+`pane.get` call — on two different panes — so they cannot disagree about what "running
+Claude" means.
 
 **It is typed into the pane's shell, through herdr** (`pane.send_text`, behind the boundary
 of ADR-0031, like everything else herdr does for Whiska). Typed rather than executed,
