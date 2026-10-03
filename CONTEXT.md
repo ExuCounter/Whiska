@@ -25,7 +25,9 @@ mouse record, marked dead rather than deleted, and a mouse whose worktree has be
 up is marked removed and left there, permanently inert. A record is **stale** when it no longer
 stands for a worktree of this house — a record made later covers the same folder, or one
 of the worktrees nested inside its folder. A stale record is nobody's mouse: it is never
-matched to a pane, and neither `whiska mice` nor the board has a row for it.
+matched to a pane, and neither `whiska mice` nor the board has a row for it. This sense
+of **stale** is about a record standing for the wrong thing; the other sense, a process
+running an older version of itself, is **running old** — see that entry.
 _Avoid_: Mouse (bare) when the distinction between the live session and the tracking
 row actually matters
 
@@ -288,6 +290,16 @@ mouse. It is what cleanup waits for, and it is deliberately stricter than "nobod
 waiting on it": a mouse that never said it finished is never cleaned up after.
 _Avoid_: idle (herdr's word for a pane, which is one of the four things this reads),
 finished (a mouse's own claim; **Finishing** is the pipeline it runs), done (the marker)
+
+**Running old**:
+A process that is up but is serving a version older than the one on disk: the owl started
+before the binary it runs was reinstalled, the installed binary built before the checkout
+changed, or a Claude Code session still holding the hooks and settings it read at startup.
+It is not down, so nothing fails — the change simply has no effect, and the person reads
+the old behaviour as a bug in the new work. `whiska doctor` names each case against the
+thing it is old relative to, and says the restart that fixes it. Distinct from a **stale**
+mouse record, which is a row standing for the wrong worktree rather than an old version.
+_Avoid_: stale (taken, and it means a record here), outdated, drift, out of sync
 
 **Collection**:
 The owl taking what a mouse left on the doorstep. Overwhelmingly event-driven — herdr
