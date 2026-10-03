@@ -107,8 +107,8 @@ never permission: a detached head, an unnameable base, a silent herdr or a live 
 workspace herdr does not name all leave the worktree standing (ADR-0061, superseding
 ADR-0007's worktree half). And delivery now reaches the person wherever they are: every
 question it types raises one desktop notification in the same breath, carrying the house,
-the branch, the verb and the id, with herdr showing it and `whiska doctor` saying whether
-herdr's own settings will let it be seen (ADR-0062). 1250 tests.
+the branch, the verb and the id, with herdr showing it and `whiska doctor` probing with a
+hoot of its own to say whether one is seen (ADR-0062). 1250 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

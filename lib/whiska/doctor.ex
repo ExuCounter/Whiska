@@ -106,7 +106,7 @@ defmodule Whiska.Doctor do
           launch_agent(installed?, agent, pids),
           open_houses(OpenHouses.read(record), main_checkout, pids),
           tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
-          hoot(read_herdr_config(env)),
+          hoot(hoot_probe(herdr, env)),
           global(global_state)
         ] ++
         hooks ++
@@ -659,82 +659,63 @@ defmodule Whiska.Doctor do
   end
 
   @doc """
-  Whether herdr will actually show the hoot the owl raises on every delivery
-  (ADR-0062).
+  Whether herdr showed the hoot the owl raises on every delivery (ADR-0062).
 
-  `config` is the contents of herdr's `config.toml`, or `nil` when there is
-  none. `notification.show` answers `:ok` whether or not anything appears — it
-  honours `[ui.toast] delivery`, which herdr defaults to `off` — so the owl
-  cannot tell a hoot nobody saw from one they did, and this is the only place
-  the person can learn it.
+  `probe` is what `Whiska.Herdr.notify/2` answered to a notification sent for
+  this check, or `:no_socket` when there was no herdr to send one to. herdr
+  says outright whether it displayed the notification and, when it did not,
+  which of its own reasons stopped it — so the doctor asks herdr rather than
+  reading its config and guessing. A probe is what this check is for
+  (ADR-0038): the person sees the notification exactly when it works, which is
+  the answer and the demonstration in one.
 
-  A warning, never a failure (ADR-0038): the question is delivered either way,
-  the line is in the main session, and `whiska questions` still lists it. What
-  is lost is hearing about it while looking at something else. The file is the
-  person's and machine-global, so the doctor prints what to put in it and never
-  writes it (ADR-0016).
+  A warning, never a failure: the question is delivered either way, the line is
+  in the main session, and `whiska questions` still lists it. What is lost is
+  hearing about it while looking at something else. herdr's config is the
+  person's and machine-global, so the fix says what to change in the table they
+  already have and never writes it (ADR-0016).
   """
-  @spec hoot(String.t() | nil) :: Check.t()
-  def hoot(config) do
-    config = config || ""
+  @spec hoot(Herdr.notify_result() | :no_socket) :: Check.t()
+  def hoot({:ok, :shown}), do: Check.ok("hoot", "a delivered question is shown by herdr")
 
-    case {toast_delivery(config), sound_enabled?(config)} do
-      {nil, _} ->
-        Check.warn("hoot", "herdr shows no popups, so a delivered question is silent", hoot_fix())
+  def hoot({:ok, {:not_shown, reason}}),
+    do:
+      Check.warn(
+        "hoot",
+        "herdr did not show it (#{reason}), so a delivered question is silent",
+        hoot_fix()
+      )
 
-      {"off", _} ->
-        Check.warn(
-          "hoot",
-          "[ui.toast] delivery is off, so a delivered question is silent",
-          hoot_fix()
-        )
+  def hoot({:error, reason}),
+    do: Check.warn("hoot", "could not ask herdr to show one (#{inspect(reason)})")
 
-      {where, false} ->
-        Check.warn(
-          "hoot",
-          "popups go to the #{where}, but [ui.sound] is off — a hoot arrives with no sound",
-          hoot_fix()
-        )
+  def hoot(:no_socket), do: Check.warn("hoot", "no herdr to ask — a delivered question is silent")
 
-      {where, true} ->
-        Check.ok("hoot", "a delivered question pops up on the #{where}")
+  # Never a block to paste. `[ui.toast]` and `[ui.sound]` are in herdr's own
+  # stock config, and a second table of either name is a TOML duplicate key,
+  # which herdr refuses — dropping the whole file back to defaults, the tab bar
+  # entry that draws the owl's line (ADR-0048) with it.
+  # The probe (ADR-0038): ask herdr to show one and read what it says it did.
+  # The person sees it exactly when the hoot works, so the check is its own
+  # demonstration — and when it does not work there is nothing to see, which is
+  # the finding.
+  defp hoot_probe(herdr, env) do
+    case Herdr.socket(env) do
+      {:ok, socket} ->
+        herdr.notify(socket, %{
+          title: "🐱 whiska doctor",
+          body: "this is what a delivered question looks like",
+          sound: :none
+        })
+
+      {:error, {:no_socket, _}} ->
+        :no_socket
     end
   end
 
   defp hoot_fix do
-    """
-    put this in #{Herdr.config_path()}:
-
-    [ui.toast]
-    delivery = "system"
-
-    [ui.sound]
-    enabled = true
-    """
-  end
-
-  # herdr's config is TOML and Whiska has no TOML parser, so the two settings
-  # that matter are read off their own sections by hand. A key outside the
-  # section it belongs to is not the key.
-  defp toast_delivery(config) do
-    with [_, value] <- Regex.run(~r/delivery\s*=\s*"([a-z]+)"/, section(config, "ui.toast")) do
-      value
-    else
-      _ -> nil
-    end
-  end
-
-  defp sound_enabled?(config) do
-    not Regex.match?(~r/enabled\s*=\s*false/, section(config, "ui.sound"))
-  end
-
-  defp section(config, name) do
-    config
-    |> String.split("\n")
-    |> Enum.drop_while(&(String.trim(&1) != "[#{name}]"))
-    |> Enum.drop(1)
-    |> Enum.take_while(&(not String.starts_with?(String.trim(&1), "[")))
-    |> Enum.join("\n")
+    ~s(in #{Herdr.config_path()}, set delivery = "system" under the ) <>
+      ~s([ui.toast] table and enabled = true under [ui.sound])
   end
 
   @doc """

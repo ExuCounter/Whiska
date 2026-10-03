@@ -89,16 +89,23 @@ defmodule Whiska.Herdr do
   """
   @callback focus(socket :: Path.t(), pane_id :: String.t()) :: :ok | {:error, term()}
 
+  @typedoc """
+  What herdr did with a notification. It decides from the person's own
+  `[ui.toast]` and `[ui.sound]` settings, and says outright whether it drew
+  anything — `{:not_shown, "disabled"}` when popups are turned off, carrying
+  herdr's own reason string.
+  """
+  @type notify_result :: {:ok, :shown} | {:ok, {:not_shown, String.t()}} | {:error, term()}
+
   @doc """
   Raise a desktop notification — the hoot that goes out with a delivered line
   (ADR-0062).
 
-  The only call here that is not about a pane. herdr decides how it is shown,
-  from the person's own `[ui.toast]` and `[ui.sound]` settings: `delivery =
-  "off"` means nothing appears and this still answers `:ok`, which is why
-  `whiska doctor` checks that setting rather than the owl trying to.
+  The only call here that is not about a pane, and the only one whose answer
+  says what the person saw rather than what a pane is doing: a delivery ignores
+  it, and `whiska doctor` probes with it (ADR-0038).
   """
-  @callback notify(socket :: Path.t(), notification :: notification()) :: :ok | {:error, term()}
+  @callback notify(socket :: Path.t(), notification :: notification()) :: notify_result()
 
   @doc """
   Open a subscription and stream its events to `listener`.

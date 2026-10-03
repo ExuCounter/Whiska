@@ -153,8 +153,11 @@ It carries the house, the mouse's branch, the verb and the id, in the line's own
 because the line only reaches somebody already looking at the main session and the point
 of leaving a question is that they are not. A question that is only collected, or held,
 has not hooted yet. herdr shows it, from the person's own `[ui.toast]` and `[ui.sound]`
-settings; `request` is its sound when a decision is waiting and `done` when a branch
-finished. A hoot that fails is swallowed: delivery is the job and the hoot is a courtesy.
+settings, and says whether it drew anything; `request` is its sound when a decision is
+waiting and `done` when a branch finished. A delivery drops that answer and a hoot that
+fails is swallowed — delivery is the job and the hoot is a courtesy — so `whiska doctor`
+is where the person asks, by sending a hoot of its own and reporting what herdr did with
+it.
 _Avoid_: toast, alert, desktop notification as a term of its own (it is herdr's word for
 how a hoot is shown, not for the thing)
 

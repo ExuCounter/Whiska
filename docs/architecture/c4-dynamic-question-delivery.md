@@ -174,11 +174,12 @@ A question that is only collected, or held by any part of the gate above, does n
 it is not on the person's screen yet, and a hoot would announce something they could not
 go and read.
 
-herdr shows it, from the person's own `[ui.toast]` and `[ui.sound]` settings, and answers
-`:ok` either way — with `delivery = "off"` it accepts the call and displays nothing. The
-owl cannot tell those apart and does not try: `whiska doctor` reads those two settings and
-says once whether a delivered question will be heard. Everything the hoot can do wrong is
-swallowed, because the question is already recorded sent by then and delivery is the job.
+herdr shows it, from the person's own `[ui.toast]` and `[ui.sound]` settings, and its reply
+says whether it drew anything and why not. The owl drops that answer — somebody who turned
+popups off has not asked to hear about it once per delivery — and `whiska doctor` asks
+instead, by sending a hoot of its own and reporting what herdr did with it, which is the
+answer and the demonstration in one. Everything the hoot can do wrong is swallowed, because
+the question is already recorded sent by then and delivery is the job.
 
 ## Steps 11–12 — answers are keyed to a question id (ADR-0005)
 

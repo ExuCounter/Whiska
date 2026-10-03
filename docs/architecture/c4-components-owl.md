@@ -105,9 +105,10 @@ as `Whiska.Question.Marker`, for the same reason (ADR-0031).
 desktop notification, and `Whiska.Delivery.Hoot` builds it out of the same
 `Whiska.Delivery.Text` functions that build the line, so there is one phrasing of one
 event rather than two. The house sends it through `Whiska.Herdr.notify/2` in the same
-branch that typed the line, and swallows whatever comes back: the question is already
-recorded sent, and an owl that crashed on a failed notification would lose the thing the
-notification was about.
+branch that typed the line, and swallows whatever comes back — herdr's own word on whether
+it drew anything included: the question is already recorded sent, and an owl that crashed
+on a failed notification would lose the thing the notification was about. `whiska doctor`
+is where that word is read, from a hoot it sends itself.
 
 **Classification is the marker and nothing else** (ADR-0009). `Whiska.Question.Marker`
 reads the last marker line — a line of invisible separators, three for `done` and two for

@@ -60,6 +60,28 @@ defmodule Whiska.Delivery.HootTest do
     assert body == ~s(#12 · "pick one" · 2 more open)
   end
 
+  test "a branch is cut and flattened: the title is one line, whatever a mouse wrote" do
+    q = question(text: "[worktree-status: needs-decision] pick one")
+
+    %{title: wrapped} = Hoot.compose(q, "whiska", "feat/a\nSECOND LINE", 0)
+    refute wrapped =~ "\n"
+    assert wrapped == "🐱 whiska · feat/a SECOND LINE needs a decision"
+
+    %{title: long} = Hoot.compose(q, "whiska", String.duplicate("b", 400), 0)
+    assert String.length(long) < 120
+    assert long =~ "…"
+    assert String.ends_with?(long, "needs a decision")
+  end
+
+  test "the house name is flattened and cut the same way" do
+    q = question(text: "[worktree-status: needs-decision] pick one")
+
+    %{title: title} = Hoot.compose(q, String.duplicate("h", 400), "feat-a", 0)
+
+    assert String.length(title) < 120
+    refute title =~ "\n"
+  end
+
   test "a long pointer is cut, so the hoot stays one glance" do
     q = question(text: "[worktree-status: needs-decision] " <> String.duplicate("x", 300))
 

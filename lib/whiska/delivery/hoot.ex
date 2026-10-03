@@ -21,6 +21,10 @@ defmodule Whiska.Delivery.Hoot do
   into, and it is on the screen when they look; a notification has room for the
   branch and the verb and nothing more.
 
+  herdr decides whether it is drawn at all, from the person's own `[ui.toast]`
+  and `[ui.sound]` settings, and says which it did. A delivery drops that
+  answer; `whiska doctor` is where it is read.
+
   The sound is the one judgement here. A question that needs a decision is the
   one that must not be missed, so it takes herdr's `request` sound; a finished
   branch takes `done`. Both hoot — a finished branch that nobody hears about is
@@ -34,6 +38,12 @@ defmodule Whiska.Delivery.Hoot do
   @typedoc "A notification, in herdr's own terms (`Whiska.Herdr.notification/0`)."
   @type t :: %{title: String.t(), body: String.t(), sound: :done | :request}
 
+  # A branch and a house name are somebody else's text — a branch arrives in
+  # the doorstep entry a mouse's own hook wrote — so the title is flattened and
+  # cut rather than trusted to be one short line. `Whiska.Delivery.Text` does
+  # the same to the line it composes, for the same reason.
+  @name_max 40
+
   @doc """
   Compose the hoot for a question from the mouse on `branch`, in the house
   named `house`, with `more_open` questions still waiting behind it.
@@ -41,10 +51,17 @@ defmodule Whiska.Delivery.Hoot do
   @spec compose(Question.t(), String.t(), String.t(), non_neg_integer()) :: t()
   def compose(%Question{} = q, house, branch, more_open) do
     %{
-      title: "🐱 #{house} · #{branch} #{Text.verb(q.kind)}",
+      title: "🐱 #{name(house)} · #{name(branch)} #{Text.verb(q.kind)}",
       body: body(q, more_open),
       sound: sound(q.kind)
     }
+  end
+
+  defp name(text) do
+    case String.replace(text, ~r/\s+/, " ") do
+      flat when byte_size(flat) > @name_max -> String.slice(flat, 0, @name_max) <> "…"
+      flat -> flat
+    end
   end
 
   defp body(q, more_open) do

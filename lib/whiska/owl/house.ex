@@ -915,10 +915,10 @@ defmodule Whiska.Owl.House do
   # over: the question is already recorded sent before this runs, and anything
   # herdr does here — an error, a timeout, a raise because the socket went away
   # between the two calls — is swallowed rather than allowed to fail the
-  # delivery or take the house down. A silent hoot is also what the person's
-  # own `[ui.toast] delivery = "off"` produces, with herdr answering `:ok`
-  # throughout, which is why nothing is warned here and `whiska doctor` reads
-  # that setting instead.
+  # delivery or take the house down. herdr's answer says whether it drew
+  # anything, and that is dropped too: a person who has turned popups off has
+  # not asked to hear about it once per delivery. `whiska doctor` asks the same
+  # question once, where an answer is what the person came for.
   defp hoot(state, question, branch, more_open) do
     notification = Hoot.compose(question, Path.basename(state.main_checkout), branch, more_open)
     state.herdr.notify(state.socket, notification)

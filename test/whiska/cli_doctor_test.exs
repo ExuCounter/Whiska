@@ -18,6 +18,7 @@ defmodule Whiska.CLIDoctorTest do
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(worktree)
     on_exit(fn -> File.rm_rf!(root) end)
+    stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
     {:ok, root: root, main: main, worktree: worktree}
   end
 

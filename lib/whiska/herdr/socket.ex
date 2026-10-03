@@ -116,9 +116,10 @@ defmodule Whiska.Herdr.Socket do
   def notify(socket, %{title: title, body: body, sound: sound}) do
     params = %{"title" => title, "body" => body, "sound" => Atom.to_string(sound)}
 
-    with {:ok, %{"result" => _}} <- request(socket, "notification.show", params) do
-      :ok
-    else
+    case request(socket, "notification.show", params) do
+      {:ok, %{"result" => %{"shown" => true}}} -> {:ok, :shown}
+      {:ok, %{"result" => %{"shown" => false, "reason" => why}}} -> {:ok, {:not_shown, why}}
+      {:ok, %{"result" => %{"shown" => false}}} -> {:ok, {:not_shown, "no reason given"}}
       {:ok, other} -> {:error, {:unexpected_reply, other}}
       {:error, _} = error -> error
     end

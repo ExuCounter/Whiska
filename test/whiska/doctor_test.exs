@@ -173,62 +173,55 @@ defmodule Whiska.DoctorTest do
 
   # -- the hoot ----------------------------------------------------------------
 
-  describe "hoot/1 — whether herdr will show the owl's notification (ADR-0062)" do
-    test "a delivery setting that shows popups passes, and says where they go" do
-      for {delivery, where} <- [
-            {"system", "system"},
-            {"terminal", "terminal"},
-            {"herdr", "herdr"}
-          ] do
-        check = Doctor.hoot(~s([ui.toast]\ndelivery = "#{delivery}"\n))
+  describe "hoot/1 — whether herdr showed the owl's notification (ADR-0062)" do
+    test "herdr saying it showed the notification passes" do
+      check = Doctor.hoot({:ok, :shown})
 
-        assert %Check{status: :ok} = check
-        assert check.detail =~ where
-      end
+      assert %Check{status: :ok} = check
+      assert check.detail =~ "shown"
     end
 
-    test "popups turned off is a warning: the question still arrives, unheard" do
-      check = Doctor.hoot(~s([ui.toast]\ndelivery = "off"\n))
+    test "herdr saying it did not, and why, is a warning that repeats herdr's reason" do
+      check = Doctor.hoot({:ok, {:not_shown, "disabled"}})
 
       assert %Check{status: :warn} = check
-      assert check.detail =~ "off"
+      assert check.detail =~ "disabled"
       assert check.fix =~ "ui.toast"
       assert check.fix =~ "system"
       assert check.fix =~ Whiska.Herdr.config_path()
     end
 
-    test "an unset delivery is herdr's own default, which is off" do
-      check = Doctor.hoot("[ui]\ntab_bar_right = []\n")
+    test "the fix edits the person's existing table rather than handing them one to paste" do
+      %Check{fix: fix} = Doctor.hoot({:ok, {:not_shown, "disabled"}})
 
-      assert %Check{status: :warn} = check
-      assert check.fix =~ "ui.toast"
+      refute fix =~ ~r/^\[ui\.toast\]$/m
+      assert fix =~ ~r/set .*delivery/i
     end
 
-    test "no herdr config to read is a warning, with the same thing to paste" do
-      check = Doctor.hoot(nil)
+    test "herdr unreachable is a warning, and says the probe could not be made" do
+      check = Doctor.hoot({:error, :enoent})
 
       assert %Check{status: :warn} = check
-      assert check.fix =~ "ui.toast"
+      assert check.detail =~ "could not ask herdr"
+    end
+
+    test "no socket to probe is a warning, not a verdict about the setting" do
+      check = Doctor.hoot(:no_socket)
+
+      assert %Check{status: :warn} = check
+      refute check.detail =~ "shown"
     end
 
     test "never a failure: a silent hoot loses no question (ADR-0038)" do
-      for config <- [
-            nil,
-            "",
-            "[ui.toast]\ndelivery = \"off\"\n",
-            ~s([ui.toast]\ndelivery = "system"\n)
+      for probe <- [
+            {:ok, :shown},
+            {:ok, {:not_shown, "disabled"}},
+            {:error, :enoent},
+            :no_socket
           ] do
-        assert %Check{status: status} = Doctor.hoot(config)
+        assert %Check{status: status} = Doctor.hoot(probe)
         assert status in [:ok, :warn]
       end
-    end
-
-    test "the sound is mentioned when it is off, since that is half the point" do
-      check = Doctor.hoot(~s([ui.toast]\ndelivery = "system"\n\n[ui.sound]\nenabled = false\n))
-
-      assert %Check{status: :warn} = check
-      assert check.detail =~ "sound"
-      assert check.fix =~ "ui.sound"
     end
   end
 
@@ -810,6 +803,8 @@ defmodule Whiska.DoctorTest do
         "HOME" => root,
         "HERDR_SOCKET_PATH" => Path.join(root, "herdr.sock")
       }
+
+      stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
 
       {:ok, root: root, main: main, env: env}
     end
