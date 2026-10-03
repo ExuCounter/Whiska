@@ -82,7 +82,7 @@ defmodule Whiska.Herdr do
 
   @doc """
   Type a command at a pane's shell prompt and run it — how `whiska start`
-  starts Claude Code in the pane it has just recorded (ADR-0064).
+  starts Claude Code in the pane it has just recorded (ADR-0066).
 
   The only call here that puts text anywhere but into an agent, and it is the
   person's own command landing in the person's own pane, at the moment they

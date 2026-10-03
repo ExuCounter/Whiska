@@ -14,7 +14,7 @@ defmodule Whiska.Watch.Snapshot do
 
   Beside the board lies one more file, `<board>.main`: the pane this house's
   questions are delivered to, or nothing when no main session is recorded
-  (ADR-0063). The statusline compares it with the pane it is drawing in, which
+  (ADR-0065). The statusline compares it with the pane it is drawing in, which
   is how a session finds out whether it is the whiska. It is kept apart from
   the board so the board file stays exactly the lines the statusline prints,
   and the script needs no parsing to tell the two apart.

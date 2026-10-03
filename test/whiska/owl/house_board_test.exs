@@ -204,7 +204,7 @@ defmodule Whiska.Owl.HouseBoardTest do
   end
 
   # Which pane the questions go to, beside the board the statusline already
-  # reads, so a session can tell whether it is the one (ADR-0063).
+  # reads, so a session can tell whether it is the one (ADR-0065).
   describe "the main session's pane, beside the board" do
     test "is written with the board", %{main: main, worktree: worktree} do
       stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "working")]} end)

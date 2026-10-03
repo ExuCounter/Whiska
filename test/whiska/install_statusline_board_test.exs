@@ -188,7 +188,7 @@ defmodule Whiska.InstallStatuslineBoardTest do
     assert second =~ "🐭 feat-a"
   end
 
-  describe "which session is the main session (ADR-0063)" do
+  describe "which session is the main session (ADR-0065)" do
     test "the main session's own pane is told nothing", context do
       :ok = Snapshot.write(context.main, "🐭 feat-a  working", "w1:p9")
 

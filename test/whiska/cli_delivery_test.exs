@@ -42,7 +42,7 @@ defmodule Whiska.CLIDeliveryTest do
     end)
 
     # Unless a test says otherwise, every pane is already running Claude, so
-    # `whiska start` records and starts nothing (ADR-0064).
+    # `whiska start` records and starts nothing (ADR-0066).
     stub(Herdr, :pane, fn @socket, pane ->
       {:ok, %{pane_id: pane, cwd: main, agent: "claude", agent_status: "idle"}}
     end)
@@ -166,7 +166,7 @@ defmodule Whiska.CLIDeliveryTest do
       {0, _, _} = run(["start"], main)
     end
 
-    test "starts Claude in the pane when nothing is running there (ADR-0064)", %{main: main} do
+    test "starts Claude in the pane when nothing is running there (ADR-0066)", %{main: main} do
       stub(Herdr, :pane, fn @socket, "w1:p2" -> empty_pane("w1:p2", main) end)
       expect(Herdr, :run_command, fn @socket, "w1:p2", "claude" -> :ok end)
 

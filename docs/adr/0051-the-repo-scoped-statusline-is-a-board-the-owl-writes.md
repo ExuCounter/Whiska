@@ -377,7 +377,7 @@ the board file.
 ## Addendum, 2026-10-03: one line on it is not a mouse's row
 
 The board gained a line above the rows that says, when it is true, that this pane is not
-the one this repo's questions are delivered to (ADR-0063). It is written by the statusline
+the one this repo's questions are delivered to (ADR-0065). It is written by the statusline
 script rather than by the owl, because it is the only thing on the board that differs
 between two sessions reading the same file: the owl writes the recorded pane beside the
 board and the script compares it with the pane it is drawing in. Everything else here

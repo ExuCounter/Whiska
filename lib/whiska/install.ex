@@ -261,7 +261,7 @@ defmodule Whiska.Install do
   # waiting on you, else what it is working on, else what it is stuck in.
   #
   # Above the rows, and only when it is true, one line saying that this pane
-  # is not where this repo's answers are delivered (ADR-0063).
+  # is not where this repo's answers are delivered (ADR-0065).
   #
   # A project-level statusLine replaces the global one rather than merging
   # with it, so your global statusline runs first and the board goes under
@@ -329,7 +329,7 @@ defmodule Whiska.Install do
 
   [ -n "$board" ] || exit 0
 
-  # Whose questions land here (ADR-0063). The owl writes the main session's
+  # Whose questions land here (ADR-0065). The owl writes the main session's
   # pane beside the board; this pane either is it or is not, and only the
   # second case is worth a line. No pane id in the environment means herdr is
   # not around to say, which is not the same as being the wrong pane — say

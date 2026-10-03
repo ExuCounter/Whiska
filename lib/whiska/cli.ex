@@ -1080,7 +1080,7 @@ defmodule Whiska.CLI do
     )
   end
 
-  # The second half of `whiska start` (ADR-0064): the pane is recorded, and a
+  # The second half of `whiska start` (ADR-0066): the pane is recorded, and a
   # pane with no Claude Code in it has nothing to deliver into, so the command
   # starts one rather than leaving the person a second command to remember.
   #

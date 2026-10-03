@@ -376,7 +376,7 @@ defmodule Whiska.Owl.House do
     # The recorded pane is read here rather than taken from `state.main_pane`,
     # which only moves when the house refreshes: a session that has just run
     # `whiska start` must stop being told it is not the main session on the
-    # next redraw, not on the next backstop (ADR-0063).
+    # next redraw, not on the next backstop (ADR-0065).
     written =
       Snapshot.write(
         state.main_checkout,

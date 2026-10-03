@@ -1181,7 +1181,7 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :ok} = find(report.checks, "questions")
     end
 
-    # A pane id is not something a person recognises on sight (ADR-0063), so
+    # A pane id is not something a person recognises on sight (ADR-0065), so
     # the line says whether it is the pane they are asking from.
     test "the main session line says whether this is that pane", %{
       main: main,

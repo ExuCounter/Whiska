@@ -4,7 +4,7 @@ Setting a house up took two commands in a fixed order: start Claude Code in a pa
 `! whiska start` from inside it — or run `whiska start` in a shell first and then remember
 to start Claude there. The help said outright that `start` "does not launch Claude Code
 itself yet". Getting the order wrong is one of the ways a repo ends up with no main session
-at all, which is the failure ADR-0063 exists to make visible.
+at all, which is the failure ADR-0065 exists to make visible.
 
 ## Decision
 

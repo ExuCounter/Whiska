@@ -95,7 +95,7 @@ anyway, what it is stuck in comes from the transcript Claude Code is already wri
 The statusline script then prints that file and starts nothing, which is what makes a
 two-second refresh affordable in every open session at once. The recorded main pane is
 written beside it in the same breath, which is how a session finds out whether it is the
-one being delivered to without starting anything either (ADR-0063).
+one being delivered to without starting anything either (ADR-0065).
 
 **The screen is read in one place** (ADR-0047). herdr has no input signal, so the
 delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible text and
