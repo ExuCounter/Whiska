@@ -18,6 +18,20 @@ A running herdr pane + Claude Code session working inside its own isolated git
 worktree, spawned and supervised by a Whiska.
 _Avoid_: worker, crewmate, agent
 
+**Brief**:
+What a mouse is given to build — the person's own words, routed in whole by
+`spawn-worktree` or `send-to-worktree`. A brief is **buildable** when the mouse can say
+what "done" looks like and name the failing test that proves it without guessing anything
+the person has an opinion on; one that is not gets grilled before any code (ADR-0063).
+_Avoid_: task, ticket, spec
+
+**Grilling**:
+The rounds of questions a mouse asks before building an unbuildable brief: what "done"
+looks like, which part of the app, what data, the edge cases. A round asks the whole
+frontier — every question whose prerequisites are already settled — in one message,
+because each round costs the person a full round trip.
+_Avoid_: interview, clarification
+
 **Mouse record**:
 Whiska's own persisted row tracking a mouse — its pane, worktree path, branch label,
 and mode — keyed by `mouse_id`. Outlives the mouse itself: a dead mouse still has a

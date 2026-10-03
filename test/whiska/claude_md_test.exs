@@ -53,7 +53,7 @@ defmodule Whiska.ClaudeMdTest do
       words = rendered |> String.split() |> length()
 
       assert lines <= 140, "the block grew back to #{lines} lines; every rule has a terse form"
-      assert words <= 1300, "the block grew back to #{words} words; every rule has a terse form"
+      assert words <= 1370, "the block grew back to #{words} words; every rule has a terse form"
     end
 
     test "no rule is buried deeper than one level of bullet" do
@@ -111,6 +111,35 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/2.{0,3}4 line plan/i
       assert body =~ ~r/wait for the person.s ok/i
       assert body =~ ~r/stops only on a real decision/i
+    end
+
+    # The rule that a mouse does not wait for an ok used to read as "a mouse does
+    # not stop at all", which cancelled the grilling rule four bullets above it.
+    test "not waiting for an ok names the rules it is not leave to skip" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/not leave to skip naming .done. and grilling/i
+      assert body =~ ~r/does not wait for an ok/i
+    end
+
+    test "a brief that names done and its failing test is built, not interrogated" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/what .done. looks like and name the failing test that proves it/i
+      assert body =~ ~r/with no guess → build/i
+      assert body =~ ~r/never grill what is already spelled out/i
+    end
+
+    test "a brief that needs a guess is grilled before any code" do
+      assert prose_of("worktrees") =~
+               ~r/bug report with no stated right behaviour.{0,120}grill first/i
+    end
+
+    test "grilling is not capped at one round" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/a round asks the whole frontier in one message/i
+      refute body =~ ~r/one round/i
     end
 
     test "a grilling round asks the whole frontier in one message" do
