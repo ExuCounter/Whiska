@@ -118,7 +118,8 @@ once — and with no ticker, since nothing is refreshing behind them. The `waiti
 carries why nothing is being delivered while delivery is held (ADR-0058). Only a live
 mouse is a row: a dead one has none, and what it left behind is counted on an `orphaned` line of its
 own, under the `waiting` one — nobody can answer an orphan, so it is never counted as
-waiting. The board only reports — nothing on it acts (ADR-0051).
+waiting. That line names the branches the orphans came off, and an orphan whose record
+kept no branch is named by its own question id. The board only reports — nothing on it acts (ADR-0051).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws, which is not this), the
 statusline (the surface, not what is drawn on it), title (herdr's and Claude Code's word
 for where the topic is read from, not for what the board says)

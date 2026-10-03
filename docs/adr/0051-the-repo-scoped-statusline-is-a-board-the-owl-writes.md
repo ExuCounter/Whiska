@@ -321,3 +321,51 @@ say of the interval. Its board is coloured — the owl writes that — but its s
 only as far as the row's first `ESC[22m`, so a board between ten seconds and a minute old
 looks half live. Cosmetic, on the degraded path alone, and `whiska init` replaces the
 script.
+
+## Addendum (2026-10-03): the orphan line says which branches
+
+The addendum of 2026-10-01 gave orphans a line of their own, and gave it only a number:
+
+> under it `🐱 n orphaned`, everything a dead mouse left behind
+
+A number alone is a nag. The person cannot tell whether the two orphans are a branch they
+abandoned on purpose last week or the one they dropped this morning by mistake, so the
+line asks to be looked into and gives nothing to look into it with.
+
+**The line names them**: `🐱 2 orphaned (feat-checkout-form, fix-doctor-probe)`.
+
+**The name is the branch, because the branch is what survives.** An orphan's mouse and
+worktree are gone, but its mouse record is not — nothing is ever deleted (ADR-0007) — and
+`branch` is a live label hanging off that record (ADR-0002), written when the mouse was
+minted and never dependent on the worktree still standing. It is also the name
+`whiska questions` already prints for the same question, so the board and the command
+call one dead branch one thing.
+
+**An orphan with no branch left is named by its own id** — `#52`. The record can have no
+branch at all, and a question can reach the board without its mouse row; both are
+genuinely nameless, and neither gets a guess. The id is not a name invented for the
+occasion: it is the handle `whiska questions <id>` takes, which is the one thing the
+person can do with an orphan. Its `mouse_id` is not used — an opaque marker id names
+nothing to a reader and is wider than the branch column.
+
+**Two orphans off one branch are one name with a count**, `feat-gone ×2`. The branch is
+named once because the person recognises the work, not the question; the `×2` is there so
+the names still add up to the count in front of them.
+
+**More names than fit become `+n more`, and `n` counts questions.** The names take at most
+60 characters — the detail column is the one the board lets run long, and this line sits
+under it — and whatever is dropped is summed into the same `+n more` the board already
+uses for rows it cannot show. Counting dropped questions rather than dropped names is
+what keeps the line's arithmetic true: everything shown plus `+n more` is always the
+count. One name is always shown even when it alone fills the budget; it is cut to the
+same 24 characters as a row's branch.
+
+**The count is unchanged and still comes from the records.** It is every orphaned
+question in the house, counted before any name is dropped, so a narrow line never makes
+the number smaller. Nothing reads it back off the rendered line.
+
+**Nothing sorts or reads off rendered output**, as above. `Whiska.Watch.board/2` carries
+the names on the board map alongside the count, worked out from the questions and their
+mouse records; `render/2` decides only how many of them fit. A branch name is somebody
+else's string like a topic is, so it goes through `Whiska.Watch.Text` before it reaches
+the board file.

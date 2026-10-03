@@ -40,6 +40,7 @@ defmodule Whiska.WatchTest do
     %Question{
       id: id,
       mouse_id: "m-#{branch}",
+      mouse: Keyword.get(opts, :mouse, mouse(branch)),
       status: Keyword.get(opts, :status, "sent"),
       kind: Keyword.get(opts, :kind, "needs-decision"),
       text: Keyword.get(opts, :text, "Body.\n\nwhich db?\n\u2063\u2063"),
@@ -408,11 +409,59 @@ defmodule Whiska.WatchTest do
       assert board.rows == []
       assert board.waiting == 0
       assert board.orphaned == 2
+      assert board.orphans == [%{name: "feat-gone", count: 2}]
+    end
+
+    test "each dead branch is named once, oldest first" do
+      mice = [mouse("feat-gone", died_at: @now), mouse("feat-other", died_at: @now)]
+
+      board =
+        board(mice,
+          questions: [
+            question(7, "feat-gone", status: "orphaned"),
+            question(9, "feat-other", status: "orphaned"),
+            question(11, "feat-gone", status: "orphaned")
+          ]
+        )
+
+      assert board.orphaned == 3
+      assert board.orphans == [%{name: "feat-gone", count: 2}, %{name: "feat-other", count: 1}]
+    end
+
+    test "an orphan whose record kept no branch is named by its own id" do
+      board =
+        board([],
+          questions: [
+            question(7, "feat-gone", status: "orphaned", mouse: %Mouse{mouse_id: "m-feat-gone"})
+          ]
+        )
+
+      assert board.orphans == [%{name: "#7", count: 1}]
+    end
+
+    test "a branch nobody can see is not a name either" do
+      board =
+        board([],
+          questions: [question(7, "feat-gone", status: "orphaned", mouse: nil)]
+        )
+
+      assert board.orphans == [%{name: "#7", count: 1}]
+    end
+
+    test "a branch name is made safe before it reaches the board" do
+      board =
+        board([],
+          questions: [
+            question(7, "x", status: "orphaned", mouse: %Mouse{branch: "feat\e[31m-red"})
+          ]
+        )
+
+      assert board.orphans == [%{name: "feat[31m-red", count: 1}]
     end
 
     test "a dead mouse with nothing waiting leaves no trace" do
       assert board([mouse("feat-gone", died_at: @now)]) ==
-               %{rows: [], more: 0, waiting: 0, orphaned: 0, held: nil}
+               %{rows: [], more: 0, waiting: 0, orphaned: 0, orphans: [], held: nil}
     end
 
     test "a dead mouse takes no room from the live ones" do
@@ -690,7 +739,8 @@ defmodule Whiska.WatchTest do
           ]
         )
 
-      assert Watch.render(board) == "\e[33m🐱 1 waiting\e[39m\n\e[2m🐱 1 orphaned\e[22m"
+      assert Watch.render(board) ==
+               "\e[33m🐱 1 waiting\e[39m\n\e[2m🐱 1 orphaned (feat-gone)\e[22m"
     end
 
     test "a row that has nothing waiting is never yellow" do
@@ -751,7 +801,50 @@ defmodule Whiska.WatchTest do
           questions: [question(51, "feat-gone", status: "orphaned")]
         )
 
-      assert render(board) == "🐱 1 orphaned"
+      assert render(board) == "🐱 1 orphaned (feat-gone)"
+    end
+
+    test "two orphans off one branch are counted beside its name" do
+      board =
+        board([mouse("feat-gone", died_at: @now)],
+          questions: [
+            question(51, "feat-gone", status: "orphaned"),
+            question(53, "feat-gone", status: "orphaned")
+          ]
+        )
+
+      assert render(board) == "🐱 2 orphaned (feat-gone ×2)"
+    end
+
+    test "more names than fit are summed into the rest, and the numbers add up" do
+      branches = for n <- 1..5, do: "feat-a-long-branch-#{n}"
+
+      questions =
+        for {branch, id} <- Enum.with_index(branches, 51),
+            do: question(id, branch, status: "orphaned")
+
+      assert render(board([], questions: questions)) ==
+               "🐱 5 orphaned (feat-a-long-branch-1, feat-a-long-branch-2, +3 more)"
+    end
+
+    test "the rest counts questions, not names, so the line still adds up" do
+      questions =
+        [
+          question(51, "feat-a-long-branch-1", status: "orphaned"),
+          question(52, "feat-a-long-branch-2", status: "orphaned")
+        ] ++
+          for id <- 53..56,
+              do: question(id, "feat-a-long-branch-3", status: "orphaned")
+
+      assert render(board([], questions: questions)) ==
+               "🐱 6 orphaned (feat-a-long-branch-1, feat-a-long-branch-2, +4 more)"
+    end
+
+    test "one name too long to fit is still shown, cut to the branch column" do
+      long = String.duplicate("a", 40)
+
+      assert render(board([], questions: [question(51, long, status: "orphaned")])) ==
+               "🐱 1 orphaned (#{String.duplicate("a", 23)}…)"
     end
 
     test "a held queue says so on the waiting line (ADR-0058)" do
@@ -804,7 +897,7 @@ defmodule Whiska.WatchTest do
           ]
         )
 
-      assert render(board) == "🐱 1 waiting\n🐱 1 orphaned"
+      assert render(board) == "🐱 1 waiting\n🐱 1 orphaned (feat-gone)"
     end
   end
 end

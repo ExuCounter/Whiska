@@ -48,6 +48,10 @@ defmodule Whiska.Watch do
   @board_max 5
   @phrase_max 60
   @branch_max 24
+  # How much of the orphan line the names may take. The detail column is the
+  # one that can already run long, so the line under it is kept to the same
+  # phrase budget and whatever is left over is summed into `+n more`.
+  @orphans_max 60
 
   # The ticker: proof the board is being redrawn, on the rows where a still
   # picture and a frozen one look the same. One frame per snapshot the owl
@@ -75,19 +79,24 @@ defmodule Whiska.Watch do
           detail: String.t()
         }
 
+  @typedoc "One dead branch, and how many questions it left behind."
+  @type orphan :: %{name: String.t(), count: pos_integer()}
+
   @typedoc "Why delivery is holding, when it has been holding long enough to say."
   @type held :: :typing | :mid_turn | :unreachable | nil
 
   @typedoc """
   `more` is how many live mice the cap left off; `waiting` what no row covers
-  and the person can still answer; `orphaned` what nothing can act on any more;
-  `held` why nothing is being delivered.
+  and the person can still answer; `orphaned` what nothing can act on any more,
+  with `orphans` naming the branches those came off; `held` why nothing is
+  being delivered.
   """
   @type t :: %{
           rows: [row()],
           more: non_neg_integer(),
           waiting: non_neg_integer(),
           orphaned: non_neg_integer(),
+          orphans: [orphan()],
           held: held()
         }
 
@@ -163,6 +172,7 @@ defmodule Whiska.Watch do
       more: more,
       waiting: uncovered(live, rows),
       orphaned: length(orphaned),
+      orphans: orphans(orphaned),
       held: Keyword.get(opts, :held)
     }
   end
@@ -282,6 +292,29 @@ defmodule Whiska.Watch do
     |> length()
   end
 
+  # Which branches the orphans came off, oldest first, each named once with how
+  # many it left. An orphan's mouse and worktree are gone, but its record is not
+  # (ADR-0007), so the branch — the name the person recognises, and the one
+  # `whiska questions` prints for the same question — outlives both. A record
+  # that kept no branch is named by the question's own id, which is the handle
+  # `whiska questions <id>` takes; its `mouse_id` is an opaque marker id
+  # (ADR-0002) and would name nothing.
+  defp orphans(questions) do
+    names = Enum.map(questions, &orphan_name/1)
+    counts = Enum.frequencies(names)
+
+    names |> Enum.uniq() |> Enum.map(&%{name: &1, count: counts[&1]})
+  end
+
+  defp orphan_name(%Question{mouse: %Mouse{branch: branch}, id: id}) when is_binary(branch) do
+    case branch(branch) do
+      "" -> "##{id}"
+      name -> name
+    end
+  end
+
+  defp orphan_name(%Question{id: id}), do: "##{id}"
+
   @doc """
   The board as the statusline draws it. Empty when the house is quiet.
 
@@ -309,7 +342,11 @@ defmodule Whiska.Watch do
     held = Map.get(board, :held)
 
     (Enum.map(rows, &line(&1, widths, tick)) ++
-       [more_line(more), waiting_line(waiting, held), orphaned_line(orphaned)])
+       [
+         more_line(more),
+         waiting_line(waiting, held),
+         orphaned_line(orphaned, Map.get(board, :orphans, []))
+       ])
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n")
   end
@@ -385,7 +422,38 @@ defmodule Whiska.Watch do
   defp reason(_unreachable), do: "your main session cannot be reached"
 
   # Its own word, under the waiting line: nobody can answer an orphan, so the
-  # person is being told it is there, not asked to do anything about it.
-  defp orphaned_line(0), do: nil
-  defp orphaned_line(orphaned), do: Ink.dim("🐱 #{orphaned} orphaned")
+  # person is being told it is there, not asked to do anything about it. The
+  # names say which work it was, so the number is something the person can
+  # place rather than a nag.
+  defp orphaned_line(0, _orphans), do: nil
+  defp orphaned_line(orphaned, orphans), do: Ink.dim("🐱 #{orphaned} orphaned#{which(orphans)}")
+
+  defp which([]), do: ""
+  defp which(orphans), do: " (" <> Enum.join(fit(orphans), ", ") <> ")"
+
+  # As many names as the budget holds, and the questions behind the rest summed
+  # into `+n more` — so what the line shows always adds up to the count in front
+  # of it. One name alone is shown however long it is: it is already cut to the
+  # branch column, and an empty parenthesis would be worse than a wide one.
+  defp fit(orphans) do
+    total = length(orphans)
+
+    Enum.find_value(total..1//-1, fn kept ->
+      shown = shown(orphans, kept)
+
+      if String.length(Enum.join(shown, ", ")) <= @orphans_max, do: shown
+    end) || shown(orphans, 1)
+  end
+
+  defp shown(orphans, kept) do
+    {named, dropped} = Enum.split(orphans, kept)
+
+    Enum.map(named, &named/1) ++ rest(dropped)
+  end
+
+  defp named(%{name: name, count: 1}), do: name
+  defp named(%{name: name, count: count}), do: "#{name} ×#{count}"
+
+  defp rest([]), do: []
+  defp rest(dropped), do: ["+#{dropped |> Enum.map(& &1.count) |> Enum.sum()} more"]
 end
