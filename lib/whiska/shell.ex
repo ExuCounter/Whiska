@@ -150,12 +150,18 @@ defmodule Whiska.Shell do
   end
 
   defp segment_mutates?(segment) do
-    case segment |> tokenize() |> Enum.map(&unquote_token/1) |> drop_env_assignments() do
+    segment |> tokenize() |> Enum.map(&unquote_token/1) |> tokens_mutate?()
+  end
+
+  defp tokens_mutate?(tokens) do
+    case drop_env_assignments(tokens) do
       [] ->
         false
 
       [head | rest] ->
         case Path.basename(head) do
+          "env" -> env_mutates?(rest)
+          "command" -> command_mutates?(rest)
           "git" -> git_mutates?(rest)
           "sed" -> Enum.any?(rest, &(&1 in ["-i", "--in-place"] or &1 =~ ~r/^-i/))
           "find" -> find_mutates?(rest)
@@ -197,7 +203,26 @@ defmodule Whiska.Shell do
   end
 
   defp exec_mutates?([]), do: true
-  defp exec_mutates?([head | _]), do: Path.basename(head) not in @read_only
+  defp exec_mutates?(command), do: tokens_mutate?(command)
+
+  # `env` alone prints the environment; followed by a command it runs it, and
+  # that command is the one to judge (ADR-0069). Its own flags are stepped over
+  # where they are plain; one it cannot read — `-S` splits a string into a
+  # command line of its own — is assumed to run something.
+  defp env_mutates?([flag | rest])
+       when flag in ["-i", "-", "--ignore-environment", "-0", "--null"],
+       do: env_mutates?(rest)
+
+  defp env_mutates?([flag, _name | rest]) when flag in ["-u", "--unset", "-C", "--chdir"],
+    do: env_mutates?(rest)
+
+  defp env_mutates?(["-" <> _ | _rest]), do: true
+  defp env_mutates?(rest), do: tokens_mutate?(rest)
+
+  # `command -v` and `-V` only say where a command lives; anything else runs it.
+  defp command_mutates?([flag | _rest]) when flag in ["-v", "-V"], do: false
+  defp command_mutates?(["-p" | rest]), do: command_mutates?(rest)
+  defp command_mutates?(rest), do: tokens_mutate?(rest)
 
   defp awk_mutates?(args) do
     Enum.any?(args, fn arg -> Enum.any?(@awk_writes, &Regex.match?(&1, arg)) end)

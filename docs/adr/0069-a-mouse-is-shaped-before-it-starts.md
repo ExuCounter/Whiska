@@ -53,8 +53,9 @@ stops like any other session instead of moving to the next model.
 so a branch asked for as sniff came out with write access and nobody was told. So a
 mouse with no `shaped_at` is held to sniff's rules instead — every edit tool and every
 shell command `Whiska.Shell` cannot read as harmless is denied — and the reason says it
-was never given a shape and to ask the person. It cannot shape itself: `whiska mode` is
-not on the read-only list. The person runs `whiska mode build` or `whiska mode sniff` in
+was never given a shape and to ask the person. It cannot shape itself: `whiska` is not
+on the read-only list, and `env` and `command`, which are, are now judged by the command
+they run, so `env whiska mode build` is caught too. The person runs `whiska mode build` or `whiska mode sniff` in
 its worktree, which stamps `shaped_at`. ADR-0018 is rewritten to match: there is no
 default mode.
 
@@ -85,3 +86,10 @@ session has. Its model is set in its own agent definition, which the person owns
 The mice table gains `model` and `shaped_at` (migration 7). Sniff, and the hold on
 a mouse nobody shaped, are still not a security boundary: a house that will not open degrades both to build, loudly
 (`Whiska.Hook.PreToolUse`), and a missing `whiska` binary allows every call.
+
+A mouse that sets out to escape still can. Some commands on `Whiska.Shell`'s read-only
+list write or run something through a flag — `sort -o`, `rg --pre`, `fd -x`, `yq -i`,
+`git -c diff.external=…` — and only the four edit tools are denied by name, so an MCP
+tool that writes is not. Those gaps are older than this decision and are left for a
+change of their own. The hold is for a mouse that follows its instructions, which is the
+failure this decision is about: a spawn that forgot, not a mouse that fights.

@@ -169,6 +169,8 @@ defmodule Whiska.EscriptTest do
       )
 
     assert out =~ ~s("permissionDecision":"deny")
+    # Denied as sniff, not as a mouse nobody shaped.
+    assert out =~ "sniff mode"
   end
 
   test "whiska mode switches enforcement, end to end", %{worktree: worktree} do

@@ -74,8 +74,9 @@ defmodule Whiska.Rule.Sniff do
     Read, Grep and Glob all work, as do read-only shell commands like
     `git log`, `git diff` and `grep`.
 
-    If this mouse is genuinely meant to be making changes, switch it with
-    `whiska mode build` and try again.
+    If this mouse is genuinely meant to be making changes, do not switch it
+    yourself: stop and ask the person, who can run `whiska mode build` in this
+    worktree.
     """
     |> String.trim()
   end

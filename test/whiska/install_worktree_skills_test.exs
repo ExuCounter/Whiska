@@ -82,11 +82,21 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       # The order is the whole point: a shape recorded after Claude starts
       # gives a sniff mouse its first tool calls as a build mouse.
       {shape_at, _} = :binary.match(body, "whiska shape <build|sniff>")
-      {start_at, _} = :binary.match(body, "herdr agent start <branch-name>")
+      {start_at, _} = :binary.match(body, "herdr agent start <agent-name>")
       assert shape_at < start_at
 
       assert body =~ ~s(-- --model "$model")
-      assert body =~ "Do not start Claude anyway"
+
+      # One fenced block: a shell variable does not survive between two Bash
+      # calls, so a shape in one block and a start in the next starts every
+      # mouse on the default model.
+      [block] =
+        Regex.scan(~r/```bash\n(.*?)```/s, body, capture: :all_but_first)
+        |> List.flatten()
+        |> Enum.filter(&(&1 =~ "whiska shape"))
+
+      assert block =~ "herdr agent start"
+      assert body =~ "do not start Claude by hand"
       # The report carries Whiska's own line, not the skill's intent.
       assert body =~ "word for word"
     end

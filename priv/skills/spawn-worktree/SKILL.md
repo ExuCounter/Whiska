@@ -114,31 +114,38 @@ real change and keeps the person's own default model. Pick from the request:
 
 Name a model only if the person named one — `--model fable`, `opus` or `sonnet`.
 
-```bash
-model="$(cd worktrees/<branch-name> && whiska shape <build|sniff>)" || { echo "shape failed"; exit 1; }
-```
+## Shape and start the mouse — in one command
 
-This records the mode in Whiska before Claude exists, so the mouse's very first tool
-call is already judged by it. It prints the model to start on, or nothing for the
-person's own default, and says on stderr what it recorded — keep that line, it goes in
-the report. **If it fails, stop and report the error. Do not start Claude anyway:** a
-mouse started without its shape may not write anything until the person runs
-`whiska mode` in its worktree, so it would stall at its first edit.
+Starting Claude is the default. Only skip it if the person said "don't start Claude" or
+equivalent; then run the `whiska shape` line alone.
 
-## Start the mouse
-
-This is the default. Only skip it if the person said "don't start Claude" or equivalent.
-
-`agent start` polls for shell readiness itself — do not sleep first, just call it with a
-generous timeout. Everything after `--` is passed to `claude` as it is:
+Run this as **one** Bash call. A shell variable does not survive from one call to the
+next, so splitting it starts every mouse on the default model:
 
 ```bash
+model="$(cd "worktrees/<branch-name>" && whiska shape <build|sniff>)" || { echo "shape failed - Claude not started"; exit 1; }
 if [ -n "$model" ]; then
-  herdr agent start <branch-name> --kind claude --pane <root-pane-id> --timeout 15000 -- --model "$model"
+  herdr agent start <agent-name> --kind claude --pane <root-pane-id> --timeout 15000 -- --model "$model"
 else
-  herdr agent start <branch-name> --kind claude --pane <root-pane-id> --timeout 15000
+  herdr agent start <agent-name> --kind claude --pane <root-pane-id> --timeout 15000
 fi
 ```
+
+`whiska shape` records the mode in Whiska before Claude exists, so the mouse's very
+first tool call is already judged by it. It prints the model to start on, or nothing for
+the person's own default, and says on stderr what it recorded — keep that line, it goes
+in the report. **If it fails, the command stops before Claude starts. Report the error
+and do not start Claude by hand:** a mouse started without its shape may not write
+anything until the person runs `whiska mode` in its worktree, so it would stall at its
+first edit.
+
+`<agent-name>` is the branch name in herdr's terms: lowercase letters, digits, `-` and
+`_`, starting with a letter, at most 32 characters — `feat/csv-data-page` becomes
+`feat-csv-data-page`. herdr refuses a `/`, so the branch name itself fails for any
+slashed branch.
+
+`agent start` polls for shell readiness itself — do not sleep first. Everything after
+`--` is passed to `claude` as it is.
 
 The JSON response carries `.result.argv`; for a sniff mouse it must end in `--model`
 and the model. If it does not, say so in the report.
