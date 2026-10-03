@@ -154,7 +154,7 @@ defmodule Whiska.Owl.House do
   # How long delivery has to be holding before the board says so (ADR-0058).
   @default_hold_notice_ms 10_000
   # How long a mouse's pane has to have been quiet before a died turn is picked
-  # up (ADR-0065). Two backstops, so a laptop waking cannot have a whole fleet
+  # up (ADR-0067). Two backstops, so a laptop waking cannot have a whole fleet
   # picked up on the strength of one reconnection's pane list.
   @default_settle_ms 120_000
 
@@ -235,7 +235,7 @@ defmodule Whiska.Owl.House do
   @spec main_checkout(GenServer.server()) :: Path.t()
   def main_checkout(house), do: GenServer.call(house, :main_checkout)
 
-  @doc "What the house remembers about each mouse's pane between sweeps (ADR-0065)."
+  @doc "What the house remembers about each mouse's pane between sweeps (ADR-0067)."
   @spec seen(GenServer.server()) :: Pickup.seen()
   def seen(house), do: GenServer.call(house, :seen)
 
@@ -340,7 +340,7 @@ defmodule Whiska.Owl.House do
     warn(state, "herdr subscription lost (#{inspect(reason)}) — will reopen it")
     # Everything the house thought it knew about a pane was learnt before the
     # drop, so every settling clock starts again rather than counting through
-    # the gap (ADR-0065).
+    # the gap (ADR-0067).
     {:noreply, schedule_resubscribe(%{state | subscription: nil, seen: %{}})}
   end
 
@@ -477,7 +477,7 @@ defmodule Whiska.Owl.House do
   defp herdr_event(_other, _data, state), do: state
 
   # A turn beginning, which is the only evidence Whiska keeps that one was ever
-  # asked for (ADR-0065). The sweep notices it too, a minute later at worst;
+  # asked for (ADR-0067). The sweep notices it too, a minute later at worst;
   # this is what catches a turn shorter than a backstop.
   defp note_working(state, nil), do: state
 
@@ -626,7 +626,7 @@ defmodule Whiska.Owl.House do
 
   # Picking up a turn that died, on the same backstop and for the same reason
   # cleanup rides it: a turn dies outside Whiska entirely, so there is nothing
-  # to be told about (ADR-0065).
+  # to be told about (ADR-0067).
   defp pick_up(%{socket: nil} = state), do: state
 
   defp pick_up(state) do

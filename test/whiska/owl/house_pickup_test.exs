@@ -1,6 +1,6 @@
 defmodule Whiska.Owl.HousePickupTest do
   @moduledoc """
-  The house picking a died turn up on its backstop (ADR-0065).
+  The house picking a died turn up on its backstop (ADR-0067).
 
   A real house with herdr faked at its one boundary (ADR-0031). The settling
   window is wound right down so a test can watch two sweeps go past without

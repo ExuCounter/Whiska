@@ -121,7 +121,7 @@ work already on disk. Once per dead turn: a branch whose picked-up turn dies as 
 ADR-0026's stuck mouse from then on. A pane has to have been quiet for two minutes across
 separate sweeps first, and a herdr that will not answer throws every clock away, so a
 laptop waking is not read as a whole fleet dying. It is the one thing Whiska types into a
-session that is not its house's main one, which is the single exception ADR-0065 amends
+session that is not its house's main one, which is the single exception ADR-0067 amends
 into ADR-0044. 1377 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
@@ -130,7 +130,7 @@ the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads 
 a GitLab adapter behind one port — and a red build goes to the live mouse that owns the
 branch, or to the person when that mouse is dead. Unknown is never a question. It would be
 the owl's first outbound network call of any kind, and it still needs ADR-0044 opened for
-it: ADR-0065's exception is a mouse's own dead turn and deliberately nothing wider, so a
+it: ADR-0067's exception is a mouse's own dead turn and deliberately nothing wider, so a
 build result typed at a live mouse is its own decision. It chains onto cleanup rather
 than being part of it: green, then merged, then the worktree goes (ADR-0060, superseding
 ADR-0032). Then the per-repo and global sockets (ADR-0024,

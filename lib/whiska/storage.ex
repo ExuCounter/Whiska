@@ -481,7 +481,7 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  Record that herdr has seen this mouse's pane start working (ADR-0065).
+  Record that herdr has seen this mouse's pane start working (ADR-0067).
 
   The only evidence Whiska keeps that a turn began. A turn ends by reaching the
   doorstep, so a stamp with nothing collected after it is a turn that died.
@@ -492,7 +492,7 @@ defmodule Whiska.Storage do
 
   @doc """
   Record that the owl has typed a line into this mouse's pane to carry a died
-  turn on, or take that record back (ADR-0065).
+  turn on, or take that record back (ADR-0067).
 
   `nil` is what a refused line writes back: nothing was typed, so the one
   attempt has not been spent.
@@ -513,7 +513,7 @@ defmodule Whiska.Storage do
 
   @doc """
   Every mouse whose last pickup has not been followed by anything reaching the
-  doorstep, and when it was picked up (ADR-0065).
+  doorstep, and when it was picked up (ADR-0067).
 
   The branches the board says were picked up: once the nudged turn ends, the
   pickup is history rather than news, and the row goes back to saying what the

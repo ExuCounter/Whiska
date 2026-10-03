@@ -31,7 +31,7 @@ defmodule Whiska.MiceTest do
 
   defp pane(id, cwd, status), do: %{pane_id: id, cwd: cwd, agent: "claude", agent_status: status}
 
-  describe "a branch the owl picked up (ADR-0065)" do
+  describe "a branch the owl picked up (ADR-0067)" do
     test "says so, and when, for as long as the mouse lives" do
       mice = [%{mouse("ma", "feat-a") | picked_up_at: DateTime.add(@now, -7200, :second)}]
 

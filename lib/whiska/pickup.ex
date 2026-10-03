@@ -1,6 +1,6 @@
 defmodule Whiska.Pickup do
   @moduledoc """
-  Carrying on a turn that died (ADR-0065).
+  Carrying on a turn that died (ADR-0067).
 
   One pass over this house's mice, run from the backstop beside the cleanup
   sweep. A turn ends by reaching the doorstep (ADR-0036), so a mouse that was

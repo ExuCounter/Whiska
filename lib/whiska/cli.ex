@@ -1312,7 +1312,7 @@ defmodule Whiska.CLI do
          {:ok, _} <- Storage.answer(q.id, text) do
       # An answer is a prompt, and a prompt is a turn beginning. Recording it
       # here is what lets the owl pick that turn up if it dies while the owl
-      # is down and never sees the pane working (ADR-0065).
+      # is down and never sees the pane working (ADR-0067).
       Storage.set_working(mouse.mouse_id, DateTime.utc_now())
       say("Answered ##{q.id} (#{mouse.branch}): typed into #{mouse.pane}.")
     else

@@ -68,7 +68,7 @@ defmodule Whiska.WatchTest do
     fn mouse -> %{action: action.(mouse), silent_for: silent_for} end
   end
 
-  describe "a branch the owl picked up (ADR-0065)" do
+  describe "a branch the owl picked up (ADR-0067)" do
     test "says so, and how long ago, while the turn it started is still running" do
       picked_up = %{"m-feat-a" => DateTime.add(@now, -180, :second)}
 

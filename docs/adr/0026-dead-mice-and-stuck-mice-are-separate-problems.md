@@ -37,7 +37,7 @@ either way.
 
 ## Note, 2026-10-03: rung three is built, for one kind of stuck
 
-[ADR-0065](0065-a-turn-that-died-is-picked-up.md) builds "one corrective nudge, one shot"
+[ADR-0067](0067-a-turn-that-died-is-picked-up.md) builds "one corrective nudge, one shot"
 for the one kind of stuck that can be diagnosed exactly: a turn that ended without
 reaching the doorstep. The ladder above is unchanged and so is the word — a dead turn is
 a stuck mouse, not a third thing.

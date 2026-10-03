@@ -153,7 +153,7 @@ defmodule Whiska.Watch do
   mouse is doing and how long it has been silent,
   `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:held`, why
   delivery is holding (ADR-0058); `:picked_up`, when each branch the owl picked
-  up was picked up (ADR-0065); `:now`, what to measure each mouse's age
+  up was picked up (ADR-0067); `:now`, what to measure each mouse's age
   against.
   """
   @spec board([Mouse.t()], keyword()) :: t()
@@ -234,7 +234,7 @@ defmodule Whiska.Watch do
   end
 
   # News, and only while it is news: the turn the owl started has not ended, so
-  # the row says a person did not ask for this one (ADR-0065). `whiska mice`
+  # the row says a person did not ask for this one (ADR-0067). `whiska mice`
   # keeps saying it afterwards.
   defp detail(_question, _pane, _status, %DateTime{} = picked_up, now, _activity),
     do: "picked up #{Mice.format_uptime(DateTime.diff(now, picked_up))} ago"

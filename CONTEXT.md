@@ -223,7 +223,7 @@ A turn that ended without reaching the doorstep. The session did not crash — i
 sitting there idle, holding its whole context, with an error on the screen — so from
 outside it looks exactly like a mouse quietly working. Read from what Whiska already
 owns: the mouse was seen working, its pane has gone quiet, and nothing of its has been
-collected or is waiting on the doorstep (ADR-0065). A session idle before it was ever
+collected or is waiting on the doorstep (ADR-0067). A session idle before it was ever
 prompted has not had a turn die; it has not had a turn.
 _Avoid_: crash (nothing crashed), hang, timeout, failed turn (it may have done most of
 its work)
@@ -234,7 +234,7 @@ The owl typing one short line into a mouse's own pane to carry a dead turn on �
 the session still knows what it did, and re-asking risks redoing a file already written.
 One per dead turn, and a branch whose picked-up turn dies as well is a **stuck** mouse
 from then on (ADR-0026), never nudged again. The one thing the owl types anywhere but
-its own house's main session (ADR-0044, as ADR-0065 amends it).
+its own house's main session (ADR-0044, as ADR-0067 amends it).
 _Avoid_: retry, resend, restart, relaunch (ADR-0026's rung four, a different act)
 
 **Nudge** (retired):
@@ -246,7 +246,7 @@ not its own house's main session. The elsewhere segment it existed to refresh is
 too (ADR-0048): the statusline is machine-wide now, so there is no elsewhere.
 _Avoid_: reviving the word for anything cross-house. The one sense it keeps is the
 "corrective nudge" into a *stuck mouse's own* pane, which is built and is called a
-**Pickup** above (ADR-0065).
+**Pickup** above (ADR-0067).
 
 **Jump**:
 Moving the person to a whiska — Whiska asking herdr to bring a house's main session into
@@ -272,7 +272,7 @@ report instead.
 The one always-awake presence per machine, supervised by `launchd`, that keeps every
 project's house standing and is the only thing that can see across all of them at
 once. Seeing is not acting: the owl reads every house, and types into none but the one
-each question belongs to (see **Nudge**, retired) — and, since ADR-0065, into a mouse's
+each question belongs to (see **Nudge**, retired) — and, since ADR-0067, into a mouse's
 own pane when that mouse's turn died, once (see **Pickup**). Not per-project: a person has many
 houses and exactly one owl.
 _Avoid_: daemon, server, service

@@ -90,7 +90,7 @@ defmodule Whiska.Mice do
   defp status(_mouse, _unreachable), do: "?"
 
   # The one thing a listing says that herdr cannot: that the owl typed into
-  # this mouse's pane to carry a died turn on, and when (ADR-0065). It stays
+  # this mouse's pane to carry a died turn on, and when (ADR-0067). It stays
   # for the mouse's whole life — the board drops it the moment the turn it
   # started ends, and this is where the person looks afterwards.
   defp note(%Mouse{picked_up_at: %DateTime{} = at}, now),

@@ -1,7 +1,7 @@
 defmodule Whiska.Migrations.V006Pickup do
   @moduledoc """
   Somewhere to say a turn was in flight, and somewhere to say it was picked up
-  (ADR-0065).
+  (ADR-0067).
 
   `worked_at` is when herdr last told the owl this mouse's pane had started
   working — the only evidence Whiska holds that a turn began. `picked_up_at`

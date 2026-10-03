@@ -178,7 +178,7 @@ branch landed and `orphaned` when it did not (ADR-0064). A mouse with no pane an
 house open is dead too, found by reconciling against `pane.list`; delivery is attempted
 straight after, so a slot freed that way does not wait for the backstop.
 
-**Pickup is cleanup's mirror image, and runs on the same tick** (ADR-0065). Cleanup asks
+**Pickup is cleanup's mirror image, and runs on the same tick** (ADR-0067). Cleanup asks
 whether a branch is finished with; pickup asks whether a turn ended without finishing.
 Both are judged from what this machine already knows — the doorstep, the mouse record,
 the pane list the house re-listed a moment earlier — and both treat unknown as a refusal.

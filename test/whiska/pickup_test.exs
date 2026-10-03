@@ -1,6 +1,6 @@
 defmodule Whiska.PickupTest do
   @moduledoc """
-  Picking up a turn that died (ADR-0065).
+  Picking up a turn that died (ADR-0067).
 
   A real house, a real doorstep, and herdr faked at the one boundary that
   allows it (ADR-0031). Most of these are about *not* typing anything: the owl
