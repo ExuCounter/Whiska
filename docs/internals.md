@@ -373,7 +373,10 @@ the branch, a question waiting on you, and the elapsed time, which is dim — in
 so your terminal's own theme picks the shades and a light and a dark theme are both right.
 Nothing is said in colour alone. A dead mouse has no row: a branch whose
 worktree you dropped is not running here, and anything it left behind is counted on a
-`🐱 n orphaned` line of its own — nobody can answer it — and read with `whiska questions`. The board reports and never acts. A
+`🐱 n orphaned` line of its own — nobody can answer it — which names the branches it came
+off, `🐱 2 orphaned (feat-checkout-form, fix-doctor-probe)`, and is read in full with
+`whiska questions`. A branch that left two says `feat-gone ×2`, more names than fit become
+`+n more`, and what is shown always adds up to the count. The board reports and never acts. A
 quiet repo draws nothing at all.
 
 Your own mice's sessions draw no board: `.claude/settings.json` is committed, so every
