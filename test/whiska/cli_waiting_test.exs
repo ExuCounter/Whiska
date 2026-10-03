@@ -7,6 +7,9 @@ defmodule Whiska.CLIWaitingTest do
   ADR-0031 names. Houses are real SQLite files under a tmp root, and the record
   is this test's own file, pointed at through the `:home` setting.
   """
+  # Serial: the code under test opens the house under the one VM-wide name
+  # `Whiska.Repo`, the tests move the global `:home`,
+  # and they set HOME and HERDR_SOCKET_PATH in the OS env.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
@@ -17,7 +20,6 @@ defmodule Whiska.CLIWaitingTest do
   alias Whiska.OpenHouses
   alias Whiska.Storage
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   setup do

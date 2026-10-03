@@ -3,6 +3,7 @@ defmodule Whiska.SessionTest do
   Which session this is — answered from where it started and which pane it runs
   in, never from where its shell currently stands (ADR-0053).
   """
+  # Serial: the tests set HERDR_PANE_ID in the OS env.
   use ExUnit.Case, async: false
 
   alias Whiska.Layout

@@ -5,7 +5,7 @@ defmodule Whiska.MiceTest do
   The rows are pure: mouse records in, herdr's pane list in, lines out. Only
   the herdr call is faked (ADR-0031); the house itself is a real SQLite file.
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import Mox
 
@@ -14,7 +14,6 @@ defmodule Whiska.MiceTest do
   alias Whiska.Schema.Mouse
   alias Whiska.Storage
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   @now ~U[2026-09-27 12:00:00Z]

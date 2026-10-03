@@ -8,6 +8,7 @@ defmodule Whiska.WaitingTest do
   own file. Nothing here asks herdr: a waiting entry is on-disk data, and it
   reads the same whether the owl is up or down.
   """
+  # Serial: the code under test opens the house under the one VM-wide name `Whiska.Repo`.
   use ExUnit.Case, async: false
 
   alias Whiska.Doorstep

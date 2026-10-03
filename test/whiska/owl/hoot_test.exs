@@ -5,7 +5,7 @@ defmodule Whiska.Owl.HootTest do
   a question merely collected and held is not on the person's screen yet, so it
   does not hoot. A hoot that fails never costs the delivery.
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import ExUnit.CaptureIO
   import Mox
@@ -16,13 +16,15 @@ defmodule Whiska.Owl.HootTest do
   alias Whiska.Owl.House
   alias Whiska.Storage
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   @socket "/fake/herdr.sock"
   @main_pane "w1:p2"
   @mouse_pane "w1R:p1"
   @wait 100
+  # The longest a message the house owes may take: the suite runs in parallel,
+  # so this is slack, never the thing tested. A refute still waits only @wait.
+  @arrives 2_000
 
   setup do
     root = Path.join(System.tmp_dir!(), "whiska-hoot-#{System.unique_integer([:positive])}")
@@ -33,7 +35,7 @@ defmodule Whiska.Owl.HootTest do
     a = Path.join([main, "worktrees", "feat-a"])
     File.mkdir_p!(a)
 
-    {:ok, handle} = Storage.open(main, name: :seed)
+    {:ok, handle} = Storage.open(main, name: nil)
     {:ok, _} = Storage.record_mouse(%{mouse_id: "ma", path: a, branch: "feat-a"})
     :ok = Storage.set_main_pane(@main_pane)
     Storage.close(handle)
@@ -54,6 +56,15 @@ defmodule Whiska.Owl.HootTest do
 
   # Claude Code's prompt box, framed the way it is drawn on the screen, with
   # whatever the person has half-typed in it (ADR-0047, ADR-0068).
+
+  # The house calls herdr from its own process, from `init/1` on, so it is
+  # allowed in by name before it starts — which is what lets this file run async.
+  defp start_house(opts) do
+    name = :"house-#{System.unique_integer([:positive])}"
+    allow(Herdr, self(), fn -> Process.whereis(name) end)
+    start_supervised!({House, [name: name] ++ opts})
+  end
+
   defp box_holds(draft) do
     rule = String.duplicate("─", 40)
     screen = "✻ Baked for 46s\n\n#{rule}\n❯\u00a0#{draft}\n#{rule}\n  ⏵⏵ auto mode on\n"
@@ -63,9 +74,11 @@ defmodule Whiska.Owl.HootTest do
 
   defp open(main) do
     pid =
-      start_supervised!(
-        {House,
-         main_checkout: main, herdr_socket: @socket, backstop_ms: 60_000, round_wait_ms: @wait}
+      start_house(
+        main_checkout: main,
+        herdr_socket: @socket,
+        backstop_ms: 60_000,
+        round_wait_ms: @wait
       )
 
     House.sync(pid)
@@ -106,7 +119,7 @@ defmodule Whiska.Owl.HootTest do
     leave(main, a, "Which db?\n[worktree-status: needs-decision] pick one")
     House.collect(house)
 
-    assert_receive {:hooted, hoot}, @wait * 3
+    assert_receive {:hooted, hoot}, @arrives
     assert hoot.title == "🐱 myrepo · feat-a needs a decision"
     assert hoot.body == ~s(#1 · "pick one")
     assert hoot.sound == :request
@@ -122,7 +135,7 @@ defmodule Whiska.Owl.HootTest do
     leave(main, a, "Merged and pushed.\n[worktree-status: done]")
     House.collect(house)
 
-    assert_receive {:hooted, %{title: title, sound: :done}}, @wait * 3
+    assert_receive {:hooted, %{title: title, sound: :done}}, @arrives
     assert title =~ "feat-a finished"
   end
 
@@ -146,7 +159,7 @@ defmodule Whiska.Owl.HootTest do
        %{"pane_id" => @main_pane, "agent_status" => "idle"}}
     )
 
-    assert_receive {:hooted, _}, @wait * 3
+    assert_receive {:hooted, _}, @arrives
   end
 
   test "a question held behind a half-typed prompt does not hoot (ADR-0047)", %{
@@ -192,8 +205,8 @@ defmodule Whiska.Owl.HootTest do
     leave(main, a, "[worktree-status: needs-decision] pick one")
     House.collect(house)
 
-    assert_receive {:prompted, @main_pane, _}, @wait * 3
-    assert_receive {:hooted, _}, @wait
+    assert_receive {:prompted, @main_pane, _}, @arrives
+    assert_receive {:hooted, _}, @arrives
     assert Process.alive?(house)
 
     House.sync(house)
@@ -215,7 +228,7 @@ defmodule Whiska.Owl.HootTest do
     capture_io(:stderr, fn ->
       leave(main, a, "[worktree-status: needs-decision] pick one")
       House.collect(house)
-      assert_receive :hooted, @wait * 3
+      assert_receive :hooted, @arrives
       House.sync(house)
     end)
 

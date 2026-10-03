@@ -1,5 +1,7 @@
 defmodule Whiska.OwlTest do
   @moduledoc "The one owl: opening and shutting houses inside it (ADR-0001, ADR-0003)."
+  # Serial: the owl is one named process per VM, and the houses it opens call
+  # herdr from their own processes, which is why the mock is global.
   use ExUnit.Case, async: false
 
   import Mox

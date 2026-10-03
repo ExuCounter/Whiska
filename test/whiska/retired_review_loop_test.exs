@@ -7,7 +7,7 @@ defmodule Whiska.RetiredReviewLoopTest do
   still the repo's: the doctor says it is retired and nothing removes it (ADR-0038,
   ADR-0007).
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import ExUnit.CaptureIO
 

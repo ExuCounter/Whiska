@@ -7,7 +7,7 @@ defmodule Whiska.CleanupTest do
   preconditions are the whole of the protection, and unknown is never
   permission.
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import Mox
 
@@ -17,14 +17,13 @@ defmodule Whiska.CleanupTest do
   alias Whiska.Storage
   alias Whiska.Test.GitRepo
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   setup do
     root = Path.join(System.tmp_dir!(), "whiska-cleanup-#{System.unique_integer([:positive])}")
     File.mkdir_p!(root)
     repo = GitRepo.create(root)
-    {:ok, handle} = Storage.open(repo.checkout)
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
 
     on_exit(fn ->
       Storage.close(handle)

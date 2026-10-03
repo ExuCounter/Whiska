@@ -7,6 +7,7 @@ defmodule Whiska.InstallStatuslineTest do
   owl's state and the cross-repo view are herdr's tab bar's, and the script and
   config entry for that are here too (ADR-0048).
   """
+  # Serial: each test points the global `:home` at a folder of its own.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO

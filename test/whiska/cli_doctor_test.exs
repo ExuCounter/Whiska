@@ -1,6 +1,6 @@
 defmodule Whiska.CLIDoctorTest do
   @moduledoc "`whiska doctor` from the command line: where it runs, what it prints, how it exits."
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import ExUnit.CaptureIO
   import Mox
@@ -8,7 +8,6 @@ defmodule Whiska.CLIDoctorTest do
   alias Whiska.CLI
   alias Whiska.Herdr.Mock, as: Herdr
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   setup do

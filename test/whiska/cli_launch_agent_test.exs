@@ -5,6 +5,8 @@ defmodule Whiska.CLILaunchAgentTest do
   the launchctl runner and the owl probe are all injected through the
   application environment, so nothing here touches the real LaunchAgents.
   """
+  # Serial: each test points the global `:home`, `:user_home`, `:uid`,
+  # `:owl_pids` and `:launchctl` settings at its own.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
@@ -14,7 +16,6 @@ defmodule Whiska.CLILaunchAgentTest do
   alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.LaunchAgent
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   setup do

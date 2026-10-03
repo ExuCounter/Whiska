@@ -4,6 +4,7 @@ defmodule Whiska.QuestionsTest do
   this house" — read by `whiska questions` and by the statusline alike, so the
   two can never disagree (ADR-0027 for how the statusline shows it).
   """
+  # Serial: the code under test opens the house under the one VM-wide name `Whiska.Repo`.
   use ExUnit.Case, async: false
 
   alias Whiska.Doorstep

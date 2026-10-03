@@ -1,5 +1,7 @@
 defmodule Whiska.CLIOwlTest do
   @moduledoc "The two commands the owl slice adds to the binary."
+  # Serial: `whiska owl` starts the one named owl, whose houses call herdr from
+  # their own processes (hence the global mock), and the test moves `:home`.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO

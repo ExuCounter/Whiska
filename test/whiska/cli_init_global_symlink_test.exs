@@ -9,6 +9,7 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
   it points at, and `whiska uninstall` leaves a link alone rather than unlinking
   it.
   """
+  # Serial: each test points the global `:user_home` at a home of its own.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO

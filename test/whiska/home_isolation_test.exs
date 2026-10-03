@@ -6,6 +6,7 @@ defmodule Whiska.HomeIsolationTest do
   `mix test` once wiped the record for real, so this is the test that says the
   isolation holds, and holds even for a test that mishandles the setting.
   """
+  # Serial: the tests move the global `:home` and `:user_home` to check the guard.
   use ExUnit.Case, async: false
 
   alias Whiska.LaunchAgent

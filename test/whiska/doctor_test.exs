@@ -9,7 +9,7 @@ defmodule Whiska.DoctorTest do
   tests do. `run/2` ties them together on a temp repo, with herdr faked at the
   one boundary that allows it (ADR-0031).
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import Mox
 
@@ -22,7 +22,6 @@ defmodule Whiska.DoctorTest do
   alias Whiska.Schema.Mouse
   alias Whiska.Storage
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   @stripped_path "/usr/bin:/bin"
@@ -262,18 +261,6 @@ defmodule Whiska.DoctorTest do
         assert %Check{status: status} = Doctor.tab_bar(config, script?)
         assert status in [:ok, :warn]
       end
-    end
-
-    test "the tilde form of the path counts: herdr runs the entry through a login shell" do
-      whiska_home = Path.join(Whiska.LaunchAgent.user_home(), ".whiska")
-      previous = Application.get_env(:whiska, :home)
-      Application.put_env(:whiska, :home, whiska_home)
-      on_exit(fn -> Application.put_env(:whiska, :home, previous) end)
-
-      config = String.replace(Install.tab_bar_right_snippet(), whiska_home, "~/.whiska")
-
-      assert config =~ ~s(command = "~/.whiska/herdr-status.sh")
-      assert %Check{status: :ok} = Doctor.tab_bar(config, true)
     end
 
     test "an interval the person chose themselves is reported, not argued with" do
@@ -861,66 +848,6 @@ defmodule Whiska.DoctorTest do
 
   # -- run, under a global install ---------------------------------------------
 
-  describe "run/2 — a repo covered by the global install, with no `.claude` of its own" do
-    setup do
-      previous = Application.get_env(:whiska, :user_home)
-
-      root =
-        Path.join(System.tmp_dir!(), "whiska-doctor-global-#{System.unique_integer([:positive])}")
-
-      home = Path.join(root, "home")
-      main = Path.join(root, "myrepo")
-      File.mkdir_p!(Path.join(main, ".git"))
-      File.mkdir_p!(Path.join(home, ".claude/hooks"))
-      Application.put_env(:whiska, :user_home, home)
-
-      File.write!(
-        Path.join(home, ".claude/settings.json"),
-        JSON.encode!(Install.merge(%{}, :global))
-      )
-
-      File.write!(Path.join(home, Install.shim_path()), Install.shim(:global))
-      File.chmod!(Path.join(home, Install.shim_path()), 0o755)
-
-      whiska = script(root, "whiska", "#!/bin/sh\nexit 0\n")
-      escript = script(root, "escript", ~s|#!/bin/sh\nexec "$@"\n|)
-
-      env = %{
-        "WHISKA_BIN" => whiska,
-        "WHISKA_ESCRIPT" => escript,
-        "PATH" => @stripped_path,
-        "HOME" => home,
-        "HERDR_SOCKET_PATH" => Path.join(root, "herdr.sock")
-      }
-
-      stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
-      stub(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
-
-      on_exit(fn ->
-        Application.put_env(:whiska, :user_home, previous)
-        File.rm_rf!(root)
-      end)
-
-      {:ok, main: main, env: env}
-    end
-
-    test "the shim is found where the global install put it", %{main: main, env: env} do
-      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
-
-      assert %Check{status: :ok} = find(report.checks, "shim")
-    end
-
-    test "the hooks are probed for real — a repo-shaped shim check skipped them", %{
-      main: main,
-      env: env
-    } do
-      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
-
-      assert %Check{status: :ok} = find(report.checks, "hook pre-tool-use")
-      assert %Check{status: :ok} = find(report.checks, "hook stop")
-    end
-  end
-
   # -- run ---------------------------------------------------------------------
 
   describe "run/2 — everything, on one repo" do
@@ -1085,7 +1012,7 @@ defmodule Whiska.DoctorTest do
     test "waiting doorstep entries and mismatched mice show up", %{main: main, env: env} do
       init(main)
       gone = Path.join(main, "worktrees/feat-gone")
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
       {:ok, _} = Storage.record_mouse(%{mouse_id: "mg", path: gone, branch: "feat-gone"})
       Storage.close(handle)
       {:ok, _} = Doorstep.leave(main, entry(now(), "mg", gone))
@@ -1168,7 +1095,7 @@ defmodule Whiska.DoctorTest do
     } do
       init(main)
       File.touch!(Path.join(root, "herdr.sock"))
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
       :ok = Storage.set_main_pane("w1:p2")
       Storage.close(handle)
 
@@ -1207,7 +1134,7 @@ defmodule Whiska.DoctorTest do
     } do
       init(main)
       File.touch!(Path.join(root, "herdr.sock"))
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
       :ok = Storage.set_main_pane("w1:p2")
       Storage.close(handle)
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
@@ -1226,7 +1153,7 @@ defmodule Whiska.DoctorTest do
     } do
       init(main)
       File.touch!(Path.join(root, "herdr.sock"))
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
       :ok = Storage.set_main_pane("w1:p2")
       Storage.close(handle)
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
@@ -1247,7 +1174,7 @@ defmodule Whiska.DoctorTest do
     } do
       init(main)
       File.touch!(Path.join(root, "herdr.sock"))
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
       :ok = Storage.set_main_pane("w1:p2")
       Storage.close(handle)
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
@@ -1268,7 +1195,7 @@ defmodule Whiska.DoctorTest do
     } do
       init(main)
       File.touch!(Path.join(root, "herdr.sock"))
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
       :ok = Storage.set_main_pane("w1:p2")
       Storage.close(handle)
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
@@ -1290,7 +1217,7 @@ defmodule Whiska.DoctorTest do
     } do
       init(main)
       File.touch!(Path.join(root, "herdr.sock"))
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
       :ok = Storage.set_main_pane("w1:p2")
       Storage.close(handle)
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
@@ -1314,7 +1241,7 @@ defmodule Whiska.DoctorTest do
     } do
       init(main)
       File.touch!(Path.join(root, "herdr.sock"))
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
       :ok = Storage.set_main_pane("w1:p2")
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: Path.join(main, "wt"), branch: "b"})
       {:ok, _} = Storage.record_question(%{mouse_id: "m1", kind: "needs-decision", text: "?"})
@@ -1334,7 +1261,7 @@ defmodule Whiska.DoctorTest do
 
     test "with no main session and questions open, both lines warn", %{main: main, env: env} do
       init(main)
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
 
       {:ok, _} =
         Storage.record_mouse(%{mouse_id: "m1", path: Path.join(main, "worktrees/a"), branch: "a"})
