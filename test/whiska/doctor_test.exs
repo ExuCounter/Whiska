@@ -1006,7 +1006,7 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :ok, detail: detail} = find(report.checks, "house")
       assert detail =~ "schema v#{Storage.latest_schema_version()}"
       assert File.exists?(Storage.database_path(main))
-      refute Process.whereis(Whiska.Repo)
+      refute Process.alive?(Whiska.Repo.get_dynamic_repo())
     end
 
     test "waiting doorstep entries and mismatched mice show up", %{main: main, env: env} do

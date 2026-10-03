@@ -81,7 +81,7 @@ defmodule Whiska.Storage do
   defp openable(path) do
     case read_once(path) do
       :ok -> :ok
-      {:error, reason} -> {:error, {:cannot_open, path, reason}}
+      {:error, reason} -> {:error, {:cannot_open, reason}}
     end
   end
 

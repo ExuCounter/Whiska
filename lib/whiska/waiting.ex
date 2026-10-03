@@ -184,6 +184,7 @@ defmodule Whiska.Waiting do
           end
 
         {:error, _} ->
+          warn(main)
           :unreadable
       end
     catch

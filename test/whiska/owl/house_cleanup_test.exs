@@ -45,6 +45,14 @@ defmodule Whiska.Owl.HouseCleanupTest do
     start_supervised!({House, [name: name] ++ opts})
   end
 
+  # The backstop sweeps on a real timer, and a loaded parallel run makes it late.
+  defp until_gone(path, tries) do
+    if File.dir?(path) and tries > 0 do
+      Process.sleep(10)
+      until_gone(path, tries - 1)
+    end
+  end
+
   defp open(repo, opts) do
     opts = Keyword.merge([main_checkout: repo.checkout, herdr_socket: @socket], opts)
     pid = start_house(opts)
@@ -64,7 +72,7 @@ defmodule Whiska.Owl.HouseCleanupTest do
     log =
       capture_io(:stderr, fn ->
         house = open(repo, backstop_ms: 20, board_ms: 60_000)
-        Process.sleep(200)
+        until_gone(path, 500)
         House.sync(house)
       end)
 
