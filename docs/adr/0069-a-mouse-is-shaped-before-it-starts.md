@@ -37,6 +37,11 @@ latest of each family, so Whiska names no version. `herdr agent start ... -- --m
 <alias>` hands everything after `--` to `claude` unchanged; checked on 2026-10-03 by
 starting one and reading the process's arguments.
 
+The list of aliases and each mode's default live in `priv/models.json` and nowhere else;
+`Whiska.Shape` and the CLI help read them from it at compile time, since the escript
+carries no `priv/`. Adding, renaming or re-defaulting a model is an edit to that file and
+a rebuild. It ships inside Whiska, so it is not the per-repo list this ADR rejects.
+
 This replaces ADR-0019 (superseded). It put the per-mode default in a person-written
 `.whiska/dispatch.yml`, as a ranked list walked down when a spawn failed on quota. With
 aliases there is nothing per-repo to keep current, Whiska targets one harness, and a
