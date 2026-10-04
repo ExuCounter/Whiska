@@ -395,6 +395,72 @@ defmodule Whiska.TranscriptTest do
     end
   end
 
+  describe "ran_on/1" do
+    # The shape of an assistant entry, read from a real transcript on 2026-10-04.
+    defp answered(model, fields \\ %{}) do
+      Map.merge(
+        %{
+          "type" => "assistant",
+          "isSidechain" => false,
+          "message" => %{
+            "model" => model,
+            "role" => "assistant",
+            "content" => [%{"type" => "text", "text" => "ok"}]
+          }
+        },
+        fields
+      )
+      |> JSON.encode!()
+    end
+
+    defp lines(entries), do: Enum.join(entries, "\n")
+
+    test "is the model id the latest answer came from, not the alias asked for" do
+      assert Transcript.ran_on(lines([answered("claude-a-5"), answered("claude-b-5")])) ==
+               "claude-b-5"
+    end
+
+    test "skips the placeholder Claude Code writes for a message no model sent" do
+      assert Transcript.ran_on(lines([answered("claude-a-5"), answered("<synthetic>")])) ==
+               "claude-a-5"
+    end
+
+    test "is the session's own model, never a subagent's" do
+      text = lines([answered("claude-a-5"), answered("claude-b-5", %{"isSidechain" => true})])
+      assert Transcript.ran_on(text) == "claude-a-5"
+    end
+
+    test "reads the answer's own model, not a model named in a tool call" do
+      call =
+        JSON.encode!(%{
+          "type" => "assistant",
+          "message" => %{
+            "content" => [
+              %{"type" => "tool_use", "name" => "Agent", "input" => %{"model" => "claude-c-5"}}
+            ]
+          }
+        })
+
+      assert Transcript.ran_on(lines([answered("claude-a-5"), call])) == "claude-a-5"
+    end
+
+    test "takes only a model id that is safe to print to a terminal" do
+      text =
+        lines([
+          answered("claude-a-5"),
+          answered("\e]0;x\a"),
+          answered(String.duplicate("a", 200))
+        ])
+
+      assert Transcript.ran_on(text) == "claude-a-5"
+    end
+
+    test "is nil when no answer says, or nothing parses" do
+      assert Transcript.ran_on("") == nil
+      assert Transcript.ran_on("{not json\n" <> JSON.encode!(%{"type" => "user"})) == nil
+    end
+  end
+
   describe "tail/2" do
     setup do
       path = Path.join(System.tmp_dir!(), "whiska-tail-#{System.unique_integer([:positive])}")

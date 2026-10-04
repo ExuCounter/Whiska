@@ -6,11 +6,12 @@ first hook call (ADR-0030), and the first hook call is a `PreToolUse` — the ca
 has to deny — so a mode set by `mouse_id` once Claude is running hands a sniff mouse its
 first edits as a build mouse.
 
-So the spawn gives a mouse its **shape** — its mode and its model — before Claude
-starts. `spawn-worktree` runs `whiska shape build|sniff [--model <alias>]` inside the
-new worktree, after `herdr worktree create` and before `herdr agent start`. The command
-mints the marker and the mouse record there and then (as `whiska mode` already could),
-records the mode, the model and `shaped_at`, and prints the model to start Claude on.
+So the spawn gives a mouse its **shape** — its mode, its model and its effort — before
+Claude starts. `spawn-worktree` runs `whiska shape build|sniff [--model <name>]
+[--effort <level>]` inside the new worktree, after `herdr worktree create` and before
+`herdr agent start`. The command mints the marker and the mouse record there and then
+(as `whiska mode` already could), records the shape and `shaped_at`, and prints the
+flags to start Claude with.
 The order is right by construction: the shape is in the house before any process
 exists that could make a tool call.
 
@@ -30,26 +31,30 @@ rejected:
 
 ## The model belongs to the shape
 
-Investigation is a lighter job than building. A sniff mouse starts on `sonnet`; a build
-mouse passes no `--model` and keeps the person's own Claude Code default. A spawn may
-name another — `fable`, `opus` or `sonnet` — for either. The aliases resolve to the
-latest of each family, so Whiska names no version. `herdr agent start ... -- --model
-<alias>` hands everything after `--` to `claude` unchanged; checked on 2026-10-03 by
-starting one and reading the process's arguments.
-
-The list of aliases and each mode's default live in `priv/models.json` and nowhere else;
-`Whiska.Shape` and the CLI help read them from it at compile time, since the escript
-carries no `priv/`. Adding, renaming or re-defaulting a model is an edit to that file and
-a rebuild. It ships inside Whiska, so it is not the per-repo list this ADR rejects.
+The shape carries the model the mouse starts on, and — since the 2026-10-04 amendment
+below — the effort. `herdr agent start ... -- <flags>` hands everything after `--` to
+`claude` unchanged; checked on 2026-10-03 by starting one and reading the process's
+arguments.
 
 This replaces ADR-0019 (superseded). It put the per-mode default in a person-written
-`.whiska/dispatch.yml`, as a ranked list walked down when a spawn failed on quota. With
-aliases there is nothing per-repo to keep current, Whiska targets one harness, and a
-quota error cannot drive the walk: `herdr agent start` succeeds as soon as Claude's
-prompt is ready, before any request is made, so the error arrives after the spawn has
-already succeeded. What that costs: the default is changed in Whiska, not in
-`dispatch.yml` (which keeps its other settings), and a mouse that runs out of quota
-stops like any other session instead of moving to the next model.
+`.whiska/dispatch.yml`, as a ranked list walked down when a spawn failed on quota. Whiska
+targets one harness, and a quota error cannot drive the walk: `herdr agent start`
+succeeds as soon as Claude's prompt is ready, before any request is made, so the error
+arrives after the spawn has already succeeded. `dispatch.yml` keeps its other settings.
+
+## Amendment, 2026-10-04: model and effort are chosen apart from the mode
+
+As first written, a sniff mouse started on a lighter model and a build mouse on the
+person's own default, from a list of aliases and a per-mode default in
+`priv/models.json`. ADR-0073 replaces that:
+the mode, the model and the effort are chosen on their own, by ordered rules in that
+file that the spawning session judges, with no list of model names. What changes here:
+
+- `whiska shape build|sniff [--model <name>] [--effort <level>]` records the mode, the
+  model and the effort, and prints the flags to start Claude with — model, effort and
+  the file's fallback chain — or nothing. A flag left out gets the last rule's value.
+- A model that is overloaded or not available no longer strands a mouse: the fallback
+  chain goes to Claude Code's `--fallback-model`, which walks it inside the session.
 
 ## A spawn that forgets is stopped, and asks
 
@@ -66,11 +71,12 @@ default mode.
 
 Around that:
 
-- `whiska shape` fails non-zero rather than guess — bad mode, bad model, not a worktree,
-  house unreachable — and checks its arguments before minting anything. The skill says
-  to stop on that and not start Claude.
-- It writes what it recorded on stderr ("feat/x is a sniff mouse on sonnet."), and the
-  skill's report quotes that line word for word: Whiska's record, not the skill's intent.
+- `whiska shape` fails non-zero rather than guess — bad mode, a model or effort that is
+  not one plain word, not a worktree, house unreachable — and checks its arguments
+  before minting anything. The skill says to stop on that and not start Claude.
+- It writes what it recorded on stderr ("feat/x is a sniff mouse on opus, xhigh
+  effort."), and the skill's report quotes that line: Whiska's record, not the skill's
+  intent.
 - `whiska mice` shows a mouse nobody shaped as `never shaped, reads only`.
 
 What it costs: a mouse started by an older copy of `spawn-worktree`, or by hand, can
@@ -88,7 +94,8 @@ session has. Its model is set in its own agent definition, which the person owns
 
 ## Consequences
 
-The mice table gains `model` and `shaped_at` (migration 7). Sniff, and the hold on
+The mice table gains `model` and `shaped_at` (migration 7), then `effort` and `ran_on`
+(migration 8). Sniff, and the hold on
 a mouse nobody shaped, are still not a security boundary: a house that will not open degrades both to build, loudly
 (`Whiska.Hook.PreToolUse`), and a missing `whiska` binary allows every call.
 

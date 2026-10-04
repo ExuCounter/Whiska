@@ -146,6 +146,11 @@ defmodule Whiska.EscriptTest do
     assert String.trim(rows) == "1"
   end
 
+  test "carries priv/models.json inside the binary, since it carries no priv/", %{main: main} do
+    {out, 0} = System.cmd(@binary, ["shape", "--rules"], cd: main)
+    assert out == File.read!(Path.expand("../../priv/models.json", __DIR__))
+  end
+
   test "reports its version" do
     {out, status} = System.cmd(@binary, ["--version"])
     assert status == 0
@@ -155,8 +160,13 @@ defmodule Whiska.EscriptTest do
   # The order ADR-0069 is about: the shape is in the house before Claude starts,
   # so the very first tool call a sniff mouse makes is already a sniff call.
   test "a mouse shaped as sniff before it starts gets no free edit", %{worktree: worktree} do
-    {out, 0} = System.cmd(@binary, ["shape", "sniff"], cd: worktree, stderr_to_stdout: false)
-    assert String.trim(out) == "sonnet"
+    {out, 0} =
+      System.cmd(@binary, ["shape", "sniff", "--model", "m1", "--effort", "high"],
+        cd: worktree,
+        stderr_to_stdout: false
+      )
+
+    assert out =~ ~r/\A--model m1 --effort high/
 
     {out, 0} =
       hook(

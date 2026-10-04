@@ -1,78 +1,103 @@
 defmodule Whiska.Shape do
   @moduledoc """
-  What a mouse is spawned as: its mode and the model it runs on (ADR-0069).
+  What a mouse is spawned as: its mode, the model it runs on and the effort it
+  runs at (ADR-0069). The three are chosen apart
+  (ADR-next-model-and-effort-are-chosen-by-ordered-rules): the mode is what the
+  mouse may do, the model what kind of thinking the work needs, and the effort
+  how much of it.
 
-  The model belongs to the shape. Investigation is a lighter job than building,
-  so a sniff mouse starts on a lighter model; a build mouse passes no `--model`
-  at all and keeps whatever the person's own Claude Code default is. A spawn
-  may name another model for either, so the common case needs no decision and
-  the odd one is still a flag away.
+  The rules for choosing live in `priv/models.json` and nowhere else
+  (`Whiska.Shape.Rules`). Each is a sentence about the work, so the spawning
+  session judges them — `whiska shape --rules` prints the file for it — and
+  names what it chose. A model or effort named here is used as named; one left
+  unnamed is the catch-all's. The file is read at compile time because the
+  escript carries no `priv/`.
 
-  Which models exist, and which mode starts on which, live in
-  `priv/models.json` and nowhere else: adding, renaming or re-defaulting a
-  model is an edit to that file and a rebuild. It is read at compile time
-  because the escript carries no `priv/`. Models are named by the aliases
-  `claude --model` takes, which resolve to the latest of each family, so
-  nothing names a version.
+  What reaches Claude is flags: the model, the effort, and the file's fallback
+  chain, which Claude Code walks itself when a model is overloaded or not
+  available. Every word is plain, checked at build time for the file and here
+  for the command line, so a spawn can split the flags in any shell.
   """
 
-  @models_file "priv/models.json"
-  @external_resource @models_file
+  alias Whiska.Shape.Rules
 
-  {models, defaults} =
-    case @models_file |> File.read!() |> JSON.decode!() do
-      %{"models" => [_ | _] = models, "defaults" => %{} = defaults} -> {models, defaults}
-      _ -> raise "#{@models_file}: expected a \"models\" list and a \"defaults\" object"
-    end
+  @rules_file "priv/models.json"
+  @external_resource @rules_file
+  @rules Rules.load!(@rules_file)
+  @text File.read!(@rules_file)
 
-  # The file owns the models, not the modes: those are build and sniff everywhere else.
-  if Enum.sort(Map.keys(defaults)) != ~w(build sniff) do
-    raise "#{@models_file}: \"defaults\" must give exactly build and sniff a model or null"
-  end
+  @modes @rules["modes"]
+  @model Rules.catch_all(@rules["model"]["choose"])
+  @effort Rules.catch_all(@rules["effort"]["choose"])
+  @fallback @rules["model"]["fallback"]
 
-  # An alias reaches `claude --model` through a spawn script, so it must be one plain word.
-  for model <- models, not Regex.match?(~r/\A[a-z0-9-]+\z/, model) do
-    raise "#{@models_file}: #{inspect(model)} is not a plain model alias"
-  end
+  @usage "expected whiska shape <build|sniff> [--model <name>] [--effort <level>], " <>
+           "or whiska shape --rules."
 
-  for {mode, model} <- defaults, model != nil and model not in models do
-    raise "#{@models_file}: #{mode} defaults to #{model}, which is not one of its models"
-  end
+  @type t :: %{mode: String.t(), model: String.t() | nil, effort: String.t() | nil}
 
-  @models models
-  @defaults defaults
+  @doc "`priv/models.json` as this build read it."
+  @spec rules() :: String.t()
+  def rules, do: @text
 
-  @type t :: %{mode: String.t(), model: String.t() | nil}
+  @doc "The model and the effort a spawn that names neither gets."
+  @spec catch_all() :: %{model: String.t() | nil, effort: String.t() | nil}
+  def catch_all, do: %{model: @model, effort: @effort}
 
-  @doc "The model aliases a spawn may name."
-  def models, do: @models
-
-  @doc "Each mode's default model, `nil` for the person's own default."
-  def defaults, do: @defaults
-
-  @doc "Read `whiska shape`'s arguments: a mode, and optionally `--model <alias>`."
+  @doc "Read `whiska shape`'s arguments: a mode, then `--model` and `--effort` in any order."
   @spec parse([String.t()]) :: {:ok, t()} | {:error, String.t()}
-  def parse([mode | rest]) when is_map_key(@defaults, mode) do
-    case rest do
-      [] ->
-        {:ok, %{mode: mode, model: @defaults[mode]}}
-
-      ["--model", model] when model in @models ->
-        {:ok, %{mode: mode, model: model}}
-
-      ["--model", model] ->
-        {:error, "#{model} is not a model — expected #{Enum.join(@models, ", ")}."}
-
-      _ ->
-        {:error, "expected whiska shape <build|sniff> [--model <alias>]."}
+  def parse([mode | flags]) when is_map_key(@modes, mode) do
+    with {:ok, named} <- flags(flags, %{}) do
+      {:ok, Map.merge(%{mode: mode, model: @model, effort: @effort}, named)}
     end
   end
 
+  def parse(["-" <> _ | _]), do: {:error, @usage}
   def parse([other | _]), do: {:error, "#{other} is not a mode — expected build or sniff."}
-  def parse([]), do: {:error, "expected whiska shape <build|sniff> [--model <alias>]."}
+  def parse([]), do: {:error, @usage}
 
-  @doc "The shape in words: `build`, or `sniff on` and its model."
-  @spec describe(String.t(), String.t() | nil) :: String.t()
-  def describe(mode, nil), do: mode
-  def describe(mode, model), do: "#{mode} on #{model}"
+  defp flags([], named), do: {:ok, named}
+
+  defp flags([flag, value | rest], named) when flag in ["--model", "--effort"] do
+    key = if flag == "--model", do: :model, else: :effort
+
+    cond do
+      Map.has_key?(named, key) -> {:error, "#{flag} is named twice."}
+      Rules.plain_word?(value) -> flags(rest, Map.put(named, key, value))
+      true -> {:error, "#{inspect(value)} is not one plain word, so it cannot follow #{flag}."}
+    end
+  end
+
+  defp flags(_other, _named), do: {:error, @usage}
+
+  @doc """
+  The flags to start Claude with. Unnamed parts are left out, and the fallback
+  chain skips the chosen model: retrying the model that just failed is no
+  fallback.
+  """
+  @spec claude_args(t(), [String.t()]) :: [String.t()]
+  def claude_args(%{model: model, effort: effort}, fallback \\ @fallback) do
+    fallback = fallback |> Enum.reject(&(&1 == model)) |> Enum.uniq()
+
+    flag("--model", model) ++
+      flag("--effort", effort) ++
+      flag("--fallback-model", if(fallback != [], do: Enum.join(fallback, ",")))
+  end
+
+  defp flag(_name, nil), do: []
+  defp flag(name, value), do: [name, value]
+
+  @doc "The shape as a sentence: `a sniff mouse on <model>, <effort> effort`."
+  @spec describe(t()) :: String.t()
+  def describe(%{mode: mode, model: model, effort: effort}) do
+    "a #{mode} mouse on #{model || "your default model"}, #{effort || "your default"} effort"
+  end
+
+  @doc "The shape, short, for a listing: the mode, then only what was named."
+  @spec label(t()) :: String.t()
+  def label(%{mode: mode, model: model, effort: effort}) do
+    on = if model, do: " on #{model}", else: ""
+    at = if effort, do: ", #{effort} effort", else: ""
+    mode <> on <> at
+  end
 end

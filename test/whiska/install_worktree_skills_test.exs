@@ -13,6 +13,63 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     body
   end
 
+  defp start_block do
+    [block] =
+      Regex.scan(~r/```bash\n(.*?)```/s, skill("spawn-worktree"), capture: :all_but_first)
+      |> List.flatten()
+      |> Enum.filter(&(&1 =~ "whiska shape <build|sniff>"))
+
+    block
+  end
+
+  defp base_argv, do: ~w(agent start feat-x --kind claude --pane w1:p1 --timeout 15000)
+
+  # The skill's own block, with its placeholders filled in, run against a
+  # `whiska` that prints `printed` and exits `status`, and a `herdr` that writes
+  # down the arguments it was started with. nil when herdr never ran.
+  defp run_start_block(shell, {status, printed}) do
+    dir = Path.join(System.tmp_dir!(), "whiska-spawn-#{System.unique_integer([:positive])}")
+    bin = Path.join(dir, "bin")
+    argv_file = Path.join(dir, "argv")
+    File.mkdir_p!(bin)
+    File.mkdir_p!(Path.join(dir, "worktrees/feat-x"))
+    on_exit(fn -> File.rm_rf!(dir) end)
+
+    stand_in(bin, "whiska", ~s(printf '%s\\n' "$WHISKA_OUT"\nexit "$WHISKA_STATUS"))
+    stand_in(bin, "herdr", ~s(printf '%s\\n' "$@" > "$ARGV_FILE"))
+
+    script =
+      start_block()
+      |> String.replace("<branch-name>", "feat-x")
+      |> String.replace("<agent-name>", "feat-x")
+      |> String.replace("<root-pane-id>", "w1:p1")
+      |> String.replace("<build|sniff>", "sniff")
+      |> String.replace(~r/<[^>\n]+>/, "")
+
+    {_out, code} =
+      System.cmd(shell, ["-c", script],
+        cd: dir,
+        stderr_to_stdout: true,
+        env: [
+          {"PATH", bin <> ":" <> System.get_env("PATH")},
+          {"WHISKA_OUT", printed},
+          {"WHISKA_STATUS", Integer.to_string(status)},
+          {"ARGV_FILE", argv_file}
+        ]
+      )
+
+    argv =
+      if File.exists?(argv_file), do: argv_file |> File.read!() |> String.split("\n", trim: true)
+
+    {argv, code}
+  end
+
+  defp stand_in(bin, name, body) do
+    path = Path.join(bin, name)
+    File.write!(path, "#!/bin/sh\n#{body}\n")
+    File.chmod!(path, 0o755)
+  end
+
   describe "the three worktree skills ship with Whiska (ADR-0046)" do
     test "init installs all three, beside the reading skills" do
       installed =
@@ -85,22 +142,68 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       {start_at, _} = :binary.match(body, "herdr agent start <agent-name>")
       assert shape_at < start_at
 
-      assert body =~ ~s(-- --model "$model")
-
       # One fenced block: a shell variable does not survive between two Bash
       # calls, so a shape in one block and a start in the next starts every
       # mouse on the default model.
-      [block] =
-        Regex.scan(~r/```bash\n(.*?)```/s, body, capture: :all_but_first)
-        |> List.flatten()
-        |> Enum.filter(&(&1 =~ "whiska shape"))
-
-      assert block =~ "herdr agent start"
+      assert start_block() =~ "herdr agent start"
       assert body =~ "do not start Claude by hand"
       # The report carries what Whiska's own line says, not the skill's intent,
       # and in plain words: "sniff mouse" is not the person's phrase.
       assert body =~ "Restate that line, not what this skill meant to set"
       refute body =~ "a mouse is working on it"
+    end
+
+    test "reads the modes and the rules out of priv/models.json, never restating them" do
+      body = skill("spawn-worktree")
+      rules = "priv/models.json" |> File.read!() |> JSON.decode!()
+
+      assert body =~ "whiska shape --rules"
+      assert body =~ "--effort"
+
+      written_once =
+        Map.values(rules["modes"]) ++
+          Enum.map(rules["model"]["choose"] ++ rules["effort"]["choose"], & &1["when"])
+
+      for text <- written_once, text != "anything else" do
+        refute body =~ text, "the skill restates #{inspect(text)}; it belongs in priv/models.json"
+      end
+    end
+
+    for shell <- ~w(bash zsh), System.find_executable(shell) do
+      @tag shell: shell
+      test "#{shell} starts Claude on exactly the words whiska shape printed", %{shell: shell} do
+        line = "--model m1 --effort xhigh --fallback-model m2,m3"
+        {argv, status} = run_start_block(shell, {0, line})
+
+        assert status == 0
+        assert argv == base_argv() ++ ["--"] ++ String.split(line)
+      end
+
+      @tag shell: shell
+      test "#{shell} starts Claude with no flags at all when it printed nothing", %{
+        shell: shell
+      } do
+        {argv, 0} = run_start_block(shell, {0, ""})
+        assert argv == base_argv()
+      end
+
+      @tag shell: shell
+      test "#{shell} does not start Claude on anything but plain words", %{shell: shell} do
+        for printed <- ["/a/path/from/cd --model m1", "$(touch pwned)", "m1;reboot", "`id`"] do
+          {argv, status} = run_start_block(shell, {0, printed})
+
+          assert status != 0, printed
+          assert argv == nil, printed
+        end
+      end
+
+      @tag shell: shell
+      test "#{shell} does not start Claude when whiska shape fails", %{shell: shell} do
+        {argv, status} = run_start_block(shell, {1, ""})
+
+        assert status != 0
+        assert argv == nil
+      end
     end
 
     test "carries the hooks and settings only, never the skills" do

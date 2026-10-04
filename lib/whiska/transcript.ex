@@ -83,6 +83,10 @@ defmodule Whiska.Transcript do
   @handed_back ~r/<agent-message from="([A-Za-z0-9_-]+)">/
   @notified ~r|<task-notification>\s*<task-id>([A-Za-z0-9_-]+)</task-id>|
 
+  # What a model id is allowed to look like before `whiska mice` prints it. It
+  # also turns away `<synthetic>`, the stamp on a message no model sent.
+  @model_id ~r/\A[A-Za-z0-9._\[\]-]{1,100}\z/
+
   @doc """
   Claude Code's own folder for a working directory: every character that is not
   a letter or a digit replaced by a dash, one for one.
@@ -251,6 +255,33 @@ defmodule Whiska.Transcript do
     |> Enum.reduce(%{agent_calls: MapSet.new(), out: %{}}, &account_for/2)
     |> Map.fetch!(:out)
     |> Enum.any?(fn {_id, launched_at} -> not abandoned?(launched_at, now) end)
+  end
+
+  @doc """
+  The full model id the session's latest answer came from, not the alias the
+  spawn asked for — or nil when no answer in `text` says.
+
+  Read from `message.model` on the session's own assistant entries. A
+  subagent's entries are `isSidechain` and run on a model of their own, and
+  Claude Code stamps a message it wrote itself, with no model behind it,
+  `<synthetic>` (both read from real transcripts on 2026-10-04).
+  """
+  @spec ran_on(String.t()) :: String.t() | nil
+  def ran_on(text) do
+    text
+    |> String.split("\n")
+    |> Enum.reduce(nil, fn line, latest -> answered_by(line) || latest end)
+  end
+
+  defp answered_by(line) do
+    case JSON.decode(line) do
+      {:ok, %{"type" => "assistant", "message" => %{"model" => model}} = entry}
+      when is_binary(model) ->
+        if entry["isSidechain"] != true and model =~ @model_id, do: model
+
+      _other ->
+        nil
+    end
   end
 
   # A launch whose entry carries no readable timestamp cannot be aged, so it

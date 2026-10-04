@@ -19,8 +19,8 @@ C4Component
     Component(session, "Session", "identity", "Which session is this: the worktree it started in, and whether its pane is the main session")
     Component(layout, "Layout", "path arithmetic", "Finds worktree root and main checkout")
     Component(markerm, "Marker", "identity", "Reads or mints the mouse_id")
-    Component(shapem, "Shape", "pure", "A spawn's mode and model: sniff on sonnet, build on the person's default, or the model named")
-    Component(tx, "Transcript", "reader", "Claude Code's JSONL: where the session started, its tail, and whether a subagent is still out")
+    Component(shapem, "Shape", "pure", "A spawn's mode, model and effort, and the flags to start Claude with; the catch-all from priv/models.json for what the spawn left unnamed")
+    Component(tx, "Transcript", "reader", "Claude Code's JSONL: where the session started, its tail, whether a subagent is still out, and the model its latest answer came from")
     Component(mainrule, "Rule.MainCheckout", "rule", "No edits outside the mouse's worktree")
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse, or one nobody shaped, writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
@@ -118,11 +118,16 @@ folder directly under `worktrees/` when there is no such file. No `git worktree 
 the marker file stay a bare opaque id with no parsing (ADR-0002).
 
 **A mouse is shaped before it starts** (ADR-0069). `spawn-worktree` runs `whiska shape`
-in the new worktree before `herdr agent start`, so the mouse record, its mode and its
-model are in the house before any tool call can arrive — the first one a sniff mouse
-makes is already judged as sniff. stdout is only the model to start Claude on, so the
-skill can read it straight into `--model`; what was recorded goes to stderr for the
-report. A mouse minted lazily by the hook instead has no `shaped_at`: `Storage.mode`
+in the new worktree before `herdr agent start`, so the mouse record, its mode, model and
+effort are in the house before any tool call can arrive — the first one a sniff mouse
+makes is already judged as sniff. The model and effort are chosen by the spawning
+session from the ordered rules in `priv/models.json`, which `Shape.Rules` checks at
+build time and `whiska shape --rules` prints
+(ADR-0073). stdout is only the flags to
+start Claude with, plain words or nothing, so the skill can split them into `claude`'s
+arguments; what was recorded goes to stderr for the report. The model the mouse
+actually ran on comes back later: `Hook.Stop` reads it from the transcript and carries
+it on the doorstep entry, and the owl records it as `ran_on`. A mouse minted lazily by the hook instead has no `shaped_at`: `Storage.mode`
 reads it as `unshaped`, `Rule.Sniff` holds it to sniff's rules with a reason that sends
 it to the person, and `Mice` says `never shaped, reads only`.
 

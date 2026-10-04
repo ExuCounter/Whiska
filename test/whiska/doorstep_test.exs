@@ -97,6 +97,30 @@ defmodule Whiska.DoorstepTest do
     end
   end
 
+  describe "the model a turn ran on" do
+    test "travels with the entry", %{main: main} do
+      {:ok, _} = Doorstep.leave(main, entry(%{ran_on: "claude-a-5"}))
+      assert [{_, %Entry{ran_on: "claude-a-5"}}] = Doorstep.waiting(main)
+    end
+
+    test "is nil on an entry written before it travelled", %{main: main} do
+      File.mkdir_p!(Doorstep.path(main))
+
+      File.write!(
+        Path.join(Doorstep.path(main), "0-m1-old.json"),
+        JSON.encode!(%{
+          "mouse_id" => "m1",
+          "branch" => "feat-a",
+          "worktree_root" => "/repo/worktrees/feat-a",
+          "stamped_at" => "2026-09-27T10:00:00Z",
+          "text" => "x"
+        })
+      )
+
+      assert [{_, %Entry{text: "x", ran_on: nil}}] = Doorstep.waiting(main)
+    end
+  end
+
   describe "mark_collected/1 (collection reads and marks; it never deletes)" do
     test "renames the entry in place, so it stops waiting but stays on disk", %{main: main} do
       {:ok, file} = Doorstep.leave(main, entry())

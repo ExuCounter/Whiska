@@ -7,17 +7,22 @@ defmodule Whiska.Doorstep.Entry do
   exists (a stale entry is recorded, never delivered) and the branch label alone
   cannot say. The text is the raw message; the owl classifies it (ADR-0009), so
   the hook that writes this stays a dumb file-writer.
+
+  `ran_on` is the model id the turn ran on, read from the transcript the hook
+  already reads; nil when the transcript did not say, and on an entry written
+  before it travelled.
   """
 
   @enforce_keys [:mouse_id, :branch, :worktree_root, :stamped_at, :text]
-  defstruct [:mouse_id, :branch, :worktree_root, :stamped_at, :text]
+  defstruct [:mouse_id, :branch, :worktree_root, :stamped_at, :text, ran_on: nil]
 
   @type t :: %__MODULE__{
           mouse_id: String.t(),
           branch: String.t(),
           worktree_root: Path.t(),
           stamped_at: DateTime.t(),
-          text: String.t()
+          text: String.t(),
+          ran_on: String.t() | nil
         }
 
   @doc "The on-disk form: plain JSON, one object."
@@ -28,7 +33,8 @@ defmodule Whiska.Doorstep.Entry do
       "branch" => entry.branch,
       "worktree_root" => entry.worktree_root,
       "stamped_at" => DateTime.to_iso8601(entry.stamped_at),
-      "text" => entry.text
+      "text" => entry.text,
+      "ran_on" => entry.ran_on
     })
   end
 
@@ -42,7 +48,7 @@ defmodule Whiska.Doorstep.Entry do
             "worktree_root" => root,
             "stamped_at" => stamped,
             "text" => text
-          }}
+          } = fields}
          when is_binary(mouse_id) and is_binary(branch) and is_binary(root) and
                 is_binary(text) <- JSON.decode(raw),
          {:ok, stamped_at, _} <- DateTime.from_iso8601(stamped) do
@@ -52,7 +58,8 @@ defmodule Whiska.Doorstep.Entry do
          branch: branch,
          worktree_root: root,
          stamped_at: stamped_at,
-         text: text
+         text: text,
+         ran_on: if(is_binary(fields["ran_on"]), do: fields["ran_on"])
        }}
     else
       _ -> :error

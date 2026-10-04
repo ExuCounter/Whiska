@@ -28,7 +28,8 @@ defmodule Whiska.Storage do
     {4, Whiska.Migrations.V004Cleanup},
     {5, Whiska.Migrations.V005Landing},
     {6, Whiska.Migrations.V006Pickup},
-    {7, Whiska.Migrations.V007Shape}
+    {7, Whiska.Migrations.V007Shape},
+    {8, Whiska.Migrations.V008Effort}
   ]
 
   @modes ~w(build sniff)
@@ -147,7 +148,8 @@ defmodule Whiska.Storage do
 
   `path` and `branch` are live, re-read display labels (ADR-0002), so a renamed
   branch or a moved folder updates the same row rather than creating a second
-  one. Nothing is ever deleted here (ADR-0007).
+  one. `ran_on` is refreshed the same way, by every turn that names its model.
+  Nothing is ever deleted here (ADR-0007).
   """
   @spec record_mouse(map()) :: {:ok, Mouse.t()} | {:error, Ecto.Changeset.t()}
   def record_mouse(%{mouse_id: mouse_id} = attrs) do
@@ -163,9 +165,12 @@ defmodule Whiska.Storage do
     |> Repo.insert()
   end
 
+  # A turn that did not say which model it ran on leaves the last one that did.
   defp refresh_labels(existing, attrs) do
+    attrs = if attrs[:ran_on], do: attrs, else: Map.delete(attrs, :ran_on)
+
     existing
-    |> Ecto.Changeset.change(Map.take(attrs, [:path, :branch, :pane]))
+    |> Ecto.Changeset.change(Map.take(attrs, [:path, :branch, :pane, :ran_on]))
     |> Repo.update()
   end
 
@@ -215,24 +220,32 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  Give a mouse its shape: the mode, and the model it was started on (ADR-0069).
+  Give a mouse its shape: the mode, and the model and effort it was started on
+  (ADR-0069).
 
   Run by the spawn, in the new worktree, before Claude starts — so the first
   tool call a sniff mouse makes is already judged as sniff. `shaped_at` is what
   tells this mouse apart from one nobody shaped, which may not write.
   """
-  @spec shape(String.t(), String.t(), String.t() | nil) ::
+  @spec shape(String.t(), String.t(), String.t() | nil, String.t() | nil) ::
           {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}
-  def shape(_mouse_id, mode, _model) when mode not in @modes, do: {:error, :invalid_mode}
+  def shape(_mouse_id, mode, _model, _effort) when mode not in @modes,
+    do: {:error, :invalid_mode}
 
-  def shape(mouse_id, mode, model) do
+  def shape(mouse_id, mode, model, effort) do
     case Repo.get(Mouse, mouse_id) do
       nil ->
         {:error, :no_such_mouse}
 
       mouse ->
         mouse
-        |> Ecto.Changeset.change(%{mode: mode, model: model, shaped_at: now()})
+        |> Ecto.Changeset.change(%{
+          mode: mode,
+          model: model,
+          effort: effort,
+          ran_on: nil,
+          shaped_at: now()
+        })
         |> Repo.update()
     end
   end

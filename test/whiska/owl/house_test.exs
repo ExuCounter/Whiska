@@ -371,6 +371,26 @@ defmodule Whiska.Owl.HouseTest do
       end)
     end
 
+    test "records the model the mouse's turn actually ran on", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      {:ok, _} =
+        Doorstep.leave(main, %Entry{
+          mouse_id: "ma",
+          branch: "feat-a",
+          worktree_root: a,
+          stamped_at: DateTime.utc_now(),
+          text: "[worktree-status: done]",
+          ran_on: "claude-a-5"
+        })
+
+      House.collect(house)
+
+      in_house(house, fn -> assert Storage.mouse("ma").ran_on == "claude-a-5" end)
+    end
+
     test "reports how many it collected", %{main: main, a: a, house: house} do
       leave(main, "ma", a, "[worktree-status: done]")
       leave(main, "ma", a, "[worktree-status: done]")

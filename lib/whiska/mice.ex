@@ -82,7 +82,9 @@ defmodule Whiska.Mice do
   # mode, and the listing says so: it is also what a spawn that skipped
   # `whiska shape` looks like (ADR-0069).
   defp mode(%Mouse{shaped_at: nil}), do: "never shaped, reads only"
-  defp mode(%Mouse{mode: mode, model: model}), do: Shape.describe(mode, model)
+
+  defp mode(%Mouse{} = mouse),
+    do: Shape.label(%{mode: mouse.mode, model: mouse.ran_on || mouse.model, effort: mouse.effort})
 
   defp status(mouse, {:ok, panes}) do
     case Enum.find(

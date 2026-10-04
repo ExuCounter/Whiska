@@ -231,13 +231,15 @@ mouse either way, just a mode flag:
   *all* edits, not just ones outside the worktree — a sniff mouse should never write
   code at all.
 
-**Model choice** (ADR-0069, superseding ADR-0019's ranked list): the model belongs to
-the mouse's shape. `spawn-worktree` runs `whiska shape build|sniff` in the new worktree
-before Claude starts; a sniff mouse starts on a lighter model, a build mouse keeps the
-person's own default, and the spawn may name another with `--model <alias>`, from the
-aliases listed in `priv/models.json`. No
-per-repo model list and no fallback on quota errors: by the time a quota error can
-happen, the spawn has already succeeded.
+**Model and effort** (ADR-0069, superseding ADR-0019's ranked list; then
+ADR-next-model-and-effort-are-chosen-by-ordered-rules): both belong to the mouse's
+shape, and are chosen apart from the mode. `spawn-worktree` reads the ordered rules in
+`priv/models.json` with `whiska shape --rules`, takes the first rule that fits for each,
+and runs `whiska shape build|sniff [--model <name>] [--effort <level>]` in the new
+worktree before Claude starts. It prints the flags to start Claude with, the file's
+fallback chain included, which Claude Code walks itself when a model is overloaded or
+not available. No list of model names: Claude Code owns which exist. The model that
+actually ran is read back from the transcript and recorded as `ran_on`.
 
 ## What gets saved
 
