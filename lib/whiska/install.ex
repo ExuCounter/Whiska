@@ -116,8 +116,13 @@ defmodule Whiska.Install do
       *) exit 0 ;;
     esac
     if [ -z "$whiska_bin" ]; then
-      common="$(cd "$project" 2>/dev/null &&
-        cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd)" || common=""
+      # bash 3.2's `cd ""` succeeds and stays put, so git's answer is checked
+      # for emptiness before anything changes directory to it.
+      common="$(cd "$project" 2>/dev/null && git rev-parse --git-common-dir 2>/dev/null)" ||
+        common=""
+      if [ -n "$common" ]; then
+        common="$(cd "$project" && cd "$common" 2>/dev/null && pwd)" || common=""
+      fi
       if [ -z "$common" ] || [ ! -d "$common/whiska" ]; then
         exit 0
       fi

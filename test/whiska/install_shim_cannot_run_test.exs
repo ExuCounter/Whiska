@@ -61,17 +61,26 @@ defmodule Whiska.InstallShimCannotRunTest do
 
   describe "stays silent where Whiska cannot cost anything" do
     test "a worktree in a repo with no house: Whiska was never set up here", ctx do
-      for hook <- ["pre-tool-use", "stop"] do
-        assert %{status: 0, out: ""} = run(ctx, :repo, hook, project: ctx.worktree)
+      for scope <- [:repo, :global], hook <- ["pre-tool-use", "stop"] do
+        assert %{status: 0, out: ""} = run(ctx, scope, hook, project: ctx.worktree)
       end
     end
 
     test "the main checkout, where neither hook has a mouse to speak for", ctx do
       File.mkdir_p!(Path.join(ctx.main, ".git/whiska"))
 
-      for hook <- ["pre-tool-use", "stop"] do
-        assert %{status: 0, out: ""} = run(ctx, :repo, hook, project: ctx.main)
+      for scope <- [:repo, :global], hook <- ["pre-tool-use", "stop"] do
+        assert %{status: 0, out: ""} = run(ctx, scope, hook, project: ctx.main)
       end
+    end
+
+    test "a folder git will not read is no house, whatever sits in it", ctx do
+      # bash 3.2's `cd ""` succeeds and stays put, so a failed lookup must not
+      # fall back to looking for `whiska/` in the project itself.
+      project = Path.join(ctx.root, "not-git/worktrees/feat-y")
+      File.mkdir_p!(Path.join(project, "whiska"))
+
+      assert %{status: 0} = run(ctx, :repo, "stop", project: project)
     end
 
     test "the complaint still reaches stderr, which the doctor's probe reads", ctx do
@@ -80,23 +89,29 @@ defmodule Whiska.InstallShimCannotRunTest do
     end
   end
 
-  test "a binary that is found but fails is loud even with no house", ctx do
+  test "a binary that is found but will not run is loud even with no house", ctx do
+    # With no runtime anywhere the shim runs the binary directly. This machine
+    # has escript at a path the shim checks by name, so those names are pointed
+    # at nothing; everything else is the shim as written.
     whiska = Path.join(ctx.root, "broken-whiska")
-    escript = Path.join(ctx.root, "fake-escript")
     File.write!(whiska, "#!/usr/bin/env bash\nexit 127\n")
-    File.write!(escript, "#!/usr/bin/env bash\nexec \"$@\"\n")
     File.chmod!(whiska, 0o755)
-    File.chmod!(escript, 0o755)
+
+    shim = Install.shim(:repo)
+    candidates = "/opt/homebrew/bin/escript /usr/local/bin/escript"
+    assert shim =~ candidates
+    shim = String.replace(shim, candidates, Path.join(ctx.root, "no-escript"))
 
     result =
-      run(ctx, :repo, "pre-tool-use", project: ctx.worktree, whiska: whiska, escript: escript)
+      run(ctx, :repo, "pre-tool-use", project: ctx.worktree, whiska: whiska, shim: shim)
 
-    assert result.status != 0
+    assert result.status == 1
+    assert result.err =~ "could not run #{whiska}"
   end
 
   defp run(ctx, scope, hook, opts) do
     shim = Path.join(ctx.root, "whiska-#{scope}.sh")
-    File.write!(shim, Install.shim(scope))
+    File.write!(shim, Keyword.get_lazy(opts, :shim, fn -> Install.shim(scope) end))
 
     n = System.unique_integer([:positive])
     err_file = Path.join(ctx.root, "err-#{n}.txt")
@@ -111,14 +126,10 @@ defmodule Whiska.InstallShimCannotRunTest do
       # "not installed" is spelled as a path to nothing, and PATH is cut back
       # to the system's own.
       {"WHISKA_BIN", Keyword.get(opts, :whiska, Path.join(ctx.root, "no-whiska-here"))},
-      {"PATH", "/usr/bin:/bin"}
+      {"PATH", "/usr/bin:/bin"},
+      {"ASDF_DATA_DIR", ctx.root},
+      {"WHISKA_ESCRIPT", nil}
     ]
-
-    env =
-      case Keyword.fetch(opts, :escript) do
-        {:ok, escript} -> [{"WHISKA_ESCRIPT", escript} | env]
-        :error -> env
-      end
 
     {out, status} =
       System.cmd(
