@@ -97,8 +97,10 @@ defmodule Whiska.InstallWorktreeSkillsTest do
 
       assert block =~ "herdr agent start"
       assert body =~ "do not start Claude by hand"
-      # The report carries Whiska's own line, not the skill's intent.
-      assert body =~ "word for word"
+      # The report carries what Whiska's own line says, not the skill's intent,
+      # and in plain words: "sniff mouse" is not the person's phrase.
+      assert body =~ "Restate that line, not what this skill meant to set"
+      refute body =~ "a mouse is working on it"
     end
 
     test "carries the hooks and settings only, never the skills" do
