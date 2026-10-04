@@ -122,7 +122,7 @@ outside the boundary:
 | --- | --- | --- |
 | Agent statuses `idle` `done` `working` `blocked` `unknown` | `owl/house.ex`, `pickup.ex`, `watch.ex`, `doctor.ex` | Renamed `idle`: mice collected a minute late by the backstop (doctor warns); delivery held as "mid-turn" (misleading, see fix 4) |
 | Agent name `"claude"` | house, pickup, cli, doctor (6 places) | Held with "not running Claude" in the log and the doctor. Loud |
-| Event names `pane_closed` `pane_exited` `pane_agent_detected` `pane.agent_status_changed` | `owl/house.ex` | Unknown events are dropped. The backstop and the two-second sweep cover it, a minute late. Doctor warns |
+| Event names `pane_closed` `pane_exited` `pane_agent_detected` `workspace_closed` `pane.agent_status_changed` | `owl/house.ex` | Unknown events are dropped. The backstop and the two-second sweep cover it, a minute late. Doctor warns |
 | `HERDR_PANE_ID`, `HERDR_SOCKET_PATH`, `HERDR_CONFIG_PATH`, `~/.config/herdr/herdr.sock` | `session.ex`, `cli.ex`, `herdr.ex`, statusline script, plist | Main session not recognised: the person's own turns would be filed as mouse messages. Silent |
 | Methods `pane.list` `pane.get` `pane.read` `agent.prompt` `pane.send_text` `pane.focus` `worktree.list` `worktree.remove` `notification.show` `events.subscribe` | `herdr/socket.ex` only | herdr returns an error; delivery holds with a logged reason. Loud |
 | Wire: one JSON line per request, connection closed after; subscriptions stay open | `herdr/socket.ex` only | Every call errors. Loud |

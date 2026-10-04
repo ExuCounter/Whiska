@@ -52,3 +52,11 @@ changed in a long while" is a proxy and was never built; a turn that reached the
 or did not is a fact Whiska already owns. The proxy still stands for the rest of stuck —
 a mouse genuinely looping or gone quiet mid-turn — which is still unbuilt, along with
 rungs four and five.
+
+## Addendum, 2026-10-04: a closed workspace
+
+herdr 0.8.2 does not emit `pane_closed` for the panes of a workspace it closes — dropping a
+worktree, by hand or by the owl's cleanup, sends `workspace_closed` and nothing else for
+them. The owl subscribes to that too. It names no pane, so the house re-lists herdr's panes
+and marks dead every mouse it no longer finds, the same reconciliation the backstop runs.
+Before this, a dropped mouse stayed on the board until the backstop, up to a minute.

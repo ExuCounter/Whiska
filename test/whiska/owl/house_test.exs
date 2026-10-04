@@ -130,6 +130,7 @@ defmodule Whiska.Owl.HouseTest do
       assert %{type: "pane.closed"} in subs
       assert %{type: "pane.exited"} in subs
       assert %{type: "pane.agent_detected"} in subs
+      assert %{type: "workspace.closed"} in subs
       assert %{type: "pane.agent_status_changed", pane_id: "w1:p1"} in subs
       refute Enum.any?(subs, &match?(%{type: "pane.agent_status_changed", pane_id: "w2:p1"}, &1))
     end
