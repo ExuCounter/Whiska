@@ -67,7 +67,7 @@ defmodule Whiska.Herdr do
   @callback pane(socket :: Path.t(), pane_id :: String.t()) :: {:ok, pane()} | {:error, term()}
 
   @doc """
-  The visible screen of a pane, as plain text with the escapes stripped.
+  The visible screen of a pane, with its style escapes kept (`--format ansi`).
 
   Only the delivery gate uses this, and only for the main session's prompt box
   (ADR-0047): herdr has no input or keystroke signal, so whether the person is

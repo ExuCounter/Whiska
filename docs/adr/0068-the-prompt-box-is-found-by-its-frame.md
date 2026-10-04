@@ -170,3 +170,61 @@ without herdr). Three fixtures are not verbatim, and each says so where it is us
 are a captured screen with one line edited, because no camera can photograph a Claude
 Code that does not exist yet, and the split-screen one is redrawn, because the live
 screen it copies was a `git diff` of an unrelated private project.
+
+## Amendment, 2026-10-04: faint text in the box is Claude Code's, not the person's
+
+The table above says *a framed box with anything else in it* is `:typing`, and an empty
+box is one where *every line inside the frame is blank*. Both assumed every character in
+the box was the person's. It is not, and the gate was failing closed again: the person's
+box was empty and the board said *your prompt box isn't empty*, with two questions held
+behind it.
+
+**What is in an empty box.** After a reply, Claude Code offers the next prompt inside the
+empty box — the cursor still at its start, nothing typed. A fresh session shows a
+`Try "refactor <filepath>"` placeholder the same way. Read as plain text both are a line
+of words after the marker. Eight live boxes were captured with herdr's `--format ansi`
+on 2026-10-04:
+
+| what is in the box | how the line after `❯` is drawn |
+|---|---|
+| a suggested next prompt, four panes | `ESC[0m ESC[2m` text `ESC[0m` — faint |
+| the fresh-session placeholder | `ESC[0m ESC[2m` text `ESC[0m` — faint |
+| a typed line | no style at all |
+| a `[Pasted text #1 +11 lines]` chip | no style at all |
+| nothing | the marker and a non-breaking space |
+
+**So the box is judged on what is not faint.** `pane.read` asks herdr for the screen
+with its escapes (`format: "ansi"`, `strip_ansi: false`). The frame is found exactly as
+above, on the text with the escapes taken out. The box is empty when everything inside it
+that is not faint (SGR 2) is whitespace. One character drawn any other way is a draft.
+
+**Faint, rather than a colour.** The same captures draw the person's past messages in
+explicit truecolour greys on a light background, and a theme change moves every one of
+those numbers; a dark theme inverts them. Faint is a style the terminal applies to
+whatever colour is current, so it does not move with the theme. A rule relative to the
+marker's colour was also considered — ghost text in the marker's own colour — and the
+captures rule it out: the box's marker carries no style and its ghost text is faint.
+
+**An unrecognised style falls to holding.** A theme or a Claude Code release that draws
+its ghost text in a grey rather than faint, an escape that is not a style, a colour whose
+own numbers include a `2`, bold or inverse laid over faint, faint left open on a line
+above the box — each counts as text, and text is `:typing`. That is the
+behaviour before this amendment, so the worst a wrong reading can do is hold a question
+the board already explains. The other direction — reading a real draft as faint — needs
+Claude Code to draw typed text faint, which none of the captured drafts does. That is the
+direction ADR-0047 exists to rule out, and it is the one this rule makes hardest to reach.
+
+**The cursor was checked and is not available.** Ghost text has the cursor at its start
+and a draft at its end, which would be a sturdier signal than any style. herdr 0.8.2
+reports no cursor position: `pane.read`'s result has no field for it, and the ansi read
+carries style escapes only, with no cursor movement and no drawn cursor cell. It would
+need a change in herdr.
+
+**Delivery and pickup answer from one place.** Both type into a box, and they once
+disagreed about which readings hold — pickup held on `:typing` alone while delivery also
+held on `:no_box`. `Whiska.Delivery.Draft.hold/1` now turns a reading into hold or go for
+both, so they cannot drift again.
+
+The reading is still plain code over a string (ADR-0031). The seven text fixtures carry
+no escapes and read exactly as before; five new `.ansi` fixtures are herdr's captures,
+untouched.

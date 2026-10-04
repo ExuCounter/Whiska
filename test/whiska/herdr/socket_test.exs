@@ -249,6 +249,29 @@ defmodule Whiska.Herdr.SocketTest do
     end
   end
 
+  describe "read_screen/2" do
+    # The styling is the only thing that tells Claude Code's dim suggestion
+    # from the person's own words (ADR-0068), so herdr must not strip it.
+    test "asks pane.read for the visible screen with its styling kept" do
+      {path, fake} = start_fake()
+      screen = "❯ \e[0m\e[2mpush and open a PR\e[0m\r\n"
+      send(fake, {:fake_reply, %{"type" => "pane_read", "read" => %{"text" => screen}}})
+
+      assert {:ok, ^screen} = Socket.read_screen(path, "w1:p2")
+
+      assert_received {:fake_got,
+                       %{
+                         "method" => "pane.read",
+                         "params" => %{
+                           "pane_id" => "w1:p2",
+                           "source" => "visible",
+                           "format" => "ansi",
+                           "strip_ansi" => false
+                         }
+                       }}
+    end
+  end
+
   describe "prompt/3" do
     test "asks agent.prompt with the pane as target and the text" do
       {path, fake} = start_fake()

@@ -1007,10 +1007,9 @@ defmodule Whiska.Owl.House do
   defp box_is_free(state, notes) do
     case state.herdr.read_screen(state.socket, state.main_pane) do
       {:ok, screen} ->
-        case Draft.read(screen) do
-          :typing -> {:hold, :typing, state}
-          :no_box -> {:hold, :no_box, state}
-          _empty_or_unreadable -> {:go, notes, state}
+        case screen |> Draft.read() |> Draft.hold() do
+          {:hold, held} -> {:hold, held, state}
+          :go -> {:go, notes, state}
         end
 
       {:error, _reason} ->
