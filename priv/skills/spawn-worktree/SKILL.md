@@ -103,7 +103,7 @@ Whiska. The copy is untracked in the worktree and disappears with it.
 ## Give the mouse its shape — before Claude starts
 
 A mouse is spawned with a shape (Whiska ADR-0069): a mode, a model and an effort, each
-chosen on its own (Whiska ADR-next-model-and-effort-are-chosen-by-ordered-rules). The
+chosen on its own (Whiska ADR-0073). The
 rules for all three ship inside Whiska. Read them first; this runs from anywhere:
 
 ```bash

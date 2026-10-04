@@ -232,7 +232,7 @@ mouse either way, just a mode flag:
   code at all.
 
 **Model and effort** (ADR-0069, superseding ADR-0019's ranked list; then
-ADR-next-model-and-effort-are-chosen-by-ordered-rules): both belong to the mouse's
+ADR-0073): both belong to the mouse's
 shape, and are chosen apart from the mode. `spawn-worktree` reads the ordered rules in
 `priv/models.json` with `whiska shape --rules`, takes the first rule that fits for each,
 and runs `whiska shape build|sniff [--model <name>] [--effort <level>]` in the new

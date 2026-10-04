@@ -2,7 +2,7 @@ defmodule Whiska.Shape do
   @moduledoc """
   What a mouse is spawned as: its mode, the model it runs on and the effort it
   runs at (ADR-0069). The three are chosen apart
-  (ADR-next-model-and-effort-are-chosen-by-ordered-rules): the mode is what the
+  (ADR-0073): the mode is what the
   mouse may do, the model what kind of thinking the work needs, and the effort
   how much of it.
 
