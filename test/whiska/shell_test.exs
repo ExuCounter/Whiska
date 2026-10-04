@@ -316,4 +316,181 @@ defmodule Whiska.ShellTest do
       assert Shell.mutating?("cd /tmp && touch x")
     end
   end
+
+  # A command on the read-only list reads until a flag, an extra operand or an
+  # environment variable makes it write or run something (ADR-0034). Each case
+  # below that writes was run against the real tool on macOS before it went in;
+  # the ones marked GNU or by tool name follow that tool's documentation.
+  describe "read-only commands that a flag or an operand makes write" do
+    for command <- [
+          # sort: an output file, and a program it runs to compress temp files
+          "sort -o out.txt in.txt",
+          "sort -no out.txt in.txt",
+          "sort -oout.txt in.txt",
+          "sort --output=out.txt in.txt",
+          "sort --out=out.txt in.txt",
+          "sort --compress-program=gzip in.txt",
+          # uniq and xxd: a second operand is the output file
+          "uniq a b",
+          "uniq -c a b",
+          "uniq -f 1 a b",
+          "uniq - b",
+          "uniq -- a b",
+          "xxd a b",
+          "xxd -r dump.hex bin",
+          "xxd -c 8 a b",
+          # yq: in place, and splitting into files
+          "yq -i .a f.yml",
+          "yq -Pi .a f.yml",
+          "yq --inplace .a f.yml",
+          "yq --in-place .a f.yml",
+          "yq -s '.name' f.yml",
+          "yq --split-exp '.name' f.yml",
+          # file: compiling a magic file writes magic.mgc
+          "file -C -m magic",
+          "file --compile -m magic",
+          # tree: an output file, and -R writes 00Tree.html into every folder
+          "tree -o out.txt",
+          "tree -ao out.txt",
+          "tree -R -H . lib",
+          # xmllint: an output file, and a shell that can save
+          "xmllint --output out.xml a.xml",
+          "xmllint -o out.xml a.xml",
+          "xmllint -output out.xml a.xml",
+          "xmllint --shell a.xml",
+          # less and more: a log file, and commands run on start
+          "less -o log.txt in.txt",
+          "less -Olog.txt in.txt",
+          "less --log-file=log.txt in.txt",
+          "more -o log.txt in.txt",
+          "less '+!rm x' in.txt",
+          # tools that run a command named in a flag
+          "rg --pre ./pre.sh foo lib/",
+          "rg --pre=./pre.sh foo lib/",
+          "rg --hostname-bin ./h.sh foo lib/",
+          "ag --pager 'rm x' foo lib/",
+          "ag --pag=x foo lib/",
+          "man -P 'rm x' ls",
+          "man --pager='rm x' ls",
+          "man -H ls",
+          "fd -x rm",
+          "fd -e tmp -x rm {}",
+          "fd -X rm",
+          "fd --exec rm",
+          "fd --exec-batch rm",
+          "fd -Hx rm",
+          ~S[fd -x grep foo \; -x rm],
+          "fd --exec=rm",
+          "arch -arm64 rm x",
+          "arch -x86_64 touch x",
+          # system state, which takes root but is still a write
+          "hostname newname",
+          "hostname -F /etc/hostname",
+          "date 0101000099",
+          "date -s 2020-01-01",
+          "date --set=2020-01-01",
+          "date -f %Y 2020",
+          # git: an output file, config that names a program, and reflog's writers
+          "git diff --output=/tmp/x",
+          "git diff --output /tmp/x",
+          "git log -p --output=/tmp/x",
+          "git show --output=/tmp/x HEAD",
+          "git -c diff.external=./x diff",
+          "git -c core.fsmonitor=./x status",
+          "git --config-env=core.pager=X log",
+          "git grep -O'rm x' foo",
+          "git grep --open-files-in-pager=x foo",
+          "git ls-remote --upload-pack=./x .",
+          "git reflog expire --all",
+          "git reflog delete HEAD@{1}",
+          "git reflog drop main",
+          # environment variables that carry a program to run
+          "GIT_EXTERNAL_DIFF=./x git diff",
+          "GIT_CONFIG_PARAMETERS=x git log",
+          "env GIT_EXTERNAL_DIFF=./x git diff",
+          "LESSOPEN='|./x' less in.txt",
+          "MANPAGER=./x man ls",
+          "PAGER=./x man ls",
+          "RIPGREP_CONFIG_PATH=./rc rg foo"
+        ] do
+      test "#{command} writes" do
+        assert Shell.mutating?(unquote(command))
+      end
+    end
+
+    # The other half matters as much: a check that denies these leaves a sniff
+    # mouse unable to look at anything.
+    for command <- [
+          "sort in.txt",
+          "sort -n -k2 in.txt",
+          "sort -t o in.txt",
+          "sort -to in.txt",
+          "sort -u -T /tmp in.txt",
+          "uniq in.txt",
+          "uniq -c in.txt",
+          "uniq -f 1 in.txt",
+          "uniq --skip-fields 1 in.txt",
+          "uniq -",
+          "cat in.txt | sort | uniq -c",
+          "xxd mix.exs",
+          "xxd -s 16 -l 32 mix.exs",
+          "xxd -c16 mix.exs",
+          "xxd -r dump.hex",
+          "yq .a f.yml",
+          "yq -o=json .a f.yml",
+          "yq -o json .a f.yml",
+          "yq -ojson .a f.yml",
+          "yq -P -I2 .a f.yml",
+          "file mix.exs",
+          "file -b --mime-type mix.exs",
+          "tree",
+          "tree -L 2 lib",
+          "tree -a -I _build",
+          "xmllint --format a.xml",
+          "xmllint --noout --schema s.xsd a.xml",
+          "less in.txt",
+          "less -R in.txt",
+          "more in.txt",
+          "rg -n foo lib/",
+          "rg --pre-glob '*.gz' foo lib/",
+          "rg --no-pre foo lib/",
+          "ag foo lib/",
+          "man ls",
+          "man -k grep",
+          "man 1 ls",
+          "fd -e ex",
+          "fd -o root",
+          "fd -t f -x grep -l foo",
+          ~S[fd -x grep foo \; -e ex],
+          "arch",
+          "arch -arm64 ls",
+          "hostname",
+          "hostname -s",
+          "date",
+          "date +%s",
+          "date -u '+%Y-%m-%d %H:%M'",
+          "date -r 0",
+          "date -d yesterday +%F",
+          "date -j -f %Y 2020 +%s",
+          "date -v+1d",
+          "join -o 1.1,2.2 a.txt b.txt",
+          "strings -o bin",
+          "cut -d , -f 1 --output-delimiter=: a.csv",
+          "git diff",
+          "git diff --stat HEAD~1",
+          "git log --output-indicator-new=+ -p",
+          "git diff -O order.txt",
+          "git grep -n foo",
+          "git reflog",
+          "git reflog show HEAD",
+          "git reflog main",
+          "git ls-remote origin",
+          "LC_ALL=C sort in.txt",
+          "NO_COLOR=1 rg foo lib/"
+        ] do
+      test "#{command} reads" do
+        refute Shell.mutating?(unquote(command))
+      end
+    end
+  end
 end

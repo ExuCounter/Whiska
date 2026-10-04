@@ -70,6 +70,21 @@ while `find . -exec rm {} \;` stays denied. `awk` is read-only unless its progra
 redirects with `>`, calls `system()`, or pipes its output, all of which sit inside a
 quoted argument where the mask deliberately hides them from the redirect check.
 
+**Being on the list does not make every use of a command read-only.** A listed command
+is still judged by what its own flags, operands and environment make it do, the way
+`git`, `sed`, `find` and `awk` already were. An output file (`sort -o`, `xmllint
+--output`, `tree -o`, `less -o`, `git diff --output`), an in-place edit (`yq -i`), a
+second operand that is the output file (`uniq a b`, `xxd a b`), a flag that names a
+program (`rg --pre`, `ag --pager`, `man -P`, `fd -x`, `git grep -O`, `git ls-remote
+--upload-pack`), `git -c` and `--config-env`, and a variable that names a program
+(`GIT_*`, `LESS*`, `*PAGER`, `RIPGREP_CONFIG_PATH`) each make the command mutating.
+
+Where it is unclear, it leans toward denying: a long flag counts at any prefix of a
+writing name, since getopt accepts `sort --out=x`, and a flag whose value is not known
+to the code has that value counted as an operand, so `uniq` with an unknown flag can be
+denied but never let through. Each command is read only as far as needed — which
+letters write, which take a value — never parsed in full. Added 2026-10-04.
+
 ## How a mouse gets its mode
 
 `Mouse.mode` existed from v0.0.1 but nothing wrote it, so sniff enforcement would have
