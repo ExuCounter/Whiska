@@ -614,7 +614,7 @@ defmodule Whiska.Install do
 
      Two things together: the heading `whiska questions <id>` printed names the
      branch with `(sniff)` after it — a mouse that could only look, so its branch
-     has nothing to merge — and the message ends in a **Proposed build** block
+     has nothing to merge — and the message carries a **Proposed build** block
      with Found, Build and Touches lines. Then the picker holds three options
      instead of the four, in this order:
 
@@ -623,7 +623,9 @@ defmodule Whiska.Install do
        rather than on a label. Its description: a fresh session builds it,
        shaped for the build.
      - **Chat further** — as above.
-     - **Drop it** — as above.
+     - **Drop it** — as above, but confirm only when `git log <base>..<branch>`
+       lists commits of its own. Nothing else is lost, and a question about
+       nothing is one the person learns to stop reading.
 
      No "(Recommended)" on any of them, whatever `## Finish` names: the one thing
      this asks is whether the proposal is right, and only the person's read of

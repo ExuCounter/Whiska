@@ -21,9 +21,10 @@ lowest. The right model was cheaper, and nothing picked it.
   Build what it proposes, Chat further, Drop it. Merge and open a request drop out: a
   sniff branch has nothing on it, and AskUserQuestion holds four options at most.
 - **The spawn shapes from the proposal.** On yes, the main session follows
-  `spawn-worktree`'s hand-off section: the branch named from the Build line, mode, model
-  and effort judged against the Build and Touches lines by the ordered rules (ADR-0073),
-  the brief typed as one line, and a one-line report quoting what `whiska shape` recorded.
+  `spawn-worktree`'s hand-off section: a branch named for what the Build line describes,
+  mode, model and effort judged against the Build and Touches lines by the ordered rules
+  (ADR-0073), the brief typed as one line, and a one-line report quoting what
+  `whiska shape` recorded.
 
 ## Ask about intent, never about mechanics
 
@@ -47,16 +48,19 @@ text, would be Whiska reading prose to decide something, which ADR-0009 and ADR-
 refuse. So the proposal is content, read by the main session's Claude the way lettered
 options already are. Two things make it actionable without a contract in code:
 
-- **Fixed labels**, so the main session lifts the block verbatim into the preview and the
-  brief instead of summarising it.
+- **Fixed labels**, so the main session lifts the block verbatim into the preview instead
+  of summarising it.
 - **Whiska's record of the mode.** `whiska questions <id>` heads a sniff mouse's question
   `feat/x (sniff)`. The picker reads that, not the mouse's word about itself, to know the
   branch has nothing to merge.
 
-The new mouse is given the Build line and the question id. The whole report stays in the
-house (ADR-0007), and `whiska questions <id>` reads it from any worktree. The brief is
-typed in single quotes: the Build line is text a mouse wrote, and none of it may run in
-the main session's shell.
+The new mouse is given the question id and nothing else; it reads the whole report with
+`whiska questions <id>`, which works from any worktree, and the report stays in the house
+(ADR-0007). No character a mouse wrote goes on the main session's command line: the
+prompt carries only the id, and the branch is a name the main session makes out of
+`a-z0-9`, `-` and `/`, never copied from the proposal. Pasting the Build line into a
+quoted prompt, as first written, left one missed escape between a mouse's text and the
+person's shell.
 
 ## `whiska mode` stays, and says what it carried
 
@@ -78,7 +82,12 @@ the context can still choose that. What made the flip wrong was that it was sile
 - Migration 9 adds `shaped_as`. A mouse recorded before it reads as shaped as nothing, and
   is never flagged: what it was shaped as is not known, and a guess would be a claim.
 - A build mouse that writes a proposal gets the four options, and the proposal goes
-  unoffered. A build mouse that only investigated was shaped wrong to begin with.
+  unoffered. So does a mouse nobody shaped (ADR-0069): its heading carries no `(sniff)`,
+  though it could not write either. Both were shaped wrong to begin with, and the person
+  can still talk to them.
+- Dropping an investigation's branch is confirmed only when the branch has commits of its
+  own — a mouse moved from build to sniff can have some. Otherwise nothing is lost, and
+  the flow stays at one question.
 - A repo with older skills offers no build option until `whiska init` (or
   `whiska init --global`) is re-run.
 - The investigation's worktree is left standing after the hand-off: the person may still

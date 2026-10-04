@@ -251,6 +251,12 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/changed nothing/i
       assert body =~ ~r/no proposal/i
     end
+
+    # Only a mouse that may only look is offered a fresh build; the skill
+    # promises nothing to the rest.
+    test "promises the fresh build only to a mouse that may only look" do
+      assert prose() =~ ~r/a mouse that may only look/i
+    end
   end
 
   describe "it does not restate what the block already says" do

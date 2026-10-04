@@ -360,6 +360,18 @@ defmodule Whiska.InstallStatuslineTest do
 
       prose = String.replace(body, ~r/\s+/, " ")
       assert prose =~ ~r/no proposal, or a heading without `\(sniff\)`/i
+      # Found anywhere in the message: a mouse may close on a line after it.
+      assert prose =~ ~r/the message carries a \*\*Proposed build\*\* block/
+    end
+
+    # The flow asks once. Dropping a branch with nothing on it loses nothing, so
+    # it is not confirmed; one moved from build with commits still is.
+    test "dropping an investigation's branch asks only when it has commits" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      prose = String.replace(body, ~r/\s+/, " ")
+      assert prose =~ ~r/confirm only when .*commits of its own/i
     end
 
     test "a repo can name its usual finish choice, and the picker follows it" do

@@ -21,7 +21,7 @@ _Avoid_: worker, crewmate, agent
 **Brief**:
 What a mouse is given to build — the person's own words, routed in whole by
 `spawn-worktree` or `send-to-worktree`, or a **proposal** the person said yes to, handed
-over as its Build line and its question id. A brief is **buildable** when the mouse can say
+over by its question id alone. A brief is **buildable** when the mouse can say
 what "done" looks like and name the failing test that proves it without guessing anything
 the person has an opinion on; one that is not gets grilled before any code (ADR-0063).
 _Avoid_: task, ticket, spec

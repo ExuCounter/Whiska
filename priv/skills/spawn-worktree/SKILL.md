@@ -188,9 +188,13 @@ The person picked "Build what it proposes" on a finished sniff mouse's report, a
 `whiska-delivered` skill sent you here with that question's id. They said yes to the
 proposal; everything else comes from it. Ask the person nothing.
 
-- **Branch** — name it from the Build line, in this repo's convention (`feat/<slug>`,
-  `fix/<slug>`). The proposal is the request suggesting the name, and the report back
-  shows it.
+A mouse wrote the proposal, and this session's shell runs whatever reaches a command
+line. So no character of it goes on one: the branch is a name you make, and the task
+carries only the question id.
+
+- **Branch** — your own short name for what the Build line describes, in this repo's
+  convention (`feat/<slug>`, `fix/<slug>`), made of `a-z0-9`, `-` and `/` only and never
+  copied from the proposal. The report back shows it.
 - **Shape** — chosen as above, from `whiska shape --rules`, but judged against the Build
   and Touches lines, not against the request the investigation began from. The work is
   described now and its shape is known, and the rules weigh that.
@@ -198,11 +202,8 @@ proposal; everything else comes from it. Ask the person nothing.
   Whiska, so it travels by its id:
 
   ```bash
-  herdr agent prompt <root-pane-id> 'Build what the investigation in question #<id> proposed: <the Build line, verbatim>. Its whole report: whiska questions <id>'
+  herdr agent prompt <root-pane-id> 'Build the Proposed build in question #<id>. Read it first with: whiska questions <id> - its Build line is the brief, the rest is what the investigation found.'
   ```
-
-  Single quotes, so nothing in the Build line runs in this shell: a mouse wrote it. Write
-  a `'` inside it as `'\''`.
 - **Report back** — one line, in place of the report below: the branch, then what
   `whiska shape` said on stderr in plain words — "A fresh session is building it on
   <branch>: it can change files, on <model> at <effort> effort."

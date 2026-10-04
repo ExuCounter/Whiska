@@ -248,7 +248,7 @@ defmodule Whiska.Questions do
 
   @doc """
   Who a question's heading names: the branch, with `(sniff)` after it for a
-  mouse that may only look. Whiska's record rather than the mouse's word about
+  sniff mouse. Whiska's record rather than the mouse's word about
   itself, so the finished picker can tell a branch with nothing on it to merge
   (ADR-next-a-finished-investigation-hands-off).
   """

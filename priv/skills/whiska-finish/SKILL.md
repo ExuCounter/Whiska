@@ -101,9 +101,10 @@ done marker on the strength of having written the code.
 ## When the work was finding out, and something should change
 
 A turn that investigated, changed nothing, and found something that should change ends
-its report with a proposal. The person's main session offers it as a fresh build, shaped
-for that work rather than for the investigation. Last before the marker, with exactly
-these labels:
+its report with a proposal. For a mouse that may only look, the person's main session
+offers it as a fresh build, shaped for that work rather than for the investigation; for
+any other, it is there for the person to read. Last before the marker, with exactly these
+labels:
 
     **Proposed build**
     - Found: what the investigation established, in a sentence.
