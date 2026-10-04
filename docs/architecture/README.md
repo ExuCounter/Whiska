@@ -113,8 +113,9 @@ left waiting rather than orphaning it once there is nobody left to answer to —
 now means abandoned work or a record that never stood for a worktree, not an ordinary
 merge (ADR-0064). And delivery now reaches the person wherever they are: every
 question it types raises one desktop notification in the same breath, carrying the house,
-the branch, the verb and the id, with herdr showing it and `whiska doctor` probing with a
-hoot of its own to say whether one is seen (ADR-0062). And a turn that died is picked up:
+the branch, the verb and the id, with herdr showing it — or the desktop's own notifier when
+herdr's popups are off or nobody is attached (ADR-0071) — and
+`whiska doctor` probing with a hoot of its own to say whether one is seen (ADR-0062). And a turn that died is picked up:
 a mouse seen working whose pane has gone quiet with nothing of its collected and nothing of
 its on the doorstep had a turn that ended without finishing, so the owl types one short
 continue into that mouse's own pane — never the original prompt, which would risk redoing

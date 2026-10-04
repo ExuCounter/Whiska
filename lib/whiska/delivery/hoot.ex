@@ -21,9 +21,15 @@ defmodule Whiska.Delivery.Hoot do
   into, and it is on the screen when they look; a notification has room for the
   branch and the verb and nothing more.
 
-  herdr decides whether it is drawn at all, from the person's own `[ui.toast]`
-  and `[ui.sound]` settings, and says which it did. A delivery drops that
-  answer; `whiska doctor` is where it is read.
+  herdr is asked first, and decides from the person's own `[ui.toast]` and
+  `[ui.sound]` settings whether to draw it. When it says it did not because
+  popups are off (`disabled`) or nobody is attached to see one
+  (`no_foreground_client`), the hoot is raised on the desktop instead
+  (ADR-0071): `[ui.toast] delivery` is one
+  switch over two decisions, and turning off herdr's toast for every agent is
+  not asking for Whiska's to go quiet. `rate_limited` and `busy` are herdr
+  pacing itself, and a fallback would defeat the pacing; an error leaves it
+  unknown whether herdr drew one. Neither falls back.
 
   The sound is the one judgement here. A question that needs a decision is the
   one that must not be missed, so it takes herdr's `request` sound; a finished
@@ -33,6 +39,7 @@ defmodule Whiska.Delivery.Hoot do
   """
 
   alias Whiska.Delivery.Text
+  alias Whiska.Herdr
   alias Whiska.Schema.Question
 
   @typedoc "A notification, in herdr's own terms (`Whiska.Herdr.notification/0`)."
@@ -43,6 +50,33 @@ defmodule Whiska.Delivery.Hoot do
   # cut rather than trusted to be one short line. `Whiska.Delivery.Text` does
   # the same to the line it composes, for the same reason.
   @name_max 40
+
+  @falls_back ["disabled", "no_foreground_client"]
+
+  @typedoc "What herdr did with a hoot, and what the desktop did after it."
+  @type outcome :: {Herdr.notify_result(), Whiska.Desktop.result() | :not_needed}
+
+  @doc """
+  Raise `hoot` through herdr, and on the desktop when herdr says it will not
+  show it. Never raises: whatever either side does wrong comes back as an
+  answer.
+  """
+  @spec send_out(module(), Path.t(), module(), t()) :: outcome()
+  def send_out(herdr, socket, desktop, hoot) do
+    case attempt(fn -> herdr.notify(socket, hoot) end) do
+      {:ok, {:not_shown, reason}} = answer when reason in @falls_back ->
+        {answer, attempt(fn -> desktop.notify(hoot) end)}
+
+      answer ->
+        {answer, :not_needed}
+    end
+  end
+
+  defp attempt(call) do
+    call.()
+  catch
+    kind, reason -> {:error, {kind, reason}}
+  end
 
   @doc """
   Compose the hoot for a question from the mouse on `branch`, in the house

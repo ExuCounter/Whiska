@@ -64,7 +64,8 @@ defmodule Whiska.Doctor do
   ADR-0031's boundary), `:open_houses` (the record's path, the real one by
   default), `:launch_agent` (a function returning `{installed?, status}` for
   the owl's LaunchAgent, launchd's own answer by default), `:owl_started_at`
-  (a function giving when a pid started, `ps` by default).
+  (a function giving when a pid started, `ps` by default), `:desktop` (where a
+  hoot herdr will not show is raised, `Whiska.Desktop.impl/0` by default).
   """
   @spec run(Path.t(), keyword()) :: Report.t()
   def run(main_checkout, opts \\ []) do
@@ -74,6 +75,7 @@ defmodule Whiska.Doctor do
     record = Keyword.get_lazy(opts, :open_houses, &OpenHouses.path/0)
     launch_agent = Keyword.get(opts, :launch_agent, &launch_agent_state/0)
     owl_started_at = Keyword.get(opts, :owl_started_at, &Whiska.Owl.started_at/1)
+    desktop = Keyword.get(opts, :desktop, Whiska.Desktop.impl())
     now = DateTime.utc_now()
     pids = owl_pids.()
     {installed?, agent} = launch_agent.()
@@ -110,7 +112,7 @@ defmodule Whiska.Doctor do
           launch_agent(installed?, agent, pids),
           open_houses(OpenHouses.read(record), main_checkout, pids),
           tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
-          hoot(hoot_probe(herdr, env)),
+          hoot_probe(herdr, desktop, env),
           global(global_state)
         ] ++
         hooks ++
@@ -663,15 +665,14 @@ defmodule Whiska.Doctor do
   end
 
   @doc """
-  Whether herdr showed the hoot the owl raises on every delivery (ADR-0062).
+  Whether the hoot the owl raises on every delivery is seen (ADR-0062).
 
   `probe` is what `Whiska.Herdr.notify/2` answered to a notification sent for
-  this check, or `:no_socket` when there was no herdr to send one to. herdr
-  says outright whether it displayed the notification and, when it did not,
-  which of its own reasons stopped it — so the doctor asks herdr rather than
-  reading its config and guessing. A probe is what this check is for
-  (ADR-0038): the person sees the notification exactly when it works, which is
-  the answer and the demonstration in one.
+  this check, or `:no_socket` when there was no herdr to send one to; `desktop`
+  is what the desktop did when herdr's answer sent the hoot there
+  (ADR-0071), or `:not_needed`. Both are asked
+  rather than read from config, so the person sees the notification exactly
+  when it works, which is the answer and the demonstration in one (ADR-0038).
 
   A warning, never a failure: the question is delivered either way, the line is
   in the main session, and `whiska questions` still lists it. What is lost is
@@ -679,21 +680,52 @@ defmodule Whiska.Doctor do
   person's and machine-global, so the fix says what to change in the table they
   already have and never writes it (ADR-0016).
   """
-  @spec hoot(Herdr.notify_result() | :no_socket) :: Check.t()
-  def hoot({:ok, :shown}), do: Check.ok("hoot", "a delivered question is shown by herdr")
+  @spec hoot(Herdr.notify_result() | :no_socket, Whiska.Desktop.result() | :not_needed) ::
+          Check.t()
+  def hoot(probe, desktop \\ :not_needed)
 
-  def hoot({:ok, {:not_shown, reason}}),
+  def hoot({:ok, :shown}, _desktop),
+    do: Check.ok("hoot", "a delivered question is shown by herdr")
+
+  def hoot({:ok, {:not_shown, reason}}, {:ok, notifier}),
+    do:
+      Check.ok(
+        "hoot",
+        "herdr does not show it (#{reason}), so Whiska raises it with #{notifier} — " <>
+          "if nothing appeared, macOS has notifications off for #{notifier}"
+      )
+
+  def hoot({:ok, {:not_shown, reason}}, {:error, :no_notifier}),
+    do:
+      Check.warn(
+        "hoot",
+        "herdr did not show it (#{reason}), and there is no terminal-notifier or osascript " <>
+          "to raise it instead, so a delivered question is silent",
+        hoot_fix(reason)
+      )
+
+  def hoot({:ok, {:not_shown, reason}}, {:error, why}),
+    do:
+      Check.warn(
+        "hoot",
+        "herdr did not show it (#{reason}), and raising it on the desktop failed " <>
+          "(#{inspect(why)}), so a delivered question is silent",
+        hoot_fix(reason)
+      )
+
+  def hoot({:ok, {:not_shown, reason}}, :not_needed),
     do:
       Check.warn(
         "hoot",
         "herdr did not show it (#{reason}), so a delivered question is silent",
-        hoot_fix()
+        hoot_fix(reason)
       )
 
-  def hoot({:error, reason}),
+  def hoot({:error, reason}, _desktop),
     do: Check.warn("hoot", "could not ask herdr to show one (#{inspect(reason)})")
 
-  def hoot(:no_socket), do: Check.warn("hoot", "no herdr to ask — a delivered question is silent")
+  def hoot(:no_socket, _desktop),
+    do: Check.warn("hoot", "no herdr to ask — a delivered question is silent")
 
   # Never a block to paste. `[ui.toast]` and `[ui.sound]` are in herdr's own
   # stock config, and a second table of either name is a TOML duplicate key,
@@ -703,19 +735,29 @@ defmodule Whiska.Doctor do
   # The person sees it exactly when the hoot works, so the check is its own
   # demonstration — and when it does not work there is nothing to see, which is
   # the finding.
-  defp hoot_probe(herdr, env) do
+  # It goes out through `Whiska.Delivery.Hoot.send_out/4`, the owl's own path,
+  # so the desktop fallback is probed exactly as a delivery would take it.
+  defp hoot_probe(herdr, desktop, env) do
     case Herdr.socket(env) do
       {:ok, socket} ->
-        herdr.notify(socket, %{
-          title: "🐱 whiska doctor",
-          body: "this is what a delivered question looks like",
-          sound: :none
-        })
+        {answer, raised} =
+          Whiska.Delivery.Hoot.send_out(herdr, socket, desktop, %{
+            title: "🐱 whiska doctor",
+            body: "this is what a delivered question looks like",
+            sound: :none
+          })
+
+        hoot(answer, raised)
 
       {:error, {:no_socket, _}} ->
-        :no_socket
+        hoot(:no_socket)
     end
   end
+
+  # Only popups switched off are fixed in herdr's config; nobody attached, or
+  # herdr pacing itself, is not.
+  defp hoot_fix("disabled"), do: hoot_fix()
+  defp hoot_fix(_reason), do: nil
 
   defp hoot_fix do
     ~s(in #{Herdr.config_path()}, set delivery = "system" under the ) <>

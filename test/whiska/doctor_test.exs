@@ -172,7 +172,7 @@ defmodule Whiska.DoctorTest do
 
   # -- the hoot ----------------------------------------------------------------
 
-  describe "hoot/1 — whether herdr showed the owl's notification (ADR-0062)" do
+  describe "hoot/2 — whether the owl's notification is seen (ADR-0062)" do
     test "herdr saying it showed the notification passes" do
       check = Doctor.hoot({:ok, :shown})
 
@@ -211,6 +211,45 @@ defmodule Whiska.DoctorTest do
       refute check.detail =~ "shown"
     end
 
+    test "herdr's popups off but the desktop showed it is ok, and names the notifier" do
+      check = Doctor.hoot({:ok, {:not_shown, "disabled"}}, {:ok, "terminal-notifier"})
+
+      assert %Check{status: :ok} = check
+      assert check.detail =~ "disabled"
+      assert check.detail =~ "terminal-notifier"
+      assert check.detail =~ "macOS"
+    end
+
+    test "nobody attached to herdr is not fixed by herdr's popup setting" do
+      for desktop <- [:not_needed, {:error, :no_notifier}] do
+        %Check{fix: fix} = Doctor.hoot({:ok, {:not_shown, "no_foreground_client"}}, desktop)
+        assert fix == nil
+      end
+    end
+
+    test "herdr's popups off and no notifier on this machine says both, as a warning" do
+      check = Doctor.hoot({:ok, {:not_shown, "disabled"}}, {:error, :no_notifier})
+
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "disabled"
+      assert check.detail =~ "terminal-notifier"
+      assert check.detail =~ "osascript"
+      assert check.detail =~ "silent"
+      assert check.fix =~ "ui.toast"
+    end
+
+    test "a desktop notifier that failed says how" do
+      check =
+        Doctor.hoot(
+          {:ok, {:not_shown, "no_foreground_client"}},
+          {:error, {"osascript", {:exit, 1}}}
+        )
+
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "osascript"
+      assert check.detail =~ "no_foreground_client"
+    end
+
     test "never a failure: a silent hoot loses no question (ADR-0038)" do
       for probe <- [
             {:ok, :shown},
@@ -219,6 +258,11 @@ defmodule Whiska.DoctorTest do
             :no_socket
           ] do
         assert %Check{status: status} = Doctor.hoot(probe)
+        assert status in [:ok, :warn]
+      end
+
+      for desktop <- [{:ok, "osascript"}, {:error, :no_notifier}, {:error, {:error, :boom}}] do
+        assert %Check{status: status} = Doctor.hoot({:ok, {:not_shown, "disabled"}}, desktop)
         assert status in [:ok, :warn]
       end
     end
@@ -921,6 +965,26 @@ defmodule Whiska.DoctorTest do
 
       assert %Check{status: :warn, fix: "whiska init"} =
                find(report.checks, "statusline script")
+    end
+
+    test "herdr's popups off, the probe is raised on the desktop and the check says so", %{
+      main: main,
+      env: env
+    } do
+      test = self()
+      stub(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
+      stub(Herdr, :notify, fn _socket, _notification -> {:ok, {:not_shown, "disabled"}} end)
+
+      stub(Whiska.Desktop.Mock, :notify, fn notification ->
+        send(test, {:desktop, notification})
+        {:ok, "terminal-notifier"}
+      end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end, desktop: Whiska.Desktop.Mock)
+
+      assert_received {:desktop, %{title: "🐱 whiska doctor"}}
+      assert %Check{status: :ok, detail: detail} = find(report.checks, "hoot")
+      assert detail =~ "terminal-notifier"
     end
 
     test "a repo with no copy of the script says nothing about one", %{main: main, env: env} do

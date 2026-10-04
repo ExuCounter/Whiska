@@ -11,6 +11,7 @@ defmodule Whiska.Owl.HootTest do
   import Mox
 
   alias Whiska.Doorstep
+  alias Whiska.Desktop.Mock, as: Desktop
   alias Whiska.Doorstep.Entry
   alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.Owl.House
@@ -62,6 +63,7 @@ defmodule Whiska.Owl.HootTest do
   defp start_house(opts) do
     name = :"house-#{System.unique_integer([:positive])}"
     allow(Herdr, self(), fn -> Process.whereis(name) end)
+    allow(Desktop, self(), fn -> Process.whereis(name) end)
     start_supervised!({House, [name: name] ++ opts})
   end
 
@@ -78,7 +80,8 @@ defmodule Whiska.Owl.HootTest do
         main_checkout: main,
         herdr_socket: @socket,
         backstop_ms: 60_000,
-        round_wait_ms: @wait
+        round_wait_ms: @wait,
+        desktop: Desktop
       )
 
     House.sync(pid)
@@ -109,6 +112,99 @@ defmodule Whiska.Owl.HootTest do
       send(test, {:hooted, notification})
       answer
     end)
+  end
+
+  defp expect_desktop(answer \\ {:ok, "terminal-notifier"}) do
+    test = self()
+
+    stub(Desktop, :notify, fn notification ->
+      send(test, {:desktop, notification})
+      answer
+    end)
+  end
+
+  describe "when herdr will not show it (ADR-0071)" do
+    for reason <- ["disabled", "no_foreground_client"] do
+      test "herdr saying #{reason} raises the same hoot on the desktop", %{main: main, a: a} do
+        main_is("idle")
+        expect_hoots({:ok, {:not_shown, unquote(reason)}})
+        expect_desktop()
+        house = open(main)
+
+        leave(main, a, "[worktree-status: needs-decision] pick one")
+        House.collect(house)
+
+        assert_receive {:hooted, hoot}, @arrives
+        assert_receive {:desktop, ^hoot}, @arrives
+        refute_receive {:desktop, _}, @wait
+      end
+    end
+
+    for answer <- [
+          {:ok, :shown},
+          {:ok, {:not_shown, "rate_limited"}},
+          {:ok, {:not_shown, "busy"}},
+          {:ok, {:not_shown, "a reason herdr adds later"}},
+          {:error, :timeout}
+        ] do
+      test "herdr answering #{inspect(answer)} raises nothing on the desktop", %{
+        main: main,
+        a: a
+      } do
+        main_is("idle")
+        expect_hoots(unquote(Macro.escape(answer)))
+        expect_desktop()
+        house = open(main)
+
+        leave(main, a, "[worktree-status: needs-decision] pick one")
+        House.collect(house)
+
+        assert_receive {:hooted, _}, @arrives
+        refute_receive {:desktop, _}, @wait
+      end
+    end
+
+    test "a question held behind a busy session raises nothing on the desktop either", %{
+      main: main,
+      a: a
+    } do
+      main_is("working")
+      expect_hoots({:ok, {:not_shown, "disabled"}})
+      expect_desktop()
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] pick one")
+      House.collect(house)
+
+      refute_receive {:desktop, _}, @wait * 2
+    end
+
+    test "a desktop notifier that raises leaves the delivery exactly as it was", %{
+      main: main,
+      a: a
+    } do
+      test = self()
+      main_is("idle")
+      expect_hoots({:ok, {:not_shown, "disabled"}})
+
+      stub(Desktop, :notify, fn _notification ->
+        send(test, :desktop)
+        raise "notifier went away"
+      end)
+
+      house = open(main)
+
+      capture_io(:stderr, fn ->
+        leave(main, a, "[worktree-status: needs-decision] pick one")
+        House.collect(house)
+        assert_receive :desktop, @arrives
+        House.sync(house)
+      end)
+
+      assert Process.alive?(house)
+      Storage.point_at(House.repo(house))
+      assert Storage.question(1).status == "sent"
+    end
   end
 
   test "one hoot goes out with the line, naming the house and the branch", %{main: main, a: a} do

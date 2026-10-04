@@ -9,3 +9,7 @@ config :whiska, :herdr, Whiska.Herdr.Mock
 
 # launchctl is a runner that refuses, so no test can reach the real one.
 config :whiska, :launchctl, &Whiska.Test.NoLaunchctl.run/1
+
+# No notifier, so a hoot herdr refuses never reaches the real desktop
+# (ADR-0071).
+config :whiska, :desktop, Whiska.Test.NoDesktop

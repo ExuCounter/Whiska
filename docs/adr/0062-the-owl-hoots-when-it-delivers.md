@@ -1,5 +1,12 @@
 # The owl hoots when it delivers
 
+> Amended 2026-10-04 by ADR-0071: a hoot herdr will not show because its popups are off
+> (`disabled`) or nobody is attached (`no_foreground_client`) is raised on the desktop with
+> `terminal-notifier` or `osascript`. The rule below that the hoot goes out from the same
+> place as the typed line stands. What no longer holds is the rejection of those two
+> programs and the dropped answer on delivery. Both assumed `[ui.toast] delivery` was one
+> decision, and it is one switch over two.
+
 Everything Whiska does to reach the person ends in one place: a line typed into the main
 session's prompt box (ADR-0008). That line only works on somebody who is looking at that
 terminal, and the whole reason a mouse leaves a question on the doorstep is that the person

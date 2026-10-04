@@ -12,6 +12,7 @@ C4Container
 
   Person(person, "The person", "Answers one question at a time")
   System_Ext(herdr, "herdr", "Panes, sessions, agent status")
+  System_Ext(nc, "Desktop notifications", "terminal-notifier, or osascript")
 
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; resolves runtime at fire time, fails open. The global copy stands down where the repo has its own")
@@ -42,6 +43,7 @@ C4Container
   Rel(cli, db, "questions, statusline and waiting read every recorded house")
   Rel(cli, doorstep, "questions, statusline and waiting count what is uncollected")
   Rel(cli, herdr, "mice list panes; doctor reads herdr's config for the tab bar entry")
+  Rel(house, nc, "Raises a hoot herdr will not show; doctor probes the same path")
   Rel(cli, herdr, "start types claude at this pane's shell prompt when nothing runs there")
   Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
   Rel(herdr, shim, "PreToolUse and Stop fire in a mouse's session")
