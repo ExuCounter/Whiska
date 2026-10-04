@@ -53,6 +53,8 @@ defmodule Whiska.EscriptTest do
   end
 
   test "denies a main-checkout write, end to end", %{main: main, worktree: worktree} do
+    {_, 0} = System.cmd(@binary, ["shape", "build"], cd: worktree, stderr_to_stdout: true)
+
     {out, status} =
       hook(
         %{
@@ -77,6 +79,8 @@ defmodule Whiska.EscriptTest do
   end
 
   test "allows a write inside the worktree, silently", %{worktree: worktree} do
+    {_, 0} = System.cmd(@binary, ["shape", "build"], cd: worktree, stderr_to_stdout: true)
+
     {out, status} =
       hook(
         %{
@@ -148,7 +152,30 @@ defmodule Whiska.EscriptTest do
     assert String.trim(out) == "0.0.1"
   end
 
+  # The order ADR-0069 is about: the shape is in the house before Claude starts,
+  # so the very first tool call a sniff mouse makes is already a sniff call.
+  test "a mouse shaped as sniff before it starts gets no free edit", %{worktree: worktree} do
+    {out, 0} = System.cmd(@binary, ["shape", "sniff"], cd: worktree, stderr_to_stdout: false)
+    assert String.trim(out) == "sonnet"
+
+    {out, 0} =
+      hook(
+        %{
+          "cwd" => worktree,
+          "tool_name" => "Write",
+          "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+        },
+        worktree
+      )
+
+    assert out =~ ~s("permissionDecision":"deny")
+    # Denied as sniff, not as a mouse nobody shaped.
+    assert out =~ "sniff mode"
+  end
+
   test "whiska mode switches enforcement, end to end", %{worktree: worktree} do
+    {_, 0} = System.cmd(@binary, ["shape", "build"], cd: worktree, stderr_to_stdout: true)
+
     # build mouse: an edit inside its own worktree is fine
     {out, 0} =
       hook(

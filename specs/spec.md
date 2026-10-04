@@ -224,39 +224,19 @@ No new machinery needed — two things already designed elsewhere solve it direc
 Idea borrowed from firstmate's Ship/Scout, renamed to fit our own words. Same kind of
 mouse either way, just a mode flag:
 
-- **build** — produces a real change. Default mode, current rules apply (edits confined
-  to its own worktree, push needs approval).
+- **build** — produces a real change. Current rules apply (edits confined to its own
+  worktree, push needs approval). Not a default: a mouse nobody shaped may read but not
+  write until the person picks a mode (ADR-0069).
 - **sniff** — investigation only. Writes a report, never a PR. `PreToolUse` blocks
   *all* edits, not just ones outside the worktree — a sniff mouse should never write
   code at all.
 
-**Model/effort choice:** the main session can always override per task, same judgment
-call it already makes for "does this need a worktree at all." The *default*, though,
-comes from a small static config, not a hardcoded rule — same agnostic shape as
-`checks.yml`. `whiska init` scaffolds `.whiska/dispatch.yml`:
-
-```yaml
-# Ranked per mode — Whiska tries the first, falls back to the next only on an
-# actual failure (a real rate-limit/quota error), never guessed ahead of time.
-build:
-  - sonnet
-  - opus
-sniff:
-  - haiku
-  - sonnet
-```
-
-**Reactive, not predictive** — same "verify mechanically, don't guess ahead of time"
-principle running through the rest of this spec. Whiska doesn't check quota or usage
-before spawning (that means integrating with whatever quota API each provider happens
-to expose, inconsistent, some may not even have one). It just tries the first entry;
-if the spawn itself actually fails with a real quota/rate-limit error, it tries the next
-one down the list. No live usage-tracking, no per-provider integration — a plain ranked
-list, walked in order, only moving on when something genuinely didn't work.
-
-Static for now, on purpose — if this later needs to shift based on real usage patterns
-(prefer whichever account has quota left *today*), that's a real feature to add on top
-later, not something to build speculatively now.
+**Model choice** (ADR-0069, superseding ADR-0019's ranked list): the model belongs to
+the mouse's shape. `spawn-worktree` runs `whiska shape build|sniff` in the new worktree
+before Claude starts; a sniff mouse starts on `sonnet`, a build mouse keeps the person's
+own default, and the spawn may name another with `--model fable|opus|sonnet`. No
+per-repo model list and no fallback on quota errors: by the time a quota error can
+happen, the spawn has already succeeded.
 
 ## What gets saved
 

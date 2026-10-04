@@ -68,7 +68,8 @@ individually citable decisions.
 ## Mice: modes, dispatch, liveness
 
 - [0018](0018-mouse-modes-are-build-and-sniff.md) — Mouse modes are build and sniff
-- [0019](0019-model-choice-is-a-ranked-list-walked-reactively.md) — Model choice is a ranked list in dispatch.yml, walked reactively
+- [0019](0019-model-choice-is-a-ranked-list-walked-reactively.md) — Model choice is a ranked list in dispatch.yml, walked reactively (superseded 2026-10-03 by 0069)
+- [0069](0069-a-mouse-is-shaped-before-it-starts.md) — A mouse is shaped before it starts, and its shape carries its model (makes 0018 reachable and rewrites its default; supersedes 0019)
 - [0026](0026-dead-mice-and-stuck-mice-are-separate-problems.md) — Dead mice and stuck mice are separate problems
 - [0050](0050-a-mouses-last-action-is-read-from-its-transcript.md) — A mouse's last action is read from its Claude Code transcript, never asked for
 - [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl (builds 0026's rung three; amends 0044 with its one exception)

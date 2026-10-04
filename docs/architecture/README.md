@@ -8,13 +8,14 @@ an ADR disagree, the ADR wins.
 |---|---|---|
 | 1 | [c4-context.md](c4-context.md) | Whiska between the person, Claude Code, herdr, git and launchd |
 | 2 | [c4-containers.md](c4-containers.md) | Built against designed, as two boundaries |
-| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init and the CLAUDE.md block, mode, questions, the statusline, doctor, the delivery-side commands, waiting and jump |
+| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init and the CLAUDE.md block, mode and shape, questions, the statusline, doctor, the delivery-side commands, waiting and jump |
 | 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification, delivery |
 | — | [c4-dynamic-pretooluse.md](c4-dynamic-pretooluse.md) | One tool-call decision, end to end |
 | — | [c4-dynamic-question-delivery.md](c4-dynamic-question-delivery.md) | A question from the doorstep to its answer |
 
 **Built.** v0.0.1's plumbing — mouse identity as a marker file, a per-repo SQLite house,
-worktree containment and sniff mode enforced through `PreToolUse` (ADR-0030). Then the
+worktree containment and sniff mode enforced through `PreToolUse` (ADR-0030) — reachable
+since a spawn shapes each mouse, mode and model, before Claude starts (ADR-0069). Then the
 owl slice: the owl supervisor with one independently supervised house per project, each
 house's herdr subscription and pane discovery, the doorstep and the `Stop` hook that
 writes to it, collection on idle, and dead-mouse marking (ADR-0001, ADR-0036, ADR-0026).

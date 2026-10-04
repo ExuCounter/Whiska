@@ -76,6 +76,31 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       refute body =~ "settings.local.json cp"
     end
 
+    test "shapes the mouse before Claude starts, and stops if it cannot (ADR-0069)" do
+      body = skill("spawn-worktree")
+
+      # The order is the whole point: a shape recorded after Claude starts
+      # gives a sniff mouse its first tool calls as a build mouse.
+      {shape_at, _} = :binary.match(body, "whiska shape <build|sniff>")
+      {start_at, _} = :binary.match(body, "herdr agent start <agent-name>")
+      assert shape_at < start_at
+
+      assert body =~ ~s(-- --model "$model")
+
+      # One fenced block: a shell variable does not survive between two Bash
+      # calls, so a shape in one block and a start in the next starts every
+      # mouse on the default model.
+      [block] =
+        Regex.scan(~r/```bash\n(.*?)```/s, body, capture: :all_but_first)
+        |> List.flatten()
+        |> Enum.filter(&(&1 =~ "whiska shape"))
+
+      assert block =~ "herdr agent start"
+      assert body =~ "do not start Claude by hand"
+      # The report carries Whiska's own line, not the skill's intent.
+      assert body =~ "word for word"
+    end
+
     test "carries the hooks and settings only, never the skills" do
       # A mouse speaks through its Stop hook; the skills are main-session
       # tools, and the person's own skills are read from ~/.claude/skills in

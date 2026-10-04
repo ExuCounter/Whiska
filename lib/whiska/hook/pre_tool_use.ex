@@ -143,9 +143,10 @@ defmodule Whiska.Hook.PreToolUse do
     end
   end
 
-  # Falling back to build rather than sniff is deliberate. build is the default
-  # and the common case; assuming sniff would block every edit in ordinary work
-  # over a database hiccup. This degrades sniff to build, never to unprotected —
+  # Falling back to build rather than sniff is deliberate. build is the common
+  # case; assuming sniff would block every edit in ordinary work over a database
+  # hiccup. This degrades sniff, and the hold on a mouse nobody shaped
+  # (ADR-0069), to build, never to unprotected —
   # worktree containment is pure path arithmetic and does not consult the
   # database at all.
   #

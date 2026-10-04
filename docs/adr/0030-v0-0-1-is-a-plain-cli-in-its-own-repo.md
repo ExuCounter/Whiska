@@ -78,3 +78,11 @@ vouch for least, so the one path that bypasses every other guard fails closed th
 This narrows the rule above: no `git worktree list`, and the main checkout is still
 found by path arithmetic rather than by probing. One `File.stat` per level is all git is
 asked for, and it is asked only to decide where a branch name stops.
+
+
+## Note, 2026-10-03: minting is no longer only lazy
+
+ADR-0069 has `spawn-worktree` run `whiska shape` in the new worktree before Claude starts,
+which mints the marker and the record then. Lazy minting on the first hook call remains,
+for a mouse nobody shaped. "Nothing upstream has to change" was this slice's scope, not a
+standing rule.

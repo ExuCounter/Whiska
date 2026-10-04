@@ -166,6 +166,13 @@ defmodule Whiska.CLI do
                          own worktree. A sniff mouse investigates and reports,
                          and may not write anything at all.
 
+    shape build|sniff [--model fable|opus|sonnet]
+                         Give a fresh mouse its shape, before Claude starts
+                         (ADR-0069): record its mode, and print the model
+                         to start Claude on, or nothing. A sniff mouse starts on sonnet;
+                         a build mouse keeps your own default model. Fails
+                         rather than guess, so a spawn stops before Claude.
+
     --version            Print the version.
   """
 
@@ -284,6 +291,19 @@ defmodule Whiska.CLI do
   def run(["mode", other], _cwd) do
     IO.puts(:stderr, "whiska: #{other} is not a mode — expected build or sniff.")
     1
+  end
+
+  # The arguments are read before the house is opened, so a mistyped model
+  # leaves no mouse behind with a shape nobody asked for.
+  def run(["shape" | args], cwd) do
+    case Whiska.Shape.parse(args) do
+      {:ok, shape} ->
+        with_mouse(cwd, &shape(&1, &2, shape))
+
+      {:error, message} ->
+        IO.puts(:stderr, "whiska: #{message}")
+        1
+    end
   end
 
   def run(["--version"], _cwd), do: say(@version)
@@ -826,6 +846,23 @@ defmodule Whiska.CLI do
 
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not set the mode (#{inspect(reason)}).")
+        1
+    end
+  end
+
+  # stdout is the model alias to start Claude on, or nothing for the person's
+  # own default, so a spawn can read it straight into `--model`; what was
+  # recorded goes to stderr, for the person.
+  defp shape(mouse_id, layout, %{mode: mode, model: model}) do
+    case Storage.shape(mouse_id, mode, model) do
+      {:ok, _} ->
+        on = if model, do: " on #{model}", else: ", on your default model"
+        IO.puts(:stderr, "#{layout.branch_label} is a #{mode} mouse#{on}.")
+
+        say(model || "")
+
+      {:error, reason} ->
+        IO.puts(:stderr, "whiska: could not shape this mouse (#{inspect(reason)}).")
         1
     end
   end

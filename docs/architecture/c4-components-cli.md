@@ -1,6 +1,6 @@
 # Component Diagram — the `whiska` CLI
 
-Level 3 for the escript — the hooks, `init`, `mode`, `doctor`, the delivery-side commands
+Level 3 for the escript — the hooks, `init`, `mode`, `shape`, `doctor`, the delivery-side commands
 (`start`, `questions`, `reply`, `close`, `mice`), the machine-wide pair (`waiting`,
 `jump`), and the command that boots the owl.
 Every module here exists in `lib/whiska/` with a test beside it in `test/whiska/`. The
@@ -13,15 +13,16 @@ C4Component
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
 
   Container_Boundary(cli, "whiska escript") {
-    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / doctor / start / questions / reply / close / mice / waiting / jump / owl, and owl install / stop / start / uninstall")
+    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / waiting / jump / owl, and owl install / stop / start / uninstall")
     Component(hook, "Hook.PreToolUse", "decision", "One tool call in, one decision out")
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
     Component(session, "Session", "identity", "Which session is this: the worktree it started in, and whether its pane is the main session")
     Component(layout, "Layout", "path arithmetic", "Finds worktree root and main checkout")
     Component(markerm, "Marker", "identity", "Reads or mints the mouse_id")
+    Component(shapem, "Shape", "pure", "A spawn's mode and model: sniff on sonnet, build on the person's default, or the model named")
     Component(tx, "Transcript", "reader", "Claude Code's JSONL: where the session started, its tail, and whether a subagent is still out")
     Component(mainrule, "Rule.MainCheckout", "rule", "No edits outside the mouse's worktree")
-    Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse writes nothing at all")
+    Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse, or one nobody shaped, writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
     Component(install, "Install", "pure merge", "Writes the hooks, the statusline, the skills and the CLAUDE.md block into the repo, and the machine-wide status script into ~/.whiska/")
@@ -49,6 +50,9 @@ C4Component
   Rel(session, waiting, "Is this pane the house's main session?")
   Rel(stop, doorstep, "Writes one entry, then exits")
   Rel(main, hook, "Delegates the hook command")
+  Rel(main, shapem, "shape: reads the mode and model before minting anything")
+  Rel(main, markerm, "shape and mode: mint the mouse_id before Claude starts")
+  Rel(main, storage, "shape: records mode, model and when, before Claude starts")
   Rel(main, install, "Delegates init")
   Rel(main, claudemd, "init: merges the block into CLAUDE.md")
   Rel(main, questions, "Delegates questions")
@@ -112,6 +116,15 @@ worktree, and the branch label is its path relative to `worktrees/` — falling 
 folder directly under `worktrees/` when there is no such file. No `git worktree list`
 (ADR-0030 and its note). It is re-derived every invocation rather than recorded, which is what lets
 the marker file stay a bare opaque id with no parsing (ADR-0002).
+
+**A mouse is shaped before it starts** (ADR-0069). `spawn-worktree` runs `whiska shape`
+in the new worktree before `herdr agent start`, so the mouse record, its mode and its
+model are in the house before any tool call can arrive — the first one a sniff mouse
+makes is already judged as sniff. stdout is only the model to start Claude on, so the
+skill can read it straight into `--model`; what was recorded goes to stderr for the
+report. A mouse minted lazily by the hook instead has no `shaped_at`: `Storage.mode`
+reads it as `unshaped`, `Rule.Sniff` holds it to sniff's rules with a reason that sends
+it to the person, and `Mice` says `never shaped, reads only`.
 
 **The decision never depends on storage.** `Hook.PreToolUse` treats identity and
 bookkeeping as best-effort; the rule itself does not read the database to contain a

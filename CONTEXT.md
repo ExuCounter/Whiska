@@ -34,7 +34,7 @@ _Avoid_: interview, clarification
 
 **Mouse record**:
 Whiska's own persisted row tracking a mouse — its pane, worktree path, branch label,
-and mode — keyed by `mouse_id`. Outlives the mouse itself: a dead mouse still has a
+and shape — keyed by `mouse_id`. Outlives the mouse itself: a dead mouse still has a
 mouse record, marked dead rather than deleted, and a mouse whose worktree has been cleaned
 up is marked removed and left there, permanently inert. A record is **stale** when it no longer
 stands for a worktree of this house — a record made later covers the same folder, or one
@@ -270,13 +270,22 @@ person answers from their own (ADR-0043).
 _Avoid_: goto, focus (herdr's word for the mechanism, not for what this is), switch,
 attach, take over
 
+**Shape**:
+What a mouse is spawned as: its mode and the model it runs on. Given by the spawn,
+with `whiska shape`, before Claude starts, so the mouse's first tool call is already
+judged by its mode. Each mode carries a default model — sniff starts on `sonnet`, build
+keeps the person's own default — and a spawn may name another. There is no default mode:
+a mouse **never shaped** may read but not write until the person runs `whiska mode`
+in its worktree.
+_Avoid_: profile, preset, role
+
 **Build mode**:
 A mouse mode that produces a real code change. Edits confined to its own worktree,
 push needs approval.
 
 **Sniff mode**:
 A mouse mode for investigation only. Never writes code, never pushes — produces a
-report instead.
+report instead. Starts on a cheaper model than build unless the spawn names one.
 
 **Owl**:
 The one always-awake presence per machine, supervised by `launchd`, that keeps every

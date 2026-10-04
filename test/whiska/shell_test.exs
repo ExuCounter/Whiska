@@ -147,6 +147,36 @@ defmodule Whiska.ShellTest do
     end
   end
 
+  describe "env and command run the command after them (ADR-0069)" do
+    # Both are on the read-only list for what they do alone — print the
+    # environment, say where a command lives. Followed by a command, they run
+    # it, and that command is the one to judge, or a sniff mouse, or one
+    # nobody shaped, could run `env whiska mode build` and shape itself.
+    test "the wrapped command is judged" do
+      assert Shell.mutating?("env whiska mode build")
+      assert Shell.mutating?("/usr/bin/env whiska mode build")
+      assert Shell.mutating?("env FOO=1 whiska shape build")
+      assert Shell.mutating?("env -i rm -rf lib")
+      assert Shell.mutating?("env -u HOME whiska mode build")
+      assert Shell.mutating?("command whiska mode build")
+      assert Shell.mutating?("command -p rm x")
+      assert Shell.mutating?("find . -exec env rm {} \\;")
+      refute Shell.mutating?("env git log")
+      refute Shell.mutating?("command grep -r x lib")
+    end
+
+    test "alone, or only asking, they stay read-only" do
+      refute Shell.mutating?("env")
+      refute Shell.mutating?("env | grep PATH")
+      refute Shell.mutating?("command -v git")
+      refute Shell.mutating?("command -V mix")
+    end
+
+    test "an env flag it cannot read is assumed to run something" do
+      assert Shell.mutating?(~s(env -S "rm -rf lib"))
+    end
+  end
+
   describe "leading environment assignments" do
     test "are stepped over to find the real command" do
       refute Shell.mutating?("MIX_ENV=test git log")
