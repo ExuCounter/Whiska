@@ -79,7 +79,11 @@ defmodule Whiska.InstallStatuslineTest do
       script = Install.statusline_script()
 
       assert script =~ ~r/\A#!/
-      assert script =~ "statusLine.command"
+      assert script =~ "statusLine"
+    end
+
+    test "needs no jq" do
+      refute Install.statusline_script() =~ "jq"
     end
 
     test "prints the board the owl left rather than asking for one (ADR-0051)" do
@@ -92,7 +96,7 @@ defmodule Whiska.InstallStatuslineTest do
     test "looks up the board for the directory the session is in" do
       script = Install.statusline_script()
 
-      assert script =~ "workspace.current_dir"
+      assert script =~ "project_dir current_dir cwd"
       assert script =~ ~s(probe="$dir")
     end
 

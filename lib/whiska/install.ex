@@ -291,7 +291,7 @@ defmodule Whiska.Install do
   # can be told apart from this one (ADR-0059). The person's own copy is
   # committed and shared with their team, so nothing rewrites it: the doctor
   # reads the stamp and says an upgrade is available.
-  @statusline_version 3
+  @statusline_version 4
 
   @statusline_script """
   #!/usr/bin/env bash
@@ -315,9 +315,24 @@ defmodule Whiska.Install do
 
   input="$(cat)"
 
+  # Reads one string field of the JSON on stdin; the value stays escaped.
+  json_field() {
+    sed -nE 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*"(([^"\\\\]|\\\\.)*)".*/\\1/p'
+  }
+
+  json_unescape() {
+    local s="$1"
+    s="${s//\\\\\\\\/$'\\001'}"
+    s="${s//\\\\\\"/\\"}"
+    s="${s//\\\\\\//\\/}"
+    printf '%s' "${s//$'\\001'/\\\\}"
+  }
+
   global=""
-  if command -v jq >/dev/null 2>&1 && [ -r "$HOME/.claude/settings.json" ]; then
-    global="$(jq -r '.statusLine.command // empty' "$HOME/.claude/settings.json" 2>/dev/null)"
+  if [ -r "$HOME/.claude/settings.json" ]; then
+    global="$(tr -d '\\n' < "$HOME/.claude/settings.json" \\
+      | sed -nE 's/.*"statusLine"[[:space:]]*:[[:space:]]*\\{[^}]*"command"[[:space:]]*:[[:space:]]*"(([^"\\\\]|\\\\.)*)".*/\\1/p')"
+    global="$(json_unescape "$global")"
   fi
 
   # A global statusLine that is Whiska's own is this script, or the copy in
@@ -340,9 +355,10 @@ defmodule Whiska.Install do
   # the repo it started in, and a mouse that steps into the main checkout must
   # still read as a mouse.
   dir=""
-  if command -v jq >/dev/null 2>&1; then
-    dir="$(printf '%s' "$input" | jq -r '.workspace.project_dir // .workspace.current_dir // .cwd // empty' 2>/dev/null)"
-  fi
+  for key in project_dir current_dir cwd; do
+    dir="$(json_unescape "$(printf '%s' "$input" | json_field "$key")")"
+    [ -n "$dir" ] && break
+  done
   [ -d "$dir" ] || dir="$PWD"
 
   # A mouse's own pane never draws the board: it is the person's view of

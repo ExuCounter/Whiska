@@ -125,17 +125,66 @@ defmodule Whiska.PostPushReflectHookTest do
     assert hook(repo) == :quiet
   end
 
+  describe "without jq on the PATH" do
+    test "a push still nudges, with valid JSON", %{repo: repo} do
+      GitRepo.commit!(repo.checkout, "fix.md", "written here")
+      GitRepo.git!(repo.checkout, ["push", "origin", "main"])
+
+      out = hook_output(repo, "git push origin main", path: without_jq())
+
+      assert %{"hookSpecificOutput" => %{"hookEventName" => "PostToolUse"} = body} =
+               JSON.decode!(out)
+
+      assert body["additionalContext"] =~ "lesson-learned"
+    end
+
+    test "a command that is not a push stays quiet", %{repo: repo} do
+      assert hook_output(repo, "git status", path: without_jq()) == ""
+    end
+
+    test "a push chained after another command is still seen", %{repo: repo} do
+      GitRepo.commit!(repo.checkout, "fix.md", "written here")
+      GitRepo.git!(repo.checkout, ["push", "origin", "main"])
+
+      out = hook_output(repo, "mix test\ngit push origin main", path: without_jq())
+      assert out =~ "additionalContext"
+    end
+  end
+
+  defp without_jq do
+    bin = Path.join(System.tmp_dir!(), "whiska-nojq-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(bin)
+    on_exit(fn -> File.rm_rf!(bin) end)
+
+    for tool <- ~w(git grep tr cat mkdir sed dirname) do
+      File.ln_s!(System.find_executable(tool), Path.join(bin, tool))
+    end
+
+    bin
+  end
+
   defp hook(repo, command \\ "git push origin main") do
+    if hook_output(repo, command) =~ "additionalContext", do: :nudge, else: :quiet
+  end
+
+  defp hook_output(repo, command, opts \\ []) do
     payload = JSON.encode!(%{"tool_input" => %{"command" => command}})
     payload_file = Path.join(repo.checkout, "../payload-#{System.unique_integer([:positive])}")
     File.write!(payload_file, payload)
 
+    path = Keyword.get(opts, :path, System.get_env("PATH"))
+    bash = System.find_executable("bash")
+
     {out, 0} =
-      System.cmd("bash", ["-c", ~s|bash "#{@hook}" < "#{payload_file}"|],
+      System.cmd("bash", ["-c", ~s|"#{bash}" "#{@hook}" < "#{payload_file}"|],
         cd: repo.checkout,
-        env: [{"GIT_CONFIG_GLOBAL", "/dev/null"}, {"GIT_CONFIG_SYSTEM", "/dev/null"}]
+        env: [
+          {"GIT_CONFIG_GLOBAL", "/dev/null"},
+          {"GIT_CONFIG_SYSTEM", "/dev/null"},
+          {"PATH", path}
+        ]
       )
 
-    if out =~ "additionalContext", do: :nudge, else: :quiet
+    out
   end
 end

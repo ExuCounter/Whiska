@@ -16,7 +16,7 @@ Installed by `whiska init` (Whiska ADR-0046).
 ```bash
 test "${HERDR_ENV:-}" = 1
 command -v herdr
-command -v jq
+command -v whiska
 ```
 
 If any check fails, say what is missing and stop.
@@ -35,24 +35,20 @@ this idea belongs on a branch that already has one:
 If it is not obvious from the idea itself, ask the person one direct question naming the
 candidate worktree and branch. Do not guess silently either way.
 
-## Find the target worktree
-
-List active worktrees and match by branch name, or by what is being built there:
+## Find the target worktree, its pane and its status
 
 ```bash
-herdr worktree list | jq '.result.worktrees[] | select(.is_linked_worktree) | {branch, path, workspace_id: .open_workspace_id}'
+whiska worktrees
 ```
+
+One line per worktree, tab-separated: branch, path, herdr workspace id, pane id, pane
+status. A `-` means there is none. Match by branch name, or by what is being built there.
 
 If more than one plausibly matches, ask which. If none match, this is not a routing case
-— say so and suggest `spawn-worktree`.
+— say so and suggest `spawn-worktree`. A worktree with `-` for its pane has no session
+running; there is nothing to send to.
 
-## Get the pane and check its status
-
-```bash
-herdr pane list --workspace <workspace-id> | jq '.result.panes[0] | {pane_id, agent_status}'
-```
-
-`agent_status` tells you what you are sending into:
+The last column tells you what you are sending into:
 
 - `working` — mid-task. Sending now is fine (it queues), but say so when you report
   back; do not imply it will be picked up instantly.

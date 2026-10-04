@@ -23,6 +23,7 @@ removed (Whiska ADR-0007), and its questions stay readable.
 ```bash
 test "${HERDR_ENV:-}" = 1
 command -v herdr
+command -v whiska
 command -v git
 ```
 
@@ -34,8 +35,11 @@ Ask which worktree to drop unless the person named one. Show the list to help th
 choose:
 
 ```bash
-herdr worktree list | jq '.result.worktrees[] | select(.is_linked_worktree) | {branch, path, workspace_id: .open_workspace_id}'
+whiska worktrees
 ```
+
+One line per worktree, tab-separated: branch, path, herdr workspace id, pane id, pane
+status. A `-` means there is none.
 
 Never guess the target. If more than one matches an ambiguous name, ask which.
 
@@ -67,7 +71,7 @@ Confirm both halves are gone:
 
 ```bash
 git worktree list                                  # the target path should be gone
-herdr workspace list | jq '.result.workspaces[] | select(.workspace_id == "<id>")'  # empty
+herdr workspace list | grep '"<workspace-id>"'     # no output: the workspace is closed
 ```
 
 If either still shows the target, fall back:

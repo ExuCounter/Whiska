@@ -1,7 +1,7 @@
 # Component Diagram — the `whiska` CLI
 
 Level 3 for the escript — the hooks, `init`, `mode`, `shape`, `doctor`, the delivery-side commands
-(`start`, `questions`, `reply`, `close`, `mice`), the machine-wide pair (`waiting`,
+(`start`, `questions`, `reply`, `close`, `mice`, `worktrees`), the machine-wide pair (`waiting`,
 `jump`), and the command that boots the owl.
 Every module here exists in `lib/whiska/` with a test beside it in `test/whiska/`. The
 owl's own internals are a separate diagram: [c4-components-owl.md](c4-components-owl.md).
@@ -13,7 +13,7 @@ C4Component
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
 
   Container_Boundary(cli, "whiska escript") {
-    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / waiting / jump / owl, and owl install / stop / start / uninstall")
+    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / worktrees / waiting / jump / owl, and owl install / stop / start / uninstall")
     Component(hook, "Hook.PreToolUse", "decision", "One tool call in, one decision out")
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
     Component(session, "Session", "identity", "Which session is this: the worktree it started in, and whether its pane is the main session")
@@ -40,7 +40,7 @@ C4Component
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
   Container_Ext(doorstep, "Doorstep", "directory", "Uncollected entries")
-  System_Ext(herdr, "herdr", "pane list, main-session focus for jump, and starting Claude in a pane")
+  System_Ext(herdr, "herdr", "pane list, worktree list for worktrees, main-session focus for jump, and starting Claude in a pane")
   Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
 
   Rel(shim, main, "Execs", "JSON on stdin")
