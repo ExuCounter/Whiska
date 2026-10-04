@@ -105,7 +105,7 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/only when the change touches something a person sees/i
     end
 
-    # ADR-next-tests-are-scouted-then-reviewed narrows ADR-0072's always-on wio row.
+    # ADR-0075 narrows ADR-0072's always-on wio row.
     test "the test reviewer is a fifth axis, only when the change touches a test file" do
       body = prose()
 

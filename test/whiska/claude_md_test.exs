@@ -52,7 +52,7 @@ defmodule Whiska.ClaudeMdTest do
       lines = rendered |> String.split("\n") |> length()
       words = rendered |> String.split() |> length()
 
-      # Raised for the test scout, deliberately (ADR-next-tests-are-scouted-then-reviewed).
+      # Raised for the test scout, deliberately (ADR-0075).
       assert lines <= 145, "the block grew back to #{lines} lines; every rule has a terse form"
       assert words <= 1433, "the block grew back to #{words} words; every rule has a terse form"
     end
@@ -131,7 +131,7 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/never grill what is already spelled out/i
     end
 
-    # ADR-next-tests-are-scouted-then-reviewed: the failing test is chosen from
+    # ADR-0075: the failing test is chosen from
     # risk, before any code, while the work is still cheap to change.
     test "the failing test is picked from what the test scout ranks riskiest" do
       body = prose_of("worktrees")

@@ -1,6 +1,6 @@
 # The reviewer roster is whatever the session already has, and a finding's word decides its fate
 
-**Amended 2026-10-04 by ADR-next-tests-are-scouted-then-reviewed**: a fifth axis, tests, runs
+**Amended 2026-10-04 by ADR-0075**: a fifth axis, tests, runs
 `wio-test-reviewer` when the change touches a test file, and it is the one axis that is not
 written as a prompt when nothing is listed — its absence is said in one line instead.
 
