@@ -172,7 +172,8 @@ Elixir/OTP, SQLite via Ecto, one escript serving both the per-event hooks and th
 
 ```bash
 mix deps.get
-mix test                       # 1107 tests
+mix test                       # everything but the end-to-end test
+mix test.e2e                   # the real binary through a private herdr, ~50 s
 mix format --check-formatted
 mix escript.build
 ```

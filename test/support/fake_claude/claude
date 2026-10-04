@@ -1,0 +1,114 @@
+#!/bin/bash
+# A stand-in for Claude Code, for the end-to-end test (test/whiska/e2e_test.exs).
+#
+# It is named `claude` because herdr picks its agent by the process name, and
+# from then on herdr's own detection rules read its screen exactly as they read
+# the real one: a spinner in the window title is `working`, a `❯` line between
+# two rules at the bottom is `idle`. So what is faked is the model, never herdr's
+# judgment and never Whiska's — the owl's gate reads this screen with the same
+# code it reads Claude Code's with (ADR-0047, ADR-0068).
+#
+# Like Claude Code it draws on the alternate screen, takes keystrokes one at a
+# time, shows what has been typed in its prompt box, and starts a turn on Enter.
+#
+#   FAKE_CLAUDE_ROLE=main   every submitted line is appended to
+#                           $FAKE_CLAUDE_DIR/received, then a short turn runs.
+#   FAKE_CLAUDE_ROLE=mouse  a submitted line starts a turn that ends on the text
+#                           of $FAKE_CLAUDE_DIR/message, and the Stop hooks in
+#                           ./.claude/settings.json run with that as
+#                           `last_assistant_message` — the repo's real wiring.
+
+set -u
+printf '\033]0;✳ fake claude\007'
+
+dir="${FAKE_CLAUDE_DIR:?FAKE_CLAUDE_DIR is not set}"
+role="${FAKE_CLAUDE_ROLE:?FAKE_CLAUDE_ROLE is not set}"
+mkdir -p "$dir"
+rule="────────────────────────────────────────────────────────────"
+box=""
+
+title() { printf '\033]0;%s\007' "$1"; }
+
+draw_idle() {
+  title "✳ fake claude"
+  printf '\033[H\033[2J'
+  printf '%s\n' "$rule"
+  printf '❯ %s\n' "$box"
+  printf '%s\n' "$rule"
+  printf '  ? for shortcuts\n'
+}
+
+draw_working() {
+  title "⠋ fake claude"
+  printf '\033[H\033[2J'
+  printf '✻ Working… (esc to interrupt)\n'
+}
+
+stop_hooks() {
+  python3 - "$PWD/.claude/settings.json" <<'PY'
+import json, sys
+try:
+    settings = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(0)
+for group in settings.get("hooks", {}).get("Stop", []):
+    for hook in group.get("hooks", []):
+        if hook.get("type") == "command":
+            sys.stdout.write(hook["command"] + "\0")
+PY
+}
+
+finish_turn() {
+  local payload="$dir/stop-payload.json"
+  python3 - "$dir/message" "$PWD" > "$payload" <<'PY'
+import json, sys
+message = open(sys.argv[1]).read() if sys.argv[1] else ""
+print(json.dumps({
+    "hook_event_name": "Stop",
+    "session_id": "fake-claude",
+    "cwd": sys.argv[2],
+    "stop_hook_active": False,
+    "last_assistant_message": message,
+}))
+PY
+  while IFS= read -r -d '' command; do
+    CLAUDE_PROJECT_DIR="$PWD" bash -c "$command" < "$payload" >> "$dir/hooks.log" 2>&1
+  done < <(stop_hooks)
+}
+
+turn() {
+  local line="$1"
+  draw_working
+  case "$role" in
+    main) printf '%s\n' "$line" >> "$dir/received" ;;
+    mouse) finish_turn ;;
+  esac
+  sleep 0.3
+  draw_idle
+}
+
+printf '\033[?1049h'
+trap 'printf "\033[?1049l"' EXIT
+draw_idle
+
+while IFS= read -r -s -n1 -d '' key; do
+  case "$key" in
+    $'\r' | $'\n')
+      line="$box"
+      box=""
+      turn "$line"
+      ;;
+    $'\177')
+      box="${box%?}"
+      draw_idle
+      ;;
+    $'\e')
+      # A key with an escape sequence behind it — nothing this fake needs.
+      read -r -s -t 0.05 -n 8 _rest
+      ;;
+    *)
+      box+="$key"
+      draw_idle
+      ;;
+  esac
+done
