@@ -1,5 +1,9 @@
 # The reviewer roster is whatever the session already has, and a finding's word decides its fate
 
+**Amended 2026-10-04 by ADR-next-tests-are-scouted-then-reviewed**: a fifth axis, tests, runs
+`wio-test-reviewer` when the change touches a test file, and it is the one axis that is not
+written as a prompt when nothing is listed — its absence is said in one line instead.
+
 ADR-0049 gave finishing five steps, and step 3 sends reviewers over the change on four
 axes — correctness, security, performance, frontend. It did not say where a reviewer
 comes from, so every mouse wrote four prompts from scratch, and it did not say what a

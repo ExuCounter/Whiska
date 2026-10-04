@@ -112,7 +112,17 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ "**tests** —"
       assert body =~ "`wio-test-reviewer`"
       assert body =~ ~r/only when the change adds, edits or deletes a test file/i
-      assert body =~ ~r/git diff --name-only/
+      assert body =~ ~r/`git diff --name-only` from the merge base: `wio-test-reviewer`/
+      assert body =~ "beyond the five"
+    end
+
+    test "a test reviewer this repo ships is the copy read before dispatch" do
+      assert prose() =~
+               ~r/`\.claude\/agents\/wio-test-reviewer\.md` in this repo is the copy that runs, not the one in `~\/\.claude`/
+    end
+
+    test "the written-prompt fallback names its one exception" do
+      assert prose() =~ ~r/write the prompt for it, except tests, above/i
     end
 
     test "a missing test reviewer is one line in the message, never improvised" do
@@ -126,6 +136,7 @@ defmodule Whiska.InstallFinishSkillTest do
       body = prose()
 
       assert body =~ ~r/REDO or REMOVE on a test this change added or edited is \*\*important\*\*/
+      assert body =~ ~r/on any other, \*\*pre-existing\*\*/
       assert body =~ ~r/never to make a check pass/i
     end
 

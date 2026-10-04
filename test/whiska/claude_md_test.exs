@@ -53,8 +53,8 @@ defmodule Whiska.ClaudeMdTest do
       words = rendered |> String.split() |> length()
 
       # Raised for the test scout, deliberately (ADR-next-tests-are-scouted-then-reviewed).
-      assert lines <= 143, "the block grew back to #{lines} lines; every rule has a terse form"
-      assert words <= 1406, "the block grew back to #{words} words; every rule has a terse form"
+      assert lines <= 145, "the block grew back to #{lines} lines; every rule has a terse form"
+      assert words <= 1433, "the block grew back to #{words} words; every rule has a terse form"
     end
 
     test "no rule is buried deeper than one level of bullet" do
@@ -136,16 +136,23 @@ defmodule Whiska.ClaudeMdTest do
     test "the failing test is picked from what the test scout ranks riskiest" do
       body = prose_of("worktrees")
 
-      assert body =~ ~r/name the failing test.{0,80}`wio-candidate-scout`/i
-      assert body =~ ~r/riskiest/i
+      assert body =~
+               ~r/while none is named, pick it from what `wio-candidate-scout` ranks riskiest in the files the change will touch/i
     end
 
-    test "a tweak, docs, or a change no test reaches does not pay for the scout" do
-      assert prose_of("worktrees") =~ ~r/unless it is a tweak, docs/i
+    test "a tweak, docs, or a change no test reaches skips the scout, not the failing test" do
+      assert prose_of("worktrees") =~
+               ~r/skip the scout for a tweak, docs, or no test can reach it/i
     end
 
-    test "a missing scout is one line, not a failed turn" do
-      assert prose_of("worktrees") =~ ~r/scout not listed → say so in one line/i
+    test "a missing scout is one line, and the test is still named" do
+      assert prose_of("worktrees") =~
+               ~r/scout not listed → say so in one line and name the test yourself/i
+    end
+
+    test "a scout this repo ships is the copy that runs, and is read first" do
+      assert prose_of("worktrees") =~
+               ~r/`\.claude\/agents\/wio-candidate-scout\.md` in this repo is the copy that runs: read it first/i
     end
 
     test "a brief that needs a guess is grilled before any code" do

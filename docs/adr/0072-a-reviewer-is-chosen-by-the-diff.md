@@ -5,7 +5,8 @@ and the scout narrower: the test reviewer runs only when the diff touches a test
 missing wio is one line rather than a written prompt. The rest of this record is still
 proposed.
 
-**Status: proposed, not applied.** `priv/skills/whiska-finish/SKILL.md` is unchanged. The last
+**Status: proposed, not applied.** Apart from that amendment, `priv/skills/whiska-finish/SKILL.md`
+does not carry this record's text. The last
 section holds the exact text this record would put there. The person can read it before any
 mouse runs it.
 

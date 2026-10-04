@@ -5,7 +5,8 @@ applied): its required **wio** reviewer row, and its "wio's other two agents" se
 
 ADR-0063 made a mouse name the failing test that proves "done" before writing code. It did
 not say how the test is chosen, so a mouse invents one: usually the happy path it was about
-to write anyway. The wio skill ships two read-only agents that answer the question properly
+to write anyway. The wio skill ships two reporting agents — read-only by their own prompt,
+though their tools include Bash — that answer the question properly
 — `wio-candidate-scout`, which ranks what is worth testing by risk, and `wio-test-reviewer`,
 which says KEEP, REDO or REMOVE for a written test. This wires each into the moment it
 fits.
@@ -26,9 +27,23 @@ is what ADR-0055 moved the pipeline into a skill for.
 
 ## Both are gated
 
-- **The scout** is skipped for a tweak, a docs change, or a change no test can reach.
-- **The reviewer** runs only when the change adds, edits or deletes a test file, read from
-  `git diff --name-only` against the merge base, so two mice on one diff agree.
+- **The scout** runs only while no failing test is named, over the files the change will
+  touch, and is skipped for a tweak, a docs change, or a change no test can reach. The skip
+  drops the scout, never ADR-0063's failing test. A follow-up turn on the same task does
+  not scout again.
+- **The reviewer** runs only when the change adds, edits or deletes a test file — support
+  files under a test directory included — read from `git diff --name-only` against the
+  merge base, so two mice on one diff agree.
+
+## A name is something a repo can squat
+
+Before this, Whiska's text named no agent: a reviewer was whichever listed agent was
+plainly built for an axis. Naming `wio-candidate-scout` and `wio-test-reviewer` gives every
+repo a name to fill, and Claude Code lets a project's `.claude/agents/` override a user
+agent of the same name — or supply one where the machine has no wio at all. So both rules
+say the repo's copy is the one that runs, and that file is the one read before dispatch,
+under ADR-0054's read-before-dispatch rule. The scout points at the block's own copy of that
+rule, because `whiska-finish` is not loaded when the scout goes out.
 
 ADR-0072 proposed wio on every finished turn, "even when no test changed", to ask what the
 touched behaviour promises that no test asserts. The person chose the gate instead: a
@@ -61,9 +76,12 @@ ADR-0072 recommended seeing whether the scout and the reviewer catch enough firs
 ## Consequences
 
 - Every mouse on a machine with wio scouts before a non-trivial build. The block grows by
-  three lines, and its length ceiling in `ClaudeMdTest` was raised by exactly that, on
-  purpose — the ceiling exists to catch accretion nobody chose.
+  five lines and 63 words, and its length ceiling in `ClaudeMdTest` was raised by exactly
+  that, on purpose — the ceiling exists to catch accretion nobody chose.
 - Whiska's installed text names a third-party skill's agents. If wio renames them, the
-  rules say "not listed" in one line and carry on; nothing breaks.
+  rules say "not listed" in one line and carry on; nothing breaks. A repo that ships its
+  own copy under either name gets that copy read before it runs.
+- A REMOVE on a guard test this change wrote is a finding like any other: disproved
+  against the code before anything is deleted (ADR-0054).
 - If ADR-0072 is applied later, its wio row should be rewritten to this gate, or this
   record superseded.

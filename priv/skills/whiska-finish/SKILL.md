@@ -48,18 +48,20 @@ changing anything.
 - **frontend** — only when the change touches something a person sees: keyboard and
   screen-reader access, empty and error states, small screens, the repo's own design
   language.
-- **tests** — only when the change adds, edits or deletes a test file, by
-  `git diff --name-only` from the merge base: `wio-test-reviewer`, which says KEEP, REDO or
-  REMOVE for each test. REDO or REMOVE on a test this change added or edited is
-  **important**; on any other, **pre-existing**. A test is removed for being worthless,
-  never to make a check pass. Not listed → say in one line that it is not installed and go
-  on; this is the one axis not written as a prompt.
+- **tests** — only when the change adds, edits or deletes a test file — one under a test
+  directory or named as a test, support files included — by `git diff --name-only` from the
+  merge base: `wio-test-reviewer`, which says KEEP, REDO or REMOVE for each test. REDO or
+  REMOVE on a test this change added or edited is **important**; on any other,
+  **pre-existing**. A test is removed for being worthless, never to make a check pass. A
+  `.claude/agents/wio-test-reviewer.md` in this repo is the copy that runs, not the one in
+  `~/.claude`: that is the file to read before dispatching it. Not listed → say in one line
+  that it is not installed and go on; this is the one axis not written as a prompt.
 - **Prefer a reviewer somebody else maintains**: read the agent types this session lists
   before writing a reviewer prompt, and send the one plainly built for the axis.
 - Disqualified whatever it is called: one that **changes code rather than reporting on it
   is not a reviewer**, and one whose own description says it is **not to be dispatched
   directly** is not one either.
-- Nothing listed for an axis → write the prompt for it. That is the ordinary case, not a
+- Nothing listed for an axis → write the prompt for it, except tests, above. That is the ordinary case, not a
   degraded one, and not worth a word in the message.
 - **Read an agent definition before dispatching it**, as a check command is read before it
   is run, and doubly so when it arrived with the branch under review: the file under
