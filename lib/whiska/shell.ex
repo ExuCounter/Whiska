@@ -123,12 +123,29 @@ defmodule Whiska.Shell do
   @git_reflog_writers ~w(expire delete drop)
   @git_valued_flags ~w(-C --git-dir --work-tree --namespace --attr-source --super-prefix)
 
-  # Variables a command on the read-only list reads to find a program to run:
-  # git's external diff and config, a pager, `less`'s input filter, ripgrep's
-  # config file (which can set `--pre`). `HOME` and `XDG_` move git's config
-  # with it, `PATH` picks which program a name runs, and `DYLD_` and `LD_` load
-  # code into it.
-  @program_variables ~r/^(GIT_|LESS|DYLD_|LD_|XDG_|HOME=|PATH=|MANOPT=|[A-Za-z_]*PAGER=|RIPGREP_CONFIG_PATH=)/
+  # A variable in front of a command leans the other way from the rest of this
+  # module: it is allowed unless its value plainly runs something or makes the
+  # command write. `PAGER=cat` and `GIT_CONFIG_GLOBAL=/dev/null` are how
+  # ordinary investigation keeps git quiet and isolated, and denying every
+  # variable that *could* carry a program blocks that work for a case that
+  # needs a hostile program or config already on disk. So a value that is a
+  # command is judged as one, a value that is a command's own flags is judged as
+  # those flags, and a value that is a path — `HOME`, `XDG_CONFIG_HOME`,
+  # `GIT_CONFIG_GLOBAL`, `PATH`, `RIPGREP_CONFIG_PATH` — is allowed, because
+  # text cannot tell a harmless config from one carrying `diff.external`.
+  @command_variables ~w(
+    GIT_EXTERNAL_DIFF GIT_SSH GIT_SSH_COMMAND GIT_ASKPASS SSH_ASKPASS GIT_EDITOR
+    GIT_SEQUENCE_EDITOR GIT_PROXY_COMMAND EDITOR VISUAL BROWSER
+  )
+  @input_filter_variables ~w(LESSOPEN LESSCLOSE)
+  @option_variables %{"LESS" => "less", "MANOPT" => "man"}
+  @code_variables ~w(DYLD_INSERT_LIBRARIES LD_PRELOAD LD_AUDIT)
+
+  # `git -c` keys whose value cannot name a program or a file to load. Any other
+  # key is denied: `core.pager`, `diff.external`, `pager.<command>`,
+  # `include.path` and the filter and textconv drivers all run or pull in
+  # something, and they are too many to list safely the other way round.
+  @safe_git_config ~r/^((user|color|advice|i18n|column|init|status)\..+|core\.quotepath|core\.abbrev|safe\.directory|log\.[a-z]+|diff\.(renames|algorithm|noprefix|mnemonicprefix|relative|context|interhunkcontext|colormoved)|grep\.(linenumber|patterntype|extendedregexp|column|fullname))$/
 
   @awk_commands ~w(awk gawk mawk)
 
@@ -230,11 +247,60 @@ defmodule Whiska.Shell do
   defp tokens_mutate?(tokens) do
     {assignments, command} = Enum.split_while(tokens, &assignment?/1)
 
-    if Enum.any?(assignments, &Regex.match?(@program_variables, &1)) do
+    if Enum.any?(assignments, &variable_runs?/1) do
       true
     else
       command_tokens_mutate?(command)
     end
+  end
+
+  defp variable_runs?(assignment) do
+    [name, value] = String.split(assignment, "=", parts: 2)
+
+    cond do
+      value == "" ->
+        false
+
+      name in @command_variables ->
+        value_runs?(value)
+
+      String.ends_with?(name, "PAGER") ->
+        value_runs?(value)
+
+      name in @input_filter_variables ->
+        value |> String.trim_leading("|") |> String.trim_leading("-") |> value_runs?()
+
+      is_map_key(@option_variables, name) ->
+        command_tokens_mutate?([@option_variables[name] | judged_words(value)])
+
+      name in @code_variables ->
+        true
+
+      # An absolute path makes git append its trace to that file.
+      String.starts_with?(name, "GIT_TRACE") ->
+        String.starts_with?(value, "/")
+
+      # git's own transport for `-c`, which nobody sets by hand.
+      name == "GIT_CONFIG_PARAMETERS" ->
+        true
+
+      Regex.match?(~r/^GIT_CONFIG_KEY_\d+$/, name) ->
+        not safe_git_config?(value)
+
+      # A lesskey `#env` section can set `LESSOPEN`.
+      name == "LESSKEY_CONTENT" ->
+        String.contains?(value, "#env")
+
+      true ->
+        false
+    end
+  end
+
+  defp value_runs?(command), do: command |> judged_words() |> tokens_mutate?()
+
+  defp safe_git_config?(config) do
+    [key | _value] = String.split(config, "=", parts: 2)
+    Regex.match?(@safe_git_config, String.downcase(key))
   end
 
   defp command_tokens_mutate?([]), do: false
@@ -376,12 +442,15 @@ defmodule Whiska.Shell do
   # that must be stepped over as well — otherwise the directory gets mistaken
   # for the subcommand. `-c` and `--config-env` set config, and config can name
   # a program that even a read-only subcommand runs: `diff.external` for
-  # `git diff`, `core.fsmonitor` for `git status`.
+  # `git diff`, `core.fsmonitor` for `git status`. Unlike a variable, a config
+  # value cannot be judged by itself — `x` is a name for `user.name` and a
+  # program for `core.pager` — so the key decides, from a list of safe ones.
   defp git_mutates?([flag, _value | rest]) when flag in @git_valued_flags,
     do: git_mutates?(rest)
 
-  defp git_mutates?(["-c" | _rest]), do: true
-  defp git_mutates?(["--config-env" <> _ | _rest]), do: true
+  defp git_mutates?(["-c", config | rest]), do: git_config_mutates?(config, rest)
+  defp git_mutates?(["--config-env", config | rest]), do: git_config_mutates?(config, rest)
+  defp git_mutates?(["--config-env=" <> config | rest]), do: git_config_mutates?(config, rest)
 
   defp git_mutates?([flag | rest]) when is_binary(flag) do
     if String.starts_with?(flag, "-") do
@@ -392,6 +461,9 @@ defmodule Whiska.Shell do
   end
 
   defp git_mutates?([]), do: true
+
+  defp git_config_mutates?(config, rest),
+    do: not safe_git_config?(config) or git_mutates?(rest)
 
   defp git_subcommand_mutates?(subcommand, args) do
     subcommand not in @read_only_git or

@@ -76,11 +76,27 @@ is still judged by what its own flags, operands and environment make it do, the 
 --output`, `tree -o`, `less -o`, `git diff --output`), an in-place edit (`yq -i`), a
 second operand that is the output file (`uniq a b`, `xxd a b`), a flag that names a
 program (`rg --pre`, `ag --pager`, `man -P`, `fd -x`, `git grep -O`, `git ls-remote
---upload-pack`), `git -c` and `--config-env`, and a variable that names a program
-(`GIT_*`, `LESS*`, `*PAGER`, `MANOPT`, `RIPGREP_CONFIG_PATH`, and `HOME`, `PATH`,
-`XDG_*`, `DYLD_*`, `LD_*`, which move a config or the program itself) each make the
-command mutating. Flags are read from the words the command actually receives, with
-quotes and backslashes taken out, so `"-"o` is `-o`.
+--upload-pack`), and `git -c` or `--config-env` with any key outside a short list of
+safe ones (`user.*`, `color.*`, `core.quotepath`, …) each make the command mutating.
+A `-c` value cannot be judged by itself — `x` is a name for `user.name` and a program
+for `core.pager` — so the key decides, and an unknown key stays denied. Flags are read
+from the words the command actually receives, with quotes and backslashes taken out, so
+`"-"o` is `-o`.
+
+**A variable in front of a command leans the other way: allowed unless its value
+plainly runs something.** A value that is a command (`PAGER`, `GIT_EXTERNAL_DIFF`,
+`LESSOPEN`, …) is judged as that command, so `PAGER=cat` is allowed and `PAGER=rm` is
+not. A value that is a command's own flags (`LESS`, `MANOPT`) is judged as those flags.
+Code loaded into the process (`DYLD_INSERT_LIBRARIES`, `LD_PRELOAD`), a trace file
+(`GIT_TRACE=/path`) and config handed in inline (`GIT_CONFIG_PARAMETERS`, an unsafe
+`GIT_CONFIG_KEY_n`) are denied. A path — `HOME`, `XDG_CONFIG_HOME`,
+`GIT_CONFIG_GLOBAL`, `GIT_DIR`, `PATH`, `RIPGREP_CONFIG_PATH` — is allowed, and so is
+any variable not named here. The reason is who pays: `PAGER=cat git log` and
+`GIT_CONFIG_GLOBAL=/dev/null` are how ordinary investigation keeps git quiet and
+isolated, so denying them blocks every mouse, every day. The case they guard against
+needs a hostile config or program already on disk, which a sniff mouse cannot write
+itself. That gap is accepted on purpose: `HOME=./h git status` with a crafted
+`.gitconfig` in `./h` still runs that config's `core.fsmonitor`.
 
 Where it is unclear, it leans toward denying: a long flag counts at any prefix of a
 writing name, since getopt accepts `sort --out=x`, and a flag whose value is not known
