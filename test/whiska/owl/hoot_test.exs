@@ -123,7 +123,7 @@ defmodule Whiska.Owl.HootTest do
     end)
   end
 
-  describe "when herdr will not show it (ADR-next-a-hoot-reaches-you-without-herdr)" do
+  describe "when herdr will not show it (ADR-0071)" do
     for reason <- ["disabled", "no_foreground_client"] do
       test "herdr saying #{reason} raises the same hoot on the desktop", %{main: main, a: a} do
         main_is("idle")

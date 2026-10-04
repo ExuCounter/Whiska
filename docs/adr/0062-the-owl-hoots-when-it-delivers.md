@@ -1,6 +1,6 @@
 # The owl hoots when it delivers
 
-> Amended 2026-10-04 by ADR-next-a-hoot-reaches-you-without-herdr: a hoot herdr will not show because its popups are off
+> Amended 2026-10-04 by ADR-0071: a hoot herdr will not show because its popups are off
 > (`disabled`) or nobody is attached (`no_foreground_client`) is raised on the desktop with
 > `terminal-notifier` or `osascript`. The rule below that the hoot goes out from the same
 > place as the typed line stands. What no longer holds is the rejection of those two

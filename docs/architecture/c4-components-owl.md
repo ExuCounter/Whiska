@@ -122,7 +122,7 @@ desktop notification, and `Whiska.Delivery.Hoot` builds it out of the same
 event rather than two. The house sends it with `Whiska.Delivery.Hoot.send_out/4` in the
 same branch that typed the line. That asks herdr first and, when herdr says its popups are
 off or nobody is attached, raises the same hoot through `Whiska.Desktop`
-(ADR-next-a-hoot-reaches-you-without-herdr). Whatever comes back is swallowed: the question is
+(ADR-0071). Whatever comes back is swallowed: the question is
 already recorded sent, and an owl that crashed on a failed notification would lose the
 thing the notification was about. `whiska doctor` is where the outcome is read, from a hoot
 it sends itself down the same path.

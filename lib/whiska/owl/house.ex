@@ -119,7 +119,7 @@ defmodule Whiska.Owl.House do
   courtesy, not the job: a hoot that errors or raises is swallowed, and the
   question stays delivered. When herdr says it will not draw the hoot because
   its popups are off or nobody is attached, the same hoot is raised on the
-  desktop instead (ADR-next-a-hoot-reaches-you-without-herdr).
+  desktop instead (ADR-0071).
 
   A house tells no other house anything, and nothing is ever typed into
   another repo's session (ADR-0044): the other repo's own statusline redraws
@@ -1045,7 +1045,7 @@ defmodule Whiska.Owl.House do
   # The hoot (ADR-0062), raised from inside the same branch that typed the
   # line, so the two can never disagree about what reached the person — and
   # that holds for the desktop fallback too, since it is decided here, off
-  # herdr's answer to this very hoot (ADR-next-a-hoot-reaches-you-without-herdr).
+  # herdr's answer to this very hoot (ADR-0071).
   #
   # Delivery is the job and the hoot is a courtesy: the question is already
   # recorded sent before this runs, and whatever herdr or the desktop does here

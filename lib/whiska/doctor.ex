@@ -670,7 +670,7 @@ defmodule Whiska.Doctor do
   `probe` is what `Whiska.Herdr.notify/2` answered to a notification sent for
   this check, or `:no_socket` when there was no herdr to send one to; `desktop`
   is what the desktop did when herdr's answer sent the hoot there
-  (ADR-next-a-hoot-reaches-you-without-herdr), or `:not_needed`. Both are asked
+  (ADR-0071), or `:not_needed`. Both are asked
   rather than read from config, so the person sees the notification exactly
   when it works, which is the answer and the demonstration in one (ADR-0038).
 

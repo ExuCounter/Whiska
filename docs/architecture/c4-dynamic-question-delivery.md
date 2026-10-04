@@ -187,7 +187,7 @@ go and read.
 herdr is asked to show it, from the person's own `[ui.toast]` and `[ui.sound]` settings, and
 its reply says whether it drew anything and why not. When the reason is `disabled` or
 `no_foreground_client`, step 11 raises the same hoot on the desktop with `terminal-notifier`
-or `osascript` (ADR-next-a-hoot-reaches-you-without-herdr): herdr's one popup switch also silences
+or `osascript` (ADR-0071): herdr's one popup switch also silences
 its toast for every mouse, and turning that off is not asking for Whiska to go quiet.
 `rate_limited` and `busy` are herdr pacing itself, and do not fall back. `whiska doctor`
 sends a hoot of its own down the same path and reports what showed it, which is the

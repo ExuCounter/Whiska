@@ -11,5 +11,5 @@ config :whiska, :herdr, Whiska.Herdr.Mock
 config :whiska, :launchctl, &Whiska.Test.NoLaunchctl.run/1
 
 # No notifier, so a hoot herdr refuses never reaches the real desktop
-# (ADR-next-a-hoot-reaches-you-without-herdr).
+# (ADR-0071).
 config :whiska, :desktop, Whiska.Test.NoDesktop

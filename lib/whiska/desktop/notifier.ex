@@ -1,7 +1,7 @@
 defmodule Whiska.Desktop.Notifier do
   @moduledoc """
   Raises a notification with `terminal-notifier` when it is installed, and with
-  `osascript` when it is not (ADR-next-a-hoot-reaches-you-without-herdr).
+  `osascript` when it is not (ADR-0071).
   Neither — Linux, or a Mac with osascript removed — is `{:error,
   :no_notifier}`, never a crash.
 

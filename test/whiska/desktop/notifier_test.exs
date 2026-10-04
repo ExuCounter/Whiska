@@ -1,7 +1,7 @@
 defmodule Whiska.Desktop.NotifierTest do
   @moduledoc """
   The macOS notifier Whiska raises a hoot with when herdr will not show it
-  (ADR-next-a-hoot-reaches-you-without-herdr).
+  (ADR-0071).
 
   A branch name and a pointer line are somebody else's text — anything in the
   repo can write the doorstep file they come from — and here they reach a
