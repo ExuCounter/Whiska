@@ -1,0 +1,4 @@
+{
+  "models": ["fable", "opus", "sonnet"],
+  "defaults": {"build": null, "sniff": "sonnet"}
+}

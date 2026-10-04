@@ -28,6 +28,17 @@ defmodule Whiska.CLI do
 
   @version Mix.Project.config()[:version]
 
+  # The models and each mode's default come from `priv/models.json`, through
+  # `Whiska.Shape`, so the help never names one itself.
+  @model_choices Enum.join(Whiska.Shape.models(), "|")
+
+  @model_defaults Whiska.Shape.defaults()
+                  |> Enum.sort_by(fn {_mode, model} -> is_nil(model) end)
+                  |> Enum.map_join("\n" <> String.duplicate(" ", 23), fn
+                    {mode, nil} -> "A #{mode} mouse keeps your own default model."
+                    {mode, model} -> "A #{mode} mouse starts on #{model}."
+                  end)
+
   @usage """
   Usage: whiska <command>
 
@@ -166,12 +177,12 @@ defmodule Whiska.CLI do
                          own worktree. A sniff mouse investigates and reports,
                          and may not write anything at all.
 
-    shape build|sniff [--model fable|opus|sonnet]
+    shape build|sniff [--model #{@model_choices}]
                          Give a fresh mouse its shape, before Claude starts
                          (ADR-0069): record its mode, and print the model
-                         to start Claude on, or nothing. A sniff mouse starts on sonnet;
-                         a build mouse keeps your own default model. Fails
-                         rather than guess, so a spawn stops before Claude.
+                         to start Claude on, or nothing. Fails rather than
+                         guess, so a spawn stops before Claude.
+                         #{@model_defaults}
 
     --version            Print the version.
   """

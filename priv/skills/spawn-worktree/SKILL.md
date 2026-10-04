@@ -112,7 +112,8 @@ real change and keeps the person's own default model. Pick from the request:
 - Unclear → ask the person which. Never default a request that reads as investigation
   to build.
 
-Name a model only if the person named one — `--model fable`, `opus` or `sonnet`.
+Name a model only if the person named one — `--model <alias>`. `whiska --help` lists
+the aliases, and `whiska shape` refuses one it does not know.
 
 ## Shape and start the mouse — in one command
 

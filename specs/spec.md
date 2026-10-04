@@ -233,8 +233,9 @@ mouse either way, just a mode flag:
 
 **Model choice** (ADR-0069, superseding ADR-0019's ranked list): the model belongs to
 the mouse's shape. `spawn-worktree` runs `whiska shape build|sniff` in the new worktree
-before Claude starts; a sniff mouse starts on `sonnet`, a build mouse keeps the person's
-own default, and the spawn may name another with `--model fable|opus|sonnet`. No
+before Claude starts; a sniff mouse starts on a lighter model, a build mouse keeps the
+person's own default, and the spawn may name another with `--model <alias>`, from the
+aliases listed in `priv/models.json`. No
 per-repo model list and no fallback on quota errors: by the time a quota error can
 happen, the spawn has already succeeded.
 
