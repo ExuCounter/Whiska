@@ -32,5 +32,5 @@ already recorded when this landed were stamped as shaped, so none was stopped mi
 A mode moved by `whiska mode` after the spawn keeps the model and effort the mouse was
 started on, chosen for the other mode's work. The flip still works, and now says what it
 carried; a finished investigation is built by a fresh mouse instead, shaped for the build
-(ADR-next-a-finished-investigation-hands-off). A sniff mouse denied an edit is told to
+(ADR-0074). A sniff mouse denied an edit is told to
 end on a proposal, no longer to ask for `whiska mode build`.

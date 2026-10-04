@@ -97,7 +97,7 @@ defmodule Whiska.Shape do
   The mode a mouse was shaped as, once `whiska mode` has moved it off that
   mode, or nil. Its model and effort were then chosen for other work: a sniff
   mouse flipped to build keeps the model picked for the investigation
-  (ADR-next-a-finished-investigation-hands-off).
+  (ADR-0074).
   """
   @spec moved_from(%{mode: String.t(), shaped_as: String.t() | nil}) :: String.t() | nil
   def moved_from(%{mode: mode, shaped_as: as}) when is_binary(as) and as != mode, do: as

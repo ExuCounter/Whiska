@@ -250,7 +250,7 @@ defmodule Whiska.Questions do
   Who a question's heading names: the branch, with `(sniff)` after it for a
   sniff mouse. Whiska's record rather than the mouse's word about
   itself, so the finished picker can tell a branch with nothing on it to merge
-  (ADR-next-a-finished-investigation-hands-off).
+  (ADR-0074).
   """
   @spec who(Mouse.t() | nil, String.t()) :: String.t()
   def who(%Mouse{branch: branch, mode: mode}, mouse_id) do

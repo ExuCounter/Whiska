@@ -275,7 +275,7 @@ defmodule Whiska.StorageTest do
     end
   end
 
-  describe "a mode changed by hand keeps what the mouse was shaped as (ADR-next-a-finished-investigation-hands-off)" do
+  describe "a mode changed by hand keeps what the mouse was shaped as (ADR-0074)" do
     setup %{main: main} do
       {:ok, handle} = Storage.open(main)
       on_exit(fn -> Storage.close(handle) end)

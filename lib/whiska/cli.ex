@@ -912,7 +912,7 @@ defmodule Whiska.CLI do
   # The flip still works — it is also how a mouse nobody shaped gets a mode —
   # but one that moves a mouse off its shape says what it carried along: the
   # model and effort chosen for the other mode's work, which stay until the
-  # process ends (ADR-next-a-finished-investigation-hands-off).
+  # process ends (ADR-0074).
   defp set_mode(mouse_id, layout, mode) do
     case Storage.set_mode(mouse_id, mode) do
       {:ok, mouse} ->

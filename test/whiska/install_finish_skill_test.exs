@@ -226,7 +226,7 @@ defmodule Whiska.InstallFinishSkillTest do
     end
   end
 
-  describe "an investigation that found work to do proposes it (ADR-next-a-finished-investigation-hands-off)" do
+  describe "an investigation that found work to do proposes it (ADR-0074)" do
     test "the proposal is three labelled lines the main session can lift verbatim" do
       body = skill()
 

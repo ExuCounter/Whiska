@@ -332,7 +332,7 @@ defmodule Whiska.InstallStatuslineTest do
 
     # A sniff mouse's branch has nothing to merge, and the work it found is
     # better built by a fresh mouse shaped for the build than by the one shaped
-    # for the investigation (ADR-next-a-finished-investigation-hands-off).
+    # for the investigation (ADR-0074).
     test "a sniff mouse's finished proposal is offered as a fresh build" do
       assert {_path, body} =
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)

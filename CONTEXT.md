@@ -109,7 +109,7 @@ line. Content, never classification — the turn still ends on `done` — so it 
 the question's text, and the main session reads it the way it reads lettered options. Its
 lines are the preview of the one question the person is asked, and building it starts a
 fresh mouse shaped for that work rather than flipping the one shaped for the
-investigation (ADR-next-a-finished-investigation-hands-off).
+investigation (ADR-0074).
 _Avoid_: plan, recommendation, next steps, hand-off (a word **Report** already rejected)
 
 **Waiting**:

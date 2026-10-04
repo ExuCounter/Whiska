@@ -206,7 +206,7 @@ defmodule Whiska.Storage do
 
   It moves the mode and nothing else. `shaped_as` stays what the spawn
   recorded, so a mouse moved off its shape keeps saying what its model and
-  effort were chosen for (ADR-next-a-finished-investigation-hands-off).
+  effort were chosen for (ADR-0074).
   """
   @spec set_mode(String.t(), String.t()) ::
           {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}

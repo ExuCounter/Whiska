@@ -126,7 +126,7 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     end
 
     # The person said yes to the proposal; the branch name, the model and the
-    # effort are derived and shown, never asked (ADR-next-a-finished-investigation-hands-off).
+    # effort are derived and shown, never asked (ADR-0074).
     test "builds what an investigation proposed without asking anything more" do
       body = skill("spawn-worktree")
       prose = String.replace(body, ~r/\s+/, " ")

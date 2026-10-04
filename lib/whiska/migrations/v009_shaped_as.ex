@@ -1,6 +1,6 @@
 defmodule Whiska.Migrations.V009ShapedAs do
   @moduledoc """
-  The mode a mouse was shaped as (ADR-next-a-finished-investigation-hands-off).
+  The mode a mouse was shaped as (ADR-0074).
 
   `whiska shape` chooses the model and effort against the work the mode names,
   and records that mode here as well as in `mode`. `whiska mode` moves `mode`
