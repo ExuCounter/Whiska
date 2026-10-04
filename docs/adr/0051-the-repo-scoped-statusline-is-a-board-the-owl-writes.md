@@ -293,8 +293,9 @@ the shade belongs to the person's terminal theme, so a board drawn in a solarize
 terminal is solarized, and stays right when they switch between its light and dark
 variants. A hardcoded palette would be right in one terminal and wrong in every other.
 
-**Colour never carries meaning on its own.** A waiting row still says "waiting on you ·
-#52" in words, elapsed still reads `6m`, and the branch is still the first thing after
+**Colour never carries meaning on its own.** A waiting row still says "waiting on you"
+in words — and a row queued behind it says so in words too, rather than only being left
+plain (addendum of 2026-10-04 below) — elapsed still reads `6m`, and the branch is still the first thing after
 the `🐭`. Dropped colour changes nothing about what the board says — which is also what
 keeps the board's tests reading it as plain text.
 
@@ -399,7 +400,8 @@ board every second.** Both had to move: either alone prints the same number twic
 reads the database, matches each mouse to its pane and reads each mouse's transcript tail;
 that is the whole cost of a board tick, and none of what it feeds changes faster than
 herdr's answer. The write in between takes the last board and re-spells two things from
-the timestamps the rows were built from: the elapsed column and a "picked up … ago" age.
+the timestamps the rows were built from: the elapsed column and a "picked up … ago" age —
+and, since the addendum below, how long a sent question has waited.
 Why delivery is holding is the house's own state and is always current. So the owl's
 extra cost is one render and one file write per house per second. A new question, a
 status, or a mouse's death reaches the board up to two seconds late, as it always did.
@@ -427,3 +429,40 @@ which rewrites Whiska's own entry, interval included, and the change to
 `.claude/settings.json` is committed like any other. `whiska doctor` reports any interval
 of a second or more as fine, so nothing prompts the re-run; at two seconds the column
 just steps by two. The script itself did not change, so its version stamp did not either.
+
+## Addendum (2026-10-04): a question says what it is waiting on
+
+Two questions on the board both read "waiting on you": #132, sent and holding the one
+delivery slot (ADR-0008), and #141, open behind it. The person read that as Whiska failing
+to send #141 and lost three and a half hours, because the one action that frees the queue
+— answer #132 — was not visible anywhere.
+
+**Only the question holding the slot is waiting on you.** An open question while another
+is sent reads `queued behind #132 · "pointer"`, and is plain, not yellow: answering it is
+not what frees the queue. It keeps its row and its place above the cap, since it is still
+something the person will be asked. An open question with nothing sent is the next one
+out, and still reads `waiting on you · #141`; the held clause on the waiting line says why
+it has not gone. A `done` report never waits for the slot, so it is never queued.
+
+**The sent question says how long it has waited**: `waiting on you for 2h 41m · #132`.
+The elapsed column could not do this — it is the mouse's age, not the question's, so a
+question sent a minute ago and one sent at breakfast looked the same. The age is counted
+from when the question was sent, ticks on a retime like the other ages, and uses
+`format_uptime` like them.
+
+**No threshold.** An age past some number could turn a colour or a word, but any number
+would be a guess, and the age itself already says "old" in the person's own units: `12s`
+and `2h 41m` do not look alike. Rejected for now; worth revisiting only if a long age is
+still being missed.
+
+**`whiska questions` uses the same words**, from the same rule (`Whiska.Questions.behind/2`):
+`(queued behind #132)` and `(waiting on you since 09:56)` in place of `(open)` and
+`(sent 09:56)`. A listing printed once shows a clock time rather than a duration, and that
+time — like the `asked` stamp `whiska questions <id>` prints — is this machine's local time,
+not the UTC it is stored in: a time the person cannot set against their own clock is worse
+than none. `whiska mice` shows no questions, so it does not change.
+
+**A queued row's words are left alone on a retime.** They name another question, and
+only a rebuild reads the database that would show it answered, so for up to two seconds
+after #132 is answered #141 still says it is behind it — the same lag every other change
+already has.

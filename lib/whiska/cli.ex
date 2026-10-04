@@ -1327,7 +1327,15 @@ defmodule Whiska.CLI do
   # The shape lives in Whiska.Questions, so one question read by id and one
   # block of `whiska questions --full` cannot drift apart. This question was
   # loaded by id, without its mouse, so the branch is looked up here.
-  defp show_question(%Question{} = q), do: say(Questions.full(q, branch_of(q.mouse_id)))
+  defp show_question(%Question{} = q),
+    do: say(Questions.full(q, branch_of(q.mouse_id), slot_id()))
+
+  defp slot_id do
+    case Storage.sent() do
+      %Question{id: id} -> id
+      nil -> nil
+    end
+  end
 
   # Orphaned means the mouse died (ADR-0026) or its worktree went (ADR-0036);
   # the person needs to know which, and where the work is.

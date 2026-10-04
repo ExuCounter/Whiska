@@ -127,6 +127,77 @@ defmodule Whiska.WatchTest do
     end
   end
 
+  # One question holds the delivery slot; everything else waits behind it, by
+  # design. Only the first is waiting on the person, and the board says which.
+  describe "a question queued behind the one sent" do
+    defp slot_board(opts \\ []) do
+      sent_at = DateTime.add(@now, -Keyword.get(opts, :sent_ago, 3 * 3600 - 60 * 19), :second)
+
+      board([mouse("feat-a"), mouse("feat-b")],
+        questions: [
+          %{question(132, "feat-a", text: "Body.\n\npick a cache TTL\n⁣⁣") | sent_at: sent_at},
+          question(141, "feat-b", status: "open")
+        ],
+        bare_panes: [pane("feat-a", "idle"), pane("feat-b", "idle")]
+      )
+    end
+
+    defp by_branch(board), do: Map.new(board.rows, &{&1.branch, &1})
+
+    test "names the one it is behind, and only the sent one is waiting on the person" do
+      %{"feat-a" => sent, "feat-b" => queued} = by_branch(slot_board())
+
+      assert sent.detail == ~s(waiting on you for 2h 41m · #132 · "pick a cache TTL")
+      assert queued.detail == ~s(queued behind #132 · "which db?")
+    end
+
+    test "only the sent one is yellow" do
+      out = Watch.render(slot_board())
+
+      assert out =~ "\e[33mwaiting on you for 2h 41m · #132"
+      refute out =~ "\e[33mqueued"
+    end
+
+    test "a queued question still keeps its row past the cap" do
+      board = slot_board()
+
+      assert Enum.map(board.rows, & &1.question_id) |> Enum.sort() == [132, 141]
+    end
+
+    test "a sent question's age moves on a retime, and the queued row keeps its words" do
+      board = slot_board(sent_ago: 59)
+      later = Watch.retime(board, DateTime.add(@now, 2))
+
+      %{"feat-a" => sent, "feat-b" => queued} = by_branch(later)
+
+      assert sent.detail == ~s(waiting on you for 1m 1s · #132 · "pick a cache TTL")
+      assert queued.detail == ~s(queued behind #132 · "which db?")
+    end
+
+    test "an open question with nothing sent is next, not queued" do
+      rows =
+        board([mouse("feat-b")],
+          questions: [question(141, "feat-b", status: "open")],
+          bare_panes: [pane("feat-b", "idle")]
+        ).rows
+
+      assert [%{detail: ~s(waiting on you · #141 · "which db?")}] = rows
+    end
+
+    test "a finished report never queues: it does not wait for the slot" do
+      board =
+        board([mouse("feat-a"), mouse("feat-b")],
+          questions: [
+            question(132, "feat-a"),
+            question(141, "feat-b", status: "open", kind: "done")
+          ],
+          bare_panes: [pane("feat-a", "idle"), pane("feat-b", "idle")]
+        )
+
+      refute by_branch(board)["feat-b"].detail =~ "queued"
+    end
+  end
+
   describe "board/2" do
     test "a working mouse shows its last action" do
       rows =

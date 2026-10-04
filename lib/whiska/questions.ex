@@ -95,10 +95,12 @@ defmodule Whiska.Questions do
   @doc "What `whiska questions` prints: the open list, then what is not actionable."
   @spec render(summary()) :: String.t()
   def render(%{open: open} = summary) do
+    slot = slot(open)
+
     open_block =
       case open do
         [] -> nothing_waiting()
-        _ -> Enum.map_join(open, "\n", &line/1)
+        _ -> Enum.map_join(open, "\n", &line(&1, slot))
       end
 
     compose(open_block, summary)
@@ -115,10 +117,12 @@ defmodule Whiska.Questions do
   """
   @spec render_full(summary()) :: String.t()
   def render_full(%{open: open} = summary) do
+    slot = slot(open)
+
     open_block =
       case open do
         [] -> nothing_waiting()
-        _ -> Enum.map_join(open, separator(), &full/1)
+        _ -> Enum.map_join(open, separator(), &full(&1, branch(&1), slot))
       end
 
     compose(open_block, summary)
@@ -138,7 +142,7 @@ defmodule Whiska.Questions do
 
         _ ->
           "#{length(orphaned)} orphaned — nothing is left to answer to, so there is nowhere to reply:\n" <>
-            Enum.map_join(orphaned, "\n", &line/1)
+            Enum.map_join(orphaned, "\n", &line(&1, nil))
       end
 
     doorstep_block =
@@ -156,33 +160,34 @@ defmodule Whiska.Questions do
   `answer:` trailer, since the heading carries the id and the CLAUDE.md block
   says how to reply. Plumbing stays out of what the person reads.
 
-  What `whiska questions <id>` prints, and one block of `render_full/1`. The
-  branch comes from the question's own preloaded mouse; a caller that loaded
-  the question without it passes the branch itself.
+  What `whiska questions <id>` prints, and one block of `render_full/1`.
+  `slot` is the id of the question holding the delivery slot, or nil; it is
+  not optional, because a caller that forgot it would print a queued question
+  as merely open, and the two would read differently.
   """
-  @spec full(Question.t()) :: String.t()
-  def full(%Question{} = q), do: full(q, branch(q))
-
-  @spec full(Question.t(), String.t()) :: String.t()
-  def full(%Question{} = q, branch) do
+  @spec full(Question.t(), String.t(), pos_integer() | nil) :: String.t()
+  def full(%Question{} = q, branch, slot) do
     """
-    ##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q)}, asked #{Calendar.strftime(q.asked_at, "%Y-%m-%d %H:%M")})
+    ##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})
 
     #{q.text |> Marker.strip() |> String.trim_trailing()}
     """
     |> String.trim_trailing()
   end
 
-  @doc "One listing line: id, branch, what the mouse did, its pointer, and where it stands."
-  @spec line(Question.t()) :: String.t()
-  def line(%Question{} = q) do
+  @doc """
+  One listing line: id, branch, what the mouse did, its pointer, and where it
+  stands. `slot` is the id of the question holding the delivery slot, if any.
+  """
+  @spec line(Question.t(), pos_integer() | nil) :: String.t()
+  def line(%Question{} = q, slot) do
     pointer =
       case Marker.pointer(q.text) do
         "" -> ""
         p -> ~s( · "#{String.slice(p, 0, @pointer_max)}")
       end
 
-    "##{q.id}  #{branch(q)}  #{verb(q.kind)}#{pointer}  (#{state(q)})"
+    "##{q.id}  #{branch(q)}  #{verb(q.kind)}#{pointer}  (#{state(q, slot)})"
   end
 
   @doc "What the mouse did, as words: asked, or merely stopped (ADR-0009)."
@@ -191,12 +196,52 @@ defmodule Whiska.Questions do
   def verb("done"), do: "finished"
   def verb(_), do: "needs a decision"
 
-  @doc "Where a question stands: its status, with the time it was delivered when sent."
-  @spec state(Question.t()) :: String.t()
-  def state(%Question{status: "sent", sent_at: %DateTime{} = at}),
-    do: "sent #{Calendar.strftime(at, "%H:%M")}"
+  @doc """
+  Where a question stands, in the board's words (ADR-0051): waiting on the
+  person since it was delivered, queued behind the question holding the slot,
+  or its bare status otherwise.
+  """
+  @spec state(Question.t(), pos_integer() | nil) :: String.t()
+  def state(%Question{status: "sent", sent_at: %DateTime{} = at}, _slot),
+    do: "waiting on you since #{Calendar.strftime(local(at), "%H:%M")}"
 
-  def state(%Question{status: status}), do: status
+  def state(%Question{status: status} = q, slot) do
+    case behind(q, slot) do
+      nil -> status
+      behind -> "queued behind ##{behind}"
+    end
+  end
+
+  # Stored in UTC, shown in this machine's local time: the person checks these
+  # against the clock on their own screen, and a UTC one reads as hours off.
+  # Erlang's own conversion follows the OS time zone, so no zone database is
+  # needed for the one zone that matters here.
+  defp local(%DateTime{} = at) do
+    at
+    |> DateTime.to_naive()
+    |> NaiveDateTime.to_erl()
+    |> :calendar.universal_time_to_local_time()
+    |> NaiveDateTime.from_erl!()
+  end
+
+  @doc """
+  The id of the question an open one is queued behind, or nil.
+
+  One question holds the delivery slot at a time and the rest wait for it to
+  be answered (ADR-0008), so an open question is waiting on that one, not on
+  the person. A `done` report never waits for the slot. The one rule the board
+  and `whiska questions` both use, so the two cannot spell the state apart.
+  """
+  @spec behind(Question.t(), pos_integer() | nil) :: pos_integer() | nil
+  def behind(%Question{status: "open", kind: kind}, slot)
+      when is_integer(slot) and kind != "done",
+      do: slot
+
+  def behind(_question, _slot), do: nil
+
+  @doc "The id of the question holding the delivery slot among `questions`, or nil."
+  @spec slot([Question.t()]) :: pos_integer() | nil
+  def slot(questions), do: Enum.find_value(questions, &(&1.status == "sent" && &1.id))
 
   defp branch(%Question{mouse: %Mouse{branch: branch}}) when is_binary(branch), do: branch
   defp branch(%Question{mouse_id: mouse_id}), do: mouse_id
