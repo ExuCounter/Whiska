@@ -105,20 +105,27 @@ defmodule Whiska.ClaudeMd do
     files the change will touch; skip the scout for a tweak, docs, or no test can reach it.
     A `.claude/agents/wio-candidate-scout.md` in this repo is the copy that runs: read it
     first, under the agent-definition rule below. Scout not listed → say so in one line and
-    name the test yourself. Both off the brief with no guess → build; never grill what is
-    already spelled out.
-  - Either needs a guess the person has an opinion on — a bug report with no stated right
-    behaviour, two readings that lead to different work → grill first: what "done" looks
-    like, which part of the app, what data, the edge cases. A round asks the whole frontier
-    in one message and ends with the status marker.
+    name the test yourself.
+  - Read the code first, then grill: send one message listing every choice with real
+    alternatives that is costly to undo, each with its recommended answer, and wait for
+    the person's ok. A "done" or failing test that needs a guess — a bug report with no
+    stated right behaviour, two readings that lead to different work — is one of them. A
+    round asks the whole frontier in one message and ends with the status marker.
+  - Costly to undo: something outside the change depends on it — a file format, a
+    command-line flag or interface, stored data, a dependency added or dropped, behaviour
+    the person would notice — or it touches secrets, access or a security check, or the
+    rest of the change is built on it. Anything else is cheap: decide it, and list it in
+    the final report.
+  - No costly choice left open → build without the message; a truly trivial task — a
+    typo, a rename, a one-line fix, nothing on that list — never needs one. Never ask what
+    the brief already spells out.
   - Every command for the task runs in the worktree, investigation included; the main
     session runs no command for it.
   - Preview a frontend change before building it; the response body and its marker carry
     the preview link.
   - Before anything non-trivial this session does itself, give a 2–4 line plan and wait
-    for the person's ok. A mouse does not wait for an ok, which is not leave to skip naming
-    "done" and grilling what is not pinned down; it builds, and stops only on a real
-    decision.
+    for the person's ok. A mouse sends no plan; it builds, and stops only on a real
+    decision — every costly choice is one, found before the build or during it.
   - After the merge, leave the worktree: the owl removes a landed one, pane and branch.
     `drop-worktree` drops one early.
   - Never reuse an old tree: a new mouse gets a fresh one off the latest base branch.
@@ -169,8 +176,8 @@ defmodule Whiska.ClaudeMd do
   ## How a session writes its message
 
   Every message to the person — a mouse ending a turn, the main session answering here —
-  is a report, not a log. A finished report fits in six lines, an ordinary reply in five;
-  longer only when they ask for detail. A decision is the question, its options and a
+  is a report, not a log. A finished report fits in six lines plus a line per cheap choice
+  made without asking, an ordinary reply in five; longer only when they ask for detail. A decision is the question, its options and a
   recommendation, nothing else.
 
   In this order, skipping what has nothing to say:
@@ -178,8 +185,8 @@ defmodule Whiska.ClaudeMd do
   - **What is true now**, one line, and lead with it: the outcome, not the activity — "the
     search box filters as you type", not "implemented filtering". The reason after it, only
     if it is needed.
-  - **What changed**, in the person's terms, one or two lines. Show the change rather than
-    describing it where code says it faster.
+  - **What changed**, in the person's terms, one or two lines, and each cheap choice made
+    without asking. Show the change rather than describing it where code says it faster.
   - **Verified, not assumed**: what was run and what came back — "31 tests pass". Not run,
     gone wrong, or unsure → one line saying so.
   - **One thing worth knowing**, only if it changes what the person does next.

@@ -16,7 +16,7 @@ are the extracted, individually citable decisions.
 - [0016](0016-hooks-and-rules-are-per-project.md) — Hooks and rules are per-project, not global
 - [0045](0045-the-claude-md-block-is-a-nest-of-named-parts.md) — The CLAUDE.md block is a nest of named parts, and a part can be claimed
 - [0055](0055-the-block-is-rules-not-prose.md) — The block is rules, not prose, and its rationale stays in Whiska's docs
-- [0063](0063-a-mouse-grills-when-it-cannot-name-done.md) — A mouse grills when it cannot name "done", and builds when it can
+- [0063](0063-a-mouse-asks-every-costly-choice-before-building.md) — A mouse reads the code, then asks every choice that is costly to undo (rewritten 2026-10-04: it grilled only when it could not name "done")
 - [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The global install is the same install rooted at the home, and the repo's copy wins (amended 2026-10-04: it ships the three worktree skills too)
 - [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
 
