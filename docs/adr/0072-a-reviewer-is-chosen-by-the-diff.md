@@ -1,5 +1,10 @@
 # Reviewers are a required set plus what the repo's CLAUDE.md calls for, with no config
 
+**Amended 2026-10-04 by ADR-next-tests-are-scouted-then-reviewed**, which applies the wio row
+and the scout narrower: the test reviewer runs only when the diff touches a test file, and a
+missing wio is one line rather than a written prompt. The rest of this record is still
+proposed.
+
 **Status: proposed, not applied.** `priv/skills/whiska-finish/SKILL.md` is unchanged. The last
 section holds the exact text this record would put there. The person can read it before any
 mouse runs it.

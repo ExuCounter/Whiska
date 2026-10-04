@@ -48,6 +48,12 @@ changing anything.
 - **frontend** — only when the change touches something a person sees: keyboard and
   screen-reader access, empty and error states, small screens, the repo's own design
   language.
+- **tests** — only when the change adds, edits or deletes a test file, by
+  `git diff --name-only` from the merge base: `wio-test-reviewer`, which says KEEP, REDO or
+  REMOVE for each test. REDO or REMOVE on a test this change added or edited is
+  **important**; on any other, **pre-existing**. A test is removed for being worthless,
+  never to make a check pass. Not listed → say in one line that it is not installed and go
+  on; this is the one axis not written as a prompt.
 - **Prefer a reviewer somebody else maintains**: read the agent types this session lists
   before writing a reviewer prompt, and send the one plainly built for the axis.
 - Disqualified whatever it is called: one that **changes code rather than reporting on it
@@ -127,7 +133,7 @@ block, one `name: value` line each:
     checks: <the commands that must pass>
     specs: <where the written decisions live>
     ticket: <the prefix a ticket id carries here>
-    reviewers: <agent types for the axes this repo wants beyond the four>
+    reviewers: <agent types for the axes this repo wants beyond the five>
     security: <a scan to run for the security axis instead of a reviewer>
 
 - `checks:` is what step 2 runs; `specs:` is what step 1 reads.

@@ -65,7 +65,8 @@ are the extracted, individually citable decisions.
 - [0042](0042-the-review-loop-is-a-stop-hook-the-repo-owns.md) — The review loop is a Stop hook the repo owns (superseded 2026-09-29 by 0049)
 - [0049](0049-finishing-is-a-pipeline-the-mouse-runs.md) — Finishing is a pipeline the mouse runs, not a hook that blocks it
 - [0054](0054-the-reviewer-roster-is-whatever-the-session-already-has.md) — The reviewer roster is whatever the session already has, and a finding's word decides its fate (extends 0049's step 3)
-- [0072](0072-a-reviewer-is-chosen-by-the-diff.md) — Reviewers are a required set plus what the repo's CLAUDE.md calls for, with no config (proposed, not applied; amends 0049, 0054 and 0056)
+- [0072](0072-a-reviewer-is-chosen-by-the-diff.md) — Reviewers are a required set plus what the repo's CLAUDE.md calls for, with no config (proposed, not applied; amends 0049, 0054 and 0056; its wio row narrowed 2026-10-04 by next-tests-are-scouted-then-reviewed)
+- [next](next-tests-are-scouted-then-reviewed.md) — A mouse's test is scouted before the code and reviewed at finish, when there is a test to touch (follows 0063 and 0055; one exception to 0054's written-prompt fallback)
 - [0034](0034-shell-commands-are-judged-by-a-read-only-allowlist.md) — Shell commands are judged by a read-only allowlist, not a mutating denylist
 
 ## Mice: modes, dispatch, liveness

@@ -101,7 +101,10 @@ defmodule Whiska.ClaudeMd do
   - Unclear which → ask the person, do not guess.
   - Skip the spawn for a tweak or quick fix, or when the person says to work in place.
   - Before writing code, say what "done" looks like and name the failing test that proves
-    it. Both off the brief with no guess → build; never grill what is already spelled out.
+    it, picked from what `wio-candidate-scout` ranks riskiest in the intended change —
+    unless it is a tweak, docs, or no test can reach it; scout not listed → say so in one
+    line and name it yourself. Both off the brief with no guess → build; never grill what
+    is already spelled out.
   - Either needs a guess the person has an opinion on — a bug report with no stated right
     behaviour, two readings that lead to different work → grill first: what "done" looks
     like, which part of the app, what data, the edge cases. A round asks the whole frontier
