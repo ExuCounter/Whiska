@@ -117,7 +117,9 @@ defmodule Whiska.Owl.House do
   collected or held. It carries the house, the branch, the verb and the id —
   `Whiska.Delivery.Hoot`, which says it in the line's own words. It is a
   courtesy, not the job: a hoot that errors or raises is swallowed, and the
-  question stays delivered.
+  question stays delivered. When herdr says it will not draw the hoot because
+  its popups are off or nobody is attached, the same hoot is raised on the
+  desktop instead (ADR-next-a-hoot-reaches-you-without-herdr).
 
   A house tells no other house anything, and nothing is ever typed into
   another repo's session (ADR-0044): the other repo's own statusline redraws
@@ -164,6 +166,7 @@ defmodule Whiska.Owl.House do
     :main_checkout,
     :socket,
     :herdr,
+    :desktop,
     :repo,
     :backstop_ms,
     :resubscribe_ms,
@@ -202,7 +205,8 @@ defmodule Whiska.Owl.House do
   `:hold_notice_ms` (how long a hold lasts before the board says why),
   `:settle_ms` (how long a mouse's pane must have been quiet before a died turn
   is picked up), `:max_gap_ms` (how long a gap between backstops means the owl
-  was not watching, so its pane memory is thrown away), `:name`.
+  was not watching, so its pane memory is thrown away), `:desktop` (where a hoot
+  herdr will not show is raised, `Whiska.Desktop.impl/0` by default), `:name`.
   """
   def start_link(opts) do
     {name, opts} = Keyword.pop(opts, :name)
@@ -258,6 +262,7 @@ defmodule Whiska.Owl.House do
           main_checkout: main,
           socket: Keyword.get(opts, :herdr_socket) || Herdr.socket_path(),
           herdr: Herdr.impl(),
+          desktop: Keyword.get(opts, :desktop, Whiska.Desktop.impl()),
           repo: repo,
           backstop_ms: backstop_ms(opts),
           resubscribe_ms: Keyword.get(opts, :resubscribe_ms, @default_resubscribe_ms),
@@ -1038,19 +1043,17 @@ defmodule Whiska.Owl.House do
   end
 
   # The hoot (ADR-0062), raised from inside the same branch that typed the
-  # line, so the two can never disagree about what reached the person.
+  # line, so the two can never disagree about what reached the person — and
+  # that holds for the desktop fallback too, since it is decided here, off
+  # herdr's answer to this very hoot (ADR-next-a-hoot-reaches-you-without-herdr).
   #
-  # Delivery is the job and the hoot is a courtesy, so it is wrapped twice
-  # over: the question is already recorded sent before this runs, and anything
-  # herdr does here — an error, a timeout, a raise because the socket went away
-  # between the two calls — is swallowed rather than allowed to fail the
-  # delivery or take the house down. herdr's answer says whether it drew
-  # anything, and that is dropped too: a person who has turned popups off has
-  # not asked to hear about it once per delivery. `whiska doctor` asks the same
-  # question once, where an answer is what the person came for.
+  # Delivery is the job and the hoot is a courtesy: the question is already
+  # recorded sent before this runs, and whatever herdr or the desktop does here
+  # is swallowed rather than allowed to fail the delivery or take the house
+  # down. `whiska doctor` is where the outcome is read.
   defp hoot(state, question, branch, more_open) do
     notification = Hoot.compose(question, Path.basename(state.main_checkout), branch, more_open)
-    state.herdr.notify(state.socket, notification)
+    Hoot.send_out(state.herdr, state.socket, state.desktop, notification)
   catch
     _kind, _reason -> :ok
   end

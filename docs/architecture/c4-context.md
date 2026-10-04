@@ -19,6 +19,7 @@ C4Context
   System_Ext(herdr, "herdr", "Terminal multiplexer - owns panes, starts Claude, reports agent status")
   System_Ext(git, "git worktrees", "One worktree per mouse, laid out under the main checkout")
   System_Ext(launchd, "launchd", "Supervises the one owl per machine as a user LaunchAgent")
+  System_Ext(nc, "Desktop notifications", "terminal-notifier, or osascript")
 
   Rel(person, claude, "Types into the main session")
   Rel(claude, whiska, "Sends hook events", "JSON on stdin / socket")
@@ -27,6 +28,7 @@ C4Context
   Rel(herdr, claude, "Starts and hosts every session")
   Rel(whiska, git, "Derives layout from, stores house under .git/, removes a merged worktree")
   Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
+  Rel(whiska, nc, "Raises a hoot herdr will not show")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```

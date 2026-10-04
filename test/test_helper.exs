@@ -18,4 +18,6 @@ File.mkdir_p!(whiska_home)
 ExUnit.after_suite(fn _ -> File.rm_rf!(test_home) end)
 
 Mox.defmock(Whiska.Herdr.Mock, for: Whiska.Herdr)
-ExUnit.start(formatters: [ExUnit.CLIFormatter, Whiska.Test.HomeGuard])
+Mox.defmock(Whiska.Desktop.Mock, for: Whiska.Desktop)
+# `live_desktop` draws a real notification; run it with `--include live_desktop`.
+ExUnit.start(formatters: [ExUnit.CLIFormatter, Whiska.Test.HomeGuard], exclude: [:live_desktop])

@@ -12,6 +12,7 @@ C4Component
   title Component Diagram - the owl
 
   System_Ext(herdrd, "herdr", "Panes and agent status")
+  System_Ext(nc, "Desktop notifications", "terminal-notifier, or osascript")
   Container_Ext(cliboot, "whiska owl", "escript command", "Boots the owl in the foreground")
 
   Container_Boundary(owl, "Owl") {
@@ -27,7 +28,8 @@ C4Component
     Component(markerq, "Whiska.Question.Marker", "classifier", "done / needs-decision / unmarked, by marker alone")
     Component(draft, "Whiska.Delivery.Draft", "classifier", "Where would the line land? empty / typing / no box / unknown")
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead and removed mice")
-    Component(hoot, "Whiska.Delivery.Hoot", "composer", "The desktop notification for a delivered question, in the delivered line's own words")
+    Component(hoot, "Whiska.Delivery.Hoot", "composer", "The desktop notification for a delivered question, in the delivered line's own words; sends it through herdr, and on the desktop when herdr will not show it")
+    Component(desktop, "Whiska.Desktop", "behaviour", "The desktop's notifier, reached without herdr; one argument per piece of text, never a shell")
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead mice")
     Component(record, "Whiska.OpenHouses", "text file", "Which houses are open; trusted only while an owl is alive")
     Component(backstop, "Whiska.Backstop", "text file", "How much this house's backstop collected that the idle trigger missed")
@@ -47,7 +49,10 @@ C4Component
   Rel(herdrb, sock, "Dispatched to the configured implementation")
   Rel(sock, herdrd, "One request per connection; events stream")
   Rel(house, draft, "Judges the main pane's screen before typing into it")
-  Rel(house, hoot, "Composes the hoot for the question it has just typed")
+  Rel(house, hoot, "Composes and sends the hoot for the question it has just typed")
+  Rel(hoot, herdrb, "Asks herdr to show it")
+  Rel(hoot, desktop, "Raises it there when herdr's popups are off or nobody is attached")
+  Rel(desktop, nc, "Runs the notifier with an argument list")
   Rel(house, doorstep, "Collects")
   Rel(house, backstop, "Marks what only the backstop found; clears it at open")
   Rel(doorstep, entry, "Decodes each JSON file")
@@ -114,11 +119,13 @@ as `Whiska.Question.Marker`, for the same reason (ADR-0031).
 **The hoot is composed where the line is** (ADR-0062). A delivered question raises one
 desktop notification, and `Whiska.Delivery.Hoot` builds it out of the same
 `Whiska.Delivery.Text` functions that build the line, so there is one phrasing of one
-event rather than two. The house sends it through `Whiska.Herdr.notify/2` in the same
-branch that typed the line, and swallows whatever comes back — herdr's own word on whether
-it drew anything included: the question is already recorded sent, and an owl that crashed
-on a failed notification would lose the thing the notification was about. `whiska doctor`
-is where that word is read, from a hoot it sends itself.
+event rather than two. The house sends it with `Whiska.Delivery.Hoot.send_out/4` in the
+same branch that typed the line. That asks herdr first and, when herdr says its popups are
+off or nobody is attached, raises the same hoot through `Whiska.Desktop`
+(ADR-next-a-hoot-reaches-you-without-herdr). Whatever comes back is swallowed: the question is
+already recorded sent, and an owl that crashed on a failed notification would lose the
+thing the notification was about. `whiska doctor` is where the outcome is read, from a hoot
+it sends itself down the same path.
 
 **Classification is the marker and nothing else** (ADR-0009). `Whiska.Question.Marker`
 reads the last marker line — a line of invisible separators, three for `done` and two for
