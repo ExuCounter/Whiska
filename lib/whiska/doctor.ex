@@ -691,7 +691,8 @@ defmodule Whiska.Doctor do
     do:
       Check.ok(
         "hoot",
-        "herdr does not show it (#{reason}), so Whiska raises it with #{notifier}"
+        "herdr does not show it (#{reason}), so Whiska raises it with #{notifier} — " <>
+          "if nothing appeared, macOS has notifications off for #{notifier}"
       )
 
   def hoot({:ok, {:not_shown, reason}}, {:error, :no_notifier}),
@@ -700,7 +701,7 @@ defmodule Whiska.Doctor do
         "hoot",
         "herdr did not show it (#{reason}), and there is no terminal-notifier or osascript " <>
           "to raise it instead, so a delivered question is silent",
-        hoot_fix()
+        hoot_fix(reason)
       )
 
   def hoot({:ok, {:not_shown, reason}}, {:error, why}),
@@ -709,7 +710,7 @@ defmodule Whiska.Doctor do
         "hoot",
         "herdr did not show it (#{reason}), and raising it on the desktop failed " <>
           "(#{inspect(why)}), so a delivered question is silent",
-        hoot_fix()
+        hoot_fix(reason)
       )
 
   def hoot({:ok, {:not_shown, reason}}, :not_needed),
@@ -717,7 +718,7 @@ defmodule Whiska.Doctor do
       Check.warn(
         "hoot",
         "herdr did not show it (#{reason}), so a delivered question is silent",
-        hoot_fix()
+        hoot_fix(reason)
       )
 
   def hoot({:error, reason}, _desktop),
@@ -752,6 +753,11 @@ defmodule Whiska.Doctor do
         hoot(:no_socket)
     end
   end
+
+  # Only popups switched off are fixed in herdr's config; nobody attached, or
+  # herdr pacing itself, is not.
+  defp hoot_fix("disabled"), do: hoot_fix()
+  defp hoot_fix(_reason), do: nil
 
   defp hoot_fix do
     ~s(in #{Herdr.config_path()}, set delivery = "system" under the ) <>

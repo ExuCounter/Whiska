@@ -217,6 +217,14 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :ok} = check
       assert check.detail =~ "disabled"
       assert check.detail =~ "terminal-notifier"
+      assert check.detail =~ "macOS"
+    end
+
+    test "nobody attached to herdr is not fixed by herdr's popup setting" do
+      for desktop <- [:not_needed, {:error, :no_notifier}] do
+        %Check{fix: fix} = Doctor.hoot({:ok, {:not_shown, "no_foreground_client"}}, desktop)
+        assert fix == nil
+      end
     end
 
     test "herdr's popups off and no notifier on this machine says both, as a warning" do

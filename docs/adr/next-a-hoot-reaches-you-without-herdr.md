@@ -56,12 +56,20 @@ what it reports is what a delivery does.
 
 **Somebody else's text never becomes a command.** The branch and the pointer line come from a
 doorstep file that anything in the repo can write. The notifier runs with an argument list and
-no shell. `osascript` runs a fixed script that reads the title and body from `argv`, so no part
-of the text is AppleScript source. A NUL byte, which no argument can carry, is dropped. A
-leading `-`, `(`, `{`, `<` or quote, which terminal-notifier's argument parsing would read as an
-option or a property list, gets a zero-width space in front of it. The tests run a branch name
-with quotes, backticks, a semicolon and `$(…)` through a real process and read back each
-argument byte for byte.
+no shell. `osascript` runs a fixed script that reads the title and body from `argv`, and they
+follow a `--`: osascript keeps reading options after its last `-e`, so without it a title of
+exactly `-e` would be compiled as more script, and a `property` initialiser in the body would
+run a shell command. A NUL byte, which no argument can carry, is dropped. A leading `-`, `(`,
+`{`, `<` or quote, after any whitespace, which terminal-notifier's argument parsing would read
+as an option or a property list, gets a zero-width space in front of it. The tests run a branch
+name with quotes, backticks, a semicolon and `$(…)` through a real process and read back each
+argument byte for byte. They also hand the real `osascript` a title of `-e`, and check that it
+comes back as data.
+
+**Found where Homebrew puts it.** The owl runs under launchd, whose PATH is
+`/usr/bin:/bin:/usr/sbin:/sbin`. A notifier not on PATH is also looked for in
+`/opt/homebrew/bin` and `/usr/local/bin`, so the owl and `whiska doctor` run from a shell pick
+the same program.
 
 **It sits behind its own boundary**, `Whiska.Desktop`, for the reason herdr does (ADR-0031):
 the suite runs against a stand-in with no notifier. Nothing appears on the screen of whoever
@@ -77,7 +85,13 @@ failure (ADR-0038), and the fix is still the edit to herdr's own table.
 
 **A notifier never costs a delivery.** Whatever the desktop does — a non-zero exit, a raise, a
 hang — comes back as an answer and is dropped, as herdr's is. A notifier that has not returned
-after five seconds is given up on, because the house runs it inline.
+after five seconds is killed, because the house runs it inline.
+
+**The doctor's "ok" is the notifier's exit, not the screen.** A notifier that exits 0 has
+handed the notification to macOS. If macOS has notifications off for `terminal-notifier` or
+Script Editor, nothing appears, so the check says that is where to look. The herdr fix it
+names, `delivery = "system"`, is offered only for `disabled`: nothing in herdr's config
+attaches a client.
 
 **Two notification styles can now appear, but never for the same hoot.** One comes from herdr
 when its popups are on, the other from the desktop when they are off. This is the cost ADR-0062

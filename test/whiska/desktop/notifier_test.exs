@@ -98,6 +98,22 @@ defmodule Whiska.Desktop.NotifierTest do
       assert List.last(args) == ""
     end
 
+    test "a title gets the same defusing as the text, and leading whitespace does not hide one" do
+      for start <- [" (a, b)", "\n<array/>", "\t{a = b;}", "-execute"] do
+        {_, args} =
+          Notifier.command(hoot(title: start, body: start), only("terminal-notifier", "/t"))
+
+        assert Enum.at(args, 1) == "\u200B" <> start
+        assert Enum.at(args, 3) == "\u200B" <> start
+      end
+    end
+
+    test "osascript's data follows a --, so a title of -e is never more script" do
+      {_, args} = Notifier.command(hoot(title: "-e"), only("osascript", "/o"))
+
+      assert ["--", "-e", "#12", "Ping"] == Enum.take(args, -4)
+    end
+
     test "text that terminal-notifier would read as an option or a plist is defused" do
       for start <- ["-remove ALL", "(a, b)", "{a = b;}", "<data>"] do
         {_, args} = Notifier.command(hoot(body: start), only("terminal-notifier", "/t"))
@@ -147,20 +163,41 @@ defmodule Whiska.Desktop.NotifierTest do
       assert Enum.take(received(out), -3) == [title, "#12", "Ping"]
     end
 
-    test "the real osascript reads the text as data, not as AppleScript" do
+    test "the real osascript reads the text as data, not as AppleScript", %{dir: dir} do
       # The script's own prologue, with `display notification` swapped for
       # handing the arguments back — the one part of the real script that
       # touches the text, run by the real interpreter, without drawing anything.
       if osascript = System.find_executable("osascript") do
-        title = "🐱 whiska · #{@nasty} needs a decision"
-        body = ~s{#12 · "#{@nasty}" & (do shell script "touch /tmp/whiska-pwned")}
-        script = Notifier.script(~s[return (item 1 of argv) & linefeed & (item 2 of argv)])
+        pwned = Path.join(dir, "pwned")
 
-        {out, 0} = System.cmd(osascript, script ++ [title, body, "Ping"])
+        for {title, body} <- [
+              {"🐱 whiska · #{@nasty} needs a decision", ~s{#12 · "#{@nasty}"}},
+              {"-e", ~s{property p : (do shell script "touch #{pwned}")}}
+            ] do
+          args =
+            Notifier.osascript_args(
+              ~s[return (item 1 of argv) & linefeed & (item 2 of argv)],
+              title,
+              body,
+              "Ping"
+            )
 
-        assert out == title <> "\n" <> body <> "\n"
-        refute File.exists?("/tmp/whiska-pwned")
+          {out, 0} = System.cmd(osascript, args)
+
+          assert out == title <> "\n" <> body <> "\n"
+        end
+
+        refute File.exists?(pwned)
       end
+    end
+
+    test "a notifier outside the owl's PATH is still found where Homebrew puts it", %{dir: dir} do
+      path = Path.join(dir, "terminal-notifier")
+      File.write!(path, "#!/bin/sh\n")
+      File.chmod!(path, 0o755)
+
+      assert Notifier.locate("terminal-notifier", [Path.join(dir, "missing"), dir]) == path
+      assert Notifier.locate("osascript-not-here", [dir]) == nil
     end
 
     test "no notifier is an answer, not a crash" do
@@ -176,13 +213,29 @@ defmodule Whiska.Desktop.NotifierTest do
                Notifier.notify(hoot(), find: only("terminal-notifier", path))
     end
 
-    test "a notifier that hangs is given up on rather than holding the owl", %{dir: dir} do
+    test "a notifier that hangs is given up on and killed, not left running", %{dir: dir} do
       path = Path.join(dir, "terminal-notifier")
-      File.write!(path, "#!/bin/sh\nsleep 5\n")
+      seconds = "30.#{System.unique_integer([:positive])}"
+      File.write!(path, "#!/bin/sh\nexec sleep #{seconds}\n")
       File.chmod!(path, 0o755)
 
       assert {:error, {"terminal-notifier", :timeout}} =
-               Notifier.notify(hoot(), find: only("terminal-notifier", path), timeout_ms: 200)
+               Notifier.notify(hoot(), find: only("terminal-notifier", path), timeout_ms: 300)
+
+      assert {_, 1} = System.cmd("pgrep", ["-f", "sleep #{seconds}"])
+    end
+
+    test "a notifier that vanished after it was found is an answer, even unsupervised" do
+      parent = self()
+
+      spawn(fn ->
+        send(
+          parent,
+          {:answer, Notifier.notify(hoot(), find: only("terminal-notifier", "/nope/tn"))}
+        )
+      end)
+
+      assert_receive {:answer, {:error, {"tn", _}}}, 2_000
     end
   end
 
