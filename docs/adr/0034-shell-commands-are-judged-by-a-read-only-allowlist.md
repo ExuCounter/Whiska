@@ -77,13 +77,18 @@ is still judged by what its own flags, operands and environment make it do, the 
 second operand that is the output file (`uniq a b`, `xxd a b`), a flag that names a
 program (`rg --pre`, `ag --pager`, `man -P`, `fd -x`, `git grep -O`, `git ls-remote
 --upload-pack`), `git -c` and `--config-env`, and a variable that names a program
-(`GIT_*`, `LESS*`, `*PAGER`, `RIPGREP_CONFIG_PATH`) each make the command mutating.
+(`GIT_*`, `LESS*`, `*PAGER`, `MANOPT`, `RIPGREP_CONFIG_PATH`, and `HOME`, `PATH`,
+`XDG_*`, `DYLD_*`, `LD_*`, which move a config or the program itself) each make the
+command mutating. Flags are read from the words the command actually receives, with
+quotes and backslashes taken out, so `"-"o` is `-o`.
 
 Where it is unclear, it leans toward denying: a long flag counts at any prefix of a
 writing name, since getopt accepts `sort --out=x`, and a flag whose value is not known
 to the code has that value counted as an operand, so `uniq` with an unknown flag can be
 denied but never let through. Each command is read only as far as needed — which
-letters write, which take a value — never parsed in full. Added 2026-10-04.
+letters write, which take a value — never parsed in full. Where BSD getopt stops at
+the first operand, so does the check: `xxd in -out` writes a file named `-out`. Added
+2026-10-04.
 
 ## How a mouse gets its mode
 

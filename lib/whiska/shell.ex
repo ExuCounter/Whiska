@@ -88,24 +88,27 @@ defmodule Whiska.Shell do
     "tree" => {"oR", "", []},
     "rg" => {"", "", ~w(pre hostname-bin)},
     "ag" => {"", "", ~w(pager)},
-    "man" => {"PH", "CEeLMmpRrSsT", ~w(pager html)}
+    "man" => {"PHC", "EeLMmpRrSsT", ~w(pager html config-file)}
   }
 
   # `less` without a terminal copies its input like `cat` and writes no log,
   # but whether a terminal is there is the environment's choice, not the
-  # command's — so a log file or a start-up command is denied either way.
+  # command's — so a log file or a start-up command is denied either way. A
+  # lesskey file or string can set `LESSOPEN`, which runs even without one.
   @less_commands ~w(less more)
-  @less_flags {"oO", "bhjkpPtTxyzD#", ~w(log-file LOG-FILE)}
+  @less_flags {"oOk", "bhjpPtTxyzD#",
+               ~w(log-file LOG-FILE lesskey-file lesskey-src lesskey-content)}
 
   @xmllint_writing ~w(-o -output --output -shell --shell)
 
   # A second operand to `uniq` or `xxd` is the file it writes. Counting operands
   # means stepping over each flag's value, and only these are known to take one.
   # A flag missing from a list has its value counted as an operand, so a gap
-  # here denies a read rather than allowing a write.
+  # here denies a read rather than allowing a write. Both stop reading flags at
+  # their first operand, so `xxd in -out` writes a file called `-out`.
   @uniq_values ~w(-f -s -w --skip-fields --skip-chars --check-chars)
   @xxd_values ~w(-c -cols -g -groupsize -l -len -n -name -o -offset -s -seek -R)
-  @date_values ~w(-d -f -r -v -z --date --file --reference)
+  @date_values ~w(-d -f -r -v -z --date --file --reference --rfc-3339)
 
   # `fd` runs everything after `-x` up to a `;`, like `find -exec`.
   @fd_exec_flags ~w(-x --exec -X --exec-batch)
@@ -115,14 +118,17 @@ defmodule Whiska.Shell do
   # reads it that way: to `git diff` and `git log` it names an order file.
   @git_runners %{
     "grep" => {"O", "efABCm", ~w(open-files-in-pager)},
-    "ls-remote" => {"", "", ~w(upload-pack)}
+    "ls-remote" => {"", "", ~w(upload-pack exec)}
   }
   @git_reflog_writers ~w(expire delete drop)
+  @git_valued_flags ~w(-C --git-dir --work-tree --namespace --attr-source --super-prefix)
 
   # Variables a command on the read-only list reads to find a program to run:
   # git's external diff and config, a pager, `less`'s input filter, ripgrep's
-  # config file (which can set `--pre`).
-  @program_variables ~r/^(GIT_|LESS|[A-Za-z_]*PAGER=|RIPGREP_CONFIG_PATH=)/
+  # config file (which can set `--pre`). `HOME` and `XDG_` move git's config
+  # with it, `PATH` picks which program a name runs, and `DYLD_` and `LD_` load
+  # code into it.
+  @program_variables ~r/^(GIT_|LESS|DYLD_|LD_|XDG_|HOME=|PATH=|MANOPT=|[A-Za-z_]*PAGER=|RIPGREP_CONFIG_PATH=)/
 
   @awk_commands ~w(awk gawk mawk)
 
@@ -217,7 +223,7 @@ defmodule Whiska.Shell do
     segment
     |> String.trim_leading("(")
     |> String.trim_trailing(")")
-    |> words()
+    |> judged_words()
     |> tokens_mutate?()
   end
 
@@ -239,11 +245,11 @@ defmodule Whiska.Shell do
       "command" -> command_mutates?(rest)
       "arch" -> arch_mutates?(rest)
       "git" -> git_mutates?(rest)
-      "sed" -> Enum.any?(rest, &(&1 in ["-i", "--in-place"] or &1 =~ ~r/^-i/))
+      "sed" -> writing_flag?(rest, {"iI", "efl", ~w(in-place)})
       "find" -> find_mutates?(rest)
       "fd" -> fd_mutates?(rest)
-      "uniq" -> length(operands(rest, @uniq_values)) > 1
-      "xxd" -> length(operands(rest, @xxd_values)) > 1
+      "uniq" -> operand_count(rest, @uniq_values) > 1
+      "xxd" -> operand_count(rest, @xxd_values) > 1
       "date" -> date_mutates?(rest)
       "hostname" -> writing_flag?(rest, {"F", "", ~w(file)}) or operands(rest, []) != []
       "xmllint" -> Enum.any?(rest, &(&1 in @xmllint_writing))
@@ -308,11 +314,24 @@ defmodule Whiska.Shell do
     end
   end
 
-  # `date` sets the clock from an operand that is not a `+format`, unless `-j`
-  # says not to.
+  defp operand_count([], _value_flags), do: 0
+  defp operand_count(["--" | rest], _value_flags), do: length(rest)
+
+  defp operand_count([token | rest], value_flags) do
+    cond do
+      token in value_flags -> operand_count(Enum.drop(rest, 1), value_flags)
+      token != "-" and String.starts_with?(token, "-") -> operand_count(rest, value_flags)
+      true -> 1 + length(rest)
+    end
+  end
+
+  # `date` sets the clock from an operand that is not a `+format`, unless a `-j`
+  # before the operands says not to: BSD getopt stops at the first operand.
   defp date_mutates?(args) do
+    leading_flags = Enum.take_while(args, &String.starts_with?(&1, "-"))
+
     writing_flag?(args, {"s", "dfrvzI", ~w(set)}) or
-      (not writing_flag?(args, {"j", "dfrvzI", []}) and
+      (not writing_flag?(leading_flags, {"j", "dfrvzI", []}) and
          Enum.any?(operands(args, @date_values), &(not String.starts_with?(&1, "+"))))
   end
 
@@ -358,7 +377,9 @@ defmodule Whiska.Shell do
   # for the subcommand. `-c` and `--config-env` set config, and config can name
   # a program that even a read-only subcommand runs: `diff.external` for
   # `git diff`, `core.fsmonitor` for `git status`.
-  defp git_mutates?(["-C", _dir | rest]), do: git_mutates?(rest)
+  defp git_mutates?([flag, _value | rest]) when flag in @git_valued_flags,
+    do: git_mutates?(rest)
+
   defp git_mutates?(["-c" | _rest]), do: true
   defp git_mutates?(["--config-env" <> _ | _rest]), do: true
 
@@ -419,6 +440,16 @@ defmodule Whiska.Shell do
 
   defp awk_mutates?(args) do
     Enum.any?(args, fn arg -> Enum.any?(@awk_writes, &Regex.match?(&1, arg)) end)
+  end
+
+  # Words as the command receives them: quotes and backslashes are taken out
+  # wherever they sit, so `"-"o` and `\-o` are the flag `-o`.
+  defp judged_words(segment) do
+    ~r/(?:"[^"]*"|'[^']*'|\\.|[^\s"'\\])+/u
+    |> Regex.scan(segment)
+    |> Enum.map(fn [word] ->
+      Regex.replace(~r/"([^"]*)"|'([^']*)'|\\(.)/u, word, fn _, d, s, e -> d <> s <> e end)
+    end)
   end
 
   defp assignment?(token), do: Regex.match?(~r/^[A-Za-z_][A-Za-z0-9_]*=/, token)

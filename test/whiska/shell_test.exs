@@ -411,7 +411,35 @@ defmodule Whiska.ShellTest do
           "LESSOPEN='|./x' less in.txt",
           "MANPAGER=./x man ls",
           "PAGER=./x man ls",
-          "RIPGREP_CONFIG_PATH=./rc rg foo"
+          "RIPGREP_CONFIG_PATH=./rc rg foo",
+          "HOME=./h git status",
+          "XDG_CONFIG_HOME=./h git diff",
+          "PATH=./bin ls",
+          "DYLD_INSERT_LIBRARIES=./x.dylib rg foo",
+          # git's global flags that take the next word as their value
+          "git --namespace log commit -m x",
+          "git --git-dir .git grep -Ox foo",
+          "git --work-tree log commit -m x",
+          "git --attr-source log commit -m x",
+          # less loads key bindings that can set LESSOPEN
+          "less -k keys in.txt",
+          "less --lesskey-src=keys in.txt",
+          "less --lesskey-content=x in.txt",
+          "man -C conf ls",
+          # a flag split by quotes or a backslash is still that flag
+          ~S[sort "-"o out in],
+          ~S[sort \-o out in],
+          ~S[sort "--"output=out in],
+          ~S[sed \-i s/a/b/ f],
+          ~S[find . "-"delete],
+          # after the first operand, uniq and xxd read every word as an operand
+          "xxd in -out",
+          "uniq in -u2",
+          "git ls-remote --exec=./x .",
+          "date 0101000099 -j",
+          "MANOPT=-Hx man ls",
+          "sed -Ei s/a/b/ f",
+          "sed --in s/a/b/ f"
         ] do
       test "#{command} writes" do
         assert Shell.mutating?(unquote(command))
@@ -486,7 +514,14 @@ defmodule Whiska.ShellTest do
           "git reflog main",
           "git ls-remote origin",
           "LC_ALL=C sort in.txt",
-          "NO_COLOR=1 rg foo lib/"
+          "NO_COLOR=1 rg foo lib/",
+          "git --git-dir .git log",
+          "git --namespace x status",
+          ~S[grep -r "a b" lib/],
+          ~S[sort -t "," -k2 in.txt],
+          "date --rfc-3339 seconds",
+          "sed -E s/a/b/ f",
+          "sed -n /x/p f"
         ] do
       test "#{command} reads" do
         refute Shell.mutating?(unquote(command))
