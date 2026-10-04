@@ -15,7 +15,7 @@ C4Container
   System_Ext(nc, "Desktop notifications", "terminal-notifier, or osascript")
 
   Container_Boundary(built, "Built") {
-    Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; resolves runtime at fire time, fails open. The global copy stands down where the repo has its own")
+    Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; resolves runtime at fire time, fails open, with a visible hook error in a worktree. The global copy stands down where the repo has its own")
     Container(statusline, "herdr-status.sh", "bash", "Machine-level status script in ~/.whiska; herdr's tab bar runs it on a timer")
     Container(repoline, "whiska-statusline.sh", "bash", "Statusline script in the repo or in ~/.claude; Claude Code runs it every 2 seconds. Starts nothing - it prints the board file")
     Container(board, "Board file", "text files, ~/.whiska/board/", "The rows of this repo's mice, rewritten by its house every 2 seconds, and beside them the pane its questions are delivered to")

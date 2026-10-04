@@ -228,14 +228,18 @@ defmodule Whiska.InstallTest do
     end
 
     test "allows the call when no Whiska can be found at all", %{tmp: tmp, shim: shim} do
+      # Run from outside any worktree: inside one, in a repo with a house, the
+      # shim says so with exit 1 instead (Whiska.InstallShimCannotRunTest).
       {out, status} =
         System.cmd("bash", [shim],
           env: [
             {"WHISKA_BIN", Path.join(tmp, "does-not-exist")},
             {"WHISKA_ESCRIPT", ""},
             {"HOME", tmp},
-            {"PATH", @stripped_path}
+            {"PATH", @stripped_path},
+            {"CLAUDE_PROJECT_DIR", nil}
           ],
+          cd: tmp,
           stderr_to_stdout: true
         )
 

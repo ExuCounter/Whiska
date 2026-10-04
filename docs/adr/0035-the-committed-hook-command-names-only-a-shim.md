@@ -61,9 +61,24 @@ entry is recognised as Whiska's by its command containing either `hook pre-tool-
 the shim path, so re-running `init` over an old absolute-path install replaces it rather
 than stacking a second entry beside it.
 
-**The shim fails open.** If no Whiska binary is found it writes to stderr and exits 0,
-allowing the call. Denying would brick every tool call in a session over a missing
-install — the same trade `Whiska.Hook.PreToolUse` already makes on a malformed payload.
+**The shim fails open, and says so where it costs something.** If no Whiska binary is
+found, or the one found will not run, it writes to stderr and allows the call. Denying
+would brick every tool call in a session over a missing install — the same trade
+`Whiska.Hook.PreToolUse` already makes on a malformed payload, and again when it cannot
+read a mouse's mode. The shim cannot read the mode either, so it cannot deny only a sniff
+mouse.
+
+It exits 1 when the session is in a worktree and Whiska is set up for this repo on this
+machine — the repo's house exists, or the binary was found. Everywhere else it exits 0.
+Measured on Claude Code 2.1.285: an exit-0 hook's stderr is filed as a success and never
+shown, so a shim that always exited 0 failed open in silence — sniff mode and containment
+off, and a mouse's last message never reaching the doorstep, with nothing on screen.
+Exit 1 is shown as a hook error, still lets the call through, and on `Stop` ends the turn
+without looping. Exit 2 was rejected: on `PreToolUse` it denies, on `Stop` it keeps the
+turn going. The exit-0 cases are the ones where nothing is lost — a session outside a
+worktree, where both hooks are no-ops, and a committed hook that reached a machine where
+Whiska was never set up, which must not light up every tool call for a colleague. The
+complaint goes to stderr in every case, which is what `whiska doctor`'s probe reads.
 
 **One more moving part to keep honest.** The shim is shell, so it is not covered by the
 Elixir suite beyond its contents being asserted; its resolution logic is verified by
