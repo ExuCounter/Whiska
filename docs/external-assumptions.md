@@ -15,6 +15,7 @@ as a direct dependency.
 - [macOS](#macos)
 - [Everything else](#everything-else)
 - [Drop, make optional, keep](#drop-make-optional-keep)
+- [Order of work](#order-of-work)
 - [Open questions](#open-questions)
 
 ## The short answer
@@ -244,18 +245,40 @@ describe this machine accurately. A tool that only has to run here may assume th
 The real exposure is not portability but **drift**: herdr and Claude Code change under
 Whiska on this same machine, and today nothing notices. That is why rank 1 is first.
 
+## Order of work
+
+Decided 2026-10-04: other people will run Whiska, so all seven loud-failure fixes and
+Linux support go ahead, and taking herdr's words out of the core is planned work, not
+dropped. Proposed order, cheapest unblockers first. Nothing here is built yet.
+
+| # | Piece | Cost | Why here |
+| --- | --- | --- | --- |
+| 1 | Rescue a missing `launchctl` as "not loaded" (fix 7) | 30 min with a test | Owl and doctor start on Linux at all |
+| 2 | Version check: herdr `ping`, `claude --version`, doctor warns when newer than last checked (fix 3) | 2 h | Other people run other versions. Every later report starts with "which versions?" |
+| 3 | Unreadable prompt box goes on the board and the log (fix 1) | 1 h | Worst silent failure: typing into a draft |
+| 4 | Own hold reason for an agent status Whiska does not know (fix 4) | 1 h | Stops "mid-turn" sending people the wrong way |
+| 5 | Shim exits 1, not 0, when it fails open (fix 2) | 1 h, including checking Claude Code's behaviour and the doctor's shim probe | Lost questions become visible. Needs open question 3 answered |
+| 6 | Honour `CLAUDE_CONFIG_DIR` (fix 6) | 1 h | Cheap; other people set it |
+| 7 | Doctor probes a real deny: inside-worktree `Edit` at the main checkout, check the JSON back | 2 h | Covers the deny format and payload keys |
+| 8 | Doctor warns about tool names in transcripts it has never classified (fix 5) | half a day | Covers new editing tools and MCP writers |
+| 9 | Run `mix test` in a Linux container, fix what is macOS-only | 1 h to learn, unknown to fix | Turns the Linux cost from a guess into a number |
+| 10 | systemd user unit behind the launchd runner, `notify-send` fallback, `mise` shims in the runtime lookup, README's "Requires macOS" rewritten | about 1.5 days | Linux supported, not just not crashing. Only worth it if herdr runs on Linux |
+| 11 | Skills call `whiska` subcommands instead of `herdr … \| jq` | half a day | One less thing for a new user to install, and the herdr CLI moves into tested code |
+| 12 | herdr's statuses, agent name and event names translated inside `Whiska.Herdr.Socket`; the house, pickup, board, doctor and CLI match Whiska's own words | 1–2 days, mostly tests through the Mox fake | Prerequisite for a second multiplexer. Reverses the "herdr's own name, verbatim" choice, so it comes with an ADR |
+
+Items 1–8 come to about two days and need no new design. Items 9–10 depend on herdr
+running on Linux, which is not yet checked.
+
 ## Open questions
 
-These need the person, not a guess. One is asked in the message that comes with this
-document; the rest wait here.
+These need the person, not a guess.
 
-1. **Will anyone but you run Whiska?** If not, rank 2 and the herdr swap are off the
-   table, and only rank 1 matters.
+1. ~~Will anyone but you run Whiska?~~ Yes, decided 2026-10-04.
 2. **Should a version newer than the checked one only warn, or also add a line to the
    board?** The doctor alone is only as loud as how often it is run.
 3. **Is changing the shim's fail-open exit from 0 to 1 acceptable?** It shows a hook
    error on every tool call while Whiska is missing, which is loud on purpose but may
    be too loud.
-4. **Should the house stop matching herdr's strings?** That reverses the "herdr's own
-   name, verbatim" choice in `owl/house.ex`. Only worth it on the way to a second
-   multiplexer.
+4. ~~Should the house stop matching herdr's strings?~~ Yes, as planned later work
+   (item 12), decided 2026-10-04.
+5. **Does herdr run on Linux?** Items 9–10 are wasted if it does not.
