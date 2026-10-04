@@ -12,11 +12,11 @@ defmodule Whiska.Adr do
   branch and is fine; one main holds reached main unclaimed.
   """
 
-  @scanned ~w(CLAUDE.md CONTEXT.md README.md config docs handoffs lib priv specs test)
+  @scanned ~w(.claude .gitignore CLAUDE.md CONTEXT.md README.md mix.exs config docs handoffs lib priv specs test)
   @numbered ~r/^(\d{4})-.+\.md$/
   @placeholder_file ~r/^next-(.+)\.md$/
-  @cited ~r/ADR-(\d{4})(?!\d)|ADR-next-([a-z0-9-]*[a-z0-9])/
-  @linked ~r/\]\(((?:\d{4}|next)-[a-z0-9-]+\.md)\)/
+  @cited ~r/ADR-(\d+)|ADR-next-([a-z0-9-]*[a-z0-9])/
+  @linked ~r/\]\((?:\.\/)?((?:\d{4}|next)-[a-z0-9-]+\.md)(?:#[^)]*)?\)/
 
   @typedoc """
   What git says about `docs/adr/`: the file names on `main`, and on the commit this
@@ -71,7 +71,12 @@ defmodule Whiska.Adr do
   end
 
   defp collisions(files, view) do
-    landed_since_cut = view.main -- view.base
+    held_at_cut = view.base |> Enum.flat_map(&number_of/1) |> MapSet.new(fn {n, _} -> n end)
+
+    landed_since_cut =
+      Enum.reject(view.main -- view.base, fn name ->
+        Enum.any?(number_of(name), fn {n, _} -> n in held_at_cut end)
+      end)
 
     (files ++ landed_since_cut)
     |> Enum.uniq()
@@ -169,11 +174,17 @@ defmodule Whiska.Adr do
     end)
   end
 
+  # A symlink is never followed, so neither the check nor the claim leaves the repo.
   defp walk(path) do
-    cond do
-      File.regular?(path) -> [path]
-      File.dir?(path) -> path |> File.ls!() |> Enum.flat_map(&walk(Path.join(path, &1)))
-      true -> []
+    case File.lstat(path) do
+      {:ok, %{type: :regular}} ->
+        [path]
+
+      {:ok, %{type: :directory}} ->
+        path |> File.ls!() |> Enum.flat_map(&walk(Path.join(path, &1)))
+
+      _ ->
+        []
     end
   end
 end

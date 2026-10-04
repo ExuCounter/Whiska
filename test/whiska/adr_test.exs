@@ -70,9 +70,31 @@ defmodule Whiska.AdrTest do
 
       assert Adr.problems(root, view) == []
     end
+
+    test "a file main renamed since this branch was cut is not a collision", %{root: root} do
+      adrs(root, ["0001-old-name.md"])
+      view = %{main: ["0001-new-name.md"], base: ["0001-old-name.md"]}
+
+      assert Adr.problems(root, view) == []
+    end
   end
 
   describe "problems/2, citations" do
+    test "a citation with the wrong number of digits is named", %{root: root} do
+      adrs(root, ["0001-a.md"])
+      write(root, "lib/x.ex", "# per #{cite("00011")}\n")
+
+      assert [problem] = Adr.problems(root, level(root))
+      assert problem =~ cite("00011")
+    end
+
+    test "a link with an anchor or a ./ prefix is still checked", %{root: root} do
+      adrs(root, ["0001-a.md"])
+      write(root, "docs/adr/README.md", "[x](./0002-gone.md) [y](0003-gone.md#why)\n")
+
+      assert [_, _] = Adr.problems(root, level(root))
+    end
+
     test "a numbered citation with no file behind it is named with where it is", %{root: root} do
       adrs(root, ["0001-a.md"])
       write(root, "lib/x.ex", "# per #{cite("0009")}\n")
@@ -89,6 +111,17 @@ defmodule Whiska.AdrTest do
       assert [problem] = Adr.problems(root, level(root))
       assert problem =~ ph("ghost")
       assert problem =~ "test/x_test.exs"
+    end
+
+    test "a symlink out of the repo is not followed", %{root: root} do
+      adrs(root, ["0001-a.md"])
+      outside = root <> "-outside"
+      write(outside, "x.ex", "# per #{cite("0009")}\n")
+      on_exit(fn -> File.rm_rf!(outside) end)
+      File.mkdir_p!(Path.join(root, "test"))
+      File.ln_s!(outside, Path.join(root, "test/out"))
+
+      assert Adr.problems(root, level(root)) == []
     end
 
     test "a README link to a file that is not there is named", %{root: root} do
