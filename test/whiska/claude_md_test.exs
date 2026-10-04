@@ -52,9 +52,9 @@ defmodule Whiska.ClaudeMdTest do
       lines = rendered |> String.split("\n") |> length()
       words = rendered |> String.split() |> length()
 
-      # Raised for the test scout, deliberately (ADR-0075).
-      assert lines <= 145, "the block grew back to #{lines} lines; every rule has a terse form"
-      assert words <= 1433, "the block grew back to #{words} words; every rule has a terse form"
+      # Raised deliberately, by exactly what each rule cost: ADR-0075, ADR-0063.
+      assert lines <= 152, "the block grew back to #{lines} lines; every rule has a terse form"
+      assert words <= 1550, "the block grew back to #{words} words; every rule has a terse form"
     end
 
     test "no rule is buried deeper than one level of bullet" do
@@ -109,26 +109,70 @@ defmodule Whiska.ClaudeMdTest do
     test "the main session plans before non-trivial work, a mouse does not" do
       body = prose_of("worktrees")
 
-      assert body =~ ~r/2.{0,3}4 line plan/i
-      assert body =~ ~r/wait for the person.s ok/i
+      assert body =~ ~r/2.{0,3}4 line plan and wait for the person.s ok/i
       assert body =~ ~r/stops only on a real decision/i
     end
 
-    # The rule that a mouse does not wait for an ok used to read as "a mouse does
-    # not stop at all", which cancelled the grilling rule four bullets above it.
-    test "not waiting for an ok names the rules it is not leave to skip" do
+    # Read literally, "a mouse sends no plan; it builds" cancels the grilling
+    # bullets above it, so the bullet says a costly choice still stops it.
+    test "a mouse sends no plan, but every costly choice stops it, before or during the build" do
       body = prose_of("worktrees")
 
-      assert body =~ ~r/not leave to skip naming .done. and grilling/i
-      assert body =~ ~r/does not wait for an ok/i
+      assert body =~
+               ~r/a mouse sends no plan; it builds, and stops only on a real decision — every costly choice is one, found before the build or during it/i
+
+      refute body =~ ~r/does not wait for an ok/i
     end
 
-    test "a brief that names done and its failing test is built, not interrogated" do
+    test "a mouse reads the code, then asks every costly choice with its recommendation" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/read the code first, then grill: send one message/i
+      assert body =~ ~r/every choice with real alternatives that is costly to undo/i
+      assert body =~ ~r/each with its recommended answer/i
+      assert body =~ ~r/and wait for the person.s ok\. a .done./i
+    end
+
+    test "costly to undo is a test a mouse can apply, not an adjective" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/costly to undo: something outside the change depends on it/i
+
+      for thing <- [
+            "a file format",
+            "a command-line flag or interface",
+            "stored data",
+            "a dependency added or dropped",
+            "behaviour the person would notice",
+            "it touches secrets, access or a security check",
+            "the rest of the change is built on it"
+          ] do
+        assert body =~ thing
+      end
+    end
+
+    test "a cheap choice is decided by the mouse and listed in its final report" do
+      assert prose_of("worktrees") =~
+               ~r/anything else is cheap: decide it, and list it in the final report/i
+    end
+
+    test "with no costly choice left open, a mouse builds without asking" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/no costly choice left open → build without the message/i
+      refute body =~ ~r/with no guess → build/i
+    end
+
+    test "a truly trivial task never needs the message" do
+      assert prose_of("worktrees") =~
+               ~r/a truly trivial task — a typo, a rename, a one-line fix, nothing on that list — never needs one/i
+    end
+
+    test "a brief that names done and its failing test is not asked about them" do
       body = prose_of("worktrees")
 
       assert body =~ ~r/what .done. looks like and name the failing test that proves it/i
-      assert body =~ ~r/with no guess → build/i
-      assert body =~ ~r/never grill what is already spelled out/i
+      assert body =~ ~r/never ask what the brief already spells out/i
     end
 
     # ADR-0075: the failing test is chosen from
@@ -155,9 +199,9 @@ defmodule Whiska.ClaudeMdTest do
                ~r/`\.claude\/agents\/wio-candidate-scout\.md` in this repo is the copy that runs: read it first/i
     end
 
-    test "a brief that needs a guess is grilled before any code" do
+    test "a done or failing test that needs a guess is one of the costly choices" do
       assert prose_of("worktrees") =~
-               ~r/bug report with no stated right behaviour.{0,120}grill first/i
+               ~r/a .done. or failing test that needs a guess.{0,120}is one of them/i
     end
 
     test "grilling is not capped at one round" do
@@ -344,6 +388,13 @@ defmodule Whiska.ClaudeMdTest do
 
       assert body =~ ~r/ask one question rather than guessing/i
       assert body =~ ~r/grilling round is the exception/i
+    end
+
+    test "the cheap choices a mouse made without asking have a line each, outside the cap" do
+      body = prose_of("report")
+
+      assert body =~ ~r/six lines plus a line per cheap choice made without asking/i
+      assert body =~ ~r/\*\*what changed\*\*.{0,60}and each cheap choice made without asking/i
     end
 
     test "carries the person's own rules for how a session talks" do

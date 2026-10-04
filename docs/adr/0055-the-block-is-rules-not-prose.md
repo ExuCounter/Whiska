@@ -97,5 +97,6 @@ and all — through this rewrite, which is the mechanism working, not a migratio
 ADR-0049 and ADR-0054 are unchanged in substance. Where they say "the block", the steps
 they describe now live in the skill the block points at.
 
-ADR-0063 narrows one sentence of this one: "a mouse builds and stops on a real decision"
-binds the plan-and-wait rule, not the grilling rule, and the block now says which.
+ADR-0063 narrows one sentence of this one: a mouse sends no plan, but it does wait for an
+ok on its costly choices, and "it builds, and stops only on a real decision" does not
+cancel that. The block says so in that bullet.

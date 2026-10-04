@@ -21,17 +21,28 @@ _Avoid_: worker, crewmate, agent
 **Brief**:
 What a mouse is given to build — the person's own words, routed in whole by
 `spawn-worktree` or `send-to-worktree`, or a **proposal** the person said yes to, handed
-over by its question id alone. A brief is **buildable** when the mouse can say
-what "done" looks like and name the failing test that proves it without guessing anything
-the person has an opinion on; one that is not gets grilled before any code (ADR-0063).
+over by its question id alone. A brief is **buildable** once no **costly choice** in it is
+left open, "done" and the failing test that proves it included; until then it gets
+grilled, after the mouse has read the code and before it writes any (ADR-0063).
 _Avoid_: task, ticket, spec
 
 **Grilling**:
-The rounds of questions a mouse asks before building an unbuildable brief: what "done"
-looks like, which part of the app, what data, the edge cases. A round asks the whole
-frontier — every question whose prerequisites are already settled — in one message,
-because each round costs the person a full round trip.
+The rounds of questions a mouse asks before building a brief that is not yet buildable:
+every costly choice still open, each with the answer the mouse recommends, then a wait for
+the person's ok. A round asks the whole frontier — every question whose prerequisites are
+already settled — in one message, because each round costs the person a full round trip.
+A truly trivial task — a typo, a rename, a one-line fix, with no costly choice in it — is
+never grilled.
 _Avoid_: interview, clarification
+
+**Costly choice**:
+A choice in a brief that has real alternatives and is costly to undo: something outside
+the change depends on it — a file format, a command-line flag or interface, stored data, a
+dependency added or dropped, behaviour the person would notice — or it touches secrets,
+access or a security check, or the rest of the change is built on it. A mouse asks these
+before building. Every other choice is **cheap**: the
+mouse decides it and lists it in its final report (ADR-0063).
+_Avoid_: big decision, one-way door
 
 **Mouse record**:
 Whiska's own persisted row tracking a mouse — its pane, worktree path, branch label,
@@ -83,7 +94,8 @@ see **Report**), event (as the table/record name)
 
 **Report**:
 The shape a mouse's final message takes — one line of what is true now, where it lives,
-what changed, what was verified rather than assumed, one thing worth knowing, then
+what changed with each cheap choice made without asking, what was verified rather than
+assumed, one thing worth knowing, then
 either nothing waiting or the one decision with its options and a recommendation. It
 names how a message reads, never the record it becomes: once collected the same message
 is a **question**. The block's `report` part teaches it. `done` report is the older,
