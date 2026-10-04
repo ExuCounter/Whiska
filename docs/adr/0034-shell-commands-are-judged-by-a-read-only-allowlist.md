@@ -70,6 +70,44 @@ while `find . -exec rm {} \;` stays denied. `awk` is read-only unless its progra
 redirects with `>`, calls `system()`, or pipes its output, all of which sit inside a
 quoted argument where the mask deliberately hides them from the redirect check.
 
+**Being on the list does not make every use of a command read-only.** A listed command
+is still judged by what its own flags, operands and environment make it do, the way
+`git`, `sed`, `find` and `awk` already were. An output file (`sort -o`, `xmllint
+--output`, `tree -o`, `less -o`, `git diff --output`), an in-place edit (`yq -i`), a
+second operand that is the output file (`uniq a b`, `xxd a b`), a flag that names a
+program (`rg --pre`, `ag --pager`, `man -P`, `fd -x`, `git grep -O`, `git ls-remote
+--upload-pack`), and `git -c` or `--config-env` with any key outside a short list of
+safe ones (`user.*`, `color.*`, `core.quotepath`, …) each make the command mutating.
+A `-c` value cannot be judged by itself — `x` is a name for `user.name` and a program
+for `core.pager` — so the key decides, and an unknown key stays denied. The few keys
+whose value is a program (`core.pager`, `pager.*`, `diff.external`, `core.fsmonitor`)
+have that value judged as a command, so `-c core.pager=cat` reads. Flags are read
+from the words the command actually receives, with quotes and backslashes taken out, so
+`"-"o` is `-o`.
+
+**A variable in front of a command leans the other way: allowed unless its value
+plainly runs something.** A value that is a command (`PAGER`, `GIT_EXTERNAL_DIFF`,
+`LESSOPEN`, …) is judged as the shell line it is, operators and substitutions
+included, so `PAGER=cat` is allowed and `PAGER=rm` or `PAGER='cat > x'` is not. A value that is a command's own flags (`LESS`, `MANOPT`) is judged as those flags.
+Code loaded into the process (`DYLD_INSERT_LIBRARIES`, `LD_PRELOAD`), a trace file
+(`GIT_TRACE=/path`) and config handed in inline (`GIT_CONFIG_PARAMETERS`, an unsafe
+`GIT_CONFIG_KEY_n`) are denied. A path — `HOME`, `XDG_CONFIG_HOME`,
+`GIT_CONFIG_GLOBAL`, `GIT_DIR`, `PATH`, `RIPGREP_CONFIG_PATH` — is allowed, and so is
+any variable not named here. The reason is who pays: `PAGER=cat git log` and
+`GIT_CONFIG_GLOBAL=/dev/null` are how ordinary investigation keeps git quiet and
+isolated, so denying them blocks every mouse, every day. The case they guard against
+needs a hostile config or program already on disk, which a sniff mouse cannot write
+itself. That gap is accepted on purpose: `HOME=./h git status` with a crafted
+`.gitconfig` in `./h` still runs that config's `core.fsmonitor`.
+
+Where it is unclear, it leans toward denying: a long flag counts at any prefix of a
+writing name, since getopt accepts `sort --out=x`, and a flag whose value is not known
+to the code has that value counted as an operand, so `uniq` with an unknown flag can be
+denied but never let through. Each command is read only as far as needed — which
+letters write, which take a value — never parsed in full. Where BSD getopt stops at
+the first operand, so does the check: `xxd in -out` writes a file named `-out`. Added
+2026-10-04.
+
 ## How a mouse gets its mode
 
 `Mouse.mode` existed from v0.0.1 but nothing wrote it, so sniff enforcement would have
