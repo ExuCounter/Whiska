@@ -300,6 +300,13 @@ defmodule Whiska.ShellTest do
     test "cd reads" do
       refute Shell.mutating?("cd /tmp")
       refute Shell.mutating?("cd /tmp && git status")
+      refute Shell.mutating?("(cd /tmp && git status)")
+      assert Shell.mutating?("(cd /tmp && rm x)")
+      assert Shell.mutating?("(env rm x)")
+      refute Shell.mutating?("(env git log)")
+      assert Shell.mutating?("cat <(rm x; true)")
+      assert Shell.mutating?("(cat <(rm x))")
+      assert Shell.mutating?("cat <(rm x)")
       refute Shell.mutating?("pushd /tmp")
       refute Shell.mutating?("popd")
     end

@@ -27,6 +27,25 @@ makes it tolerable: `cat <main>/CONTEXT.md` and `grep -r <main>` stay allowed, w
 plain substring match on the main-checkout path would have denied those too. Reads are
 never policed, in any tool.
 
+**Containment reads paths by pattern, and stops where the text stops.** Each command in a
+line is judged against where the shell stands when it runs — the hook payload's `cwd`,
+moved by any literal `cd` or `pushd` earlier in the line, and put back when a `( … )`
+subshell closes. A mutating command run from inside the main checkout is denied whatever
+it names, so a bare `rm CONTEXT.md` after a `cd` is caught. The paths judged are every
+literal absolute path anywhere in the text, with quotes and backslashes dropped first —
+glued to `2>` or `of=`, split by `my"re"po`, or inside a nested `bash -c` — and every
+relative path-like word, with `$HOME`, `${HOME}` and `~` expanded. From outside the
+worktree every bare word counts, and a path is denied when it is the main checkout or a
+folder above it, so `cd .. && rm -rf repo` is caught too.
+
+What it does not catch, on purpose: any other variable, a path built by a substitution or
+a glob, a `cd` to a computed directory or one inside a nested shell, and a program written
+into the worktree and run. Those are allowed — the rule catches honest mistakes rather
+than a mouse set on escaping, which no text check can (ADR-0024's honest limit). What it
+denies that it need not: a mutating command whose text quotes the main checkout's
+absolute path, such as a commit message, and any mutating command run while standing in
+the main checkout, wherever it writes. Added 2026-10-04.
+
 **`git` is judged per subcommand.** Only an explicit list — `log`, `diff`, `status`,
 `show`, `blame`, `rev-parse`, and similar — is read-only. `branch`, `tag`, `stash`,
 `config`, `remote` and `worktree` all have mutating forms and are treated as mutating

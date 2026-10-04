@@ -82,8 +82,8 @@ defmodule Whiska.Shell do
 
   # A command built at runtime cannot be read at all. Judged against a mask that
   # keeps double-quoted content visible, since `"$(…)"` still substitutes while
-  # `'$(…)'` is literal.
-  @substitution ~r/\$\(|`/
+  # `'$(…)'` is literal. A process substitution `<(…)` runs a command too.
+  @substitution ~r/\$\(|<\(|`/
 
   # A `>` that is not followed by `&` writes to a file. `2>&1` and `1>&2`
   # duplicate a descriptor and create nothing.
@@ -121,13 +121,18 @@ defmodule Whiska.Shell do
   @spec paths(String.t()) :: [String.t()]
   def paths(command) when is_binary(command) do
     command
-    |> tokenize()
-    |> Enum.map(&unquote_token/1)
+    |> words()
+    |> Enum.map(&strip_operand_prefix/1)
     |> Enum.filter(&path_like?/1)
     |> Enum.uniq()
   end
 
-  defp segments(command) do
+  @doc """
+  The separate commands a command line runs, split on `;`, `&&`, `||`, `|`,
+  `&` and newlines that sit outside quotes.
+  """
+  @spec segments(String.t()) :: [String.t()]
+  def segments(command) when is_binary(command) do
     command
     |> split_on_unquoted(@separators)
     |> Enum.map(&String.trim/1)
@@ -149,8 +154,20 @@ defmodule Whiska.Shell do
     Enum.reverse([binary_part(command, pos, byte_size(command) - pos) | parts])
   end
 
+  @doc "A command's words, split on whitespace, with one layer of quotes removed."
+  @spec words(String.t()) :: [String.t()]
+  def words(command) when is_binary(command) do
+    command |> tokenize() |> Enum.map(&unquote_token/1)
+  end
+
+  # A subshell's parentheses sit on its first and last segments, glued to a
+  # word: `(cd lib` and `git log)` are `cd lib` and `git log`.
   defp segment_mutates?(segment) do
-    segment |> tokenize() |> Enum.map(&unquote_token/1) |> tokens_mutate?()
+    segment
+    |> String.trim_leading("(")
+    |> String.trim_trailing(")")
+    |> words()
+    |> tokens_mutate?()
   end
 
   defp tokens_mutate?(tokens) do
@@ -253,11 +270,13 @@ defmodule Whiska.Shell do
     end
   end
 
-  # A redirect can be written `>out.txt` with no space, so strip any leading
-  # redirect operator before judging the token.
-  defp path_like?(token) do
-    token = String.replace_leading(token, ">", "") |> String.replace_leading("<", "")
+  # A path can be glued to what introduces it: a redirect (`>out`, `2>out`,
+  # `&>out`, `>|out`) or a `name=` operand (`of=out`, `--output=out`).
+  @operand_prefix ~r/^(?:\d*&?[<>]+[|&]?|-{0,2}[A-Za-z_][A-Za-z0-9_-]*=)/
 
+  defp strip_operand_prefix(token), do: String.replace(token, @operand_prefix, "")
+
+  defp path_like?(token) do
     cond do
       token == "" -> false
       String.starts_with?(token, "-") -> false

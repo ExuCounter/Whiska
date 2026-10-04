@@ -219,6 +219,152 @@ defmodule Whiska.Rule.MainCheckoutTest do
     end
   end
 
+  describe "Bash spellings of a main-checkout path (ADR-0013, ADR-0034)" do
+    # MAIN is the main checkout, WT this mouse's worktree. HOME is the test's
+    # root, so HOME_MAIN and HOME_BRACED spell the main checkout through it.
+    @denied [
+      {"a stderr redirect", "echo x 2>MAIN/f"},
+      {"a stdout-and-stderr redirect", "echo x &>MAIN/f"},
+      {"an append with no space", "echo x >>MAIN/f"},
+      {"a clobbering redirect", "echo x >|MAIN/f"},
+      {"a numbered redirect with a space", "echo x 2> MAIN/f"},
+      {"dd's of=", "dd if=/dev/zero of=MAIN/f count=1"},
+      {"a long option with =", "curl --output=MAIN/f https://example.com"},
+      {"a quoted target", ~S(touch "MAIN/f")},
+      {"$HOME", "rm HOME_MAIN/f"},
+      {"${HOME}", "rm HOME_BRACED/f"},
+      {"$HOME in double quotes", ~S(rm "HOME_MAIN/f")},
+      {"$HOME after of=", "dd if=/dev/zero of=HOME_MAIN/f"},
+      {"a nested shell", ~S(bash -c 'rm MAIN/f')},
+      {"a nested shell redirecting", ~S(sh -c "echo x > MAIN/f")},
+      {"cd into main, then a bare relative name", "cd MAIN && rm CONTEXT.md"},
+      {"cd up into main, then a bare relative name", "cd ../.. && rm CONTEXT.md"},
+      {"cd into main, then a relative redirect", "cd MAIN; echo x > notes.md"},
+      {"cd into main, then a build", "cd MAIN && mix compile"},
+      {"a relative redirect climbing out", "echo x 2>../../f"},
+      {"cd with -P", "cd -P MAIN && rm CONTEXT.md"},
+      {"cd with --", "cd -- MAIN && rm CONTEXT.md"},
+      {"cd behind command", "command cd MAIN && rm CONTEXT.md"},
+      {"cd behind an assignment", "CDPATH= cd MAIN && rm CONTEXT.md"},
+      {"cd to a path with an empty quote", ~S(cd MAIN"" && rm CONTEXT.md)},
+      {"quotes inside the path", "rm SPLIT_QUOTES/f"},
+      {"a backslash inside the path", "rm SPLIT_BACKSLASH/f"},
+      {"${HOME:-…}", "rm ${HOME:-/nowhere}/myrepo/f"},
+      {"a bare name from the parent folder", "cd ROOT && rm -rf myrepo"},
+      {"removing a folder above the main checkout", "rm -rf ROOT"},
+      {"env inside a subshell", "(env rm MAIN/f)"}
+    ]
+
+    @allowed [
+      {"discarding stderr", "mix test 2>/dev/null"},
+      {"merging stderr", "mix test 2>&1 | tail -5"},
+      {"a relative redirect", "mix test > out.txt 2>&1"},
+      {"dd into the worktree", "dd if=/dev/zero of=build/f count=1"},
+      {"an env assignment", "MIX_ENV=test mix compile"},
+      {"cd within the worktree", "cd lib && rm old.ex"},
+      {"cd into main to read", "cd MAIN && git log --oneline"},
+      {"cd into main to read, then back to write", "cd MAIN && cat CONTEXT.md; cd WT && touch x"},
+      {"cd elsewhere to write", "cd /tmp && rm -f whiska-scratch"},
+      {"writing under $HOME, outside the repo", "rm -f $HOME/.cache/whiska-scratch"},
+      {"writing under ~, outside the repo", "rm -f ~/.cache/whiska-scratch"},
+      {"a nested shell inside the worktree", ~S(bash -c 'mix test')},
+      {"an absolute path into the worktree", "rm -rf WT/_build"},
+      {"an unknown variable", "rm -rf $TMPDIR/whiska-scratch"},
+      {"reading main with git -C", "git -C MAIN log --oneline"},
+      {"a pattern full of slashes", ~S(sed -i '' 's/a\/b/c/' lib/x.ex)},
+      {"cd into main inside a subshell, then a write", "(cd MAIN && git log); rm build/x"},
+      {"cd into main inside a subshell, then a build", "(cd MAIN && git status) && mix test"},
+      {"a bare name from inside the worktree", "rm -rf myrepo"}
+    ]
+
+    defp spell(command, %{root: root, main: main, worktree: worktree}) do
+      command
+      |> String.replace("SPLIT_QUOTES", String.replace(main, "myrepo", ~S(my"re"po)))
+      |> String.replace("SPLIT_BACKSLASH", String.replace(main, "myrepo", ~S(my\repo)))
+      |> String.replace("ROOT", root)
+      |> String.replace("HOME_MAIN", "$HOME/myrepo")
+      |> String.replace("HOME_BRACED", "${HOME}/myrepo")
+      |> String.replace("MAIN", main)
+      |> String.replace("WT", worktree)
+    end
+
+    for {name, command} <- @denied do
+      test "denies #{name}", context do
+        command = spell(unquote(command), context)
+
+        assert {:deny, _} =
+                 MainCheckout.decide("Bash", %{"command" => command}, context.layout,
+                   home: context.root
+                 ),
+               "expected a denial for: #{command}"
+      end
+    end
+
+    for {name, command} <- @allowed do
+      test "allows #{name}", context do
+        command = spell(unquote(command), context)
+
+        assert :allow =
+                 MainCheckout.decide("Bash", %{"command" => command}, context.layout,
+                   home: context.root
+                 ),
+               "expected no denial for: #{command}"
+      end
+    end
+  end
+
+  describe "Bash runs where the shell stands, not where the mouse started (ADR-0053)" do
+    test "denies a write while standing in the main checkout", %{main: main, layout: layout} do
+      for command <- ["rm CONTEXT.md", "echo x > notes.md", "mix compile"] do
+        assert {:deny, reason} =
+                 MainCheckout.decide("Bash", %{"command" => command}, layout, cwd: main),
+               "expected a denial for: #{command}"
+
+        assert reason =~ main
+      end
+    end
+
+    test "says to step back into the worktree", %{
+      main: main,
+      worktree: worktree,
+      layout: layout
+    } do
+      assert {:deny, reason} =
+               MainCheckout.decide("Bash", %{"command" => "rm CONTEXT.md"}, layout, cwd: main)
+
+      assert reason =~ "cd #{worktree}"
+    end
+
+    test "allows reads while standing in the main checkout", %{main: main, layout: layout} do
+      for command <- ["cat CONTEXT.md", "git status", "grep -rn foo lib/"] do
+        assert :allow = MainCheckout.decide("Bash", %{"command" => command}, layout, cwd: main)
+      end
+    end
+
+    test "allows a write once the command steps back into the worktree", %{
+      main: main,
+      worktree: worktree,
+      layout: layout
+    } do
+      command = "cd #{worktree} && rm lib/old.ex"
+
+      assert :allow = MainCheckout.decide("Bash", %{"command" => command}, layout, cwd: main)
+    end
+
+    test "resolves a relative path against where the shell stands", %{
+      worktree: worktree,
+      layout: layout
+    } do
+      cwd = Path.join(worktree, "lib")
+      out_to_main = %{"command" => "rm " <> Path.join(["..", "..", "..", "CONTEXT.md"])}
+
+      assert {:deny, _} = MainCheckout.decide("Bash", out_to_main, layout, cwd: cwd)
+
+      assert :allow =
+               MainCheckout.decide("Bash", %{"command" => "rm ../mix.exs"}, layout, cwd: cwd)
+    end
+  end
+
   describe "tools this slice deliberately does not police" do
     test "allows reads of the main checkout", %{main: main, layout: layout} do
       assert :allow =
