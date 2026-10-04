@@ -167,6 +167,33 @@ defmodule Whiska.Owl.HouseBoardTest do
     assert Ink.plain(File.read!(Snapshot.path(main))) =~ "🐭 feat-a"
   end
 
+  # Dropping a worktree closes its herdr workspace, and herdr reports that as
+  # `workspace_closed` alone — no `pane_closed` for the panes inside it
+  # (checked against the live socket on 2026-10-04). Nothing else here
+  # notices until the backstop, a minute later.
+  test "a closed workspace takes its mouse off the board at once", %{
+    main: main,
+    worktree: worktree
+  } do
+    listed = :counters.new(1, [])
+
+    stub(Herdr, :list_panes, fn @socket ->
+      if :counters.get(listed, 1) == 0, do: {:ok, [pane(worktree, "idle")]}, else: {:ok, []}
+    end)
+
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+    house = open(main, board_ms: 60_000, panes_ms: 60_000)
+    assert board(main) =~ "🐭 feat-a"
+
+    :counters.put(listed, 1, 1)
+    send(house, {:herdr_event, "workspace_closed", %{"workspace_id" => "w1"}})
+    assert House.sync(house) == :ok
+
+    refute Ink.plain(File.read!(Snapshot.path(main))) =~ "feat-a"
+    in_house(house, fn -> assert %DateTime{} = Storage.mouse("ma").died_at end)
+  end
+
   test "a working row's ticker moves on every write, so a frozen board shows", %{
     main: main,
     worktree: worktree

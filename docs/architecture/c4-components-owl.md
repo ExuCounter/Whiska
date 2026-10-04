@@ -80,7 +80,7 @@ C4Component
 
 **Pane discovery exists because the subscription is per pane.** Checked against herdr
 0.8.2: `pane.agent_status_changed` needs a named `pane_id` and rejects a wildcard, while
-`pane.closed`, `pane.exited` and `pane.agent_detected` are global. So a house matches each
+`pane.closed`, `pane.exited`, `pane.agent_detected` and `workspace.closed` are global. So a house matches each
 pane's `cwd` up to a mouse record's worktree path, records the pane id on the mouse — the
 first and only thing that ever fills ADR-0006's `pane` column — and reopens the
 subscription whenever that set changes. A dropped connection is retried with a wait, and
@@ -186,7 +186,9 @@ pane stamps `died_at` (the V002 migration's one column) and cascades that mouse'
 delivery's one slot and nothing can answer it any more. They go to `settled` when the
 branch landed and `orphaned` when it did not (ADR-0064). A mouse with no pane anywhere at
 house open is dead too, found by reconciling against `pane.list`; delivery is attempted
-straight after, so a slot freed that way does not wait for the backstop.
+straight after, so a slot freed that way does not wait for the backstop. The same
+reconciling runs when `workspace.closed` arrives, since herdr closes a dropped worktree's
+workspace without a `pane.closed` for its panes, and the board is redrawn on the spot.
 
 **Pickup is cleanup's mirror image, and runs on the same tick** (ADR-0067). Cleanup asks
 whether a branch is finished with; pickup asks whether a turn ended without finishing.

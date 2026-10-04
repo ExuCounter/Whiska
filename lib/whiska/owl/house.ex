@@ -147,7 +147,8 @@ defmodule Whiska.Owl.House do
   @global_subscriptions [
     %{type: "pane.closed"},
     %{type: "pane.exited"},
-    %{type: "pane.agent_detected"}
+    %{type: "pane.agent_detected"},
+    %{type: "workspace.closed"}
   ]
 
   @default_backstop_ms 60_000
@@ -444,7 +445,8 @@ defmodule Whiska.Owl.House do
   defp board(state) do
     built_at = state.board_built_at
 
-    if state.last_board && System.monotonic_time(:millisecond) - built_at < state.panes_ms do
+    if state.last_board && built_at &&
+         System.monotonic_time(:millisecond) - built_at < state.panes_ms do
       board = Watch.retime(state.last_board, DateTime.utc_now())
       {%{board | held: held_reason(state)}, state}
     else
@@ -525,6 +527,16 @@ defmodule Whiska.Owl.House do
   end
 
   defp herdr_event("pane_agent_detected", _data, state), do: refresh(state)
+
+  # Dropping a worktree closes its herdr workspace, and herdr says so with
+  # `workspace_closed` alone — the panes inside it get no `pane_closed` (herdr
+  # 0.8.2, checked on 2026-10-04). The event names no pane, so the house asks
+  # herdr again, marks dead whatever it no longer lists (ADR-0026), and redraws
+  # the board now rather than on its next build (ADR-0051).
+  defp herdr_event("workspace_closed", _data, state) do
+    state |> refresh() |> Map.put(:board_built_at, nil) |> write_board()
+  end
+
   defp herdr_event(_other, _data, state), do: state
 
   # A turn beginning, which is the only evidence Whiska keeps that one was ever
