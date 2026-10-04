@@ -3,7 +3,7 @@
 **Superseded on 2026-10-03 by [ADR-0069](0069-a-mouse-is-shaped-before-it-starts.md).**
 No mode has a model of its own any more: the spawning session picks the model and the
 effort by the ordered rules in Whiska's `priv/models.json`
-(ADR-next-model-and-effort-are-chosen-by-ordered-rules), and Claude Code walks that
+(ADR-0073), and Claude Code walks that
 file's fallback chain itself. `dispatch.yml` carries no model list. What this decision
 said before:
 

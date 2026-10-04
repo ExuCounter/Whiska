@@ -46,7 +46,7 @@ arrives after the spawn has already succeeded. `dispatch.yml` keeps its other se
 
 As first written, a sniff mouse started on a lighter model and a build mouse on the
 person's own default, from a list of aliases and a per-mode default in
-`priv/models.json`. ADR-next-model-and-effort-are-chosen-by-ordered-rules replaces that:
+`priv/models.json`. ADR-0073 replaces that:
 the mode, the model and the effort are chosen on their own, by ordered rules in that
 file that the spawning session judges, with no list of model names. What changes here:
 

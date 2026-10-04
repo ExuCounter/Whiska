@@ -123,7 +123,7 @@ effort are in the house before any tool call can arrive — the first one a snif
 makes is already judged as sniff. The model and effort are chosen by the spawning
 session from the ordered rules in `priv/models.json`, which `Shape.Rules` checks at
 build time and `whiska shape --rules` prints
-(ADR-next-model-and-effort-are-chosen-by-ordered-rules). stdout is only the flags to
+(ADR-0073). stdout is only the flags to
 start Claude with, plain words or nothing, so the skill can split them into `claude`'s
 arguments; what was recorded goes to stderr for the report. The model the mouse
 actually ran on comes back later: `Hook.Stop` reads it from the transcript and carries
