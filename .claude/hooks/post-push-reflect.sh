@@ -12,10 +12,11 @@ set -eu
 
 payload="$(cat)"
 
-command -v jq >/dev/null 2>&1 || exit 0
 command -v git >/dev/null 2>&1 || exit 0
 
-cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty')"
+# The command stays JSON-escaped, which the patterns below do not mind; only `\n`
+# is turned back into a separator, so a chained command still reads as one.
+cmd="$(printf '%s' "$payload" | sed -nE 's/.*"command"[[:space:]]*:[[:space:]]*"(([^"\\]|\\.)*)".*/\1/p' | sed 's/\\n/ /g')"
 [ -n "$cmd" ] || exit 0
 
 # Push-shaped. Err broad — a false nudge costs nothing, a missed one loses the habit —
@@ -62,14 +63,6 @@ if [ -n "$base" ]; then
   [ -n "$written" ] || exit 0
 fi
 
-jq -n '{
-  hookSpecificOutput: {
-    hookEventName: "PostToolUse",
-    additionalContext: (
-      "A push just landed. Before starting anything new, run both reflection skills on what was pushed — this is a standing rule in this repo'"'"'s CLAUDE.md, not a suggestion from the diff:\n\n" +
-      "1. `lesson-learned` — on the commits just pushed. Keep what it surfaces; discard nothing silently.\n" +
-      "2. `domain-modeling` — check whether this change introduced, renamed, or sharpened any domain term (update CONTEXT.md) or settled a decision that meets the ADR bar (add to docs/adr/, update its README index).\n\n" +
-      "If either turns up nothing worth writing down, say so in one line and move on. Do not skip them silently."
-    )
-  }
-}'
+cat <<'JSON'
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"A push just landed. Before starting anything new, run both reflection skills on what was pushed — this is a standing rule in this repo's CLAUDE.md, not a suggestion from the diff:\n\n1. `lesson-learned` — on the commits just pushed. Keep what it surfaces; discard nothing silently.\n2. `domain-modeling` — check whether this change introduced, renamed, or sharpened any domain term (update CONTEXT.md) or settled a decision that meets the ADR bar (add to docs/adr/, update its README index).\n\nIf either turns up nothing worth writing down, say so in one line and move on. Do not skip them silently."}}
+JSON

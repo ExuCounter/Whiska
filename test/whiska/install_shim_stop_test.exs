@@ -75,12 +75,11 @@ defmodule Whiska.InstallShimStopTest do
 
     File.write!(shim, Install.shim())
 
-    # Records its arguments and everything on its stdin, one JSON line per call.
+    # Records its arguments, one a line, and everything on its stdin.
     File.write!(whiska, """
     #!/usr/bin/env bash
-    stdin="$(cat)"
-    printf '%s\\n' "$(jq -c -n --arg s "$stdin" --args '{stdin: $s, args: $ARGS.positional}' "$@")" \\
-      >> "#{log}"
+    cat > "#{log}.stdin"
+    printf '%s\\n' "$@" > "#{log}"
     exit #{Keyword.get(opts, :exit_status, 0)}
     """)
 
@@ -113,6 +112,7 @@ defmodule Whiska.InstallShimStopTest do
     err_file = Path.join(sandbox.root, "err-#{n}.txt")
     File.write!(payload_file, payload)
     File.rm(sandbox.log)
+    File.rm(sandbox.log <> ".stdin")
 
     env = [
       {"TMPDIR", Path.join(sandbox.root, "state")},
@@ -131,13 +131,13 @@ defmodule Whiska.InstallShimStopTest do
 
     called =
       case File.read(sandbox.log) do
-        {:ok, text} ->
-          text
-          |> String.split("\n", trim: true)
-          |> Enum.map(fn line ->
-            decoded = JSON.decode!(line)
-            %{stdin: decoded["stdin"], args: decoded["args"]}
-          end)
+        {:ok, args} ->
+          [
+            %{
+              stdin: File.read!(sandbox.log <> ".stdin"),
+              args: String.split(args, "\n", trim: true)
+            }
+          ]
 
         _ ->
           []

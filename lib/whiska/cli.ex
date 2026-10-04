@@ -168,6 +168,12 @@ defmodule Whiska.CLI do
                          Prints a fix for each finding; changes nothing. Exits
                          1 if anything failed.
 
+    worktrees            List this repo's linked worktrees as tab-separated
+                         lines: branch, path, herdr workspace id, the id of the
+                         pane in it, and what that pane is doing. A dash where
+                         there is no workspace open. The worktree skills read
+                         herdr through this, so they need no jq.
+
     mode                 Print this mouse's mode.
     mode build|sniff     Set it. A build mouse makes changes, confined to its
                          own worktree. A sniff mouse investigates and reports,
@@ -296,6 +302,8 @@ defmodule Whiska.CLI do
         1
     end
   end
+
+  def run(["worktrees"], cwd), do: worktrees(cwd || File.cwd!())
 
   def run(["mode"], cwd), do: with_mouse(cwd, &show_mode/2)
 
@@ -1340,6 +1348,35 @@ defmodule Whiska.CLI do
     end
 
     0
+  end
+
+  # -- worktrees ---------------------------------------------------------------
+
+  defp worktrees(cwd) do
+    with {:ok, socket} <- herdr_socket(),
+         {:ok, trees} <- Herdr.impl().worktrees(socket, cwd),
+         {:ok, panes} <- Herdr.impl().list_panes(socket) do
+      case trees do
+        [] ->
+          say("No linked worktrees.")
+
+        _ ->
+          trees
+          |> Enum.map(&worktree_line(&1, panes))
+          |> Enum.each(&IO.puts/1)
+          |> then(fn _ -> 0 end)
+      end
+    else
+      {:error, {:no_socket, default}} -> no_socket(default, "list worktrees from")
+      {:error, reason} -> fail("whiska: could not ask herdr for worktrees (#{describe(reason)}).")
+    end
+  end
+
+  defp worktree_line(%{branch: branch, path: path, workspace_id: workspace}, panes) do
+    pane = workspace && Enum.find(panes, &(&1.workspace_id == workspace))
+
+    [branch || "-", path, workspace || "-", pane && pane.pane_id, pane && pane.agent_status]
+    |> Enum.map_join("\t", &(&1 || "-"))
   end
 
   # -- waiting and jump (ADR-0043) ---------------------------------------------

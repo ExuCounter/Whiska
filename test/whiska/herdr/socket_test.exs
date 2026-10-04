@@ -82,6 +82,7 @@ defmodule Whiska.Herdr.SocketTest do
              %{
                "pane_id" => "w1:p1",
                "cwd" => "/a",
+               "workspace_id" => "w1",
                "agent" => "claude",
                "agent_status" => "idle",
                "terminal_title" => "\u2733 Order builder",
@@ -99,6 +100,7 @@ defmodule Whiska.Herdr.SocketTest do
       assert panes == [
                %{
                  pane_id: "w1:p1",
+                 workspace_id: "w1",
                  cwd: "/a",
                  agent: "claude",
                  agent_status: "idle",
@@ -108,6 +110,7 @@ defmodule Whiska.Herdr.SocketTest do
                },
                %{
                  pane_id: "w1:p2",
+                 workspace_id: nil,
                  cwd: nil,
                  agent: nil,
                  agent_status: "unknown",
@@ -208,6 +211,7 @@ defmodule Whiska.Herdr.SocketTest do
 
       assert pane == %{
                pane_id: "w1:p2",
+               workspace_id: nil,
                cwd: "/main",
                agent: "claude",
                agent_status: "idle",

@@ -135,7 +135,7 @@ defmodule Whiska.InstallGlobalTest do
 
       assert script =~ "board/"
       assert script =~ "dirname"
-      assert script =~ "workspace.current_dir"
+      assert script =~ "project_dir current_dir cwd"
     end
 
     test "a mouse's own pane still draws no board" do

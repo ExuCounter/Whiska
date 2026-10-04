@@ -255,7 +255,7 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     test "routes into a running mouse instead of spawning a second one" do
       body = skill("send-to-worktree")
 
-      assert body =~ "herdr worktree list"
+      assert body =~ "whiska worktrees"
       assert body =~ "herdr agent prompt"
       assert body =~ "spawn-worktree"
       # Never blocks the person's own session.
@@ -264,10 +264,17 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     end
   end
 
+  describe "the skills need no jq" do
+    test "none of them pipes through it" do
+      for name <- @worktree_skills, do: refute(skill(name) =~ "jq")
+    end
+  end
+
   describe "drop-worktree" do
     test "takes down the worktree and its workspace together, and checks first" do
       body = skill("drop-worktree")
 
+      assert body =~ "whiska worktrees"
       assert body =~ "herdr worktree remove"
       assert body =~ "status --porcelain"
       assert body =~ "git branch -D"

@@ -50,10 +50,18 @@ defmodule Whiska.InstallStatuslineBoardTest do
     # pane, whose id the command would otherwise inherit.
     pane = [{"HERDR_PANE_ID", Keyword.get(opts, :pane)}]
 
+    path = Keyword.get(opts, :path, System.get_env("PATH"))
+
     {out, status} =
       System.cmd("sh", ["-c", "printf '%s' '#{payload}' | bash #{script}"],
         cd: cwd,
-        env: [{"HOME", home}, {"WHISKA_HOME", Path.join(home, ".whiska")}] ++ pane,
+        env:
+          [
+            {"HOME", home},
+            {"WHISKA_HOME", Path.join(home, ".whiska")},
+            {"PATH", path},
+            {"PWD", cwd}
+          ] ++ pane,
         stderr_to_stdout: false
       )
 
@@ -191,6 +199,75 @@ defmodule Whiska.InstallStatuslineBoardTest do
     assert [first, second] = String.split(String.trim_trailing(out), "\n")
     assert first == "my line"
     assert second =~ "🐭 feat-a"
+  end
+
+  describe "without jq on the PATH" do
+    test "the person's own global statusline still comes first", context do
+      settings = Path.join(context.home, ".claude/settings.json")
+      File.mkdir_p!(Path.dirname(settings))
+
+      File.write!(
+        settings,
+        JSON.encode!(%{"statusLine" => %{"command" => "printf 'my \"line\"'"}})
+      )
+
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", nil)
+
+      out = run(context, context.main, path: without_jq(context))
+
+      assert [first, second] = String.split(String.trim_trailing(out), "\n")
+      assert first == ~s|my "line"|
+      assert second =~ "🐭 feat-a"
+    end
+
+    test "a global statusline written over several lines is still found", context do
+      settings = Path.join(context.home, ".claude/settings.json")
+      File.mkdir_p!(Path.dirname(settings))
+
+      File.write!(settings, """
+      {
+        "model": "x",
+        "statusLine": {
+          "type": "command",
+          "command": "printf 'my line'"
+        }
+      }
+      """)
+
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", nil)
+
+      out = run(context, context.main, path: without_jq(context))
+
+      assert [first, _board] = String.split(String.trim_trailing(out), "\n")
+      assert first == "my line"
+    end
+
+    test "a mouse that stepped into the main checkout is still a mouse", context do
+      :ok = Snapshot.write(context.main, "🐭 feat-a  working", "w1:p9")
+      path = without_jq(context)
+
+      assert run(context, context.main, pane: "w1:p9", path: path) =~ "🐭 feat-a"
+
+      out =
+        run(context, context.main,
+          pane: "w1:p1",
+          project_dir: Path.join(context.main, "worktrees/feat-a"),
+          path: path
+        )
+
+      assert out == ""
+    end
+  end
+
+  defp without_jq(%{root: root}) do
+    bin = Path.join(root, "bin-without-jq")
+    File.mkdir_p!(bin)
+
+    for tool <- ~w(bash sh cat tr dirname stat date sed) do
+      File.ln_s!(System.find_executable(tool), Path.join(bin, tool))
+    end
+
+    bin
   end
 
   describe "which session is the main session (ADR-0065)" do

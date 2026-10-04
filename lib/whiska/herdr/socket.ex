@@ -145,6 +145,7 @@ defmodule Whiska.Herdr.Socket do
   defp pane(raw) do
     %{
       pane_id: raw["pane_id"],
+      workspace_id: raw["workspace_id"],
       cwd: raw["cwd"],
       agent: raw["agent"],
       agent_status: raw["agent_status"] || "unknown",

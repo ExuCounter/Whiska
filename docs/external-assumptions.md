@@ -27,7 +27,8 @@ as a direct dependency.
 - **herdr is load-bearing, and its shape has leaked.** The socket client is one narrow
   module, but herdr's words (`idle`, `done`, `working`, `"claude"`, its event names,
   `HERDR_PANE_ID`) are matched in the house, pickup, the board, the doctor, the CLI and
-  the statusline script, and three shipped skills call the herdr CLI through `jq`.
+  the statusline script, and the shipped skills call `whiska worktrees` for what herdr
+  knows about worktrees.
   Swapping herdr out is about a week's work, and only worth it if someone without herdr
   will run Whiska. Nothing checks herdr's version, even though herdr answers a
   `ping` with it.
@@ -125,7 +126,7 @@ outside the boundary:
 | `HERDR_PANE_ID`, `HERDR_SOCKET_PATH`, `HERDR_CONFIG_PATH`, `~/.config/herdr/herdr.sock` | `session.ex`, `cli.ex`, `herdr.ex`, statusline script, plist | Main session not recognised: the person's own turns would be filed as mouse messages. Silent |
 | Methods `pane.list` `pane.get` `pane.read` `agent.prompt` `pane.send_text` `pane.focus` `worktree.list` `worktree.remove` `notification.show` `events.subscribe` | `herdr/socket.ex` only | herdr returns an error; delivery holds with a logged reason. Loud |
 | Wire: one JSON line per request, connection closed after; subscriptions stay open | `herdr/socket.ex` only | Every call errors. Loud |
-| CLI: `herdr worktree create/list/remove`, `agent start --kind claude`, `agent prompt`, `pane list`, `workspace list/close`, output piped to `jq` | the shipped skills in `priv/skills/` | The model reads the error and improvises. Half-loud |
+| CLI: `herdr worktree create/list/remove`, `agent start --kind claude`, `agent prompt`, `workspace close` | the shipped skills in `priv/skills/`. Worktree and pane lookups go through `whiska worktrees` | The model reads the error and improvises. Half-loud |
 | `[ui] tab_bar_right` entry with `type = "command"`, `interval_seconds`, `timeout_seconds` | `install.ex` snippet, `doctor.ex` check | Owl's line disappears from the tab bar. Doctor checks the entry is there, not that herdr still draws it |
 | `[ui.toast]` and `[ui.sound]` | `herdr.ex` docs, `doctor.ex` | Hoot falls back to the desktop (ADR-0071). Fine |
 | herdr's client waiting up to 7 s for a reply | the 10-second staleness rule in the statusline script (ADR-0051) | A slower herdr makes a live owl look stale on the board. Cosmetic |
@@ -212,8 +213,8 @@ version warning's job.
 - **The `worktrees/<branch>` layout** is Whiska's own convention (ADR-0030), not an
   outside one. It ties Whiska to its own spawn skill, not to herdr.
 - **Shell.** bash for the shim, statusline, owl wrapper and tab-bar script; `awk`,
-  `tr`, `dirname`, `date +%s`, `grep -q`, all POSIX. `jq` is optional in the
-  statusline but required by the drop-worktree and send-to-worktree skills. The
+  `tr`, `dirname`, `date +%s`, `grep -q`, all POSIX. No script needs `jq`: the
+  statusline reads its JSON with `sed` and bash, and the skills call `whiska worktrees`. The
   statusline sets `LC_ALL=C` for `tr`, the one place locale could have mattered.
 - **Erlang runtime.** The escript needs `escript` at run time. The shim finds it on
   `PATH`, through `asdf`, under `~/.asdf`, or at the Homebrew paths. It does not look
@@ -236,7 +237,8 @@ Linux and herdr-decoupling items below are real work, not hypothetical.
 2. **Unblock Linux** (fix 7, then a systemd unit and `notify-send`). Gain: Whiska runs
    on a Linux box or a devcontainer, if herdr does. Cost: a line, then about a day and
    a half.
-3. **Drop `jq` from the skills** by giving them `whiska` subcommands to call. Gain:
+3. ~~**Drop `jq` from the skills** by giving them `whiska` subcommands to call.~~ Done:
+   `jq` is gone from the skills, the statusline and the repo's push hook. Gain:
    one less tool for a new user to install, and the herdr CLI calls move into code that
    has tests. Cost: half a day.
 4. **Keep herdr, but take its words out of the core.** Removing herdr is a week and
@@ -272,7 +274,7 @@ yet. The shim's exit code (fix 2) is already done, merged as `755718a`.
 | 7 | Doctor warns about tool names in transcripts it has never classified (fix 5) | half a day | Covers new editing tools and MCP writers |
 | 8 | Run `mix test` in a Linux container, fix what is macOS-only | 1 h to learn, unknown to fix | Turns the Linux cost from a guess into a number |
 | 9 | systemd user unit behind the launchd runner, `notify-send` fallback, `mise` shims in the runtime lookup, README's "Requires macOS" rewritten | about 1.5 days | Linux supported, not just not crashing. Only worth it if herdr runs on Linux |
-| 10 | Skills call `whiska` subcommands instead of `herdr … \| jq` | half a day | One less thing for a new user to install, and the herdr CLI moves into tested code |
+| 10 | ~~Skills call `whiska` subcommands instead of `herdr … \| jq`~~ Done | half a day | One less thing for a new user to install, and the herdr CLI moves into tested code |
 | 11 | herdr's statuses, agent name and event names translated inside `Whiska.Herdr.Socket`; the house, pickup, board, doctor and CLI match Whiska's own words | 1–2 days, mostly tests through the Mox fake | Prerequisite for a second multiplexer. Reverses the "herdr's own name, verbatim" choice, so it comes with an ADR |
 
 Items 1–7 come to about two days and need no new design. Items 8–9 depend on herdr

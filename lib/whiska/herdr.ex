@@ -30,6 +30,7 @@ defmodule Whiska.Herdr do
   """
   @type pane :: %{
           pane_id: String.t(),
+          workspace_id: String.t() | nil,
           cwd: String.t() | nil,
           agent: String.t() | nil,
           agent_status: String.t(),
