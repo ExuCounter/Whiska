@@ -60,8 +60,8 @@ silent version is.
    "fail open, loudly" is quiet in practice: the containment rules turn off and, worse,
    the `Stop` hook leaves nothing on the doorstep, so a mouse's question vanishes.
    **Fix:** exit 1 instead of 0 on those two paths. Exit 1 still allows the call (only
-   2 blocks) and shows the message. Ten minutes, plus checking the doctor's shim probe,
-   which reads the exit code. Worth confirming Claude Code's behaviour first.
+   2 blocks) and shows the message. **Done:** merged to main as `755718a`, tested
+   against Claude Code 2.1.285.
 3. **No version check against herdr or Claude Code.** Every comment that says "checked
    against herdr 0.8.2" is a promise nothing enforces. herdr answers
    `{"method":"ping"}` with `{"version":"0.8.2","protocol":20,...}`, and
@@ -139,10 +139,11 @@ the skills, the tab bar and `HERDR_PANE_ID`, and it is about a week. ADR-0020 (m
 stay herdr panes) would have to be revisited first. Not worth doing unless someone
 without herdr wants to run Whiska.
 
-If it ever is worth doing, the first step is cheap and useful on its own: translate
-statuses to atoms and `agent == "claude"` to a boolean inside `Whiska.Herdr.Socket`,
-so the house stops matching herdr's strings. That reverses the "herdr's own name,
-verbatim" choice in the house, so it is a decision for the person, not a tidy-up.
+The first step is useful on its own and is now planned work (item 11 in
+[Order of work](#order-of-work)): translate statuses to atoms and `agent == "claude"`
+to a boolean inside `Whiska.Herdr.Socket`, so the house stops matching herdr's
+strings. That reverses the "herdr's own name, verbatim" choice in the house, so it
+comes with an ADR.
 
 ## Claude Code
 
@@ -209,8 +210,8 @@ version warning's job.
   statusline sets `LC_ALL=C` for `tr`, the one place locale could have mattered.
 - **Erlang runtime.** The escript needs `escript` at run time. The shim finds it on
   `PATH`, through `asdf`, under `~/.asdf`, or at the Homebrew paths. It does not look
-  in `mise`'s shims or a Nix profile. A hook with neither on `PATH` falls into fix 2's
-  quiet fail-open. Adding `~/.local/share/mise/shims`: five minutes.
+  in `mise`'s shims or a Nix profile. A hook with neither on `PATH` fails open, which
+  since fix 2 at least says so. Adding `~/.local/share/mise/shims`: five minutes.
 - **SQLite.** `exqlite` compiles its own SQLite, so the system's version does not
   matter. WAL mode and a 5-second busy timeout are set in `storage.ex`. WAL needs a
   local filesystem; a home directory on NFS would break locking. Unlikely here.
@@ -218,55 +219,56 @@ version warning's job.
 
 ## Drop, make optional, keep
 
-Ranked by what a person would gain.
+Ranked by what a person would gain. **Other people will run Whiska** (decided
+2026-10-04; the README already says "Requires macOS" for an outside reader), so the
+Linux and herdr-decoupling items below are real work, not hypothetical.
 
-1. **Make the silent failures loud** (fixes 1 to 6). Gain: the next herdr or Claude
-   Code release that breaks something is noticed the same day, not after a lost
-   question. Cost: a day or two in total. Worth it even if Whiska only ever runs on
-   this machine, because releases come to this machine too.
+1. **Make the silent failures loud** (fixes 1 to 7; fix 2 is done). Gain: the next
+   herdr or Claude Code release that breaks something is noticed the same day, not
+   after a lost question. Cost: about two days in total.
 2. **Unblock Linux** (fix 7, then a systemd unit and `notify-send`). Gain: Whiska runs
-   on a Linux box or a devcontainer, if herdr does. Cost: a line, then about a day.
-   Worth it only if someone will run it there.
+   on a Linux box or a devcontainer, if herdr does. Cost: a line, then about a day and
+   a half.
 3. **Drop `jq` from the skills** by giving them `whiska` subcommands to call. Gain:
-   one less tool to install, and the herdr CLI calls move into code that has tests.
-   Cost: half a day. Low value on this machine.
-4. **Keep herdr.** Removing it is a week, needs ADR-0020 revisited, and buys nothing
-   for one person who already runs herdr. The cheap step is the version check. The
-   next step, moving herdr's strings behind the boundary, is worth doing only on the
-   way to supporting a second multiplexer.
+   one less tool for a new user to install, and the herdr CLI calls move into code that
+   has tests. Cost: half a day.
+4. **Keep herdr, but take its words out of the core.** Removing herdr is a week and
+   needs ADR-0020 revisited. Moving its statuses, agent name and event names behind
+   `Whiska.Herdr.Socket` is the first step towards a second multiplexer, and is planned
+   work.
 5. **Keep Claude Code.** It is what Whiska coordinates. Supporting another agent would
    mean new hooks, a new transcript reader, a new prompt-box reader and a new marker
    contract: a rewrite, not a loosening.
 6. **Keep git, bash, SQLite and the Erlang runtime as they are.** They do not move,
    and abstracting them would cost more than it saves.
 
-**Where "more general" is not worth it.** launchd, the Homebrew paths and herdr all
-describe this machine accurately. A tool that only has to run here may assume them.
-The real exposure is not portability but **drift**: herdr and Claude Code change under
-Whiska on this same machine, and today nothing notices. That is why rank 1 is first.
+**Where "more general" is still not worth it.** git, bash, SQLite and Claude Code
+itself. And whatever the platform, the biggest exposure is **drift**: herdr and Claude
+Code change under Whiska on the same machine, and today little notices. That is why
+rank 1 is first.
 
 ## Order of work
 
-Decided 2026-10-04: other people will run Whiska, so all seven loud-failure fixes and
-Linux support go ahead, and taking herdr's words out of the core is planned work, not
-dropped. Proposed order, cheapest unblockers first. Nothing here is built yet.
+Decided 2026-10-04: other people will run Whiska, so the loud-failure fixes and Linux
+support go ahead, and taking herdr's words out of the core is planned work, not
+dropped. Proposed order, cheapest unblockers first. On hold: nothing below is built
+yet. The shim's exit code (fix 2) is already done, merged as `755718a`.
 
 | # | Piece | Cost | Why here |
 | --- | --- | --- | --- |
 | 1 | Rescue a missing `launchctl` as "not loaded" (fix 7) | 30 min with a test | Owl and doctor start on Linux at all |
 | 2 | Version check: herdr `ping`, `claude --version`, doctor warns when newer than last checked (fix 3) | 2 h | Other people run other versions. Every later report starts with "which versions?" |
-| 3 | Unreadable prompt box goes on the board and the log (fix 1) | 1 h | Worst silent failure: typing into a draft |
-| 4 | Own hold reason for an agent status Whiska does not know (fix 4) | 1 h | Stops "mid-turn" sending people the wrong way |
-| 5 | Shim exits 1, not 0, when it fails open (fix 2) | 1 h, including checking Claude Code's behaviour and the doctor's shim probe | Lost questions become visible. Needs open question 3 answered |
-| 6 | Honour `CLAUDE_CONFIG_DIR` (fix 6) | 1 h | Cheap; other people set it |
-| 7 | Doctor probes a real deny: inside-worktree `Edit` at the main checkout, check the JSON back | 2 h | Covers the deny format and payload keys |
-| 8 | Doctor warns about tool names in transcripts it has never classified (fix 5) | half a day | Covers new editing tools and MCP writers |
-| 9 | Run `mix test` in a Linux container, fix what is macOS-only | 1 h to learn, unknown to fix | Turns the Linux cost from a guess into a number |
-| 10 | systemd user unit behind the launchd runner, `notify-send` fallback, `mise` shims in the runtime lookup, README's "Requires macOS" rewritten | about 1.5 days | Linux supported, not just not crashing. Only worth it if herdr runs on Linux |
-| 11 | Skills call `whiska` subcommands instead of `herdr … \| jq` | half a day | One less thing for a new user to install, and the herdr CLI moves into tested code |
-| 12 | herdr's statuses, agent name and event names translated inside `Whiska.Herdr.Socket`; the house, pickup, board, doctor and CLI match Whiska's own words | 1–2 days, mostly tests through the Mox fake | Prerequisite for a second multiplexer. Reverses the "herdr's own name, verbatim" choice, so it comes with an ADR |
+| 3 | Unreadable prompt box goes on the board and the log (fix 1) | 1 h | Worst silent failure: typing into a draft. **Overlap:** branch `fix/the-board-says-what-a-question-is-waiting-on` is changing how the board says what a question waits on. Check what landed there before starting |
+| 4 | Own hold reason for an agent status Whiska does not know (fix 4) | 1 h | Stops "mid-turn" sending people the wrong way. Same board line as item 3, so the same overlap applies |
+| 5 | Honour `CLAUDE_CONFIG_DIR` (fix 6) | 1 h | Cheap; other people set it |
+| 6 | Doctor probes a real deny: inside-worktree `Edit` at the main checkout, check the JSON back | 2 h | Covers the deny format and payload keys |
+| 7 | Doctor warns about tool names in transcripts it has never classified (fix 5) | half a day | Covers new editing tools and MCP writers |
+| 8 | Run `mix test` in a Linux container, fix what is macOS-only | 1 h to learn, unknown to fix | Turns the Linux cost from a guess into a number |
+| 9 | systemd user unit behind the launchd runner, `notify-send` fallback, `mise` shims in the runtime lookup, README's "Requires macOS" rewritten | about 1.5 days | Linux supported, not just not crashing. Only worth it if herdr runs on Linux |
+| 10 | Skills call `whiska` subcommands instead of `herdr … \| jq` | half a day | One less thing for a new user to install, and the herdr CLI moves into tested code |
+| 11 | herdr's statuses, agent name and event names translated inside `Whiska.Herdr.Socket`; the house, pickup, board, doctor and CLI match Whiska's own words | 1–2 days, mostly tests through the Mox fake | Prerequisite for a second multiplexer. Reverses the "herdr's own name, verbatim" choice, so it comes with an ADR |
 
-Items 1–8 come to about two days and need no new design. Items 9–10 depend on herdr
+Items 1–7 come to about two days and need no new design. Items 8–9 depend on herdr
 running on Linux, which is not yet checked.
 
 ## Open questions
@@ -276,9 +278,8 @@ These need the person, not a guess.
 1. ~~Will anyone but you run Whiska?~~ Yes, decided 2026-10-04.
 2. **Should a version newer than the checked one only warn, or also add a line to the
    board?** The doctor alone is only as loud as how often it is run.
-3. **Is changing the shim's fail-open exit from 0 to 1 acceptable?** It shows a hook
-   error on every tool call while Whiska is missing, which is loud on purpose but may
-   be too loud.
+3. ~~Is changing the shim's fail-open exit from 0 to 1 acceptable?~~ Yes, done in
+   `755718a`.
 4. ~~Should the house stop matching herdr's strings?~~ Yes, as planned later work
-   (item 12), decided 2026-10-04.
-5. **Does herdr run on Linux?** Items 9–10 are wasted if it does not.
+   (item 11), decided 2026-10-04.
+5. **Does herdr run on Linux?** Items 8–9 are wasted if it does not.
