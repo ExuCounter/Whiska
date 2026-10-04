@@ -45,11 +45,13 @@ defmodule Whiska.Herdr.Socket do
 
   @impl true
   def read_screen(socket, pane_id) do
+    # With its styling: faint text in the prompt box is Claude Code's own
+    # suggestion, not the person's draft, and only the escapes say which.
     params = %{
       "pane_id" => pane_id,
       "source" => "visible",
-      "format" => "text",
-      "strip_ansi" => true
+      "format" => "ansi",
+      "strip_ansi" => false
     }
 
     with {:ok, %{"result" => %{"read" => %{"text" => text}}}} when is_binary(text) <-

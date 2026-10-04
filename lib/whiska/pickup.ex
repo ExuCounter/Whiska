@@ -276,8 +276,12 @@ defmodule Whiska.Pickup do
       else: {:left, :not_our_worktree}
   end
 
-  defp act_on_box(_mouse, _pane, _house, held) when held in [:typing, :no_box], do: {:left, held}
-  defp act_on_box(mouse, pane, house, _free), do: nudge(mouse, pane, house)
+  defp act_on_box(mouse, pane, house, reading) do
+    case Draft.hold(reading) do
+      {:hold, held} -> {:left, held}
+      :go -> nudge(mouse, pane, house)
+    end
+  end
 
   # The second half of delivery's gate, asked of the mouse's pane for the same
   # reason (ADR-0047): herdr's idle is the model's word, and a line typed into

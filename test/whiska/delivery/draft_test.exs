@@ -5,11 +5,16 @@ defmodule Whiska.Delivery.DraftTest do
 
   @screens Path.expand("../../support/screens", __DIR__)
 
-  # Every fixture is `herdr pane read <pane> --source visible --format text`,
-  # captured from a live Claude Code pane on 2026-10-03. Two are a captured
-  # screen with one edit, and each says in its test what was edited and why no
-  # camera could take that picture.
+  # Every `.txt` fixture is `herdr pane read <pane> --source visible --format
+  # text`, captured from a live Claude Code pane on 2026-10-03. Two are a
+  # captured screen with one edit, and each says in its test what was edited and
+  # why no camera could take that picture.
   defp screen(name), do: File.read!(Path.join(@screens, name <> ".txt"))
+
+  # Every `.ansi` fixture is the same read with `--format ansi`, captured
+  # untouched on 2026-10-04: the styling is what tells Claude Code's own grey
+  # text from the person's.
+  defp styled(name), do: File.read!(Path.join(@screens, name <> ".ansi"))
 
   # A box drawn the way Claude Code drew it on the day: two full-width rules at
   # column 0 with the prompt line between them.
@@ -95,6 +100,98 @@ defmodule Whiska.Delivery.DraftTest do
 
         assert Draft.read(screen) == :typing
       end
+    end
+  end
+
+  describe "read/1 — Claude Code's own dim text in the box is not a draft" do
+    # The bug this was written for. After a reply Claude Code offers the next
+    # prompt as dim text in the empty box, cursor still at the start. Read
+    # without its styling it is a line of words, and delivery held on it.
+    test "a suggested next prompt is an empty box" do
+      screen = styled("suggestion-in-an-empty-box")
+
+      assert screen =~ "❯ \e[0m\e[2mpush and open a PR"
+      assert Draft.read(screen) == :empty
+    end
+
+    test "the placeholder in a fresh session is an empty box" do
+      assert Draft.read(styled("placeholder-in-a-fresh-session")) == :empty
+    end
+
+    test "an empty box read with its styling is still empty" do
+      assert Draft.read(styled("styled-empty-box-under-a-past-message")) == :empty
+    end
+
+    test "what the person typed is drawn plain, and is a draft" do
+      assert Draft.read(styled("styled-box-holds-a-draft")) == :typing
+    end
+
+    test "a pasted chip is drawn plain, and is a draft" do
+      assert Draft.read(styled("styled-box-holds-a-paste")) == :typing
+    end
+
+    # Never captured: no Claude Code seen draws typed text next to dim text.
+    # Built from the captured line's own escapes, so that one plain character
+    # anywhere in the box is enough to hold.
+    test "typed text beside dim text is a draft" do
+      assert Draft.read(framed("❯ \e[0mhi \e[2mthere\e[0m")) == :typing
+      assert Draft.read(framed("❯ \e[0m\e[2msuggested\e[0m\n  \e[0mtyped")) == :typing
+    end
+
+    test "dim switched off mid-line makes the rest plain" do
+      assert Draft.read(framed("❯ \e[2mdim \e[22mplain")) == :typing
+      assert Draft.read(framed("❯ \e[2mdim \e[0mplain")) == :typing
+      assert Draft.read(framed("❯ \e[2mdim \e[mplain")) == :typing
+    end
+
+    test "dim set together with a colour still counts as dim" do
+      assert Draft.read(framed("❯ \e[2;38;5;240mghost\e[0m")) == :empty
+    end
+
+    # A theme that draws its ghost in a grey rather than faint is a style
+    # Whiska does not recognise, and that falls to holding, never to typing
+    # into the box. A `2` inside a colour is a colour, not faint.
+    test "grey that is a colour rather than faint is a draft" do
+      assert Draft.read(framed("❯ \e[38;2;102;102;102mghost\e[0m")) == :typing
+      assert Draft.read(framed("❯ \e[38;2;2;2;2mghost\e[0m")) == :typing
+      assert Draft.read(framed("❯ \e[38;5;2mghost\e[0m")) == :typing
+    end
+
+    test "a reset written with extra zeros is still a reset" do
+      assert Draft.read(framed("❯\u00a0\e[2m\e[00mhello")) == :typing
+    end
+
+    test "a colour cut short is a style Whiska cannot read, so what follows is text" do
+      assert Draft.read(framed("❯\u00a0\e[38;2;1mhello")) == :typing
+      assert Draft.read(framed("❯\u00a0\e[2;38;5mhello")) == :typing
+    end
+
+    test "faint left open on a line above does not reach into the box" do
+      assert Draft.read("\e[2mx\n" <> framed("❯\u00a0draft")) == :typing
+    end
+
+    test "another style laid over faint text makes it text" do
+      assert Draft.read(framed("❯\u00a0\e[2mg\e[7mdraft")) == :typing
+      assert Draft.read(framed("❯\u00a0\e[2mg\e[1mdraft")) == :typing
+    end
+
+    # Taken for no prompt line, the box would read `:unknown`, which delivers.
+    test "an escape in front of the marker still finds the box, and holds" do
+      assert Draft.read(framed("\e[K❯\u00a0draft")) == :typing
+      assert Draft.read(framed("\e]8;;https://x\e\\❯\u00a0\e[2mghost")) == :typing
+    end
+
+    test "an escape that is not a style is text, not nothing" do
+      assert Draft.read(framed("❯ \e[2m\e[5Cghost")) == :typing
+    end
+  end
+
+  describe "hold/1 — what delivery and pickup both do with a reading" do
+    test "a draft and a missing box hold; an empty box and an unreadable frame go" do
+      assert Draft.hold(:typing) == {:hold, :typing}
+      assert Draft.hold(:no_box) == {:hold, :no_box}
+      assert Draft.hold(:empty) == :go
+      assert Draft.hold(:unknown) == :go
     end
   end
 

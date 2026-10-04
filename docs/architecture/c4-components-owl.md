@@ -110,9 +110,11 @@ written beside it in the same breath, which is how a session finds out whether i
 one being delivered to without starting anything either (ADR-0065).
 
 **The screen is read in one place** (ADR-0047). herdr has no input signal, so the
-delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible text and
-`Whiska.Delivery.Draft` finds the box by its frame and decides whether there is anywhere
-safe for the line to land (ADR-0068). The boundary returns
+delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible screen,
+styling included, and `Whiska.Delivery.Draft` finds the box by its frame and decides
+whether there is anywhere safe for the line to land, counting Claude Code's faint
+suggestion as nothing (ADR-0068). Pickup asks the same question of a mouse's pane and
+takes the same answer. The boundary returns
 text and judges nothing; the classifier judges text and talks to nothing — the same split
 as `Whiska.Question.Marker`, for the same reason (ADR-0031).
 

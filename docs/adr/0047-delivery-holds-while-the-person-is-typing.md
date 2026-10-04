@@ -105,3 +105,13 @@ line reads the live main session's screen whether or not anything is queued, and
 when there is no box and the pane is not scrolled away from one.
 
 ADR-0068 has the captured screens and the full reasoning.
+
+## Amendment, 2026-10-04: the screen is read with its styling (ADR-0068)
+
+*"`pane.read` with `source: "visible"` returns the viewport as plain text … An empty box
+is the marker and nothing else"* is no longer how the box is read. Claude Code draws its
+own suggested next prompt, and a fresh session's placeholder, as faint text inside an
+empty box, and as plain text that is a line of words the person never typed. The screen
+is now read with its escapes, and faint text inside the box does not count as a draft.
+`read_screen/2` still judges nothing. ADR-0068's amendment of the same date has the
+captures and the reasoning.

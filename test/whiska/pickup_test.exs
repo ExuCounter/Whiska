@@ -396,6 +396,19 @@ defmodule Whiska.PickupTest do
       assert {[{_, :picked_up}], _} = sweep(repo, @settled, seen)
     end
 
+    test "Claude Code's faint suggestion in an empty box is no draft", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+
+      stub(Herdr, :read_screen, fn _, _ ->
+        {:ok, styled("suggestion-in-an-empty-box")}
+      end)
+
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+
+      assert {[{_, :picked_up}], _} = sweep(repo, @settled, seen)
+    end
+
     test "a screen with no box on it holds, exactly as it holds a delivery", %{repo: repo} do
       m = mouse(repo, "feat-a")
       seen = died(repo, m)
@@ -464,4 +477,5 @@ defmodule Whiska.PickupTest do
   @screens Path.expand("../support/screens", __DIR__)
 
   defp screen(name), do: File.read!(Path.join(@screens, name <> ".txt"))
+  defp styled(name), do: File.read!(Path.join(@screens, name <> ".ansi"))
 end
