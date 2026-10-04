@@ -151,7 +151,7 @@ defmodule Whiska.CLI do
                          branch, what its pane is doing, and the question
                          waiting on you, else what it is working on, else what
                          it is stuck in. The owl
-                         writes this every couple of seconds for the
+                         writes this every second for the
                          statusline to print; run it yourself when that looks
                          wrong.
 

@@ -96,8 +96,10 @@ defmodule Whiska.MiceTest do
     test "reads like a person would say it" do
       assert Mice.format_uptime(0) == "0s"
       assert Mice.format_uptime(45) == "45s"
-      assert Mice.format_uptime(4 * 60) == "4m"
-      assert Mice.format_uptime(4 * 60 + 30) == "4m"
+      assert Mice.format_uptime(4 * 60) == "4m 0s"
+      assert Mice.format_uptime(121) == "2m 1s"
+      assert Mice.format_uptime(59 * 60 + 59) == "59m 59s"
+      assert Mice.format_uptime(3600) == "1h 0m"
       assert Mice.format_uptime(2 * 3600 + 15 * 60) == "2h 15m"
       assert Mice.format_uptime(3 * 86_400 + 4 * 3600 + 59 * 60) == "3d 4h"
     end
