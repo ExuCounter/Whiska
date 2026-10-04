@@ -55,7 +55,7 @@ defmodule Whiska.Hook.PreToolUse do
 
   defp as_mouse(payload, layout) do
     case identity(layout) do
-      {:mouse, mode} -> decide(tool_name(payload), tool_input(payload), layout, mode)
+      {:mouse, mode} -> decide(payload, layout, mode)
       _ -> :allow
     end
   end
@@ -63,7 +63,7 @@ defmodule Whiska.Hook.PreToolUse do
   defp as_nobody(payload) do
     with {:ok, layout} <- Session.unplaced(payload),
          false <- Session.main_session?(layout.main_checkout) do
-      MainCheckout.decide(tool_name(payload), tool_input(payload), layout)
+      MainCheckout.decide(tool_name(payload), tool_input(payload), layout, where(payload))
     else
       _ -> :allow
     end
@@ -93,10 +93,13 @@ defmodule Whiska.Hook.PreToolUse do
   # checkout both rules would fire, and "you are in sniff mode" is the reason
   # that actually explains what happened; "that path is outside your worktree"
   # would send it to fix the wrong thing.
-  defp decide(tool_name, tool_input, layout, mode) do
+  defp decide(payload, layout, mode) do
+    tool_name = tool_name(payload)
+    tool_input = tool_input(payload)
+
     case Sniff.decide(tool_name, tool_input, mode) do
       {:deny, _} = denial -> denial
-      :allow -> MainCheckout.decide(tool_name, tool_input, layout)
+      :allow -> MainCheckout.decide(tool_name, tool_input, layout, where(payload))
     end
   end
 
@@ -116,6 +119,10 @@ defmodule Whiska.Hook.PreToolUse do
 
   defp tool_input(%{"tool_input" => input}) when is_map(input), do: input
   defp tool_input(_), do: %{}
+
+  # Where the shell stands for this call: a position, never an identity (ADR-0053).
+  defp where(%{"cwd" => "/" <> _ = cwd}), do: [cwd: cwd]
+  defp where(_), do: []
 
   # The house answers two questions in one opening: whose pane this is, and what
   # mode the mouse is in. A tool call firing in the pane `whiska start` recorded

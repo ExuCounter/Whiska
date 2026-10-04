@@ -453,6 +453,37 @@ defmodule Whiska.Hook.PreToolUseTest do
                })
     end
 
+    test "a mouse that cd'd into the main checkout cannot write there by a bare name", %{
+      main: main,
+      worktree: worktree
+    } do
+      set_mode(main, worktree, "build")
+
+      assert {:deny, reason} =
+               run(%{
+                 "cwd" => main,
+                 "transcript_path" => started_in(worktree),
+                 "tool_name" => "Bash",
+                 "tool_input" => %{"command" => "rm CONTEXT.md"}
+               })
+
+      assert reason =~ "ADR-0013"
+    end
+
+    test "a relative cwd is no position at all", %{main: main, worktree: worktree} do
+      set_mode(main, worktree, "build")
+
+      File.cd!(main, fn ->
+        assert :allow =
+                 run(%{
+                   "cwd" => ".",
+                   "transcript_path" => started_in(worktree),
+                   "tool_name" => "Bash",
+                   "tool_input" => %{"command" => "touch x"}
+                 })
+      end)
+    end
+
     test "and is recorded as no mouse at all", %{main: main, worktree: worktree} do
       run(%{
         "cwd" => worktree,
