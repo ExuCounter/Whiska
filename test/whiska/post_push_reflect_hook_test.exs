@@ -52,6 +52,35 @@ defmodule Whiska.PostPushReflectHookTest do
     assert hook(repo) == :nudge
   end
 
+  test "a commit pushed where the hook never saw it still nudges on the next push", %{
+    repo: repo
+  } do
+    GitRepo.worktree(repo, "feat-a")
+    GitRepo.worktree(repo, "feat-b")
+    GitRepo.land(repo, "feat-a")
+    assert hook(repo) == :quiet
+
+    GitRepo.commit!(repo.checkout, "fix.md", "written here")
+    GitRepo.git!(repo.checkout, ["push", "origin", "main"])
+    GitRepo.land(repo, "feat-b")
+
+    assert hook(repo) == :nudge
+  end
+
+  test "a branch pushing from its own worktree leaves main's merges quiet", %{repo: repo} do
+    feat_b = GitRepo.worktree(repo, "feat-b")
+    GitRepo.worktree(repo, "feat-a")
+    GitRepo.land(repo, "feat-a")
+    assert hook(repo) == :quiet
+
+    GitRepo.commit!(feat_b, "more.md", "more work")
+    GitRepo.git!(feat_b, ["push"])
+    assert hook(%{checkout: feat_b}) == :nudge
+
+    GitRepo.land(repo, "feat-b")
+    assert hook(repo) == :quiet
+  end
+
   test "a fast-forwarded branch leaves no merge behind, so it nudges", %{repo: repo} do
     GitRepo.worktree(repo, "feat-a")
     GitRepo.git!(repo.checkout, ["merge", "--ff-only", "feat-a"])
