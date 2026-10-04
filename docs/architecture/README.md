@@ -55,7 +55,7 @@ drawn once on herdr's tab bar, by a `tab_bar_right` command entry the person kee
 their own herdr config running the `~/.whiska/herdr-status.sh` that `whiska owl install`
 writes — the owl always, and what is waiting anywhere — with the doctor reading herdr's
 config and printing the entry to paste; the repo-scoped one is back in Claude Code's
-statusline and is now a board, written by `whiska init` and redrawn every 2 seconds: a row
+statusline and is now a board, written by `whiska init` and redrawn every second: a row
 per mouse of this repo — its branch, what its pane is doing, how long it has been going,
 and one column more: the question waiting on the person, else the mouse's topic from
 herdr's pane list, else what it is stuck in, read from the mouse's own transcript. The

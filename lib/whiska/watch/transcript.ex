@@ -17,7 +17,7 @@ defmodule Whiska.Watch.Transcript do
   board simply leaves that column empty.
 
   Only the tail is read (`@tail_bytes`). A session's transcript grows all day
-  and the board reads every mouse's every two seconds.
+  and the board reads every mouse's every second.
   """
 
   alias Whiska.LaunchAgent

@@ -270,7 +270,7 @@ defmodule Whiska.InstallStatuslineBoardTest do
     end
   end
 
-  test "is redrawn often enough to be live" do
-    assert Install.statusline_refresh_interval() == 2
+  test "is redrawn every second, so an elapsed time under an hour ticks" do
+    assert Install.statusline_refresh_interval() == 1
   end
 end

@@ -55,7 +55,7 @@ defmodule Whiska.Watch do
 
   # The ticker: proof the board is being redrawn, on the rows where a still
   # picture and a frozen one look the same. One frame per snapshot the owl
-  # writes, so at ADR-0051's two seconds the cycle takes six.
+  # writes, so at ADR-0051's one second the cycle takes three.
   @frames ["·", "··", "···"]
   @ticker_width @frames |> Enum.map(&String.length/1) |> Enum.max()
 
@@ -76,7 +76,9 @@ defmodule Whiska.Watch do
           branch: String.t(),
           status: String.t(),
           elapsed: String.t(),
-          detail: String.t()
+          detail: String.t(),
+          started_at: DateTime.t(),
+          picked_up_at: DateTime.t() | nil
         }
 
   @typedoc "What one dead branch is called on the board, and how many questions it left."
@@ -193,15 +195,36 @@ defmodule Whiska.Watch do
       question_id: question_id(question),
       branch: mouse.branch || mouse.mouse_id,
       status: status,
-      elapsed: elapsed(mouse, now),
-      detail: detail(question, pane, status, picked_up, now, fn -> activity.(mouse) end)
+      elapsed: elapsed(mouse.created_at, now),
+      detail: detail(question, pane, status, picked_up, now, fn -> activity.(mouse) end),
+      started_at: mouse.created_at,
+      picked_up_at: if(question_id(question), do: nil, else: picked_up)
     }
   end
+
+  @doc """
+  The same board, its clock moved to `now`: the elapsed column and a picked-up
+  age, and nothing else.
+
+  The house writes the board every second but reads herdr, the database and
+  each mouse's transcript only every other write; in between, this is what it
+  writes. Both ages are re-spelled from the timestamps the row was built from,
+  so a re-timed row says exactly what a fresh one would.
+  """
+  @spec retime(t(), DateTime.t()) :: t()
+  def retime(board, now) do
+    %{board | rows: Enum.map(board.rows, &retime_row(&1, now))}
+  end
+
+  defp retime_row(%{picked_up_at: %DateTime{} = at} = row, now),
+    do: %{row | elapsed: elapsed(row.started_at, now), detail: picked_up(at, now)}
+
+  defp retime_row(row, now), do: %{row | elapsed: elapsed(row.started_at, now)}
 
   # How long this mouse has been going, in `whiska mice`'s own spelling — the
   # board and the command answer the same question about the same records, and
   # two spellings of `1h 33m` would be two answers.
-  defp elapsed(mouse, now), do: Mice.format_uptime(DateTime.diff(now, mouse.created_at))
+  defp elapsed(started_at, now), do: Mice.format_uptime(DateTime.diff(now, started_at))
 
   defp question_id(%Question{status: status, id: id}) when status in @waiting, do: id
   defp question_id(_other), do: nil
@@ -237,7 +260,9 @@ defmodule Whiska.Watch do
   # the row says a person did not ask for this one (ADR-0067). `whiska mice`
   # keeps saying it afterwards.
   defp detail(_question, _pane, _status, %DateTime{} = picked_up, now, _activity),
-    do: "picked up #{Mice.format_uptime(DateTime.diff(now, picked_up))} ago"
+    do: picked_up(picked_up, now)
+
+  defp picked_up(at, now), do: "picked up #{Mice.format_uptime(DateTime.diff(now, at))} ago"
 
   defp detail(_question, pane, status, _picked_up, _now, activity) do
     %{action: action, silent_for: silent_for} = activity.()

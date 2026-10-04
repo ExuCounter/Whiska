@@ -56,7 +56,13 @@ defmodule Whiska.Owl.HouseBoardTest do
   defp open(main, opts) do
     opts =
       Keyword.merge(
-        [main_checkout: main, herdr_socket: @socket, backstop_ms: 60_000, board_ms: 30],
+        [
+          main_checkout: main,
+          herdr_socket: @socket,
+          backstop_ms: 60_000,
+          board_ms: 30,
+          panes_ms: 30
+        ],
         opts
       )
 
@@ -118,6 +124,47 @@ defmodule Whiska.Owl.HouseBoardTest do
     eventually(fn ->
       if File.read!(Snapshot.path(main)) =~ "idle", do: {:ok, :changed}, else: :retry
     end)
+  end
+
+  test "writes the board more often than it asks herdr for panes", %{
+    main: main,
+    worktree: worktree
+  } do
+    asked = :counters.new(1, [])
+
+    stub(Herdr, :list_panes, fn @socket ->
+      :counters.add(asked, 1, 1)
+      {:ok, [pane(worktree, "working")]}
+    end)
+
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+    house = open(main, board_ms: 60_000, panes_ms: 60_000)
+    written = written_board(main)
+    before = :counters.get(asked, 1)
+
+    send(house, :board)
+    assert House.sync(house) == :ok
+
+    refute File.read!(Snapshot.path(main)) == written
+    assert :counters.get(asked, 1) == before
+  end
+
+  test "a write between herdr asks re-times the last board rather than reading it again", %{
+    main: main,
+    worktree: worktree
+  } do
+    stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "working")]} end)
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+    house = open(main, board_ms: 60_000, panes_ms: 60_000)
+    assert board(main) =~ "🐭 feat-a"
+
+    in_house(house, fn -> {:ok, _} = Storage.mark_dead("ma") end)
+    send(house, :board)
+    assert House.sync(house) == :ok
+
+    assert Ink.plain(File.read!(Snapshot.path(main))) =~ "🐭 feat-a"
   end
 
   test "a working row's ticker moves on every write, so a frozen board shows", %{

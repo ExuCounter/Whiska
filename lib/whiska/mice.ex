@@ -105,10 +105,15 @@ defmodule Whiska.Mice do
 
   defp note(_never_picked_up, _now), do: ""
 
-  @doc "Seconds as a person would say them: `45s`, `4m`, `2h 15m`, `3d 4h`."
+  @doc """
+  Seconds as a person would say them: `45s`, `4m 12s`, `2h 15m`, `3d 4h`.
+
+  Seconds stay in under an hour, so a board redrawn every second visibly ticks;
+  past an hour they would only be noise.
+  """
   @spec format_uptime(integer()) :: String.t()
   def format_uptime(seconds) when seconds < 60, do: "#{max(seconds, 0)}s"
-  def format_uptime(seconds) when seconds < 3600, do: "#{div(seconds, 60)}m"
+  def format_uptime(seconds) when seconds < 3600, do: "#{div(seconds, 60)}m #{rem(seconds, 60)}s"
 
   def format_uptime(seconds) when seconds < 86_400,
     do: "#{div(seconds, 3600)}h #{rem(div(seconds, 60), 60)}m"
