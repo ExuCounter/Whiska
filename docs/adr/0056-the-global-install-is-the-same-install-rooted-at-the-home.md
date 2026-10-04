@@ -127,9 +127,11 @@ person's next move is to commit it in the repo that owns the link, not here.
 `whiska uninstall`, and `whiska uninstall --global`, are the mirror of `init` and the way
 to hand a repo over to the global install: they take out the block, the hook entries, the
 scripts and the skills, restore the displaced statusline, and touch nothing else. A file
-whose path resolves outside the scope's root is named and left where it is — the whole
-path is resolved, not only its last segment, because `~/.claude/skills` is commonly one
-link into a dotfiles repo rather than a link per skill file.
+reached through a symlink is named and left where it is — any segment of the path below
+the scope's root counts, not only its last, because `~/.claude/skills` is commonly one link
+into a dotfiles repo rather than a link per skill file. Where the link points does not
+matter: a dotfiles repo usually lives inside the very home it is linked from, so "resolves
+outside the root" would miss the common case.
 
 One thing is not restored exactly: a displaced `statusLine` comes back as its `type` and
 `command`, so any other field it carried — a `padding`, a `refreshInterval` of the person's
@@ -182,5 +184,7 @@ The symlink rule above is unchanged, and this is where it bites. Until the perso
 dotfiles stop installing the three, `~/.claude/skills/<name>/SKILL.md` is a link into that
 repo, and a global install writes Whiska's copy back through it. That is correct — the
 alternative is replacing a link the person owns. `whiska init --global` prints where each of
-the three actually landed, marking one that resolved outside the home as through a symlink,
-so the person can see a write into dotfiles rather than discover it later.
+the three actually landed, marking one reached through a symlink, so the person can see a
+write into dotfiles rather than discover it later. A link left behind after its dotfiles
+file was deleted is written through too, recreating the file at its target, rather than
+failing the install.

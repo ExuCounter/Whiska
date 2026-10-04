@@ -469,15 +469,16 @@ defmodule Whiska.CLI do
   # A dotfiles repo may still install the worktree skills, each as a link into
   # it. The write goes through the link (ADR-0056), so where each of the three
   # really landed is printed, plain file or not. "Through a symlink" is the
-  # resolves-outside-the-home test uninstall uses, so a linked
-  # `~/.claude/skills` counts too.
+  # same test uninstall uses, so a linked `~/.claude/skills` counts too.
   defp landed do
     home = Install.root(:global)
 
     rows =
       for rel <- Install.worktree_skill_paths() do
         path = Path.join(home, rel)
-        {rel |> Path.dirname() |> Path.basename(), Layout.canonical(path), linked?(path, home)}
+
+        {rel |> Path.dirname() |> Path.basename(), Layout.canonical(path),
+         through_link?(home, rel)}
       end
 
     table =
@@ -489,8 +490,6 @@ defmodule Whiska.CLI do
 
     "The worktree skills landed here:\n\n" <> table <> linked_skills_note(rows)
   end
-
-  defp linked?(path, home), do: not Layout.inside?(path, home)
 
   defp linked_skills_note(rows) do
     if Enum.any?(rows, &elem(&1, 2)) do
@@ -606,8 +605,12 @@ defmodule Whiska.CLI do
     end)
   end
 
-  defp ours_to_remove?(root, rel) do
-    Layout.inside?(Path.join(root, rel), root)
+  defp ours_to_remove?(root, rel), do: not through_link?(root, rel)
+
+  # Any segment below the root being a link counts, wherever it points: a
+  # dotfiles repo usually sits inside the home it is linked from.
+  defp through_link?(root, rel) do
+    Layout.canonical(Path.join(root, rel)) != Path.join(Layout.canonical(root), rel)
   end
 
   defp base_statusline(:global), do: [Install.base_statusline_path()]
@@ -699,7 +702,10 @@ defmodule Whiska.CLI do
     Enum.reduce_while(Install.skills(scope), :ok, fn {rel, body}, :ok ->
       file = Path.join(root, rel)
 
+      # The target's directory, not the link's: a link left behind after its
+      # dotfiles file was deleted is written through like any other.
       with :ok <- File.mkdir_p(Path.dirname(file)),
+           :ok <- File.mkdir_p(Path.dirname(Layout.canonical(file))),
            :ok <- File.write(file, body) do
         {:cont, :ok}
       else
