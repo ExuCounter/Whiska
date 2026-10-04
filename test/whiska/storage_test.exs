@@ -275,6 +275,40 @@ defmodule Whiska.StorageTest do
     end
   end
 
+  describe "a mode changed by hand keeps what the mouse was shaped as (ADR-next-a-finished-investigation-hands-off)" do
+    setup %{main: main} do
+      {:ok, handle} = Storage.open(main)
+      on_exit(fn -> Storage.close(handle) end)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
+      :ok
+    end
+
+    test "a shape records the mode its model and effort were chosen for" do
+      {:ok, _} = Storage.shape("m1", "sniff", "m-heavy", "xhigh")
+      assert Storage.mouse("m1").shaped_as == "sniff"
+    end
+
+    test "whiska mode moves the mode and leaves what it was shaped as alone" do
+      {:ok, _} = Storage.shape("m1", "sniff", "m-heavy", "xhigh")
+      {:ok, _} = Storage.set_mode("m1", "build")
+
+      mouse = Storage.mouse("m1")
+      assert {mouse.mode, mouse.shaped_as, mouse.model} == {"build", "sniff", "m-heavy"}
+    end
+
+    test "a mouse whose mode only whiska mode ever chose was shaped as nothing" do
+      {:ok, _} = Storage.set_mode("m1", "build")
+      assert Storage.mouse("m1").shaped_as == nil
+    end
+
+    test "shaping it again replaces what it was shaped as" do
+      {:ok, _} = Storage.shape("m1", "sniff", "m-heavy", "xhigh")
+      {:ok, _} = Storage.set_mode("m1", "build")
+      {:ok, _} = Storage.shape("m1", "build", "m-light", "low")
+      assert Storage.mouse("m1").shaped_as == "build"
+    end
+  end
+
   describe "set_mode/2 and mode/1 (ADR-0018)" do
     setup %{main: main} do
       {:ok, handle} = Storage.open(main, name: nil)

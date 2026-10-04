@@ -330,6 +330,38 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ ~r/discards/
     end
 
+    # A sniff mouse's branch has nothing to merge, and the work it found is
+    # better built by a fresh mouse shaped for the build than by the one shaped
+    # for the investigation (ADR-next-a-finished-investigation-hands-off).
+    test "a sniff mouse's finished proposal is offered as a fresh build" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      prose = String.replace(body, ~r/\s+/, " ")
+
+      # Keyed on Whiska's record of the mouse, and on the block the mouse wrote.
+      assert body =~ "(sniff)"
+      assert body =~ "**Proposed build**"
+      assert body =~ "Build what it proposes"
+      # The confirmation carries what it confirms: the proposal itself sits in
+      # the option's preview, verbatim, so the person can say no to it.
+      assert prose =~ ~r/preview/
+      assert prose =~ ~r/Found, Build and Touches/
+      # Nothing nudges the person past reading it.
+      assert prose =~ ~r/no "\(Recommended\)"/i
+      # The spawn is the existing skill's job, and it asks nothing more.
+      assert body =~ "spawn-worktree"
+      assert prose =~ ~r/nothing else is asked/i
+    end
+
+    test "every other finished line keeps the four options" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      prose = String.replace(body, ~r/\s+/, " ")
+      assert prose =~ ~r/no proposal, or a heading without `\(sniff\)`/i
+    end
+
     test "a repo can name its usual finish choice, and the picker follows it" do
       assert {_path, body} =
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)

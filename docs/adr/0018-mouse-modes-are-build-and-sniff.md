@@ -26,3 +26,11 @@ same time: a skipped spawn step left a mouse asked for as sniff with write acces
 nothing said so. A mouse nobody shaped is now held to sniff's rules, with a reason that
 sends it to the person, until they run `whiska mode build` or `whiska mode sniff`. Mice
 already recorded when this landed were stamped as shaped, so none was stopped mid-task.
+
+## Note, 2026-10-04: a flip carries its shape along, and says so
+
+A mode moved by `whiska mode` after the spawn keeps the model and effort the mouse was
+started on, chosen for the other mode's work. The flip still works, and now says what it
+carried; a finished investigation is built by a fresh mouse instead, shaped for the build
+(ADR-next-a-finished-investigation-hands-off). A sniff mouse denied an edit is told to
+end on a proposal, no longer to ask for `whiska mode build`.

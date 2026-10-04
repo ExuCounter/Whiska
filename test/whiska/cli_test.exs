@@ -97,6 +97,36 @@ defmodule Whiska.CLITest do
       assert out =~ "build"
     end
 
+    test "moving a shaped mouse to the other mode says its model and effort stay", %{
+      worktree: worktree
+    } do
+      with_io(:stderr, fn ->
+        capture_io(fn ->
+          CLI.run(["shape", "sniff", "--model", "m-heavy", "--effort", "xhigh"], worktree)
+        end)
+      end)
+
+      out = capture_io(fn -> assert CLI.run(["mode", "build"], worktree) == 0 end)
+      assert out =~ "is now a build mouse"
+      assert out =~ "m-heavy"
+      assert out =~ "xhigh"
+      assert out =~ "shaped as sniff"
+      assert out =~ "whiska mice"
+
+      # Back to what it was shaped as: nothing left to say.
+      out = capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)
+      assert out =~ "is now a sniff mouse."
+      refute out =~ "shaped as"
+    end
+
+    test "a mouse nobody shaped is released without a word about its model", %{
+      worktree: worktree
+    } do
+      out = capture_io(fn -> assert CLI.run(["mode", "build"], worktree) == 0 end)
+      assert out =~ "is now a build mouse."
+      refute out =~ "shaped as"
+    end
+
     test "mints the mouse if it has never been seen", %{worktree: worktree} do
       refute File.exists?(Whiska.Marker.path(worktree))
       capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)

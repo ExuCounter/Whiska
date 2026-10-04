@@ -29,7 +29,8 @@ defmodule Whiska.Storage do
     {5, Whiska.Migrations.V005Landing},
     {6, Whiska.Migrations.V006Pickup},
     {7, Whiska.Migrations.V007Shape},
-    {8, Whiska.Migrations.V008Effort}
+    {8, Whiska.Migrations.V008Effort},
+    {9, Whiska.Migrations.V009ShapedAs}
   ]
 
   @modes ~w(build sniff)
@@ -202,6 +203,10 @@ defmodule Whiska.Storage do
 
   A mode somebody chose is a shape: this stamps `shaped_at` if nothing has, so
   `whiska mode build` is what lets a mouse nobody shaped write (ADR-0069).
+
+  It moves the mode and nothing else. `shaped_as` stays what the spawn
+  recorded, so a mouse moved off its shape keeps saying what its model and
+  effort were chosen for (ADR-next-a-finished-investigation-hands-off).
   """
   @spec set_mode(String.t(), String.t()) ::
           {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}
@@ -226,6 +231,8 @@ defmodule Whiska.Storage do
   Run by the spawn, in the new worktree, before Claude starts — so the first
   tool call a sniff mouse makes is already judged as sniff. `shaped_at` is what
   tells this mouse apart from one nobody shaped, which may not write.
+  `shaped_as` keeps the mode the model and effort were chosen with, which
+  `set_mode/2` does not move.
   """
   @spec shape(String.t(), String.t(), String.t() | nil, String.t() | nil) ::
           {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}
@@ -241,6 +248,7 @@ defmodule Whiska.Storage do
         mouse
         |> Ecto.Changeset.change(%{
           mode: mode,
+          shaped_as: mode,
           model: model,
           effort: effort,
           ran_on: nil,

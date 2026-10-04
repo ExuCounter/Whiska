@@ -171,7 +171,10 @@ defmodule Whiska.CLI do
     mode                 Print this mouse's mode.
     mode build|sniff     Set it. A build mouse makes changes, confined to its
                          own worktree. A sniff mouse investigates and reports,
-                         and may not write anything at all.
+                         and may not write anything at all. Its model and
+                         effort stay what it was started on; moved off the
+                         mode it was shaped as, it says so, and so does
+                         `whiska mice`.
 
     shape build|sniff [--model <name>] [--effort <level>]
                          Give a fresh mouse its shape, before Claude starts
@@ -906,14 +909,30 @@ defmodule Whiska.CLI do
     end
   end
 
+  # The flip still works — it is also how a mouse nobody shaped gets a mode —
+  # but one that moves a mouse off its shape says what it carried along: the
+  # model and effort chosen for the other mode's work, which stay until the
+  # process ends (ADR-next-a-finished-investigation-hands-off).
   defp set_mode(mouse_id, layout, mode) do
     case Storage.set_mode(mouse_id, mode) do
-      {:ok, _} ->
-        say("#{layout.branch_label} is now a #{mode} mouse.")
+      {:ok, mouse} ->
+        say("#{layout.branch_label} is now a #{mode} mouse." <> carried(mouse))
 
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not set the mode (#{inspect(reason)}).")
         1
+    end
+  end
+
+  defp carried(mouse) do
+    case Whiska.Shape.moved_from(mouse) do
+      nil ->
+        ""
+
+      as ->
+        " It keeps #{mouse.model || "your default model"} at " <>
+          "#{mouse.effort || "your default"} effort, chosen when it was shaped as #{as}; " <>
+          "`whiska mice` shows that while it runs."
     end
   end
 
@@ -1391,9 +1410,9 @@ defmodule Whiska.CLI do
 
   # The shape lives in Whiska.Questions, so one question read by id and one
   # block of `whiska questions --full` cannot drift apart. This question was
-  # loaded by id, without its mouse, so the branch is looked up here.
+  # loaded by id, without its mouse, so the mouse is looked up here.
   defp show_question(%Question{} = q),
-    do: say(Questions.full(q, branch_of(q.mouse_id), slot_id()))
+    do: say(Questions.full(q, Questions.who(Storage.mouse(q.mouse_id), q.mouse_id), slot_id()))
 
   defp slot_id do
     case Storage.sent() do
@@ -1482,13 +1501,6 @@ defmodule Whiska.CLI do
   defp describe({:herdr, %{"code" => code, "message" => message}}), do: "#{code}: #{message}"
   defp describe(reason) when is_binary(reason), do: reason
   defp describe(reason), do: inspect(reason)
-
-  defp branch_of(mouse_id) do
-    case Storage.mouse(mouse_id) do
-      %Mouse{branch: branch} when is_binary(branch) -> branch
-      _ -> mouse_id
-    end
-  end
 
   # Run `work` on one question of this house, by id.
   defp with_question(cwd, id, work) do

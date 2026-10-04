@@ -125,6 +125,22 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       assert body =~ "herdr agent prompt"
     end
 
+    # The person said yes to the proposal; the branch name, the model and the
+    # effort are derived and shown, never asked (ADR-next-a-finished-investigation-hands-off).
+    test "builds what an investigation proposed without asking anything more" do
+      body = skill("spawn-worktree")
+      prose = String.replace(body, ~r/\s+/, " ")
+
+      assert body =~ "## Building what an investigation proposed"
+      assert prose =~ ~r/ask the person nothing/i
+      # Shaped against the proposal, not the request the investigation began from.
+      assert prose =~ ~r/judged against the Build and Touches lines/i
+      # The report travels by its id: it is already in Whiska, whole.
+      assert body =~ "whiska questions <id>"
+      # Shown in one line.
+      assert prose =~ ~r/one line/i
+    end
+
     test "carries the hooks in before Claude starts, so the Stop hook exists" do
       body = skill("spawn-worktree")
 
