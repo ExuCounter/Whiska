@@ -127,5 +127,7 @@ The global `CLAUDE.md` still applies in full: TDD is mandatory (failing test fir
 never claim "done" without running it, and use the gate for pushing committed work where
 one is set up. Nothing in this file overrides those.
 
-The worktree protocol is no longer among them. It is the block below, written by
-`whiska init` (ADR-0045) — this repo runs on the same block it ships.
+The worktree protocol is no longer among them either. It comes from the global install
+in `~/.claude/CLAUDE.md`, the block `whiska init --global` writes (ADR-0045, ADR-0056).
+This repo keeps no local install of its own, so the block is not in this file: the copy
+in force here is the same one every other repo on this machine gets.
