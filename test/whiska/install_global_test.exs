@@ -144,19 +144,13 @@ defmodule Whiska.InstallGlobalTest do
   end
 
   describe "skills/1" do
-    test "the global install ships the reading skills and the finish pipeline" do
+    test "the global install ships all seven skills, the worktree ones included" do
+      assert Install.skills(:global) == Install.skills()
       paths = Install.skills(:global) |> Enum.map(&elem(&1, 0))
 
-      for name <- ~w(whiska-questions whiska-delivered whiska-reply whiska-finish) do
+      for name <- ~w(whiska-questions whiska-delivered whiska-reply whiska-finish
+                     spawn-worktree send-to-worktree drop-worktree) do
         assert ".claude/skills/#{name}/SKILL.md" in paths
-      end
-    end
-
-    test "the global install leaves the worktree skills to the person's own dotfiles" do
-      paths = Install.skills(:global) |> Enum.map(&elem(&1, 0))
-
-      for name <- ~w(spawn-worktree send-to-worktree drop-worktree) do
-        refute ".claude/skills/#{name}/SKILL.md" in paths
       end
     end
 

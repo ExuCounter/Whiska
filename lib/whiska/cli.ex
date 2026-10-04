@@ -427,6 +427,8 @@ defmodule Whiska.CLI do
 
     #{written()}
 
+    #{landed()}
+
     Nothing else is needed per repo. The hooks work out for themselves which
     worktree they are firing in, and the board is found by the directory the
     session is sitting in — so a repo that cannot carry a committed `.claude/`
@@ -456,18 +458,61 @@ defmodule Whiska.CLI do
       {"~/" <> Install.statusline_path(), "the board"},
       {"~/.claude/settings.json", "PreToolUse, Stop and the statusLine"},
       {"~/.claude/skills/", "whiska-questions, whiska-delivered, whiska-reply,"},
-      {"", "whiska-finish"}
+      {"", "whiska-finish, spawn-worktree, send-to-worktree,"},
+      {"", "drop-worktree"}
     ]
     |> Enum.map_join("\n", fn {path, what} ->
       "  " <> String.pad_trailing(path, 40) <> what
     end)
   end
 
+  # A dotfiles repo may still install the worktree skills, each as a link into
+  # it. The write goes through the link (ADR-0056), so where each of the three
+  # really landed is printed, plain file or not. "Through a symlink" is the
+  # resolves-outside-the-home test uninstall uses, so a linked
+  # `~/.claude/skills` counts too.
+  defp landed do
+    home = Install.root(:global)
+
+    rows =
+      for rel <- Install.worktree_skill_paths() do
+        path = Path.join(home, rel)
+        {rel |> Path.dirname() |> Path.basename(), Layout.canonical(path), linked?(path, home)}
+      end
+
+    table =
+      Enum.map_join(rows, "\n", fn {name, real, linked?} ->
+        "  " <>
+          String.pad_trailing(name, 18) <>
+          real <> if(linked?, do: "  (through a symlink)", else: "")
+      end)
+
+    "The worktree skills landed here:\n\n" <> table <> linked_skills_note(rows)
+  end
+
+  defp linked?(path, home), do: not Layout.inside?(path, home)
+
+  defp linked_skills_note(rows) do
+    if Enum.any?(rows, &elem(&1, 2)) do
+      """
+
+
+      One through a symlink changed a file in the repo the link points into. Once
+      that repo stops installing it, delete the link and run this again for a
+      plain file.
+      """
+      |> String.trim_trailing()
+    else
+      ""
+    end
+  end
+
   # ~/.claude/CLAUDE.md and ~/.claude/settings.json are commonly links into a
   # dotfiles repo. Every write went through the link, so the change is sitting
   # in that repo and the person's next move is there, not here.
   defp through_links do
-    case Install.global_links() do
+    # The worktree skills have their own lines above, link or not.
+    case Enum.reject(Install.global_links(), &(elem(&1, 0) in Install.worktree_skill_paths())) do
       [] ->
         ""
 

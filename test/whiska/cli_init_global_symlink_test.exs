@@ -97,6 +97,43 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
     assert File.read!(target) =~ "whiska-finish"
   end
 
+  test "a worktree skill linked into dotfiles is written through, and the report names the target",
+       %{home: home, dotfiles: dotfiles} do
+    target = Path.join(dotfiles, "spawn-worktree/SKILL.md")
+    File.mkdir_p!(Path.dirname(target))
+    File.write!(target, "stale\n")
+    File.mkdir_p!(Path.join(home, ".claude/skills/spawn-worktree"))
+    link(target, Path.join(home, ".claude/skills/spawn-worktree/SKILL.md"))
+
+    output = init_global()
+
+    assert still_a_link?(Path.join(home, ".claude/skills/spawn-worktree/SKILL.md"))
+    assert File.read!(target) =~ "spawn-worktree"
+
+    [line] = output |> String.split("\n") |> Enum.filter(&(&1 =~ "spawn-worktree "))
+    assert line =~ Whiska.Layout.canonical(target)
+    assert line =~ "symlink"
+
+    [plain] = output |> String.split("\n") |> Enum.filter(&(&1 =~ "drop-worktree "))
+    refute plain =~ "symlink"
+  end
+
+  test "a worktree skill under a linked skills directory is reported at its real path", %{
+    home: home,
+    dotfiles: dotfiles
+  } do
+    skills = Path.join(dotfiles, "skills")
+    File.mkdir_p!(skills)
+    link(skills, Path.join(home, ".claude/skills"))
+
+    output = init_global()
+
+    real = Whiska.Layout.canonical(Path.join(skills, "send-to-worktree/SKILL.md"))
+    [line] = output |> String.split("\n") |> Enum.filter(&(&1 =~ "send-to-worktree "))
+    assert line =~ real
+    assert line =~ "symlink"
+  end
+
   test "the report says to commit the dotfiles change", %{home: home, dotfiles: dotfiles} do
     link(Path.join(dotfiles, "CLAUDE.md"), Path.join(home, ".claude/CLAUDE.md"))
     File.write!(Path.join(dotfiles, "CLAUDE.md"), "# Mine\n")

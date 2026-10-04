@@ -17,7 +17,7 @@ are the extracted, individually citable decisions.
 - [0045](0045-the-claude-md-block-is-a-nest-of-named-parts.md) — The CLAUDE.md block is a nest of named parts, and a part can be claimed
 - [0055](0055-the-block-is-rules-not-prose.md) — The block is rules, not prose, and its rationale stays in Whiska's docs
 - [0063](0063-a-mouse-grills-when-it-cannot-name-done.md) — A mouse grills when it cannot name "done", and builds when it can
-- [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The global install is the same install rooted at the home, and the repo's copy wins
+- [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The global install is the same install rooted at the home, and the repo's copy wins (amended 2026-10-04: it ships the three worktree skills too)
 - [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
 
 ## Identity and security
@@ -82,7 +82,7 @@ are the extracted, individually citable decisions.
 - [0004](0004-domain-names-house-and-owl.md) — The per-repo slice is a "house", the machine-wide process an "owl"
 - [0021](0021-no-whiska-spawn-command.md) — No `whiska spawn` command — spawning happens through a conversation
 - [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash
-- [0046](0046-whiska-ships-the-worktree-skills.md) — Whiska ships the worktree skills, because Whiska owns the protocol (amended 2026-10-01: the source is `priv/skills/`, not the repo's own `.claude/`)
+- [0046](0046-whiska-ships-the-worktree-skills.md) — Whiska ships the worktree skills, because Whiska owns the protocol (amended 2026-10-01: the source is `priv/skills/`, not the repo's own `.claude/`; its dotfiles follow-up landed in 0056's 2026-10-04 amendment)
 - [0027](0027-statusline-detail-for-one-count-for-many.md) — Statusline shows detail for one thing, a count for many (partly superseded 2026-09-29 by 0051: the rule is herdr's tab bar's now)
 - [0051](0051-the-repo-scoped-statusline-is-a-board-the-owl-writes.md) — The repo-scoped statusline is a board, and the owl writes it to a file (amended 2026-10-01: an orphan is counted on its own line, not under "waiting"; 2026-10-02: the detail column is the mouse's topic, with the last action as the fallback; 2026-10-03: the orphan line names the branches the orphans came off; 2026-10-03: one line on it is the script's, not a mouse's row — ADR-0065; 2026-10-04: elapsed time ticks in seconds, redrawn every second, herdr still asked every two)
 - [0065](0065-the-board-says-when-this-pane-is-not-the-main-session.md) — The board says when this pane is not the main session, and only then

@@ -38,7 +38,8 @@ The dotfiles repo still has its own copies of these three skills and the global
 `CLAUDE.md` sections they came from. Until it drops them, a machine with both has two
 copies of each: the project skill wins for a repo that has been `whiska init`-ed, and the
 global one applies everywhere else. Cutting them from dotfiles is the follow-up, and is
-not this decision.
+not this decision. (That follow-up came on 2026-10-04: the global install now ships the
+three as well — see ADR-0056's amendment.)
 
 ## Addendum (2026-10-01): the source is `priv/skills/`, not this repo's own `.claude/`
 
