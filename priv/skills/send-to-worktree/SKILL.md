@@ -81,7 +81,7 @@ truncated tail.
 
 ## Report back
 
-One line: which worktree and branch the idea went to, and whether that mouse was
-`working` (queued) or free to pick it up now. Say that it will not interrupt the person
+One line: which worktree and branch the idea went to, and whether that session was
+busy (it picks the idea up after) or free to start now. Say that it will not interrupt the person
 and that Whiska delivers its question when it has one. Do not linger, and do not start
 investigating the idea yourself here.

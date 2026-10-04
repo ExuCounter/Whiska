@@ -293,14 +293,17 @@ defmodule Whiska.ClaudeMdTest do
       refute prose_of("delivery") =~ "every option"
     end
 
-    test "forbids Whiska's own words in the message, and excepts the marker" do
+    test "forbids any word the person has not used, by where it came from, not by a list" do
       body = prose_of("report")
 
-      for word <- ["mouse", "owl", "house", "doorstep", "delivery slot"] do
-        assert body =~ word, word
-      end
-
-      assert body =~ ~r/never appears/i
+      # A closed list let "hoot" through: a word it forgot passed. The rule names
+      # the sources instead, so a term added to a glossary later is covered.
+      assert body =~ ~r/no term they have not used first/i
+      assert body =~ ~r/this file, a skill, the repo's glossary or its code/i
+      refute body =~ ~r/mouse, owl, house/
+      # An everyday word used in a special sense misleads worse than an invented one.
+      assert body =~ ~r/ordinary word used in a special sense/i
+      assert body =~ ~r/say what the thing does/i
       assert body =~ ~r/marker line is the one exception/i
     end
 
@@ -324,8 +327,7 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/an ordinary reply in five/i
       assert body =~ ~r/lead with it/i
       assert body =~ ~r/show the change rather than describing it/i
-      assert body =~ ~r/no jargon they have not used first/i
-      assert body =~ ~r/never their own words repeated back/i
+      assert body =~ ~r/never repeat their own words back/i
       assert body =~ ~r/no filler, no preamble/i
       assert body =~ ~r/gone wrong, or unsure.{0,30}one line/i
     end

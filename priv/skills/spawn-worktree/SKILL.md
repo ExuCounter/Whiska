@@ -174,9 +174,11 @@ truncated tail.
 
 ## Report back
 
-One line: "Created worktree <branch> at worktrees/<branch>, a mouse is working on it
-there.", followed by the line `whiska shape` printed on stderr — "<branch> is a sniff
-mouse on sonnet." — word for word. That line is Whiska saying what it recorded, not this
-skill saying what it meant to do, so a shape that went wrong shows up here. Say that it will not interrupt them and that Whiska delivers its question when
-it has one. Do not linger, and do not do any of the task yourself in this session —
+One line: "Created worktree <branch> at worktrees/<branch>, a Claude session is working
+on it there.", then what the line `whiska shape` printed on stderr says, in plain words —
+"it can only look, not change files" for sniff, "it can change files" for build, then
+the model that line names, or "your default model" when it names none.
+Restate that line, not what this skill meant to set, so
+a shape that went wrong shows up here. Say that it will not interrupt them and that
+Whiska delivers its question when it has one. Do not linger, and do not do any of the task yourself in this session —
 that is what the mouse is for.

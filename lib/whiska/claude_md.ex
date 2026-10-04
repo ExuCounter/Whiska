@@ -188,15 +188,15 @@ defmodule Whiska.ClaudeMd do
   could simply ask for. A pre-existing problem left alone, a reviewer this repo asked for
   that was not there, and a security finding and what became of it are outcomes and stay.
 
-  - **Outcomes, not mechanics**, in the person's words. Whiska's own vocabulary never
-    appears: mouse, owl, house, doorstep, delivery slot, the status labels. Say "this
-    branch"; name the concrete decision. The marker line is the one exception, and it is
-    stripped out before the person reads it.
+  - **Outcomes, not mechanics.** Name the concrete decision. The marker line is the one
+    exception: it is stripped before they read it.
+  - **No term they have not used first** from this file, a skill, the repo's glossary or
+    its code — least of all an ordinary word used in a special sense. Say what the thing
+    does: "a desktop notification", not "a hoot".
+  - Never repeat their own words back.
   - Ask for their word only when the next step needs a review, approval, merge or design
     pick; otherwise say nothing is waiting, and stop. Name a next step only when there is
     an obvious one.
-  - Plain language, their words: no jargon they have not used first, and never their own
-    words repeated back at them.
   - Unclear what was asked → ask one question rather than guessing. A grilling round is
     the exception: it asks the whole frontier at once, since each round costs the person
     a round trip.
