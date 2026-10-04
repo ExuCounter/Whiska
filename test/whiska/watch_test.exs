@@ -72,7 +72,7 @@ defmodule Whiska.WatchTest do
     test "says so, and how long ago, while the turn it started is still running" do
       picked_up = %{"m-feat-a" => DateTime.add(@now, -180, :second)}
 
-      assert [%{detail: "picked up 3m ago"}] =
+      assert [%{detail: "picked up 3m 0s ago"}] =
                board([mouse("feat-a")],
                  panes: {:ok, [pane("feat-a", "working", title: "Order builder")]},
                  picked_up: picked_up
@@ -98,6 +98,32 @@ defmodule Whiska.WatchTest do
                  panes: {:ok, [pane("feat-a", "idle", title: "Order builder")]},
                  picked_up: %{}
                ).rows
+    end
+  end
+
+  # Between herdr asks the house only moves the clock on the last board, so the
+  # per-second writes never match panes or read a transcript again.
+  describe "retime/2" do
+    test "moves the elapsed column and a picked-up age, and nothing else" do
+      picked_up = %{"m-feat-a" => DateTime.add(@now, -180, :second)}
+
+      before =
+        board([mouse("feat-a"), mouse("feat-b", created_at: DateTime.add(@now, -121))],
+          panes: {:ok, [pane("feat-a", "working"), pane("feat-b", "working", title: "Orders")]},
+          picked_up: picked_up
+        )
+
+      later = Whiska.Watch.retime(before, DateTime.add(@now, 1))
+
+      assert [a, b] = Enum.sort_by(later.rows, & &1.branch)
+      assert a.elapsed == "1s"
+      assert a.detail == "picked up 3m 1s ago"
+      assert b.elapsed == "2m 2s"
+      assert b.detail == "Orders"
+
+      strip = fn board -> Enum.map(board.rows, &Map.drop(&1, [:elapsed, :detail])) end
+      assert strip.(later) == strip.(before)
+      assert Map.delete(later, :rows) == Map.delete(before, :rows)
     end
   end
 
@@ -550,7 +576,7 @@ defmodule Whiska.WatchTest do
 
       rows = board(mice, bare_panes: [pane("feat-a", "working")]).rows
 
-      assert [%{elapsed: "6m"}] = rows
+      assert [%{elapsed: "6m 0s"}] = rows
     end
 
     test "elapsed is spelled the way `whiska mice` spells it" do

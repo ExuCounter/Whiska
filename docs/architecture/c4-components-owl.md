@@ -67,7 +67,7 @@ C4Component
   Rel(pickup, herdrb, "Which worktrees are this checkout's, then one line into the mouse's own pane")
   Rel(pickup, doorstep, "Is anything of this mouse's still uncollected")
   Rel(pickup, storage, "Reads worked_at, stamps picked_up_at")
-  Rel(house, watch, "Renders the board every 2 seconds")
+  Rel(house, watch, "Renders the board every second")
   Rel(watch, transcript, "What a blocked or stalled mouse is stuck in")
   Rel(watch, ink, "Colours the branch, the question and the elapsed time")
   Rel(house, snapshot, "Writes the board where the statusline will find it")
@@ -99,20 +99,22 @@ in `Whiska.Backstop` for `whiska doctor` to read later. Collecting at open does 
 idle trigger's own retries. Without this, a trigger that never fires looks exactly like a
 healthy owl, which is what happened (ADR-0036, note of 2026-09-28).
 
-**The board is written, never asked for** (ADR-0051). Every couple of seconds the house
-lists herdr's panes, renders a row per mouse and replaces one file. Nothing is typed into
-a session to produce it: a mouse's topic rides in on the pane list herdr answers with
+**The board is written, never asked for** (ADR-0051). Every other second the house lists herdr's
+panes, renders a row per mouse and replaces one file; in between it rewrites that file with
+only the elapsed times moved on. Nothing is typed into a session to produce it: a mouse's topic rides in on the pane list herdr answers with
 anyway, what it is stuck in comes from the transcript Claude Code is already writing
 (ADR-0050), and a mouse with neither simply has an empty column.
 The statusline script then prints that file and starts nothing, which is what makes a
-two-second refresh affordable in every open session at once. The recorded main pane is
+one-second refresh affordable in every open session at once. The recorded main pane is
 written beside it in the same breath, which is how a session finds out whether it is the
 one being delivered to without starting anything either (ADR-0065).
 
 **The screen is read in one place** (ADR-0047). herdr has no input signal, so the
-delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible text and
-`Whiska.Delivery.Draft` finds the box by its frame and decides whether there is anywhere
-safe for the line to land (ADR-0068). The boundary returns
+delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible screen,
+styling included, and `Whiska.Delivery.Draft` finds the box by its frame and decides
+whether there is anywhere safe for the line to land, counting Claude Code's faint
+suggestion as nothing (ADR-0068). Pickup asks the same question of a mouse's pane and
+takes the same answer. The boundary returns
 text and judges nothing; the classifier judges text and talks to nothing — the same split
 as `Whiska.Question.Marker`, for the same reason (ADR-0031).
 

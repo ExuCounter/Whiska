@@ -54,7 +54,7 @@ question is counted in the `🐱 n waiting` line and read in full with `whiska q
 answering "what is running here" from two queries is a board that can disagree with the
 command the person checks it against.
 
-**The owl writes the board, every two seconds, to `~/.whiska/board/<main checkout>`**, and
+**The owl writes the board, every two seconds (every second since 2026-10-04), to `~/.whiska/board/<main checkout>`**, and
 the statusline script prints that file. This is the load-bearing part. ADR-0044 set the
 interval at 15 seconds because one run of the script cost ~0.8 core-seconds, nearly all of
 it escript startup, which at 2 seconds would be ~40% of a core per idle session, forever.
@@ -71,7 +71,8 @@ that — a `git status` in a big repo, a version probe, a token-usage lookup —
 costs more than fifteen did, and the interval is the person's to lower. `whiska doctor`
 does not argue with an interval they set (ADR-0044).
 
-**`whiska init` writes `refreshInterval: 2`.**
+**`whiska init` writes `refreshInterval: 2`.** (One since 2026-10-04 — see the last
+addendum.)
 
 **A mouse's own session draws no board.** `.claude/settings.json` is committed, so every
 worktree runs the same script; a mouse has no use for its siblings' rows and would spend
@@ -276,12 +277,8 @@ would read as two answers. The column goes before the detail, which is the one c
 whose width the board does not control, so the longest thing on the row stays last and
 nothing it says pushes the elapsed time off the end.
 
-**The redraw stays at two seconds.** An elapsed time is the obvious reason to want a
-one-second statusline, and it is not worth one: the owl writes the board every two
-seconds (`@default_board_ms`) and the statusline re-reads it every two
-(`@statusline_refresh_interval`), so a one-second refresh prints the same file twice
-unless the owl doubles its write rate for every house in every open session — the cost
-this ADR picked two seconds to avoid. What the column shows moves in minutes.
+**The redraw stays at two seconds** — reversed on 2026-10-04, see the addendum below: the
+column now ticks in seconds, and the redraw is one second.
 
 **Plain ANSI colour, three codes, in `Whiska.Watch.Ink`**: the branch cyan, a question
 waiting on the person yellow, the elapsed time dim. Those are the three things a row is
@@ -383,3 +380,50 @@ between two sessions reading the same file: the owl writes the recorded pane bes
 board and the script compares it with the pane it is drawing in. Everything else here
 stands — the board is still one file per house, still written rather than asked for, and
 still reports without acting.
+
+## Addendum (2026-10-04): the elapsed time ticks, so the board is redrawn every second
+
+The person wanted to watch a mouse's time move — `2m 1s`, `2m 2s` — not see `3m` sit
+there for a minute. The 2026-10-02 addendum turned that down on cost. This reverses it.
+
+**Under an hour, `Whiska.Mice.format_uptime/1` keeps the seconds**: `45s`, `2m 1s`,
+`59m 59s`. From an hour on it stays `1h 20m`: at that size the seconds are noise, not
+signal. `whiska mice`, the age in `whiska questions` and the board's "picked up 3m 0s ago" use the
+same function, so they show the seconds too — one spelling for one answer, as before.
+
+**The statusline redraws every second (`refreshInterval: 1`), and the owl writes the
+board every second.** Both had to move: either alone prints the same number twice.
+
+**The owl builds the board afresh every two seconds, and only re-times it in between**
+(`@default_panes_ms`, `Whiska.Watch.retime/2`). A fresh build asks herdr for its panes,
+reads the database, matches each mouse to its pane and reads each mouse's transcript tail;
+that is the whole cost of a board tick, and none of what it feeds changes faster than
+herdr's answer. The write in between takes the last board and re-spells two things from
+the timestamps the rows were built from: the elapsed column and a "picked up … ago" age.
+Why delivery is holding is the house's own state and is always current. So the owl's
+extra cost is one render and one file write per house per second. A new question, a
+status, or a mouse's death reaches the board up to two seconds late, as it always did.
+
+**The real cost is in the session, and it doubles whatever shape is picked.** Claude Code
+re-runs the script every second, and the script runs the person's own global statusline
+first. By this ADR's own measurement that is about 68 ms of CPU per open session per
+second instead of 34. A person whose global statusline is expensive can still set a
+larger interval themselves; `whiska doctor` does not argue with one (ADR-0044).
+
+**Rejected: let the script compute the elapsed time from a timestamp on the board.** That
+would save the owl's second write, but not the session-side cost above, which is the
+larger one. It would also put a second copy of `format_uptime` in shell — the two
+spellings this ADR already refused — break the column alignment unless the column were
+padded to a fixed width, and change the committed script, so every repo would need it
+upgraded.
+
+**The ten-second staleness threshold stays.** It was sized to herdr's seven-second wait,
+which still blocks every write behind it, not to the write rate.
+
+**The ticker cycles in three seconds now, not six**, since it moves one frame per write.
+
+**Existing installs keep `refreshInterval: 2` until someone re-runs `whiska init`**,
+which rewrites Whiska's own entry, interval included, and the change to
+`.claude/settings.json` is committed like any other. `whiska doctor` reports any interval
+of a second or more as fine, so nothing prompts the re-run; at two seconds the column
+just steps by two. The script itself did not change, so its version stamp did not either.

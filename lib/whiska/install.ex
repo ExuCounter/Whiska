@@ -94,10 +94,49 @@ defmodule Whiska.Install do
 
   @shim_fail_open """
   # Fail open, loudly. A missing Whiska must never brick every tool call in a
-  # session - the same trade Whiska.Hook.PreToolUse makes on a bad payload.
+  # session - the same trade Whiska.Hook.PreToolUse makes on a bad payload, and
+  # the one it makes again when it cannot read a mouse's mode. The shim cannot
+  # read the mode either, so it cannot deny only a sniff mouse.
+  #
+  # Loud means exit 1. Claude Code files an exit-0 hook's stderr as a success
+  # and never shows it; exit 1 is shown as a hook error and still lets the call
+  # through, and a Stop hook exiting 1 ends the turn without looping. Exit 2
+  # would deny every edit, and make a Stop hook keep the turn going.
+  #
+  # Only where it costs something: a session in a worktree, where a mouse can
+  # be, in a repo Whiska is set up in on this machine - its house exists, or
+  # the binary was found. A committed hook on a machine without Whiska, or a
+  # session outside a worktree, where both hooks are no-ops, stays exit 0. The
+  # complaint goes to stderr either way, which is what the doctor's probe reads.
+  whiska_cannot_run() {
+    local project="${CLAUDE_PROJECT_DIR:-$PWD}" common
+    echo "whiska: $1" >&2
+    case "$project" in
+      */worktrees/*) ;;
+      *) exit 0 ;;
+    esac
+    if [ -z "$whiska_bin" ]; then
+      # bash 3.2's `cd ""` succeeds and stays put, so git's answer is checked
+      # for emptiness before anything changes directory to it.
+      common="$(cd "$project" 2>/dev/null && git rev-parse --git-common-dir 2>/dev/null)" ||
+        common=""
+      if [ -n "$common" ]; then
+        common="$(cd "$project" && cd "$common" 2>/dev/null && pwd)" || common=""
+      fi
+      if [ -z "$common" ] || [ ! -d "$common/whiska" ]; then
+        exit 0
+      fi
+    fi
+    if [ "${2:-}" = "stop" ]; then
+      echo "whiska: this turn's message was not delivered - run whiska doctor" >&2
+    else
+      echo "whiska: sniff mode and worktree containment are off - run whiska doctor" >&2
+    fi
+    exit 1
+  }
+
   if [ -z "$whiska_bin" ]; then
-    echo "whiska: not found - allowing the call (set WHISKA_BIN to fix)" >&2
-    exit 0
+    whiska_cannot_run "not found - allowing the call (set WHISKA_BIN to fix)" "${1:-}"
   fi
 
   """
@@ -140,9 +179,9 @@ defmodule Whiska.Install do
   fi
 
   # No runtime anywhere. Whiska may be a native binary that needs none
-  # (ADR-0033), so try it directly - and fail open if that does not work.
+  # (ADR-0033), so try it directly - and fail open, loudly, if that does not work.
   if ! "$whiska_bin" hook "$@"; then
-    echo "whiska: could not run $whiska_bin - allowing the call" >&2
+    whiska_cannot_run "could not run $whiska_bin - allowing the call" "${1:-}"
   fi
   exit 0
   """
@@ -241,11 +280,12 @@ defmodule Whiska.Install do
   # Seconds between redraws, on top of Claude Code's own event triggers, which
   # all come from the session's own conversation (ADR-0044). The board is a
   # live picture of what every mouse is doing, so it is redrawn about as often
-  # as that picture changes. Two seconds is affordable only because the script
-  # starts nothing: it prints a file the owl already wrote (ADR-0051), where
-  # the 0.8 core-seconds of escript startup that set the old interval of 15
-  # used to be.
-  @statusline_refresh_interval 2
+  # as that picture changes, and every second so a mouse's elapsed time under
+  # an hour visibly ticks; the owl writes the board every second to match.
+  # That is affordable only because the script starts nothing: it prints a
+  # file the owl already wrote (ADR-0051), where the 0.8 core-seconds of
+  # escript startup that set the old interval of 15 used to be.
+  @statusline_refresh_interval 1
 
   # Bumped whenever the script changes, so a copy an older `whiska init` wrote
   # can be told apart from this one (ADR-0059). The person's own copy is
@@ -268,8 +308,8 @@ defmodule Whiska.Install do
   # it.
   #
   # Nothing here starts Whiska. The owl writes the board to a file every
-  # couple of seconds and this prints it, which is what makes a two-second
-  # refresh affordable in every open session at once.
+  # second and this prints it, which is what makes a one-second refresh
+  # affordable in every open session at once.
   #
   # Written by `whiska init`.
 
@@ -337,7 +377,7 @@ defmodule Whiska.Install do
   #
   # `-f` rather than `-r`, like the stand-down check above: `-r` is true of a
   # FIFO, and reading one with no writer waits for ever — here on a line
-  # Claude Code redraws every two seconds.
+  # Claude Code redraws every second.
   notice=""
   if [ -n "${HERDR_PANE_ID:-}" ] && [ -f "$board.main" ]; then
     recorded=""
@@ -369,8 +409,8 @@ defmodule Whiska.Install do
   # and hiding it the moment something goes wrong is the worse failure. Past
   # a minute it stops being worth showing; herdr's tab bar says the owl is
   # down either way (ADR-0048). Ten seconds, not five: a house waiting on a
-  # slow herdr can miss a couple of its own two-second writes without the owl
-  # being down at all.
+  # slow herdr — up to seven seconds — misses every write in that time without
+  # the owl being down at all.
 
   # Only over a board the owl is currently writing: the pane beside it is the
   # owl's answer too, and a house nobody is refreshing may have recorded a new

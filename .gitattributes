@@ -1,0 +1,2 @@
+# Raw herdr captures: the carriage returns and escapes are the screen, not noise.
+test/support/screens/*.ansi -text

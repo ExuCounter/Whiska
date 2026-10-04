@@ -1172,7 +1172,7 @@ defmodule Whiska.Doctor do
         "the box's frame is on the main session's screen and the line inside it is not one " <>
           "Whiska can read — Claude Code has changed how it draws the box, and delivery is " <>
           "delivering anyway rather than guessing",
-        "herdr pane read <main pane> --source visible --format text, then fix " <>
+        "herdr pane read <main pane> --source visible --format ansi, then fix " <>
           "Whiska.Delivery.Draft against what it prints"
       )
 

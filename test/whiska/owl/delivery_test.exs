@@ -768,6 +768,20 @@ defmodule Whiska.Owl.DeliveryTest do
       in_house(house, fn -> assert Storage.question(1).status == "open" end)
     end
 
+    test "Claude Code's faint suggestion in an empty box does not hold delivery",
+         %{main: main, a: a} do
+      screen =
+        File.read!(Path.expand("../../support/screens/suggestion-in-an-empty-box.ansi", __DIR__))
+
+      stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, screen} end)
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+
+      assert_receive {:prompted, @main_pane, _}, @arrives
+    end
+
     test "the question goes on the next trigger once the box is empty again", %{
       main: main,
       a: a

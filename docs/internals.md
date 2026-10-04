@@ -386,9 +386,9 @@ No owl here: that is one machine-wide fact with one home, and repeating it in ev
 session is what moved it to the tab bar in the first place. Outside herdr there is no tab
 bar, so a bare `claude` never learns the owl is down — run `whiska doctor` for that.
 
-The board redraws every 2 seconds, which is affordable because the script starts nothing:
-each house renders its own rows into `~/.whiska/board/` every couple of seconds and the
-script prints that file (ADR-0051). A board nothing has refreshed for a few seconds is
+The board redraws every second, which is affordable because the script starts nothing:
+each house renders its own rows into `~/.whiska/board/` every second and the script prints
+that file (ADR-0051). A board nothing has refreshed for a few seconds is
 drawn dimmed under `🦉 owl down · 40s stale`, and past a minute it is not drawn at all.
 
 ## A full `whiska doctor` run

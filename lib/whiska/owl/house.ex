@@ -154,7 +154,11 @@ defmodule Whiska.Owl.House do
   @default_resubscribe_ms 5_000
   @default_round_wait_ms 8_000
   @default_retry_ms [2_000, 5_000]
-  @default_board_ms 2_000
+  # The board is written every second so its elapsed column ticks, but built
+  # afresh only every two: what herdr says moves no faster than that, and
+  # asking it, the database and every transcript is what a board tick costs.
+  @default_board_ms 1_000
+  @default_panes_ms 2_000
   # How long delivery has to be holding before the board says so (ADR-0058).
   @default_hold_notice_ms 10_000
   # How long a mouse's pane has to have been quiet before a died turn is picked
@@ -173,6 +177,7 @@ defmodule Whiska.Owl.House do
     :round_wait_ms,
     :retry_ms,
     :board_ms,
+    :panes_ms,
     :hold_notice_ms,
     :settle_ms,
     :max_gap_ms,
@@ -184,6 +189,9 @@ defmodule Whiska.Owl.House do
     seen: %{},
     last_sweep_at: nil,
     last_panes: :no_socket,
+    panes_asked_at: nil,
+    last_board: nil,
+    board_built_at: nil,
     main_pane: nil,
     round_timer: nil,
     retry_timer: nil,
@@ -202,6 +210,7 @@ defmodule Whiska.Owl.House do
   `HERDR_SOCKET_PATH`), `:backstop_ms`, `:resubscribe_ms`, `:round_wait_ms`,
   `:retry_ms` (the delays, in order, of the re-collections after an idle event
   that found nothing), `:board_ms` (how often the board is written),
+  `:panes_ms` (how often the board is built afresh rather than re-timed),
   `:hold_notice_ms` (how long a hold lasts before the board says why),
   `:settle_ms` (how long a mouse's pane must have been quiet before a died turn
   is picked up), `:max_gap_ms` (how long a gap between backstops means the owl
@@ -269,6 +278,7 @@ defmodule Whiska.Owl.House do
           round_wait_ms: Keyword.get(opts, :round_wait_ms, @default_round_wait_ms),
           retry_ms: Keyword.get(opts, :retry_ms, @default_retry_ms),
           board_ms: Keyword.get(opts, :board_ms, @default_board_ms),
+          panes_ms: Keyword.get(opts, :panes_ms, @default_panes_ms),
           hold_notice_ms: Keyword.get(opts, :hold_notice_ms, @default_hold_notice_ms),
           settle_ms: Keyword.get(opts, :settle_ms, @default_settle_ms),
           max_gap_ms: Keyword.get(opts, :max_gap_ms, backstop_ms(opts) * 3),
@@ -360,7 +370,7 @@ defmodule Whiska.Owl.House do
   end
 
   def handle_info(:board, state) do
-    state = write_board(%{state | last_panes: safe_list_panes(state)})
+    state = write_board(state)
     Process.send_after(self(), :board, state.board_ms)
     {:noreply, state}
   end
@@ -403,7 +413,7 @@ defmodule Whiska.Owl.House do
   # working row's ticker moves exactly when the board behind it was refreshed: a
   # house that has stopped writing leaves the dots where they were.
   defp write_board(state) do
-    board = Watch.from_house(panes: state.last_panes, held: held_reason(state))
+    {board, state} = board(state)
 
     # The recorded pane is read here rather than taken from `state.main_pane`,
     # which only moves when the house refreshes: a session that has just run
@@ -417,13 +427,47 @@ defmodule Whiska.Owl.House do
       )
 
     case written do
-      :ok -> %{state | board_frame: state.board_frame + 1}
+      :ok -> %{state | board_frame: state.board_frame + 1, last_board: board}
       {:error, _reason} -> state
     end
   rescue
     error ->
       warn(state, "could not draw the board (#{Exception.message(error)})")
       state
+  end
+
+  # The board is built afresh — herdr, the database, every mouse's transcript —
+  # once every `panes_ms`. A write in between moves the last one's clock and
+  # nothing else (ADR-0051, addendum of 2026-10-04): what it shows besides the
+  # elapsed column changes no faster than herdr's answer does. Why delivery is
+  # holding is the house's own state and costs nothing, so it is always current.
+  defp board(state) do
+    built_at = state.board_built_at
+
+    if state.last_board && System.monotonic_time(:millisecond) - built_at < state.panes_ms do
+      board = Watch.retime(state.last_board, DateTime.utc_now())
+      {%{board | held: held_reason(state)}, state}
+    else
+      state = refresh_board_panes(state)
+      board = Watch.from_house(panes: state.last_panes, held: held_reason(state))
+      {board, %{state | board_built_at: System.monotonic_time(:millisecond)}}
+    end
+  end
+
+  # A fresh board is drawn from herdr's last answer — this one's or the one
+  # matching panes fetched, if that was within `panes_ms`.
+  #
+  # Stamped after the answer, so a herdr that took seconds to give it is not
+  # asked again on the very next write.
+  defp refresh_board_panes(state) do
+    asked_at = state.panes_asked_at
+
+    if asked_at && System.monotonic_time(:millisecond) - asked_at < state.panes_ms do
+      state
+    else
+      panes = safe_list_panes(state)
+      %{state | last_panes: panes, panes_asked_at: System.monotonic_time(:millisecond)}
+    end
   end
 
   defp safe_list_panes(%{socket: nil}), do: :no_socket
@@ -554,7 +598,14 @@ defmodule Whiska.Owl.House do
             {pane.pane_id, mouse.mouse_id}
           end
 
-        {:ok, %{state | panes: matched, last_panes: {:ok, panes}}, mice}
+        state = %{
+          state
+          | panes: matched,
+            last_panes: {:ok, panes},
+            panes_asked_at: System.monotonic_time(:millisecond)
+        }
+
+        {:ok, state, mice}
 
       {:error, reason} ->
         # Without herdr there is no way to tell dead from alive, so nothing is
@@ -1007,10 +1058,9 @@ defmodule Whiska.Owl.House do
   defp box_is_free(state, notes) do
     case state.herdr.read_screen(state.socket, state.main_pane) do
       {:ok, screen} ->
-        case Draft.read(screen) do
-          :typing -> {:hold, :typing, state}
-          :no_box -> {:hold, :no_box, state}
-          _empty_or_unreadable -> {:go, notes, state}
+        case screen |> Draft.read() |> Draft.hold() do
+          {:hold, held} -> {:hold, held, state}
+          :go -> {:go, notes, state}
         end
 
       {:error, _reason} ->

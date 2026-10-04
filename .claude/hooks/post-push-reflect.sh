@@ -5,8 +5,8 @@
 #   - domain-modeling — did the vocabulary or a decision shift? CONTEXT.md / docs/adr/
 #
 # A hook cannot invoke a skill. It injects context asking the session to; complying is
-# the model's call. Fires at most once per pushed commit (keyed on HEAD), so repeated
-# pushes of the same commits stay quiet.
+# the model's call. Asks once per pushed commit, and not at all when a push only
+# lands merges.
 
 set -eu
 
@@ -31,13 +31,36 @@ head_sha="$(git rev-parse HEAD 2>/dev/null)" || exit 0
 
 # Confirm the push actually landed rather than trusting that the command ran: the
 # upstream ref has to point at HEAD now. A failed push leaves it behind, so we stay
-# quiet AND leave the state file alone, so the successful retry still nudges.
+# quiet AND leave the record alone, so the successful retry still nudges.
 upstream_sha="$(git rev-parse '@{u}' 2>/dev/null)" || exit 0
 [ "$upstream_sha" = "$head_sha" ] || exit 0
 
-state="$git_dir/whiska-reflect-head"
-[ -f "$state" ] && [ "$(cat "$state")" = "$head_sha" ] && exit 0
-printf '%s' "$head_sha" > "$state"
+# Each upstream keeps the last HEAD whose pushed commits were accounted for, nudged
+# or not, so a later push asks only about what is new since. Per upstream, because
+# every worktree pushes its own branch into this same git dir. Flat names, `/` as
+# `:` which no ref may hold, so `fix` and `fix/foo` never fight over a path.
+upstream_ref="$(git rev-parse --symbolic-full-name '@{u}' 2>/dev/null)" || exit 0
+state="$git_dir/whiska-reflect/$(printf '%s' "$upstream_ref" | tr '/' ':')"
+
+# Where to count from: that record when HEAD still descends from it, else where the
+# upstream sat before this push, from the remote-tracking reflog. Neither → nudge.
+base=""
+if [ -f "$state" ] && git merge-base --is-ancestor "$(cat "$state")" HEAD 2>/dev/null; then
+  base="$(cat "$state")"
+else
+  base="$(git rev-parse -q --verify "$upstream_ref@{1}" 2>/dev/null)" || base=""
+fi
+
+{ mkdir -p "$git_dir/whiska-reflect" && printf '%s' "$head_sha" > "$state"; } 2>/dev/null || true
+
+# A branch reflects before it finishes, so a push that only lands merges is work
+# already reflected on: walk first parents over what is new and stay quiet when
+# every one is a merge, since the branches' own commits sit behind second parents.
+# A squash or fast-forward leaves no merge and nudges — noisy beats silently off.
+if [ -n "$base" ]; then
+  written="$(git rev-list --first-parent --no-merges "$base..HEAD" 2>/dev/null)" || written="x"
+  [ -n "$written" ] || exit 0
+fi
 
 jq -n '{
   hookSpecificOutput: {
