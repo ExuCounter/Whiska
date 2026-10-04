@@ -135,7 +135,8 @@ Run this as **one** Bash call. A shell variable does not survive from one call t
 next, so splitting it starts every mouse with no flags at all:
 
 ```bash
-flags="$(cd "worktrees/<branch-name>" && whiska shape <build|sniff> <your --model and --effort, if any>)" || { echo "shape failed - Claude not started"; exit 1; }
+flags="$(cd "worktrees/<branch-name>" >/dev/null && whiska shape <build|sniff> <your --model and --effort, if any>)" || { echo "shape failed - Claude not started"; exit 1; }
+case "$flags" in *[!a-z0-9\ ,-]*) echo "whiska shape printed more than flags - Claude not started"; exit 1;; esac
 eval "set -- $flags"
 if [ $# -gt 0 ]; then
   herdr agent start <agent-name> --kind claude --pane <root-pane-id> --timeout 15000 -- "$@"
@@ -147,9 +148,10 @@ fi
 `whiska shape` records the shape in Whiska before Claude exists, so the mouse's very
 first tool call is already judged by its mode. It prints the flags to start Claude with
 — the model, the effort, and the file's fallback chain, which Claude Code walks itself
-when a model is overloaded or out of credit — or nothing. It only ever prints plain
-words (letters, digits, `-` and `,`), so the `eval` can do nothing but split them into
-arguments, the same in bash and zsh. On stderr it says what it recorded — keep that line,
+when a model is overloaded or not available — or nothing. It only ever prints plain
+words (letters, digits, `-` and `,`), and the `case` line refuses anything else that
+reached `$flags` — a shell hook that prints on `cd`, say — so the `eval` can do nothing
+but split them into arguments, the same in bash and zsh. On stderr it says what it recorded — keep that line,
 it goes in the report. **If it fails, the command stops before Claude starts. Report
 the error and do not start Claude by hand:** a mouse started without its shape may not
 write anything until the person runs `whiska mode` in its worktree, so it would stall at

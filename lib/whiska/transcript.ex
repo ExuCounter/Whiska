@@ -83,6 +83,10 @@ defmodule Whiska.Transcript do
   @handed_back ~r/<agent-message from="([A-Za-z0-9_-]+)">/
   @notified ~r|<task-notification>\s*<task-id>([A-Za-z0-9_-]+)</task-id>|
 
+  # What a model id is allowed to look like before `whiska mice` prints it. It
+  # also turns away `<synthetic>`, the stamp on a message no model sent.
+  @model_id ~r/\A[A-Za-z0-9._\[\]-]{1,100}\z/
+
   @doc """
   Claude Code's own folder for a working directory: every character that is not
   a letter or a digit replaced by a dash, one for one.
@@ -272,8 +276,8 @@ defmodule Whiska.Transcript do
   defp answered_by(line) do
     case JSON.decode(line) do
       {:ok, %{"type" => "assistant", "message" => %{"model" => model}} = entry}
-      when is_binary(model) and model not in ["", "<synthetic>"] ->
-        if entry["isSidechain"] == true, do: nil, else: model
+      when is_binary(model) ->
+        if entry["isSidechain"] != true and model =~ @model_id, do: model
 
       _other ->
         nil

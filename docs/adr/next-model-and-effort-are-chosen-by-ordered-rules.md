@@ -57,7 +57,9 @@ the request — a keyword match is a worse version of what the session already d
 ## Plain words, not known names
 
 Every `use`, every fallback and every flag value must be one plain word — lowercase
-letters, digits and dashes — or, in the file, null for the person's own default. Nothing
+letters, digits and dashes. In the file, the catch-all alone may be null, for the
+person's own default: a flag left off gets the catch-all's, so an earlier null could
+never reach Claude. Nothing
 checks that it is a model Claude Code has. A misspelt name passes Whiska, and what
 happens next is Claude Code's; that is the cost of not keeping the list.
 
@@ -71,11 +73,12 @@ but pass flags.
 ## Fallback is Claude Code's
 
 `model.fallback` becomes `--fallback-model`, a comma-separated list Claude Code walks
-when a model is overloaded or not available, retrying the primary at the start of each
-turn. ADR-0069 recorded that Whiska cannot walk a list on a quota error, because the
-error arrives after `herdr agent start` has already succeeded. That is still true, and
-no longer matters: Claude Code walks it inside the session. The chain skips the chosen
-model, since retrying the model that just failed is no fallback.
+"when the default model is overloaded or not available", in its own help's words,
+retrying the primary at the start of each turn. ADR-0069 recorded that Whiska cannot
+walk a list itself, because an error arrives after `herdr agent start` has already
+succeeded. That is still true; Claude Code walks this one inside the session. Whether a
+usage limit or an empty balance counts as "not available" was not checked. The chain
+skips the chosen model, since retrying the model that just failed is no fallback.
 
 ## What ran, not what was asked
 

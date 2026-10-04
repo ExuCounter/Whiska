@@ -53,8 +53,8 @@ file that the spawning session judges, with no list of model names. What changes
 - `whiska shape build|sniff [--model <name>] [--effort <level>]` records the mode, the
   model and the effort, and prints the flags to start Claude with — model, effort and
   the file's fallback chain — or nothing. A flag left out gets the last rule's value.
-- Running out of quota no longer strands a mouse: the fallback chain goes to Claude
-  Code's `--fallback-model`, which walks it inside the session.
+- A model that is overloaded or not available no longer strands a mouse: the fallback
+  chain goes to Claude Code's `--fallback-model`, which walks it inside the session.
 
 ## A spawn that forgets is stopped, and asks
 

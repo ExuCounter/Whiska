@@ -188,6 +188,16 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       end
 
       @tag shell: shell
+      test "#{shell} does not start Claude on anything but plain words", %{shell: shell} do
+        for printed <- ["/a/path/from/cd --model m1", "$(touch pwned)", "m1;reboot", "`id`"] do
+          {argv, status} = run_start_block(shell, {0, printed})
+
+          assert status != 0, printed
+          assert argv == nil, printed
+        end
+      end
+
+      @tag shell: shell
       test "#{shell} does not start Claude when whiska shape fails", %{shell: shell} do
         {argv, status} = run_start_block(shell, {1, ""})
 

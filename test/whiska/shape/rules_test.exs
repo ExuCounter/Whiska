@@ -108,6 +108,45 @@ defmodule Whiska.Shape.RulesTest do
       end
     end
 
+    test "leaves a model to the person's default anywhere but the catch-all", %{dir: dir} do
+      # A flag left off means the catch-all, so a null earlier has no way to reach Claude.
+      message =
+        refused(
+          dir,
+          update_in(@shipped, ["model", "choose"], &[%{"when" => "x", "use" => nil} | &1])
+        )
+
+      assert message =~ "model.choose, rule 1"
+      assert message =~ "only the catch-all may be null"
+    end
+
+    test "says a rule or a mode in nothing but spaces", %{dir: dir} do
+      assert refused(dir, put(@shipped, ["modes", "build"], "   ")) =~ "modes.build"
+
+      assert refused(
+               dir,
+               update_in(
+                 @shipped,
+                 ["effort", "choose"],
+                 &[%{"when" => "  ", "use" => "low"} | &1]
+               )
+             ) =~ "effort.choose, rule 1"
+    end
+
+    test "names a rule with a key too many as exactly that", %{dir: dir} do
+      message =
+        refused(
+          dir,
+          update_in(
+            @shipped,
+            ["model", "choose"],
+            &[%{"when" => "x", "use" => "m1", "may_write" => false} | &1]
+          )
+        )
+
+      assert message =~ ~s(must be exactly a "when" and a "use")
+    end
+
     test "does not end on the catch-all", %{dir: dir} do
       message =
         refused(dir, update_in(@shipped, ["effort", "choose"], &Enum.drop(&1, -1)))

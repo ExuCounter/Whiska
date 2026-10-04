@@ -444,6 +444,17 @@ defmodule Whiska.TranscriptTest do
       assert Transcript.ran_on(lines([answered("claude-a-5"), call])) == "claude-a-5"
     end
 
+    test "takes only a model id that is safe to print to a terminal" do
+      text =
+        lines([
+          answered("claude-a-5"),
+          answered("\e]0;x\a"),
+          answered(String.duplicate("a", 200))
+        ])
+
+      assert Transcript.ran_on(text) == "claude-a-5"
+    end
+
     test "is nil when no answer says, or nothing parses" do
       assert Transcript.ran_on("") == nil
       assert Transcript.ran_on("{not json\n" <> JSON.encode!(%{"type" => "user"})) == nil

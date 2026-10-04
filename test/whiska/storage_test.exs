@@ -221,6 +221,12 @@ defmodule Whiska.StorageTest do
       assert {mouse.model, mouse.ran_on} == {"m-light", "claude-m-light-5"}
     end
 
+    test "is forgotten when the mouse is shaped again, until a turn says" do
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", ran_on: "claude-a-5"})
+      {:ok, _} = Storage.shape("m1", "build", "m-heavy", nil)
+      assert Storage.mouse("m1").ran_on == nil
+    end
+
     test "follows the latest turn, and is not forgotten by a turn that did not say" do
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", ran_on: "claude-a-5"})
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", ran_on: "claude-b-5"})

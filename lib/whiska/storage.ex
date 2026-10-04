@@ -239,7 +239,13 @@ defmodule Whiska.Storage do
 
       mouse ->
         mouse
-        |> Ecto.Changeset.change(%{mode: mode, model: model, effort: effort, shaped_at: now()})
+        |> Ecto.Changeset.change(%{
+          mode: mode,
+          model: model,
+          effort: effort,
+          ran_on: nil,
+          shaped_at: now()
+        })
         |> Repo.update()
     end
   end
