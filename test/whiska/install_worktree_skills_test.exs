@@ -157,8 +157,19 @@ defmodule Whiska.InstallWorktreeSkillsTest do
         assert skill(name) == File.read!(source), name
       end
 
-      refute File.exists?(".claude/skills"),
+      assert tracked_skill_files() == [],
              "the shipped skills no longer live in this repo's own .claude/"
+    end
+
+    # What ADR-0046 forbids is a second *committed* copy, which is the one that
+    # can drift from `priv/` and the one a build would read. `whiska init` in
+    # this checkout writes an untracked `.claude/skills/` as its output — this
+    # repo runs on the block it ships — and that copy is nobody's source.
+    defp tracked_skill_files do
+      case System.cmd("git", ["ls-files", "--", ".claude/skills"], stderr_to_stdout: true) do
+        {out, 0} -> String.split(out, "\n", trim: true)
+        {_out, _code} -> []
+      end
     end
   end
 end
