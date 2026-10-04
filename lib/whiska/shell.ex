@@ -145,7 +145,13 @@ defmodule Whiska.Shell do
   # key is denied: `core.pager`, `diff.external`, `pager.<command>`,
   # `include.path` and the filter and textconv drivers all run or pull in
   # something, and they are too many to list safely the other way round.
-  @safe_git_config ~r/^((user|color|advice|i18n|column|init|status)\..+|core\.quotepath|core\.abbrev|safe\.directory|log\.[a-z]+|diff\.(renames|algorithm|noprefix|mnemonicprefix|relative|context|interhunkcontext|colormoved)|grep\.(linenumber|patterntype|extendedregexp|column|fullname))$/
+  @safe_git_config ~r/^((user|color|advice|i18n|column|init|status)\..+|core\.(quotepath|abbrev|untrackedcache|preloadindex|filemode|autocrlf|safecrlf|ignorecase|precomposeunicode)|gc\.auto|safe\.directory|log\.[a-z]+|diff\.(renames|algorithm|noprefix|mnemonicprefix|relative|context|interhunkcontext|colormoved|colormovedws|submodule|ignoresubmodules|wserrorhighlight|indentheuristic|statgraphwidth|dirstat)|grep\.(linenumber|patterntype|extendedregexp|column|fullname))$/
+
+  # Keys whose value is a program, or a boolean that turns one on. Their value is
+  # judged like a variable's: `core.pager=cat` reads, `core.pager=rm` does not.
+  # `core.fsmonitor=true` starts git's own daemon, which is denied with the rest.
+  @git_program_config ~r/^(core\.pager|pager\..+|diff\.external|core\.fsmonitor)$/
+  @git_booleans ~w(true false yes no on off 1 0)
 
   @awk_commands ~w(awk gawk mawk)
 
@@ -262,7 +268,7 @@ defmodule Whiska.Shell do
         false
 
       name in @command_variables ->
-        value_runs?(value)
+        value_runs?(value <> " arg")
 
       String.ends_with?(name, "PAGER") ->
         value_runs?(value)
@@ -276,16 +282,17 @@ defmodule Whiska.Shell do
       name in @code_variables ->
         true
 
-      # An absolute path makes git append its trace to that file.
+      # An absolute path makes git append its trace to that file, and the shell
+      # turns `~/…` and `$HOME/…` into one before git sees it.
       String.starts_with?(name, "GIT_TRACE") ->
-        String.starts_with?(value, "/")
+        String.starts_with?(value, ["/", "~", "$"])
 
       # git's own transport for `-c`, which nobody sets by hand.
       name == "GIT_CONFIG_PARAMETERS" ->
         true
 
       Regex.match?(~r/^GIT_CONFIG_KEY_\d+$/, name) ->
-        not safe_git_config?(value)
+        git_config_runs?(value, false)
 
       # A lesskey `#env` section can set `LESSOPEN`.
       name == "LESSKEY_CONTENT" ->
@@ -296,12 +303,31 @@ defmodule Whiska.Shell do
     end
   end
 
-  defp value_runs?(command), do: command |> judged_words() |> tokens_mutate?()
+  # The value is a shell line that git or `less` hands to `sh -c`, so it is
+  # judged whole, operators and substitutions included.
+  defp value_runs?(command), do: mutating?(command)
 
-  defp safe_git_config?(config) do
-    [key | _value] = String.split(config, "=", parts: 2)
-    Regex.match?(@safe_git_config, String.downcase(key))
+  # A `-c` setting runs something when its key names a program and its value is
+  # one that writes. `--config-env` gives the value as a variable name, which
+  # cannot be judged, so a program key there always counts.
+  defp git_config_runs?(config, value_given?) do
+    {key, value} =
+      case String.split(config, "=", parts: 2) do
+        [key, value] -> {String.downcase(key), value}
+        [key] -> {String.downcase(key), "true"}
+      end
+
+    cond do
+      Regex.match?(@safe_git_config, key) -> false
+      not Regex.match?(@git_program_config, key) -> true
+      not value_given? -> true
+      String.downcase(value) in @git_booleans -> key == "core.fsmonitor" and truthy?(value)
+      key == "diff.external" -> value_runs?(value <> " arg")
+      true -> value_runs?(value)
+    end
   end
+
+  defp truthy?(value), do: String.downcase(value) in ~w(true yes on 1)
 
   defp command_tokens_mutate?([]), do: false
 
@@ -448,9 +474,13 @@ defmodule Whiska.Shell do
   defp git_mutates?([flag, _value | rest]) when flag in @git_valued_flags,
     do: git_mutates?(rest)
 
-  defp git_mutates?(["-c", config | rest]), do: git_config_mutates?(config, rest)
-  defp git_mutates?(["--config-env", config | rest]), do: git_config_mutates?(config, rest)
-  defp git_mutates?(["--config-env=" <> config | rest]), do: git_config_mutates?(config, rest)
+  defp git_mutates?(["-c", config | rest]), do: git_config_mutates?(config, true, rest)
+
+  defp git_mutates?(["--config-env", config | rest]),
+    do: git_config_mutates?(config, false, rest)
+
+  defp git_mutates?(["--config-env=" <> config | rest]),
+    do: git_config_mutates?(config, false, rest)
 
   defp git_mutates?([flag | rest]) when is_binary(flag) do
     if String.starts_with?(flag, "-") do
@@ -462,8 +492,8 @@ defmodule Whiska.Shell do
 
   defp git_mutates?([]), do: true
 
-  defp git_config_mutates?(config, rest),
-    do: not safe_git_config?(config) or git_mutates?(rest)
+  defp git_config_mutates?(config, value_given?, rest),
+    do: git_config_runs?(config, value_given?) or git_mutates?(rest)
 
   defp git_subcommand_mutates?(subcommand, args) do
     subcommand not in @read_only_git or

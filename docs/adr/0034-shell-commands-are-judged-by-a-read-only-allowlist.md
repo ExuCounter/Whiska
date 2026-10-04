@@ -79,14 +79,16 @@ program (`rg --pre`, `ag --pager`, `man -P`, `fd -x`, `git grep -O`, `git ls-rem
 --upload-pack`), and `git -c` or `--config-env` with any key outside a short list of
 safe ones (`user.*`, `color.*`, `core.quotepath`, …) each make the command mutating.
 A `-c` value cannot be judged by itself — `x` is a name for `user.name` and a program
-for `core.pager` — so the key decides, and an unknown key stays denied. Flags are read
+for `core.pager` — so the key decides, and an unknown key stays denied. The few keys
+whose value is a program (`core.pager`, `pager.*`, `diff.external`, `core.fsmonitor`)
+have that value judged as a command, so `-c core.pager=cat` reads. Flags are read
 from the words the command actually receives, with quotes and backslashes taken out, so
 `"-"o` is `-o`.
 
 **A variable in front of a command leans the other way: allowed unless its value
 plainly runs something.** A value that is a command (`PAGER`, `GIT_EXTERNAL_DIFF`,
-`LESSOPEN`, …) is judged as that command, so `PAGER=cat` is allowed and `PAGER=rm` is
-not. A value that is a command's own flags (`LESS`, `MANOPT`) is judged as those flags.
+`LESSOPEN`, …) is judged as the shell line it is, operators and substitutions
+included, so `PAGER=cat` is allowed and `PAGER=rm` or `PAGER='cat > x'` is not. A value that is a command's own flags (`LESS`, `MANOPT`) is judged as those flags.
 Code loaded into the process (`DYLD_INSERT_LIBRARIES`, `LD_PRELOAD`), a trace file
 (`GIT_TRACE=/path`) and config handed in inline (`GIT_CONFIG_PARAMETERS`, an unsafe
 `GIT_CONFIG_KEY_n`) are denied. A path — `HOME`, `XDG_CONFIG_HOME`,
