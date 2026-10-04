@@ -94,10 +94,44 @@ defmodule Whiska.Install do
 
   @shim_fail_open """
   # Fail open, loudly. A missing Whiska must never brick every tool call in a
-  # session - the same trade Whiska.Hook.PreToolUse makes on a bad payload.
+  # session - the same trade Whiska.Hook.PreToolUse makes on a bad payload, and
+  # the one it makes again when it cannot read a mouse's mode. The shim cannot
+  # read the mode either, so it cannot deny only a sniff mouse.
+  #
+  # Loud means exit 1. Claude Code files an exit-0 hook's stderr as a success
+  # and never shows it; exit 1 is shown as a hook error and still lets the call
+  # through, and a Stop hook exiting 1 ends the turn without looping. Exit 2
+  # would deny every edit, and make a Stop hook keep the turn going.
+  #
+  # Only where it costs something: a session in a worktree, where a mouse can
+  # be, in a repo Whiska is set up in on this machine - its house exists, or
+  # the binary was found. A committed hook on a machine without Whiska, or a
+  # session outside a worktree, where both hooks are no-ops, stays exit 0. The
+  # complaint goes to stderr either way, which is what the doctor's probe reads.
+  whiska_cannot_run() {
+    local project="${CLAUDE_PROJECT_DIR:-$PWD}" common
+    echo "whiska: $1" >&2
+    case "$project" in
+      */worktrees/*) ;;
+      *) exit 0 ;;
+    esac
+    if [ -z "$whiska_bin" ]; then
+      common="$(cd "$project" 2>/dev/null &&
+        cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd)" || common=""
+      if [ -z "$common" ] || [ ! -d "$common/whiska" ]; then
+        exit 0
+      fi
+    fi
+    if [ "${2:-}" = "stop" ]; then
+      echo "whiska: this turn's message was not delivered - run whiska doctor" >&2
+    else
+      echo "whiska: sniff mode and worktree containment are off - run whiska doctor" >&2
+    fi
+    exit 1
+  }
+
   if [ -z "$whiska_bin" ]; then
-    echo "whiska: not found - allowing the call (set WHISKA_BIN to fix)" >&2
-    exit 0
+    whiska_cannot_run "not found - allowing the call (set WHISKA_BIN to fix)" "${1:-}"
   fi
 
   """
@@ -140,9 +174,9 @@ defmodule Whiska.Install do
   fi
 
   # No runtime anywhere. Whiska may be a native binary that needs none
-  # (ADR-0033), so try it directly - and fail open if that does not work.
+  # (ADR-0033), so try it directly - and fail open, loudly, if that does not work.
   if ! "$whiska_bin" hook "$@"; then
-    echo "whiska: could not run $whiska_bin - allowing the call" >&2
+    whiska_cannot_run "could not run $whiska_bin - allowing the call" "${1:-}"
   fi
   exit 0
   """
