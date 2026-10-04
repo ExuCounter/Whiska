@@ -497,8 +497,10 @@ thing, and it runs after a push rather than at the end of a turn), CI, ralph loo
 
 **Reviewer**:
 One subagent sent over the change in finishing's third step, on one **axis** — correctness,
-security, performance, and frontend when a person can see the change — plus any the repo
-names on its `reviewers:` line. A reviewer **reports and never edits**, which is what
+security, performance, frontend when a person can see the change, and tests when the change
+touches a test file — plus any the repo names on its `reviewers:` line. The tests axis is
+wio's `wio-test-reviewer` or nothing: where wio is not installed the message says so in one
+line (ADR-0075). A reviewer **reports and never edits**, which is what
 separates it from an agent that merely reads code well: one that changes code, or whose own
 description says not to dispatch it directly, is not a reviewer however good it is.
 Whiska writes none of them. Wherever the session already lists an agent built for an axis

@@ -41,6 +41,9 @@ turn ending on a decision for the person, and never in the main session.
 5. **Then the marker**, and a message saying what each step found. The `report` part
    already teaches the shape of that message and this part does not repeat it.
 
+**Step 3 gained a fifth axis on 2026-10-04 by ADR-0075**:
+tests, when the change touches a test file.
+
 **Steps 1 and 3 were extended on 2026-10-01 by ADR-0054**, which does not move the four
 axes: a reviewer is taken from the agent types the session already lists wherever one
 fits an axis (and is read before it is dispatched, since a worktree's agents arrive with

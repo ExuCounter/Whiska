@@ -52,8 +52,9 @@ defmodule Whiska.ClaudeMdTest do
       lines = rendered |> String.split("\n") |> length()
       words = rendered |> String.split() |> length()
 
-      assert lines <= 140, "the block grew back to #{lines} lines; every rule has a terse form"
-      assert words <= 1370, "the block grew back to #{words} words; every rule has a terse form"
+      # Raised for the test scout, deliberately (ADR-0075).
+      assert lines <= 145, "the block grew back to #{lines} lines; every rule has a terse form"
+      assert words <= 1433, "the block grew back to #{words} words; every rule has a terse form"
     end
 
     test "no rule is buried deeper than one level of bullet" do
@@ -128,6 +129,30 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/what .done. looks like and name the failing test that proves it/i
       assert body =~ ~r/with no guess → build/i
       assert body =~ ~r/never grill what is already spelled out/i
+    end
+
+    # ADR-0075: the failing test is chosen from
+    # risk, before any code, while the work is still cheap to change.
+    test "the failing test is picked from what the test scout ranks riskiest" do
+      body = prose_of("worktrees")
+
+      assert body =~
+               ~r/while none is named, pick it from what `wio-candidate-scout` ranks riskiest in the files the change will touch/i
+    end
+
+    test "a tweak, docs, or a change no test reaches skips the scout, not the failing test" do
+      assert prose_of("worktrees") =~
+               ~r/skip the scout for a tweak, docs, or no test can reach it/i
+    end
+
+    test "a missing scout is one line, and the test is still named" do
+      assert prose_of("worktrees") =~
+               ~r/scout not listed → say so in one line and name the test yourself/i
+    end
+
+    test "a scout this repo ships is the copy that runs, and is read first" do
+      assert prose_of("worktrees") =~
+               ~r/`\.claude\/agents\/wio-candidate-scout\.md` in this repo is the copy that runs: read it first/i
     end
 
     test "a brief that needs a guess is grilled before any code" do

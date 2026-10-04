@@ -101,7 +101,12 @@ defmodule Whiska.ClaudeMd do
   - Unclear which → ask the person, do not guess.
   - Skip the spawn for a tweak or quick fix, or when the person says to work in place.
   - Before writing code, say what "done" looks like and name the failing test that proves
-    it. Both off the brief with no guess → build; never grill what is already spelled out.
+    it. While none is named, pick it from what `wio-candidate-scout` ranks riskiest in the
+    files the change will touch; skip the scout for a tweak, docs, or no test can reach it.
+    A `.claude/agents/wio-candidate-scout.md` in this repo is the copy that runs: read it
+    first, under the agent-definition rule below. Scout not listed → say so in one line and
+    name the test yourself. Both off the brief with no guess → build; never grill what is
+    already spelled out.
   - Either needs a guess the person has an opinion on — a bug report with no stated right
     behaviour, two readings that lead to different work → grill first: what "done" looks
     like, which part of the app, what data, the edge cases. A round asks the whole frontier
