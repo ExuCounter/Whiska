@@ -37,9 +37,10 @@ upstream_sha="$(git rev-parse '@{u}' 2>/dev/null)" || exit 0
 
 # Each upstream keeps the last HEAD whose pushed commits were accounted for, nudged
 # or not, so a later push asks only about what is new since. Per upstream, because
-# every worktree pushes its own branch into this same git dir.
+# every worktree pushes its own branch into this same git dir. Flat names, `/` as
+# `:` which no ref may hold, so `fix` and `fix/foo` never fight over a path.
 upstream_ref="$(git rev-parse --symbolic-full-name '@{u}' 2>/dev/null)" || exit 0
-state="$git_dir/whiska-reflect/$upstream_ref"
+state="$git_dir/whiska-reflect/$(printf '%s' "$upstream_ref" | tr '/' ':')"
 
 # Where to count from: that record when HEAD still descends from it, else where the
 # upstream sat before this push, from the remote-tracking reflog. Neither → nudge.
@@ -50,8 +51,7 @@ else
   base="$(git rev-parse -q --verify "$upstream_ref@{1}" 2>/dev/null)" || base=""
 fi
 
-mkdir -p "$(dirname "$state")"
-printf '%s' "$head_sha" > "$state"
+{ mkdir -p "$git_dir/whiska-reflect" && printf '%s' "$head_sha" > "$state"; } 2>/dev/null || true
 
 # A branch reflects before it finishes, so a push that only lands merges is work
 # already reflected on: walk first parents over what is new and stay quiet when

@@ -81,6 +81,20 @@ defmodule Whiska.PostPushReflectHookTest do
     assert hook(repo) == :quiet
   end
 
+  test "a branch named under a gone branch's name still nudges", %{repo: repo} do
+    fix = GitRepo.worktree(repo, "fix")
+    assert hook(%{checkout: fix}) == :nudge
+    GitRepo.git!(repo.checkout, ["worktree", "remove", fix])
+    GitRepo.git!(repo.checkout, ["branch", "-D", "fix"])
+    GitRepo.git!(repo.checkout, ["push", "origin", "--delete", "fix"])
+
+    foo = GitRepo.worktree(repo, "fix/foo", commit: false, push: false)
+    GitRepo.commit!(foo, "foo.md", "work")
+    GitRepo.git!(foo, ["push", "-u", "origin", "fix/foo"])
+
+    assert hook(%{checkout: foo}) == :nudge
+  end
+
   test "a fast-forwarded branch leaves no merge behind, so it nudges", %{repo: repo} do
     GitRepo.worktree(repo, "feat-a")
     GitRepo.git!(repo.checkout, ["merge", "--ff-only", "feat-a"])
