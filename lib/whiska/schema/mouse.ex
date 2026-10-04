@@ -11,7 +11,7 @@ defmodule Whiska.Schema.Mouse do
   use Ecto.Schema
 
   @primary_key {:mouse_id, :string, autogenerate: false}
-  @derive {Inspect, only: [:mouse_id, :branch, :mode, :model]}
+  @derive {Inspect, only: [:mouse_id, :branch, :mode, :model, :effort, :ran_on]}
 
   schema "mice" do
     # The herdr pane hosting this mouse, found by matching the pane's cwd to
@@ -21,9 +21,13 @@ defmodule Whiska.Schema.Mouse do
     field(:branch, :string)
     # Read by the sniff rule on every tool call (ADR-0018).
     field(:mode, :string, default: "build")
-    # The Claude model alias the spawn started this mouse on; nil is the
-    # person's own default (ADR-0069).
+    # The model and effort the spawn asked for; nil is the person's own
+    # default (ADR-0069).
     field(:model, :string)
+    field(:effort, :string)
+    # The model id its latest turn actually ran on, read from its transcript:
+    # what the alias resolved to, or what Claude Code fell back to.
+    field(:ran_on, :string)
     # When somebody chose this mouse's mode — `whiska shape`, or `whiska mode`.
     # Nil means nobody did, and the mouse may read but not write (ADR-0069).
     field(:shaped_at, :utc_datetime)

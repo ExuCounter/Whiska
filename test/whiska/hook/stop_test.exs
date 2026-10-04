@@ -179,6 +179,30 @@ defmodule Whiska.Hook.StopTest do
       assert [{_, %Entry{text: "All three are back."}}] = Doorstep.waiting(main)
     end
 
+    test "the entry carries the model the turn actually ran on", %{
+      main: main,
+      worktree: worktree
+    } do
+      answered =
+        JSON.encode!(%{
+          "type" => "assistant",
+          "message" => %{"model" => "claude-a-5", "content" => [%{"type" => "text"}]}
+        })
+
+      path = transcript(worktree, [answered])
+
+      :ok =
+        Stop.run(
+          payload(%{
+            "cwd" => worktree,
+            "transcript_path" => path,
+            "last_assistant_message" => "Done."
+          })
+        )
+
+      assert [{_, %Entry{ran_on: "claude-a-5"}}] = Doorstep.waiting(main)
+    end
+
     test "a transcript that is missing or unreadable still leaves the entry", %{
       main: main,
       worktree: worktree

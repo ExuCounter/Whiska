@@ -70,17 +70,30 @@ defmodule Whiska.CLIMiceTest do
       assert out =~ ~r/feat-a\s+sniff\s+idle\s+\d+s/
     end
 
-    test "names the model, and says when a mouse was never shaped", %{main: main} do
+    test "names the model and effort, and says when a mouse was never shaped", %{main: main} do
       seed(main, [{"ma", "feat-a", false}, {"mb", "feat-b", false}])
       {:ok, handle} = Storage.open(main, name: :seed)
-      {:ok, _} = Storage.shape("ma", "sniff", "sonnet")
+      {:ok, _} = Storage.shape("ma", "sniff", "m-light", "xhigh")
       Storage.close(handle)
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
 
       out = capture_io(fn -> assert CLI.run(["mice"], main) == 0 end)
 
-      assert out =~ ~r/feat-a\s+sniff on sonnet\s/
+      assert out =~ ~r/feat-a\s+sniff on m-light, xhigh effort\s/
       assert out =~ ~r/feat-b\s+never shaped, reads only\s/
+    end
+
+    test "names the model that actually ran, once a turn has said", %{main: main} do
+      seed(main, [{"ma", "feat-a", false}])
+      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, _} = Storage.shape("ma", "build", "m-light", nil)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "ma", ran_on: "claude-m-light-5"})
+      Storage.close(handle)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      out = capture_io(fn -> assert CLI.run(["mice"], main) == 0 end)
+
+      assert out =~ ~r/feat-a\s+build on claude-m-light-5\s/
     end
 
     test "works from inside a worktree, listing the whole house", %{

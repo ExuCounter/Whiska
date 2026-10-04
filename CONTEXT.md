@@ -274,12 +274,14 @@ _Avoid_: goto, focus (herdr's word for the mechanism, not for what this is), swi
 attach, take over
 
 **Shape**:
-What a mouse is spawned as: its mode and the model it runs on. Given by the spawn,
-with `whiska shape`, before Claude starts, so the mouse's first tool call is already
-judged by its mode. Each mode carries a default model — sniff starts on `sonnet`, build
-keeps the person's own default — and a spawn may name another. There is no default mode:
-a mouse **never shaped** may read but not write until the person runs `whiska mode`
-in its worktree.
+What a mouse is spawned as: its mode, the model it runs on and the effort it runs at,
+each chosen on its own — a hard investigation is sniff on the heaviest model at the
+highest effort. Given by the spawn, with `whiska shape`, before Claude starts, so the
+mouse's first tool call is already judged by its mode. The spawning session picks the
+model and the effort by the ordered rules in `priv/models.json`; one it leaves unnamed
+is the last rule's. The record also keeps the model the mouse actually ran on, read from
+its transcript. There is no default mode: a mouse **never shaped** may read but not
+write until the person runs `whiska mode` in its worktree.
 _Avoid_: profile, preset, role
 
 **Build mode**:
@@ -288,7 +290,7 @@ push needs approval.
 
 **Sniff mode**:
 A mouse mode for investigation only. Never writes code, never pushes — produces a
-report instead. Starts on a cheaper model than build unless the spawn names one.
+report instead. Says nothing about the model or the effort: those are chosen apart.
 
 **Owl**:
 The one always-awake presence per machine, supervised by `launchd`, that keeps every

@@ -1,4 +1,21 @@
 {
-  "models": ["fable", "opus", "sonnet"],
-  "defaults": {"build": null, "sniff": "sonnet"}
+  "modes": {
+    "sniff": "the outcome is an answer, not a change — find out why, look into, how does, is it safe to",
+    "build": "the outcome is a change — a feature, a fix, a refactor, docs"
+  },
+  "model": {
+    "choose": [
+      { "when": "a long, open-ended run — weighing a design across the whole system, or tracing one symptom through several parts at once", "use": "fable" },
+      { "when": "the task is clear and its shape is already known — a described change, a test to add, a document to write", "use": "sonnet" },
+      { "when": "anything else", "use": "opus" }
+    ],
+    "fallback": ["opus", "sonnet"]
+  },
+  "effort": {
+    "choose": [
+      { "when": "the path is bounded and understood — the change is described and only has to be made", "use": "low" },
+      { "when": "no stated right answer, or two readings that lead to different work, or a change that reaches far", "use": "xhigh" },
+      { "when": "anything else", "use": "medium" }
+    ]
+  }
 }

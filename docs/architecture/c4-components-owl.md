@@ -24,7 +24,7 @@ C4Component
     Component(pickup, "Whiska.Pickup", "sweep", "One pass per backstop: whose turn ended without reaching the doorstep, and one line into that pane")
     Component(gitq, "Whiska.Git", "git", "Merged, reached by a merge, clean, unpushed - and the removals, never forced")
     Component(doorstep, "Whiska.Doorstep", "file store", "Reads entries, marks them collected by rename")
-    Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text")
+    Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text, and ran_on: the model the turn ran on")
     Component(markerq, "Whiska.Question.Marker", "classifier", "done / needs-decision / unmarked, by marker alone")
     Component(draft, "Whiska.Delivery.Draft", "classifier", "Where would the line land? empty / typing / no box / unknown")
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead and removed mice")

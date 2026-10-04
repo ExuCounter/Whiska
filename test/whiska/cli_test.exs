@@ -115,43 +115,78 @@ defmodule Whiska.CLITest do
     end
   end
 
+  defp shape_stdout(args, cwd) do
+    {out, _recorded} =
+      with_io(:stderr, fn ->
+        capture_io(fn -> assert CLI.run(["shape" | args], cwd) == 0 end)
+      end)
+
+    out
+  end
+
   describe "whiska shape" do
-    test "a sniff mouse is recorded as sniff and starts on sonnet", %{worktree: worktree} do
-      out = capture_io(fn -> assert CLI.run(["shape", "sniff"], worktree) == 0 end)
-      assert String.trim(out) == "sonnet"
+    @rules "priv/models.json" |> File.read!() |> JSON.decode!()
+    @catch_all_args Whiska.Shape.claude_args(%{
+                      mode: "sniff",
+                      model: @rules["model"]["choose"] |> List.last() |> Map.fetch!("use"),
+                      effort: @rules["effort"]["choose"] |> List.last() |> Map.fetch!("use")
+                    })
+
+    test "records the mode and prints the catch-all's flags to start Claude with", %{
+      worktree: worktree
+    } do
+      out = shape_stdout(["sniff"], worktree)
+      assert String.trim(out) == Enum.join(@catch_all_args, " ")
 
       out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
       assert out =~ "sniff"
     end
 
-    test "a build mouse keeps the person's own default model", %{worktree: worktree} do
-      out = capture_io(fn -> assert CLI.run(["shape", "build"], worktree) == 0 end)
-      assert String.trim(out) == ""
+    test "prints the model, the effort and the fallback chain a spawn named", %{
+      worktree: worktree
+    } do
+      out = shape_stdout(["sniff", "--model", "m1", "--effort", "xhigh"], worktree)
+      fallback = Enum.join(@rules["model"]["fallback"], ",")
+      assert String.trim(out) == "--model m1 --effort xhigh --fallback-model #{fallback}"
     end
 
-    test "a spawn can name the model itself", %{worktree: worktree} do
-      out =
-        capture_io(fn -> assert CLI.run(["shape", "sniff", "--model", "opus"], worktree) == 0 end)
+    test "records the model and effort it was asked for", %{main: main, worktree: worktree} do
+      shape_stdout(["build", "--model", "m1", "--effort", "low"], worktree)
 
-      assert String.trim(out) == "opus"
+      {:ok, mouse_id} = Whiska.Marker.read_or_mint(worktree)
+      {:ok, handle} = Whiska.Storage.open(main, name: nil)
+      mouse = Whiska.Storage.mouse(mouse_id)
+      Whiska.Storage.close(handle)
+
+      assert {mouse.mode, mouse.model, mouse.effort} == {"build", "m1", "low"}
     end
 
-    test "says what it recorded, on stderr, so stdout stays the model", %{worktree: worktree} do
+    test "says what it recorded, on stderr, so stdout stays the flags", %{worktree: worktree} do
       stderr =
         capture_io(:stderr, fn ->
-          capture_io(fn -> assert CLI.run(["shape", "sniff"], worktree) == 0 end)
+          capture_io(fn ->
+            assert CLI.run(["shape", "sniff", "--model", "m1", "--effort", "max"], worktree) ==
+                     0
+          end)
         end)
 
-      assert stderr =~ "feat-thing is a sniff mouse on sonnet"
+      assert stderr =~ "feat-thing is a sniff mouse on m1, max effort."
     end
 
-    test "refuses a model it does not know", %{worktree: worktree} do
+    test "prints the rules a spawn chooses by, from anywhere", %{main: main} do
+      out = capture_io(fn -> assert CLI.run(["shape", "--rules"], main) == 0 end)
+      assert JSON.decode!(out) == @rules
+    end
+
+    test "refuses a model that is not one plain word, before minting anything", %{
+      worktree: worktree
+    } do
       stderr =
         capture_io(:stderr, fn ->
-          assert CLI.run(["shape", "sniff", "--model", "gpt"], worktree) == 1
+          assert CLI.run(["shape", "sniff", "--model", "m1;reboot"], worktree) == 1
         end)
 
-      assert stderr =~ "fable"
+      assert stderr =~ "one plain word"
       refute File.exists?(Whiska.Marker.path(worktree))
     end
 

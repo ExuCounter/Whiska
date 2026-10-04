@@ -172,7 +172,7 @@ defmodule Whiska.StorageTest do
     end
   end
 
-  describe "shape/3 (ADR-0069)" do
+  describe "shape/4 (ADR-0069)" do
     setup %{main: main} do
       {:ok, handle} = Storage.open(main)
       on_exit(fn -> Storage.close(handle) end)
@@ -184,24 +184,50 @@ defmodule Whiska.StorageTest do
       mouse = Storage.mouse("m1")
       assert mouse.mode == "build"
       assert mouse.shaped_at == nil
-      assert mouse.model == nil
+      assert {mouse.model, mouse.effort, mouse.ran_on} == {nil, nil, nil}
     end
 
-    test "records the mode, the model and when" do
-      assert {:ok, _} = Storage.shape("m1", "sniff", "sonnet")
+    test "records the mode, the model, the effort and when" do
+      assert {:ok, _} = Storage.shape("m1", "sniff", "m-light", "xhigh")
       mouse = Storage.mouse("m1")
-      assert {mouse.mode, mouse.model} == {"sniff", "sonnet"}
+      assert {mouse.mode, mouse.model, mouse.effort} == {"sniff", "m-light", "xhigh"}
       assert %DateTime{} = mouse.shaped_at
     end
 
-    test "a build mouse on the person's own default has no model" do
-      assert {:ok, _} = Storage.shape("m1", "build", nil)
-      assert Storage.mouse("m1").model == nil
+    test "a mouse on the person's own defaults has no model and no effort" do
+      assert {:ok, _} = Storage.shape("m1", "build", nil, nil)
+      assert {Storage.mouse("m1").model, Storage.mouse("m1").effort} == {nil, nil}
       assert Storage.mouse("m1").shaped_at
     end
 
     test "refuses a mode that is not build or sniff" do
-      assert {:error, :invalid_mode} = Storage.shape("m1", "lurk", nil)
+      assert {:error, :invalid_mode} = Storage.shape("m1", "lurk", nil, nil)
+    end
+  end
+
+  describe "the model a mouse actually ran on" do
+    setup %{main: main} do
+      {:ok, handle} = Storage.open(main)
+      on_exit(fn -> Storage.close(handle) end)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
+      :ok
+    end
+
+    test "is recorded beside the alias it was asked for" do
+      {:ok, _} = Storage.shape("m1", "sniff", "m-light", nil)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", ran_on: "claude-m-light-5"})
+
+      mouse = Storage.mouse("m1")
+      assert {mouse.model, mouse.ran_on} == {"m-light", "claude-m-light-5"}
+    end
+
+    test "follows the latest turn, and is not forgotten by a turn that did not say" do
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", ran_on: "claude-a-5"})
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", ran_on: "claude-b-5"})
+      assert Storage.mouse("m1").ran_on == "claude-b-5"
+
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", branch: "a", ran_on: nil})
+      assert Storage.mouse("m1").ran_on == "claude-b-5"
     end
   end
 
@@ -214,10 +240,10 @@ defmodule Whiska.StorageTest do
     end
 
     test "set_mode stamps shaped_at and leaves the model alone" do
-      {:ok, _} = Storage.shape("m1", "sniff", "sonnet")
+      {:ok, _} = Storage.shape("m1", "sniff", "m-light", "low")
       {:ok, _} = Storage.set_mode("m1", "build")
       mouse = Storage.mouse("m1")
-      assert {mouse.mode, mouse.model} == {"build", "sonnet"}
+      assert {mouse.mode, mouse.model, mouse.effort} == {"build", "m-light", "low"}
       assert mouse.shaped_at
 
       {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "b"})

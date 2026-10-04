@@ -102,18 +102,29 @@ Whiska. The copy is untracked in the worktree and disappears with it.
 
 ## Give the mouse its shape — before Claude starts
 
-A mouse is spawned as one of two shapes (Whiska ADR-0069). **sniff** investigates and
-reports: it may not write anything, and it starts on a cheaper model. **build** makes a
-real change and keeps the person's own default model. Pick from the request:
+A mouse is spawned with a shape (Whiska ADR-0069): a mode, a model and an effort, each
+chosen on its own (Whiska ADR-next-model-and-effort-are-chosen-by-ordered-rules). The
+rules for all three ship inside Whiska. Read them first; this runs from anywhere:
 
-- Sniff when the outcome is an answer, not a change: "find out why", "look into",
-  "investigate", "how does", "is it safe to", a report or a recommendation.
-- Build when the outcome is a change: a feature, a fix, a refactor, docs.
-- Unclear → ask the person which. Never default a request that reads as investigation
-  to build.
+```bash
+whiska shape --rules
+```
 
-Name a model only if the person named one — `--model <alias>`. `whiska --help` lists
-the aliases, and `whiska shape` refuses one it does not know.
+It prints a JSON file. Choose from it, against the request:
+
+- **Mode** — `modes` says, for build and for sniff, what the request has to be. A sniff
+  mouse may not write anything; Whiska enforces that, not this choice. Unclear → ask the
+  person which. Never default a request that reads as investigation to build.
+- **Model** and **effort** — `model.choose` and `effort.choose` are ordered lists. Walk
+  each from the top and take the first rule whose `when` fits the request; the last rule
+  is the catch-all. Choose each apart from the mode and from the other: a hard
+  investigation can be sniff on the heaviest model at the highest effort.
+- The person named a model or an effort → use theirs, no rules.
+
+Pass what you chose as `--model <use>` and `--effort <use>`. Leave a flag off when the
+rule that matched is the catch-all — `whiska shape` applies that one itself, a null one
+included, which means the person's own default. `whiska shape` checks only that each is
+one plain word: Claude Code decides which models exist.
 
 ## Shape and start the mouse — in one command
 
@@ -121,24 +132,28 @@ Starting Claude is the default. Only skip it if the person said "don't start Cla
 equivalent; then run the `whiska shape` line alone.
 
 Run this as **one** Bash call. A shell variable does not survive from one call to the
-next, so splitting it starts every mouse on the default model:
+next, so splitting it starts every mouse with no flags at all:
 
 ```bash
-model="$(cd "worktrees/<branch-name>" && whiska shape <build|sniff>)" || { echo "shape failed - Claude not started"; exit 1; }
-if [ -n "$model" ]; then
-  herdr agent start <agent-name> --kind claude --pane <root-pane-id> --timeout 15000 -- --model "$model"
+flags="$(cd "worktrees/<branch-name>" && whiska shape <build|sniff> <your --model and --effort, if any>)" || { echo "shape failed - Claude not started"; exit 1; }
+eval "set -- $flags"
+if [ $# -gt 0 ]; then
+  herdr agent start <agent-name> --kind claude --pane <root-pane-id> --timeout 15000 -- "$@"
 else
   herdr agent start <agent-name> --kind claude --pane <root-pane-id> --timeout 15000
 fi
 ```
 
-`whiska shape` records the mode in Whiska before Claude exists, so the mouse's very
-first tool call is already judged by it. It prints the model to start on, or nothing for
-the person's own default, and says on stderr what it recorded — keep that line, it goes
-in the report. **If it fails, the command stops before Claude starts. Report the error
-and do not start Claude by hand:** a mouse started without its shape may not write
-anything until the person runs `whiska mode` in its worktree, so it would stall at its
-first edit.
+`whiska shape` records the shape in Whiska before Claude exists, so the mouse's very
+first tool call is already judged by its mode. It prints the flags to start Claude with
+— the model, the effort, and the file's fallback chain, which Claude Code walks itself
+when a model is overloaded or out of credit — or nothing. It only ever prints plain
+words (letters, digits, `-` and `,`), so the `eval` can do nothing but split them into
+arguments, the same in bash and zsh. On stderr it says what it recorded — keep that line,
+it goes in the report. **If it fails, the command stops before Claude starts. Report
+the error and do not start Claude by hand:** a mouse started without its shape may not
+write anything until the person runs `whiska mode` in its worktree, so it would stall at
+its first edit.
 
 `<agent-name>` is the branch name in herdr's terms: lowercase letters, digits, `-` and
 `_`, starting with a letter, at most 32 characters — `feat/csv-data-page` becomes
@@ -148,8 +163,8 @@ slashed branch.
 `agent start` polls for shell readiness itself — do not sleep first. Everything after
 `--` is passed to `claude` as it is.
 
-The JSON response carries `.result.argv`; for a sniff mouse it must end in `--model`
-and the model. If it does not, say so in the report.
+The JSON response carries `.result.argv`; it must end in exactly the words `whiska
+shape` printed. If it does not, say so in the report.
 
 ## Hand off the task
 
@@ -178,7 +193,7 @@ truncated tail.
 One line: "Created worktree <branch> at worktrees/<branch>, a Claude session is working
 on it there.", then what the line `whiska shape` printed on stderr says, in plain words —
 "it can only look, not change files" for sniff, "it can change files" for build, then
-the model that line names, or "your default model" when it names none.
+the model and the effort that line names.
 Restate that line, not what this skill meant to set, so
 a shape that went wrong shows up here. Say that it will not interrupt them and that
 Whiska delivers its question when it has one. Do not linger, and do not do any of the task yourself in this session —

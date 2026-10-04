@@ -46,9 +46,10 @@ defmodule Whiska.Hook.Stop do
     with {:ok, payload} <- decode(raw_payload),
          {:ok, layout} <- Session.worktree(payload),
          false <- Session.main_session?(layout.main_checkout),
-         :over <- turn_state(payload),
+         tail = transcript_tail(payload),
+         :over <- turn_state(tail),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
-         {:ok, _file} <- leave(layout, mouse_id, message(payload)) do
+         {:ok, _file} <- leave(layout, mouse_id, message(payload), Transcript.ran_on(tail)) do
       :ok
     else
       :in_flight ->
@@ -72,21 +73,23 @@ defmodule Whiska.Hook.Stop do
   # over: Claude Code ends the turn and wakes the session when the subagent
   # reports (ADR-0052). Writing here would leave "still waiting on the
   # reviewers" on the doorstep as an unmarked question that asks nothing.
-  defp turn_state(%{"transcript_path" => path}) when is_binary(path) do
-    if path |> Transcript.tail() |> Transcript.subagents_in_flight?(),
-      do: :in_flight,
-      else: :over
+  defp turn_state(tail) do
+    if Transcript.subagents_in_flight?(tail), do: :in_flight, else: :over
   end
 
-  defp turn_state(_no_transcript), do: :over
+  defp transcript_tail(%{"transcript_path" => path}) when is_binary(path),
+    do: Transcript.tail(path)
 
-  defp leave(layout, mouse_id, text) do
+  defp transcript_tail(_no_transcript), do: ""
+
+  defp leave(layout, mouse_id, text, ran_on) do
     Doorstep.leave(layout.main_checkout, %Entry{
       mouse_id: mouse_id,
       branch: layout.branch_label,
       worktree_root: layout.worktree_root,
       stamped_at: DateTime.utc_now(),
-      text: text
+      text: text,
+      ran_on: ran_on
     })
   end
 

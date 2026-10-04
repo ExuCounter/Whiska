@@ -253,6 +253,33 @@ defmodule Whiska.Transcript do
     |> Enum.any?(fn {_id, launched_at} -> not abandoned?(launched_at, now) end)
   end
 
+  @doc """
+  The full model id the session's latest answer came from, not the alias the
+  spawn asked for — or nil when no answer in `text` says.
+
+  Read from `message.model` on the session's own assistant entries. A
+  subagent's entries are `isSidechain` and run on a model of their own, and
+  Claude Code stamps a message it wrote itself, with no model behind it,
+  `<synthetic>` (both read from real transcripts on 2026-10-04).
+  """
+  @spec ran_on(String.t()) :: String.t() | nil
+  def ran_on(text) do
+    text
+    |> String.split("\n")
+    |> Enum.reduce(nil, fn line, latest -> answered_by(line) || latest end)
+  end
+
+  defp answered_by(line) do
+    case JSON.decode(line) do
+      {:ok, %{"type" => "assistant", "message" => %{"model" => model}} = entry}
+      when is_binary(model) and model not in ["", "<synthetic>"] ->
+        if entry["isSidechain"] == true, do: nil, else: model
+
+      _other ->
+        nil
+    end
+  end
+
   # A launch whose entry carries no readable timestamp cannot be aged, so it
   # holds the turn exactly as it did before — the frames above are what clears
   # it. Every entry a real transcript writes carries one.

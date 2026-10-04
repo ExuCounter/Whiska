@@ -28,16 +28,12 @@ defmodule Whiska.CLI do
 
   @version Mix.Project.config()[:version]
 
-  # The models and each mode's default come from `priv/models.json`, through
-  # `Whiska.Shape`, so the help never names one itself.
-  @model_choices Enum.join(Whiska.Shape.models(), "|")
-
-  @model_defaults Whiska.Shape.defaults()
-                  |> Enum.sort_by(fn {_mode, model} -> is_nil(model) end)
-                  |> Enum.map_join("\n" <> String.duplicate(" ", 23), fn
-                    {mode, nil} -> "A #{mode} mouse keeps your own default model."
-                    {mode, model} -> "A #{mode} mouse starts on #{model}."
-                  end)
+  # The catch-all comes from `priv/models.json`, through `Whiska.Shape`, so the
+  # help never names a model itself.
+  @catch_all Whiska.Shape.catch_all()
+             |> then(fn %{model: model, effort: effort} ->
+               "#{model || "your own default model"}, #{effort || "your own default"} effort"
+             end)
 
   @usage """
   Usage: whiska <command>
@@ -177,12 +173,16 @@ defmodule Whiska.CLI do
                          own worktree. A sniff mouse investigates and reports,
                          and may not write anything at all.
 
-    shape build|sniff [--model #{@model_choices}]
+    shape build|sniff [--model <name>] [--effort <level>]
                          Give a fresh mouse its shape, before Claude starts
-                         (ADR-0069): record its mode, and print the model
-                         to start Claude on, or nothing. Fails rather than
-                         guess, so a spawn stops before Claude.
-                         #{@model_defaults}
+                         (ADR-0069): record its mode, model and effort, and
+                         print the flags to start Claude with, or nothing.
+                         Fails rather than guess, so a spawn stops before
+                         Claude. A model or effort left out is the last rule's
+                         in priv/models.json: #{@catch_all}.
+    shape --rules        Print priv/models.json as this build carries it: the
+                         modes, and the ordered rules a spawn chooses a model
+                         and an effort by.
 
     --version            Print the version.
   """
@@ -302,6 +302,11 @@ defmodule Whiska.CLI do
   def run(["mode", other], _cwd) do
     IO.puts(:stderr, "whiska: #{other} is not a mode — expected build or sniff.")
     1
+  end
+
+  def run(["shape", "--rules"], _cwd) do
+    IO.write(Whiska.Shape.rules())
+    0
   end
 
   # The arguments are read before the house is opened, so a mistyped model
@@ -912,16 +917,14 @@ defmodule Whiska.CLI do
     end
   end
 
-  # stdout is the model alias to start Claude on, or nothing for the person's
-  # own default, so a spawn can read it straight into `--model`; what was
+  # stdout is the flags to start Claude with — plain words only, or nothing —
+  # so a spawn can split them straight into `claude`'s arguments; what was
   # recorded goes to stderr, for the person.
-  defp shape(mouse_id, layout, %{mode: mode, model: model}) do
-    case Storage.shape(mouse_id, mode, model) do
+  defp shape(mouse_id, layout, %{mode: mode, model: model, effort: effort} = shape) do
+    case Storage.shape(mouse_id, mode, model, effort) do
       {:ok, _} ->
-        on = if model, do: " on #{model}", else: ", on your default model"
-        IO.puts(:stderr, "#{layout.branch_label} is a #{mode} mouse#{on}.")
-
-        say(model || "")
+        IO.puts(:stderr, "#{layout.branch_label} is #{Whiska.Shape.describe(shape)}.")
+        say(Enum.join(Whiska.Shape.claude_args(shape), " "))
 
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not shape this mouse (#{inspect(reason)}).")

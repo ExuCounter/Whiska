@@ -893,7 +893,8 @@ defmodule Whiska.Owl.House do
            Storage.record_mouse(%{
              mouse_id: entry.mouse_id,
              path: entry.worktree_root,
-             branch: entry.branch
+             branch: entry.branch,
+             ran_on: entry.ran_on
            }),
          {:ok, question} <-
            Storage.record_question(%{

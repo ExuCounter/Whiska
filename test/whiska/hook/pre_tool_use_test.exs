@@ -38,7 +38,7 @@ defmodule Whiska.Hook.PreToolUseTest do
     {:ok, mouse_id} = Marker.read_or_mint(worktree)
     {:ok, handle} = Storage.open(main)
     Storage.record_mouse(%{mouse_id: mouse_id, path: worktree, branch: "feat-thing"})
-    {:ok, _} = Storage.shape(mouse_id, "build", nil)
+    {:ok, _} = Storage.shape(mouse_id, "build", nil, nil)
     Storage.close(handle)
   end
 
