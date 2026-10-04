@@ -6,7 +6,7 @@ defmodule Whiska.Owl.HousePickupTest do
   window is wound right down so a test can watch two sweeps go past without
   waiting two minutes.
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import ExUnit.CaptureIO
   import Mox
@@ -16,7 +16,6 @@ defmodule Whiska.Owl.HousePickupTest do
   alias Whiska.Storage
   alias Whiska.Test.GitRepo
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   @socket "/fake/herdr.sock"
@@ -27,7 +26,7 @@ defmodule Whiska.Owl.HousePickupTest do
     repo = GitRepo.create(root)
     path = GitRepo.worktree(repo, "feat-a")
 
-    {:ok, handle} = Storage.open(repo.checkout, name: :seed)
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
     {:ok, _} = Storage.record_mouse(%{mouse_id: "ma", path: path, branch: "feat-a"})
     Storage.close(handle)
 
@@ -42,6 +41,14 @@ defmodule Whiska.Owl.HousePickupTest do
 
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, repo: repo, path: path}
+  end
+
+  # The house calls herdr from its own process, from `init/1` on, so it is
+  # allowed in by name before it starts — which is what lets this file run async.
+  defp start_house(opts) do
+    name = :"house-#{System.unique_integer([:positive])}"
+    allow(Herdr, self(), fn -> Process.whereis(name) end)
+    start_supervised!({House, [name: name] ++ opts})
   end
 
   defp pane(path, status) do
@@ -68,13 +75,13 @@ defmodule Whiska.Owl.HousePickupTest do
         opts
       )
 
-    pid = start_supervised!({House, opts})
+    pid = start_house(opts)
     House.sync(pid)
     pid
   end
 
   defp check(repo, fun) do
-    {:ok, handle} = Storage.open(repo.checkout, name: :check)
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
 
     try do
       fun.()
@@ -94,8 +101,8 @@ defmodule Whiska.Owl.HousePickupTest do
       :ok
     end)
 
-    log =
-      capture_io(:stderr, fn ->
+    {line, log} =
+      with_io(:stderr, fn ->
         house = open(repo, backstop_ms: 20)
 
         send(
@@ -104,12 +111,11 @@ defmodule Whiska.Owl.HousePickupTest do
            %{"pane_id" => "w1:p1", "agent_status" => "working"}}
         )
 
+        assert_receive {:typed, line}, 5_000
         House.sync(house)
-        Process.sleep(300)
-        House.sync(house)
+        line
       end)
 
-    assert_receive {:typed, line}, 1_000
     assert line == Whiska.Pickup.line()
     assert log =~ "feat-a"
     assert log =~ "picked it up"
@@ -122,23 +128,27 @@ defmodule Whiska.Owl.HousePickupTest do
     status = :counters.new(1, [])
     :counters.put(status, 1, 1)
 
+    test_pid = self()
+
     stub(Herdr, :list_panes, fn @socket ->
-      {:ok, [pane(path, if(:counters.get(status, 1) == 2, do: "working", else: "done"))]}
+      if :counters.get(status, 1) == 2 do
+        send(test_pid, :saw_working)
+        {:ok, [pane(path, "working")]}
+      else
+        {:ok, [pane(path, "done")]}
+      end
     end)
 
-    test_pid = self()
     stub(Herdr, :prompt, fn _, _, _ -> send(test_pid, :typed) && :ok end)
 
     capture_io(:stderr, fn ->
       house = open(repo, backstop_ms: 20)
       :counters.put(status, 1, 2)
-      Process.sleep(100)
+      assert_receive :saw_working, 5_000
       :counters.put(status, 1, 3)
-      Process.sleep(300)
+      assert_receive :typed, 5_000
       House.sync(house)
     end)
-
-    assert_receive :typed, 1_000
   end
 
   test "a pane that never stopped working is left alone", %{repo: repo, path: path} do

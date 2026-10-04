@@ -1,5 +1,5 @@
 defmodule Whiska.BundledNIFTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias Whiska.BundledNIF
 

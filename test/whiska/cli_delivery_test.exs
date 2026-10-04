@@ -5,6 +5,8 @@ defmodule Whiska.CLIDeliveryTest do
   answers by question id (ADR-0005) and types the answer into the mouse's pane;
   `whiska close` settles one by hand.
   """
+  # Serial: the code under test opens the house under the one VM-wide name
+  # `Whiska.Repo`, and the tests set HOME and HERDR_* in the OS env.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
@@ -14,7 +16,6 @@ defmodule Whiska.CLIDeliveryTest do
   alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.Storage
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   @socket "/fake/herdr.sock"

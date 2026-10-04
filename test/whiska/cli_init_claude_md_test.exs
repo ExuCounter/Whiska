@@ -5,7 +5,7 @@ defmodule Whiska.CLIInitClaudeMdTest do
   Claude, so the rules travel with the repo the same way the hooks do
   (ADR-0016).
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import ExUnit.CaptureIO
 

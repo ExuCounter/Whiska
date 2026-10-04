@@ -3,6 +3,8 @@ defmodule Whiska.CLIQuestionsTest do
   `whiska statusline`, and the parts of `whiska questions` that delivery's own
   tests do not cover: the orphaned and doorstep sections underneath the list.
   """
+  # Serial: the code under test opens the house under the one VM-wide name
+  # `Whiska.Repo`, and the tests move the global `:home`.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
@@ -14,7 +16,6 @@ defmodule Whiska.CLIQuestionsTest do
   alias Whiska.Watch.Ink
   alias Whiska.Storage
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   setup do

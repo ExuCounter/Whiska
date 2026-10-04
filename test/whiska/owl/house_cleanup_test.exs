@@ -5,7 +5,7 @@ defmodule Whiska.Owl.HouseCleanupTest do
   A real git repo, because the preconditions are git's answers and nothing
   else's, and herdr faked at its one boundary (ADR-0031).
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import ExUnit.CaptureIO
   import Mox
@@ -15,7 +15,6 @@ defmodule Whiska.Owl.HouseCleanupTest do
   alias Whiska.Storage
   alias Whiska.Test.GitRepo
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   @socket "/fake/herdr.sock"
@@ -26,7 +25,7 @@ defmodule Whiska.Owl.HouseCleanupTest do
     repo = GitRepo.create(root)
     path = GitRepo.worktree(repo, "feat-a")
 
-    {:ok, handle} = Storage.open(repo.checkout, name: :seed)
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
     {:ok, _} = Storage.record_mouse(%{mouse_id: "ma", path: path, branch: "feat-a"})
 
     {:ok, _} =
@@ -38,9 +37,25 @@ defmodule Whiska.Owl.HouseCleanupTest do
     {:ok, repo: repo, path: path}
   end
 
+  # The house calls herdr from its own process, from `init/1` on, so it is
+  # allowed in by name before it starts — which is what lets this file run async.
+  defp start_house(opts) do
+    name = :"house-#{System.unique_integer([:positive])}"
+    allow(Herdr, self(), fn -> Process.whereis(name) end)
+    start_supervised!({House, [name: name] ++ opts})
+  end
+
+  # The backstop sweeps on a real timer, and a loaded parallel run makes it late.
+  defp until_gone(path, tries) do
+    if File.dir?(path) and tries > 0 do
+      Process.sleep(10)
+      until_gone(path, tries - 1)
+    end
+  end
+
   defp open(repo, opts) do
     opts = Keyword.merge([main_checkout: repo.checkout, herdr_socket: @socket], opts)
-    pid = start_supervised!({House, opts})
+    pid = start_house(opts)
     House.sync(pid)
     pid
   end
@@ -57,14 +72,14 @@ defmodule Whiska.Owl.HouseCleanupTest do
     log =
       capture_io(:stderr, fn ->
         house = open(repo, backstop_ms: 20, board_ms: 60_000)
-        Process.sleep(200)
+        until_gone(path, 500)
         House.sync(house)
       end)
 
     refute File.dir?(path)
     assert log =~ "feat-a"
 
-    {:ok, handle} = Storage.open(repo.checkout, name: :check)
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
     assert %{removed_at: %DateTime{}} = Storage.mouse("ma")
     Storage.close(handle)
   end

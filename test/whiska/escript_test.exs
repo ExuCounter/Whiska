@@ -9,7 +9,7 @@ defmodule Whiska.EscriptTest do
   here and nowhere else.
   """
 
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   @binary Path.expand("../../whiska", __DIR__)
 

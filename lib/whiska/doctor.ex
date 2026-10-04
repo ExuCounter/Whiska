@@ -955,8 +955,10 @@ defmodule Whiska.Doctor do
   defp house(main_checkout, panes, herdr, socket, now, env) do
     path = Storage.database_path(main_checkout)
 
+    # Unnamed: the doctor only reads the house from this process, so it needs
+    # no name every other opener in the VM would have to avoid.
     try do
-      case Storage.open(main_checkout) do
+      case Storage.open(main_checkout, name: nil) do
         {:ok, handle} ->
           try do
             version = Storage.schema_version()

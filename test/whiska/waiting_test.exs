@@ -8,7 +8,10 @@ defmodule Whiska.WaitingTest do
   own file. Nothing here asks herdr: a waiting entry is on-disk data, and it
   reads the same whether the owl is up or down.
   """
+  # Serial: the code under test opens the house under the one VM-wide name `Whiska.Repo`.
   use ExUnit.Case, async: false
+
+  import ExUnit.CaptureIO
 
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
@@ -294,7 +297,12 @@ defmodule Whiska.WaitingTest do
       File.rm_rf!(Storage.database_path(a))
       File.mkdir_p!(Storage.database_path(a))
 
-      assert Waiting.house_for("feat-b", open_houses: record) == {:ok, b}
+      stderr =
+        capture_io(:stderr, fn ->
+          assert Waiting.house_for("feat-b", open_houses: record) == {:ok, b}
+        end)
+
+      assert stderr =~ "could not read alpha's house"
     end
   end
 

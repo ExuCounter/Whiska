@@ -3,7 +3,7 @@ defmodule Whiska.StorageQuestionsTest do
   What `whiska questions` and the statusline read: the waiting questions with
   their mouse loaded, and the orphaned ones shown apart.
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -14,7 +14,7 @@ defmodule Whiska.StorageQuestionsTest do
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
     on_exit(fn -> File.rm_rf!(root) end)
-    {:ok, handle} = Storage.open(main)
+    {:ok, handle} = Storage.open(main, name: nil)
     on_exit(fn -> Storage.close(handle) end)
     {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "feat-a"})
     {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "feat-b"})

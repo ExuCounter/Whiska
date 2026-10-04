@@ -3,6 +3,8 @@ defmodule Whiska.Owl.HouseTest do
   One open house: pane discovery, the herdr subscription, dead mice, and
   collection on every trigger ADR-0036 names.
   """
+  # Serial: the retry and backstop tests race real timers tens of ms apart, and a
+  # loaded parallel run fires them late.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
@@ -16,7 +18,6 @@ defmodule Whiska.Owl.HouseTest do
   alias Whiska.Schema.Question
   alias Whiska.Storage
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   @socket "/fake/herdr.sock"
@@ -30,12 +31,20 @@ defmodule Whiska.Owl.HouseTest do
     # Two mice on disk, recorded the way the hook records them: no pane yet.
     a = worktree(main, "feat-a")
     b = worktree(main, "feat-b")
-    {:ok, handle} = Storage.open(main, name: :seed)
+    {:ok, handle} = Storage.open(main, name: nil)
     {:ok, _} = Storage.record_mouse(%{mouse_id: "ma", path: a, branch: "feat-a"})
     {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: b, branch: "feat-b"})
     Storage.close(handle)
 
     {:ok, main: main, a: a, b: b}
+  end
+
+  # The house calls herdr from its own process, from `init/1` on, so it is
+  # allowed in by name before it starts.
+  defp start_house(opts, id) do
+    name = :"house-#{System.unique_integer([:positive])}"
+    allow(Herdr, self(), fn -> Process.whereis(name) end)
+    start_supervised!(Supervisor.child_spec({House, [name: name] ++ opts}, id: id))
   end
 
   defp worktree(main, branch) do
@@ -63,7 +72,7 @@ defmodule Whiska.Owl.HouseTest do
         opts
       )
 
-    pid = start_supervised!(Supervisor.child_spec({House, opts}, id: id))
+    pid = start_house(opts, id)
     House.sync(pid)
     pid
   end
@@ -148,7 +157,7 @@ defmodule Whiska.Owl.HouseTest do
       nested = worktree(main, "feat/checkout-form")
       stale = Path.join([main, "worktrees", "feat"])
 
-      {:ok, handle} = Storage.open(main, name: :seed_stale)
+      {:ok, handle} = Storage.open(main, name: nil)
       {:ok, _} = Storage.record_mouse(%{mouse_id: "mstale", path: stale, branch: "feat"})
 
       {:ok, _} =

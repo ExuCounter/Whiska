@@ -4,6 +4,8 @@ defmodule Whiska.Hook.StopTest do
   the house, exits. No socket, no database, no decision.
   """
   # Identity is read partly from HERDR_PANE_ID, which is process-wide.
+  # Serial: the code under test opens the house under the one VM-wide name
+  # `Whiska.Repo`, and the tests set HERDR_PANE_ID in the OS env.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO

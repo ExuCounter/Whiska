@@ -1,4 +1,6 @@
 defmodule Whiska.CLITest do
+  # Serial: the code under test opens the house under the one VM-wide name `Whiska.Repo`
+  # (the hook and `whiska mode`).
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO

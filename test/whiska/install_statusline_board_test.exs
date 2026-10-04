@@ -3,6 +3,7 @@ defmodule Whiska.InstallStatuslineBoardTest do
   The statusline script as bash actually runs it (ADR-0051): it prints the
   board the owl left on disk, and starts nothing.
   """
+  # Serial: each test points the global `:home` at a folder of its own.
   use ExUnit.Case, async: false
 
   alias Whiska.Install

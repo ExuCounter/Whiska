@@ -14,6 +14,7 @@ defmodule Whiska.StatuslineTest do
   `Whiska.Doctor` fakes it; the mice come from one herdr pane list, faked at the
   boundary (ADR-0031). Houses are real SQLite files under a tmp root.
   """
+  # Serial: the code under test opens the house under the one VM-wide name `Whiska.Repo`.
   use ExUnit.Case, async: false
 
   import Mox
@@ -23,8 +24,6 @@ defmodule Whiska.StatuslineTest do
   alias Whiska.OpenHouses
   alias Whiska.Statusline
   alias Whiska.Storage
-
-  setup :set_mox_global
 
   setup do
     root = Path.join(System.tmp_dir!(), "whiska-sl-#{System.unique_integer([:positive])}")

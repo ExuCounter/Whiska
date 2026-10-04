@@ -2,6 +2,7 @@ defmodule Whiska.Watch.SnapshotTest do
   @moduledoc """
   The file the owl writes the board to and the statusline prints (ADR-0051).
   """
+  # Serial: each test points the global `:home` at a folder of its own.
   use ExUnit.Case, async: false
 
   alias Whiska.Watch.Snapshot

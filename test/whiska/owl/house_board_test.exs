@@ -3,7 +3,7 @@ defmodule Whiska.Owl.HouseBoardTest do
   The house keeps its board on disk (ADR-0051), so the statusline can draw what
   every mouse is doing without starting anything.
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   import Mox
 
@@ -13,7 +13,6 @@ defmodule Whiska.Owl.HouseBoardTest do
   alias Whiska.Watch.Ink
   alias Whiska.Watch.Snapshot
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   @socket "/fake/herdr.sock"
@@ -25,7 +24,7 @@ defmodule Whiska.Owl.HouseBoardTest do
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(worktree)
 
-    {:ok, handle} = Storage.open(main, name: :seed)
+    {:ok, handle} = Storage.open(main, name: nil)
     {:ok, _} = Storage.record_mouse(%{mouse_id: "ma", path: worktree, branch: "feat-a"})
     Storage.close(handle)
 
@@ -37,6 +36,17 @@ defmodule Whiska.Owl.HouseBoardTest do
 
     {:ok, main: main, worktree: worktree}
   end
+
+  # The house calls herdr from its own process, from `init/1` on, so it is
+  # allowed in by name before it starts — which is what lets this file run async.
+  defp start_house(opts) do
+    name = :"house-#{System.unique_integer([:positive])}"
+    allow(Herdr, self(), fn -> Process.whereis(name) end)
+    start_supervised!({House, [name: name] ++ opts})
+  end
+
+  defp without_ticker(board),
+    do: board |> String.replace("·", "") |> String.replace(~r/working  \d+s  /u, "working  ")
 
   defp pane(cwd, status),
     do: %{pane_id: "w1:p1", cwd: cwd, agent: "claude", agent_status: status}
@@ -50,7 +60,7 @@ defmodule Whiska.Owl.HouseBoardTest do
         opts
       )
 
-    pid = start_supervised!({House, opts})
+    pid = start_house(opts)
     House.sync(pid)
     pid
   end
@@ -132,7 +142,9 @@ defmodule Whiska.Owl.HouseBoardTest do
     assert [_, first_dots] = Regex.run(~r/working  \S+  (·+)/u, first)
     assert [_, second_dots] = Regex.run(~r/working  \S+  (·+)/u, second)
     refute first_dots == second_dots
-    assert String.replace(first, "·", "") == String.replace(second, "·", "")
+    # The elapsed column is the wall clock, and a second can tick between two
+    # writes; nothing else on the row may move.
+    assert without_ticker(first) == without_ticker(second)
   end
 
   test "a board the house could not write leaves the dots where they were", %{
@@ -210,7 +222,7 @@ defmodule Whiska.Owl.HouseBoardTest do
       stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "working")]} end)
       stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
 
-      {:ok, handle} = Storage.open(main, name: :seed2)
+      {:ok, handle} = Storage.open(main, name: nil)
       :ok = Storage.set_main_pane("w1:p9")
       Storage.close(handle)
 
@@ -247,7 +259,7 @@ defmodule Whiska.Owl.HouseBoardTest do
         {:ok, %{pane_id: "w1:p2", cwd: "/main", agent: "claude", agent_status: "working"}}
       end)
 
-      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, handle} = Storage.open(main, name: nil)
       :ok = Storage.set_main_pane("w1:p2")
 
       {:ok, _} =

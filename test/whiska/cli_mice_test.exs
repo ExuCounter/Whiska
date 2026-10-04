@@ -1,5 +1,6 @@
 defmodule Whiska.CLIMiceTest do
   @moduledoc "`whiska mice` at the binary."
+  # Serial: the code under test opens the house under the one VM-wide name `Whiska.Repo`.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
@@ -9,7 +10,6 @@ defmodule Whiska.CLIMiceTest do
   alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.Storage
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   setup do

@@ -1,5 +1,6 @@
 defmodule Whiska.CLIWatchTest do
   @moduledoc "`whiska watch` at the binary: the board, printed once."
+  # Serial: the code under test opens the house under the one VM-wide name `Whiska.Repo`.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
@@ -10,7 +11,6 @@ defmodule Whiska.CLIWatchTest do
   alias Whiska.Watch.Ink
   alias Whiska.Storage
 
-  setup :set_mox_global
   setup :verify_on_exit!
 
   setup do

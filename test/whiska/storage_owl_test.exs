@@ -3,7 +3,7 @@ defmodule Whiska.StorageOwlTest do
   What the owl slice adds to storage: questions written on collection, mice
   marked dead, panes recorded, and one house per Repo instance.
   """
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
 
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -14,10 +14,10 @@ defmodule Whiska.StorageOwlTest do
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
     on_exit(fn -> File.rm_rf!(root) end)
-    {:ok, handle} = Storage.open(main)
+    {:ok, handle} = Storage.open(main, name: nil)
     on_exit(fn -> Storage.close(handle) end)
     {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
-    {:ok, main: main, root: root}
+    {:ok, main: main, root: root, house: handle}
   end
 
   describe "the schema after V002" do
@@ -420,7 +420,10 @@ defmodule Whiska.StorageOwlTest do
   end
 
   describe "one Repo instance per house" do
-    test "two houses can be open in one VM without sharing a connection", %{root: root} do
+    test "two houses can be open in one VM without sharing a connection", %{
+      root: root,
+      house: house
+    } do
       other = Path.join(root, "other")
       File.mkdir_p!(Path.join(other, ".git"))
 
@@ -430,7 +433,7 @@ defmodule Whiska.StorageOwlTest do
       # open/2 pointed this process at the other house; it is empty.
       assert [] = Storage.all(Mouse)
 
-      Storage.point_at(Whiska.Repo)
+      Storage.point_at(house)
       assert [%Mouse{mouse_id: "m1"}] = Storage.all(Mouse)
     end
   end

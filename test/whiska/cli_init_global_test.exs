@@ -5,6 +5,7 @@ defmodule Whiska.CLIInitGlobalTest do
   Everything here runs against a pinned `:user_home` in a temp folder. Nothing
   may touch the person's own `~/.claude`.
   """
+  # Serial: each test points the global `:user_home` at a home of its own.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
