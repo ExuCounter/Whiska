@@ -122,7 +122,7 @@ defmodule Whiska.Questions do
     open_block =
       case open do
         [] -> nothing_waiting()
-        _ -> Enum.map_join(open, separator(), &full(&1, branch(&1), slot))
+        _ -> Enum.map_join(open, separator(), &full(&1, who(&1.mouse, &1.mouse_id), slot))
       end
 
     compose(open_block, summary)
@@ -245,6 +245,20 @@ defmodule Whiska.Questions do
 
   defp branch(%Question{mouse: %Mouse{branch: branch}}) when is_binary(branch), do: branch
   defp branch(%Question{mouse_id: mouse_id}), do: mouse_id
+
+  @doc """
+  Who a question's heading names: the branch, with `(sniff)` after it for a
+  sniff mouse. Whiska's record rather than the mouse's word about
+  itself, so the finished picker can tell a branch with nothing on it to merge
+  (ADR-0074).
+  """
+  @spec who(Mouse.t() | nil, String.t()) :: String.t()
+  def who(%Mouse{branch: branch, mode: mode}, mouse_id) do
+    name = branch || mouse_id
+    if mode == "sniff", do: name <> " (sniff)", else: name
+  end
+
+  def who(_no_mouse, mouse_id), do: mouse_id
 
   @doc """
   The questions part of the statusline, with the owl in front when the doorstep

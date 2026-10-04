@@ -50,7 +50,10 @@ defmodule Whiska.Rule.SniffTest do
       {:deny, reason} = Sniff.decide("Write", %{"file_path" => "lib/x.ex"}, "sniff")
 
       assert reason =~ "sniff"
-      assert reason =~ "whiska mode build"
+      # The way out is a proposal a fresh build mouse takes up, not flipping
+      # this one, which would build on the model chosen for the investigation.
+      assert reason =~ "Proposed build"
+      refute reason =~ "whiska mode build"
     end
   end
 end

@@ -20,7 +20,8 @@ _Avoid_: worker, crewmate, agent
 
 **Brief**:
 What a mouse is given to build — the person's own words, routed in whole by
-`spawn-worktree` or `send-to-worktree`. A brief is **buildable** when the mouse can say
+`spawn-worktree` or `send-to-worktree`, or a **proposal** the person said yes to, handed
+over by its question id alone. A brief is **buildable** when the mouse can say
 what "done" looks like and name the failing test that proves it without guessing anything
 the person has an opinion on; one that is not gets grilled before any code (ADR-0063).
 _Avoid_: task, ticket, spec
@@ -93,11 +94,23 @@ _Avoid_: summary, status, update, hand-off
 What becomes of a branch once its mouse is done: merged into the current branch, opened
 as a merge request, left alone to be talked to further, or dropped unmerged. The person
 picks one when a "finished" question is told; a repo may name its usual choice, and that
-one is recommended. A finish is never an answer — a finished question has nothing to
+one is recommended. A sniff mouse that ended on a **proposal** has nothing to merge, so
+its finish is built by a fresh mouse, talked to further, or dropped — and none is
+recommended. A finish is never an answer — a finished question has nothing to
 answer — and it is only ever offered for a finished one.
 _Avoid_: close (which a question does), disposition, land. **Cleanup** now names something
 else — what becomes of the worktree after the branch has landed, not what becomes of the
 branch
+
+**Proposal**:
+The block a finished investigation ends its report with when it changed nothing and found
+something that should change: **Proposed build**, then a Found, a Build and a Touches
+line. Content, never classification — the turn still ends on `done` — so it travels inside
+the question's text, and the main session reads it the way it reads lettered options. Its
+lines are the preview of the one question the person is asked, and building it starts a
+fresh mouse shaped for that work rather than flipping the one shaped for the
+investigation (ADR-0074).
+_Avoid_: plan, recommendation, next steps, hand-off (a word **Report** already rejected)
 
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,
@@ -281,7 +294,10 @@ mouse's first tool call is already judged by its mode. The spawning session pick
 model and the effort by the ordered rules in `priv/models.json`; one it leaves unnamed
 is the last rule's. The record also keeps the model the mouse actually ran on, read from
 its transcript. There is no default mode: a mouse **never shaped** may read but not
-write until the person runs `whiska mode` in its worktree.
+write until the person runs `whiska mode` in its worktree. `whiska mode` moves the mode
+and nothing else, so the record also keeps what the mouse was **shaped as** — the mode its
+model and effort were chosen with — and a mouse moved off it says so, in `whiska mice`
+and in the line `whiska mode` prints.
 _Avoid_: profile, preset, role
 
 **Build mode**:

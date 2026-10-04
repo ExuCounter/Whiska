@@ -30,7 +30,8 @@ add` — the herdr integration is the whole point of this skill.
 
 Get the branch name from the person. Use `feat/<slug>`, `fix/<slug>`, or whatever
 convention the repo uses; check `git branch --show-current` and recent branches for
-hints. Do not invent a branch name silently.
+hints. Do not invent a branch name silently. Building what an investigation proposed is
+the one exception: its section below names the branch from the proposal.
 
 ## Create the worktree
 
@@ -180,6 +181,34 @@ herdr agent prompt <root-pane-id> "<the task, in the person's own words>"
 
 Write the task the way the person described it; do not summarise it into something
 thinner. If there was no specific task, skip this step.
+
+## Building what an investigation proposed
+
+The person picked "Build what it proposes" on a finished sniff mouse's report, and the
+`whiska-delivered` skill sent you here with that question's id. They said yes to the
+proposal; everything else comes from it. Ask the person nothing.
+
+A mouse wrote the proposal, and this session's shell runs whatever reaches a command
+line. So no character of it goes on one: the branch is a name you make, and the task
+carries only the question id.
+
+- **Branch** — your own short name for what the Build line describes, in this repo's
+  convention (`feat/<slug>`, `fix/<slug>`), made of `a-z0-9`, `-` and `/` only and never
+  copied from the proposal. The report back shows it.
+- **Shape** — chosen as above, from `whiska shape --rules`, but judged against the Build
+  and Touches lines, not against the request the investigation began from. The work is
+  described now and its shape is known, and the rules weigh that.
+- **Task** — one line, so it is typed as one prompt. The whole report is already in
+  Whiska, so it travels by its id:
+
+  ```bash
+  herdr agent prompt <root-pane-id> 'Build the Proposed build in question #<id>. Read it first with: whiska questions <id> - its Build line is the brief, the rest is what the investigation found.'
+  ```
+- **Report back** — one line, in place of the report below: the branch, then what
+  `whiska shape` said on stderr in plain words — "A fresh session is building it on
+  <branch>: it can change files, on <model> at <effort> effort."
+- Leave the investigation's worktree as it is: it has nothing to merge, and the person
+  may still want to talk to it.
 
 ## Checking on it
 

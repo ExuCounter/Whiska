@@ -226,6 +226,39 @@ defmodule Whiska.InstallFinishSkillTest do
     end
   end
 
+  describe "an investigation that found work to do proposes it (ADR-0074)" do
+    test "the proposal is three labelled lines the main session can lift verbatim" do
+      body = skill()
+
+      assert body =~ "**Proposed build**"
+      assert body =~ "- Found:"
+      assert body =~ "- Build:"
+      assert body =~ "- Touches:"
+    end
+
+    test "it ends on the finished marker and never asks to build it itself" do
+      body = prose()
+
+      # The finished picker is where building it is offered; a mouse asking
+      # "shall I build this?" would be answered into a session that cannot.
+      assert body =~ ~r/end on the finished marker/i
+      assert body =~ ~r/never ask whether to build it/i
+    end
+
+    test "only when it changed nothing and something should change" do
+      body = prose()
+
+      assert body =~ ~r/changed nothing/i
+      assert body =~ ~r/no proposal/i
+    end
+
+    # Only a mouse that may only look is offered a fresh build; the skill
+    # promises nothing to the rest.
+    test "promises the fresh build only to a mouse that may only look" do
+      assert prose() =~ ~r/a mouse that may only look/i
+    end
+  end
+
   describe "it does not restate what the block already says" do
     test "the shape of the message is the block's to teach" do
       refute prose() =~ ~r/outcomes, not mechanics/i

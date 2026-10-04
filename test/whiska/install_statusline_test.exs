@@ -330,6 +330,50 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ ~r/discards/
     end
 
+    # A sniff mouse's branch has nothing to merge, and the work it found is
+    # better built by a fresh mouse shaped for the build than by the one shaped
+    # for the investigation (ADR-0074).
+    test "a sniff mouse's finished proposal is offered as a fresh build" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      prose = String.replace(body, ~r/\s+/, " ")
+
+      # Keyed on Whiska's record of the mouse, and on the block the mouse wrote.
+      assert body =~ "(sniff)"
+      assert body =~ "**Proposed build**"
+      assert body =~ "Build what it proposes"
+      # The confirmation carries what it confirms: the proposal itself sits in
+      # the option's preview, verbatim, so the person can say no to it.
+      assert prose =~ ~r/preview/
+      assert prose =~ ~r/Found, Build and Touches/
+      # Nothing nudges the person past reading it.
+      assert prose =~ ~r/no "\(Recommended\)"/i
+      # The spawn is the existing skill's job, and it asks nothing more.
+      assert body =~ "spawn-worktree"
+      assert prose =~ ~r/nothing else is asked/i
+    end
+
+    test "every other finished line keeps the four options" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      prose = String.replace(body, ~r/\s+/, " ")
+      assert prose =~ ~r/no proposal, or a heading without `\(sniff\)`/i
+      # Found anywhere in the message: a mouse may close on a line after it.
+      assert prose =~ ~r/the message carries a \*\*Proposed build\*\* block/
+    end
+
+    # The flow asks once. Dropping a branch with nothing on it loses nothing, so
+    # it is not confirmed; one moved from build with commits still is.
+    test "dropping an investigation's branch asks only when it has commits" do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+
+      prose = String.replace(body, ~r/\s+/, " ")
+      assert prose =~ ~r/confirm only when .*commits of its own/i
+    end
+
     test "a repo can name its usual finish choice, and the picker follows it" do
       assert {_path, body} =
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)

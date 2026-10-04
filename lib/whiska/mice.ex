@@ -83,8 +83,14 @@ defmodule Whiska.Mice do
   # `whiska shape` looks like (ADR-0069).
   defp mode(%Mouse{shaped_at: nil}), do: "never shaped, reads only"
 
-  defp mode(%Mouse{} = mouse),
-    do: Shape.label(%{mode: mouse.mode, model: mouse.ran_on || mouse.model, effort: mouse.effort})
+  defp mode(%Mouse{} = mouse) do
+    Shape.label(%{mode: mouse.mode, model: mouse.ran_on || mouse.model, effort: mouse.effort}) <>
+      moved(Shape.moved_from(mouse))
+  end
+
+  # The model and effort shown were chosen for the other mode's work.
+  defp moved(nil), do: ""
+  defp moved(as), do: " (shaped as #{as})"
 
   defp status(mouse, {:ok, panes}) do
     case Enum.find(

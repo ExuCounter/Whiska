@@ -137,6 +137,34 @@ defmodule Whiska.CLIQuestionsTest do
       assert out =~ "closed"
     end
 
+    # The finished picker in `whiska-delivered` offers a fresh build only for
+    # a mouse that could only look, and reads that from this heading — Whiska's
+    # record, not the mouse's own word about itself.
+    test "a sniff mouse's question names its mode in the heading", %{main: main} do
+      q =
+        seed(main, fn ->
+          {:ok, _} = Storage.shape("m1", "sniff", nil, nil)
+          ask("Found it.\n[worktree-status: done]", kind: "done")
+        end)
+
+      one = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
+      assert one =~ "##{q.id}  feat-a (sniff)  finished"
+
+      full = capture_io(fn -> assert CLI.run(["questions", "--full"], main) == 0 end)
+      assert full =~ "##{q.id}  feat-a (sniff)  finished"
+    end
+
+    test "a build mouse's heading names the branch alone", %{main: main} do
+      q =
+        seed(main, fn ->
+          {:ok, _} = Storage.shape("m1", "build", nil, nil)
+          ask("Merged it.\n[worktree-status: done]", kind: "done")
+        end)
+
+      one = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
+      assert one =~ "##{q.id}  feat-a  finished"
+    end
+
     test "--full is in the usage text" do
       out = capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
       assert out =~ "--full"

@@ -83,6 +83,24 @@ defmodule Whiska.CLIMiceTest do
       assert out =~ ~r/feat-b\s+never shaped, reads only\s/
     end
 
+    # A sniff mouse moved to build by hand keeps the model and effort chosen
+    # for the investigation; the listing is where that shows rather than hides.
+    test "says when a mouse's mode was moved off what it was shaped as", %{main: main} do
+      seed(main, [{"ma", "feat-a", false}, {"mb", "feat-b", false}])
+      {:ok, handle} = Storage.open(main, name: :seed)
+      {:ok, _} = Storage.shape("ma", "sniff", "m-heavy", "xhigh")
+      {:ok, _} = Storage.set_mode("ma", "build")
+      {:ok, _} = Storage.shape("mb", "sniff", "m-heavy", "xhigh")
+      Storage.close(handle)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      out = capture_io(fn -> assert CLI.run(["mice"], main) == 0 end)
+
+      assert out =~ ~r/feat-a\s+build on m-heavy, xhigh effort \(shaped as sniff\)\s/
+      assert out =~ ~r/feat-b\s+sniff on m-heavy, xhigh effort\s/
+      refute out =~ ~r/feat-b.*shaped as/
+    end
+
     test "names the model that actually ran, once a turn has said", %{main: main} do
       seed(main, [{"ma", "feat-a", false}])
       {:ok, handle} = Storage.open(main, name: :seed)

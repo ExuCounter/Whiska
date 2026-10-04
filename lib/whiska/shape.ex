@@ -93,6 +93,16 @@ defmodule Whiska.Shape do
     "a #{mode} mouse on #{model || "your default model"}, #{effort || "your default"} effort"
   end
 
+  @doc """
+  The mode a mouse was shaped as, once `whiska mode` has moved it off that
+  mode, or nil. Its model and effort were then chosen for other work: a sniff
+  mouse flipped to build keeps the model picked for the investigation
+  (ADR-0074).
+  """
+  @spec moved_from(%{mode: String.t(), shaped_as: String.t() | nil}) :: String.t() | nil
+  def moved_from(%{mode: mode, shaped_as: as}) when is_binary(as) and as != mode, do: as
+  def moved_from(_mouse), do: nil
+
   @doc "The shape, short, for a listing: the mode, then only what was named."
   @spec label(t()) :: String.t()
   def label(%{mode: mode, model: model, effort: effort}) do

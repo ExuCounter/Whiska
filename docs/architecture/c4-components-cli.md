@@ -129,7 +129,9 @@ arguments; what was recorded goes to stderr for the report. The model the mouse
 actually ran on comes back later: `Hook.Stop` reads it from the transcript and carries
 it on the doorstep entry, and the owl records it as `ran_on`. A mouse minted lazily by the hook instead has no `shaped_at`: `Storage.mode`
 reads it as `unshaped`, `Rule.Sniff` holds it to sniff's rules with a reason that sends
-it to the person, and `Mice` says `never shaped, reads only`.
+it to the person, and `Mice` says `never shaped, reads only`. `whiska mode` moves the mode
+alone, so `shaped_as` keeps the mode the model and effort were chosen with, and `Mice`
+says when a mouse was moved off it (ADR-0074).
 
 **The decision never depends on storage.** `Hook.PreToolUse` treats identity and
 bookkeeping as best-effort; the rule itself does not read the database to contain a

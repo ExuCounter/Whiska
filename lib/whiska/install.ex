@@ -610,6 +610,35 @@ defmodule Whiska.Install do
      picker is unchanged: the same four options, the same order. No such line,
      and "Merge here" is the recommended one.
 
+     ## When a sniff mouse finished with a proposal
+
+     Two things together: the heading `whiska questions <id>` printed names the
+     branch with `(sniff)` after it — a mouse that could only look, so its branch
+     has nothing to merge — and the message carries a **Proposed build** block
+     with Found, Build and Touches lines. Then the picker holds three options
+     instead of the four, in this order:
+
+     - **Build what it proposes** — its preview is the block's Found, Build and
+       Touches lines, verbatim, so the person decides on the proposal itself
+       rather than on a label. Its description: a fresh session builds it,
+       shaped for the build.
+     - **Chat further** — as above.
+     - **Drop it** — as above, but confirm only when `git log <base>..<branch>`
+       lists commits of its own. Nothing else is lost, and a question about
+       nothing is one the person learns to stop reading.
+
+     No "(Recommended)" on any of them, whatever `## Finish` names: the one thing
+     this asks is whether the proposal is right, and only the person's read of
+     it can say.
+
+     On **Build what it proposes**, follow the `spawn-worktree` skill's section
+     "Building what an investigation proposed", with this question's id. Nothing
+     else is asked — not the branch name, not the model, not the effort: that
+     section derives each and shows them in one line.
+
+     No proposal, or a heading without `(sniff)`: the four options above,
+     unchanged.
+
      ## An answer goes through `whiska reply` and nothing else
 
      Whenever the person does decide — off a picker, or after talking it over
