@@ -52,9 +52,10 @@ it.
 ## Use the repo's words
 
 `CONTEXT.md` is the glossary — Whiska, mouse, `mouse_id`, question, house, owl, build
-mode, sniff mode. Use those names in code, comments, commit messages, and conversation.
-Don't invent synonyms, and don't reach for the `_Avoid_` words listed under each term;
-they are listed because they were rejected for a reason.
+mode, sniff mode. Use those names in code, comments, commit messages and between
+sessions, but not in a message to the person unless they used the term first. There, say
+what the thing does. Don't invent synonyms, and don't reach for the `_Avoid_` words
+listed under each term; they are listed because they were rejected for a reason.
 
 ## Keep the architecture diagrams honest
 
