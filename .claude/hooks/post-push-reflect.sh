@@ -6,7 +6,7 @@
 #
 # A hook cannot invoke a skill. It injects context asking the session to; complying is
 # the model's call. Fires at most once per pushed commit (keyed on HEAD), so repeated
-# pushes of the same commits stay quiet.
+# pushes of the same commits stay quiet, and stays quiet when a push only lands merges.
 
 set -eu
 
@@ -37,6 +37,20 @@ upstream_sha="$(git rev-parse '@{u}' 2>/dev/null)" || exit 0
 
 state="$git_dir/whiska-reflect-head"
 [ -f "$state" ] && [ "$(cat "$state")" = "$head_sha" ] && exit 0
+
+# A branch reflects before it finishes, so a push that only lands merges is work
+# already reflected on. Walk first parents over what this push added — where the
+# upstream sat before it, from the remote-tracking reflog — and stay quiet when
+# every one is a merge: the branches' own commits sit behind second parents. A
+# squash or fast-forward leaves no merge and nudges, as does a push with no prior
+# upstream to compare against: noisy beats silently off. Exits before the state
+# write, so a quiet push never marks anything as reflected.
+upstream_ref="$(git rev-parse --symbolic-full-name '@{u}' 2>/dev/null)" || upstream_ref=""
+if [ -n "$upstream_ref" ] && before="$(git rev-parse -q --verify "$upstream_ref@{1}" 2>/dev/null)"; then
+  written="$(git rev-list --first-parent --no-merges "$before..HEAD" 2>/dev/null)" || written="x"
+  [ -n "$written" ] || exit 0
+fi
+
 printf '%s' "$head_sha" > "$state"
 
 jq -n '{
