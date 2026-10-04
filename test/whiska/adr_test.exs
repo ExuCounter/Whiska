@@ -1,7 +1,7 @@
 defmodule Whiska.AdrTest do
   @moduledoc """
   This repo's own `docs/adr/`: a record is written under a placeholder and claims its
-  number when it lands (ADR-next-an-adr-claims-its-number-when-it-lands).
+  number when it lands (ADR-0070).
 
   Placeholders in these fixtures are built with `ph/1` rather than written out, so the
   repo-wide check at the bottom never mistakes this file's examples for real citations.

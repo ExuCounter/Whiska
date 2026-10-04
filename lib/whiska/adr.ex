@@ -1,7 +1,7 @@
 defmodule Whiska.Adr do
   @moduledoc """
   This repo's own `docs/adr/`, not anything Whiska installs elsewhere
-  (ADR-next-an-adr-claims-its-number-when-it-lands).
+  (ADR-0070).
 
   A branch writes a new record as `next-<slug>.md` and cites it by a placeholder, `ADR-`
   then `next-<slug>`. The number is only known when the branch lands, so `claim/2` hands

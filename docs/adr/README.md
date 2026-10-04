@@ -95,7 +95,7 @@ are the extracted, individually citable decisions.
 - [0029](0029-rollout-runs-alongside-the-bash-relay.md) — the bash relay is gone; the cutover was hard, and the gap is accepted (reversed 2026-09-27)
 - [0030](0030-v0-0-1-is-a-plain-cli-in-its-own-repo.md) — v0.0.1 is a plain CLI in its own repo, not the owl
 - [0031](0031-mocking-is-confined-to-the-herdr-boundary.md) — Mocking is confined to the herdr boundary
-- [next-an-adr-claims-its-number-when-it-lands](next-an-adr-claims-its-number-when-it-lands.md) — An ADR claims its number when it lands
+- [0070](0070-an-adr-claims-its-number-when-it-lands.md) — An ADR claims its number when it lands
 
 ## Performance
 
