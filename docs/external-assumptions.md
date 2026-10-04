@@ -1,7 +1,7 @@
 # What Whiska assumes about the world
 
 An audit of everything Whiska relies on outside its own code, done 2026-10-04 against
-`2f7619b`, herdr 0.8.2 and Claude Code 2.1.285 on macOS arm64. It changes nothing; it
+`2f7619b` and brought up to date with main later the same day, herdr 0.8.2 and Claude Code 2.1.285 on macOS arm64. It changes nothing; it
 says where each assumption lives, how it breaks, and what loosening it would cost.
 
 The Hex packages are out of scope. They were audited separately: three direct deps,
@@ -48,11 +48,13 @@ silent version is.
 
 1. **A prompt box Whiska cannot read is delivered into anyway, and only the doctor
    says so.** `Whiska.Delivery.Draft` returns `:unknown` when it finds a frame but no
-   `❯` line it knows, and the house then delivers (`owl/house.ex`, `box_is_free/2`).
+   `❯` line it knows, and `Draft.hold/1` lets it through. Both the house's delivery and
+   pickup (ADR-0067) go through it, so either can type into a draft.
    If Claude Code changes its prompt marker, every delivery can land inside a
    half-typed draft, which is exactly what ADR-0047 exists to stop. `whiska doctor`
    warns, but only when someone runs it. **Fix:** put a line on the board, and
-   `warn_once` to the log, when the read is `:unknown`. About an hour.
+   `warn_once` to the log, when the read is `:unknown`, next to `Draft.hold/1` so it covers
+   pickup too. About an hour.
 2. **Whiska's shim fails open with exit 0, so its warning is probably never seen.**
    When the binary or runtime is missing, the shim prints to stderr and exits 0
    (`install.ex`, `@shim_fail_open`, `@shim_exec`). Claude Code's hook docs say it
@@ -60,7 +62,9 @@ silent version is.
    "fail open, loudly" is quiet in practice: the containment rules turn off and, worse,
    the `Stop` hook leaves nothing on the doorstep, so a mouse's question vanishes.
    **Fix:** exit 1 instead of 0 on those two paths. Exit 1 still allows the call (only
-   2 blocks) and shows the message. **Done:** merged to main as `755718a`, tested
+   2 blocks) and shows the message. **Done:** it exits 1 inside a worktree of a repo
+   Whiska is set up in, and stays quiet elsewhere. The `Stop` path also says the turn's
+   message was not delivered. Merged to main as `755718a`, tested
    against Claude Code 2.1.285.
 3. **No version check against herdr or Claude Code.** Every comment that says "checked
    against herdr 0.8.2" is a promise nothing enforces. herdr answers
@@ -103,7 +107,7 @@ question, which the person notices.
 working or idle, a way to type into a pane, the visible screen, and pane lifecycle
 events. Everything else herdr does for Whiska could come from somewhere else.
 
-**Where the boundary is.** `Whiska.Herdr` is a behaviour with 11 callbacks, and
+**Where the boundary is.** `Whiska.Herdr` is a behaviour with 10 callbacks, and
 `Whiska.Herdr.Socket` is the only file that speaks herdr's wire (ADR-0031). It is a
 tolerant reader: unknown fields are dropped, a missing `agent_status` becomes
 `"unknown"`, and a reply that does not match is `{:error, {:unexpected_reply, _}}`.
@@ -129,7 +133,7 @@ outside the boundary:
 **Version check.** None. herdr's `ping` returns its version and a protocol number, so
 one is cheap (fix 3).
 
-**Swapping in another multiplexer.** The 11 callbacks map onto tmux reasonably well:
+**Swapping in another multiplexer.** The 10 callbacks map onto tmux reasonably well:
 `capture-pane` reads the screen, `send-keys` types, `list-panes -F` lists, and a
 desktop notifier already exists. What tmux has no equivalent for is herdr's agent
 status. Whiska would have to work that out itself, most likely from Claude Code's own
@@ -153,7 +157,7 @@ Every row is someone else's UI or file format, and can change in any release.
 | --- | --- | --- |
 | `PreToolUse` and `Stop` hook names, `matcher`, `{"type": "command"}` layout in `settings.json` | `install.ex`, `doctor.ex` | Hooks stop firing. Doctor reads the file and probes the shim, so it would see a missing entry but not a renamed event. Half-loud |
 | `$CLAUDE_PROJECT_DIR` in the hook command | `install.ex` | Shim path fails, Claude Code shows a hook error. Loud |
-| Payload: `tool_name`, `tool_input.file_path` / `notebook_path` / `command`, `cwd`, `transcript_path` | `hook/pre_tool_use.ex`, `rule/*.ex`, `session.ex` | A renamed path key means no path, so the call is allowed. **Silent** |
+| Payload: `tool_name`, `tool_input.file_path` / `notebook_path` / `command`, `cwd`, `transcript_path` | `hook/pre_tool_use.ex`, `rule/*.ex`, `session.ex` | A renamed path key means no path, so containment allows the call. A renamed `command` reads as an empty, harmless command, so sniff mode allows it too. **Silent** |
 | Payload: `last_assistant_message` on `Stop` | `hook/stop.ex` | Empty question delivered. Loud |
 | Deny output: `hookSpecificOutput.permissionDecision = "deny"` | `hook/pre_tool_use.ex` | Denials ignored, every call allowed. **Silent**. The doctor's probe runs with an outside-worktree payload, so it never sees a deny |
 | Tool names `Write` `Edit` `MultiEdit` `NotebookEdit` `Bash` | matcher in `install.ex`, `rule/sniff.ex`, `rule/main_checkout.ex` | New or renamed editing tool bypasses both rules. **Silent** (fix 5) |
@@ -164,7 +168,8 @@ Every row is someone else's UI or file format, and can change in any release.
 | Transcript first entry carries `cwd` | `session.ex` (ADR-0053) | Falls back to the payload's `cwd`, which follows `cd`. A main session that stepped into a worktree could be read as that mouse. Rare, silent |
 | Transcript subagent shapes: `Agent` tool, `agentId:` text, `origin.kind/handback/from`, `<task-notification>`, `<agent-message>`, `[Subagent hand-back]`, `isSidechain`, `attachment` | `transcript.ex` (ADR-0052) | Launch missed: a progress note delivered early. Hand-back missed: the mouse is held silent up to 30 minutes, then the backstop lets it through. Bounded, silent |
 | Transcript file birth time as session start | `transcript.ex` | Doctor reports "unchecked". Graceful |
-| Prompt box: column-0 `─` rules, `❯` marker, padding with spaces | `delivery/draft.ex` (ADR-0068) | Rules change: held as "box not on screen" (loud, misleading). Marker changes: delivered into a draft (**silent**, fix 1) |
+| Prompt box: column-0 `─` rules, `❯` marker followed by a non-breaking space, then padding | `delivery/draft.ex` (ADR-0068) | Rules change: held as "box not on screen" (loud, misleading). Marker changes: delivered into a draft (**silent**, fix 1) |
+| Claude Code draws its suggested next prompt and placeholder as faint text (SGR 2), read with herdr's `--format ansi` | `delivery/draft.ex` | Suggestions drawn in another style read as typing, so questions are held as "your prompt box isn't empty". Misleading, and silent until someone asks why nothing arrives |
 | Alternate screen | skills tell the model not to read a pane | Nothing in code depends on it |
 | U+2063 draws nothing in the terminal | `question/marker.ex`, `claude_md.ex` | Three odd glyphs appear in the pane. Visible, harmless. The marker is read from the payload, not the screen |
 | Skills at `.claude/skills/<name>/SKILL.md`; agents at `.claude/agents/` | `install.ex`, the finish skill | Skills not found by the model. Visible |
@@ -175,7 +180,9 @@ Every row is someone else's UI or file format, and can change in any release.
 reads the output. What fails silently is what the hook **decides**: a payload key, a
 tool name or the deny format changing all turn enforcement off without a word. Those
 are worth a contract test: a doctor probe that runs the shim with an inside-worktree
-`Edit` aimed at the main checkout and checks the JSON that comes back. It still
+`Edit` aimed at the main checkout and checks the JSON that comes back. The probe has
+to run in a throwaway repo under tmp, because the hook mints a marker and records a
+mouse, and the doctor never writes (ADR-0038). It still
 cannot prove Claude Code honours the deny; only a real session can, which is the
 version warning's job.
 
@@ -261,7 +268,7 @@ yet. The shim's exit code (fix 2) is already done, merged as `755718a`.
 | 3 | Unreadable prompt box goes on the board and the log (fix 1) | 1 h | Worst silent failure: typing into a draft. **Overlap:** branch `fix/the-board-says-what-a-question-is-waiting-on` is changing how the board says what a question waits on. Check what landed there before starting |
 | 4 | Own hold reason for an agent status Whiska does not know (fix 4) | 1 h | Stops "mid-turn" sending people the wrong way. Same board line as item 3, so the same overlap applies |
 | 5 | Honour `CLAUDE_CONFIG_DIR` (fix 6) | 1 h | Cheap; other people set it |
-| 6 | Doctor probes a real deny: inside-worktree `Edit` at the main checkout, check the JSON back | 2 h | Covers the deny format and payload keys |
+| 6 | Doctor probes a real deny: inside-worktree `Edit` at the main checkout, check the JSON back. Run it in a throwaway repo under tmp: the hook mints a marker and records a mouse, and the doctor never writes (ADR-0038) | 2 h | Covers the deny format and payload keys |
 | 7 | Doctor warns about tool names in transcripts it has never classified (fix 5) | half a day | Covers new editing tools and MCP writers |
 | 8 | Run `mix test` in a Linux container, fix what is macOS-only | 1 h to learn, unknown to fix | Turns the Linux cost from a guess into a number |
 | 9 | systemd user unit behind the launchd runner, `notify-send` fallback, `mise` shims in the runtime lookup, README's "Requires macOS" rewritten | about 1.5 days | Linux supported, not just not crashing. Only worth it if herdr runs on Linux |
