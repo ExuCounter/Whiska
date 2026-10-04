@@ -68,13 +68,15 @@ the delivery queue and wait for an answer. A turn that ends with no marker at al
 **unmarked** question: delivered like any other, recorded as having arrived unmarked. A
 `done` report is told as "finished" with a **finish** offered in place of a reply, and
 closed the moment it is sent — it is never answered, and it neither waits for the
-delivery slot nor holds it. A question is **open** while it waits to be told, **sent** once delivered and
-waiting for its answer, then **answered**; **superseded** when its own mouse asked a
+delivery slot nor holds it. A question is **open** while it waits to be told, **sent** once
+delivered and waiting for its answer, then **answered**; **superseded** when its own mouse asked a
 newer one, **closed** by hand or as a `done` report once told, **settled** when its
 mouse's branch landed and there is nothing left to answer to — the merge was the answer
 (ADR-0064) — and **orphaned** when nothing can act on it and nothing ever answered it
 (its mouse died, its worktree is gone, its record no longer stands for a worktree of this
-house) with the work still not landed.
+house) with the work still not landed. An open question is **queued behind** the sent one while
+another holds the slot; the board and `whiska questions` say that, and keep "waiting on
+you" for the one actually sent (ADR-0051).
 _Avoid_: report (as the table/record name — the word now names how a message reads,
 see **Report**), event (as the table/record name)
 

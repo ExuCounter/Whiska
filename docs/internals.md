@@ -353,14 +353,15 @@ replaced:
 ```
 ~/projects/whiska  main ✔
 🐭 feat-watch-board     working  12m     A board the owl writes
-🐭 feat-quiet-marker    idle     1h 33m  waiting on you · #52 · "sqlite or a plain file?"
+🐭 feat-quiet-marker    idle     1h 33m  waiting on you for 4m 12s · #52 · "sqlite or a plain file?"
+🐭 feat-cache-ttl       idle     40m 3s  queued behind #52 · "which cache TTL?"
 🐭 fix-doctor-probe     working  4m      Bash mix test
 🐭 feat-owl-snapshot    blocked  2h 5m   permission prompt in pane
-🐭 style-header-polish  idle     3d 4h   Header spacing on narrow panes
 ```
 
 One row per mouse of this repo: its branch, what herdr says its pane is doing, and one
-thing more — the question waiting on you when there is one, otherwise what the mouse is
+thing more — the question waiting on you when there is one, with how long it has waited
+(a question behind it in the queue says `queued behind #52` instead), otherwise what the mouse is
 working on, which is the summary its own session keeps as its pane's title, and otherwise
 what it is stuck in: the tool call it is sitting in, read from its own Claude Code
 transcript and never asked for (ADR-0050). That last one takes the column when the mouse

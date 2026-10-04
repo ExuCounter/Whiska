@@ -43,12 +43,6 @@ defmodule Whiska.QuestionsTest do
     q
   end
 
-  # `render_full/1` reads preloaded questions; `full/1` names the branch from
-  # that preload, so a freshly recorded question needs the same shape here.
-  defp with_branch(question, branch) do
-    %{question | mouse: %Whiska.Schema.Mouse{branch: branch}}
-  end
-
   defp leave(main, text, age_seconds) do
     {:ok, _} =
       Doorstep.leave(main, %Entry{
@@ -105,10 +99,63 @@ defmodule Whiska.QuestionsTest do
       out = Questions.render(summary)
 
       assert [line1, line2] = String.split(out, "\n")
-      assert line1 == ~s(##{q1.id}  feat-a  needs a decision · "pick a cache TTL"  \(open\))
+
+      assert line1 ==
+               ~s(##{q1.id}  feat-a  needs a decision · "pick a cache TTL"  \(queued behind ##{q2.id}\))
 
       assert line2 =~
-               ~s(##{q2.id}  feat-b  stopped without saying why · "I just stopped."  \(sent )
+               ~s(##{q2.id}  feat-b  stopped without saying why · "I just stopped."  \(waiting on you since )
+    end
+
+    # The person compares these against the clock on their own screen, so they
+    # are this machine's local time, never the UTC they are stored in. On a
+    # machine set to UTC the two coincide and this cannot tell them apart.
+    test "times are the person's local clock, not UTC" do
+      at = ~U[2026-10-04 06:56:00.123456Z]
+
+      q = %Whiska.Schema.Question{
+        id: 132,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "sent",
+        text: "Body.",
+        asked_at: at,
+        sent_at: at
+      }
+
+      {{y, mo, d}, {h, mi, _s}} =
+        :calendar.universal_time_to_local_time({{2026, 10, 4}, {6, 56, 0}})
+
+      pad = &String.pad_leading("#{&1}", 2, "0")
+
+      assert Questions.line(q, 132) =~
+               "(waiting on you since #{pad.(h)}:#{pad.(mi)})"
+
+      assert Questions.full(q, "feat-a", 132) =~
+               "asked #{y}-#{pad.(mo)}-#{pad.(d)} #{pad.(h)}:#{pad.(mi)})"
+    end
+
+    test "at length, a queued question still says what it is behind", %{main: main} do
+      %{sent: sent} =
+        seed(main, fn ->
+          sent = ask("m1", "Recap.\n[worktree-status: needs-decision] pick a cache TTL")
+          {:ok, _} = Storage.mark_sent(sent.id)
+          ask("m2", "The other one.\n[worktree-status: needs-decision] name the flag")
+          %{sent: sent}
+        end)
+
+      {:ok, summary} = Questions.summary(main)
+
+      assert Questions.render_full(summary) =~ "(queued behind ##{sent.id}, asked"
+    end
+
+    test "an open question with nothing sent is just open", %{main: main} do
+      q = seed(main, fn -> ask("m1", "Recap.\n[worktree-status: needs-decision] pick one") end)
+
+      {:ok, summary} = Questions.summary(main)
+
+      assert Questions.render(summary) =~
+               ~s(##{q.id}  feat-a  needs a decision · "pick one"  \(open\))
     end
 
     test "orphaned questions are shown apart, after the open ones (ADR-0036)", %{main: main} do
@@ -159,8 +206,8 @@ defmodule Whiska.QuestionsTest do
       assert [first, second] = String.split(out, Questions.separator())
 
       # Each block is exactly what `whiska questions <id>` prints today.
-      assert String.trim(first) == Questions.full(q1 |> with_branch("feat-a"))
-      assert String.trim(second) == Questions.full(q2 |> with_branch("feat-b"))
+      assert String.trim(first) == Questions.full(q1, "feat-a", nil)
+      assert String.trim(second) == Questions.full(q2, "feat-b", nil)
 
       # Oldest first, and the whole text is there, not a pointer.
       assert out =~ "pick a cache TTL"

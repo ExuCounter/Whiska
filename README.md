@@ -69,7 +69,7 @@ silently. Your statusline shows them, drawn under your own:
 ```
 ~/projects/whiska  main ✔
 🐭 feat-watch-board     working  12m     A board the owl writes
-🐭 feat-quiet-marker    idle     1h 33m  waiting on you · #52 · "sqlite or a plain file?"
+🐭 feat-quiet-marker    idle     1h 33m  waiting on you for 4m 12s · #52 · "sqlite or a plain file?"
 🐭 fix-doctor-probe     working  4m      Bash mix test
 🐭 feat-owl-snapshot    blocked  2h 5m   permission prompt in pane
 🐭 style-header-polish  idle     3d 4h   Header spacing on narrow panes

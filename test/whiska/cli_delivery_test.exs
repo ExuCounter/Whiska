@@ -272,10 +272,21 @@ defmodule Whiska.CLIDeliveryTest do
       assert Enum.at(lines, 0) =~ "#1"
       assert Enum.at(lines, 0) =~ "feat-a"
       assert Enum.at(lines, 0) =~ ~s("pick one")
-      assert Enum.at(lines, 0) =~ "open"
+      assert Enum.at(lines, 0) =~ "queued behind #2"
       assert Enum.at(lines, 1) =~ "#2"
-      assert Enum.at(lines, 1) =~ "sent"
+      assert Enum.at(lines, 1) =~ "waiting on you since"
       refute out =~ "#3"
+    end
+
+    test "with an id says what a queued question is waiting on", %{main: main} do
+      seed(main, fn ->
+        a = ask("Which db?\n[worktree-status: needs-decision] pick one")
+        {:ok, _} = Storage.mark_sent(a.id)
+        ask("Which cache?\n[worktree-status: needs-decision] pick another")
+      end)
+
+      {0, out, _} = run(["questions", "2"], main)
+      assert out =~ "(queued behind #1, asked"
     end
 
     test "with an id prints that question in full", %{main: main} do

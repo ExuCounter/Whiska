@@ -38,6 +38,7 @@ defmodule Whiska.Watch do
   alias Whiska.Layout
   alias Whiska.Mice
   alias Whiska.Question.Marker
+  alias Whiska.Questions
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -77,8 +78,20 @@ defmodule Whiska.Watch do
           status: String.t(),
           elapsed: String.t(),
           detail: String.t(),
+          asked: asked() | nil,
           started_at: DateTime.t(),
           picked_up_at: DateTime.t() | nil
+        }
+
+  @typedoc """
+  What a row's question is waiting on: the person, since `sent_at` when it holds
+  the delivery slot, or the question that does, `behind`. Kept apart from the
+  words so a retime can re-spell the age without reading the database again.
+  """
+  @type asked :: %{
+          pointer: String.t(),
+          sent_at: DateTime.t() | nil,
+          behind: pos_integer() | nil
         }
 
   @typedoc "What one dead branch is called on the board, and how many questions it left."
@@ -168,11 +181,14 @@ defmodule Whiska.Watch do
 
     {orphaned, live} = Enum.split_with(questions, &(&1.status == @orphaned))
     by_mouse = live |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1})
+    slot = Questions.slot(live)
 
     {rows, more} =
       mice
       |> Enum.filter(&is_nil(&1.died_at))
-      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, activity, picked_up[&1.mouse_id], now))
+      |> Enum.map(
+        &row(&1, by_mouse[&1.mouse_id], slot, panes, activity, picked_up[&1.mouse_id], now)
+      )
       |> Enum.sort_by(&rank/1)
       |> cap()
 
@@ -186,9 +202,10 @@ defmodule Whiska.Watch do
     }
   end
 
-  defp row(mouse, question, panes, activity, picked_up, now) do
+  defp row(mouse, question, slot, panes, activity, picked_up, now) do
     pane = pane(mouse, panes)
     status = status(pane)
+    asked = asked(question, slot)
 
     %{
       mouse_id: mouse.mouse_id,
@@ -196,20 +213,23 @@ defmodule Whiska.Watch do
       branch: mouse.branch || mouse.mouse_id,
       status: status,
       elapsed: elapsed(mouse.created_at, now),
-      detail: detail(question, pane, status, picked_up, now, fn -> activity.(mouse) end),
+      detail: detail(question, asked, pane, status, picked_up, now, fn -> activity.(mouse) end),
+      asked: asked,
       started_at: mouse.created_at,
       picked_up_at: if(question_id(question), do: nil, else: picked_up)
     }
   end
 
   @doc """
-  The same board, its clock moved to `now`: the elapsed column and a picked-up
-  age, and nothing else.
+  The same board, its clock moved to `now`: the elapsed column, a picked-up age
+  and how long a sent question has waited on the person, and nothing else.
 
   The house writes the board every second but reads herdr, the database and
   each mouse's transcript only every other write; in between, this is what it
-  writes. Both ages are re-spelled from the timestamps the row was built from,
-  so a re-timed row says exactly what a fresh one would.
+  writes. Every age is re-spelled from the timestamps the row was built from,
+  so a re-timed row says exactly what a fresh one would. A queued row's words
+  name another question, and only a rebuild can see that one answered, so they
+  are left as they were.
   """
   @spec retime(t(), DateTime.t()) :: t()
   def retime(board, now) do
@@ -218,6 +238,9 @@ defmodule Whiska.Watch do
 
   defp retime_row(%{picked_up_at: %DateTime{} = at} = row, now),
     do: %{row | elapsed: elapsed(row.started_at, now), detail: picked_up(at, now)}
+
+  defp retime_row(%{asked: %{sent_at: %DateTime{}} = asked} = row, now),
+    do: %{row | elapsed: elapsed(row.started_at, now), detail: asked(row.question_id, asked, now)}
 
   defp retime_row(row, now), do: %{row | elapsed: elapsed(row.started_at, now)}
 
@@ -248,23 +271,30 @@ defmodule Whiska.Watch do
   defp said_status("unknown"), do: "?"
   defp said_status(status), do: status
 
-  defp detail(%Question{status: status} = question, _pane, _status, _picked_up, _now, _activity)
-       when status in @waiting do
-    case Text.plain(Marker.pointer(question.text), @phrase_max) do
-      "" -> "waiting on you · ##{question.id}"
-      pointer -> ~s(waiting on you · ##{question.id} · "#{pointer}")
-    end
+  # A question is waiting on the person only once it is the one they were told:
+  # the sent one, or the next to go when nothing is sent. Everything else is
+  # queued behind the slot's holder (ADR-0008), and saying "waiting on you" on
+  # it too hides the one answer that frees the queue.
+  defp asked(%Question{status: status} = question, slot) when status in @waiting do
+    %{
+      pointer: Text.plain(Marker.pointer(question.text), @phrase_max),
+      sent_at: if(status == "sent", do: question.sent_at),
+      behind: Questions.behind(question, slot)
+    }
   end
+
+  defp asked(_no_question, _slot), do: nil
+
+  defp detail(%Question{} = question, %{} = asked, _pane, _status, _picked_up, now, _activity),
+    do: asked(question.id, asked, now)
 
   # News, and only while it is news: the turn the owl started has not ended, so
   # the row says a person did not ask for this one (ADR-0067). `whiska mice`
   # keeps saying it afterwards.
-  defp detail(_question, _pane, _status, %DateTime{} = picked_up, now, _activity),
+  defp detail(_question, _asked, _pane, _status, %DateTime{} = picked_up, now, _activity),
     do: picked_up(picked_up, now)
 
-  defp picked_up(at, now), do: "picked up #{Mice.format_uptime(DateTime.diff(now, at))} ago"
-
-  defp detail(_question, pane, status, _picked_up, _now, activity) do
+  defp detail(_question, _asked, pane, status, _picked_up, _now, activity) do
     %{action: action, silent_for: silent_for} = activity.()
     topic = topic(pane)
     doing = doing(action)
@@ -273,6 +303,26 @@ defmodule Whiska.Watch do
       do: doing || topic || "",
       else: topic || doing || ""
   end
+
+  # The sent question carries how long it has waited, not the mouse's age in
+  # the elapsed column: one left unanswered for hours holds every other question
+  # back, and should not read like one told a minute ago.
+  defp asked(_id, %{behind: behind} = asked, _now) when is_integer(behind),
+    do: pointed("queued behind ##{behind}", asked.pointer)
+
+  defp asked(id, %{sent_at: %DateTime{} = at} = asked, now),
+    do:
+      pointed(
+        "waiting on you for #{Mice.format_uptime(DateTime.diff(now, at))} · ##{id}",
+        asked.pointer
+      )
+
+  defp asked(id, asked, _now), do: pointed("waiting on you · ##{id}", asked.pointer)
+
+  defp pointed(said, ""), do: said
+  defp pointed(said, pointer), do: ~s(#{said} · "#{pointer}")
+
+  defp picked_up(at, now), do: "picked up #{Mice.format_uptime(DateTime.diff(now, at))} ago"
 
   defp stuck?("blocked", _silent_for), do: true
   defp stuck?("working", silent_for), do: is_integer(silent_for) and silent_for >= @stuck_after
@@ -430,8 +480,10 @@ defmodule Whiska.Watch do
     do: inked <> String.duplicate(" ", max(width - String.length(words), 0))
 
   # The question is the one thing on the board the person has to act on, so it
-  # is the one thing in yellow; what a mouse is doing stays plain.
+  # is the one thing in yellow; what a mouse is doing stays plain, and so does a
+  # question queued behind another — answering it is not what frees the queue.
   defp detail(%{question_id: nil} = row), do: row.detail
+  defp detail(%{asked: %{behind: behind}} = row) when is_integer(behind), do: row.detail
   defp detail(row), do: Ink.yellow(row.detail)
 
   defp ticker(_row, 0, _tick), do: ""
