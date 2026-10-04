@@ -40,8 +40,14 @@ If the decision changes, the ADR changes in the same piece of work — supersede
 rewrite it, and update `docs/adr/README.md`. A stale ADR is worse than none.
 
 **Writing a new one** needs all three to be true, or skip it: hard to reverse, surprising
-without context, and the result of a real trade-off with genuine alternatives. Scan
-`docs/adr/` for the highest number and increment.
+without context, and the result of a real trade-off with genuine alternatives. Name it
+`docs/adr/next-<slug>.md` and cite it as `ADR-` then `next-<slug>`. Never pick a number:
+it is only known when the branch lands.
+
+**Before merging a branch whose `docs/adr/` holds a `next-` file**, run `mix adr.claim`
+in its worktree and commit the result on the branch, then merge. `mix test` fails on a
+placeholder that reached main, a number taken twice, or a citation with no record behind
+it.
 
 ## Use the repo's words
 

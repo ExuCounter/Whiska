@@ -1,9 +1,10 @@
 # Architecture decisions
 
-One file per decision, numbered in sequence. `CONTEXT.md` at the repo root is the
-glossary; these record *why* things are the way they are. Both `specs/spec.md` and the
-`handoffs/` files remain the long-form design narrative — these are the extracted,
-individually citable decisions.
+One file per decision, numbered in sequence. A record not yet merged is `next-<slug>.md`
+and gets its number from `mix adr.claim` just before its branch merges. `CONTEXT.md` at
+the repo root is the glossary; these record *why* things are the way they are. Both
+`specs/spec.md` and the `handoffs/` files remain the long-form design narrative — these
+are the extracted, individually citable decisions.
 
 ## Shape of the system
 
@@ -94,6 +95,7 @@ individually citable decisions.
 - [0029](0029-rollout-runs-alongside-the-bash-relay.md) — the bash relay is gone; the cutover was hard, and the gap is accepted (reversed 2026-09-27)
 - [0030](0030-v0-0-1-is-a-plain-cli-in-its-own-repo.md) — v0.0.1 is a plain CLI in its own repo, not the owl
 - [0031](0031-mocking-is-confined-to-the-herdr-boundary.md) — Mocking is confined to the herdr boundary
+- [next-an-adr-claims-its-number-when-it-lands](next-an-adr-claims-its-number-when-it-lands.md) — An ADR claims its number when it lands
 
 ## Performance
 
