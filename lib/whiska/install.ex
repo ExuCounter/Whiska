@@ -1015,21 +1015,16 @@ defmodule Whiska.Install do
   def skills, do: @skills ++ @committed_skill_files
 
   @doc """
-  The skills one scope writes.
-
-  The global install ships the reading skills and the finishing pipeline — the
-  four a session needs wherever it is working. The three worktree skills are
-  not among them: they wrap `herdr` rather than `whiska` (ADR-0046) and the
-  person's own dotfiles already install them globally, so shipping a second
-  global copy would only give the two something to drift apart over.
+  The skills one scope writes: all seven in both, because the global install
+  is the only source of them on a machine that has it (ADR-0056).
   """
   @spec skills(scope()) :: [{Path.t(), String.t()}]
-  def skills(:repo), do: skills()
+  def skills(_scope), do: skills()
 
-  def skills(:global) do
-    @skills ++
-      Enum.filter(@committed_skill_files, &String.contains?(elem(&1, 0), "whiska-finish"))
-  end
+  @doc "The three worktree skills, as the paths both scopes write them to."
+  @spec worktree_skill_paths() :: [Path.t()]
+  def worktree_skill_paths,
+    do: for(name <- @worktree_skills, do: ".claude/skills/#{name}/SKILL.md")
 
   @doc """
   Merge Whiska's hook into an existing settings map.

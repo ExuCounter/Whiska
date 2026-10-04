@@ -104,15 +104,23 @@ defmodule Whiska.CLIInitGlobalTest do
       assert File.read!(Path.join(home, Install.base_statusline_path())) == "my-line.sh"
     end
 
-    test "writes the four skills and not the worktree ones", %{home: home} do
+    test "writes all seven skills, the worktree ones included", %{home: home} do
       init_global()
 
-      for name <- ~w(whiska-questions whiska-delivered whiska-reply whiska-finish) do
+      for name <- ~w(whiska-questions whiska-delivered whiska-reply whiska-finish
+                     spawn-worktree send-to-worktree drop-worktree) do
         assert File.exists?(Path.join(home, ".claude/skills/#{name}/SKILL.md"))
       end
+    end
+
+    test "says where each worktree skill landed, a plain file included", %{home: home} do
+      output = init_global()
 
       for name <- ~w(spawn-worktree send-to-worktree drop-worktree) do
-        refute File.exists?(Path.join(home, ".claude/skills/#{name}/SKILL.md"))
+        real = Whiska.Layout.canonical(Path.join(home, ".claude/skills/#{name}/SKILL.md"))
+        [line] = output |> String.split("\n") |> Enum.filter(&(&1 =~ "#{name} "))
+        assert line =~ real
+        refute line =~ "symlink"
       end
     end
 

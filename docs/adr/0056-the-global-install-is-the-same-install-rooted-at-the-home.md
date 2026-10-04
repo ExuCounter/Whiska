@@ -35,17 +35,16 @@ repo with no house simply finds no mouse and writes nothing. What stays per repo
 house under `.git/whiska` — which was never committed anyway — and the optional `## Finish`
 heading, which is the repo's to write because only the repo knows what green means.
 
-Three differences, each forced:
+Two differences, each forced:
 
 - **The hook command.** `$CLAUDE_PROJECT_DIR` names the repo, so the global copy names
   `$HOME`.
 - **The `finish` part's two pointers.** The skill file is beside the block, and `## Finish`
   is always the project's own `CLAUDE.md` — which `~/.claude/CLAUDE.md` is not.
-- **The worktree skills.** `spawn-worktree`, `send-to-worktree` and `drop-worktree` are not
-  in the global install. ADR-0046 noted that the person's dotfiles already install those
-  three globally; a second global copy would be two files with one name and nothing keeping
-  them in step. The four that read and finish — `whiska-questions`, `whiska-delivered`,
-  `whiska-reply`, `whiska-finish` — are shipped, because nothing else ships them at all.
+
+Both scopes ship the same seven skills, the three worktree ones included. The global
+install is the only source of them on a machine that has it; see the 2026-10-04 amendment
+below.
 
 ## The repo's copy wins, and the global one stands down
 
@@ -128,9 +127,11 @@ person's next move is to commit it in the repo that owns the link, not here.
 `whiska uninstall`, and `whiska uninstall --global`, are the mirror of `init` and the way
 to hand a repo over to the global install: they take out the block, the hook entries, the
 scripts and the skills, restore the displaced statusline, and touch nothing else. A file
-whose path resolves outside the scope's root is named and left where it is — the whole
-path is resolved, not only its last segment, because `~/.claude/skills` is commonly one
-link into a dotfiles repo rather than a link per skill file.
+reached through a symlink is named and left where it is — any segment of the path below
+the scope's root counts, not only its last, because `~/.claude/skills` is commonly one link
+into a dotfiles repo rather than a link per skill file. Where the link points does not
+matter: a dotfiles repo usually lives inside the very home it is linked from, so "resolves
+outside the root" would miss the common case.
 
 One thing is not restored exactly: a displaced `statusLine` comes back as its `type` and
 `command`, so any other field it carried — a `padding`, a `refreshInterval` of the person's
@@ -161,3 +162,29 @@ becomes a control the moment untrusted input can reach it.
 `Whiska.Install` reads the filesystem now. It was pure values plus one write, and
 `global_state/0` and `global_links/0` break that. The alternative was a module whose only
 job is to stat eight paths, which is worse.
+
+## Amendment (2026-10-04): the global install ships the worktree skills too
+
+This record first kept `spawn-worktree`, `send-to-worktree` and `drop-worktree` out of the
+global install:
+
+> ADR-0046 noted that the person's dotfiles already install those three globally; a second
+> global copy would be two files with one name and nothing keeping them in step.
+
+That premise is gone. The person is taking the three out of their dotfiles, which is the
+follow-up ADR-0046 named. It had already cost something: the dotfiles copy of
+`spawn-worktree` sat 48 lines behind Whiska's for weeks, so every session spawned anywhere
+on the machine skipped the shape step and started on the default model with nothing
+recorded. Two copies drift; one source cannot.
+
+So `whiska init --global` writes all seven skills, and the scope makes no difference to
+which skills are written.
+
+The symlink rule above is unchanged, and this is where it bites. Until the person's
+dotfiles stop installing the three, `~/.claude/skills/<name>/SKILL.md` is a link into that
+repo, and a global install writes Whiska's copy back through it. That is correct — the
+alternative is replacing a link the person owns. `whiska init --global` prints where each of
+the three actually landed, marking one reached through a symlink, so the person can see a
+write into dotfiles rather than discover it later. A link left behind after its dotfiles
+file was deleted is written through too, recreating the file at its target, rather than
+failing the install.
