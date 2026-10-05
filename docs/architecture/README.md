@@ -35,7 +35,7 @@ restarts it only on a crash, and logs to `~/.whiska/owl.log`; `whiska owl stop`,
 and `uninstall` beside it; and the doctor's `launch agent` line (ADR-0040). Then Linux: the
 same verbs drive a systemd user unit, `whiska-owl.service`, behind one `ServiceManager`
 behaviour, with the doctor's `systemd unit` and `logout` lines, and the desktop fallback
-raises a hoot with `notify-send` (ADR-next-the-owl-is-kept-by-the-platforms-service-manager,
+raises a hoot with `notify-send` (ADR-0077,
 ADR-0071's 2026-10-05 note). Then the backstop
 warning: when a house's 60 s backstop collects anything, it is something the idle trigger
 should have brought a minute earlier, so the house warns and marks it in

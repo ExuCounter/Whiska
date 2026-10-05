@@ -105,7 +105,7 @@ that is the lever.
 ## Note, 2026-10-05: Linux raises it with notify-send
 
 The "nothing is raised" consequence above was Linux's. Since
-ADR-next-the-owl-is-kept-by-the-platforms-service-manager made Linux a supported platform,
+ADR-0077 made Linux a supported platform,
 a hoot herdr will not show is raised there with `notify-send`, tried after
 `terminal-notifier` and `osascript`. Its title and body follow a `--`, which ends
 notify-send's option parsing, so a title of `-e` is still data. Its sound is the

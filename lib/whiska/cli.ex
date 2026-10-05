@@ -1611,7 +1611,7 @@ defmodule Whiska.CLI do
   end
 
   # -- the owl under its service manager (ADR-0040) -------------------------------
-  # launchd on macOS, systemd on Linux (ADR-next-the-owl-is-kept-by-the-platforms-service-manager);
+  # launchd on macOS, systemd on Linux (ADR-0077);
   # the verbs mean the same on both.
 
   defp owl_install do

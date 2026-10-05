@@ -343,7 +343,7 @@ _Avoid_: daemon, server, service
 The operating system's own program that keeps the owl running: it starts it at login
 and restarts it after a crash. launchd on macOS, through the user LaunchAgent
 `com.whiska.owl`; systemd on Linux, through the user unit `whiska-owl.service`
-(ADR-0040, ADR-next-the-owl-is-kept-by-the-platforms-service-manager). `whiska owl
+(ADR-0040, ADR-0077). `whiska owl
 install|stop|start|uninstall` drive whichever is in force, and mean the same on both.
 Either runs the same wrapper, `~/.whiska/owl.sh`.
 _Avoid_: supervisor (OTP's word, for the process tree inside the owl), service (the owl

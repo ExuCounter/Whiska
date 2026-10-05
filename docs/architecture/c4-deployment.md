@@ -85,7 +85,7 @@ commonly symlinks into a dotfiles repo, so every write goes through the link and
 the target in place; replacing the link would disconnect that repo silently.
 
 **The owl's job lives in the user's own service-manager domain** (ADR-0040,
-ADR-next-the-owl-is-kept-by-the-platforms-service-manager). On macOS it is the LaunchAgent
+ADR-0077). On macOS it is the LaunchAgent
 `com.whiska.owl` in launchd's `gui` domain, at
 `~/Library/LaunchAgents/com.whiska.owl.plist`. On Linux it is the systemd user unit
 `whiska-owl.service`, at `~/.config/systemd/user/whiska-owl.service`. Either starts the owl

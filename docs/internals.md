@@ -223,7 +223,7 @@ whiska owl uninstall  # unload the job and remove it; the log and the record sta
 The job is the platform's own: a user LaunchAgent,
 `~/Library/LaunchAgents/com.whiska.owl.plist`, on macOS, and a systemd user unit,
 `~/.config/systemd/user/whiska-owl.service`, on Linux
-(ADR-next-the-owl-is-kept-by-the-platforms-service-manager). Either starts the owl at login
+(ADR-0077). Either starts the owl at login
 and restarts it if it crashes — only on a crash, so `whiska owl stop` is a clean exit that
 stays stopped (ADR-0040). The job runs
 `~/.whiska/owl.sh`, a wrapper generated from the same shell the hook shim uses, so the

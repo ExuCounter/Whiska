@@ -33,7 +33,7 @@ as a direct dependency.
   will run Whiska. Nothing checks herdr's version, even though herdr answers a
   `ping` with it.
 - **macOS is no longer required.** Done 2026-10-05: launchd is macOS's half, and a
-  systemd user unit is Linux's (ADR-next-the-owl-is-kept-by-the-platforms-service-manager).
+  systemd user unit is Linux's (ADR-0077).
   The desktop fallback adds `notify-send`, and a missing `launchctl` or `systemctl` reads as
   "not loaded" rather than raising. `mix test` passes in a Linux container. `stat` and the
   paths already had fallbacks.

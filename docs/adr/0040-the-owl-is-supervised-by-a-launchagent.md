@@ -145,7 +145,7 @@ the owl stopped cleanly by `whiska owl stop` — keeps the old "loaded, owl not 
 
 ## Note, 2026-10-05: launchd is macOS's half
 
-ADR-next-the-owl-is-kept-by-the-platforms-service-manager amends this record. Everything above
+ADR-0077 amends this record. Everything above
 still holds on macOS. "The one supervisor" now reads as the platform's own service
 manager: this LaunchAgent on macOS, and a systemd user unit, `whiska-owl.service`, on
 Linux. The verbs, the shared wrapper and the never-two-owls refusals are the same on both.

@@ -47,5 +47,5 @@ C4Context
   process per repo (ADR-0001). `whiska owl install` writes the user LaunchAgent
   `com.whiska.owl` on macOS, or the systemd user unit `whiska-owl.service` on Linux, which
   starts the owl at login and restarts it if it crashes (ADR-0040,
-  ADR-next-the-owl-is-kept-by-the-platforms-service-manager). The foreground `whiska owl`
+  ADR-0077). The foreground `whiska owl`
   still exists, and refuses while the supervised owl is running.

@@ -147,7 +147,7 @@ erase pending questions. The mirror cost is that a question can outlive its mous
 state has a name already (ADR-0026) rather than being a new problem.
 
 **The platform's service manager is the one thing that keeps the owl running** (ADR-0040,
-ADR-next-the-owl-is-kept-by-the-platforms-service-manager): a user LaunchAgent under launchd on
+ADR-0077): a user LaunchAgent under launchd on
 macOS, a user unit under systemd on Linux. Either runs `~/.whiska/owl.sh`, not the escript:
 neither manager's `PATH` can find `escript`, and the wrapper is generated from the same
 fragments as the hook shim, so the runtime is found at every launch and an Erlang upgrade

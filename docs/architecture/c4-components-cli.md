@@ -250,7 +250,7 @@ settings files it read at startup. Every finding prints its fix. `fail` means a 
 here would be lost or never written; `warn` means degraded but nothing lost.
 
 **`ServiceManager` is one behaviour with a module per platform** (ADR-0040,
-ADR-next-the-owl-is-kept-by-the-platforms-service-manager). `LaunchAgent` renders a plist for
+ADR-0077). `LaunchAgent` renders a plist for
 launchd and `SystemdUnit` a unit for systemd; `:os.type()` picks one, and the CLI's four
 `owl` verbs and the doctor's line go through whichever is in force. Both are pure values
 plus writes under a given home: the job file and the wrapper are rendered from data;
