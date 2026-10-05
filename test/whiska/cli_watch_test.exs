@@ -17,7 +17,19 @@ defmodule Whiska.CLIWatchTest do
     root = Path.join(System.tmp_dir!(), "whiska-cliwatch-#{System.unique_integer([:positive])}")
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
-    on_exit(fn -> File.rm_rf!(root) end)
+    # The herdr mock answers for any socket; a herdr pane's shell names one,
+    # and the run must not depend on whether the suite was started in one.
+    socket = System.get_env("HERDR_SOCKET_PATH")
+    System.put_env("HERDR_SOCKET_PATH", Path.join(root, "herdr.sock"))
+
+    on_exit(fn ->
+      if socket,
+        do: System.put_env("HERDR_SOCKET_PATH", socket),
+        else: System.delete_env("HERDR_SOCKET_PATH")
+
+      File.rm_rf!(root)
+    end)
+
     {:ok, main: main}
   end
 

@@ -1,13 +1,13 @@
 defmodule Whiska.Desktop.NotifierTest do
   @moduledoc """
-  The macOS notifier Whiska raises a hoot with when herdr will not show it
-  (ADR-0071).
+  The desktop notifier Whiska raises a hoot with when herdr will not show it
+  (ADR-0071): terminal-notifier or osascript on macOS, notify-send on Linux.
 
   A branch name and a pointer line are somebody else's text — anything in the
   repo can write the doorstep file they come from — and here they reach a
   command line. These tests are about that: every piece of text arrives at the
   program as one argument, byte for byte, and none of it is ever read as shell
-  or AppleScript. The round-trip tests spawn a real process, so the claim is
+  or AppleScript, or as an option. The round-trip tests spawn a real process, so the claim is
   checked through the operating system rather than on a list in memory.
   """
   use ExUnit.Case, async: true
@@ -83,7 +83,54 @@ defmodule Whiska.Desktop.NotifierTest do
       assert {"/bin/tn", _} = Notifier.command(hoot(), find)
     end
 
-    test "no notifier at all is no command, which is how Linux degrades" do
+    test "notify-send is the Linux notifier, with the title and text after a --" do
+      title = "🐱 whiska · #{@nasty} needs a decision"
+
+      assert {"/usr/bin/notify-send", args} =
+               Notifier.command(hoot(title: title), only("notify-send", "/usr/bin/notify-send"))
+
+      assert args == [
+               "--app-name=Whiska",
+               "--hint=string:sound-name:message-new-instant",
+               "--",
+               title,
+               "#12"
+             ]
+    end
+
+    test "notify-send's sound is a freedesktop sound name, and :none asks for none" do
+      assert {_, args} = Notifier.command(hoot(sound: :done), only("notify-send", "/n"))
+      assert "--hint=string:sound-name:complete" in args
+
+      assert {_, args} = Notifier.command(hoot(sound: :none), only("notify-send", "/n"))
+      refute Enum.any?(args, &String.starts_with?(&1, "--hint"))
+    end
+
+    test "a title of -e, or a NUL, reaches notify-send as data" do
+      {_, args} = Notifier.command(hoot(title: "-e", body: "a\0b"), only("notify-send", "/n"))
+      assert ["--", "-e", "ab"] == Enum.take(args, -3)
+    end
+
+    test "notify-send's text is escaped, since a notification server may render it as markup" do
+      body = ~s(#12 · <a href="https://evil.example">Approve</a> & <b>now</b>)
+
+      {_, args} = Notifier.command(hoot(body: body), only("notify-send", "/n"))
+
+      assert List.last(args) ==
+               ~s(#12 · &lt;a href="https://evil.example"&gt;Approve&lt;/a&gt; &amp; &lt;b&gt;now&lt;/b&gt;)
+    end
+
+    test "the macOS notifiers win where they are there" do
+      find = fn
+        "osascript" -> "/usr/bin/osascript"
+        "notify-send" -> "/usr/bin/notify-send"
+        _ -> nil
+      end
+
+      assert {"/usr/bin/osascript", _} = Notifier.command(hoot(), find)
+    end
+
+    test "no notifier at all is no command" do
       assert Notifier.command(hoot(), fn _ -> nil end) == nil
     end
 
@@ -163,6 +210,37 @@ defmodule Whiska.Desktop.NotifierTest do
       assert Enum.take(received(out), -3) == [title, "#12", "Ping"]
     end
 
+    test "the same branch reaches notify-send intact", %{dir: dir} do
+      {path, out} = recorder(dir, "notify-send")
+      title = "🐱 whiska · #{@nasty} needs a decision"
+
+      assert {:ok, "notify-send"} =
+               Notifier.notify(hoot(title: title), find: only("notify-send", path))
+
+      assert Enum.take(received(out), -3) == ["--", title, "#12"]
+    end
+
+    @tag :notify_send
+    test "the real notify-send reads a title of --help as the title, not an option", %{
+      dir: dir
+    } do
+      # Read as an option, --help prints the usage and exits 0. Read as the
+      # title, it is sent, and with no session bus to reach that fails instead.
+      notify_send = System.find_executable("notify-send")
+
+      {path, args} =
+        Notifier.command(hoot(title: "--help", body: "x"), only("notify-send", notify_send))
+
+      {out, status} =
+        System.cmd(path, args,
+          stderr_to_stdout: true,
+          env: [{"DBUS_SESSION_BUS_ADDRESS", "unix:path=#{dir}/no-bus"}]
+        )
+
+      refute out =~ ~r/usage/i
+      refute status == 0
+    end
+
     test "the real osascript reads the text as data, not as AppleScript", %{dir: dir} do
       # The script's own prologue, with `display notification` swapped for
       # handing the arguments back — the one part of the real script that
@@ -223,6 +301,22 @@ defmodule Whiska.Desktop.NotifierTest do
                Notifier.notify(hoot(), find: only("terminal-notifier", path), timeout_ms: 300)
 
       assert {_, 1} = System.cmd("pgrep", ["-f", "sleep #{seconds}"])
+    end
+
+    test "a notifier that exits at once is an answer, never a raise" do
+      # Finished before its pid can be asked for: Linux, under load, hits this
+      # on an ordinary run.
+      instant = System.find_executable("true")
+
+      answers =
+        1..200
+        |> Task.async_stream(
+          fn _ -> Notifier.notify(hoot(), find: only("notify-send", instant)) end,
+          max_concurrency: 16
+        )
+        |> Enum.map(fn {:ok, answer} -> answer end)
+
+      assert Enum.uniq(answers) == [{:ok, "true"}]
     end
 
     test "a notifier that vanished after it was found is an answer, even unsupervised" do

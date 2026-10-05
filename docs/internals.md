@@ -79,7 +79,7 @@ Pre-1.0 (`v0.0.1`). The core loop works end to end.
 
 **Built:** mouse identity, per-repo houses, worktree containment and sniff mode, the
 doorstep and collection, delivery with its queue, `reply` / `close` / `questions` /
-`waiting` / `jump`, both statuslines, the doctor, launchd supervision, `init` and
+`waiting` / `jump`, both statuslines, the doctor, launchd and systemd supervision, `init` and
 `init --global`, and the finishing pipeline a mouse runs before it reports done.
 
 **Not yet:** the per-repo socket and `whiska stop` for a single house, the read-only
@@ -214,28 +214,37 @@ into a dotfiles repo, every write goes through the link and changes the target i
 ## Keeping the owl awake
 
 ```
-whiska owl install    # write ~/Library/LaunchAgents/com.whiska.owl.plist and load it
-whiska owl stop       # ask the owl to exit; it returns at login, or on `whiska owl start`
+whiska owl install    # write the owl's job for launchd or systemd, and start it
+whiska owl stop       # ask the owl to exit; it returns on `whiska owl start`, or when the service manager next starts your session
 whiska owl start      # start it now
 whiska owl uninstall  # unload the job and remove it; the log and the record stay
 ```
 
-The LaunchAgent starts the owl at login and restarts it if it crashes — `KeepAlive` only on
-a crash, so `whiska owl stop` is a clean exit that stays stopped (ADR-0040). The job runs
+The job is the platform's own: a user LaunchAgent,
+`~/Library/LaunchAgents/com.whiska.owl.plist`, on macOS, and a systemd user unit,
+`~/.config/systemd/user/whiska-owl.service`, on Linux
+(ADR-0077). Either starts the owl at login
+and restarts it if it crashes — only on a crash, so `whiska owl stop` is a clean exit that
+stays stopped (ADR-0040). The job runs
 `~/.whiska/owl.sh`, a wrapper generated from the same shell the hook shim uses, so the
 binary and the Erlang runtime are found at every launch rather than baked in; stdout and
 stderr go to `~/.whiska/owl.log`. `HERDR_SOCKET_PATH` and the `WHISKA_*` overrides are
 copied into the job from the shell you install from, so install from a herdr pane; with
 nothing to copy the owl falls back to herdr's default socket.
 
-launchd starts the owl with no arguments, so it opens exactly the houses in its record
+On Linux, systemd stops the owl when your last session ends unless lingering is on;
+`whiska owl install` prints `loginctl enable-linger` rather than running it, and the
+doctor's `logout` line warns while it is off. Where this user has no systemd at all —
+most containers — `install` refuses and says to run `whiska owl` in a pane.
+
+The service manager starts the owl with no arguments, so it opens exactly the houses in its record
 (`~/.whiska/houses`, ADR-0039). With the record empty it idles and waits; `whiska owl
 <repo>` in the foreground is how a house first gets recorded — Ctrl-C it afterwards and
 the supervised owl picks it up on `whiska owl start`.
 
 Two owls would collect the same doorsteps, so `install` refuses while any owl is in the
 process table and prints the handover (Ctrl-C the foreground one, install again), and the
-foreground `whiska owl` refuses while launchd's owl is running — unless it *is* launchd's
+foreground `whiska owl` refuses while the supervised owl is running — unless it *is* that
 owl, which it tells by pid (ADR-0040's 2026-09-28 note). `whiska stop` is not the
 owl's stop: it shuts one house (ADR-0003) and is not built until the owl has a socket.
 

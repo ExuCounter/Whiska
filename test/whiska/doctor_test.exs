@@ -220,6 +220,15 @@ defmodule Whiska.DoctorTest do
       assert check.detail =~ "macOS"
     end
 
+    test "raised by notify-send, it points at the desktop's own settings, not macOS's" do
+      check = Doctor.hoot({:ok, {:not_shown, "disabled"}}, {:ok, "notify-send"})
+
+      assert %Check{status: :ok} = check
+      assert check.detail =~ "notify-send"
+      assert check.detail =~ "desktop"
+      refute check.detail =~ "macOS"
+    end
+
     test "nobody attached to herdr is not fixed by herdr's popup setting" do
       for desktop <- [:not_needed, {:error, :no_notifier}] do
         %Check{fix: fix} = Doctor.hoot({:ok, {:not_shown, "no_foreground_client"}}, desktop)
@@ -234,6 +243,7 @@ defmodule Whiska.DoctorTest do
       assert check.detail =~ "disabled"
       assert check.detail =~ "terminal-notifier"
       assert check.detail =~ "osascript"
+      assert check.detail =~ "notify-send"
       assert check.detail =~ "silent"
       assert check.fix =~ "ui.toast"
     end

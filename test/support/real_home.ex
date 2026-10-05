@@ -5,8 +5,9 @@ defmodule Whiska.Test.RealHome do
   Everything Whiska writes outside a repo hangs off two settings — the whiska
   home (`:home`, where the open-houses record, the owl's log and wrapper and
   `herdr-status.sh` live, ADR-0039) and the user home (`:user_home`, where the
-  owl's launchd plist goes, ADR-0040). `test_helper.exs` points both at a
-  per-run temp folder; this is the check that says whether they still are, and
+  owl's launchd plist or systemd unit goes, ADR-0040). `test_helper.exs`
+  points both at a per-run temp folder; this is the check that says whether
+  they still are, and
   `Whiska.Test.HomeGuard` runs it after every test.
   """
 
@@ -29,13 +30,15 @@ defmodule Whiska.Test.RealHome do
   @spec watched() :: %{String.t() => Path.t()}
   def watched do
     launchd = Whiska.LaunchAgent.paths()
+    systemd = Whiska.SystemdUnit.paths()
 
     %{
       "the whiska home (:home)" => Whiska.OpenHouses.home(),
       "the open-houses record" => Whiska.OpenHouses.path(),
-      "the user home (:user_home)" => Whiska.LaunchAgent.user_home(),
-      "the owl's launchd plist" => launchd.plist,
-      "the owl's launchd wrapper" => launchd.wrapper,
+      "the user home (:user_home)" => Whiska.ServiceManager.user_home(),
+      "the owl's launchd plist" => launchd.job,
+      "the owl's systemd unit" => systemd.job,
+      "the owl's wrapper" => launchd.wrapper,
       "the owl's log" => launchd.log,
       "herdr-status.sh" => Whiska.Install.herdr_status_path()
     }

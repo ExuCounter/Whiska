@@ -18,8 +18,8 @@ C4Context
   System_Ext(claude, "Claude Code", "Main session and mice; fires PreToolUse and Stop hooks")
   System_Ext(herdr, "herdr", "Terminal multiplexer - owns panes, starts Claude, reports agent status")
   System_Ext(git, "git worktrees", "One worktree per mouse, laid out under the main checkout")
-  System_Ext(launchd, "launchd", "Supervises the one owl per machine as a user LaunchAgent")
-  System_Ext(nc, "Desktop notifications", "terminal-notifier, or osascript")
+  System_Ext(launchd, "Service manager", "launchd on macOS, systemd on Linux - keeps the one owl per machine running")
+  System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
 
   Rel(person, claude, "Types into the main session")
   Rel(claude, whiska, "Sends hook events", "JSON on stdin / socket")
@@ -43,7 +43,9 @@ C4Context
 - **git is asked, and now also answered to.** Whether a branch has landed is a local git
   question, and it is the one that lets the owl take a merged worktree down by itself
   (ADR-0061). No forge, no network, no credentials are involved in it.
-- **launchd** matters because there is exactly one owl per machine, not one process per
-  repo (ADR-0001). `whiska owl install` writes the user LaunchAgent `com.whiska.owl`,
-  which starts the owl at login and restarts it if it crashes (ADR-0040). The foreground
-  `whiska owl` still exists, and refuses while launchd's owl is running.
+- **The service manager** matters because there is exactly one owl per machine, not one
+  process per repo (ADR-0001). `whiska owl install` writes the user LaunchAgent
+  `com.whiska.owl` on macOS, or the systemd user unit `whiska-owl.service` on Linux, which
+  starts the owl at login and restarts it if it crashes (ADR-0040,
+  ADR-0077). The foreground `whiska owl`
+  still exists, and refuses while the supervised owl is running.

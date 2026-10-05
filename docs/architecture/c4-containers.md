@@ -12,7 +12,7 @@ C4Container
 
   Person(person, "The person", "Answers one question at a time")
   System_Ext(herdr, "herdr", "Panes, sessions, agent status")
-  System_Ext(nc, "Desktop notifications", "terminal-notifier, or osascript")
+  System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
 
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; resolves runtime at fire time, fails open, with a visible hook error in a worktree. The global copy stands down where the repo has its own")
@@ -28,7 +28,7 @@ C4Container
     Container(spec, "Spec", ".whiska-spec.md file", "What a grilled brief will build, at the worktree root; the mouse writes it, git ignores it")
     Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
-    Container(svc, "LaunchAgent", "launchd, com.whiska.owl", "Starts the owl at login, restarts a crash; runs the owl.sh wrapper")
+    Container(svc, "Owl's job", "launchd com.whiska.owl, or systemd whiska-owl.service", "Starts the owl at login, restarts a crash; runs the owl.sh wrapper")
   }
 
   Container_Boundary(todo, "Designed, not built") {
@@ -54,8 +54,8 @@ C4Container
   Rel(cli, spec, "shape and mode make git ignore it, through the main checkout's info/exclude")
   Rel(cli, doorstep, "Stop hook writes one entry, unconditionally")
   Rel(cli, owl, "whiska owl boots it in the foreground")
-  Rel(cli, svc, "whiska owl install / stop / start / uninstall", "launchctl")
-  Rel(svc, owl, "Runs whiska owl with no arguments; KeepAlive on crash only")
+  Rel(cli, svc, "whiska owl install / stop / start / uninstall", "launchctl or systemctl --user")
+  Rel(svc, owl, "Runs whiska owl with no arguments; restarts on a crash only")
   Rel(owl, house, "Opens one per project, supervised independently")
   Rel(owl, record, "Adds a house when opened, removes it when shut")
   Rel(house, herdr, "Subscribes per mouse pane; lists panes to find them")
@@ -87,7 +87,7 @@ with one home, and the mice are a repo's own, which herdr's sidebar already show
 its own tab bar.
 
 **`herdr-status.sh` is the one script that is not committed to a repo** (ADR-0048). It
-lives in `~/.whiska/` beside the open-houses record and the owl's launchd wrapper,
+lives in `~/.whiska/` beside the open-houses record and the owl's wrapper,
 because the line it prints is machine-wide: the owl's state, always, so a blank line
 never passes for a working Whiska, and what is waiting anywhere — one thing named by its
 mouse's branch, several as a count. `whiska owl install` writes it; a `tab_bar_right`
@@ -146,15 +146,17 @@ answerable with no database and no owl.
 erase pending questions. The mirror cost is that a question can outlive its mouse; that
 state has a name already (ADR-0026) rather than being a new problem.
 
-**The LaunchAgent is the one supervisor** (ADR-0040). It runs `~/.whiska/owl.sh`, not the
-escript: launchd's `PATH` cannot find `escript`, and the wrapper is generated from the same
+**The platform's service manager is the one thing that keeps the owl running** (ADR-0040,
+ADR-0077): a user LaunchAgent under launchd on
+macOS, a user unit under systemd on Linux. Either runs `~/.whiska/owl.sh`, not the escript:
+neither manager's `PATH` can find `escript`, and the wrapper is generated from the same
 fragments as the hook shim, so the runtime is found at every launch and an Erlang upgrade
-needs no reinstall. `KeepAlive` is on crash only, which is what lets `whiska owl stop` be a
-clean exit that stays stopped without booting the job out. `whiska stop` is a different,
+needs no reinstall. Both restart on a crash only, which is what lets `whiska owl stop` be a
+clean exit that stays stopped without removing the job. `whiska stop` is a different,
 per-house verb (ADR-0003) and waits for the socket.
 
 **One owl, many houses** (ADR-0001). An earlier draft gave each repo its own OS process;
-that fought launchd and made "what is waiting on me anywhere" a new subsystem. Each house
+that fought the service manager and made "what is waiting on me anywhere" a new subsystem. Each house
 is supervised independently, so one project's house crashing is invisible to every other.
 
 **Delivery lives in the house, and nothing lives across houses** (ADR-0008, ADR-0044,

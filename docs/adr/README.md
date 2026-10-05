@@ -9,7 +9,8 @@ are the extracted, individually citable decisions.
 ## Shape of the system
 
 - [0001](0001-one-owl-per-machine.md) — One owl per machine, with a house per repo inside it
-- [0040](0040-the-owl-is-supervised-by-a-launchagent.md) — The owl is supervised by a user LaunchAgent, and `whiska owl stop` stops the whole owl
+- [0040](0040-the-owl-is-supervised-by-a-launchagent.md) — The owl is supervised by a user LaunchAgent, and `whiska owl stop` stops the whole owl (amended 2026-10-05 by next-the-owl-is-kept-by-the-platforms-service-manager: launchd is macOS's half)
+- [next](0077-the-owl-is-kept-by-the-platforms-service-manager.md) — The owl is kept running by the platform's own service manager: launchd on macOS, systemd on Linux (amends 0040)
 - [0003](0003-a-house-persists-across-start-and-stop.md) — A house persists; start and stop only open and shut it
 - [0020](0020-mice-stay-herdr-panes.md) — Mice stay herdr panes; Whiska never owns Claude Code directly
 - [0017](0017-judgment-lives-in-claude-md.md) — All judgment lives in CLAUDE.md; Whiska stays dumb
@@ -51,7 +52,7 @@ are the extracted, individually citable decisions.
 - [0057](0057-nothing-unanswerable-holds-the-delivery-slot.md) — Nothing that cannot be answered holds the delivery slot
 - [0058](0058-a-held-queue-says-so-on-the-board.md) — A held queue says so on the board
 - [0062](0062-the-owl-hoots-when-it-delivers.md) — The owl hoots when it delivers: one desktop notification per delivered question (amended 2026-10-04 by next-a-hoot-reaches-you-without-herdr)
-- [next](0071-a-hoot-reaches-you-without-herdr.md) — A hoot herdr will not show is raised on the desktop (amends 0062)
+- [0071](0071-a-hoot-reaches-you-without-herdr.md) — A hoot herdr will not show is raised on the desktop (amends 0062; noted 2026-10-05: notify-send on Linux)
 - [0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md) — A nudge is a notice typed into another house's main session (superseded 2026-09-29 by 0044)
 - [0044](0044-the-statusline-redraws-on-a-timer-not-a-typed-nudge.md) — The statusline redraws on a timer, not a typed nudge (partly superseded 2026-09-29 by 0048; the refresh interval is live again on the repo-scoped line; amended 2026-10-03 by 0067 with one exception, a mouse's own pane)
 

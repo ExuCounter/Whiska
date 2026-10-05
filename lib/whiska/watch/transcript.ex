@@ -20,7 +20,7 @@ defmodule Whiska.Watch.Transcript do
   and the board reads every mouse's every second.
   """
 
-  alias Whiska.LaunchAgent
+  alias Whiska.ServiceManager
   alias Whiska.Transcript
   alias Whiska.Watch.Text
 
@@ -47,7 +47,7 @@ defmodule Whiska.Watch.Transcript do
   @doc """
   The mouse's last action, or `nil` when its transcript says nothing.
 
-  Options: `:user_home`, the home to look under — `Whiska.LaunchAgent.user_home/0`
+  Options: `:user_home`, the home to look under — `Whiska.ServiceManager.user_home/0`
   unless a test pins it.
   """
   @spec read(Path.t(), keyword()) :: action()
@@ -62,12 +62,12 @@ defmodule Whiska.Watch.Transcript do
   appends to this file every few seconds while a turn runs, so the file's own
   mtime is when the mouse last did anything.
 
-  Options: `:user_home`, the home to look under — `Whiska.LaunchAgent.user_home/0`
+  Options: `:user_home`, the home to look under — `Whiska.ServiceManager.user_home/0`
   unless a test pins it; `:now`, the second to measure silence from.
   """
   @spec activity(Path.t(), keyword()) :: activity()
   def activity(worktree_root, opts \\ []) do
-    home = Keyword.get_lazy(opts, :user_home, &LaunchAgent.user_home/0)
+    home = Keyword.get_lazy(opts, :user_home, &ServiceManager.user_home/0)
     now = Keyword.get_lazy(opts, :now, fn -> System.os_time(:second) end)
 
     case newest_transcript(project_dir(worktree_root, home)) do

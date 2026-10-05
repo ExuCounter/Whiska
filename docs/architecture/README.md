@@ -6,7 +6,7 @@ an ADR disagree, the ADR wins.
 
 | Level | File | Shows |
 |---|---|---|
-| 1 | [c4-context.md](c4-context.md) | Whiska between the person, Claude Code, herdr, git and launchd |
+| 1 | [c4-context.md](c4-context.md) | Whiska between the person, Claude Code, herdr, git and the service manager |
 | 2 | [c4-containers.md](c4-containers.md) | Built against designed, as two boundaries |
 | 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init and the CLAUDE.md block, mode and shape, questions, the statusline, doctor, the delivery-side commands, waiting and jump |
 | 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification, delivery |
@@ -32,7 +32,11 @@ and a whiska is a house in that record with a live pane — the statusline, `whi
 waiting` and a doctor line all read it (ADR-0039). Then `launchd` supervision: `whiska owl install` writes a user LaunchAgent that
 runs the owl with no arguments through a wrapper sharing the shim's runtime lookup,
 restarts it only on a crash, and logs to `~/.whiska/owl.log`; `whiska owl stop`, `start`
-and `uninstall` beside it; and the doctor's `launch agent` line (ADR-0040). Then the backstop
+and `uninstall` beside it; and the doctor's `launch agent` line (ADR-0040). Then Linux: the
+same verbs drive a systemd user unit, `whiska-owl.service`, behind one `ServiceManager`
+behaviour, with the doctor's `systemd unit` and `logout` lines, and the desktop fallback
+raises a hoot with `notify-send` (ADR-0077,
+ADR-0071's 2026-10-05 note). Then the backstop
 warning: when a house's 60 s backstop collects anything, it is something the idle trigger
 should have brought a minute earlier, so the house warns and marks it in
 `.git/whiska/backstop`, and the doctor reads that mark as one more line — the guard

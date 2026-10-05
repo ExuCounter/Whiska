@@ -101,3 +101,20 @@ who silences herdr's per-agent noise.
 **The person who wants Whiska quiet has no switch for it here.** macOS's own per-app
 notification settings for `terminal-notifier` or Script Editor (`osascript`) still apply, and
 that is the lever.
+
+## Note, 2026-10-05: Linux raises it with notify-send
+
+The "nothing is raised" consequence above was Linux's. Since
+ADR-0077 made Linux a supported platform,
+a hoot herdr will not show is raised there with `notify-send`, tried after
+`terminal-notifier` and `osascript`. Its title and body follow a `--`, which ends
+notify-send's option parsing, so a title of `-e` is still data. Its sound is the
+freedesktop name for the event: `message-new-instant` for a question, `complete` for a
+finished branch. `{:error, :no_notifier}` now means a machine with none of the three: a
+server or a container. The doctor names all three. When `notify-send` exits 0 but nothing
+appears, the doctor points at the desktop's own notification settings or a missing
+notification server, rather than at macOS.
+
+The same change fixed a race the Linux run turned up. A notifier that exited before its
+pid could be read raised inside the notifier and came back as an error. The pid is now
+read only when the deadline passes, which is the only time it is needed.

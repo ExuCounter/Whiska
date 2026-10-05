@@ -1,23 +1,25 @@
 defmodule Whiska.Desktop.Notifier do
   @moduledoc """
-  Raises a notification with `terminal-notifier` when it is installed, and with
-  `osascript` when it is not (ADR-0071).
-  Neither — Linux, or a Mac with osascript removed — is `{:error,
-  :no_notifier}`, never a crash.
+  Raises a notification with the first notifier this machine has (ADR-0071):
+  `terminal-notifier`, then `osascript` on macOS, then `notify-send` on Linux.
+  None — a machine with no desktop — is `{:error, :no_notifier}`, never a
+  crash.
 
   The text is somebody else's: a branch name and a pointer line arrive from a
   doorstep file anything in the repo can write. So the program is run directly
   with an argument list and no shell. osascript's script is fixed text that
   reads the title and body from `argv`, and they follow a `--`, because
   osascript keeps reading options after its last `-e` — a title of `-e` would
-  otherwise be more script. Two things a single argument still carries are
-  defused: a NUL byte, which no argument can hold, is dropped; and a leading
-  `-`, `(`, `{`, `<` or quote, after any whitespace, which terminal-notifier's
-  argument parsing would read as an option or a property list, gets a
-  zero-width space in front of it.
+  otherwise be more script. notify-send's title and body follow a `--` too,
+  which ends its option parsing, and its body has `&`, `<` and `>` escaped,
+  since a notification server may render it as markup. Two things a single argument still carries
+  are defused: a NUL byte, which no argument can hold, is dropped; and a
+  leading `-`, `(`, `{`, `<` or quote, after any whitespace, which
+  terminal-notifier's argument parsing would read as an option or a property
+  list, gets a zero-width space in front of it.
 
-  The owl runs under launchd, whose PATH has no Homebrew in it, so a program
-  not on PATH is also looked for where Homebrew installs one.
+  The owl runs under a service manager whose PATH has no Homebrew in it, so a
+  program not on PATH is also looked for where Homebrew installs one.
   """
 
   @behaviour Whiska.Desktop
@@ -29,6 +31,9 @@ defmodule Whiska.Desktop.Notifier do
   @default_timeout_ms 5_000
 
   @sounds %{request: "Ping", done: "Glass", none: ""}
+
+  # The freedesktop sound theme's names for the same two events.
+  @freedesktop_sounds %{request: "message-new-instant", done: "complete", none: ""}
 
   @homebrew ["/opt/homebrew/bin", "/usr/local/bin"]
 
@@ -50,8 +55,8 @@ defmodule Whiska.Desktop.Notifier do
   @doc "The program to run and its arguments, or `nil` when there is none."
   @spec command(Whiska.Herdr.notification(), (String.t() -> String.t() | nil)) ::
           {String.t(), [String.t()]} | nil
-  def command(%{title: title, body: body, sound: sound}, find) do
-    sound = Map.fetch!(@sounds, sound)
+  def command(%{title: title, body: body, sound: event}, find) do
+    sound = Map.fetch!(@sounds, event)
 
     cond do
       path = find.("terminal-notifier") ->
@@ -62,10 +67,28 @@ defmodule Whiska.Desktop.Notifier do
       path = find.("osascript") ->
         {path, osascript_args(display(), clean(title), clean(body), sound)}
 
+      path = find.("notify-send") ->
+        {path,
+         ["--app-name=Whiska"] ++
+           freedesktop_sound(@freedesktop_sounds[event]) ++
+           ["--", clean(title), body |> clean() |> unmarked()]}
+
       true ->
         nil
     end
   end
+
+  # A notification server may render the body as markup, links included, so
+  # someone else's text is escaped to read as itself.
+  defp unmarked(text) do
+    text
+    |> String.replace("&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+  end
+
+  defp freedesktop_sound(""), do: []
+  defp freedesktop_sound(name), do: ["--hint=string:sound-name:#{name}"]
 
   @doc false
   # Public so a test can run the real interpreter over the same arguments with
@@ -108,14 +131,14 @@ defmodule Whiska.Desktop.Notifier do
   end
 
   # A port rather than `System.cmd`, for its OS pid: a notifier that has not
-  # come back by the deadline is killed, not left running behind the owl.
+  # come back by the deadline is killed, not left running behind the owl. The
+  # pid is asked for only then — a notifier that has already exited has none.
   defp run(path, args, timeout) do
     name = Path.basename(path)
 
     port =
       Port.open({:spawn_executable, path}, [:binary, :exit_status, :stderr_to_stdout, args: args])
 
-    {:os_pid, os_pid} = Port.info(port, :os_pid)
     deadline = System.monotonic_time(:millisecond) + timeout
 
     case await(port, deadline) do
@@ -126,7 +149,9 @@ defmodule Whiska.Desktop.Notifier do
         {:error, {name, {:exit, status}}}
 
       :timeout ->
-        System.cmd("kill", ["-9", Integer.to_string(os_pid)], stderr_to_stdout: true)
+        with {:os_pid, os_pid} <- Port.info(port, :os_pid),
+             do: System.cmd("kill", ["-9", Integer.to_string(os_pid)], stderr_to_stdout: true)
+
         await(port, System.monotonic_time(:millisecond) + 1_000)
         {:error, {name, :timeout}}
     end

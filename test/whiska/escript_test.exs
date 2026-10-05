@@ -137,13 +137,15 @@ defmodule Whiska.EscriptTest do
 
     assert File.exists?(Path.join(main, ".git/whiska/whiska.db"))
 
-    {rows, 0} =
-      System.cmd("sqlite3", [
-        Path.join(main, ".git/whiska/whiska.db"),
-        "select count(*) from mice;"
-      ])
+    {:ok, conn} = Exqlite.Sqlite3.open(Path.join(main, ".git/whiska/whiska.db"))
+    {:ok, statement} = Exqlite.Sqlite3.prepare(conn, "select count(*) from mice")
 
-    assert String.trim(rows) == "1"
+    try do
+      assert {:row, [1]} = Exqlite.Sqlite3.step(conn, statement)
+    after
+      Exqlite.Sqlite3.release(conn, statement)
+      Exqlite.Sqlite3.close(conn)
+    end
   end
 
   test "carries priv/models.json inside the binary, since it carries no priv/", %{main: main} do

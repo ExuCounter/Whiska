@@ -11,11 +11,11 @@ defmodule Whiska.InstallGlobalTest do
   use ExUnit.Case, async: true
 
   alias Whiska.Install
-  alias Whiska.LaunchAgent
+  alias Whiska.ServiceManager
 
   describe "root/1 — where each scope is rooted" do
     test "the global scope is rooted at the person's home, not at a repo" do
-      assert Install.root(:global) == LaunchAgent.user_home()
+      assert Install.root(:global) == ServiceManager.user_home()
     end
 
     test "the relative paths are the same for both scopes" do

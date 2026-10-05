@@ -14,8 +14,17 @@ defmodule Whiska.Test.HomeGuard do
 
   alias Whiska.Test.RealHome
 
+  @doc """
+  Wait until the guard has checked every test that has finished so far. A
+  test that moves a home on purpose calls this first, so the check for the
+  test before it never reads the moved setting.
+  """
+  def sync, do: GenServer.call(__MODULE__, :sync)
+
   @impl true
   def init(_opts) do
+    Process.register(self(), __MODULE__)
+
     {:ok,
      %{
        home: Application.get_env(:whiska, :home),
@@ -33,6 +42,9 @@ defmodule Whiska.Test.HomeGuard do
   end
 
   def handle_cast(_event, state), do: {:noreply, state}
+
+  @impl true
+  def handle_call(:sync, _from, state), do: {:reply, :ok, state}
 
   defp report(violations, test, state) do
     restore(state)

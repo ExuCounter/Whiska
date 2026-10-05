@@ -98,7 +98,10 @@ defmodule Whiska.InstallShimCannotRunTest do
     File.chmod!(whiska, 0o755)
 
     shim = Install.shim(:repo)
-    candidates = "/opt/homebrew/bin/escript /usr/local/bin/escript"
+
+    candidates =
+      "/opt/homebrew/bin/escript /usr/local/bin/escript /home/linuxbrew/.linuxbrew/bin/escript"
+
     assert shim =~ candidates
     shim = String.replace(shim, candidates, Path.join(ctx.root, "no-escript"))
 

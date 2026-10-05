@@ -168,7 +168,7 @@ defmodule Whiska.Herdr do
   herdr's socket for anything that needs to talk to herdr now: the variable
   when it is set, and otherwise herdr's fixed default (ADR-0040).
 
-  The fallback is not only launchd's. A Raycast script command runs with no
+  The fallback is not only the supervised owl's. A hotkey command runs with no
   shell environment at all, so a hotkey running `whiska jump` sees exactly what
   the supervised owl sees: nothing. The variable still wins where it is set — a
   named herdr session's socket lives elsewhere.
@@ -195,9 +195,9 @@ defmodule Whiska.Herdr do
   Where herdr puts its socket when nothing says otherwise: `herdr.sock` in
   its default session directory, `~/.config/herdr/`. Checked against herdr
   0.8.2: the path is fixed per session and recreated there on every restart,
-  so an owl started by launchd, with no pane's environment to inherit, can
-  still find it. A named herdr session lives elsewhere; the plist carries
-  `HERDR_SOCKET_PATH` for that case and it wins.
+  so an owl started by launchd or systemd, with no pane's environment to
+  inherit, can still find it. A named herdr session lives elsewhere; the job
+  carries `HERDR_SOCKET_PATH` for that case and it wins.
   """
   @spec default_socket_path(%{optional(String.t()) => String.t()}) :: Path.t()
   def default_socket_path(env \\ System.get_env()) do

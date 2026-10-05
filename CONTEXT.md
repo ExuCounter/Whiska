@@ -222,7 +222,7 @@ has not hooted yet. herdr is asked to show it, from the person's own `[ui.toast]
 `[ui.sound]` settings, and says whether it drew anything; `request` is its sound when a
 decision is waiting and `done` when a branch finished. When herdr says its popups are off
 or nobody is attached, the same hoot is raised on the desktop with `terminal-notifier` or
-`osascript` instead (ADR-0071). A hoot that fails is swallowed —
+`osascript` on macOS, or `notify-send` on Linux, instead (ADR-0071). A hoot that fails is swallowed —
 delivery is the job and the hoot is a courtesy — so `whiska doctor` is where the person
 asks, by sending a hoot of its own down the same path and reporting what showed it.
 _Avoid_: toast, alert, desktop notification as a term of its own (it is herdr's word for
@@ -331,13 +331,23 @@ A mouse mode for investigation only. Never writes code, never pushes — produce
 report instead. Says nothing about the model or the effort: those are chosen apart.
 
 **Owl**:
-The one always-awake presence per machine, supervised by `launchd`, that keeps every
-project's house standing and is the only thing that can see across all of them at
-once. Seeing is not acting: the owl reads every house, and types into none but the one
+The one always-awake presence per machine, kept running by its **service manager**, that
+keeps every project's house standing and is the only thing that can see across all of them
+at once. Seeing is not acting: the owl reads every house, and types into none but the one
 each question belongs to (see **Nudge**, retired) — and, since ADR-0067, into a mouse's
 own pane when that mouse's turn died, once (see **Pickup**). Not per-project: a person has many
 houses and exactly one owl.
 _Avoid_: daemon, server, service
+
+**Service manager**:
+The operating system's own program that keeps the owl running: it starts it at login
+and restarts it after a crash. launchd on macOS, through the user LaunchAgent
+`com.whiska.owl`; systemd on Linux, through the user unit `whiska-owl.service`
+(ADR-0040, ADR-0077). `whiska owl
+install|stop|start|uninstall` drive whichever is in force, and mean the same on both.
+Either runs the same wrapper, `~/.whiska/owl.sh`.
+_Avoid_: supervisor (OTP's word, for the process tree inside the owl), service (the owl
+itself is not one), daemon
 
 **House**:
 One project's permanent home — its own database, its own mouse records, its own

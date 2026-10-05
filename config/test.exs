@@ -7,8 +7,12 @@ config :whiska, :herdr, Whiska.Herdr.Mock
 # per run, outside the person's own home, and the checkout `_build` sits in is
 # usually inside it.
 
-# launchctl is a runner that refuses, so no test can reach the real one.
+# The service manager is pinned, so the suite reads the same on macOS and
+# Linux; the systemd tests ask for `Whiska.SystemdUnit` themselves. Both
+# runners refuse, so no test can reach the real launchctl or systemctl.
+config :whiska, :service_manager, Whiska.LaunchAgent
 config :whiska, :launchctl, &Whiska.Test.NoLaunchctl.run/1
+config :whiska, :systemd, &Whiska.Test.NoSystemctl.run/1
 
 # No notifier, so a hoot herdr refuses never reaches the real desktop
 # (ADR-0071).

@@ -17,9 +17,9 @@ defmodule Whiska.Owl do
   opened, removed when it is shut, and deliberately left in place when the
   whole owl stops — that is what the next `whiska owl` reopens from.
 
-  `whiska owl` runs it: under `launchd` with no arguments, opening what the
-  record says (ADR-0040), or in the foreground with houses named on the
-  command line. `whiska stop` reaching one house over a socket comes later.
+  `whiska owl` runs it: under launchd or systemd with no arguments, opening
+  what the record says (ADR-0040), or in the foreground with houses named on
+  the command line. `whiska stop` reaching one house over a socket comes later.
   """
 
   use Supervisor

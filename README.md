@@ -6,12 +6,13 @@ session — with an id you answer by.
 
 ## Install
 
-Requires macOS, git, Elixir ~> 1.19 on OTP 28 to build, and
+Requires macOS or Linux, git, Elixir ~> 1.19 on OTP 28 to build, and
 [herdr](https://herdr.dev), the terminal multiplexer Whiska reads pane status from and
-types into.
+types into. On Linux, systemd keeps the owl running and `notify-send` (libnotify) shows its
+notifications; without systemd — most containers — the owl runs in a pane instead.
 
 ```bash
-brew install herdr
+brew install herdr              # or, on Linux: curl -fsSL https://herdr.dev/install.sh | sh
 
 git clone git@github.com:ExuCounter/Whiska.git && cd Whiska
 mix deps.get && mix escript.build
@@ -21,7 +22,7 @@ cp whiska ~/.local/bin/        # anywhere on your PATH
 ## Set it up
 
 Two commands per repo, one per machine. Order matters: the owl has to be told about the
-repo before it is put under launchd, since launchd starts it with no arguments.
+repo before it is put under launchd or systemd, which start it with no arguments.
 
 ```bash
 cd your-repo
@@ -29,8 +30,11 @@ whiska init                    # hooks, statusline, skills and CLAUDE.md block
 git add .claude CLAUDE.md && git commit -m "chore: enable whiska"
 
 whiska owl .                   # record this repo — runs in the foreground, Ctrl-C it
-whiska owl install             # the owl under launchd: at login, and after a crash
+whiska owl install             # the owl under launchd or systemd: at login, and after a crash
 ```
+
+On Linux, systemd stops the owl when your last session ends. To keep it running after you
+log out, run `loginctl enable-linger` once; `whiska doctor` reminds you while it is off.
 
 Then, in the herdr pane you want your main session in — the one pane questions are
 delivered to:
@@ -99,8 +103,8 @@ question waits on the **doorstep** until the owl collects it —
   checkout and the worktrees beside it; a sniff mouse is denied them everywhere. Not a
   sandbox — see below.
   [Details](docs/internals.md#what-is-enforced)
-- **The owl comes back by itself** — launchd restarts it after a crash and at login, and it
-  reopens exactly the houses it had. [Details](docs/internals.md#keeping-the-owl-awake)
+- **The owl comes back by itself** — launchd on macOS, or systemd on Linux, restarts it after
+  a crash and at login, and it reopens exactly the houses it had. [Details](docs/internals.md#keeping-the-owl-awake)
 - **Nothing is ever deleted** — questions, mouse records and collected entries are kept, and
   no worktree is ever touched.
 - **Broken Whiska never blocks your session** — the hook complains on stderr and allows the

@@ -451,11 +451,17 @@ defmodule Whiska.CleanupTest do
     test "herdr's path and the record's are compared with symlinks resolved", %{repo: repo} do
       m = mouse(repo, "feat-a")
       GitRepo.land(repo, "feat-a")
-      resolved = Whiska.Layout.canonical(m.path)
-      refute resolved == m.path
 
-      herdr(repo, [%{path: resolved, branch: "feat-a", workspace_id: "ws-7"}], [
-        %{pane_id: "w9:p9", cwd: resolved, agent: "claude", agent_status: "idle"}
+      # herdr names the worktree through a symlink the record never went through.
+      link =
+        Path.join(System.tmp_dir!(), "whiska-cleanup-link-#{System.unique_integer([:positive])}")
+
+      File.ln_s!(Path.dirname(m.path), link)
+      on_exit(fn -> File.rm(link) end)
+      aliased = Path.join(link, Path.basename(m.path))
+
+      herdr(repo, [%{path: aliased, branch: "feat-a", workspace_id: "ws-7"}], [
+        %{pane_id: "w9:p9", cwd: aliased, agent: "claude", agent_status: "idle"}
       ])
 
       expect(Herdr, :remove_worktree, fn _, "ws-7" ->

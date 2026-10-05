@@ -1,8 +1,9 @@
 defmodule Whiska.LaunchAgent do
   @moduledoc """
-  The owl under `launchd` (ADR-0001, ADR-0040): one user LaunchAgent,
-  `com.whiska.owl`, that starts the owl at login and restarts it if it
-  crashes.
+  The owl under `launchd`, on macOS (ADR-0001, ADR-0040): one user
+  LaunchAgent, `com.whiska.owl`, that starts the owl at login and restarts it
+  if it crashes. `Whiska.SystemdUnit` is the same job on Linux; both answer
+  `Whiska.ServiceManager`.
 
   Three files, all under the person's own home:
 
@@ -11,9 +12,9 @@ defmodule Whiska.LaunchAgent do
     so `#!/usr/bin/env escript` would never resolve, and baking the runtime's
     absolute path in at install time would break silently on the next Erlang
     upgrade. The wrapper resolves both at every launch.
-  - `~/.whiska/owl.sh` — the wrapper, generated from the same shell fragments
-    the hook shim and the statusline script are built from
-    (`Whiska.Install`), so the three cannot drift.
+  - `~/.whiska/owl.sh` — the wrapper, `Whiska.ServiceManager.wrapper/0`,
+    generated from the same shell fragments the hook shim and the statusline
+    script are built from (`Whiska.Install`), so the three cannot drift.
   - `~/.whiska/owl.log` — stdout and stderr, appended. No rotation yet.
 
   `KeepAlive` is `SuccessfulExit = false`: launchd restarts a crash and leaves
@@ -27,21 +28,22 @@ defmodule Whiska.LaunchAgent do
   `launchctl/1`.
   """
 
-  alias Whiska.Install
+  @behaviour Whiska.ServiceManager
+
+  alias Whiska.ServiceManager
 
   @label "com.whiska.owl"
 
-  # Copied from the installing shell into the job's environment, when set.
-  # launchd gives a job almost no environment of its own, and the owl needs
-  # herdr's socket to hear about idle mice (a fallback exists in code).
-  @passthrough ~w(HERDR_SOCKET_PATH WHISKA_BIN WHISKA_ESCRIPT WHISKA_HOME)
-
-  @type paths :: %{plist: Path.t(), wrapper: Path.t(), log: Path.t()}
-  @type status :: %{loaded: boolean(), pid: pos_integer() | nil, last_exit_code: integer() | nil}
   @type runner :: ([String.t()] -> {String.t(), non_neg_integer()})
 
+  @impl true
+  def name, do: "launchd"
+
+  @impl true
+  def noun, do: "launch agent"
+
   @doc "The job's label."
-  @spec label() :: String.t()
+  @impl true
   def label, do: @label
 
   @doc "The service target launchctl addresses: the user's gui domain plus the label."
@@ -52,31 +54,18 @@ defmodule Whiska.LaunchAgent do
   Where the three files go, given the user's home (for `Library/LaunchAgents`)
   and the whiska home (`~/.whiska`, where the open-houses record lives too).
   """
-  @spec paths(Path.t(), Path.t()) :: paths()
+  @spec paths(Path.t(), Path.t()) :: ServiceManager.paths()
   def paths(user_home, whiska_home) do
     %{
-      plist: Path.join(user_home, "Library/LaunchAgents/#{@label}.plist"),
+      job: Path.join(user_home, "Library/LaunchAgents/#{@label}.plist"),
       wrapper: Path.join(whiska_home, "owl.sh"),
       log: Path.join(whiska_home, "owl.log")
     }
   end
 
   @doc "The paths on this machine, honouring the test config's overrides."
-  @spec paths() :: paths()
-  def paths, do: paths(user_home(), Whiska.OpenHouses.home())
-
-  @doc "The user's home: the `:user_home` setting, else the real one."
-  @spec user_home() :: Path.t()
-  def user_home, do: Application.get_env(:whiska, :user_home) || System.user_home!()
-
-  @doc "The uid launchd's gui domain is keyed by: the `:uid` setting, else `id -u`."
-  @spec uid() :: pos_integer()
-  def uid do
-    Application.get_env(:whiska, :uid) ||
-      case System.cmd("id", ["-u"]) do
-        {out, 0} -> out |> String.trim() |> String.to_integer()
-      end
-  end
+  @impl true
+  def paths, do: paths(ServiceManager.user_home(), Whiska.OpenHouses.home())
 
   @doc "The launchctl runner: the `:launchctl` setting, else the real binary."
   @spec runner() :: runner()
@@ -84,21 +73,20 @@ defmodule Whiska.LaunchAgent do
 
   @doc "Run the real launchctl with these arguments."
   @spec launchctl([String.t()]) :: {String.t(), non_neg_integer()}
-  def launchctl(args), do: System.cmd("launchctl", args, stderr_to_stdout: true)
+  def launchctl(args), do: ServiceManager.cmd("launchctl", args)
+
+  @doc "launchd is part of macOS; there is nothing to check."
+  @impl true
+  def ready, do: :ok
 
   @doc """
   The plist. `env` is the installing shell's environment; the variables the
   owl needs are copied through, nothing else.
   """
-  @spec plist(paths(), %{optional(String.t()) => String.t()}) :: String.t()
+  @spec plist(ServiceManager.paths(), %{optional(String.t()) => String.t()}) :: String.t()
   def plist(%{wrapper: wrapper, log: log}, env) do
-    passthrough =
-      for name <- @passthrough, value = env[name], is_binary(value), value != "" do
-        {name, value}
-      end
-
     environment =
-      case passthrough do
+      case ServiceManager.passthrough(env) do
         [] ->
           ""
 
@@ -145,94 +133,71 @@ defmodule Whiska.LaunchAgent do
     |> String.replace(">", "&gt;")
   end
 
-  @wrapper """
-           #!/usr/bin/env bash
-           # Whiska's owl, as launchd runs it (ADR-0040). Written by `whiska owl
-           # install`; do not edit, it is overwritten on the next install.
-           #
-           # launchd starts a job with almost no PATH, so the binary and the
-           # Erlang runtime are resolved here, at every launch, exactly as the
-           # hook shim resolves them - the same fragments, generated from the
-           # same source. An Erlang upgrade needs no reinstall.
-
-           """ <>
-             Install.resolve_whiska() <>
-             """
-             if [ -z "$whiska_bin" ]; then
-               echo "whiska: no whiska binary found (set WHISKA_BIN in the plist, or install to ~/.local/bin)" >&2
-               exit 1
-             fi
-
-             """ <>
-             Install.resolve_escript() <>
-             """
-             # No arguments: the owl reopens every house in its record (ADR-0039).
-             if [ -n "$escript_bin" ]; then
-               exec "$escript_bin" "$whiska_bin" owl
-             fi
-             exec "$whiska_bin" owl
-             """
-
-  @doc "The wrapper script launchd runs."
-  @spec wrapper() :: String.t()
-  def wrapper, do: @wrapper
-
   @doc "Write the wrapper and the plist. Safe to re-run."
-  @spec install(paths(), map()) :: :ok | {:error, term()}
-  def install(%{plist: plist, wrapper: wrapper} = paths, env) do
-    with :ok <- File.mkdir_p(Path.dirname(wrapper)),
-         :ok <- File.write(wrapper, @wrapper),
-         :ok <- File.chmod(wrapper, 0o755),
-         :ok <- File.mkdir_p(Path.dirname(plist)) do
-      File.write(plist, plist(paths, env))
-    end
-  end
+  @impl true
+  def install(paths, env), do: ServiceManager.write(paths, plist(paths, env))
 
   @doc "Remove the wrapper and the plist. The log stays."
-  @spec uninstall(paths()) :: :ok | {:error, :not_installed}
-  def uninstall(%{plist: plist, wrapper: wrapper} = paths) do
-    if installed?(paths) do
-      File.rm(plist)
-      File.rm(wrapper)
-      :ok
-    else
-      {:error, :not_installed}
-    end
-  end
+  @impl true
+  def uninstall(paths), do: ServiceManager.remove(paths)
 
   @doc "Is the plist there? Installed says nothing about loaded — `status/2` does."
-  @spec installed?(paths()) :: boolean()
-  def installed?(%{plist: plist}), do: File.exists?(plist)
+  @impl true
+  def installed?(%{job: plist}), do: File.exists?(plist)
 
   @doc "Load the job into the user's gui domain; RunAtLoad starts the owl at once."
-  @spec bootstrap(paths(), pos_integer(), runner()) :: :ok | {:error, String.t()}
-  def bootstrap(%{plist: plist}, uid, run), do: ok?(run.(["bootstrap", "gui/#{uid}", plist]))
+  @spec bootstrap(ServiceManager.paths(), pos_integer(), runner()) :: :ok | {:error, String.t()}
+  def bootstrap(%{job: plist}, uid, run), do: ok?(run, ["bootstrap", "gui/#{uid}", plist])
 
   @doc "Unload the job. A running owl is stopped with it."
   @spec bootout(pos_integer(), runner()) :: :ok | {:error, String.t()}
-  def bootout(uid, run), do: ok?(run.(["bootout", service(uid)]))
+  def bootout(uid, run), do: ok?(run, ["bootout", service(uid)])
 
   @doc "Ask the owl to exit: TERM, which the BEAM turns into a clean exit 0."
   @spec stop(pos_integer(), runner()) :: :ok | {:error, String.t()}
-  def stop(uid, run), do: ok?(run.(["kill", "TERM", service(uid)]))
+  def stop(uid, run), do: ok?(run, ["kill", "TERM", service(uid)])
 
   @doc "Start the owl now, without waiting for the next login."
   @spec start(pos_integer(), runner()) :: :ok | {:error, String.t()}
-  def start(uid, run), do: ok?(run.(["kickstart", service(uid)]))
+  def start(uid, run), do: ok?(run, ["kickstart", service(uid)])
+
+  @doc "A loaded job is booted out first: launchd will not bootstrap a label twice."
+  @impl true
+  def load(paths, status) do
+    uid = ServiceManager.uid()
+    run = runner()
+
+    with :ok <- if(status.loaded, do: bootout(uid, run), else: :ok) do
+      bootstrap(paths, uid, run)
+    end
+  end
+
+  @impl true
+  def unload, do: bootout(ServiceManager.uid(), runner())
+
+  @impl true
+  def stop, do: stop(ServiceManager.uid(), runner())
+
+  @impl true
+  def start, do: start(ServiceManager.uid(), runner())
+
+  @impl true
+  def linger, do: :not_applicable
 
   @doc """
   Is the job loaded, and is the owl running under it? From `launchctl print`,
   which fails when the job is not loaded and otherwise prints a `pid = N`
-  line only while the process is alive.
+  line only while the process is alive. A launchctl that is not there at all
+  is "not loaded" too.
 
   `last_exit_code` is how the owl last ended, when launchd has seen it end at
   all — it prints `(never exited)` until then. With no pid and a non-zero code
   the job is loaded and crash-looping, which is the one thing "loaded, owl not
   running" cannot tell apart on its own (ADR-0040, 2026-09-28 note).
   """
-  @spec status(pos_integer(), runner()) :: status()
+  @spec status(pos_integer(), runner()) :: ServiceManager.status()
   def status(uid, run) do
-    case run.(["print", service(uid)]) do
+    case ServiceManager.call(run, ["print", service(uid)]) do
       {out, 0} ->
         %{
           loaded: true,
@@ -253,9 +218,8 @@ defmodule Whiska.LaunchAgent do
   end
 
   @doc "`status/2` with this machine's uid and runner."
-  @spec status() :: status()
-  def status, do: status(uid(), runner())
+  @impl true
+  def status, do: status(ServiceManager.uid(), runner())
 
-  defp ok?({_, 0}), do: :ok
-  defp ok?({out, _}), do: {:error, String.trim(out)}
+  defp ok?(run, args), do: ServiceManager.ok?(ServiceManager.call(run, args))
 end
