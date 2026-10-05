@@ -196,10 +196,10 @@ defmodule Whiska.ClaudeMd do
     gone wrong, or unsure → one line saying so.
   - **One thing worth knowing**, only if it changes what the person does next.
   - **"Nothing is waiting on you"**, or the one decision, for a reader with no context
-    and none of the domain's terms: each term the choice turns on, one line each; the
-    problem in one sentence; why there is a choice at all; then the options with their
-    trade-offs, a recommendation, nothing else. The body carries every option; the marker
-    line, a pointer.
+    and none of the domain's terms: each term the choice turns on, named and put plainly,
+    one line each; the problem in one sentence; why there is a choice at all; then the
+    options with their trade-offs, a recommendation, nothing else. The body carries every
+    option; the marker line is only the pointer.
 
   Leave out: where it lives, unless the person has to open the files; how the work was
   done; the mechanics of a review, never what it turned up; tool output — read it and send

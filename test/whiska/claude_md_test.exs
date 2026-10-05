@@ -54,8 +54,8 @@ defmodule Whiska.ClaudeMdTest do
 
       # Raised deliberately, by exactly what each rule cost: ADR-0075, ADR-0063,
       # ADR-0076, the brief that opens a decision.
-      assert lines <= 158, "the block grew back to #{lines} lines; every rule has a terse form"
-      assert words <= 1641, "the block grew back to #{words} words; every rule has a terse form"
+      assert lines <= 159, "the block grew back to #{lines} lines; every rule has a terse form"
+      assert words <= 1643, "the block grew back to #{words} words; every rule has a terse form"
     end
 
     test "no rule is buried deeper than one level of bullet" do
@@ -427,10 +427,12 @@ defmodule Whiska.ClaudeMdTest do
       body = prose_of("report")
 
       assert body =~ ~r/no context and none of the domain's terms/i
-      assert body =~ ~r/each term the choice turns on, one line each/i
-      assert body =~ ~r/the problem in one sentence/i
-      assert body =~ ~r/why there is a choice at all/i
-      assert body =~ ~r/then the options/i
+      assert body =~ ~r/each term the choice turns on, named and put plainly, one line each/i
+
+      assert body =~
+               ~r/each term the choice turns on.*the problem in one sentence.*why there is a choice at all.*then the options.*a recommendation, nothing else/i
+
+      assert body =~ ~r/the marker line is only the pointer/i
       # The brief rides outside the size cap, like a spec sent for the ok.
       assert body =~ ~r/a decision's brief/i
     end
