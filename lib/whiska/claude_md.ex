@@ -88,9 +88,8 @@ defmodule Whiska.ClaudeMd do
   <!-- whiska:worktrees:start -->
   ## Worktrees
 
-  A real feature or fix — several files, or more than a few minutes — goes to a mouse, not
-  to this session. Applies whenever `HERDR_ENV=1`; outside a herdr session, work in the
-  current checkout.
+  Every task goes to a mouse, not to this session, whatever its size. Applies whenever
+  `HERDR_ENV=1`; outside a herdr session, work in the current checkout.
 
   - Run `herdr worktree list` first, before grilling and before reading any code.
   - It continues what a mouse is already building (same branch and PR) →
@@ -99,10 +98,11 @@ defmodule Whiska.ClaudeMd do
     reading any code and before grilling here, on whatever branch name the request
     suggests.
   - Unclear which → ask the person, do not guess.
-  - Skip the spawn for a tweak or quick fix, or when the person says to work in place.
+  - Skip the spawn only when the person says to work in place. "Tweak" or "quick fix" is
+    not the person's word for it, and a ticket calling a task small is not either.
   - Before writing code, say what "done" looks like and name the failing test that proves
     it. While none is named, pick it from what `wio-candidate-scout` ranks riskiest in the
-    files the change will touch; skip the scout for a tweak, docs, or no test can reach it.
+    files the change will touch; skip the scout for docs, or when no test can reach it.
     A `.claude/agents/wio-candidate-scout.md` in this repo is the copy that runs: read it
     first, under the agent-definition rule below. Scout not listed → say so in one line and
     name the test yourself.
@@ -116,7 +116,7 @@ defmodule Whiska.ClaudeMd do
     the person would notice — or it touches secrets, access or a security check, or the
     rest of the change is built on it. Anything else is cheap: decide it, and list it in
     the final report.
-  - After the last grilling round, run `whiska-spec`, except for a tweak or quick fix: it
+  - After the last grilling round, run `whiska-spec`: it
     writes the spec to `#{Whiska.Spec.filename()}`, and the whole spec goes to the person as a
     question. Build only on their ok; any other answer, revise it and ask again. Not
     listed → read its `SKILL.md` beside `whiska-finish`'s.
@@ -127,7 +127,7 @@ defmodule Whiska.ClaudeMd do
     session runs no command for it.
   - Preview a frontend change before building it; the response body and its marker carry
     the preview link.
-  - Before anything non-trivial this session does itself, give a 2–4 line plan and wait
+  - Before anything this session does itself, give a 2–4 line plan and wait
     for the person's ok. A mouse sends no plan; it builds, and stops only on a real
     decision — every costly choice is one, found before the build or during it, and so
     is its spec.

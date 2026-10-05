@@ -103,11 +103,22 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/main session runs no command/i
     end
 
-    test "a small contained edit is exempt" do
-      assert prose_of("worktrees") =~ ~r/work in place|small contained edit/i
+    test "every task goes to a mouse, whatever its size" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/every task goes to a mouse/i
+      refute body =~ ~r/real feature or fix/i
+      refute body =~ ~r/several files|few minutes/i
     end
 
-    test "the main session plans before non-trivial work, a mouse does not" do
+    test "only the person saying to work in place skips the spawn" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/skip the spawn only when the person says to work in place/i
+      refute body =~ ~r/skip the spawn for a tweak/i
+    end
+
+    test "the main session plans before any work of its own, a mouse does not" do
       body = prose_of("worktrees")
 
       assert body =~ ~r/2.{0,3}4 line plan and wait for the person.s ok/i
@@ -187,9 +198,11 @@ defmodule Whiska.ClaudeMdTest do
                ~r/while none is named, pick it from what `wio-candidate-scout` ranks riskiest in the files the change will touch/i
     end
 
-    test "a tweak, docs, or a change no test reaches skips the scout, not the failing test" do
-      assert prose_of("worktrees") =~
-               ~r/skip the scout for a tweak, docs, or no test can reach it/i
+    test "docs, or a change no test reaches, skips the scout, not the failing test; a tweak does not" do
+      body = prose_of("worktrees")
+
+      assert body =~ ~r/skip the scout for docs, or when no test can reach it/i
+      refute body =~ ~r/skip the scout for a tweak/i
     end
 
     test "a missing scout is one line, and the test is still named" do
@@ -225,8 +238,8 @@ defmodule Whiska.ClaudeMdTest do
     test "after grilling, the spec is written and approved before any code" do
       body = prose_of("worktrees")
 
-      assert body =~
-               ~r/after the last grilling round, run `whiska-spec`, except for a tweak or quick fix/i
+      assert body =~ ~r/after the last grilling round, run `whiska-spec`: it/i
+      refute body =~ ~r/except for a tweak or quick fix/i
 
       assert body =~ "`#{Whiska.Spec.filename()}`"
       assert body =~ ~r/the whole spec goes to the person as a question/i

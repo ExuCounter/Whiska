@@ -28,7 +28,8 @@ is what ADR-0055 moved the pipeline into a skill for.
 ## Both are gated
 
 - **The scout** runs only while no failing test is named, over the files the change will
-  touch, and is skipped for a tweak, a docs change, or a change no test can reach. The skip
+  touch, and is skipped for a docs change or a change no test can reach (amended
+  2026-10-05 by ADR-0078: a tweak no longer skips it). The skip
   drops the scout, never ADR-0063's failing test. A follow-up turn on the same task does
   not scout again.
 - **The reviewer** runs only when the change adds, edits or deletes a test file — support
@@ -75,7 +76,7 @@ ADR-0072 recommended seeing whether the scout and the reviewer catch enough firs
 
 ## Consequences
 
-- Every mouse on a machine with wio scouts before a non-trivial build. The block grows by
+- Every mouse on a machine with wio scouts before a build. The block grows by
   five lines and 63 words, and its length ceiling in `ClaudeMdTest` was raised by exactly
   that, on purpose — the ceiling exists to catch accretion nobody chose.
 - Whiska's installed text names a third-party skill's agents. If wio renames them, the

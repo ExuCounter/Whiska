@@ -98,8 +98,8 @@ reaches the person by the same delivery flow.
 ## Amendment, 2026-10-05: the answers are written down and approved
 
 ADR-0076 adds a step between the last
-grilling round and the first line of code. The mouse runs `whiska-spec`, unless the task
-is a tweak or quick fix. It writes the spec to an untracked `.whiska-spec.md`, sends the
+grilling round and the first line of code. The mouse runs `whiska-spec`. Size never skips
+it (amended 2026-10-05 by ADR-0078). It writes the spec to an untracked `.whiska-spec.md`, sends the
 whole spec as a question, and builds only when the person replies "ok". A grilled task
 now costs one more round trip before any code. A brief that needed no grilling still
 costs none.
