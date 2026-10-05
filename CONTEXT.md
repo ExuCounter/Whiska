@@ -106,7 +106,8 @@ see **Report**), event (as the table/record name)
 The shape a mouse's final message takes — one line of what is true now, where it lives,
 what changed with each cheap choice made without asking, what was verified rather than
 assumed, one thing worth knowing, then
-either nothing waiting or the one decision with its options and a recommendation. It
+either nothing waiting or the one decision: a plain brief of the terms, the problem and
+why there is a choice, then its options and a recommendation. It
 names how a message reads, never the record it becomes: once collected the same message
 is a **question**. The block's `report` part teaches it. `done` report is the older,
 narrower use of the word — a question whose marker said `done` — and both stay.

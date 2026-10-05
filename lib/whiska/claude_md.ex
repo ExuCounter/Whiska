@@ -183,8 +183,7 @@ defmodule Whiska.ClaudeMd do
   Every message to the person — a mouse ending a turn, the main session answering here —
   is a report, not a log. A finished report fits in six lines plus a line per cheap choice
   made without asking, an ordinary reply in five; longer only when they ask for detail,
-  and for a spec sent for their ok, which goes whole. A decision is the question, its
-  options and a recommendation, nothing else.
+  for a spec sent for their ok, which goes whole, and for a decision's brief.
 
   In this order, skipping what has nothing to say:
 
@@ -196,9 +195,11 @@ defmodule Whiska.ClaudeMd do
   - **Verified, not assumed**: what was run and what came back — "31 tests pass". Not run,
     gone wrong, or unsure → one line saying so.
   - **One thing worth knowing**, only if it changes what the person does next.
-  - **"Nothing is waiting on you"**, or the one decision: the question, each option with its
-    trade-off in a line, a recommendation. The body carries every option in full; the
-    marker line is only the pointer.
+  - **"Nothing is waiting on you"**, or the one decision, for a reader with no context
+    and none of the domain's terms: each term the choice turns on, named and put plainly,
+    one line each; the problem in one sentence; why there is a choice at all; then the
+    options with their trade-offs, a recommendation, nothing else. The body carries every
+    option; the marker line is only the pointer.
 
   Leave out: where it lives, unless the person has to open the files; how the work was
   done; the mechanics of a review, never what it turned up; tool output — read it and send
@@ -218,8 +219,7 @@ defmodule Whiska.ClaudeMd do
   - Unclear what was asked → ask one question rather than guessing. A grilling round is
     the exception: it asks the whole frontier at once, since each round costs the person
     a round trip.
-  - Short sentences. No filler, no preamble, no headers. This file's other rules about
-    messages still hold.
+  - Short sentences. No filler, no preamble, no headers. Other rules here still hold.
   <!-- whiska:report:end -->\
   """
 
