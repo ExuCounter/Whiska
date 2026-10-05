@@ -178,8 +178,9 @@ follow-up ADR-0046 named. It had already cost something: the dotfiles copy of
 on the machine skipped the shape step and started on the default model with nothing
 recorded. Two copies drift; one source cannot.
 
-So `whiska init --global` writes all seven skills, and the scope makes no difference to
-which skills are written.
+So `whiska init --global` writes every skill — seven then, nine since
+ADR-next-a-grilled-brief-is-written-down-before-it-is-built — and the scope makes no
+difference to which skills are written.
 
 The symlink rule above is unchanged, and this is where it bites. Until the person's
 dotfiles stop installing the three, `~/.claude/skills/<name>/SKILL.md` is a link into that

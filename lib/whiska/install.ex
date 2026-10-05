@@ -724,8 +724,8 @@ defmodule Whiska.Install do
   # files: it is long, and a session only needs it at the moment a turn is
   # ending.
   #
-  # Grilling, and the spec that follows it, bind a mouse at one moment each,
-  # before it builds, and ship for the same reason
+  # The spec binds a mouse at one moment too, after grilling and before it
+  # builds. The person's grilling skill ships beside it so it has one copy
   # (ADR-next-a-grilled-brief-is-written-down-before-it-is-built).
   @committed_skills @worktree_skills ++ ~w(whiska-finish grilling whiska-spec)
 
@@ -1057,9 +1057,9 @@ defmodule Whiska.Install do
 
   Two kinds, and both are one skill per fixed command rather than bash the model
   composes itself (ADR-0022): the reading skills that wrap `whiska`, and the
-  three worktree skills that wrap `herdr` (ADR-0046). `whiska-finish`,
-  `grilling` and `whiska-spec` are neither: they are steps the block points at
-  (ADR-0055).
+  three worktree skills that wrap `herdr` (ADR-0046). `whiska-finish` and
+  `whiska-spec` are neither: they are steps the block points at (ADR-0055).
+  Nor is `grilling`, the person's own skill, shipped so it has one copy.
   """
   @spec skills() :: [{Path.t(), String.t()}]
   def skills, do: @skills ++ @committed_skill_files

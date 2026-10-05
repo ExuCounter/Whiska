@@ -114,7 +114,8 @@ defmodule Whiska.CLIInitGlobalTest do
     end
 
     test "names every skill it wrote" do
-      [_, written] = init_global() |> String.split("~/.claude/skills/", parts: 2)
+      [_, after_heading] = init_global() |> String.split("~/.claude/skills/", parts: 2)
+      [written | _] = String.split(after_heading, "\n\n", parts: 2)
 
       for {path, _} <- Whiska.Install.skills(:global) do
         name = path |> Path.dirname() |> Path.basename()
