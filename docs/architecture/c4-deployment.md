@@ -72,7 +72,7 @@ take another tool's hooks — would otherwise spawn mice with none of the rules,
 uncommitted file is in no worktree git creates. `whiska init --global` writes the identical
 relative paths under `~` instead: the block in `~/.claude/CLAUDE.md`, the shim and the
 board script in `~/.claude/hooks/`, both hooks and the statusline in
-`~/.claude/settings.json`, and all seven skills in `~/.claude/skills/`. Nothing in the hooks was
+`~/.claude/settings.json`, and all nine skills in `~/.claude/skills/`. Nothing in the hooks was
 ever repo-specific — which worktree they are firing in comes from where the session started
 (ADR-0053), and the board file is found by walking up from the session's directory — so the
 move costs nothing. What stays in the repo is the house under `.git/whiska`, which was

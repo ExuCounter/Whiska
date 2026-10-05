@@ -116,6 +116,10 @@ defmodule Whiska.ClaudeMd do
     the person would notice — or it touches secrets, access or a security check, or the
     rest of the change is built on it. Anything else is cheap: decide it, and list it in
     the final report.
+  - After the last grilling round, run `whiska-spec`, except for a tweak or quick fix: it
+    writes the spec to `#{Whiska.Spec.filename()}`, and the whole spec goes to the person as a
+    question. Build only on their ok; any other answer, revise it and ask again. Not
+    listed → read its `SKILL.md` beside `whiska-finish`'s.
   - No costly choice left open → build without the message; a truly trivial task — a
     typo, a rename, a one-line fix, nothing on that list — never needs one. Never ask what
     the brief already spells out.
@@ -125,7 +129,8 @@ defmodule Whiska.ClaudeMd do
     the preview link.
   - Before anything non-trivial this session does itself, give a 2–4 line plan and wait
     for the person's ok. A mouse sends no plan; it builds, and stops only on a real
-    decision — every costly choice is one, found before the build or during it.
+    decision — every costly choice is one, found before the build or during it, and so
+    is its spec.
   - After the merge, leave the worktree: the owl removes a landed one, pane and branch.
     `drop-worktree` drops one early.
   - Never reuse an old tree: a new mouse gets a fresh one off the latest base branch.
@@ -177,8 +182,9 @@ defmodule Whiska.ClaudeMd do
 
   Every message to the person — a mouse ending a turn, the main session answering here —
   is a report, not a log. A finished report fits in six lines plus a line per cheap choice
-  made without asking, an ordinary reply in five; longer only when they ask for detail. A decision is the question, its options and a
-  recommendation, nothing else.
+  made without asking, an ordinary reply in five; longer only when they ask for detail,
+  and for a spec sent for their ok, which goes whole. A decision is the question, its
+  options and a recommendation, nothing else.
 
   In this order, skipping what has nothing to say:
 

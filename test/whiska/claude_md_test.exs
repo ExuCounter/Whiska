@@ -52,9 +52,10 @@ defmodule Whiska.ClaudeMdTest do
       lines = rendered |> String.split("\n") |> length()
       words = rendered |> String.split() |> length()
 
-      # Raised deliberately, by exactly what each rule cost: ADR-0075, ADR-0063.
-      assert lines <= 152, "the block grew back to #{lines} lines; every rule has a terse form"
-      assert words <= 1550, "the block grew back to #{words} words; every rule has a terse form"
+      # Raised deliberately, by exactly what each rule cost: ADR-0075, ADR-0063,
+      # ADR-next-a-grilled-brief-is-written-down-before-it-is-built.
+      assert lines <= 158, "the block grew back to #{lines} lines; every rule has a terse form"
+      assert words <= 1619, "the block grew back to #{words} words; every rule has a terse form"
     end
 
     test "no rule is buried deeper than one level of bullet" do
@@ -219,6 +220,26 @@ defmodule Whiska.ClaudeMdTest do
       assert prose_of("worktrees") =~ ~r/before grilling here/i
     end
 
+    test "after grilling, the spec is written and approved before any code" do
+      body = prose_of("worktrees")
+
+      assert body =~
+               ~r/after the last grilling round, run `whiska-spec`, except for a tweak or quick fix/i
+
+      assert body =~ "`#{Whiska.Spec.filename()}`"
+      assert body =~ ~r/the whole spec goes to the person as a question/i
+      assert body =~ ~r/build only on their ok/i
+    end
+
+    test "a spec skill the session does not list is read from its file" do
+      assert prose_of("worktrees") =~
+               ~r/not listed → read its `SKILL\.md` beside `whiska-finish`'s/i
+    end
+
+    test "the bullet that tells a mouse it builds keeps the stop for its spec" do
+      assert prose_of("worktrees") =~ ~r/stops only on a real decision.{0,100}and so is its spec/i
+    end
+
     test "a frontend change is previewed before it is built" do
       assert prose_of("worktrees") =~ ~r/preview a frontend change before/i
     end
@@ -322,6 +343,10 @@ defmodule Whiska.ClaudeMdTest do
       assert body =~ ~r/nothing else/
       assert body =~ ~r/Leave out:/
       assert body =~ ~r/lessons and reflections/
+    end
+
+    test "a spec sent for the ok goes whole, past the size cap" do
+      assert prose_of("report") =~ ~r/a spec sent for their ok, which goes whole/i
     end
 
     test "the leave-out list drops the mechanics, not what the review turned up" do

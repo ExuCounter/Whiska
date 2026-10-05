@@ -203,6 +203,14 @@ defmodule Whiska.CLITest do
       assert stderr =~ "feat-thing is a sniff mouse on m1, max effort."
     end
 
+    test "sets the worktree up so git ignores its spec", %{main: main, worktree: worktree} do
+      shape_stdout(["build"], worktree)
+      shape_stdout(["build"], worktree)
+
+      lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
+      assert Enum.count(lines, &(&1 == Whiska.Spec.exclude_line())) == 1
+    end
+
     test "prints the rules a spawn chooses by, from anywhere", %{main: main} do
       out = capture_io(fn -> assert CLI.run(["shape", "--rules"], main) == 0 end)
       assert JSON.decode!(out) == @rules

@@ -186,6 +186,7 @@ defmodule Whiska.CLI do
                          Give a fresh mouse its shape, before Claude starts
                          (ADR-0069): record its mode, model and effort, and
                          print the flags to start Claude with, or nothing.
+                         Also makes git ignore the worktree's .whiska-spec.md.
                          Fails rather than guess, so a spawn stops before
                          Claude. A model or effort left out is the last rule's
                          in priv/models.json: #{@catch_all}.
@@ -951,11 +952,23 @@ defmodule Whiska.CLI do
     case Storage.shape(mouse_id, mode, model, effort) do
       {:ok, _} ->
         IO.puts(:stderr, "#{layout.branch_label} is #{Whiska.Shape.describe(shape)}.")
+        ignore_spec(layout)
         say(Enum.join(Whiska.Shape.claude_args(shape), " "))
 
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not shape this mouse (#{inspect(reason)}).")
         1
+    end
+  end
+
+  # Not a reason to stop the spawn: the spec skill ignores the file itself when
+  # git does not, and until then the owl only leaves the worktree standing.
+  defp ignore_spec(layout) do
+    with {:error, reason} <- Whiska.Spec.ignore(layout.main_checkout) do
+      IO.puts(
+        :stderr,
+        "whiska: could not make git ignore #{Whiska.Spec.filename()} (#{inspect(reason)})."
+      )
     end
   end
 

@@ -14,8 +14,9 @@ the steps live here, so they cost nothing until the turn is actually ending.
 
 ## 1. Read the work back against what was asked
 
-The brief, the ticket it names, and what this repo writes down: its specs, its glossary,
-its recorded decisions — `specs:` under `## Finish` says where.
+The brief, its spec in `.whiska-spec.md` when there is one, the ticket it names, and what
+this repo writes down: its specs, its glossary, its recorded decisions — `specs:` under
+`## Finish` says where.
 
 - It contradicts a written decision, or a piece the brief asked for is missing → fix it
   now.
