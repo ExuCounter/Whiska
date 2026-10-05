@@ -8,8 +8,9 @@ published to an issue tracker that this setup does not have.
 
 ## The rule
 
-After the last grilling round the session runs `whiska-spec`, unless the task is a tweak
-or quick fix. The skill writes the spec to `.whiska-spec.md` at the worktree root and sends
+After the last grilling round the session runs `whiska-spec`. (Amended 2026-10-05 by
+ADR-0078: it said "unless the task is a tweak or quick fix", and
+the session judged that alone. Size no longer skips it.) The skill writes the spec to `.whiska-spec.md` at the worktree root and sends
 the whole spec to the person as a question. The session builds only when they reply "ok".
 Any other reply revises the file, and the whole spec goes out again.
 

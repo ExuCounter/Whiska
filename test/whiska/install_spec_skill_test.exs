@@ -35,10 +35,10 @@ defmodule Whiska.InstallSpecSkillTest do
   end
 
   describe "when it runs" do
-    test "a tweak or quick fix skips it, and so does a brief that needed no grilling" do
+    test "a brief that needed no grilling skips it; a tweak or quick fix does not" do
       body = prose("whiska-spec")
 
-      assert body =~ ~r/a tweak or quick fix skips it/i
+      refute body =~ ~r/tweak or quick fix/i
       assert body =~ ~r/needed no grilling/i
     end
 

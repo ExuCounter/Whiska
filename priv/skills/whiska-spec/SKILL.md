@@ -12,8 +12,8 @@ The `CLAUDE.md` block names the trigger; the steps live here.
 
 ## When
 
-After the last grilling round is answered, before any code. A tweak or quick fix skips it,
-and so does a brief that needed no grilling: the person's own words are its spec.
+After the last grilling round is answered, before any code. A brief that needed
+no grilling skips it: the person's own words are its spec. Size never skips it.
 
 ## Process
 
