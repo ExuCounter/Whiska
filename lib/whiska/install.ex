@@ -723,7 +723,11 @@ defmodule Whiska.Install do
   # does, and ships as a skill for the same reason the worktree skills are
   # files: it is long, and a session only needs it at the moment a turn is
   # ending.
-  @committed_skills @worktree_skills ++ ~w(whiska-finish)
+  #
+  # The spec binds a mouse at one moment too, after grilling and before it
+  # builds. The person's grilling skill ships beside it so it has one copy
+  # (ADR-0076).
+  @committed_skills @worktree_skills ++ ~w(whiska-finish grilling whiska-spec)
 
   # The source is `priv/skills/`, not this repo's own `.claude/skills/`. They
   # are build inputs, and a repo installed globally (ADR-0056) has no committed
@@ -1053,14 +1057,15 @@ defmodule Whiska.Install do
 
   Two kinds, and both are one skill per fixed command rather than bash the model
   composes itself (ADR-0022): the reading skills that wrap `whiska`, and the
-  three worktree skills that wrap `herdr` (ADR-0046). `whiska-finish` is
-  neither: it is the finishing pipeline the block points at (ADR-0055).
+  three worktree skills that wrap `herdr` (ADR-0046). `whiska-finish` and
+  `whiska-spec` are neither: they are steps the block points at (ADR-0055).
+  Nor is `grilling`, the person's own skill, shipped so it has one copy.
   """
   @spec skills() :: [{Path.t(), String.t()}]
   def skills, do: @skills ++ @committed_skill_files
 
   @doc """
-  The skills one scope writes: all seven in both, because the global install
+  The skills one scope writes: all nine in both, because the global install
   is the only source of them on a machine that has it (ADR-0056).
   """
   @spec skills(scope()) :: [{Path.t(), String.t()}]

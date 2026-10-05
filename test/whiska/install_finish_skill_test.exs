@@ -58,6 +58,10 @@ defmodule Whiska.InstallFinishSkillTest do
       assert index_of(body, "Then the marker") > index_of(body, "Send reviewers")
     end
 
+    test "the work is read back against the spec the person approved, when there is one" do
+      assert prose() =~ "its spec in `#{Whiska.Spec.filename()}` when there is one"
+    end
+
     test "a decision turn skips the pipeline, and the main session never runs it" do
       body = prose()
 

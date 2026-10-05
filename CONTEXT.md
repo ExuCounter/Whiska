@@ -23,8 +23,9 @@ What a mouse is given to build — the person's own words, routed in whole by
 `spawn-worktree` or `send-to-worktree`, or a **proposal** the person said yes to, handed
 over by its question id alone. A brief is **buildable** once no **costly choice** in it is
 left open, "done" and the failing test that proves it included; until then it gets
-grilled, after the mouse has read the code and before it writes any (ADR-0063).
-_Avoid_: task, ticket, spec
+grilled, after the mouse has read the code and before it writes any (ADR-0063). A grilled
+brief is buildable once its **spec** has the person's ok.
+_Avoid_: task, ticket
 
 **Grilling**:
 The rounds of questions a mouse asks before building a brief that is not yet buildable:
@@ -43,6 +44,15 @@ access or a security check, or the rest of the change is built on it. A mouse as
 before building. Every other choice is **cheap**: the
 mouse decides it and lists it in its final report (ADR-0063).
 _Avoid_: big decision, one-way door
+
+**Spec**:
+A grilled brief, written down: its problem, user stories, decisions, testing and what is
+out of scope, in `.whiska-spec.md` at the worktree root, which git ignores. The mouse
+writes it with the `whiska-spec` skill after the last grilling round, sends it whole as a
+question, and builds only on the person's ok. A tweak or quick fix gets none, and neither
+does a brief that needed no grilling. The person's words are that brief's spec
+(ADR-0076).
+_Avoid_: plan, design doc, ticket
 
 **Mouse record**:
 Whiska's own persisted row tracking a mouse — its pane, worktree path, branch label,

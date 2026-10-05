@@ -20,6 +20,7 @@ C4Component
     Component(layout, "Layout", "path arithmetic", "Finds worktree root and main checkout")
     Component(markerm, "Marker", "identity", "Reads or mints the mouse_id")
     Component(shapem, "Shape", "pure", "A spawn's mode, model and effort, and the flags to start Claude with; the catch-all from priv/models.json for what the spawn left unnamed")
+    Component(specm, "Spec", "file", "Names the spec file and keeps it out of git through the main checkout's info/exclude")
     Component(tx, "Transcript", "reader", "Claude Code's JSONL: where the session started, its tail, whether a subagent is still out, and the model its latest answer came from")
     Component(mainrule, "Rule.MainCheckout", "rule", "No edits outside the mouse's worktree")
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse, or one nobody shaped, writes nothing at all")
@@ -53,6 +54,7 @@ C4Component
   Rel(main, shapem, "shape: reads the mode and model before minting anything")
   Rel(main, markerm, "shape and mode: mint the mouse_id before Claude starts")
   Rel(main, storage, "shape: records mode, model and when, before Claude starts")
+  Rel(main, specm, "shape and mode: make git ignore the spec the mouse writes after grilling")
   Rel(main, install, "Delegates init")
   Rel(main, claudemd, "init: merges the block into CLAUDE.md")
   Rel(main, questions, "Delegates questions")
@@ -132,6 +134,14 @@ reads it as `unshaped`, `Rule.Sniff` holds it to sniff's rules with a reason tha
 it to the person, and `Mice` says `never shaped, reads only`. `whiska mode` moves the mode
 alone, so `shaped_as` keeps the mode the model and effort were chosen with, and `Mice`
 says when a mouse was moved off it (ADR-0074).
+
+Shaping, and setting a mode, also makes git ignore the worktree's `.whiska-spec.md`, the
+spec the mouse writes after grilling
+(ADR-0076). The line goes into the
+main checkout's `.git/info/exclude`, which a mouse may not edit itself (ADR-0013). A
+failure there is a line on stderr, not a failed spawn. The mouse's `git check-ignore`
+then says so under its spec, and until the line is there the owl only leaves the
+worktree standing.
 
 **The decision never depends on storage.** `Hook.PreToolUse` treats identity and
 bookkeeping as best-effort; the rule itself does not read the database to contain a

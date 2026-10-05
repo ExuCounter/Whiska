@@ -104,12 +104,22 @@ defmodule Whiska.CLIInitGlobalTest do
       assert File.read!(Path.join(home, Install.base_statusline_path())) == "my-line.sh"
     end
 
-    test "writes all seven skills, the worktree ones included", %{home: home} do
+    test "writes all nine skills, the worktree ones included", %{home: home} do
       init_global()
 
       for name <- ~w(whiska-questions whiska-delivered whiska-reply whiska-finish
-                     spawn-worktree send-to-worktree drop-worktree) do
+                     whiska-spec grilling spawn-worktree send-to-worktree drop-worktree) do
         assert File.exists?(Path.join(home, ".claude/skills/#{name}/SKILL.md"))
+      end
+    end
+
+    test "names every skill it wrote" do
+      [_, after_heading] = init_global() |> String.split("~/.claude/skills/", parts: 2)
+      [written | _] = String.split(after_heading, "\n\n", parts: 2)
+
+      for {path, _} <- Whiska.Install.skills(:global) do
+        name = path |> Path.dirname() |> Path.basename()
+        assert written =~ ~r/\b#{name}\b/, "#{name} is not named"
       end
     end
 

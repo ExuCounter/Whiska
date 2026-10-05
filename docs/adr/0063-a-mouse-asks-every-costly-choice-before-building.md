@@ -57,7 +57,8 @@ because each round costs the person a full round trip. Answers can open another 
 every round ends with the status marker.
 
 The 2–4 line plan still binds the main session only (ADR-0055). A mouse sends no plan; the
-one ok it waits for is on its costly choices. A costly choice found mid-build is a real
+oks it waits for are on its costly choices and, since the 2026-10-05 amendment below, on
+its spec. A costly choice found mid-build is a real
 decision and stops the mouse the same way. The block says so in the bullet that tells a
 mouse it builds, because that bullet, read on its own, is what once cancelled the grilling
 rule.
@@ -93,3 +94,12 @@ rule cost, on purpose.
 
 No architecture diagram moves. The message is a needs-decision question like any other and
 reaches the person by the same delivery flow.
+
+## Amendment, 2026-10-05: the answers are written down and approved
+
+ADR-0076 adds a step between the last
+grilling round and the first line of code. The mouse runs `whiska-spec`, unless the task
+is a tweak or quick fix. It writes the spec to an untracked `.whiska-spec.md`, sends the
+whole spec as a question, and builds only when the person replies "ok". A grilled task
+now costs one more round trip before any code. A brief that needed no grilling still
+costs none.

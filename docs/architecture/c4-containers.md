@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (1250 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (2000 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -25,6 +25,7 @@ C4Container
     Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, renamed .collected once read")
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records and questions, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
+    Container(spec, "Spec", ".whiska-spec.md file", "What a grilled brief will build, at the worktree root; the mouse writes it, git ignores it")
     Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
     Container(svc, "LaunchAgent", "launchd, com.whiska.owl", "Starts the owl at login, restarts a crash; runs the owl.sh wrapper")
@@ -50,6 +51,7 @@ C4Container
   Rel(shim, cli, "Execs with the payload on stdin", "JSON")
   Rel(cli, marker, "Reads, minting one on first use")
   Rel(cli, db, "shape records a new mouse's mode and model before Claude starts")
+  Rel(cli, spec, "shape and mode make git ignore it, through the main checkout's info/exclude")
   Rel(cli, doorstep, "Stop hook writes one entry, unconditionally")
   Rel(cli, owl, "whiska owl boots it in the foreground")
   Rel(cli, svc, "whiska owl install / stop / start / uninstall", "launchctl")
@@ -122,6 +124,15 @@ when the hook fires, so an Erlang upgrade needs no re-`init`.
 **The house database lives under the main checkout's `.git/`**, which every worktree
 shares. That is what puts all of a repo's mice in one house instead of one per worktree,
 and it is gitignored by construction. Storage is real SQLite, not flat files (ADR-0028).
+
+**The spec sits in the worktree, not the house**
+(ADR-0076). It is what one mouse is
+building, so it lives and dies with that mouse's worktree: the person reads it in full
+in the question that asks for their ok, and once the branch lands the commits hold the
+outcome. It is never committed, and an untracked file would keep the owl from taking the
+worktree down, so `whiska shape` and `whiska mode` add `/.whiska-spec.md` to the main
+checkout's `.git/info/exclude`, which every worktree of the repo reads. The mouse never
+writes that file itself: it is in the main checkout (ADR-0013).
 
 **The doorstep is a directory, not a socket** (ADR-0036). The `Stop` hook writes a file
 and exits — unconditionally, whether or not the owl is running. "The owl is down" is
