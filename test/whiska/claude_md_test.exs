@@ -52,10 +52,8 @@ defmodule Whiska.ClaudeMdTest do
       lines = rendered |> String.split("\n") |> length()
       words = rendered |> String.split() |> length()
 
-      # Raised deliberately, by exactly what each rule cost: ADR-0075, ADR-0063,
-      # ADR-0076, the brief that opens a decision.
       assert lines <= 159, "the block grew back to #{lines} lines; every rule has a terse form"
-      assert words <= 1643, "the block grew back to #{words} words; every rule has a terse form"
+      assert words <= 1617, "the block grew back to #{words} words; every rule has a terse form"
     end
 
     test "no rule is buried deeper than one level of bullet" do
@@ -139,16 +137,15 @@ defmodule Whiska.ClaudeMdTest do
     test "a mouse reads the code, then asks every costly choice with its recommendation" do
       body = prose_of("worktrees")
 
-      assert body =~ ~r/read the code first, then grill: send one message/i
-      assert body =~ ~r/every choice with real alternatives that is costly to undo/i
-      assert body =~ ~r/each with its recommended answer/i
-      assert body =~ ~r/and wait for the person.s ok\. a .done./i
+      assert body =~ ~r/\*\*grill\.\*\* read the code first, then send one message/i
+      assert body =~ ~r/every \*\*costly\*\* choice with real alternatives/i
+      assert body =~ ~r/each with its recommended answer, and wait for the person.s ok/i
     end
 
     test "costly to undo is a test a mouse can apply, not an adjective" do
       body = prose_of("worktrees")
 
-      assert body =~ ~r/costly to undo: something outside the change depends on it/i
+      assert body =~ ~r/\*\*costly\*\* to undo: something outside the change depends on it/i
 
       for thing <- [
             "a file format",
@@ -179,7 +176,7 @@ defmodule Whiska.ClaudeMdTest do
 
     test "a truly trivial task never needs the message" do
       assert prose_of("worktrees") =~
-               ~r/a truly trivial task — a typo, a rename, a one-line fix, nothing on that list — never needs one/i
+               ~r/a truly trivial task — a typo, a rename, a one-line fix, nothing costly — never needs one/i
     end
 
     test "a brief that names done and its failing test is not asked about them" do
@@ -217,7 +214,7 @@ defmodule Whiska.ClaudeMdTest do
 
     test "a done or failing test that needs a guess is one of the costly choices" do
       assert prose_of("worktrees") =~
-               ~r/a .done. or failing test that needs a guess.{0,120}is one of them/i
+               ~r/a .done. or failing test that needs a guess.{0,120}is costly\./i
     end
 
     test "grilling is not capped at one round" do
@@ -253,6 +250,22 @@ defmodule Whiska.ClaudeMdTest do
 
     test "the bullet that tells a mouse it builds keeps the stop for its spec" do
       assert prose_of("worktrees") =~ ~r/stops only on a real decision.{0,100}and so is its spec/i
+    end
+
+    test "a mouse works through done, grill, spec and build, in that order" do
+      body = prose_of("worktrees")
+
+      at =
+        for step <- ["**Done.**", "**Grill.**", "**Spec.**", "**Build.**"] do
+          assert {at, _} = :binary.match(body, step), "#{step} is missing"
+          at
+        end
+
+      assert at == Enum.sort(at)
+    end
+
+    test "the steps bind a session working in place as well as a mouse" do
+      assert prose_of("worktrees") =~ ~r/in a mouse, or here when working in place:/i
     end
 
     test "a frontend change is previewed before it is built" do

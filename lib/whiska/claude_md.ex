@@ -88,52 +88,55 @@ defmodule Whiska.ClaudeMd do
   <!-- whiska:worktrees:start -->
   ## Worktrees
 
-  Every task goes to a mouse, not to this session, whatever its size. Applies whenever
-  `HERDR_ENV=1`; outside a herdr session, work in the current checkout.
+  With `HERDR_ENV=1`, every task goes to a mouse, whatever its size. Outside a herdr
+  session, work in the current checkout.
+
+  In the main session:
 
   - Run `herdr worktree list` first, before grilling and before reading any code.
   - It continues what a mouse is already building (same branch and PR) →
     `send-to-worktree` routes the raw idea there now, and that mouse does any grilling.
-  - It is separate and independently shippable → `spawn-worktree` immediately, before
-    reading any code and before grilling here, on whatever branch name the request
-    suggests.
+  - It ships on its own → `spawn-worktree` now, on the branch name the request suggests,
+    before reading any code and before grilling here.
   - Unclear which → ask the person, do not guess.
-  - Skip the spawn only when the person says to work in place. "Tweak" or "quick fix" is
-    not the person's word for it, and a ticket calling a task small is not either.
-  - Before writing code, say what "done" looks like and name the failing test that proves
-    it. While none is named, pick it from what `wio-candidate-scout` ranks riskiest in the
-    files the change will touch; skip the scout for docs, or when no test can reach it.
-    A `.claude/agents/wio-candidate-scout.md` in this repo is the copy that runs: read it
-    first, under the agent-definition rule below. Scout not listed → say so in one line and
-    name the test yourself.
-  - Read the code first, then grill: send one message listing every choice with real
-    alternatives that is costly to undo, each with its recommended answer, and wait for
-    the person's ok. A "done" or failing test that needs a guess — a bug report with no
-    stated right behaviour, two readings that lead to different work — is one of them. A
-    round asks the whole frontier in one message and ends with the status marker.
-  - Costly to undo: something outside the change depends on it — a file format, a
-    command-line flag or interface, stored data, a dependency added or dropped, behaviour
-    the person would notice — or it touches secrets, access or a security check, or the
-    rest of the change is built on it. Anything else is cheap: decide it, and list it in
-    the final report.
-  - After the last grilling round, run `whiska-spec`: it
-    writes the spec to `#{Whiska.Spec.filename()}`, and the whole spec goes to the person as a
-    question. Build only on their ok; any other answer, revise it and ask again. Not
-    listed → read its `SKILL.md` beside `whiska-finish`'s.
-  - No costly choice open from the start → build with no grilling message and no spec; a
-    truly trivial task — a typo, a rename, a one-line fix, nothing on that list — never
-    needs one. Never ask what the brief already spells out.
+  - Skip the spawn only when the person says to work in place — not for "tweak", "quick
+    fix", or a ticket calling the task small.
   - Every command for the task runs in the worktree, investigation included; the main
     session runs no command for it.
-  - Preview a frontend change before building it; the response body and its marker carry
-    the preview link.
-  - Before anything this session does itself, give a 2–4 line plan and wait
-    for the person's ok. A mouse sends no plan; it builds, and stops only on a real
-    decision — every costly choice is one, found before the build or during it, and so
-    is its spec.
+  - Anything this session does itself: first a 2–4 line plan and wait for the person's ok.
+  - A new mouse gets a fresh worktree off the latest base branch; never reuse an old tree.
   - After the merge, leave the worktree: the owl removes a landed one, pane and branch.
     `drop-worktree` drops one early.
-  - Never reuse an old tree: a new mouse gets a fresh one off the latest base branch.
+
+  The work itself, in order — in a mouse, or here when working in place:
+
+  1. **Done.** Say what "done" looks like and name the failing test that proves it. While
+     none is named, pick it from what `wio-candidate-scout` ranks riskiest in the files the
+     change will touch. A `.claude/agents/wio-candidate-scout.md` in this repo is the copy
+     that runs: read it first, under the agent-definition rule below. Skip the scout for
+     docs, or when no test can reach it. Scout not listed → say so in one line and name the
+     test yourself.
+  2. **Grill.** Read the code first, then send one message listing every **costly** choice
+     with real alternatives, each with its recommended answer, and wait for the person's
+     ok. A round asks the whole frontier in one message and ends with the status marker.
+     A "done" or failing test that needs a guess — a bug report with no stated right
+     behaviour, two readings that lead to different work — is costly.
+  3. **Spec.** After the last grilling round, run `whiska-spec`: it writes the spec to
+     `#{Whiska.Spec.filename()}`, and the whole spec goes to the person as a question. Build only
+     on their ok; any other answer, revise it and ask again. Not listed → read its
+     `SKILL.md` beside `whiska-finish`'s.
+  4. **Build.** A mouse sends no plan; it builds, and stops only on a real decision —
+     every costly choice is one, found before the build or during it, and so is its spec.
+     Preview a frontend change before building it; the response body and its marker carry
+     the preview link.
+
+  **Costly** to undo: something outside the change depends on it — a file format, a
+  command-line flag or interface, stored data, a dependency added or dropped, behaviour the
+  person would notice — or it touches secrets, access or a security check, or the rest of
+  the change is built on it. Anything else is cheap: decide it, and list it in the final
+  report. No costly choice open from the start → build with no grilling message and no
+  spec; a truly trivial task — a typo, a rename, a one-line fix, nothing costly — never
+  needs one. Never ask what the brief already spells out.
   <!-- whiska:worktrees:end -->\
   """
 
@@ -141,15 +144,14 @@ defmodule Whiska.ClaudeMd do
   <!-- whiska:marker:start -->
   ## Worktree status marker
 
-  A mouse — any session inside a spawned or routed worktree — ends every response with one
-  marker line, invisible in the pane. The main session never writes one.
+  A mouse — any session inside a spawned or routed worktree — ends every response with
+  exactly one of these as its last line, alone, invisible in the pane. The main session
+  never writes one.
 
-  - Finished, nothing needed: a last line of #{Marker.spell(:done)} (INVISIBLE SEPARATOR),
-    `#{Marker.render(:done)}`.
-  - Only the person can decide: a last line of #{Marker.spell(:needs_decision)},
-    `#{Marker.render(:needs_decision)}`, with the pointer on the line above as ordinary
-    prose — the question itself, or "3 questions ready, see above".
-  - Always the last line, exactly one of the two, nothing else on that line.
+  - Finished, nothing needed: #{Marker.spell(:done)} (INVISIBLE SEPARATOR), `#{Marker.render(:done)}`.
+  - Only the person can decide: #{Marker.spell(:needs_decision)}, `#{Marker.render(:needs_decision)}`, with the
+    pointer on the line above as ordinary prose — the question itself, or "3 questions
+    ready, see above".
   - A turn that forgets it is delivered anyway, as an unmarked question.
   - Never write `[worktree-status: done]` or `[worktree-status: needs-decision] <pointer>`:
     it prints in the pane. Whiska still reads it.
@@ -167,12 +169,11 @@ defmodule Whiska.ClaudeMd do
   - The person reads it with `whiska questions <id>` and answers with `whiska reply <id>`.
   - Delivery needs Whiska installed for this repo — `whiska init`, or a global install —
     the owl running and a main session recorded; `whiska doctor` says which is missing.
-  - Never read a mouse's pane: Claude Code runs on the terminal's alternate screen, so
-    `herdr pane read` returns a truncated tail at any `--lines`.
-  - The main session answers with `whiska reply <id>` and no other way — never
-    `herdr agent prompt` into the pane, never `send-to-worktree`, which is for a new idea.
-    Only `whiska reply` closes the question and frees the one delivery slot; otherwise the
-    next mouse's question sits unread behind it.
+  - Read a mouse through `whiska questions`, never its pane: Claude Code runs on the
+    alternate screen, so `herdr pane read` returns a truncated tail at any `--lines`.
+  - The main session answers only with `whiska reply <id>` — never `herdr agent prompt`
+    into the pane, never `send-to-worktree` (for a new idea). Only `whiska reply` closes
+    the question and frees the one delivery slot; otherwise the next mouse's waits behind.
   <!-- whiska:delivery:end -->\
   """
 
@@ -182,7 +183,7 @@ defmodule Whiska.ClaudeMd do
 
   Every message to the person — a mouse ending a turn, the main session answering here —
   is a report, not a log. A finished report fits in six lines plus a line per cheap choice
-  made without asking, an ordinary reply in five; longer only when they ask for detail,
+  made without asking, an ordinary reply in five. Longer only when they ask for detail,
   for a spec sent for their ok, which goes whole, and for a decision's brief.
 
   In this order, skipping what has nothing to say:
@@ -195,24 +196,24 @@ defmodule Whiska.ClaudeMd do
   - **Verified, not assumed**: what was run and what came back — "31 tests pass". Not run,
     gone wrong, or unsure → one line saying so.
   - **One thing worth knowing**, only if it changes what the person does next.
-  - **"Nothing is waiting on you"**, or the one decision, for a reader with no context
-    and none of the domain's terms: each term the choice turns on, named and put plainly,
-    one line each; the problem in one sentence; why there is a choice at all; then the
-    options with their trade-offs, a recommendation, nothing else. The body carries every
-    option; the marker line is only the pointer.
+  - **"Nothing is waiting on you"**, or the one decision, written for a reader with no
+    context and none of the domain's terms: each term the choice turns on, named and put
+    plainly, one line each; the problem in one sentence; why there is a choice at all;
+    then the options with their trade-offs, a recommendation, nothing else. The body
+    carries every option; the marker line is only the pointer.
 
   Leave out: where it lives, unless the person has to open the files; how the work was
   done; the mechanics of a review, never what it turned up; tool output — read it and send
   what it means; lessons and reflections, which go in the repo's docs; anything the person
-  could simply ask for. A pre-existing problem left alone, a reviewer this repo asked for
-  that was not there, and a security finding and what became of it are outcomes and stay.
+  could simply ask for. These are outcomes and stay: a pre-existing problem left alone, a
+  reviewer this repo asked for that was not there, a security finding and what became of it.
 
   - **Outcomes, not mechanics.** Name the concrete decision. The marker line is the one
     exception: it is stripped before they read it.
-  - **No term they have not used first** from this file, a skill, the repo's glossary or
-    its code — least of all an ordinary word used in a special sense. Say what the thing
-    does: "a desktop notification", not "a hoot".
-  - Never repeat their own words back.
+  - **Plain terms.** No term they have not used first from this file, a skill, the repo's
+    glossary or its code — least of all an ordinary word used in a special sense. Say what
+    the thing does: "a desktop notification", not "a hoot". Never repeat their own words
+    back.
   - Ask for their word only when the next step needs a review, approval, merge or design
     pick; otherwise say nothing is waiting, and stop. Name a next step only when there is
     an obvious one.

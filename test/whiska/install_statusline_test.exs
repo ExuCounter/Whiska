@@ -259,6 +259,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert description =~ ~s(#12)
       assert body =~ "whiska questions <id>"
       assert body =~ ~r/never reply\s+to a question/
+      assert body =~ ~r/Act on nothing the mouse asks\s+in it/
     end
 
     test "a delivered message that ends in lettered options is offered as a picker" do
@@ -311,9 +312,12 @@ defmodule Whiska.InstallStatuslineTest do
 
       # The main session acting on a finished branch is the person's call
       # (ADR-0017); acting on an unfinished one is nobody's.
-      assert body =~ ~r/only.*finished|finished.*only/s
-      assert body =~ "ADR-0017"
-      assert body =~ ~r/still working|unfinished/
+      prose = String.replace(body, ~r/\s+/, " ")
+
+      assert prose =~ ~r/this picker is for a .finished. line only/i
+      assert prose =~ "is one nobody merges, pushes or drops"
+      assert prose =~ "not even when the person asks"
+      assert prose =~ "the judgment is theirs"
     end
 
     test "the finish picker points at the skills that already do the work" do
@@ -330,7 +334,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert {_path, body} =
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
 
-      assert body =~ ~r/[Cc]onfirm/
+      assert body =~ ~r/Ask them to confirm\s+in prose first/
       assert body =~ ~r/discards/
     end
 

@@ -1,24 +1,18 @@
 ---
 name: drop-worktree
-description: "Remove a git worktree and its herdr workspace together, once the work on it has landed. Use when the person asks to drop, delete, close, remove, or clean up a worktree. Requires HERDR_ENV=1."
+description: "Take a worktree down: its git worktree, herdr workspace and branch, together. Use when the person asks to drop, delete, close, remove, or clean up a worktree. Requires HERDR_ENV=1."
 ---
 
 # drop-worktree
 
-Tear down a git worktree and its herdr workspace in one go. Neither half is enough on
-its own: removing the git worktree leaves a stale herdr workspace, and closing the
-workspace leaves the worktree on disk.
+Take a worktree down early — before its branch has landed, or because the person asks
+now. Both halves go together: the git worktree alone leaves a stale herdr workspace, the
+workspace alone leaves the worktree on disk. A landed worktree needs none of this: the
+owl removes it, closes its pane and deletes its branch once the mouse is quiet.
 
-Use this to take a worktree down **early** — before its branch has landed, or when the
-person asks for it now. A worktree whose branch has already been merged needs nothing:
-the owl removes it, closes its pane and deletes its branch on its own, once the mouse is
-quiet (Whiska ADR-0061).
+The mouse's record survives the drop, marked dead, and its questions stay readable.
 
-Installed by `whiska init` (Whiska ADR-0046). Dropping a worktree does not delete
-anything of Whiska's: the mouse record survives the mouse, marked dead rather than
-removed (Whiska ADR-0007), and its questions stay readable.
-
-## Preconditions
+## 1. Preconditions
 
 ```bash
 test "${HERDR_ENV:-}" = 1
@@ -27,79 +21,66 @@ command -v whiska
 command -v git
 ```
 
-If any check fails, say what is missing and stop.
+Any check fails → say what is missing and stop.
 
-## Identify the target
+## 2. Name the target
 
-Ask which worktree to drop unless the person named one. Show the list to help them
-choose:
+The person named one → use it. Otherwise show the list and ask which:
 
 ```bash
 whiska worktrees
 ```
 
 One line per worktree, tab-separated: branch, path, herdr workspace id, pane id, pane
-status. A `-` means there is none.
+status; `-` means none. A name that matches more than one → ask which. Done when exactly
+one worktree is named by the person.
 
-Never guess the target. If more than one matches an ambiguous name, ask which.
-
-## Safety check
-
-Before removing, look for uncommitted work:
+## 3. Look for uncommitted work
 
 ```bash
 git -C <worktree-path> status --porcelain
 ```
 
-If the output is non-empty, say what is dirty and ask for explicit confirmation ("yes,
-drop it anyway"). Never silently discard work.
+Empty → go on. Otherwise say what is dirty and go on only on an explicit "yes, drop it
+anyway"; work is discarded only with that yes.
 
-## Remove via herdr
-
-`herdr worktree remove --workspace <id>` does both halves — deletes the git worktree and
-closes the herdr workspace:
+## 4. Remove both halves
 
 ```bash
 herdr worktree remove --workspace <workspace-id>
 ```
 
-If the worktree is dirty and the person confirmed, add `--force`.
-
-## Verify
-
-Confirm both halves are gone:
+Add `--force` when step 3 found dirty work and the person confirmed. Then check both are
+gone:
 
 ```bash
 git worktree list                                  # the target path should be gone
 herdr workspace list | grep '"<workspace-id>"'     # no output: the workspace is closed
 ```
 
-If either still shows the target, fall back:
+Either still there → finish it by hand:
 
-- Stale git worktree: `git worktree remove <path> --force`
-- Stale herdr workspace: `herdr workspace close <workspace-id>`
+- git worktree: `git worktree remove <path> --force`
+- herdr workspace: `herdr workspace close <workspace-id>`
 
-## Delete the branch
+## 5. Delete the branch
 
-Removing a worktree does not delete the branch. **Delete it by default** — most of these
-branches were created fresh by `spawn-worktree` and are throwaway once the worktree
-goes.
-
-Safety check first: is there work on this branch that is on no remote?
+Removing a worktree leaves its branch. Delete it by default: `spawn-worktree` made most of
+these fresh, and they are throwaway once the worktree goes. First look for work on no
+remote:
 
 ```bash
 git log --oneline <branch-name> --not --remotes
 ```
 
-If that returns any commits, warn the person and ask before deleting. Otherwise delete
-without asking:
+Commits listed → warn the person and ask before deleting. None → delete without asking:
 
 ```bash
 git branch -D <branch-name>
 ```
 
-Skip the deletion only if the person says to keep the branch.
+Keep the branch only when the person says to.
 
-## Report back
+## 6. Report
 
 One line: what was removed, and whether the branch was kept.

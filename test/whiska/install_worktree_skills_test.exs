@@ -102,8 +102,8 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       body = skill("spawn-worktree")
 
       assert body =~ "--path worktrees/"
-      assert body =~ "ADR-0030"
       assert body =~ "Whiska.Layout"
+      assert String.replace(body, ~r/\s+/, " ") =~ "Changing it means changing Whiska"
     end
 
     test "runs herdr worktree create from the repo root" do

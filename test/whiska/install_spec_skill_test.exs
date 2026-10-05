@@ -43,7 +43,7 @@ defmodule Whiska.InstallSpecSkillTest do
     end
 
     test "it asks nothing new: the grilling already did" do
-      assert prose("whiska-spec") =~ ~r/do not interview the person/i
+      assert prose("whiska-spec") =~ ~r/ask the person nothing new/i
     end
   end
 

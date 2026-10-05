@@ -3,26 +3,25 @@
 An Elixir/OTP coordinator for Claude Code sessions working in isolated git worktrees.
 Replaces this dotfiles setup's bash worktree-notification relay.
 
-The design is finished and written down. Read it before writing code:
+The design is finished and written down; read it before writing code:
 
-- `CONTEXT.md` — the glossary. The canonical name for every domain concept.
-- `docs/adr/` — every architectural decision, one file each. `docs/adr/README.md` indexes
-  them by area.
+- `CONTEXT.md` — the glossary: the canonical name for every domain concept.
+- `docs/adr/` — every architectural decision, one file each, indexed by area in
+  `docs/adr/README.md`.
 - `specs/spec.md` — the long-form design narrative. `handoffs/` — session handoffs.
 
 `CONTEXT.md` and the ADRs are the authority. Where the spec and an ADR disagree, the ADR
-wins — it is the later, extracted decision.
+wins: it is the later, extracted decision.
 
 ## ADRs are binding
 
-**Cite the ADR.** When you make a design or implementation choice that an ADR already
-covers, name it — "per ADR-0011, the hook denies immediately rather than waiting". Not
-decoration: it is how the next reader knows the choice was inherited rather than invented
-on the spot.
+**Cite the ADR** whenever a design or implementation choice is one an ADR already covers —
+"per ADR-0011, the hook denies immediately rather than waiting". The citation is how the
+next reader knows the choice was inherited rather than invented on the spot.
 
-**Never contradict an ADR silently.** If the right thing to do now conflicts with a
-recorded decision — or you find yourself about to write code that quietly does something
-else — stop and say so before writing it. Give exactly this, in one message:
+**Contradict an ADR only out loud.** When the right thing now conflicts with a recorded
+decision — or the code you are about to write quietly does something else — stop before
+writing it and give exactly this, in one message:
 
 1. Which ADR, by number and title.
 2. What it currently says, quoted.
@@ -31,21 +30,20 @@ else — stop and say so before writing it. Give exactly this, in one message:
    not just the code shape.
 5. Your recommendation.
 
-Then wait. The user decides whether the attempt is right. This is not a rubber stamp
-step: an ADR being wrong is a normal outcome, and the point is that it gets changed
-deliberately, in the file, rather than drifting out of date while the code walks away
-from it.
+Then wait. The user decides whether the attempt is right; this is not a rubber stamp. An
+ADR being wrong is a normal outcome — the point is that it changes deliberately, in the
+file, rather than drifting out of date while the code walks away from it.
 
-If the decision changes, the ADR changes in the same piece of work — supersede it or
-rewrite it, and update `docs/adr/README.md`. A stale ADR is worse than none.
+A changed decision changes its ADR in the same piece of work: supersede it or rewrite it,
+and update `docs/adr/README.md`. A stale ADR is worse than none.
 
-**Writing a new one** needs all three to be true, or skip it: hard to reverse, surprising
-without context, and the result of a real trade-off with genuine alternatives. Name it
-`docs/adr/next-<slug>.md` and cite it as `ADR-` then `next-<slug>`. Never pick a number:
-it is only known when the branch lands.
+**A new ADR** needs all three, or skip it: hard to reverse, surprising without context,
+and the result of a real trade-off with genuine alternatives. Name it
+`docs/adr/next-<slug>.md` and cite it as `ADR-` then `next-<slug>`. Leave the number
+unpicked: it is only known when the branch lands.
 
-**Before merging a branch whose `docs/adr/` holds a `next-` file**, run `mix adr.claim`
-in its worktree and commit the result on the branch, then merge. `mix test` fails on a
+**Before merging a branch whose `docs/adr/` holds a `next-` file**, run `mix adr.claim` in
+its worktree and commit the result on the branch, then merge. `mix test` fails on a
 placeholder that reached main, a number taken twice, or a citation with no record behind
 it.
 
@@ -53,9 +51,9 @@ it.
 
 `CONTEXT.md` is the glossary — Whiska, mouse, `mouse_id`, question, house, owl, build
 mode, sniff mode. Use those names in code, comments, commit messages and between
-sessions, but not in a message to the person unless they used the term first. There, say
-what the thing does. Don't invent synonyms, and don't reach for the `_Avoid_` words
-listed under each term; they are listed because they were rejected for a reason.
+sessions. In a message to the person, use one only after they have; otherwise say what
+the thing does. Use the glossary's own name for each concept: no synonyms, and none of the
+`_Avoid_` words listed under each term — each was rejected for a reason.
 
 ## Keep the architecture diagrams honest
 
@@ -64,9 +62,9 @@ two flows, deployment. They are a *view* onto `CONTEXT.md` and the ADRs, never a
 source of truth: where a diagram and an ADR disagree, the ADR wins and the diagram is the
 thing that is wrong.
 
-**If the architecture moves, the diagram moves in the same piece of work** — same rule as
-an ADR, for the same reason. A stale diagram is worse than none. The architecture has
-moved when any of these is true:
+**When the architecture moves, the diagram moves in the same piece of work** — same rule
+as an ADR, for the same reason: a stale diagram is worse than none. It has moved when any
+of these is true:
 
 - A new container, component or stored thing exists, or one is gone.
 - A boundary moved — something changed which process, socket or file it lives behind.
@@ -74,47 +72,39 @@ moved when any of these is true:
 - A piece crossed from "designed, not built" to built. `docs/architecture/README.md`
   keeps that split, and it is the part that rots fastest.
 
-A change that touches none of those is a normal outcome. Say so in one line rather than
-editing a diagram to look busy.
+A change that touches none of those is a normal outcome: say so in one line and leave the
+diagrams as they are.
 
-### Mermaid, specifically
+### Mermaid traps already hit
 
-The diagrams must actually render. Two traps that have already been hit:
+The diagrams must actually render.
 
-- **`C4Dynamic` numbers its own relationships**, in declaration order. Never write `"1. "`
-  into a `Rel` label — it renders as `1. 1.`. Order the `Rel` lines to be the flow, and
-  let the prose's step numbers follow them.
-- **No angle brackets in a label.** `<branch>` inside a quoted label is eaten as an HTML
-  tag. Describe the shape in words, and keep the literal path in the prose underneath.
+- **`C4Dynamic` numbers its own relationships**, in declaration order, so a `"1. "` in a
+  `Rel` label renders as `1. 1.`. Order the `Rel` lines to be the flow, and let the
+  prose's step numbers follow them.
+- **An angle bracket in a label is eaten as an HTML tag** — `<branch>` inside a quoted
+  label vanishes. Describe the shape in words, and keep the literal path in the prose
+  underneath.
 
-## Run `domain-modeling` when you finish a feature
+## When a piece of work is done and green
 
-Not while building — when the work is done and green. Ask two questions:
+Not while building — once the work is finished and its tests pass, run each skill below
+at its own trigger, against what just landed. Each turning up nothing is a normal outcome:
+say so in one line, never skip it silently.
 
-- **Did the vocabulary move?** New concept, sharpened boundary, a term that turned out to
-  mean two things. Update `CONTEXT.md` then and there.
-- **Did a decision crystallise?** If it clears the three-part bar above, write the ADR.
+- **`domain-modeling`**, after a feature. Did the vocabulary move — a new concept, a
+  sharpened boundary, a term that turned out to mean two things? Update `CONTEXT.md` then
+  and there. Did a decision crystallise that clears the three-part bar above? Write the
+  ADR.
+- **`lesson-learned`**, after each piece of development or refactoring, against the
+  commits just made. Its output is for the human: surface it rather than bury it in a
+  summary.
 
-A feature that changed neither is a normal outcome. Say so in one line rather than
-inventing something to record.
-
-## Run `lesson-learned` after each piece of development or refactoring
-
-Same trigger point: work finished, tests green. Run it against the commits you just made.
-The output is for the human — surface it, don't bury it in a summary.
-
-## Both are wired to a push hook
-
-`.claude/hooks/post-push-reflect.sh` fires on `PostToolUse` after a successful `git push`
-and asks the session to run both skills on what was just pushed. It fires at most once
-per pushed commit, so repeated pushes of the same work stay quiet.
-
-A hook cannot invoke a skill — it only injects the reminder. Treat that reminder as the
-standing rule it restates, not as an optional prompt. If both skills turn up nothing,
-say so in one line; never skip them silently.
-
-The hook fires *after* the push, deliberately. Blocking a push to write documentation
-would be the wrong trade, and both skills are reflective — they read what landed.
+`.claude/hooks/post-push-reflect.sh` fires on `PostToolUse` after a successful `git push`,
+at most once per pushed commit, and asks the session to run both on what was pushed. A
+hook cannot invoke a skill — it only injects the reminder. Treat that reminder as this
+standing rule, not an optional prompt. It fires after the push on purpose: blocking a push
+to write documentation would be the wrong trade, and both skills read what landed.
 
 ## Finish
 
@@ -123,11 +113,10 @@ specs: CONTEXT.md, docs/adr/, docs/architecture/, specs/spec.md
 
 ## Inherited, not repeated here
 
-The global `CLAUDE.md` still applies in full: TDD is mandatory (failing test first),
-never claim "done" without running it, and use the gate for pushing committed work where
-one is set up. Nothing in this file overrides those.
+The global `CLAUDE.md` still applies in full: TDD is mandatory (failing test first), never
+claim "done" without running it, and push committed work through the gate where one is
+set up. Nothing in this file overrides those.
 
-The worktree protocol is no longer among them either. It comes from the global install
-in `~/.claude/CLAUDE.md`, the block `whiska init --global` writes (ADR-0045, ADR-0056).
-This repo keeps no local install of its own, so the block is not in this file: the copy
-in force here is the same one every other repo on this machine gets.
+The worktree protocol comes from the global install in `~/.claude/CLAUDE.md`, the block
+`whiska init --global` writes (ADR-0045, ADR-0056). This repo keeps no local install, so
+the copy in force here is the one every other repo on this machine gets.

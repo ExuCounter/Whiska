@@ -93,6 +93,10 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/deleting an assertion/i
     end
 
+    test "a check already red before the turn does not block the marker" do
+      assert prose() =~ ~r/every check is green, or red only where it was red before the turn/i
+    end
+
     test "names how red-before-the-turn is established, not just the rule" do
       assert prose() =~ ~r/merge base/i
     end
