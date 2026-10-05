@@ -43,7 +43,7 @@ Two differences, each forced:
   is always the project's own `CLAUDE.md` — which `~/.claude/CLAUDE.md` is not.
 
 Both scopes ship the same skills, the three worktree ones included: seven when this was
-written, nine since ADR-next-a-grilled-brief-is-written-down-before-it-is-built. The global
+written, nine since ADR-0076. The global
 install is the only source of them on a machine that has it; see the 2026-10-04 amendment
 below.
 
@@ -179,7 +179,7 @@ on the machine skipped the shape step and started on the default model with noth
 recorded. Two copies drift; one source cannot.
 
 So `whiska init --global` writes every skill — seven then, nine since
-ADR-next-a-grilled-brief-is-written-down-before-it-is-built — and the scope makes no
+ADR-0076 — and the scope makes no
 difference to which skills are written.
 
 The symlink rule above is unchanged, and this is where it bites. Until the person's

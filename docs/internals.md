@@ -158,7 +158,7 @@ What it writes, and why each part is the way it is:
 and `drop-worktree` (ADR-0046), `whiska-finish`, which holds the finishing pipeline
 the block only points at (ADR-0055), `whiska-spec`, which a mouse runs after grilling, and
 the person's own `grilling` skill
-(ADR-next-a-grilled-brief-is-written-down-before-it-is-built). The block is rules, not prose: an imperative or a
+(ADR-0076). The block is rules, not prose: an imperative or a
 concrete fact per line, with the reasoning left in these ADRs. It is a nest of named
 markers, one pair per part:
 

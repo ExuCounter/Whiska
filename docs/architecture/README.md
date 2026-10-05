@@ -82,7 +82,7 @@ the reading skills, so the skills that create a mouse ship with the thing that t
 block and into a skill the session loads only as a turn ends (ADR-0055), and
 `whiska-spec`, which a mouse runs after grilling to write the spec the person approves,
 kept out of git at the worktree root, beside the person's own `grilling` skill
-(ADR-next-a-grilled-brief-is-written-down-before-it-is-built). Both used to live in one person's global `~/.claude/CLAUDE.md`, applying to
+(ADR-0076). Both used to live in one person's global `~/.claude/CLAUDE.md`, applying to
 every repo whether Whiska was there or not. A session is identified by where it started
 and which herdr pane it runs in, never by where its shell currently stands, so the
 person's own main session can step into a worktree without being mistaken for the mouse

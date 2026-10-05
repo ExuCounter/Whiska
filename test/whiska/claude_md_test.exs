@@ -53,7 +53,7 @@ defmodule Whiska.ClaudeMdTest do
       words = rendered |> String.split() |> length()
 
       # Raised deliberately, by exactly what each rule cost: ADR-0075, ADR-0063,
-      # ADR-next-a-grilled-brief-is-written-down-before-it-is-built.
+      # ADR-0076.
       assert lines <= 158, "the block grew back to #{lines} lines; every rule has a terse form"
       assert words <= 1625, "the block grew back to #{words} words; every rule has a terse form"
     end

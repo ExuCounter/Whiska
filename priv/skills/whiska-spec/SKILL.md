@@ -7,7 +7,7 @@ This skill turns the grilling that just finished, and what you read of the code,
 spec, then waits for the person's ok before building. Do NOT interview the person: the
 grilling already did. Just synthesize what you already know.
 
-Installed by `whiska init` (Whiska ADR-next-a-grilled-brief-is-written-down-before-it-is-built).
+Installed by `whiska init` (Whiska ADR-0076).
 The `CLAUDE.md` block names the trigger; the steps live here.
 
 ## When

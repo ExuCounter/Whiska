@@ -137,7 +137,7 @@ says when a mouse was moved off it (ADR-0074).
 
 Shaping, and setting a mode, also makes git ignore the worktree's `.whiska-spec.md`, the
 spec the mouse writes after grilling
-(ADR-next-a-grilled-brief-is-written-down-before-it-is-built). The line goes into the
+(ADR-0076). The line goes into the
 main checkout's `.git/info/exclude`, which a mouse may not edit itself (ADR-0013). A
 failure there is a line on stderr, not a failed spawn. The mouse's `git check-ignore`
 then says so under its spec, and until the line is there the owl only leaves the

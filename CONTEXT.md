@@ -51,7 +51,7 @@ out of scope, in `.whiska-spec.md` at the worktree root, which git ignores. The 
 writes it with the `whiska-spec` skill after the last grilling round, sends it whole as a
 question, and builds only on the person's ok. A tweak or quick fix gets none, and neither
 does a brief that needed no grilling. The person's words are that brief's spec
-(ADR-next-a-grilled-brief-is-written-down-before-it-is-built).
+(ADR-0076).
 _Avoid_: plan, design doc, ticket
 
 **Mouse record**:

@@ -726,7 +726,7 @@ defmodule Whiska.Install do
   #
   # The spec binds a mouse at one moment too, after grilling and before it
   # builds. The person's grilling skill ships beside it so it has one copy
-  # (ADR-next-a-grilled-brief-is-written-down-before-it-is-built).
+  # (ADR-0076).
   @committed_skills @worktree_skills ++ ~w(whiska-finish grilling whiska-spec)
 
   # The source is `priv/skills/`, not this repo's own `.claude/skills/`. They

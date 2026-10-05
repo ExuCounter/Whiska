@@ -126,7 +126,7 @@ shares. That is what puts all of a repo's mice in one house instead of one per w
 and it is gitignored by construction. Storage is real SQLite, not flat files (ADR-0028).
 
 **The spec sits in the worktree, not the house**
-(ADR-next-a-grilled-brief-is-written-down-before-it-is-built). It is what one mouse is
+(ADR-0076). It is what one mouse is
 building, so it lives and dies with that mouse's worktree: the person reads it in full
 in the question that asks for their ok, and once the branch lands the commits hold the
 outcome. It is never committed, and an untracked file would keep the owl from taking the
