@@ -58,10 +58,16 @@ to the main checkout's `.git/info/exclude`. That file is local, never committed,
 by every worktree of the repo. The pattern is anchored at the root, so a file of that name
 deeper in the tree stays visible.
 
-The skill checks `git check-ignore` itself and adds the line if it is missing. That covers
-a mouse that was never shaped, and a session working in place. `git worktree remove`
-without `--force` deletes ignored files, so the spec goes with the worktree. Once the
-branch lands, the commits hold the outcome.
+`whiska mode` adds the same line. That covers a mouse nobody shaped, which can write
+nothing until the person runs `whiska mode` in its worktree (ADR-0069). The write is
+Whiska's own process, the same as the house under `.git/whiska`. A mouse never makes it.
+The exclude file sits in the main checkout, which a mouse never edits (ADR-0013). So the
+skill only checks `git check-ignore`. A mouse that finds the line missing says so in one
+line under its spec rather than adding it. A session working in the main checkout adds
+the line itself.
+
+`git worktree remove` without `--force` deletes ignored files, so the spec goes with the
+worktree. Once the branch lands, the commits hold the outcome.
 
 ## The person sees it before the build
 
@@ -78,7 +84,7 @@ exception.
 ADR-0063 is amended. On a grilled task a mouse now waits for two oks: one on its costly
 choices, then one on its spec.
 
-The block grows from 152 lines and 1550 words to 158 and 1619. That is exactly what the
+The block grows from 152 lines and 1550 words to 158 and 1625. That is exactly what the
 rule costs.
 
 Both scopes now ship nine skills.

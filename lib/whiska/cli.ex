@@ -180,7 +180,8 @@ defmodule Whiska.CLI do
                          and may not write anything at all. Its model and
                          effort stay what it was started on; moved off the
                          mode it was shaped as, it says so, and so does
-                         `whiska mice`.
+                         `whiska mice`. Like shape, makes git ignore the
+                         worktree's .whiska-spec.md.
 
     shape build|sniff [--model <name>] [--effort <level>]
                          Give a fresh mouse its shape, before Claude starts
@@ -486,8 +487,8 @@ defmodule Whiska.CLI do
       {"~/" <> Install.statusline_path(), "the board"},
       {"~/.claude/settings.json", "PreToolUse, Stop and the statusLine"},
       {"~/.claude/skills/", "whiska-questions, whiska-delivered, whiska-reply,"},
-      {"", "whiska-finish, spawn-worktree, send-to-worktree,"},
-      {"", "drop-worktree"}
+      {"", "whiska-finish, whiska-spec, grilling,"},
+      {"", "spawn-worktree, send-to-worktree, drop-worktree"}
     ]
     |> Enum.map_join("\n", fn {path, what} ->
       "  " <> String.pad_trailing(path, 40) <> what
@@ -925,6 +926,7 @@ defmodule Whiska.CLI do
   defp set_mode(mouse_id, layout, mode) do
     case Storage.set_mode(mouse_id, mode) do
       {:ok, mouse} ->
+        ignore_spec(layout)
         say("#{layout.branch_label} is now a #{mode} mouse." <> carried(mouse))
 
       {:error, reason} ->
@@ -961,8 +963,9 @@ defmodule Whiska.CLI do
     end
   end
 
-  # Not a reason to stop the spawn: the spec skill ignores the file itself when
-  # git does not, and until then the owl only leaves the worktree standing.
+  # Shaping, or setting the mode of a mouse nobody shaped, comes before the
+  # mouse can write a spec. A failure does not stop either: the mouse says so
+  # under its spec, and until then the owl only leaves the worktree standing.
   defp ignore_spec(layout) do
     with {:error, reason} <- Whiska.Spec.ignore(layout.main_checkout) do
       IO.puts(

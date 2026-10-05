@@ -33,7 +33,7 @@ defmodule Whiska.Spec do
       if @exclude_line in String.split(existing, "\n") do
         :ok
       else
-        File.write(exclude, separated(existing) <> @exclude_line <> "\n")
+        File.write(exclude, separator(existing) <> @exclude_line <> "\n", [:append])
       end
     end
   end
@@ -45,6 +45,5 @@ defmodule Whiska.Spec do
     end
   end
 
-  defp separated(""), do: ""
-  defp separated(text), do: if(String.ends_with?(text, "\n"), do: text, else: text <> "\n")
+  defp separator(text), do: if(text == "" or String.ends_with?(text, "\n"), do: "", else: "\n")
 end

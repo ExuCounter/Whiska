@@ -42,7 +42,8 @@ Two differences, each forced:
 - **The `finish` part's two pointers.** The skill file is beside the block, and `## Finish`
   is always the project's own `CLAUDE.md` — which `~/.claude/CLAUDE.md` is not.
 
-Both scopes ship the same seven skills, the three worktree ones included. The global
+Both scopes ship the same skills, the three worktree ones included: seven when this was
+written, nine since ADR-next-a-grilled-brief-is-written-down-before-it-is-built. The global
 install is the only source of them on a machine that has it; see the 2026-10-04 amendment
 below.
 

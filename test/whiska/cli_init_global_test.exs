@@ -113,6 +113,15 @@ defmodule Whiska.CLIInitGlobalTest do
       end
     end
 
+    test "names every skill it wrote" do
+      [_, written] = init_global() |> String.split("~/.claude/skills/", parts: 2)
+
+      for {path, _} <- Whiska.Install.skills(:global) do
+        name = path |> Path.dirname() |> Path.basename()
+        assert written =~ ~r/\b#{name}\b/, "#{name} is not named"
+      end
+    end
+
     test "says where each worktree skill landed, a plain file included", %{home: home} do
       output = init_global()
 

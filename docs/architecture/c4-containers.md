@@ -3,7 +3,7 @@
 Level 2. The deployable and storable pieces.
 
 **Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (1997 tests). Everything in *designed, not built* is decided in the ADRs and has no
+today (2000 tests). Everything in *designed, not built* is decided in the ADRs and has no
 code yet.
 
 ```mermaid
@@ -51,7 +51,7 @@ C4Container
   Rel(shim, cli, "Execs with the payload on stdin", "JSON")
   Rel(cli, marker, "Reads, minting one on first use")
   Rel(cli, db, "shape records a new mouse's mode and model before Claude starts")
-  Rel(cli, spec, "shape makes git ignore it, through the main checkout's info/exclude")
+  Rel(cli, spec, "shape and mode make git ignore it, through the main checkout's info/exclude")
   Rel(cli, doorstep, "Stop hook writes one entry, unconditionally")
   Rel(cli, owl, "whiska owl boots it in the foreground")
   Rel(cli, svc, "whiska owl install / stop / start / uninstall", "launchctl")
@@ -130,8 +130,9 @@ and it is gitignored by construction. Storage is real SQLite, not flat files (AD
 building, so it lives and dies with that mouse's worktree: the person reads it in full
 in the question that asks for their ok, and once the branch lands the commits hold the
 outcome. It is never committed, and an untracked file would keep the owl from taking the
-worktree down, so `whiska shape` adds `/.whiska-spec.md` to the main checkout's
-`.git/info/exclude`, which every worktree of the repo reads.
+worktree down, so `whiska shape` and `whiska mode` add `/.whiska-spec.md` to the main
+checkout's `.git/info/exclude`, which every worktree of the repo reads. The mouse never
+writes that file itself: it is in the main checkout (ADR-0013).
 
 **The doorstep is a directory, not a socket** (ADR-0036). The `Stop` hook writes a file
 and exits — unconditionally, whether or not the owl is running. "The owl is down" is

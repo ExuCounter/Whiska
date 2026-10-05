@@ -28,15 +28,19 @@ and so does a brief that needed no grilling: the person's own words are its spec
    on the spec is their ok on the seams.
 
 3. Write the spec using the template below to `.whiska-spec.md` at the worktree root, the
-   folder `git rev-parse --show-toplevel` names. It is never committed. If
-   `git check-ignore -q .whiska-spec.md` fails there, git sees the file as a change, and
-   a worktree with a change in it is never cleaned up after its merge: add the line
-   `/.whiska-spec.md` to the file `git rev-parse --git-path info/exclude` names, then
-   check again.
+   folder `git rev-parse --show-toplevel` names. It is never committed. Whiska makes git
+   ignore it when it sets the worktree up; if `git check-ignore -q .whiska-spec.md` fails
+   there, git sees the file as a change, and a worktree with a change in it is never
+   cleaned up after its merge.
+   - In a worktree, never write the exclude file yourself: it sits in the main checkout,
+     which a worktree session never edits. Say so in one line under the spec: the line
+     `/.whiska-spec.md` belongs in the main checkout's `.git/info/exclude`.
+   - In the main checkout, add the line to `.git/info/exclude` yourself.
 
 4. Send the whole spec to the person as the question, and build only after they say ok.
    The message is the spec as written, with no length cap, then the pointer "Spec ready,
-   see above — ok to build?" above the decision marker the block describes. "ok" → build.
+   see above — ok to build?", above the decision marker the block describes, in a
+   worktree. "ok" → build.
    Anything else → change the file to match and send the whole spec again.
 
 5. While building, the spec is what was agreed. A costly choice it does not settle is a

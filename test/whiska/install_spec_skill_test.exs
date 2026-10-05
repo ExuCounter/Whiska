@@ -17,13 +17,6 @@ defmodule Whiska.InstallSpecSkillTest do
     do: skill(name) |> String.split("\n") |> Enum.find(&String.starts_with?(&1, "description:"))
 
   describe "the spec ships as a skill Whiska owns" do
-    test "init installs it beside the other skills" do
-      installed =
-        Enum.map(Install.skills(), fn {path, _} -> Path.basename(Path.dirname(path)) end)
-
-      assert "whiska-spec" in installed
-    end
-
     test "its frontmatter names it, with a quoted description" do
       body = skill("whiska-spec")
 
@@ -38,11 +31,6 @@ defmodule Whiska.InstallSpecSkillTest do
     test "the description says it runs after grilling, before any code" do
       assert description("whiska-spec") =~ ~r/after .*grilling/i
       assert description("whiska-spec") =~ ~r/before any code/i
-    end
-
-    test "the block points at it" do
-      worktrees = Enum.find(Whiska.ClaudeMd.parts(), &(&1.name == "worktrees")).body
-      assert worktrees =~ "`whiska-spec`"
     end
   end
 
@@ -68,12 +56,20 @@ defmodule Whiska.InstallSpecSkillTest do
       assert body =~ ~r/never committed/i
     end
 
-    test "a spec git does not ignore yet is ignored before going on" do
+    # From a worktree the exclude file is in the main checkout, which a mouse
+    # never edits (ADR-0013).
+    test "a mouse whose spec git does not ignore says so, and never writes the exclude file" do
       body = prose("whiska-spec")
 
       assert body =~ "git check-ignore -q #{Whiska.Spec.filename()}"
       assert body =~ "`#{Whiska.Spec.exclude_line()}`"
-      assert body =~ "git rev-parse --git-path info/exclude"
+      assert body =~ ~r/in a worktree, never write the exclude file yourself/i
+      assert body =~ ~r/say so in one line under the spec/i
+      refute body =~ "--git-path"
+    end
+
+    test "a session in the main checkout adds the line itself" do
+      assert prose("whiska-spec") =~ ~r/in the main checkout, add the line/i
     end
 
     test "nothing goes to an issue tracker" do
@@ -91,6 +87,10 @@ defmodule Whiska.InstallSpecSkillTest do
 
       assert body =~ ~r/send the whole spec to the person as the question/i
       assert body =~ ~r/build only after they say ok/i
+    end
+
+    test "only a worktree session ends the question on a marker" do
+      assert prose("whiska-spec") =~ ~r/the decision marker the block describes, in a worktree/i
     end
 
     test "any other answer revises the file and sends the whole spec again" do

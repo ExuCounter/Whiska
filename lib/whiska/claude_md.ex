@@ -120,9 +120,9 @@ defmodule Whiska.ClaudeMd do
     writes the spec to `#{Whiska.Spec.filename()}`, and the whole spec goes to the person as a
     question. Build only on their ok; any other answer, revise it and ask again. Not
     listed → read its `SKILL.md` beside `whiska-finish`'s.
-  - No costly choice left open → build without the message; a truly trivial task — a
-    typo, a rename, a one-line fix, nothing on that list — never needs one. Never ask what
-    the brief already spells out.
+  - No costly choice open from the start → build with no grilling message and no spec; a
+    truly trivial task — a typo, a rename, a one-line fix, nothing on that list — never
+    needs one. Never ask what the brief already spells out.
   - Every command for the task runs in the worktree, investigation included; the main
     session runs no command for it.
   - Preview a frontend change before building it; the response body and its marker carry

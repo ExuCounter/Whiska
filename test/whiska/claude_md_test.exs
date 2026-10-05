@@ -55,7 +55,7 @@ defmodule Whiska.ClaudeMdTest do
       # Raised deliberately, by exactly what each rule cost: ADR-0075, ADR-0063,
       # ADR-next-a-grilled-brief-is-written-down-before-it-is-built.
       assert lines <= 158, "the block grew back to #{lines} lines; every rule has a terse form"
-      assert words <= 1619, "the block grew back to #{words} words; every rule has a terse form"
+      assert words <= 1625, "the block grew back to #{words} words; every rule has a terse form"
     end
 
     test "no rule is buried deeper than one level of bullet" do
@@ -160,7 +160,9 @@ defmodule Whiska.ClaudeMdTest do
     test "with no costly choice left open, a mouse builds without asking" do
       body = prose_of("worktrees")
 
-      assert body =~ ~r/no costly choice left open → build without the message/i
+      assert body =~
+               ~r/no costly choice open from the start → build with no grilling message and no spec/i
+
       refute body =~ ~r/with no guess → build/i
     end
 

@@ -42,6 +42,8 @@ defmodule Whiska.SpecTest do
     worktree: worktree
   } do
     Spec.ignore(repo.checkout)
+    assert {:ok, true} = Git.clean?(worktree)
+
     File.mkdir_p!(Path.join(worktree, "docs"))
     File.write!(Path.join([worktree, "docs", Spec.filename()]), "someone's own")
 

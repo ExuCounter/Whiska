@@ -97,6 +97,18 @@ defmodule Whiska.CLITest do
       assert out =~ "build"
     end
 
+    # A mouse nobody shaped can write nothing until the person sets its mode, so
+    # this is the first moment it could write a spec.
+    test "setting the mode makes git ignore the spec, as shaping does", %{
+      main: main,
+      worktree: worktree
+    } do
+      capture_io(fn -> assert CLI.run(["mode", "build"], worktree) == 0 end)
+
+      lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
+      assert Whiska.Spec.exclude_line() in lines
+    end
+
     test "moving a shaped mouse to the other mode says its model and effort stay", %{
       worktree: worktree
     } do
@@ -209,6 +221,21 @@ defmodule Whiska.CLITest do
 
       lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
       assert Enum.count(lines, &(&1 == Whiska.Spec.exclude_line())) == 1
+    end
+
+    test "a spec git cannot be told to ignore warns, and the spawn still gets its flags", %{
+      main: main,
+      worktree: worktree
+    } do
+      File.write!(Path.join(main, ".git/info"), "a file where git keeps a folder")
+
+      {out, stderr} =
+        with_io(:stderr, fn ->
+          capture_io(fn -> assert CLI.run(["shape", "sniff"], worktree) == 0 end)
+        end)
+
+      assert String.trim(out) == Enum.join(@catch_all_args, " ")
+      assert stderr =~ "could not make git ignore #{Whiska.Spec.filename()}"
     end
 
     test "prints the rules a spawn chooses by, from anywhere", %{main: main} do
