@@ -142,3 +142,10 @@ same `launchctl print` output. Loaded, no pid, non-zero code now reads
 `com.whiska.owl loaded but crash-looping (last exit code N) — see ~/.whiska/owl.log`,
 which is the line that would have pointed at this bug directly. Loaded, no pid, exit 0 —
 the owl stopped cleanly by `whiska owl stop` — keeps the old "loaded, owl not running".
+
+## Note, 2026-10-05: launchd is macOS's half
+
+ADR-next-the-owl-is-kept-by-the-platforms-service-manager amends this record. Everything above
+still holds on macOS. "The one supervisor" now reads as the platform's own service
+manager: this LaunchAgent on macOS, and a systemd user unit, `whiska-owl.service`, on
+Linux. The verbs, the shared wrapper and the never-two-owls refusals are the same on both.

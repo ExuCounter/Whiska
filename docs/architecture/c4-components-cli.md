@@ -35,7 +35,7 @@ C4Component
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live, and reads herdr's config")
     Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
     Component(backstop, "Backstop", "text file", "The house's mark of what only its backstop collected")
-    Component(agent, "LaunchAgent", "plist + wrapper", "The owl's launchd job: rendered, written, and driven through launchctl")
+    Component(agent, "ServiceManager", "behaviour + wrapper", "The owl's job: LaunchAgent under launchd on macOS, SystemdUnit under systemd on Linux - rendered, written, and driven through launchctl or systemctl")
     Component(nif, "BundledNIF", "scaffolding", "Unpacks SQLite's native library from the escript")
   }
 
@@ -76,7 +76,7 @@ C4Component
   Rel(doctor, statusline, "Is this repo's statusLine ours, and on a timer?")
   Rel(main, agent, "owl install / stop / start / uninstall")
   Rel(agent, install, "Wrapper is built from the shim's resolution fragments")
-  Rel(doctor, agent, "Installed? loaded? running? two owls?", "launchctl print")
+  Rel(doctor, agent, "Installed? loaded? running? two owls? survives logout?", "launchctl print, systemctl show")
   Rel(questions, storage, "Opens the house read-only")
   Rel(questions, doorstep, "Counts what is uncollected, and how stale")
   Rel(main, doctor, "Delegates doctor")
@@ -249,10 +249,16 @@ transcript file, found through the session id herdr names for its pane — again
 settings files it read at startup. Every finding prints its fix. `fail` means a mouse's question
 here would be lost or never written; `warn` means degraded but nothing lost.
 
-**`LaunchAgent` is pure values plus writes under a given home (ADR-0040).** The plist and
-the wrapper are rendered from data; install and uninstall write them where they are told;
-every `launchctl` call goes through a runner the tests replace, and the test config points
-the user home and that runner away from the real machine. The wrapper is assembled from
+**`ServiceManager` is one behaviour with a module per platform** (ADR-0040,
+ADR-next-the-owl-is-kept-by-the-platforms-service-manager). `LaunchAgent` renders a plist for
+launchd and `SystemdUnit` a unit for systemd; `:os.type()` picks one, and the CLI's four
+`owl` verbs and the doctor's line go through whichever is in force. Both are pure values
+plus writes under a given home: the job file and the wrapper are rendered from data;
+install and uninstall write them where they are told; every `launchctl` or `systemctl`
+call goes through a runner the tests replace, and a runner whose program is missing
+answers as a failed call rather than a crash. The test config pins the manager to launchd,
+points the user home away from the real machine, and installs runners that refuse. The
+wrapper is assembled from
 `Install`'s own `resolve_whiska` and `resolve_escript` fragments, so the shim, the tab
 bar's status script and the owl's launcher cannot disagree about where the runtime is.
 

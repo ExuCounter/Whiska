@@ -5,8 +5,9 @@ defmodule Whiska.CLI do
   Built with `mix escript.build`. The hooks invoke it fresh per event (ADR-0030):
   `PreToolUse` opens SQLite, makes one decision, and exits; `Stop` writes one
   doorstep entry and exits. `whiska owl` is the other half — the one supervised
-  process per machine (ADR-0001), under a user LaunchAgent once `whiska owl
-  install` has run (ADR-0040), or in the foreground before that.
+  process per machine (ADR-0001), under the platform's service manager —
+  launchd on macOS, systemd on Linux — once `whiska owl install` has run
+  (ADR-0040), or in the foreground before that.
   """
 
   alias Whiska.Hook.PreToolUse
@@ -16,13 +17,13 @@ defmodule Whiska.CLI do
   alias Whiska.Doctor.Report
   alias Whiska.Herdr
   alias Whiska.Install
-  alias Whiska.LaunchAgent
   alias Whiska.Layout
   alias Whiska.Marker
   alias Whiska.OpenHouses
   alias Whiska.Questions
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
+  alias Whiska.ServiceManager
   alias Whiska.Storage
   alias Whiska.Waiting
 
@@ -54,13 +55,16 @@ defmodule Whiska.CLI do
                          startup, and on a slow backstop. Refuses while
                          the supervised owl is running.
 
-    owl install          Put the owl under launchd: write a user LaunchAgent
-                         (com.whiska.owl) that starts it at login and
-                         restarts it if it crashes, and load it now. Logs
-                         to ~/.whiska/owl.log. Refuses while any owl runs.
-    owl uninstall        Unload that LaunchAgent and remove it.
+    owl install          Put the owl under this machine's service manager:
+                         a user LaunchAgent (com.whiska.owl) on macOS, a
+                         systemd user unit (whiska-owl.service) on Linux.
+                         It starts the owl at login and restarts it if it
+                         crashes, and starts it now. Logs to
+                         ~/.whiska/owl.log. Refuses while any owl runs.
+    owl uninstall        Unload that job and remove it.
     owl stop             Ask the supervised owl to exit. It stays installed
-                         and returns at the next login, or on `owl start`.
+                         and returns on `owl start`, or when the service
+                         manager next starts your user session.
     owl start            Start the supervised owl now.
 
     stop                 Shut this repo's house only (ADR-0003). Not built:
@@ -123,14 +127,17 @@ defmodule Whiska.CLI do
                          default socket (~/.config/herdr/herdr.sock) when it is
                          not — a hotkey runs with no shell environment at all.
 
-                         For a global hotkey, save this as a Raycast script
-                         command and bind it:
+                         For a global hotkey on macOS, save this as a Raycast
+                         script command and bind it:
 
                            #!/bin/bash
                            # @raycast.schemaVersion 1
                            # @raycast.title Jump to what needs me
                            # @raycast.mode silent
                            open -a kitty && whiska jump
+
+                         On Linux, bind `whiska jump` to a key in your
+                         desktop's keyboard shortcut settings.
 
     statusline           Print the one line herdr's tab bar shows: whether the
                          owl is watching or down (always, so a blank line never
@@ -1013,15 +1020,17 @@ defmodule Whiska.CLI do
   end
 
   # Two owls would collect the same doorsteps (ADR-0040). The foreground one
-  # yields to the supervised one: if launchd has an owl up, this one refuses —
-  # unless launchd's owl *is* this process. The wrapper execs, so the job's pid
-  # is this BEAM's own pid, and without that test the supervised owl refuses
-  # itself, exits 1, and KeepAlive restarts it into a loop (ADR-0040,
-  # 2026-09-28 note).
+  # yields to the supervised one: if the service manager has an owl up, this
+  # one refuses — unless that owl *is* this process. The wrapper execs, so the
+  # job's pid is this BEAM's own pid, and without that test the supervised owl
+  # refuses itself, exits 1, and is restarted into a loop (ADR-0040,
+  # 2026-09-28 note). A manager that is not there at all has no owl up.
   defp not_supervised do
-    case LaunchAgent.status() do
+    manager = ServiceManager.impl()
+
+    case manager.status() do
       %{loaded: true, pid: pid} when is_integer(pid) ->
-        if pid == os_pid(), do: :ok, else: refuse_to_launchd(pid)
+        if pid == os_pid(), do: :ok, else: refuse_to_supervised(manager, pid)
 
       _ ->
         :ok
@@ -1030,10 +1039,10 @@ defmodule Whiska.CLI do
 
   defp os_pid, do: String.to_integer(System.pid())
 
-  defp refuse_to_launchd(pid) do
+  defp refuse_to_supervised(manager, pid) do
     IO.puts(
       :stderr,
-      "whiska: the owl is already running under launchd (pid #{pid}). " <>
+      "whiska: the owl is already running under #{manager.name()} (pid #{pid}). " <>
         "Run `whiska owl stop` first if you want it in the foreground."
     )
 
@@ -1049,9 +1058,9 @@ defmodule Whiska.CLI do
     end
   end
 
-  # Under launchd there is no pane's environment to inherit, so a missing
-  # HERDR_SOCKET_PATH falls back to herdr's default socket rather than to
-  # no herdr at all; the plist carries the variable when it was set at install.
+  # Under a service manager there is no pane's environment to inherit, so a
+  # missing HERDR_SOCKET_PATH falls back to herdr's default socket rather than
+  # to no herdr at all; the job carries the variable when it was set at install.
   defp start_owl_process do
     socket =
       case Herdr.socket() do
@@ -1086,10 +1095,10 @@ defmodule Whiska.CLI do
     end
   end
 
-  # Nothing to open is not an error: launchd starts the owl from the home
-  # directory, and before the first `whiska owl <repo>` there is nothing in
-  # the record. The owl idles until a house is opened rather than exiting,
-  # which under KeepAlive would be a restart loop (ADR-0040).
+  # Nothing to open is not an error: the service manager starts the owl from
+  # the home directory, and before the first `whiska owl <repo>` there is
+  # nothing in the record. The owl idles until a house is opened rather than
+  # exiting, which under a restart-on-crash job would be a loop (ADR-0040).
   defp houses_to_open(named, cwd) do
     case Enum.uniq(recorded_houses() ++ house_here(cwd, named) ++ named) do
       [] ->
@@ -1541,7 +1550,7 @@ defmodule Whiska.CLI do
   # One fallback for every command that talks to herdr, the owl's included
   # (ADR-0040): `HERDR_SOCKET_PATH` when a herdr pane's shell set it, herdr's
   # fixed default otherwise. `whiska jump` is typically run by a hotkey with no
-  # shell environment at all, which is the same position launchd's owl is in.
+  # shell environment at all, which is the same position the supervised owl is in.
   defp herdr_socket, do: Herdr.socket()
 
   defp no_socket(default, cannot) do
@@ -1553,6 +1562,10 @@ defmodule Whiska.CLI do
 
   defp describe({:herdr, %{"code" => code, "message" => message}}), do: "#{code}: #{message}"
   defp describe(reason) when is_binary(reason), do: reason
+
+  defp describe({:control_character, name}),
+    do: "#{name} holds a control character, which would end a line of the unit"
+
   defp describe(reason), do: inspect(reason)
 
   # Run `work` on one question of this house, by id.
@@ -1597,40 +1610,42 @@ defmodule Whiska.CLI do
     end
   end
 
-  # -- the owl under launchd (ADR-0040) ------------------------------------------
+  # -- the owl under its service manager (ADR-0040) -------------------------------
+  # launchd on macOS, systemd on Linux (ADR-next-the-owl-is-kept-by-the-platforms-service-manager);
+  # the verbs mean the same on both.
 
   defp owl_install do
-    paths = LaunchAgent.paths()
-    uid = LaunchAgent.uid()
-    run = LaunchAgent.runner()
-    status = LaunchAgent.status(uid, run)
+    manager = ServiceManager.impl()
     env = Application.get_env(:whiska, :env) || System.get_env()
 
-    with :ok <- no_other_owl(status),
+    with :ok <- manager_ready(manager),
+         paths = manager.paths(),
+         status = manager.status(),
+         :ok <- no_other_owl(manager, status),
          :ok <- Install.write_herdr_status(),
-         :ok <- LaunchAgent.install(paths, env),
-         :ok <- if(status.loaded, do: LaunchAgent.bootout(uid, run), else: :ok),
-         :ok <- LaunchAgent.bootstrap(paths, uid, run) do
+         :ok <- manager.install(paths, env),
+         :ok <- manager.load(paths, status) do
       if env["HERDR_SOCKET_PATH"] in [nil, ""] do
         IO.puts(
           :stderr,
-          "whiska: HERDR_SOCKET_PATH is not set here, so the plist does not carry it; " <>
+          "whiska: HERDR_SOCKET_PATH is not set here, so the #{manager.noun()} does not carry it; " <>
             "the owl will use herdr's default, #{Herdr.default_socket_path(env)}. " <>
             "Run this from a herdr pane to pin it."
         )
       end
 
       say("""
-      Installed #{LaunchAgent.label()} and started the owl under launchd.
+      Installed #{manager.label()} and started the owl under #{manager.name()}.
 
-        job:     #{paths.plist}
+        job:     #{paths.job}
         runs:    #{paths.wrapper}  (whiska owl, no arguments — reopens the recorded houses)
         log:     #{paths.log}
 
-      launchd starts it at login and restarts it if it crashes. `whiska owl stop`
-      turns it off until the next login or `whiska owl start`; `whiska owl
-      uninstall` removes it. `whiska doctor` shows its state.
-
+      #{manager.name()} starts it at login and restarts it if it crashes. `whiska owl stop`
+      turns it off until `whiska owl start`, or until #{manager.name()} next starts
+      your user session; `whiska owl uninstall` removes it. `whiska doctor` shows
+      its state.
+      #{linger_note(manager.linger())}
       Also wrote #{Install.herdr_status_path()}, the script herdr's tab bar runs
       to draw the owl's line (ADR-0048). Nothing wires it for you — herdr's
       config is yours. Paste this into #{Whiska.Herdr.config_path()} and commit
@@ -1640,15 +1655,43 @@ defmodule Whiska.CLI do
       Then `herdr server reload-config`. `whiska doctor` says whether it took.
       """)
     else
-      {:error, :owl_running} -> 1
-      {:error, reason} -> fail("whiska: could not install the LaunchAgent (#{describe(reason)}).")
+      {:error, :owl_running} ->
+        1
+
+      {:error, {:not_ready, reason}} ->
+        fail("""
+        whiska: #{reason}.
+        Run `whiska owl` in a pane instead: it works the same, and stops with the pane.
+        """)
+
+      {:error, reason} ->
+        fail("whiska: could not install the #{manager.noun()} (#{describe(reason)}).")
     end
   end
+
+  defp manager_ready(manager) do
+    case manager.ready() do
+      :ok -> :ok
+      {:error, reason} -> {:error, {:not_ready, reason}}
+    end
+  end
+
+  # systemd stops a user's services at logout unless lingering is on, and
+  # turning it on is a machine setting, so install only says how.
+  defp linger_note(false) do
+    """
+
+    systemd stops it when you log out. To keep it running after your last
+    session ends, run `loginctl enable-linger` once.
+    """
+  end
+
+  defp linger_note(_lingers_or_not_applicable), do: ""
 
   # Two owls collecting the same doorsteps is the one state install must
   # never produce, so it refuses while any owl is in the process table — the
   # supervised one included, since reinstalling means stopping it first.
-  defp no_other_owl(status) do
+  defp no_other_owl(manager, status) do
     case owl_pids() do
       [] ->
         :ok
@@ -1657,7 +1700,7 @@ defmodule Whiska.CLI do
         if status.pid in pids,
           do:
             fail("""
-            whiska: the owl is already running under launchd (pid #{status.pid}).
+            whiska: the owl is already running under #{manager.name()} (pid #{status.pid}).
             To reinstall, `whiska owl stop` first, then `whiska owl install`.
             """),
           else:
@@ -1666,7 +1709,7 @@ defmodule Whiska.CLI do
             Two owls would collect the same doorsteps. The handover is:
 
               1. Ctrl-C the foreground owl in its pane.
-              2. `whiska owl install` again — launchd's owl reopens the same houses.
+              2. `whiska owl install` again — #{manager.name()}'s owl reopens the same houses.
             """)
 
         {:error, :owl_running}
@@ -1674,55 +1717,55 @@ defmodule Whiska.CLI do
   end
 
   defp owl_uninstall do
-    paths = LaunchAgent.paths()
-    uid = LaunchAgent.uid()
-    run = LaunchAgent.runner()
-    status = LaunchAgent.status(uid, run)
+    manager = ServiceManager.impl()
+    paths = manager.paths()
+    status = manager.status()
 
-    with :ok <- if(status.loaded, do: LaunchAgent.bootout(uid, run), else: :ok),
-         :ok <- LaunchAgent.uninstall(paths) do
+    with :ok <- if(status.loaded, do: manager.unload(), else: :ok),
+         :ok <- manager.uninstall(paths) do
       say(
-        "Removed #{LaunchAgent.label()}: the owl is no longer supervised. " <>
+        "Removed #{manager.label()}: the owl is no longer supervised. " <>
           "The log at #{paths.log} and the open-houses record are kept. " <>
           "`whiska owl install` puts it back."
       )
     else
       {:error, :not_installed} ->
-        say("#{LaunchAgent.label()} is not installed; nothing to remove.")
+        say("#{manager.label()} is not installed; nothing to remove.")
 
       {:error, reason} ->
-        fail("whiska: could not remove the LaunchAgent (#{describe(reason)}).")
+        fail("whiska: could not remove the #{manager.noun()} (#{describe(reason)}).")
     end
   end
 
   defp owl_stop do
-    uid = LaunchAgent.uid()
-    run = LaunchAgent.runner()
+    manager = ServiceManager.impl()
 
-    case LaunchAgent.status(uid, run) do
+    case manager.status() do
       %{loaded: false} ->
         fail(
           case owl_pids() do
             [] ->
-              "whiska: #{LaunchAgent.label()} is not installed, and no owl is running."
+              "whiska: #{manager.label()} is not installed, and no owl is running."
 
             pids ->
-              "whiska: #{LaunchAgent.label()} is not installed; the owl running (pid " <>
+              "whiska: #{manager.label()} is not installed; the owl running (pid " <>
                 "#{Enum.join(pids, ", ")}) is in the foreground — Ctrl-C it in its pane."
           end
         )
 
       %{pid: nil} ->
         say(
-          "The owl is not running under launchd; nothing to stop. `whiska owl start` starts it."
+          "The owl is not running under #{manager.name()}; nothing to stop. " <>
+            "`whiska owl start` starts it."
         )
 
       %{pid: pid} ->
-        case LaunchAgent.stop(uid, run) do
+        case manager.stop() do
           :ok ->
             say(
-              "Asked the owl (pid #{pid}) to exit. It stays installed: launchd starts it " <>
-                "again at the next login, or now with `whiska owl start`."
+              "Asked the owl (pid #{pid}) to exit. It stays installed: #{manager.name()} " <>
+                "starts it again when it next starts your user session, or now with " <>
+                "`whiska owl start`."
             )
 
           {:error, reason} ->
@@ -1732,21 +1775,20 @@ defmodule Whiska.CLI do
   end
 
   defp owl_start do
-    uid = LaunchAgent.uid()
-    run = LaunchAgent.runner()
+    manager = ServiceManager.impl()
 
-    case LaunchAgent.status(uid, run) do
+    case manager.status() do
       %{loaded: false} ->
         fail(
-          "whiska: #{LaunchAgent.label()} is not installed. `whiska owl install` installs and starts it."
+          "whiska: #{manager.label()} is not installed. `whiska owl install` installs and starts it."
         )
 
       %{pid: pid} when is_integer(pid) ->
-        say("The owl is already running under launchd (pid #{pid}).")
+        say("The owl is already running under #{manager.name()} (pid #{pid}).")
 
       _ ->
-        case LaunchAgent.start(uid, run) do
-          :ok -> say("Started the owl under launchd (#{LaunchAgent.label()}).")
+        case manager.start() do
+          :ok -> say("Started the owl under #{manager.name()} (#{manager.label()}).")
           {:error, reason} -> fail("whiska: could not start the owl (#{reason}).")
         end
     end

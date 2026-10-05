@@ -1,8 +1,8 @@
-# No test may touch the person's own `~/.whiska` (ADR-0039) or their
-# `~/Library/LaunchAgents` (ADR-0040), so both homes go to one temp folder per
-# run, set before a single test starts. A test that pins a home of its own
-# still overrides these; `Whiska.Test.HomeGuard` checks after every test that
-# whatever it put back is still safe.
+# No test may touch the person's own `~/.whiska` (ADR-0039), their
+# `~/Library/LaunchAgents` or `~/.config/systemd/user` (ADR-0040), so both
+# homes go to one temp folder per run, set before a single test starts. A test
+# that pins a home of its own still overrides these; `Whiska.Test.HomeGuard`
+# checks after every test that whatever it put back is still safe.
 #
 # `WHISKA_HOME` is set too because it is the fallback `Whiska.OpenHouses.home/0`
 # reaches when the `:home` setting is missing, and a missing setting must still
@@ -21,8 +21,14 @@ Mox.defmock(Whiska.Herdr.Mock, for: Whiska.Herdr)
 Mox.defmock(Whiska.Desktop.Mock, for: Whiska.Desktop)
 # `live_desktop` draws a real notification; run it with `--include live_desktop`.
 # `e2e` drives the real binary through a private herdr for about forty seconds;
-# `mix test.e2e` runs it.
+# `mix test.e2e` runs it. `macos` needs a program only macOS ships, such as
+# `plutil`, and runs only there; `systemd` needs `systemd-analyze`, and
+# `notify_send` needs `notify-send`.
 ExUnit.start(
   formatters: [ExUnit.CLIFormatter, Whiska.Test.HomeGuard],
-  exclude: [:live_desktop, :e2e]
+  exclude:
+    [:live_desktop, :e2e] ++
+      if(:os.type() == {:unix, :darwin}, do: [], else: [:macos]) ++
+      if(System.find_executable("systemd-analyze"), do: [], else: [:systemd]) ++
+      if(System.find_executable("notify-send"), do: [], else: [:notify_send])
 )

@@ -95,7 +95,7 @@ defmodule Whiska.CLILaunchAgentTest do
       {code, out, _err} = run(["owl", "install"])
 
       assert code == 0
-      assert File.exists?(paths.plist)
+      assert File.exists?(paths.job)
       assert File.exists?(paths.wrapper)
       assert_received {:launchctl, ["bootstrap", "gui/501", _plist]}
       assert out =~ "com.whiska.owl"
@@ -132,7 +132,7 @@ defmodule Whiska.CLILaunchAgentTest do
       assert err =~ "4242"
       assert err =~ "Ctrl-C"
       assert err =~ "whiska owl install"
-      refute File.exists?(paths.plist)
+      refute File.exists?(paths.job)
       refute_received {:launchctl, ["bootstrap" | _]}
     end
 
@@ -167,7 +167,7 @@ defmodule Whiska.CLILaunchAgentTest do
 
       assert code == 0
       assert_received {:launchctl, ["bootout", "gui/501/com.whiska.owl"]}
-      refute File.exists?(paths.plist)
+      refute File.exists?(paths.job)
       refute File.exists?(paths.wrapper)
       assert out =~ "whiska owl install"
     end

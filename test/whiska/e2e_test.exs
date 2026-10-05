@@ -53,7 +53,8 @@ defmodule Whiska.E2ETest do
     File.ln_s!(@fake_claude, Path.join(bin, "claude"))
     File.ln_s!(@binary, Path.join(bin, "whiska"))
     fake_notifier(Path.join(bin, "terminal-notifier"))
-    no_launchd(Path.join(bin, "launchctl"))
+    no_service_manager(Path.join(bin, "launchctl"))
+    no_service_manager(Path.join(bin, "systemctl"))
 
     # The person's own herdr config chooses their shell and its profile, and a
     # profile can put the real `claude` ahead of the fake on PATH.
@@ -415,10 +416,11 @@ defmodule Whiska.E2ETest do
     File.chmod!(path, 0o755)
   end
 
-  # The person's own owl runs under launchd, and a foreground owl yields to it
-  # (ADR-0040). The test's owl serves a home of its own, so it is told launchd
-  # has nothing — and nothing here can reach the real launchctl.
-  defp no_launchd(path) do
+  # The person's own owl runs under launchd or systemd, and a foreground owl
+  # yields to it (ADR-0040). The test's owl serves a home of its own, so it is
+  # told the service manager has nothing — and nothing here can reach the real
+  # launchctl or systemctl.
+  defp no_service_manager(path) do
     File.write!(path, "#!/bin/sh\nexit 113\n")
     File.chmod!(path, 0o755)
   end

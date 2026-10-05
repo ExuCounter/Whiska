@@ -161,7 +161,7 @@ defmodule Whiska.Install do
       2>/dev/null | sort -V | tail -1)"
   fi
   if [ -z "$escript_bin" ]; then
-    for candidate in /opt/homebrew/bin/escript /usr/local/bin/escript; do
+    for candidate in /opt/homebrew/bin/escript /usr/local/bin/escript /home/linuxbrew/.linuxbrew/bin/escript; do
       if [ -x "$candidate" ]; then
         escript_bin="$candidate"
         break
@@ -749,7 +749,7 @@ defmodule Whiska.Install do
   @doc """
   The shell that finds the whiska binary: `WHISKA_BIN`, then `PATH`, then
   `~/.local/bin`. Shared by the shim, both status scripts and the owl's
-  launchd wrapper, so they all resolve identically.
+  wrapper, so they all resolve identically.
   """
   @spec resolve_whiska() :: String.t()
   def resolve_whiska, do: @resolve_whiska
@@ -792,7 +792,7 @@ defmodule Whiska.Install do
   @spec root(scope(), Path.t() | nil) :: Path.t()
   def root(scope, repo_root \\ nil)
   def root(:repo, repo_root), do: repo_root
-  def root(:global, _repo_root), do: Whiska.LaunchAgent.user_home()
+  def root(:global, _repo_root), do: Whiska.ServiceManager.user_home()
 
   @doc """
   The Stop hook command: the same shim, told it is a `stop`.
@@ -842,7 +842,7 @@ defmodule Whiska.Install do
 
   @doc """
   Where the script herdr's tab bar runs lives: the whiska home, beside the
-  owl's launchd wrapper and the open-houses record.
+  owl's wrapper and the open-houses record.
 
   Machine-level, because the line is (ADR-0048). No repo owns it, and `whiska
   init` never writes it.

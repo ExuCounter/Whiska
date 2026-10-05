@@ -2,15 +2,17 @@ defmodule Whiska.HomeIsolationTest do
   @moduledoc """
   The suite must never write into the person's own home — not `~/.whiska`,
   where the open-houses record lives (ADR-0039), and not
-  `~/Library/LaunchAgents`, where the owl's plist goes (ADR-0040). Running
+  `~/Library/LaunchAgents` or `~/.config/systemd/user`, where the owl's job
+  goes (ADR-0040). Running
   `mix test` once wiped the record for real, so this is the test that says the
   isolation holds, and holds even for a test that mishandles the setting.
   """
   # Serial: the tests move the global `:home` and `:user_home` to check the guard.
   use ExUnit.Case, async: false
 
-  alias Whiska.LaunchAgent
   alias Whiska.OpenHouses
+  alias Whiska.ServiceManager
+  alias Whiska.Test.HomeGuard
   alias Whiska.Test.RealHome
 
   test "no path the suite writes to is inside the person's home" do
@@ -19,7 +21,7 @@ defmodule Whiska.HomeIsolationTest do
 
   test "the whiska home and the user home are two different temp places, not the real ones" do
     assert RealHome.outside?(OpenHouses.home())
-    assert RealHome.outside?(LaunchAgent.user_home())
+    assert RealHome.outside?(ServiceManager.user_home())
     refute OpenHouses.home() == Path.join(RealHome.path(), ".whiska")
   end
 
@@ -27,6 +29,7 @@ defmodule Whiska.HomeIsolationTest do
     previous = Application.get_env(:whiska, :home)
     on_exit(fn -> Application.put_env(:whiska, :home, previous) end)
 
+    HomeGuard.sync()
     Application.delete_env(:whiska, :home)
 
     assert RealHome.outside?(OpenHouses.home())
@@ -37,10 +40,14 @@ defmodule Whiska.HomeIsolationTest do
     previous = Application.get_env(:whiska, :user_home)
     on_exit(fn -> Application.put_env(:whiska, :user_home, previous) end)
 
+    HomeGuard.sync()
     Application.delete_env(:whiska, :user_home)
 
-    assert [{"the owl's launchd plist", _}, {"the user home (:user_home)", _}] =
-             RealHome.violations()
+    assert [
+             {"the owl's launchd plist", _},
+             {"the owl's systemd unit", _},
+             {"the user home (:user_home)", _}
+           ] = RealHome.violations()
   end
 
   describe "outside?/2" do

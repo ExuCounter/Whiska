@@ -32,10 +32,11 @@ as a direct dependency.
   Swapping herdr out is about a week's work, and only worth it if someone without herdr
   will run Whiska. Nothing checks herdr's version, even though herdr answers a
   `ping` with it.
-- **macOS is assumed in one place that matters: launchd.** Notifications, `stat` and
-  the paths already have fallbacks. But on Linux the owl does not start at all, because
-  `whiska owl` asks `launchctl` first and a missing program raises. That is a
-  one-line fix. Proper Linux support (a systemd unit) is about a day.
+- **macOS is no longer required.** Done 2026-10-05: launchd is macOS's half, and a
+  systemd user unit is Linux's (ADR-next-the-owl-is-kept-by-the-platforms-service-manager).
+  The desktop fallback adds `notify-send`, and a missing `launchctl` or `systemctl` reads as
+  "not loaded" rather than raising. `mix test` passes in a Linux container. `stat` and the
+  paths already had fallbacks.
 - **git, the shell and SQLite are fine.** git is used through exit codes and fixed
   `--format` output, so it is locale-safe. The shell is bash with no GNU-only flags
   except one `sort -V`. SQLite is built from source by `exqlite`, so the only cost is
@@ -94,8 +95,8 @@ silent version is.
    sets it gets an empty "what is it doing" column and a global install Claude Code
    never reads. **Fix:** honour the variable, or have the doctor warn when it is set.
    Under an hour either way.
-7. **On Linux the owl crashes on launch instead of saying why.** See
-   [macOS](#macos). Rescuing the missing `launchctl` as "not loaded" is a one-line fix.
+7. ~~**On Linux the owl crashes on launch instead of saying why.**~~ Done 2026-10-05: a
+   service manager whose program is missing answers "not loaded". See [macOS](#macos).
 
 The rest already fail loudly enough: an unknown herdr method comes back as an error and
 holds delivery with a logged reason; a renamed herdr event is caught by the backstop,
@@ -191,9 +192,9 @@ version warning's job.
 
 | What | Where | Portable today? | To make it portable |
 | --- | --- | --- | --- |
-| launchd: plist in `~/Library/LaunchAgents`, `launchctl bootstrap/bootout/kickstart/kill/print`, `gui/<uid>` domain, regex over `launchctl print` text | `launch_agent.ex`, `cli.ex`, `doctor.ex` | **No.** `whiska owl` itself asks launchd first (`not_supervised/0`), and a missing `launchctl` raises, so the owl does not start on Linux even in the foreground. The doctor crashes the same way | Rescue the missing program as "not loaded": one line, and the foreground owl works. A systemd user unit behind the same runner: about a day |
+| launchd: plist in `~/Library/LaunchAgents`, `launchctl bootstrap/bootout/kickstart/kill/print`, `gui/<uid>` domain, regex over `launchctl print` text | `launch_agent.ex` | macOS only, by design. On Linux `systemd_unit.ex` does the same job through `systemctl --user`, and a missing program of either kind is "not loaded" | Done |
 | `launchctl print` text format (`pid = N`, `last exit code = N`) | `launch_agent.ex` | macOS-only, and undocumented by Apple | A changed format reads as "loaded, not running". Doctor would mislead. Low risk |
-| `terminal-notifier`, then `osascript` | `desktop/notifier.ex` | Falls through to `{:error, :no_notifier}`, which the doctor reports | Add `notify-send`: an hour |
+| `terminal-notifier`, then `osascript`, then `notify-send` | `desktop/notifier.ex` | Yes. None of the three is `{:error, :no_notifier}`, which the doctor reports | Done |
 | Homebrew paths `/opt/homebrew/bin`, `/usr/local/bin` | notifier, shim, doctor | Last-resort lookups after `PATH`. Harmless elsewhere | Nothing needed |
 | `stat -f %B` / `-f %m` | `transcript.ex`, statusline script | Yes: both try BSD then GNU, and check the answer | Done |
 | `sort -V` | shim, asdf lookup | GNU and recent macOS. Old macOS fails the step and falls through | Nothing needed |
@@ -234,9 +235,8 @@ Linux and herdr-decoupling items below are real work, not hypothetical.
 1. **Make the silent failures loud** (fixes 1 to 7; fix 2 is done). Gain: the next
    herdr or Claude Code release that breaks something is noticed the same day, not
    after a lost question. Cost: about two days in total.
-2. **Unblock Linux** (fix 7, then a systemd unit and `notify-send`). Gain: Whiska runs
-   on a Linux box or a devcontainer, if herdr does. Cost: a line, then about a day and
-   a half.
+2. ~~**Unblock Linux**~~ Done 2026-10-05: fix 7, a systemd unit and `notify-send`. Whiska
+   runs on a Linux box; in a container without systemd the owl runs in a pane.
 3. ~~**Drop `jq` from the skills** by giving them `whiska` subcommands to call.~~ Done:
    `jq` is gone from the skills, the statusline and the repo's push hook. Gain:
    one less tool for a new user to install, and the herdr CLI calls move into code that
@@ -265,20 +265,20 @@ yet. The shim's exit code (fix 2) is already done, merged as `755718a`.
 
 | # | Piece | Cost | Why here |
 | --- | --- | --- | --- |
-| 1 | Rescue a missing `launchctl` as "not loaded" (fix 7) | 30 min with a test | Owl and doctor start on Linux at all |
+| 1 | ~~Rescue a missing `launchctl` as "not loaded" (fix 7)~~ Done | 30 min with a test | Owl and doctor start on Linux at all |
 | 2 | Version check: herdr `ping`, `claude --version`, doctor warns when newer than last checked (fix 3) | 2 h | Other people run other versions. Every later report starts with "which versions?" |
 | 3 | Unreadable prompt box goes on the board and the log (fix 1) | 1 h | Worst silent failure: typing into a draft. **Overlap:** branch `fix/the-board-says-what-a-question-is-waiting-on` is changing how the board says what a question waits on. Check what landed there before starting |
 | 4 | Own hold reason for an agent status Whiska does not know (fix 4) | 1 h | Stops "mid-turn" sending people the wrong way. Same board line as item 3, so the same overlap applies |
 | 5 | Honour `CLAUDE_CONFIG_DIR` (fix 6) | 1 h | Cheap; other people set it |
 | 6 | Doctor probes a real deny: inside-worktree `Edit` at the main checkout, check the JSON back. Run it in a throwaway repo under tmp: the hook mints a marker and records a mouse, and the doctor never writes (ADR-0038) | 2 h | Covers the deny format and payload keys |
 | 7 | Doctor warns about tool names in transcripts it has never classified (fix 5) | half a day | Covers new editing tools and MCP writers |
-| 8 | Run `mix test` in a Linux container, fix what is macOS-only | 1 h to learn, unknown to fix | Turns the Linux cost from a guess into a number |
-| 9 | systemd user unit behind the launchd runner, `notify-send` fallback, `mise` shims in the runtime lookup, README's "Requires macOS" rewritten | about 1.5 days | Linux supported, not just not crashing. Only worth it if herdr runs on Linux |
+| 8 | ~~Run `mix test` in a Linux container, fix what is macOS-only~~ Done: six failures, four of them tests that assumed macOS or a herdr pane, one a real notifier race | 1 h to learn, unknown to fix | Turns the Linux cost from a guess into a number |
+| 9 | ~~systemd user unit behind the launchd runner, `notify-send` fallback, README's "Requires macOS" rewritten~~ Done. `mise` shims in the runtime lookup are still open | about 1.5 days | Linux supported, not just not crashing |
 | 10 | ~~Skills call `whiska` subcommands instead of `herdr … \| jq`~~ Done | half a day | One less thing for a new user to install, and the herdr CLI moves into tested code |
 | 11 | herdr's statuses, agent name and event names translated inside `Whiska.Herdr.Socket`; the house, pickup, board, doctor and CLI match Whiska's own words | 1–2 days, mostly tests through the Mox fake | Prerequisite for a second multiplexer. Reverses the "herdr's own name, verbatim" choice, so it comes with an ADR |
 
-Items 1–7 come to about two days and need no new design. Items 8–9 depend on herdr
-running on Linux, which is not yet checked.
+Items 1–7 come to about two days and need no new design. Items 8 and 9 are done; herdr
+runs on Linux (herdr.dev lists macOS, Linux and Windows).
 
 ## Open questions
 
@@ -291,4 +291,4 @@ These need the person, not a guess.
    `755718a`.
 4. ~~Should the house stop matching herdr's strings?~~ Yes, as planned later work
    (item 11), decided 2026-10-04.
-5. **Does herdr run on Linux?** Items 8–9 are wasted if it does not.
+5. ~~Does herdr run on Linux?~~ Yes, per herdr.dev, checked 2026-10-04.

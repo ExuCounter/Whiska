@@ -38,12 +38,12 @@ defmodule Whiska.Doctor do
   alias Whiska.Doorstep.Entry
   alias Whiska.Herdr
   alias Whiska.Install
-  alias Whiska.LaunchAgent
   alias Whiska.Layout
   alias Whiska.Marker
   alias Whiska.OpenHouses
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
+  alias Whiska.ServiceManager
   alias Whiska.Storage
   alias Whiska.Transcript
 
@@ -52,6 +52,12 @@ defmodule Whiska.Doctor do
   @init_global "whiska init --global"
   @owl "whiska owl"
   @install "whiska owl install"
+  # Where Homebrew puts escript on Apple silicon, on Intel, and on Linux.
+  @homebrew_escripts [
+    "/opt/homebrew/bin/escript",
+    "/usr/local/bin/escript",
+    "/home/linuxbrew/.linuxbrew/bin/escript"
+  ]
   @restart "whiska start --force  (from the main checkout's pane)"
   @restart_owl "whiska owl stop && whiska owl start"
 
@@ -62,8 +68,12 @@ defmodule Whiska.Doctor do
   process environment by default), `:owl_pids` (a function returning the pids
   of running owls, the process table by default), `:herdr` (the herdr module,
   ADR-0031's boundary), `:open_houses` (the record's path, the real one by
-  default), `:launch_agent` (a function returning `{installed?, status}` for
-  the owl's LaunchAgent, launchd's own answer by default), `:owl_started_at`
+  default), `:service_manager` (the module that keeps the owl running,
+  `Whiska.ServiceManager.impl/0` by default), `:supervision` (a function
+  returning `{installed?, status}` for its job, the manager's own answer by
+  default), `:ready` (whether the manager is there at all, its own answer by
+  default), `:linger` (whether the owl outlives a logout, the manager's own
+  answer by default), `:owl_started_at`
   (a function giving when a pid started, `ps` by default), `:desktop` (where a
   hoot herdr will not show is raised, `Whiska.Desktop.impl/0` by default).
   """
@@ -73,12 +83,15 @@ defmodule Whiska.Doctor do
     owl_pids = Keyword.get(opts, :owl_pids, &Whiska.Owl.pids/0)
     herdr = Keyword.get(opts, :herdr, Herdr.impl())
     record = Keyword.get_lazy(opts, :open_houses, &OpenHouses.path/0)
-    launch_agent = Keyword.get(opts, :launch_agent, &launch_agent_state/0)
+    manager = Keyword.get(opts, :service_manager, ServiceManager.impl())
+    ready = Keyword.get(opts, :ready, &manager.ready/0)
+    supervision = Keyword.get(opts, :supervision, fn -> supervision_state(manager) end)
+    lingers = Keyword.get(opts, :linger, &manager.linger/0)
     owl_started_at = Keyword.get(opts, :owl_started_at, &Whiska.Owl.started_at/1)
     desktop = Keyword.get(opts, :desktop, Whiska.Desktop.impl())
     now = DateTime.utc_now()
     pids = owl_pids.()
-    {installed?, agent} = launch_agent.()
+    {installed?, agent} = supervision.()
 
     {binary, binary_path} = binary(env)
     installed_at = changed_at(binary_path)
@@ -108,8 +121,10 @@ defmodule Whiska.Doctor do
         [
           runtime(env),
           herdr_check,
-          owl(pids, oldest_owl(pids, owl_started_at), installed_at, binary_path),
-          launch_agent(installed?, agent, pids),
+          owl(pids, oldest_owl(pids, owl_started_at), installed_at, binary_path)
+        ] ++
+        supervision(manager, ready.(), installed?, agent, pids, lingers) ++
+        [
           open_houses(OpenHouses.read(record), main_checkout, pids),
           tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
           hoot_probe(herdr, desktop, env),
@@ -170,7 +185,7 @@ defmodule Whiska.Doctor do
       path = asdf_escript(env) ->
         Check.ok("runtime", "#{path} (asdf install, not on PATH — the shim finds it)")
 
-      path = Enum.find(["/opt/homebrew/bin/escript", "/usr/local/bin/escript"], &executable?/1) ->
+      path = Enum.find(@homebrew_escripts, &executable?/1) ->
         Check.ok("runtime", path)
 
       true ->
@@ -232,8 +247,8 @@ defmodule Whiska.Doctor do
 
   A warning, not a failure: the old owl collects and delivers perfectly well
   (ADR-0038), it is just not the code the person thinks they are running. The
-  binary is named rather than implied, because the owl under launchd resolves
-  it in launchd's environment and the doctor resolves it in this shell's: where
+  binary is named rather than implied, because the supervised owl resolves it
+  in its service manager's environment and the doctor in this shell's: where
   `WHISKA_BIN` is exported in one and not the other, the two are different
   files and the person can see that here.
   """
@@ -347,65 +362,105 @@ defmodule Whiska.Doctor do
   defp newest([]), do: nil
   defp newest(changes), do: Enum.max_by(changes, &DateTime.to_unix(elem(&1, 1)))
 
-  defp launch_agent_state,
-    do: {LaunchAgent.installed?(LaunchAgent.paths()), LaunchAgent.status()}
+  defp supervision_state(manager),
+    do: {manager.installed?(manager.paths()), manager.status()}
+
+  # Where the manager is not there at all, its own fixes would not work: the
+  # one line left says so, and points at the foreground owl.
+  defp supervision(manager, :ok, installed?, agent, pids, lingers),
+    do: [service_manager(manager, installed?, agent, pids)] ++ linger(manager, lingers.())
+
+  defp supervision(manager, {:error, reason}, _installed?, _agent, _pids, _lingers) do
+    [
+      Check.warn(
+        manager.noun(),
+        "#{reason} — the owl runs only in the foreground, and dies with its pane",
+        "whiska owl  (in a pane)"
+      )
+    ]
+  end
 
   @doc """
-  The owl's LaunchAgent (ADR-0040): is it installed, loaded, and is the owl it
-  runs alive — and is that the only owl. A loaded job with no owl and a
-  non-zero last exit code is crash-looping, not merely stopped. `installed?` is whether the plist is
-  there, `agent` is launchd's word on the job, `pids` every owl in the process
-  table. An owl running only in the foreground is the pre-launchd state and a
-  warning: it dies with its pane and nothing restarts it. Two owls is the one
-  state nothing else can explain, and the doctor names both.
+  The job that keeps the owl running (ADR-0040) — a LaunchAgent on macOS, a
+  systemd unit on Linux, whichever `manager` is: is it installed, loaded, and
+  is the owl it runs alive — and is that the only owl. A loaded job with no
+  owl and a non-zero last exit code is crash-looping, not merely stopped.
+  `installed?` is whether the job file is there, `agent` is the manager's word
+  on the job, `pids` every owl in the process table. An owl running only in
+  the foreground is a warning: it dies with its pane and nothing restarts it.
+  Two owls is the one state nothing else can explain, and the doctor names
+  both. The line is named for the manager's own kind of job.
   """
-  @spec launch_agent(boolean(), LaunchAgent.status(), [pos_integer()]) :: Check.t()
-  def launch_agent(false, _agent, []),
-    do: Check.warn("launch agent", "not installed — the owl is not supervised", @install)
+  @spec service_manager(module(), boolean(), ServiceManager.status(), [pos_integer()]) ::
+          Check.t()
+  def service_manager(manager, false, _agent, []),
+    do: Check.warn(manager.noun(), "not installed — the owl is not supervised", @install)
 
-  def launch_agent(false, _agent, pids) do
+  def service_manager(manager, false, _agent, pids) do
     Check.warn(
-      "launch agent",
+      manager.noun(),
       "not installed — the owl (pid #{Enum.join(pids, ", ")}) runs in the foreground and " <>
         "dies with its pane",
       @install
     )
   end
 
-  def launch_agent(true, %{loaded: false}, _pids),
-    do: Check.warn("launch agent", "#{LaunchAgent.label()} is written but not loaded", @install)
+  def service_manager(manager, true, %{loaded: false}, _pids),
+    do: Check.warn(manager.noun(), "#{manager.label()} is written but not loaded", @install)
 
-  def launch_agent(true, %{pid: nil, last_exit_code: code}, _pids)
+  def service_manager(manager, true, %{pid: nil, last_exit_code: code}, _pids)
       when is_integer(code) and code != 0 do
     Check.warn(
-      "launch agent",
-      "#{LaunchAgent.label()} loaded but crash-looping (last exit code #{code}) — " <>
-        "see #{LaunchAgent.paths().log}",
+      manager.noun(),
+      "#{manager.label()} loaded but crash-looping (last exit code #{code}) — " <>
+        "see #{manager.paths().log}",
       "whiska owl start"
     )
   end
 
-  def launch_agent(true, %{pid: nil}, _pids) do
+  def service_manager(manager, true, %{pid: nil}, _pids) do
     Check.warn(
-      "launch agent",
-      "#{LaunchAgent.label()} loaded, owl not running — see #{LaunchAgent.paths().log}",
+      manager.noun(),
+      "#{manager.label()} loaded, owl not running — see #{manager.paths().log}",
       "whiska owl start"
     )
   end
 
-  def launch_agent(true, %{pid: pid}, pids) do
+  def service_manager(manager, true, %{pid: pid}, pids) do
     case Enum.reject(pids, &(&1 == pid)) do
       [] ->
-        Check.ok("launch agent", "#{LaunchAgent.label()} loaded, owl running (pid #{pid})")
+        Check.ok(manager.noun(), "#{manager.label()} loaded, owl running (pid #{pid})")
 
       others ->
         Check.warn(
-          "launch agent",
-          "two owls — launchd's (pid #{pid}) and another (pid #{Enum.join(others, ", ")}) " <>
-            "collect the same doorsteps",
+          manager.noun(),
+          "two owls — #{manager.name()}'s (pid #{pid}) and another " <>
+            "(pid #{Enum.join(others, ", ")}) collect the same doorsteps",
           "Ctrl-C the foreground owl"
         )
     end
+  end
+
+  @doc """
+  Whether the owl outlives the person's last login session. systemd stops a
+  user's services at logout unless lingering is on — a machine setting, so
+  `whiska owl install` only says how, and this line keeps saying it while it is
+  off. No line where the question does not arise, as under launchd.
+  """
+  @spec linger(module(), boolean() | :not_applicable) :: [Check.t()]
+  def linger(_manager, :not_applicable), do: []
+
+  def linger(_manager, true),
+    do: [Check.ok("logout", "lingering is on — the owl keeps running after you log out")]
+
+  def linger(manager, false) do
+    [
+      Check.warn(
+        "logout",
+        "#{manager.name()} stops the owl when your last session ends",
+        "loginctl enable-linger"
+      )
+    ]
   end
 
   @doc """
@@ -692,15 +747,15 @@ defmodule Whiska.Doctor do
       Check.ok(
         "hoot",
         "herdr does not show it (#{reason}), so Whiska raises it with #{notifier} — " <>
-          "if nothing appeared, macOS has notifications off for #{notifier}"
+          "if nothing appeared, #{notifications_off(notifier)}"
       )
 
   def hoot({:ok, {:not_shown, reason}}, {:error, :no_notifier}),
     do:
       Check.warn(
         "hoot",
-        "herdr did not show it (#{reason}), and there is no terminal-notifier or osascript " <>
-          "to raise it instead, so a delivered question is silent",
+        "herdr did not show it (#{reason}), and there is no terminal-notifier, osascript " <>
+          "or notify-send to raise it instead, so a delivered question is silent",
         hoot_fix(reason)
       )
 
@@ -753,6 +808,11 @@ defmodule Whiska.Doctor do
         hoot(:no_socket)
     end
   end
+
+  defp notifications_off("notify-send"),
+    do: "the desktop has notifications off, or no notification server is running"
+
+  defp notifications_off(notifier), do: "macOS has notifications off for #{notifier}"
 
   # Only popups switched off are fixed in herdr's config; nobody attached, or
   # herdr pacing itself, is not.
@@ -809,7 +869,7 @@ defmodule Whiska.Doctor do
   # shell, so `~/.whiska/herdr-status.sh` works there and counts here.
   defp entry_line(config) do
     path = Install.herdr_status_path()
-    tilde = String.replace_prefix(path, LaunchAgent.user_home(), "~")
+    tilde = String.replace_prefix(path, ServiceManager.user_home(), "~")
 
     config
     |> String.split("\n")

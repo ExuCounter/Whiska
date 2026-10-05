@@ -12,7 +12,7 @@ C4Component
   title Component Diagram - the owl
 
   System_Ext(herdrd, "herdr", "Panes and agent status")
-  System_Ext(nc, "Desktop notifications", "terminal-notifier, or osascript")
+  System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
   Container_Ext(cliboot, "whiska owl", "escript command", "Boots the owl in the foreground")
 
   Container_Boundary(owl, "Owl") {

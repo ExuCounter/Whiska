@@ -8,6 +8,7 @@ defmodule Whiska.LaunchAgentTest do
 
   alias Whiska.Install
   alias Whiska.LaunchAgent
+  alias Whiska.ServiceManager
 
   setup do
     home = Path.join(System.tmp_dir!(), "whiska-launchd-#{System.unique_integer([:positive])}")
@@ -21,7 +22,7 @@ defmodule Whiska.LaunchAgentTest do
       paths = LaunchAgent.paths(home, "/w")
 
       assert LaunchAgent.label() == "com.whiska.owl"
-      assert paths.plist == Path.join(home, "Library/LaunchAgents/com.whiska.owl.plist")
+      assert paths.job == Path.join(home, "Library/LaunchAgents/com.whiska.owl.plist")
       assert paths.wrapper == "/w/owl.sh"
       assert paths.log == "/w/owl.log"
     end
@@ -75,6 +76,7 @@ defmodule Whiska.LaunchAgentTest do
       assert plist =~ "/x&lt;y&gt;"
     end
 
+    @tag :macos
     test "is a plist launchd accepts", %{home: home, paths: paths} do
       file = Path.join(home, "check.plist")
       File.write!(file, LaunchAgent.plist(paths, %{"HERDR_SOCKET_PATH" => "/tmp/h.sock"}))
@@ -82,20 +84,20 @@ defmodule Whiska.LaunchAgentTest do
     end
   end
 
-  describe "wrapper/0" do
+  describe "the wrapper" do
     test "resolves the binary and runtime exactly as the hook shim does" do
-      assert LaunchAgent.wrapper() =~ Install.resolve_whiska()
-      assert LaunchAgent.wrapper() =~ Install.resolve_escript()
+      assert ServiceManager.wrapper() =~ Install.resolve_whiska()
+      assert ServiceManager.wrapper() =~ Install.resolve_escript()
       assert Install.shim() =~ Install.resolve_whiska()
       assert Install.herdr_status_script() =~ Install.resolve_escript()
-      assert String.starts_with?(LaunchAgent.wrapper(), "#!/usr/bin/env bash\n")
+      assert String.starts_with?(ServiceManager.wrapper(), "#!/usr/bin/env bash\n")
     end
 
     test "execs the owl with no arguments, and fails loudly with no binary" do
-      assert LaunchAgent.wrapper() =~ ~s|exec "$escript_bin" "$whiska_bin" owl\n|
-      assert LaunchAgent.wrapper() =~ ~s|exec "$whiska_bin" owl\n|
-      assert LaunchAgent.wrapper() =~ "exit 1"
-      refute LaunchAgent.wrapper() =~ "exit 0"
+      assert ServiceManager.wrapper() =~ ~s|exec "$escript_bin" "$whiska_bin" owl\n|
+      assert ServiceManager.wrapper() =~ ~s|exec "$whiska_bin" owl\n|
+      assert ServiceManager.wrapper() =~ "exit 1"
+      refute ServiceManager.wrapper() =~ "exit 0"
     end
   end
 
@@ -103,8 +105,8 @@ defmodule Whiska.LaunchAgentTest do
     test "writes the wrapper (executable) and the plist", %{paths: paths} do
       assert :ok = LaunchAgent.install(paths, %{})
 
-      assert File.read!(paths.plist) == LaunchAgent.plist(paths, %{})
-      assert File.read!(paths.wrapper) == LaunchAgent.wrapper()
+      assert File.read!(paths.job) == LaunchAgent.plist(paths, %{})
+      assert File.read!(paths.wrapper) == ServiceManager.wrapper()
       assert {:ok, %File.Stat{mode: mode}} = File.stat(paths.wrapper)
       assert Bitwise.band(mode, 0o100) != 0
     end
@@ -119,7 +121,7 @@ defmodule Whiska.LaunchAgentTest do
       File.write!(paths.log, "kept\n")
 
       assert :ok = LaunchAgent.uninstall(paths)
-      refute File.exists?(paths.plist)
+      refute File.exists?(paths.job)
       refute File.exists?(paths.wrapper)
       assert File.read!(paths.log) == "kept\n"
     end
@@ -149,7 +151,7 @@ defmodule Whiska.LaunchAgentTest do
     test "bootstrap loads the plist into the user's gui domain", %{paths: paths} do
       assert :ok = LaunchAgent.bootstrap(paths, 501, recorder())
       assert_received {:launchctl, ["bootstrap", "gui/501", plist]}
-      assert plist == paths.plist
+      assert plist == paths.job
     end
 
     test "bootout, stop and start name the service" do
