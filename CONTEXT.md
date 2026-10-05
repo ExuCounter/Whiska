@@ -49,8 +49,8 @@ _Avoid_: big decision, one-way door
 A grilled brief, written down: its problem, user stories, decisions, testing and what is
 out of scope, in `.whiska-spec.md` at the worktree root, which git ignores. The mouse
 writes it with the `whiska-spec` skill after the last grilling round, sends it whole as a
-question, and builds only on the person's ok. A tweak or quick fix gets none, and neither
-does a brief that needed no grilling. The person's words are that brief's spec
+question, and builds only on the person's ok. A brief that needed no grilling gets none;
+a task's size never skips it. The person's words are that brief's spec
 (ADR-0076).
 _Avoid_: plan, design doc, ticket
 
