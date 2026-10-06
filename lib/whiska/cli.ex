@@ -1646,7 +1646,9 @@ defmodule Whiska.CLI do
     case herdr_socket() do
       {:ok, socket} ->
         with {:ok, panes} <- Herdr.impl().list_panes(socket) do
-          case Enum.find(panes, &(is_binary(&1[:cwd]) and Layout.inside?(&1.cwd, path))) do
+          here = Enum.filter(panes, &(is_binary(&1[:cwd]) and Layout.inside?(&1.cwd, path)))
+
+          case Enum.find(here, &(&1[:agent] == "claude")) || List.first(here) do
             %{pane_id: pane} -> focus_mouse(socket, pane, branch)
             nil -> open_without_pane(main, socket, branch, path)
           end
