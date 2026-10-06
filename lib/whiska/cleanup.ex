@@ -216,7 +216,7 @@ defmodule Whiska.Cleanup do
     if is_binary(path) and File.dir?(path), do: :ok, else: {:leave, :gone}
   end
 
-  # A fifth precondition (ADR-next-the-person-decides-what-reaches-them): the
+  # A fifth precondition (ADR-0079): the
   # person said this one stops where it is, and that includes its worktree.
   defp not_held(%Mouse{held_at: %DateTime{}}), do: {:leave, :held}
   defp not_held(_mouse), do: :ok

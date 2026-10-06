@@ -1,7 +1,7 @@
 defmodule Whiska.InstallCommandsTest do
   @moduledoc """
   The eight one-word commands and their slash commands
-  (ADR-next-the-person-decides-what-reaches-them): what `whiska init --global`
+  (ADR-0079): what `whiska init --global`
   writes under the whiska home and under `~/.claude/skills`, and the two skills
   it stops shipping.
   """

@@ -148,7 +148,7 @@ not, which is kept, counted on the board's own `orphaned` line, and read with
 be there rather than a state to wait out.
 
 Before any of that, the queue is judged against what the person set aside
-(ADR-next-the-person-decides-what-reaches-them). Nothing goes while they are **away**,
+(ADR-0079). Nothing goes while they are **away**,
 which is one file under the whiska home read by every house; under a **focus** only the
 focused mouse's questions go, and another mouse's `sent` question no longer holds the
 slot against it; a **held** mouse's questions never go, and its `sent` one frees the slot

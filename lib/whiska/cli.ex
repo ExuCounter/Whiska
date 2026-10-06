@@ -1591,7 +1591,7 @@ defmodule Whiska.CLI do
     )
   end
 
-  # -- away, focus, hold and resume (ADR-next-the-person-decides-what-reaches-them)
+  # -- away, focus, hold and resume (ADR-0079)
 
   defp inbox(:json), do: say(Waiting.json(Waiting.list()))
   defp inbox(:text), do: say(Waiting.render(Waiting.list(), away?: Mode.away?()))

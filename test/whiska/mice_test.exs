@@ -51,7 +51,7 @@ defmodule Whiska.MiceTest do
     end
   end
 
-  describe "a mouse on hold (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "a mouse on hold (ADR-0079)" do
     test "says held where herdr's status would go, whatever its pane is doing" do
       mice = [%{mouse("ma", "feat-a") | held_at: @now}]
       panes = {:ok, [pane("w1:p1", "/repo/worktrees/feat-a", "working")]}

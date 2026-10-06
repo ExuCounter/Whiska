@@ -51,7 +51,7 @@ are the extracted, individually citable decisions.
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
 - [0057](0057-nothing-unanswerable-holds-the-delivery-slot.md) — Nothing that cannot be answered holds the delivery slot (amended 2026-10-06 by next-the-person-decides-what-reaches-them: nor does a held or unfocused sent question)
 - [0058](0058-a-held-queue-says-so-on-the-board.md) — A held queue says so on the board (amended 2026-10-06 by next-the-person-decides-what-reaches-them: the word is "gated")
-- [next](next-the-person-decides-what-reaches-them.md) — The person decides what reaches them: away is the machine's, a focus is one repo's, a hold is one mouse's stored status, stopped through the hook; eight one-word commands; the gate's word is "gated" (amends 0008, 0022, 0043, 0057, 0058, 0061, 0067)
+- [next](0079-the-person-decides-what-reaches-them.md) — The person decides what reaches them: away is the machine's, a focus is one repo's, a hold is one mouse's stored status, stopped through the hook; eight one-word commands; the gate's word is "gated" (amends 0008, 0022, 0043, 0057, 0058, 0061, 0067)
 - [0062](0062-the-owl-hoots-when-it-delivers.md) — The owl hoots when it delivers: one desktop notification per delivered question (amended 2026-10-04 by next-a-hoot-reaches-you-without-herdr)
 - [0071](0071-a-hoot-reaches-you-without-herdr.md) — A hoot herdr will not show is raised on the desktop (amends 0062; noted 2026-10-05: notify-send on Linux)
 - [0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md) — A nudge is a notice typed into another house's main session (superseded 2026-09-29 by 0044)

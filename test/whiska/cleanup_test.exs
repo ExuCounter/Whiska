@@ -132,7 +132,7 @@ defmodule Whiska.CleanupTest do
     end
   end
 
-  describe "a mouse on hold (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "a mouse on hold (ADR-0079)" do
     test "is left exactly where it is, landed and quiet or not", %{repo: repo} do
       m = mouse(repo, "feat-a", pane: "w1:p1")
       GitRepo.land(repo, "feat-a")

@@ -1,6 +1,6 @@
 defmodule Whiska.Delivery.ModeTest do
   @moduledoc """
-  What may reach the person right now (ADR-next-the-person-decides-what-reaches-them):
+  What may reach the person right now (ADR-0079):
   away is machine-wide and on disk, a focus is one house's, a hold is one
   mouse's. The queue is judged against all three before the gate ever sees it.
   """

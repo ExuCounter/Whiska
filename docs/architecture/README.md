@@ -132,7 +132,7 @@ separate sweeps first, and a herdr that will not answer throws every clock away,
 laptop waking is not read as a whole fleet dying. It is the one thing Whiska types into a
 session that is not its house's main one, which is the single exception ADR-0067 amends
 into ADR-0044. Then the person's own say over delivery
-(ADR-next-the-person-decides-what-reaches-them): `away`, one file under the whiska home
+(ADR-0079): `away`, one file under the whiska home
 that stops every delivery on the machine; `focus <branch>`, one repo's narrowing to one
 mouse, whose question goes even while another mouse's delivered one is unanswered;
 `hold <branch>`, a stored status on the mouse record that the hook turns into a stop at

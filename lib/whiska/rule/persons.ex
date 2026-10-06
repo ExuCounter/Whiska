@@ -1,7 +1,7 @@
 defmodule Whiska.Rule.Persons do
   @moduledoc """
   The person's commands are not a mouse's to run
-  (ADR-next-the-person-decides-what-reaches-them).
+  (ADR-0079).
 
   `away`, `hold`, `focus`, `resume`, `reply`, `dismiss` and `close` set or end
   what the person decided — what reaches them, which mouse stops, what a mouse

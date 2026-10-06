@@ -52,7 +52,7 @@ defmodule Whiska.Schema.Mouse do
     field(:landed_at, :utc_datetime)
     # Set when the person put this mouse on hold (`hold <branch>`): its next
     # tool call is refused and nothing of its is delivered until `resume`
-    # clears it (ADR-next-the-person-decides-what-reaches-them).
+    # clears it (ADR-0079).
     field(:held_at, :utc_datetime)
   end
 end

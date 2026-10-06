@@ -138,7 +138,7 @@ naming the path, because by then the honest answer is that herdr is not running.
 "Neither command gets a slash-command skill" above held for `jump` and is narrowed for
 `waiting`: `/inbox` runs `whiska waiting` (as `whiska inbox`) in the main session, only
 when the person types it
-([ADR-next-the-person-decides-what-reaches-them](next-the-person-decides-what-reaches-them.md)).
+([ADR-0079](0079-the-person-decides-what-reaches-them.md)).
 The reason above was a session running a machine-wide command on its own judgment; a
 typed slash command is the person asking in that same breath, which is this decision's
 own test. `jump` keeps none: the person dropped it from the one-word set, and a session

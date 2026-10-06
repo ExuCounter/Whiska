@@ -67,7 +67,7 @@ to prevent, and no delay makes typing into somebody's draft acceptable.
 
 ## Amendment, 2026-10-06: the word is "gated"
 
-[ADR-next-the-person-decides-what-reaches-them](next-the-person-decides-what-reaches-them.md)
+[ADR-0079](0079-the-person-decides-what-reaches-them.md)
 gives "held" to a mouse the person put on hold, a stored status with its own row word, so
 the board's line here reads `gated: your prompt box isn't empty` and `whiska doctor` says
 `gated: person is typing`. Nothing about the fuse, the gate or when the line is drawn

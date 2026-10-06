@@ -324,7 +324,7 @@ defmodule Whiska.WaitingTest do
     end
   end
 
-  describe "what the person set aside (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "what the person set aside (ADR-0079)" do
     test "a held mouse's question is listed, marked held", %{root: root, record: record} do
       main = house!(root, "repo", record)
 

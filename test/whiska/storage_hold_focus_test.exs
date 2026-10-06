@@ -1,6 +1,6 @@
 defmodule Whiska.StorageHoldFocusTest do
   @moduledoc """
-  What the delivery modes add to storage (ADR-next-the-person-decides-what-reaches-them):
+  What the delivery modes add to storage (ADR-0079):
   a mouse the person put on hold is a stamp on its record, and a house's focus
   is a column on its one row.
   """

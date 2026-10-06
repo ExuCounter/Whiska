@@ -645,7 +645,7 @@ defmodule Whiska.Storage do
     |> Repo.insert()
   end
 
-  # -- hold and focus (ADR-next-the-person-decides-what-reaches-them) ----------
+  # -- hold and focus (ADR-0079) ----------
 
   @doc """
   Put a mouse on hold: its next tool call is refused, nothing of its is

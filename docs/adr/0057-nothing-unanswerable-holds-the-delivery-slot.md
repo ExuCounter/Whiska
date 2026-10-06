@@ -75,7 +75,7 @@ ADR-0009 chooses against.
 
 ## Amendment, 2026-10-06: nor does a question the person set aside
 
-[ADR-next-the-person-decides-what-reaches-them](next-the-person-decides-what-reaches-them.md)
+[ADR-0079](0079-the-person-decides-what-reaches-them.md)
 adds two more things that never hold the slot, both of them answerable: a `sent` question
 whose mouse the person put on hold, and one whose mouse is not the focused one while a
 focus is on. Neither is released — it stays `sent`, since it was delivered and nothing is

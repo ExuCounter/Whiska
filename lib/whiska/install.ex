@@ -515,7 +515,7 @@ defmodule Whiska.Install do
   them. Then stop.
   """
 
-  # One word each (ADR-next-the-person-decides-what-reaches-them): the slash
+  # One word each (ADR-0079): the slash
   # commands are the words the person types at a shell, and the two long-named
   # reading skills they replace are in `@retired_skills`.
   @skills [

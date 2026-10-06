@@ -204,7 +204,7 @@ ADR-0007's own reasoning (small, text-only, cheap to keep) does not apply to a c
 ## Amendment, 2026-10-06: a fifth precondition
 
 A mouse the person put on hold
-([ADR-next-the-person-decides-what-reaches-them](next-the-person-decides-what-reaches-them.md))
+([ADR-0079](0079-the-person-decides-what-reaches-them.md))
 is left exactly where it is, landed and quiet or not: "stops where it is" includes its
 worktree. Its landing is still noted, so a question of its settles later rather than
 orphaning. The four preconditions above are untouched; this one is checked before them.

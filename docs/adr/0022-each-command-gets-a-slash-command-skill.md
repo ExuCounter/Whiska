@@ -135,7 +135,7 @@ to run it at all.
 
 ## Note, 2026-10-06: the words replace the long names, and the picker lands by cherry-pick
 
-[ADR-next-the-person-decides-what-reaches-them](next-the-person-decides-what-reaches-them.md)
+[ADR-0079](0079-the-person-decides-what-reaches-them.md)
 gives the person eight one-word commands — `inbox`, `show`, `reply`, `dismiss`, `focus`,
 `away`, `hold`, `resume` — and the same eight as slash commands, each the thin wrapper this
 decision asks for. They replace `/whiska-questions` and `/whiska-reply`, which `whiska

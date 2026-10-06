@@ -168,7 +168,7 @@ defmodule Whiska.PickupTest do
     end
   end
 
-  describe "a mouse on hold (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "a mouse on hold (ADR-0079)" do
     test "is never picked up: the person stopped it on purpose", %{repo: repo} do
       m = mouse(repo, "feat-a")
       seen = died(repo, m)

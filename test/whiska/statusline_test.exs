@@ -170,7 +170,7 @@ defmodule Whiska.StatuslineTest do
     end
   end
 
-  describe "away, on the tab bar (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "away, on the tab bar (ADR-0079)" do
     setup %{root: root} do
       away = Path.join(root, "away")
       :ok = Whiska.Delivery.Mode.set_away(away)

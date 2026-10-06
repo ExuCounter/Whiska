@@ -248,7 +248,7 @@ defmodule Whiska.QuestionsTest do
     end
   end
 
-  describe "what the person set aside (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "what the person set aside (ADR-0079)" do
     test "a held mouse's question says held, in the listing and at length", %{main: main} do
       seed(main, fn ->
         ask("m1", "which db?\n[worktree-status: needs-decision] which db?")

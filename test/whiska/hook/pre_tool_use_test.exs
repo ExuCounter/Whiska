@@ -318,7 +318,7 @@ defmodule Whiska.Hook.PreToolUseTest do
     end
   end
 
-  describe "a mouse on hold (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "a mouse on hold (ADR-0079)" do
     defp held(main, worktree) do
       shaped_build(main, worktree)
       {:ok, mouse_id} = Marker.read_or_mint(worktree)
@@ -378,7 +378,7 @@ defmodule Whiska.Hook.PreToolUseTest do
     end
   end
 
-  describe "the person's commands are not a mouse's (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "the person's commands are not a mouse's (ADR-0079)" do
     defp bash(worktree, command),
       do:
         run(%{"cwd" => worktree, "tool_name" => "Bash", "tool_input" => %{"command" => command}})

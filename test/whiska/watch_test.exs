@@ -693,7 +693,7 @@ defmodule Whiska.WatchTest do
     String.length(head)
   end
 
-  describe "what the person set aside (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "what the person set aside (ADR-0079)" do
     defp mode(attrs), do: Map.merge(Whiska.Delivery.Mode.none(), Map.new(attrs))
 
     defp held_mouse(branch), do: %{mouse(branch) | held_at: @now}

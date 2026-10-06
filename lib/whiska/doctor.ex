@@ -1294,7 +1294,7 @@ defmodule Whiska.Doctor do
   defp held(_free), do: []
 
   @doc """
-  What the person set aside (ADR-next-the-person-decides-what-reaches-them):
+  What the person set aside (ADR-0079):
   away, this house's focus by the branch's name, and the branches on hold —
   each with the word that ends it. Never a warning: every one of them is
   something the person did on purpose.

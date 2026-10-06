@@ -1,7 +1,7 @@
 defmodule Whiska.Rule.Held do
   @moduledoc """
   A mouse the person put on hold stops where it is
-  (ADR-next-the-person-decides-what-reaches-them).
+  (ADR-0079).
 
   `hold <branch>` stamps the record; this rule is what makes the stamp a stop.
   Every call the hook is asked about is refused, so the stop lands on the next

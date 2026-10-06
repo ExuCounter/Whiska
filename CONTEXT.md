@@ -116,7 +116,7 @@ _Avoid_: summary, status, update, hand-off
 **Finish**:
 What becomes of a branch once its mouse is done: landed on the current branch by
 cherry-picking its own commits, oldest first, its merges from the base skipped
-(ADR-next-the-person-decides-what-reaches-them; it was `merge --no-ff`), opened as a
+(ADR-0079; it was `merge --no-ff`), opened as a
 merge request, left alone to be talked to further, or dropped unmerged. The person
 picks one when a "finished" question is told; a repo may name its usual choice, and that
 one is recommended. A **held** mouse's finished line is never told, so it is never
@@ -213,7 +213,7 @@ answered ever holds the slot: before each attempt, everything still waiting for 
 that is dead, or for a record that no longer stands for a worktree of this house, is
 released — **settled** where its mouse's branch landed, **orphaned** where it did not
 (ADR-0057, ADR-0064). Before the gate, the queue is judged against what the person set
-aside (ADR-next-the-person-decides-what-reaches-them): nothing goes while they are
+aside (ADR-0079): nothing goes while they are
 **away**, only the focused mouse's under a **focus**, never a **held** mouse's — and a
 sent question of a held or unfocused mouse does not hold the slot. Oldest first, always.
 While the gate holds — the session mid-turn, a
@@ -249,7 +249,7 @@ the main session mid-turn, a draft in its box, no prompt box on its screen at al
 (ADR-0068), or no main session it can reach. The question stays open and first in the
 queue, and the gate holds until it lets go — one hold however its reason changes. Said in
 two places in the same word: the board's waiting line once it has lasted ten seconds
-(ADR-0058, as ADR-next-the-person-decides-what-reaches-them respells it), and
+(ADR-0058, as ADR-0079 respells it), and
 `whiska doctor` whenever it is asked. Being gated is never a question's own status; it is
 what delivery is doing, or not doing, to the queue. While the person is **away** the gate
 is beside the point, and the line says `away` instead.
@@ -260,7 +260,7 @@ progressing), paused, queued (every question behind the first is that anyway)
 **Away**:
 The person's own word for "nothing reaches me": one setting for the whole machine, a file
 under the whiska home that `away` writes and `resume` removes
-(ADR-next-the-person-decides-what-reaches-them). While it is set nothing is delivered to
+(ADR-0079). While it is set nothing is delivered to
 any main session, no hoot is raised, mice keep working, and `inbox` keeps listing what
 they ask, with `away` on its first line. Said on herdr's tab bar — `🦉 watching · away` —
 and on every repo's board. Not a question's status, and not the owl's state: the owl is
@@ -271,7 +271,7 @@ disturb, muted, paused, held (a mouse's), gated (the gate's)
 **Focus**:
 One repo's narrowing of delivery to one mouse: the focused mouse's `mouse_id` on the
 house's own row, set with `focus <branch>` and cleared by `resume`
-(ADR-next-the-person-decides-what-reaches-them). Only that mouse's questions reach the
+(ADR-0079). Only that mouse's questions reach the
 repo's main session; the rest wait — still listed by `inbox` and `whiska questions` as
 `waits: focus on <branch>`, still counted as waiting — and a question already delivered
 from another mouse no longer holds the one slot against the focused one. Per repo because
@@ -283,7 +283,7 @@ for bringing a pane into view (see **Jump**)
 **Held**:
 A mouse the person put on hold with `hold <branch>`: a `held_at` stamp on its record, a
 real stored status, lifted by `resume <branch>` or by a reply to one of its questions
-(ADR-next-the-person-decides-what-reaches-them). The hook refuses its next write or
+(ADR-0079). The hook refuses its next write or
 shell command — a read passes until then, or until the turn ends — with a reason that
 says to end the turn here and say where it stopped
 (`Whiska.Rule.Held`); the message it ends on sits in the inbox marked `held`, never
@@ -300,7 +300,7 @@ A `whiska` command only the person runs, never a mouse: `away`, `hold`, `focus`,
 `resume`, `reply`, `dismiss` and `close` — the ones that set or end what reaches them,
 which mouse stops, and what a mouse is told. The hook refuses a mouse's shell command that
 is one of them, by its head word, `whiska` in front or bare (`Whiska.Rule.Persons`,
-ADR-next-the-person-decides-what-reaches-them); a mouse that needs one says so in its
+ADR-0079); a mouse that needs one says so in its
 report. The reading commands — `inbox`, `show`, `questions`, `waiting`, `mice` — are
 anyone's.
 _Avoid_: admin command, privileged command (there is no privilege, only whose decision it

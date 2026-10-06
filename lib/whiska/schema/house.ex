@@ -5,7 +5,7 @@ defmodule Whiska.Schema.House do
 
   The pane is recorded by `whiska start` from the pane it is run in (ADR-0020).
   The focus is the `mouse_id` whose questions alone reach that pane while it is
-  set (ADR-next-the-person-decides-what-reaches-them). Nothing else about a
+  set (ADR-0079). Nothing else about a
   house lives here — mice and questions have their own tables.
   """
 

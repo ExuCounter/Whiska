@@ -1,6 +1,6 @@
 defmodule Whiska.Delivery.Mode do
   @moduledoc """
-  What may reach the person right now (ADR-next-the-person-decides-what-reaches-them).
+  What may reach the person right now (ADR-0079).
 
   Three things the person sets, each stored where its scope is:
 

@@ -744,7 +744,7 @@ defmodule Whiska.DoctorTest do
     end
   end
 
-  describe "commands/2 — the one-word commands (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "commands/2 — the one-word commands (ADR-0079)" do
     setup do
       dir = Path.join(System.tmp_dir!(), "whiska-doc-cmd-#{System.unique_integer([:positive])}")
       bin = Path.join(dir, "bin")

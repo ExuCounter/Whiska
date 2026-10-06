@@ -1,7 +1,7 @@
 defmodule Whiska.Migrations.V010HoldAndFocus do
   @moduledoc """
   Somewhere to say a mouse is on hold, and somewhere to say which mouse a house
-  is focused on (ADR-next-the-person-decides-what-reaches-them).
+  is focused on (ADR-0079).
 
   `held_at` is when the person put this mouse on hold: its next write or shell
   command is refused, nothing of its is delivered, and it is never offered for landing,

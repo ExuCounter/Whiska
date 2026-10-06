@@ -1,6 +1,6 @@
 defmodule Whiska.CLIInboxTest do
   @moduledoc """
-  The one-word commands (ADR-next-the-person-decides-what-reaches-them):
+  The one-word commands (ADR-0079):
   `inbox`, `show`, `dismiss` as short spellings of the long names, and `away`,
   `focus`, `hold`, `resume` as the three delivery modes and their end.
   """

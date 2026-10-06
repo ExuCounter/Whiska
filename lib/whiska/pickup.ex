@@ -215,7 +215,7 @@ defmodule Whiska.Pickup do
   end
 
   # The person stopped it on purpose; a line telling it to carry on would undo
-  # exactly that (ADR-next-the-person-decides-what-reaches-them).
+  # exactly that (ADR-0079).
   defp not_held(%Mouse{held_at: %DateTime{}}), do: {:leave, :held}
   defp not_held(_mouse), do: :ok
 

@@ -891,7 +891,7 @@ defmodule Whiska.Owl.DeliveryTest do
     end
   end
 
-  describe "what the person set aside (ADR-next-the-person-decides-what-reaches-them)" do
+  describe "what the person set aside (ADR-0079)" do
     setup %{main: main, a: a} do
       record_main(main)
       main_is("idle")
