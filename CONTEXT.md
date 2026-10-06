@@ -120,7 +120,7 @@ cherry-picking its own commits, oldest first, its merges from the base skipped
 (ADR-0079; it was `merge --no-ff`), opened as a
 merge request, carried on by its mouse, left alone to be talked to further, or dropped
 unmerged. The person picks one when a "finished" question is told, from what fits the
-branch as `whiska show` reads it from git on the line under the heading: a branch with
+branch as its **branch line** reads: a branch with
 nothing committed is never offered a landing or a request, one with only uncommitted
 work — a failing test written first — is offered its next step first, and one git cannot
 read is offered all four. A repo may name its usual choice, and that one is recommended
@@ -132,6 +132,13 @@ question has nothing to answer — and it is only ever offered for a finished on
 _Avoid_: close (which a question does), disposition, land. **Cleanup** now names something
 else — what becomes of the worktree after the branch has landed, not what becomes of the
 branch
+
+**Branch line**:
+The line `whiska show` prints straight under a finished question's heading: what its
+branch holds as git says when it is shown — its own commits beyond the base, its files
+not committed, or `unknown`. Whiska's record of the branch, never the mouse's word, and
+what a **finish** is chosen by (ADR-0074).
+_Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Proposal**:
 The block a finished investigation ends its report with when it changed nothing and found
