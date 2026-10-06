@@ -133,6 +133,29 @@ owl. ADR-0040's fallback to herdr's fixed default socket therefore applies to `j
 default is used when it is not, and only a default with no socket at it is refused —
 naming the path, because by then the honest answer is that herdr is not running.
 
+## Note, 2026-10-06: `whiska open` is a separate move into a mouse's own pane
+
+"The destination is the house's main session, never a mouse's own pane" holds for
+`jump` and is narrowed: `whiska open <question-id|branch>` takes the person to that
+mouse's pane, because they named the mouse. The reason against landing there was that
+a mouse mid-turn has nothing to type into that would not interrupt it; a finished
+mouse has no turn in progress, and "Chat further" on a finished or sniff question has
+no other way to get the person there. `jump` is unchanged.
+
+What changes for the person: picking "Chat further" moves their screen to that
+mouse's pane. Same rule as above: only typed or picked by the person, never the owl.
+
+- **The pane is found by its folder** inside the worktree in herdr's pane list, not
+  from the stored pane column (ADR-0061).
+- **No pane, worktree on disk:** `worktree.open` with focus. A workspace on a shell,
+  no session started (ADR-0023); it says so.
+- **Worktree gone, branch kept:** says so with the commit count and points to spawning
+  it again. **Branch gone:** landed or dropped. Both exit 0.
+- A herdr gain: `Whiska.Herdr.open_worktree/2`, `worktree.open {path, focus: true}`.
+- The statusline and herdr's tab bar cannot make this a click: Claude Code strips
+  links from the status line (issues #21586, #70161), and herdr's tab bar has no
+  click action.
+
 ## Note, 2026-10-06: `waiting` has a slash command after all
 
 "Neither command gets a slash-command skill" above held for `jump` and is narrowed for

@@ -111,6 +111,17 @@ defmodule Whiska.Herdr.Socket do
   end
 
   @impl true
+  def open_worktree(socket, path) do
+    with {:ok, %{"result" => _}} <-
+           request(socket, "worktree.open", %{"path" => path, "focus" => true}) do
+      :ok
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  @impl true
   def remove_worktree(socket, workspace_id) do
     params = %{"workspace_id" => workspace_id, "force" => false}
 

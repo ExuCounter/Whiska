@@ -99,7 +99,7 @@ are the extracted, individually citable decisions.
 - [0059](0059-the-statusline-script-carries-a-version-stamp.md) — The statusline script carries a version stamp, and an old copy is an upgrade notice
 - [0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) — The owl's line is drawn once on herdr's tab bar, machine-wide, not in every Claude session (amended 2026-09-29: the repo-scoped line stays in Claude Code's statusline)
 - [0038](0038-the-doctor-checks-and-probes-it-never-repairs.md) — The doctor checks and probes; it never repairs
-- [0043](0043-whiska-jump-moves-the-persons-focus.md) — `whiska jump` moves the person's focus, and lands on the house's main session (amended 2026-10-06 by next-the-person-decides-what-reaches-them: `waiting` has a slash command, `/inbox`, typed by the person; `jump` still has none)
+- [0043](0043-whiska-jump-moves-the-persons-focus.md) — `whiska jump` moves the person's focus, and lands on the house's main session (amended 2026-10-06 by next-the-person-decides-what-reaches-them: `waiting` has a slash command, `/inbox`, typed by the person; `jump` still has none; 2026-10-06: `whiska open <id|branch>` is a separate move into a mouse's own pane)
 
 ## Process
 

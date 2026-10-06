@@ -422,7 +422,9 @@ only ever because the person asked for it in the same breath: a typed command, o
 hotkey they bound. The owl never jumps, and since the Nudge was retired it makes no
 cross-house move at all. The destination is the house's main
 session, never a mouse's own pane: a mouse's pane is the mouse's workplace, and the
-person answers from their own (ADR-0043).
+person answers from their own (ADR-0043). A separate move, `whiska open <id|branch>`,
+takes the person to one named mouse's own pane when they ask for that mouse; it is not a
+jump, and the owl never makes it either (ADR-0043's note of 2026-10-06).
 _Avoid_: goto, focus (herdr's word for the mechanism of bringing a pane into view, and
 since 2026-10-06 the person's word for narrowing delivery to one mouse — see **Focus**;
 neither is a jump), switch, attach, take over

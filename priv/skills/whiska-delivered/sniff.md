@@ -12,8 +12,8 @@ in this order:
   Touches lines, verbatim, so the person decides on the proposal itself
   rather than on a label. Its description: a fresh session builds it,
   shaped for the build.
-- **Chat further** — do nothing at all. The person talks to that branch's
-  session themselves.
+- **Chat further** — run `whiska open <id>`, with the number after the `#`. It moves
+  the person's screen to that branch's pane; say what it printed in one line.
 - **Drop it** — throw the work away without merging. In prose, confirm only
   when the line under the heading lists commits of its own or files not
   committed. Nothing else is lost, and a confirmation about nothing is one

@@ -127,6 +127,14 @@ defmodule Whiska.CLI do
                          repo-scoped, and it reads whether or not the owl is
                          up. --json prints the same rows for a script.
 
+    open <id|branch>     Take me to that mouse's own pane: focus it when it is
+                         running, open its worktree in herdr when only the
+                         worktree is left (no session starts there), or say
+                         what remains — a kept branch with its commit count,
+                         or that it landed or was dropped. Run from the repo.
+                         Unlike `jump`, it lands in the mouse's pane, because
+                         you asked for that mouse by name.
+
     jump [<repo|branch>] Take me to whatever needs me: focus the main session
                          of the house the oldest thing `whiska inbox` lists
                          belongs to. With a repo name, or a branch — whichever
@@ -334,6 +342,8 @@ defmodule Whiska.CLI do
 
   def run(["jump"], _cwd), do: jump_to_oldest()
   def run(["jump", name], _cwd), do: jump_to_name(name)
+
+  def run(["open", target], cwd), do: open_mouse(cwd, target)
 
   def run(["inbox"], _cwd), do: inbox(:text)
   def run(["inbox", "--json"], _cwd), do: inbox(:json)
@@ -1593,6 +1603,104 @@ defmodule Whiska.CLI do
       pane ->
         focus(pane, repo)
     end
+  end
+
+  # `whiska open` takes the person to a mouse's own pane — the separate move
+  # ADR-0043's 2026-10-06 note allows, which `jump` never makes. The pane is
+  # found by its folder inside the worktree, not by the stored pane column
+  # (ADR-0061). What it says when there is no pane depends on what is left of
+  # the mouse; none of those is a failure, so all exit 0.
+  defp open_mouse(cwd, target) do
+    with_house(cwd, fn ->
+      case open_target(target) do
+        {:ok, branch, path} ->
+          {:ok, main} = main_checkout(cwd || File.cwd!())
+          open_work(main, branch, path)
+
+        :error ->
+          fail("whiska: no question #{target}, and no mouse on a branch called #{target}, here.")
+      end
+    end)
+  end
+
+  defp open_target(target) do
+    mouse =
+      case Integer.parse(target) do
+        {n, ""} ->
+          with %Question{mouse_id: id} <- Storage.question(n), do: Storage.mouse(id)
+
+        _branch ->
+          Enum.find(Enum.reverse(Storage.current_mice()), &(&1.branch == target))
+      end
+
+    case mouse do
+      %Mouse{branch: branch, path: path} when is_binary(branch) and is_binary(path) ->
+        {:ok, branch, path}
+
+      _none ->
+        :error
+    end
+  end
+
+  defp open_work(main, branch, path) do
+    case herdr_socket() do
+      {:ok, socket} ->
+        with {:ok, panes} <- Herdr.impl().list_panes(socket) do
+          case Enum.find(panes, &(is_binary(&1[:cwd]) and Layout.inside?(&1.cwd, path))) do
+            %{pane_id: pane} -> focus_mouse(socket, pane, branch)
+            nil -> open_without_pane(main, socket, branch, path)
+          end
+        else
+          {:error, reason} ->
+            fail("whiska: could not ask herdr for panes (#{describe(reason)}). Nothing moved.")
+        end
+
+      {:error, {:no_socket, default}} ->
+        no_socket(default, "open a mouse in")
+    end
+  end
+
+  defp focus_mouse(socket, pane, branch) do
+    case Herdr.impl().focus(socket, pane) do
+      :ok ->
+        say("Opened #{branch} — pane #{pane}.")
+
+      {:error, reason} ->
+        fail("whiska: could not focus #{pane} (#{describe(reason)}). Nothing moved.")
+    end
+  end
+
+  defp open_without_pane(main, socket, branch, path) do
+    cond do
+      File.dir?(path) ->
+        case Herdr.impl().open_worktree(socket, path) do
+          :ok ->
+            say("Opened #{branch}'s worktree in herdr — no session is running there.")
+
+          {:error, reason} ->
+            fail("whiska: could not open #{path} (#{describe(reason)}). Nothing moved.")
+        end
+
+      match?({:ok, _}, Git.branch_head(main, branch)) ->
+        kept(main, branch)
+
+      true ->
+        say("whiska: #{branch} has no worktree and no branch — it landed or was dropped.")
+    end
+  end
+
+  defp kept(main, branch) do
+    commits =
+      case Git.ahead(main, branch) do
+        {:ok, 1} -> "1 commit beyond the base"
+        {:ok, n} -> "#{n} commits beyond the base"
+        {:error, _} -> "an unknown number of commits"
+      end
+
+    say(
+      "whiska: #{branch}'s worktree is gone but the branch is kept, with #{commits}. " <>
+        "Spawn it again to work on it."
+    )
   end
 
   defp focus(pane, where) do

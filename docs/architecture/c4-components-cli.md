@@ -2,7 +2,7 @@
 
 Level 3 for the escript — the hooks, `init`, `mode`, `shape`, `doctor`, the delivery-side commands
 (`start`, `questions`, `reply`, `close`, `mice`, `worktrees`), the machine-wide pair (`waiting`,
-`jump`), the eight one-word commands (`inbox`, `show`, `reply`, `dismiss`, `focus`, `away`,
+`jump`), `open`, the eight one-word commands (`inbox`, `show`, `reply`, `dismiss`, `focus`, `away`,
 `hold`, `resume`), and the command that boots the owl.
 Every module here exists in `lib/whiska/` with a test beside it in `test/whiska/`. The
 owl's own internals are a separate diagram: [c4-components-owl.md](c4-components-owl.md).
@@ -14,7 +14,7 @@ C4Component
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
 
   Container_Boundary(cli, "whiska escript") {
-    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / worktrees / waiting / jump / owl, the words inbox / show / dismiss / away / focus / hold / resume, and owl install / stop / start / uninstall")
+    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / worktrees / waiting / jump / open / owl, the words inbox / show / dismiss / away / focus / hold / resume, and owl install / stop / start / uninstall")
     Component(mode, "Delivery.Mode", "the person's say", "Away: a file under the whiska home. Focus: this house's. Held: each mouse's. What may be delivered now, and why a question waits")
     Component(heldrule, "Rule.Held", "rule", "A mouse on hold is refused every call the hook sees, and told to end the turn")
     Component(personsrule, "Rule.Persons", "rule", "The person's commands - away, hold, focus, resume, reply, dismiss, close - are not a mouse's to run")
@@ -51,7 +51,7 @@ C4Component
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
   Container_Ext(doorstep, "Doorstep", "directory", "Uncollected entries")
-  System_Ext(herdr, "herdr", "pane list, worktree list for worktrees, main-session focus for jump, and starting Claude in a pane")
+  System_Ext(herdr, "herdr", "pane list, worktree list for worktrees, main-session focus for jump, mouse-pane focus and worktree open for open, and starting Claude in a pane")
   Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
 
   Rel(shim, main, "Execs", "JSON on stdin")
@@ -91,6 +91,7 @@ C4Component
   Rel(waiting, storage, "Opens each house read-only: questions, mouse panes, main session")
   Rel(waiting, doorstep, "Reads each house's uncollected entries")
   Rel(main, herdr, "jump: focuses one house's main session", "pane.focus")
+  Rel(main, herdr, "open: focuses one mouse's own pane, or opens its worktree", "pane.focus, worktree.open")
   Rel(main, herdr, "start: types claude at this pane's prompt when nothing runs there", "pane.send_text")
   Rel(statusline, owl, "Is it running? Same probe as the doctor", "process table")
   Rel(doctor, owl, "Is it running, and older than the binary it runs?", "process table, ps")

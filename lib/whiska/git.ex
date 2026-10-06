@@ -108,6 +108,29 @@ defmodule Whiska.Git do
   end
 
   @doc """
+  How many commits a branch carries beyond the base, merges not counted — all
+  that is left to say about a mouse's work once its worktree has gone.
+  """
+  @spec ahead(Path.t(), branch()) :: {:ok, non_neg_integer()} | {:error, term()}
+  def ahead(checkout, branch) do
+    with {:ok, base} <- base(checkout),
+         true <- plain_name?(base) || {:error, :unsafe_base},
+         {:ok, count} <-
+           git(checkout, [
+             "rev-list",
+             "--count",
+             "--no-merges",
+             "refs/heads/#{base}..refs/heads/#{branch}"
+           ]),
+         {n, ""} <- Integer.parse(count) do
+      {:ok, n}
+    else
+      {:error, _} = error -> error
+      _unparsed -> {:error, :unreadable}
+    end
+  end
+
+  @doc """
   Is this commit an ancestor of the base branch — has the work landed at all?
 
   ADR-0061's first precondition, which is also true of a branch cut an hour ago

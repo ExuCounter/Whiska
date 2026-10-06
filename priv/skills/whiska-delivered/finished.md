@@ -44,8 +44,8 @@ recommended, that one carries "(Recommended)" instead, and goes first.
   words, in single quotes with each `'` in it written `'\''`. This is not an answer — the finished
   question is closed and `whiska reply` refuses it — so it travels the way
   `send-to-worktree` sends a follow-up.
-- **Chat further** — do nothing at all. The person talks to that branch's
-  session themselves.
+- **Chat further** — run `whiska open <id>`, with the number after the `#`. It moves
+  the person's screen to that branch's pane; say what it printed in one line.
 - **Drop it** — throw the work away. First confirm in prose, in one line
   naming what is lost: every commit on the branch, and each file not
   committed. A branch with nothing on it needs no confirmation: nothing is

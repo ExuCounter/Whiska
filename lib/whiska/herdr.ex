@@ -148,6 +148,15 @@ defmodule Whiska.Herdr do
               {:ok, [worktree()]} | {:error, term()}
 
   @doc """
+  Open an existing worktree as a herdr workspace, and bring it into view.
+
+  Starts no session in it: the workspace opens on a shell, because a second
+  Claude Code session in one worktree is what ADR-0023 forbids. Only `whiska
+  open` asks, and only because the person did.
+  """
+  @callback open_worktree(socket :: Path.t(), path :: Path.t()) :: :ok | {:error, term()}
+
+  @doc """
   Remove a worktree and close the workspace it is open in, in one call.
 
   Never forced: herdr refusing a worktree with work in it is the refusal
