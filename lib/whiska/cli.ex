@@ -166,8 +166,8 @@ defmodule Whiska.CLI do
 
     inbox [--json]       What is waiting on you anywhere, oldest first — the
                          rows `waiting` prints, with why each is not being
-                         delivered (held, away, focus: <branch>) and a first
-                         line when you are away.
+                         delivered (held, away, focus: <branch>, queued
+                         behind #<id>) and a first line when you are away.
     show [<id>]          This repo's open questions in full, or one by id.
     reply <id> <text>    Answer it; no quotes needed around the text.
     dismiss <id>         Close it without answering (`close`).
@@ -1893,13 +1893,17 @@ defmodule Whiska.CLI do
   # A question asked after the stamp is the stop the hold caused: the carry-on
   # line answers it, so it is never delivered as a decision once the hold is
   # gone. A `done` after the stamp is a mouse that finished anyway, and its
-  # finished line is what the person hears now. Anything older was there
-  # before the hold and is the person's to answer.
+  # finished line is what the person hears next, once nothing is out waiting
+  # on them (ADR-0008, note of 2026-10-06). Anything older was there before
+  # the hold and is the person's to answer.
   defp carry_on(mouse, branch, held_at, %Question{asked_at: asked_at} = latest)
        when is_struct(asked_at, DateTime) do
     cond do
       DateTime.compare(asked_at, held_at) == :gt and latest.kind == "done" ->
-        say("Hold on #{branch} lifted. It had finished, so its finished line is told now.")
+        say(
+          "Hold on #{branch} lifted. It had finished; its finished line is told " <>
+            "once nothing else is out waiting on you."
+        )
 
       DateTime.compare(asked_at, held_at) == :gt ->
         type_carry_on(mouse, branch, latest)

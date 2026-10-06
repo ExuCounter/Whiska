@@ -349,7 +349,7 @@ defmodule Whiska.CLIInboxTest do
       end)
 
       {0, out, _} = run(["resume", "feat-a"], main)
-      assert out =~ "finished"
+      assert out =~ "finished line is told once nothing else is out waiting on you"
 
       in_house(main, fn ->
         assert Storage.mouse("ma").held_at == nil

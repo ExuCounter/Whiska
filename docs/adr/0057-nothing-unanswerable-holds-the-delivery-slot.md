@@ -26,7 +26,8 @@ with that status (ADR-0007), counted on the board's own `orphaned` line rather t
 is nowhere to reply.
 
 **A `done` report is outside the sweep.** Nothing is waiting on the person in one, so it
-neither takes the slot nor holds it (ADR-0008, note of 2026-10-01) — this rule has no
+neither takes the slot nor holds it (ADR-0008, notes of 2026-10-01 and 2026-10-06; since
+the later one it does wait for the slot) — this rule has no
 business with it, and releasing it would turn the ordinary end of a mouse's life (write
 the finished line, close the pane) into silence. The cascade at the moment of death still
 orphans a report, which is ADR-0036's recorded decision and is left exactly as it stands.

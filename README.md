@@ -90,8 +90,9 @@ question waits on the **doorstep** until the owl collects it —
   carries on; the owl collects it whenever it is back.
   [Details](docs/internals.md#the-owl-the-house-the-doorstep)
 - **One question at a time** — the next goes only when your pane is idle, you are not
-  half-way through typing, and the one before it is settled. A "finished" line waits on
-  nothing and goes ahead of the queue.
+  half-way through typing, and the one before it is settled. A "finished" line waits for
+  that too, so it never lands over a question you are reading, then goes ahead of the
+  queue.
 - **A mouse that moved on cannot wedge the queue** — its newer question replaces its own
   older ones.
 - **Answers are routed for you** — `whiska reply 12` saves the answer and rings mouse #12's

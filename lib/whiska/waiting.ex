@@ -49,7 +49,7 @@ defmodule Whiska.Waiting do
   `doorstep`; `kind` is the mouse's own marker (ADR-0009). `pane` is `nil` when
   the house has no pane recorded for the mouse. `waits` is why it is not being
   delivered, in the listing's words — `held`, `away`, `focus: <branch>`,
-  `not taken` — or nil, and `held?` says whether its mouse is on
+  `queued behind #<id>`, `not taken` — or nil, and `held?` says whether its mouse is on
   hold, which is the one case the tab bar does not count.
   """
   @type entry :: %{
@@ -99,15 +99,23 @@ defmodule Whiska.Waiting do
       if File.exists?(Storage.database_path(main)) do
         with_house(main, fn ->
           mode = Mode.read(away_path: away_path)
-          context = %{main: main, now: now, mode: mode, focus: focus_name(mode)}
+          questions = Storage.questions()
 
-          Enum.map(Storage.questions(), &from_question(&1, context)) ++
+          context = %{
+            main: main,
+            now: now,
+            mode: mode,
+            focus: focus_name(mode),
+            slot: Mode.slot(questions, mode)
+          }
+
+          Enum.map(questions, &from_question(&1, context)) ++
             Enum.map(Storage.not_taken(), &from_not_taken(&1, context)) ++
             Enum.map(doorstep, fn {_file, e} -> from_doorstep(e, context, &pane_of/1) end)
         end)
       else
         mode = %{Mode.none() | away?: Mode.away?(away_path)}
-        context = %{main: main, now: now, mode: mode, focus: nil}
+        context = %{main: main, now: now, mode: mode, focus: nil, slot: nil}
         Enum.map(doorstep, fn {_file, e} -> from_doorstep(e, context, fn _ -> nil end) end)
       end
 
@@ -266,6 +274,8 @@ defmodule Whiska.Waiting do
     %{from_question(q, context) | status: "not_taken", waits: "not taken"}
   end
 
+  # Not queued behind anything yet: collected, it may supersede the very
+  # question that is out.
   defp from_doorstep(entry, %{main: main, now: now} = context, pane) do
     stand_in = %Question{mouse_id: entry.mouse_id, status: "open"}
 
@@ -279,22 +289,25 @@ defmodule Whiska.Waiting do
       pointer: Marker.pointer(entry.text),
       age_s: max(DateTime.diff(now, entry.stamped_at, :second), 0),
       pane: pane.(entry.mouse_id),
-      waits: waits(stand_in, context),
+      waits: waits(stand_in, %{context | slot: nil}),
       held?: held?(stand_in, context)
     }
   end
 
   # A sent question was delivered and is waiting on the person whatever they
   # set aside since; only its mouse being held says otherwise.
-  defp waits(%Question{} = q, %{mode: mode, focus: focus}) do
+  defp waits(%Question{} = q, %{mode: mode, focus: focus} = context) do
     case {q.status, Mode.waits(q, mode)} do
       {_, :held} -> "held"
       {"sent", _} -> nil
       {_, :away} -> "away"
       {_, {:focus, mouse_id}} -> "focus: #{focus || mouse_id}"
-      {_, nil} -> nil
+      {_, nil} -> queued(Whiska.Questions.behind(q, context.slot))
     end
   end
+
+  defp queued(nil), do: nil
+  defp queued(slot), do: "queued behind ##{slot}"
 
   defp held?(%Question{} = q, %{mode: mode}), do: Mode.waits(q, mode) == :held
 
@@ -308,7 +321,8 @@ defmodule Whiska.Waiting do
   @doc """
   The plain-text listing: one line per entry, columns lined up, oldest first,
   with a note on each row that is not being delivered — `held`, `away`,
-  `focus: <branch>` — and, when the person is away, a first line saying so.
+  `focus: <branch>`, `queued behind #<id>` — and, when the person is away, a
+  first line saying so.
 
   Deliberately one line each rather than a count — this is the list you scan
   before deciding where to go, and ADR-0027's "a count for many" is about a

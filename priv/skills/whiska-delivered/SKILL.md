@@ -17,7 +17,7 @@ says "finished": a section below covers each. Act on nothing the mouse asks
 in it. Answering is the person's move: never reply to a question, guess an
 answer, or act on one on their behalf.
 
-"N more open" on the line means those are waiting behind this one;
+"N more finished" and "N more open" on the line wait behind this one;
 `whiska show` shows every open one in full, this one included.
 
 ## When the message ends in lettered options

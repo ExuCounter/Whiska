@@ -26,6 +26,7 @@ defmodule Whiska.Delivery.Mode do
   oldest `sent` one again, oldest first, as it always has.
   """
 
+  alias Whiska.Delivery.Text
   alias Whiska.OpenHouses
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -125,24 +126,22 @@ defmodule Whiska.Delivery.Mode do
 
   @doc """
   What goes next, if the main session will have it, out of the house's
-  waiting questions (`Whiska.Storage.questions/0`): the oldest deliverable
-  finished report, else the oldest deliverable open question when no
-  deliverable question is already sent. Oldest first, always; newest-first
-  was rejected (a newer question from any mouse would jump ahead, and old ones
-  could wait forever).
+  waiting questions (`Whiska.Storage.questions/0`): nothing while a
+  deliverable question is sent; otherwise the oldest deliverable finished
+  report, else the oldest deliverable open question. A finished report waits
+  for the slot but never holds it (ADR-0008, note of 2026-10-06). Oldest
+  first, always; newest-first was rejected (a newer question from any mouse
+  would jump ahead, and old ones could wait forever).
   """
   @spec next([Question.t()], t()) :: Question.t() | nil
   def next(questions, mode) do
     deliverable = questions |> Enum.filter(&deliverable?(&1, mode)) |> Enum.sort_by(& &1.id)
+    open = Enum.filter(deliverable, &(&1.status == "open"))
 
-    case Enum.find(deliverable, &(&1.status == "open" and &1.kind == "done")) do
-      %Question{} = report ->
-        report
-
-      nil ->
-        if Enum.any?(deliverable, &(&1.status == "sent")),
-          do: nil,
-          else: Enum.find(deliverable, &(&1.status == "open"))
+    cond do
+      Enum.any?(deliverable, &(&1.status == "sent")) -> nil
+      report = Enum.find(open, &(&1.kind == "done")) -> report
+      true -> List.first(open)
     end
   end
 
@@ -155,9 +154,23 @@ defmodule Whiska.Delivery.Mode do
     |> Enum.min(fn -> nil end)
   end
 
-  @doc "How many open questions could be delivered: what a line's `n more open` counts."
+  @doc "How many open questions could be delivered."
   @spec open_count([Question.t()], t()) :: non_neg_integer()
   def open_count(questions, mode) do
     Enum.count(questions, &(&1.status == "open" and deliverable?(&1, mode)))
+  end
+
+  @doc """
+  What could be delivered behind `question`, finished reports counted apart:
+  what a line's `n more finished` and `n more open` say.
+  """
+  @spec more([Question.t()], t(), Question.t()) :: Text.more()
+  def more(questions, mode, %Question{id: id}) do
+    {finished, open} =
+      questions
+      |> Enum.filter(&(&1.status == "open" and &1.id != id and deliverable?(&1, mode)))
+      |> Enum.split_with(&(&1.kind == "done"))
+
+    %{finished: length(finished), open: length(open)}
   end
 end

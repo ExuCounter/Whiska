@@ -439,10 +439,131 @@ defmodule Whiska.Owl.DeliveryTest do
       assert second =~ "needs a decision"
     end
 
-    # ADR-0008, note of 2026-10-01. Nothing is waiting on the person in a
-    # finished line, so queueing it behind an unanswered question left a branch
-    # that was done looking silent until something unrelated was answered.
-    test "a finished line goes while another question is still out, and leaves it out", %{
+    # ADR-0008, note of 2026-10-06. A finished line typed while a decision is
+    # out lands on top of the decision the person is reading.
+    test "a finished line waits while a decision is out, and goes once it is answered", %{
+      main: main,
+      a: a
+    } do
+      test = self()
+      stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] pick one")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, first}, @arrives
+      assert first =~ "needs a decision"
+      assert_receive {:hooted, _}, @arrives
+
+      finished_from(main, "mb", "feat-b")
+      House.collect(house)
+      idle(house, @main_pane)
+      House.sync(house)
+      refute_received {:prompted, _, _}
+      refute_received {:hooted, _}
+
+      in_house(house, fn ->
+        assert Storage.question(1).status == "sent"
+        assert Storage.question(2).status == "open"
+        {:ok, _} = Storage.answer(1, "A")
+      end)
+
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, second}, @arrives
+      assert second =~ "feat-b finished"
+      assert second =~ "#2"
+      assert_receive {:hooted, _}, @arrives
+      in_house(house, fn -> assert Storage.question(2).status == "closed" end)
+    end
+
+    test "a finished line goes once the decision out is dismissed", %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] pick one")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, _}, @arrives
+
+      finished_from(main, "mb", "feat-b")
+      House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      in_house(house, fn -> {:ok, _} = Storage.close_question(1) end)
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, text}, @arrives
+      assert text =~ "feat-b finished"
+    end
+
+    test "a finished line goes once the decision out is superseded, ahead of the newer one", %{
+      main: main,
+      a: a
+    } do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] one")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, _}, @arrives
+
+      finished_from(main, "mb", "feat-b")
+      House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      leave(main, a, "[worktree-status: needs-decision] two")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, finished}, @arrives
+      assert finished =~ "feat-b finished"
+      assert finished =~ "1 more open"
+
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, newer}, @arrives
+      assert newer =~ ~s("two")
+      in_house(house, fn -> assert Storage.question(1).status == "superseded" end)
+    end
+
+    test "a finished line goes once the decision out is orphaned", %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] pick one")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, _}, @arrives
+
+      finished_from(main, "mb", "feat-b")
+      House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      in_house(house, fn -> {:ok, _} = Storage.mark_dead("ma") end)
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, text}, @arrives
+      assert text =~ "feat-b finished"
+      in_house(house, fn -> assert Storage.question(1).status == "orphaned" end)
+    end
+
+    test "a finished line waits behind a stop that said nothing, too", %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+
+      leave(main, a, "I stopped here.")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, first}, @arrives
+      assert first =~ "stopped without saying why"
+
+      finished_from(main, "mb", "feat-b")
+      House.collect(house)
+      idle(house, @main_pane)
+      House.sync(house)
+      refute_received {:prompted, _, _}
+      in_house(house, fn -> assert Storage.question(2).status == "open" end)
+    end
+
+    test "finished lines that piled up go one per idle moment, each counting the rest", %{
       main: main,
       a: a
     } do
@@ -452,22 +573,25 @@ defmodule Whiska.Owl.DeliveryTest do
 
       leave(main, a, "[worktree-status: needs-decision] pick one")
       House.collect(house)
-      assert_receive {:prompted, @main_pane, first}, @arrives
-      assert first =~ "needs a decision"
+      assert_receive {:prompted, @main_pane, _}, @arrives
 
-      b = Path.join([main, "worktrees", "feat-b"])
-      File.mkdir_p!(b)
-      leave_from(main, "mb", "feat-b", b, "Merged it.\n[worktree-status: done]")
+      finished_from(main, "mb", "feat-b")
+      finished_from(main, "mc", "feat-c")
       House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 2
 
+      in_house(house, fn -> {:ok, _} = Storage.answer(1, "A") end)
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, first}, @arrives
+      assert first =~ "feat-b finished"
+      assert first =~ "1 more finished"
+      refute first =~ "more open"
+      refute_receive {:prompted, _, _}, @wait
+
+      idle(house, @main_pane)
       assert_receive {:prompted, @main_pane, second}, @arrives
-      assert second =~ "finished"
-
-      in_house(house, fn ->
-        assert Storage.question(1).status == "sent"
-        assert Storage.question(2).status == "closed"
-        assert Storage.sent().id == 1
-      end)
+      assert second =~ "feat-c finished"
+      refute second =~ "more"
     end
 
     test "a finished line is still held while the main session is working", %{main: main, a: a} do
@@ -524,7 +648,7 @@ defmodule Whiska.Owl.DeliveryTest do
       assert second =~ "feat-b finished"
     end
 
-    test "a finished line goes ahead of the questions queued behind the held slot", %{
+    test "once the slot frees, a finished line goes ahead of the questions queued behind it", %{
       main: main,
       a: a
     } do
@@ -540,22 +664,28 @@ defmodule Whiska.Owl.DeliveryTest do
       File.mkdir_p!(b)
       leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] and this one")
       House.collect(house)
-      refute_receive {:prompted, _, _}, @wait
-
-      c = Path.join([main, "worktrees", "feat-c"])
-      File.mkdir_p!(c)
-      leave_from(main, "mc", "feat-c", c, "[worktree-status: done]")
+      finished_from(main, "mc", "feat-c")
       House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 2
 
+      in_house(house, fn -> {:ok, _} = Storage.answer(1, "A") end)
+      idle(house, @main_pane)
       assert_receive {:prompted, @main_pane, text}, @arrives
-      assert text =~ "finished"
+      assert text =~ "feat-c finished"
       assert text =~ "#3"
+      assert text =~ "1 more open"
 
       in_house(house, fn ->
         assert Storage.question(2).status == "open"
         assert Storage.question(3).status == "closed"
       end)
     end
+  end
+
+  defp finished_from(main, mouse_id, branch) do
+    root = Path.join([main, "worktrees", branch])
+    File.mkdir_p!(root)
+    leave_from(main, mouse_id, branch, root, "Merged it.\n[worktree-status: done]")
   end
 
   # ADR-0026: a mouse whose pane is gone is dead, and ADR-0007 cascades what it

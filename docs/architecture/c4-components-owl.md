@@ -152,10 +152,9 @@ message, so a marker quoted mid-prose survives intact.
 the owl reads the marker on collection. That keeps the writer dumb and puts the one piece
 of judgment on the side that can be changed without touching every mouse's `settings.json`.
 
-**A `done` report skips the queue and closes at once** — typed as "finished" with no
-reply command, ahead of whatever is waiting and with no regard for the delivery slot,
-and closed as soon as the prompt lands (ADR-0009 revised 2026-09-27, ADR-0008's note of
-2026-10-01). An entry whose worktree is gone is settled or orphaned by its branch
+**A `done` report waits for the slot but never holds it** — typed as "finished" with no
+reply command once nothing is sent, ahead of whatever is queued, and closed as soon as
+the prompt lands (ADR-0009 revised 2026-09-27, ADR-0008's note of 2026-10-06). An entry whose worktree is gone is settled or orphaned by its branch
 (ADR-0064):
 recorded, surfaced, never interrupting, because there is nowhere to reply and nothing
 left to change.

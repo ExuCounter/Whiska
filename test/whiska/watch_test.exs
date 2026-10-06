@@ -205,17 +205,21 @@ defmodule Whiska.WatchTest do
       assert [%{detail: ~s(waiting on you · #141 · "which db?")}] = rows
     end
 
-    test "a finished report never queues: it does not wait for the slot" do
+    test "a finished report queues behind the sent one too, and says it finished" do
       board =
         board([mouse("feat-a"), mouse("feat-b")],
           questions: [
             question(132, "feat-a"),
-            question(141, "feat-b", status: "open", kind: "done")
+            question(141, "feat-b",
+              status: "open",
+              kind: "done",
+              text: "Merged.\n\u2063\u2063\u2063"
+            )
           ],
           bare_panes: [pane("feat-a", "idle"), pane("feat-b", "idle")]
         )
 
-      refute by_branch(board)["feat-b"].detail =~ "queued"
+      assert by_branch(board)["feat-b"].detail == "finished · queued behind #132"
     end
   end
 

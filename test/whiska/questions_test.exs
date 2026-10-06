@@ -107,6 +107,21 @@ defmodule Whiska.QuestionsTest do
                ~s(##{q2.id}  feat-b  stopped without saying why · "I just stopped."  \(waiting on you since )
     end
 
+    test "a finished report waits behind the question out, and says so", %{main: main} do
+      %{sent: sent, report: report} =
+        seed(main, fn ->
+          sent = ask("m1", "[worktree-status: needs-decision] pick a cache TTL")
+          {:ok, _} = Storage.mark_sent(sent.id)
+          report = ask("m2", "Merged.\n[worktree-status: done]", kind: "done")
+          %{sent: sent, report: report}
+        end)
+
+      {:ok, summary} = Questions.summary(main)
+
+      assert Questions.render(summary) =~
+               "##{report.id}  feat-b  finished  (queued behind ##{sent.id})"
+    end
+
     # The person compares these against the clock on their own screen, so they
     # are this machine's local time, never the UTC they are stored in. On a
     # machine set to UTC the two coincide and this cannot tell them apart.

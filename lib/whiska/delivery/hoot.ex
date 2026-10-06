@@ -33,9 +33,8 @@ defmodule Whiska.Delivery.Hoot do
 
   The sound is the one judgement here. A question that needs a decision is the
   one that must not be missed, so it takes herdr's `request` sound; a finished
-  branch takes `done`. Both hoot — a finished branch that nobody hears about is
-  the silence ADR-0008's note of 2026-10-01 went out of its way to remove — but
-  they are told apart without looking.
+  branch takes `done`. Both hoot — the line alone reaches only someone looking
+  at that terminal — but they are told apart without looking.
   """
 
   alias Whiska.Delivery.Text
@@ -80,13 +79,13 @@ defmodule Whiska.Delivery.Hoot do
 
   @doc """
   Compose the hoot for a question from the mouse on `branch`, in the house
-  named `house`, with `more_open` questions still waiting behind it.
+  named `house`, with `more` still waiting behind it.
   """
-  @spec compose(Question.t(), String.t(), String.t(), non_neg_integer()) :: t()
-  def compose(%Question{} = q, house, branch, more_open) do
+  @spec compose(Question.t(), String.t(), String.t(), Text.more()) :: t()
+  def compose(%Question{} = q, house, branch, more) do
     %{
       title: "🐱 #{name(house)} · #{name(branch)} #{Text.verb(q.kind)}",
-      body: body(q, more_open),
+      body: body(q, more),
       sound: sound(q.kind)
     }
   end
@@ -112,8 +111,8 @@ defmodule Whiska.Delivery.Hoot do
     end
   end
 
-  defp body(q, more_open) do
-    ["##{q.id}", Text.pointer(q.text), Text.more(more_open)]
+  defp body(q, more) do
+    ["##{q.id}", Text.pointer(q.text), Text.more(more)]
     |> Enum.reject(&(&1 in [nil, ""]))
     |> Enum.join(" · ")
   end

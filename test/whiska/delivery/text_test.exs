@@ -9,6 +9,8 @@ defmodule Whiska.Delivery.TextTest do
   alias Whiska.Delivery.Text
   alias Whiska.Schema.Question
 
+  @none %{finished: 0, open: 0}
+
   defp question(attrs) do
     struct(
       %Question{id: 12, mouse_id: "m1", kind: "needs-decision", status: "open", text: ""},
@@ -18,14 +20,14 @@ defmodule Whiska.Delivery.TextTest do
 
   test "a done report says the mouse finished, and offers no reply (ADR-0009)" do
     q = question(kind: "done", text: "Merged and pushed.\n[worktree-status: done]")
-    assert Text.compose(q, "feat-a", 0, []) == "🐱 feat-a finished · #12"
+    assert Text.compose(q, "feat-a", @none, []) == "🐱 feat-a finished · #12"
   end
 
   test "names the branch, that it needs a decision, the id, and the mouse's pointer" do
     q =
       question(text: "Which db?\n[worktree-status: needs-decision] 3 questions ready, see above")
 
-    line = Text.compose(q, "feat-delivery", 0, [])
+    line = Text.compose(q, "feat-delivery", @none, [])
 
     assert line == ~s(🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above")
     refute line =~ "\n"
@@ -35,8 +37,8 @@ defmodule Whiska.Delivery.TextTest do
     q = question(text: "[worktree-status: needs-decision] pick one")
 
     for line <- [
-          Text.compose(q, "b", 3, [:status_unknown]),
-          Text.compose(question(kind: "done"), "b", 0, [])
+          Text.compose(q, "b", %{finished: 0, open: 3}, [:status_unknown]),
+          Text.compose(question(kind: "done"), "b", @none, [])
         ] do
       refute line =~ "whiska"
       refute line =~ "read:"
@@ -48,7 +50,7 @@ defmodule Whiska.Delivery.TextTest do
 
   test "the order is branch and verb, then id, then pointer, then more open, then notes" do
     q = question(text: "[worktree-status: needs-decision] pick one")
-    line = Text.compose(q, "b", 2, [:status_unknown])
+    line = Text.compose(q, "b", %{finished: 0, open: 2}, [:status_unknown])
 
     assert line ==
              ~s(🐱 b needs a decision · #12 · "pick one" · 2 more open · ) <>
@@ -57,14 +59,24 @@ defmodule Whiska.Delivery.TextTest do
 
   test "says how many more are open, and nothing when there are none" do
     q = question(text: "[worktree-status: needs-decision] pick one")
-    assert Text.compose(q, "b", 2, []) =~ "2 more open"
-    assert Text.compose(q, "b", 1, []) =~ "1 more open"
-    refute Text.compose(q, "b", 0, []) =~ "more open"
+    assert Text.compose(q, "b", %{finished: 0, open: 2}, []) =~ "2 more open"
+    assert Text.compose(q, "b", %{finished: 0, open: 1}, []) =~ "1 more open"
+    refute Text.compose(q, "b", @none, []) =~ "more open"
+  end
+
+  test "counts the finished reports behind it apart from the open questions" do
+    q = question(kind: "done", text: "[worktree-status: done]")
+
+    assert Text.compose(q, "b", %{finished: 2, open: 1}, []) ==
+             "🐱 b finished · #12 · 2 more finished · 1 more open"
+
+    assert Text.compose(q, "b", %{finished: 1, open: 0}, []) ==
+             "🐱 b finished · #12 · 1 more finished"
   end
 
   test "an unmarked question says the mouse stopped without saying why (ADR-0009)" do
     q = question(kind: "unmarked", text: "I ran out of things to do.")
-    line = Text.compose(q, "b", 0, [])
+    line = Text.compose(q, "b", @none, [])
     assert line =~ "stopped without saying why"
     assert line =~ ~s("I ran out of things to do.")
   end
@@ -72,7 +84,7 @@ defmodule Whiska.Delivery.TextTest do
   test "a pointer that runs long is cut, and never carries a newline" do
     long = String.duplicate("word ", 60)
     q = question(kind: "unmarked", text: "\n" <> long <> "\nline two")
-    line = Text.compose(q, "b", 0, [])
+    line = Text.compose(q, "b", @none, [])
     refute line =~ "\n"
     assert String.length(line) < 400
     assert line =~ "…"
@@ -80,7 +92,7 @@ defmodule Whiska.Delivery.TextTest do
 
   test "the unknown-status note is appended when delivery went ahead blind (ADR-0008)" do
     q = question(text: "[worktree-status: needs-decision] x")
-    line = Text.compose(q, "b", 0, [:status_unknown])
+    line = Text.compose(q, "b", @none, [:status_unknown])
     assert line =~ "herdr cannot tell whether you are idle"
   end
 end

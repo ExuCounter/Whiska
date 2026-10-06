@@ -48,7 +48,8 @@ without saying why` take herdr's `request` sound; `finished` takes `done`. Givin
 line no hoot at all was considered and rejected: ADR-0008's note of 2026-10-01 took a
 finished line out of the queue precisely so that a branch which is done is heard about
 rather than sitting silent behind an unrelated question, and a silent hoot would put the
-silence straight back. Two sounds is the honest answer — both arrive, one of them is the one
+silence straight back. (ADR-0008's note of 2026-10-06 puts it back in line behind a
+question that is out; the hoot still goes out with the line, when it is typed.) Two sounds is the honest answer — both arrive, one of them is the one
 that must not be missed, and they are told apart without looking at the screen.
 
 **Through herdr, over the socket it already uses.** `notification.show` is a method on the

@@ -63,8 +63,8 @@ defmodule Whiska.Owl.House do
   earlier. Collecting at open does not count; that is the designed "what landed
   while the owl was down" path.
 
-  A `done` report is delivered ahead of the queue and closed the moment
-  it is sent; an entry whose worktree is no longer on disk is recorded as
+  A `done` report waits for the slot, goes ahead of the queue once it is free,
+  and is closed the moment it is sent; an entry whose worktree is no longer on disk is recorded as
   orphaned rather than delivered. Whatever a mouse
   leaves supersedes its own earlier open or sent questions: it has moved past
   them, and an answer could no longer land.
@@ -84,13 +84,12 @@ defmodule Whiska.Owl.House do
   at open, after every collection, whenever herdr reports the main pane idle,
   and on the backstop.
 
-  A finished line is outside all of that (ADR-0008, note of 2026-10-01).
-  Nothing is waiting on the person in it, so it goes ahead of whatever is
-  queued, with no regard for the slot, and is closed as it is typed. The idle
-  pane and the empty box still gate it — the line still lands in the person's
-  terminal. A round's wait only ever gathers a count for a house that was
-  quiet, so a finished line arriving while something is out starts no round and
-  waits for none.
+  A finished line waits for the slot like any question, so it never lands over
+  one the person is reading, but it never holds it (ADR-0008, note of
+  2026-10-06): once the slot is free it goes ahead of whatever is queued, and
+  is closed as it is typed. A round's wait only ever gathers a count for a
+  house that was quiet, so a finished line arriving while something is out
+  starts no round; it waits for the slot and nothing else.
 
   herdr's word is taken fresh at each attempt (`pane.get`), not from the last
   event: `claude` + `idle` delivers; `working` or `blocked` holds; `claude` +
@@ -1107,9 +1106,8 @@ defmodule Whiska.Owl.House do
 
   # What goes next, if the main session will have it: judged against what the
   # person set aside first, then the slot (`Whiska.Delivery.Mode`). A finished
-  # line is not a question — nothing is waiting on the person in it — so it
-  # neither waits for the one slot nor holds it: it goes first, and is closed
-  # as it is sent.
+  # line waits for the slot but never holds it: it goes first once the slot is
+  # free, and is closed as it is sent.
   defp next_to_deliver(mode), do: Mode.next(Storage.questions(), mode)
 
   defp main_session_free?(%{socket: nil} = state) do
@@ -1174,14 +1172,14 @@ defmodule Whiska.Owl.House do
 
   defp send_question(state, question, notes, mode) do
     branch = branch_of(question.mouse_id)
-    more_open = Mode.open_count(Storage.questions(), mode) - 1
-    line = Text.compose(question, branch, more_open, notes)
+    more = Mode.more(Storage.questions(), mode, question)
+    line = Text.compose(question, branch, more, notes)
 
     case state.herdr.prompt(state.socket, state.main_pane, line) do
       :ok ->
         {:ok, _} = Storage.mark_sent(question.id)
         settle_report(question)
-        hoot(state, question, branch, more_open)
+        hoot(state, question, branch, more)
         %{release_hold(state) | warned: MapSet.new()}
 
       {:error, reason} ->
@@ -1205,15 +1203,15 @@ defmodule Whiska.Owl.House do
   # recorded sent before this runs, and whatever herdr or the desktop does here
   # is swallowed rather than allowed to fail the delivery or take the house
   # down. `whiska doctor` is where the outcome is read.
-  defp hoot(state, question, branch, more_open) do
-    notification = Hoot.compose(question, Path.basename(state.main_checkout), branch, more_open)
+  defp hoot(state, question, branch, more) do
+    notification = Hoot.compose(question, Path.basename(state.main_checkout), branch, more)
     Hoot.send_out(state.herdr, state.socket, state.desktop, notification)
   catch
     _kind, _reason -> :ok
   end
 
   # A done report is told once and never waits for an answer: closing it as
-  # soon as it is sent means it never takes ADR-0008's one slot at all.
+  # soon as it is sent means it never holds ADR-0008's one slot.
   defp settle_report(%Question{kind: "done", id: id}), do: {:ok, _} = Storage.close_question(id)
   defp settle_report(_question), do: :ok
 

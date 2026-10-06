@@ -93,6 +93,7 @@ defmodule Whiska.Watch do
           pointer: String.t(),
           sent_at: DateTime.t() | nil,
           behind: pos_integer() | nil,
+          finished?: boolean(),
           waits: nil | :away | {:focus, String.t()}
         }
 
@@ -338,6 +339,7 @@ defmodule Whiska.Watch do
       pointer: Text.plain(Marker.pointer(question.text), @phrase_max),
       sent_at: if(status == "sent", do: question.sent_at),
       behind: Questions.behind(question, context.slot),
+      finished?: question.kind == "done",
       waits: waits(question, context)
     }
   end
@@ -387,6 +389,9 @@ defmodule Whiska.Watch do
   # The sent question carries how long it has waited, not the mouse's age in
   # the elapsed column: one left unanswered for hours holds every other question
   # back, and should not read like one told a minute ago.
+  defp asked(_id, %{behind: behind, finished?: true} = asked, _now) when is_integer(behind),
+    do: pointed("finished · queued behind ##{behind}", asked.pointer)
+
   defp asked(_id, %{behind: behind} = asked, _now) when is_integer(behind),
     do: pointed("queued behind ##{behind}", asked.pointer)
 

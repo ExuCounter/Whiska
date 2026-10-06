@@ -427,9 +427,8 @@ defmodule Whiska.Storage do
   so the slot is judged by what is alive now. Returns what it released.
 
   A `done` report is outside it. Nothing is waiting on the person in one, so it
-  neither takes the slot nor holds it (ADR-0008, note of 2026-10-01) — and a
-  branch whose mouse is gone is exactly the one the person still wants to hear
-  finished.
+  never holds the slot (ADR-0008, note of 2026-10-06) — and a branch whose
+  mouse is gone is exactly the one the person still wants to hear finished.
   """
   @spec release_unanswerable() :: [Question.t()]
   def release_unanswerable do
@@ -754,9 +753,9 @@ defmodule Whiska.Storage do
   @doc """
   The oldest `done` report still waiting to be told, or nil.
 
-  A finished line is not a question: nothing is waiting on the person, so it
-  never waits for the one delivery slot and never holds it (ADR-0008, note of
-  2026-10-01). It is read apart from `next_open/0` for exactly that reason.
+  A finished line goes ahead of the queue once the one delivery slot is free,
+  and never holds it (ADR-0008, note of 2026-10-06). It is read apart from
+  `next_open/0` for that reason.
   """
   @spec next_done() :: Question.t() | nil
   def next_done do

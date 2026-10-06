@@ -89,8 +89,8 @@ A message a mouse sends when it finishes a turn. Most are real questions — the
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
 **unmarked** question: delivered like any other, recorded as having arrived unmarked. A
 `done` report is told as "finished" with a **finish** offered in place of a reply, and
-closed the moment it is sent — it is never answered, and it neither waits for the
-delivery slot nor holds it. A question is **open** while it waits to be told, **sent** once
+closed the moment it is sent — it is never answered, and it waits for the delivery slot
+but never holds it. A question is **open** while it waits to be told, **sent** once
 delivered and waiting for its answer, then **answered** once `whiska reply` saved the
 answer — which frees the slot whether or not the mouse has **taken** it yet; **superseded** when its own mouse asked a
 newer one, **closed** by hand or as a `done` report once told, **settled** when its
@@ -98,7 +98,8 @@ mouse's branch landed and there is nothing left to answer to — the merge was t
 (ADR-0064) — and **orphaned** when nothing can act on it and nothing ever answered it
 (its mouse died, its worktree is gone, its record no longer stands for a worktree of this
 house) with the work still not landed. An open question is **queued behind** the sent one while
-another holds the slot; the board and `whiska questions` say that, and keep "waiting on
+another holds the slot, a `done` report included; the board, `whiska questions` and the
+**inbox** say that — `finished · queued behind #n` for a report — and keep "waiting on
 you" for the one actually sent (ADR-0051).
 _Avoid_: report (as the table/record name — the word now names how a message reads,
 see **Report**), event (as the table/record name)
@@ -230,9 +231,11 @@ aside (ADR-0079): nothing goes while they are
 sent question of a held or unfocused mouse does not hold the slot. Oldest first, always.
 While the gate holds — the session mid-turn, a
 draft in its box, or no box on its screen — the queue is **gated**, and the board says so once the hold has lasted
-ten seconds (ADR-0058). A finished line is outside
-the queue: nothing is waiting on the person in it, so it goes ahead of whatever is
-waiting, takes no slot, and is closed as it is typed.
+ten seconds (ADR-0058). A finished line waits for the
+slot like any question, so it never lands over one the person is reading, but it never
+holds it: once the slot is free it goes ahead of whatever is queued and is closed as it
+is typed. Several go one at a time, each line counting how many more finished are
+behind it (ADR-0008, note of 2026-10-06).
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska questions <id>`, which the `whiska-delivered` skill runs when the line lands.
 Delivery only ever types into the main session of the question's own house (ADR-0044);
@@ -346,8 +349,9 @@ is), main-session command (the person may run one from any terminal)
 **Inbox**:
 The person's list of everything waiting on them across every repo on the machine —
 `inbox`, the same reading as `whiska waiting` (see **Waiting**) — with a last column
-saying why a row is not being delivered (`held`, `away`, `focus: <branch>`, or `not
-taken` for an answer its mouse has not **taken**) and a first
+saying why a row is not being delivered (`held`, `away`, `focus: <branch>`, `queued
+behind #n` for one waiting on the question that is out, or `not taken` for an answer its
+mouse has not **taken**) and a first
 line when they are away. It is a listing, not a place: a question sits in a house, an
 uncollected entry on a doorstep, and the inbox reads both. `show`, `reply` and `dismiss`
 act on this repo's rows only; ids repeat across repos.

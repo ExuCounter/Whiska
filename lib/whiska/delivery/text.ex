@@ -29,18 +29,21 @@ defmodule Whiska.Delivery.Text do
 
   @pointer_max 120
 
+  @typedoc "What is still waiting behind a line: finished reports, and every other open question."
+  @type more :: %{finished: non_neg_integer(), open: non_neg_integer()}
+
   @doc """
-  Compose the line for a question from the mouse on `branch`, with `more_open`
-  questions still waiting behind it. `notes` are the ADR-0008 caveats to append:
+  Compose the line for a question from the mouse on `branch`, with `more`
+  still waiting behind it. `notes` are the ADR-0008 caveats to append:
   `:status_unknown` when herdr could not say whether the main session is idle.
   """
-  @spec compose(Question.t(), String.t(), non_neg_integer(), [atom()]) :: String.t()
-  def compose(%Question{} = q, branch, more_open, notes) do
+  @spec compose(Question.t(), String.t(), more(), [atom()]) :: String.t()
+  def compose(%Question{} = q, branch, more, notes) do
     [
       "🐱 #{branch} #{verb(q.kind)}",
       "##{q.id}",
       pointer(q.text),
-      more(more_open)
+      more(more)
     ]
     |> Enum.concat(Enum.map(notes, &note/1))
     |> Enum.reject(&(&1 in [nil, ""]))
@@ -74,10 +77,17 @@ defmodule Whiska.Delivery.Text do
     end
   end
 
-  @doc "How many questions are still waiting behind this one, or `nil` for none."
-  @spec more(non_neg_integer()) :: String.t() | nil
-  def more(0), do: nil
-  def more(n), do: "#{n} more open"
+  @doc "What is still waiting behind this one, or `nil` for nothing."
+  @spec more(more()) :: String.t() | nil
+  def more(%{finished: finished, open: open}) do
+    case Enum.reject([counted(finished, "finished"), counted(open, "open")], &is_nil/1) do
+      [] -> nil
+      said -> Enum.join(said, " · ")
+    end
+  end
+
+  defp counted(0, _what), do: nil
+  defp counted(n, what), do: "#{n} more #{what}"
 
   defp note(:status_unknown),
     do: "delivered blind: herdr cannot tell whether you are idle, so this may interrupt"

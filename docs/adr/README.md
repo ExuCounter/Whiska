@@ -43,7 +43,7 @@ are the extracted, individually citable decisions.
 ## Questions and delivery
 
 - [0005](0005-answers-are-keyed-to-a-question-id.md) — Answers are keyed to a question id, not a branch
-- [0008](0008-delivery-is-a-queue-not-a-batch.md) — Delivery is a queue, not a batch
+- [0008](0008-delivery-is-a-queue-not-a-batch.md) — Delivery is a queue, not a batch (noted 2026-10-06: a finished line waits for the slot, and still never holds it)
 - [0047](0047-delivery-holds-while-the-person-is-typing.md) — Delivery holds while the person is typing, read off the main session's prompt box (amended 2026-10-03 and 2026-10-04 by 0068)
 - [0068](0068-the-prompt-box-is-found-by-its-frame.md) — The prompt box is found by its frame, and no box on screen holds delivery (amends 0047; amended 2026-10-04: faint text in the box is not a draft)
 - [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep; the hook never opens a socket

@@ -442,7 +442,8 @@ is sent reads `queued behind #132 · "pointer"`, and is plain, not yellow: answe
 not what frees the queue. It keeps its row and its place above the cap, since it is still
 something the person will be asked. An open question with nothing sent is the next one
 out, and still reads `waiting on you · #141`; the held clause on the waiting line says why
-it has not gone. A `done` report never waits for the slot, so it is never queued.
+it has not gone. A `done` report queued behind the slot reads `finished · queued behind
+#132` (ADR-0008, note of 2026-10-06).
 
 **The sent question says how long it has waited**: `waiting on you for 2h 41m · #132`.
 The elapsed column could not do this — it is the mouse's age, not the question's, so a

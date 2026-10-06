@@ -356,13 +356,12 @@ defmodule Whiska.Questions do
 
   One question holds the delivery slot at a time and the rest wait for it to
   be answered (ADR-0008), so an open question is waiting on that one, not on
-  the person. A `done` report never waits for the slot. The one rule the board
-  and `whiska questions` both use, so the two cannot spell the state apart.
+  the person — a finished report included (ADR-0008, note of 2026-10-06). The
+  one rule the board, `whiska questions` and `inbox` all use, so none of them
+  can spell the state apart.
   """
   @spec behind(Question.t(), pos_integer() | nil) :: pos_integer() | nil
-  def behind(%Question{status: "open", kind: kind}, slot)
-      when is_integer(slot) and kind != "done",
-      do: slot
+  def behind(%Question{status: "open"}, slot) when is_integer(slot), do: slot
 
   def behind(_question, _slot), do: nil
 

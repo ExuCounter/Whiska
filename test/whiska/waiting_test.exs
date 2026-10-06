@@ -408,6 +408,44 @@ defmodule Whiska.WaitingTest do
                Waiting.list(open_houses: record, away_path: away)
     end
 
+    test "a finished report waiting behind the question out says which", %{
+      root: root,
+      record: record
+    } do
+      main = house!(root, "repo", record)
+
+      seed(main, fn ->
+        mouse("ma", "feat-a", "w1:p1")
+        mouse("mb", "feat-b", "w1:p2")
+        mouse("mc", "feat-c", "w1:p3")
+        ask("ma", "[worktree-status: needs-decision] ?", status: "sent", asked_at: ago(30))
+        ask("mb", "[worktree-status: needs-decision] and?", asked_at: ago(20))
+        ask("mc", "Merged.\n[worktree-status: done]", kind: "done", asked_at: ago(10))
+      end)
+
+      assert [
+               %{id: 1, waits: nil},
+               %{id: 2, waits: "queued behind #1"},
+               %{id: 3, kind: "done", waits: "queued behind #1"}
+             ] = Waiting.list(open_houses: record)
+    end
+
+    test "an entry still on the doorstep is not queued behind the question out", %{
+      root: root,
+      record: record
+    } do
+      main = house!(root, "repo", record)
+
+      seed(main, fn ->
+        mouse("ma", "feat-a", "w1:p1")
+        ask("ma", "[worktree-status: needs-decision] ?", status: "sent", asked_at: ago(30))
+      end)
+
+      leave(main, "ma", "feat-a", "Merged.\n[worktree-status: done]", 5)
+
+      assert [%{id: 1}, %{status: "doorstep", waits: nil}] = Waiting.list(open_houses: record)
+    end
+
     test "nothing set aside leaves the field empty", %{root: root, record: record} do
       main = house!(root, "repo", record)
 

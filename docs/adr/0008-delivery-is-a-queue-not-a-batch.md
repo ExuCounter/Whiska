@@ -47,6 +47,10 @@ detects the real fault at the moment it matters, with no new machinery.
 
 ## Note, 2026-10-01: a finished line is not in the queue at all
 
+*Superseded by the note of 2026-10-06 below: a finished line now waits for the slot. What
+this note says about the gates, the orphan cascade and the id outliving the closing still
+stands.*
+
 The slot above is a rule about *questions* — one thing out at a time, because the person
 can only be answering one. A `done` report is not one. Nothing is waiting on the person
 in it; it is told, and that is the end of it. Queueing it behind an unanswered question
@@ -86,3 +90,57 @@ closed on sending since ADR-0009's revision — and is now covered by a test.
 What does change in `whiska questions`: a finished report is `open` for a shorter time and
 `closed` sooner, so it leaves the waiting list the moment it is told rather than when the
 queue in front of it clears.
+
+## Note, 2026-10-06: a finished line waits for the slot, and still never holds it
+
+The note of 2026-10-01 priced waiting at nothing, because a report needs no answer. Typing
+one is not free, though. The line makes the main session take a turn, and that turn prints
+the report and its land-or-PR picker over whatever the person was reading. Seen live: #192,
+a spec waiting for the person's ok, was sent; while the person was still reading it, the
+owl typed `🐱 feat/whiska-open finished · #193` and the picker landed on top of the spec.
+The person asked not to be interrupted.
+
+**So a finished line waits while any question is out.** It is typed at the next delivery
+attempt after that question is answered, closed, superseded or orphaned. That is the end
+of the turn when the person answers or dismisses from the main session. Otherwise it is
+the next trigger, at worst the backstop's minute, the same as a queued question. Everything
+else in the 2026-10-01 note still holds:
+
+- **It never holds the slot.** It is closed as it is typed, so the next question does not
+  wait for the person to act on the finish picker.
+- **It goes first once the slot is free.** A finished report goes ahead of any question that
+  is only queued, oldest report first.
+- **The gates still apply.** It needs an idle main session and an empty prompt box (ADR-0047),
+  and an open finish picker on screen keeps the next line out (ADR-0068).
+- **Away, focus and hold judge it first** (ADR-0079). A sent question of a held mouse, or of
+  one that is not focused, does not make a report wait.
+- **Freeing the slot starts no round.** Only a collection that finds the house quiet opens
+  the first-of-round wait.
+
+**Several that piled up go one by one**, and each line counts the rest apart from other
+questions: `🐱 feat-b finished · #2 · 1 more finished · 1 more open`. One line for all of
+them was considered and rejected. It would change the line the `whiska-delivered` skill
+reads, needing every installed copy reinstalled. It would also put several reports and
+several finishes into one reply.
+
+**There is no time limit.** A cap such as "go anyway after 30 minutes" was rejected: it
+brings back the interruption this note removes.
+
+**The cost, accepted knowingly.** While a decision sits unanswered, a finished branch gets no
+line and no hoot (ADR-0062 raises the hoot with the line). That is the silence the 2026-10-01
+note was written to remove, and it lasts as long as the decision does, hours if the person
+leaves it. Two things keep it visible without interrupting. The board row reads `finished ·
+queued behind #192`, and `inbox` and `whiska questions` say the same. `dismiss` frees the
+slot.
+
+**The orphan window grows with it.** The cascade at a mouse's death still orphans a report
+it left waiting (ADR-0036, unchanged). Before, a report sat open for seconds; now it can sit
+for as long as a decision does. If the finished mouse's pane closes in that time, the
+report is never told: no line, no finish picker. It shows only on the board's orphaned line
+and in `whiska questions`. Closing a finished branch's pane before its line arrives costs
+the finish.
+
+**One gap is left open.** After the person picks a finish — Land here, say — the next line
+can arrive while they are still reading what the landing printed. Closing that gap would
+mean a finished report holding the slot until its finish is acted on, which is a larger
+decision than this one.
