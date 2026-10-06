@@ -38,6 +38,7 @@ C4Component
     Component(install, "Install", "pure merge", "Writes the four hooks, the statusline and the skills into the repo, and the machine-wide status script into ~/.whiska/")
     Component(claudemd, "ClaudeMd", "pure", "Which parts a CLAUDE.md keeps, and taking an older Whiska's block back out")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, answers not taken and orphaned apart, the doorstep count")
+    Component(gitq, "Git", "git", "What a finished branch holds: its own commits beyond the base, and files not committed")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question, per answer not taken and per uncollected doorstep entry, oldest first, each with its mouse pane")
     Component(statusline, "Statusline", "one line", "herdr's tab bar: the owl always, and what is waiting machine-wide")
     Component(watch, "Watch", "the board", "A row per mouse of this repo: its branch, what its pane is doing, and the question waiting on you, its topic, or what it is stuck in")
@@ -80,6 +81,7 @@ C4Component
   Rel(sessionstart, claudemd, "Which parts the person keeps")
   Rel(sessionstart, rules, "The parts that role starts with")
   Rel(main, questions, "Delegates questions")
+  Rel(main, gitq, "show: what a finished question's branch holds")
   Rel(main, statusline, "Delegates statusline")
   Rel(main, watch, "Delegates watch and statusline --here")
   Rel(watch, herdr, "What each mouse's pane is doing", "pane.list")
@@ -215,6 +217,12 @@ settled with `whiska questions`. Both `whiska watch` and
 file the house keeps, and starts nothing.
 
 Nothing here writes or collects.
+
+**`show` reads git for a finished question, and only for one.** Under its heading it
+prints what the branch holds — its own commits beyond the base, merges from the base
+skipped, and the files its worktree has not committed — or `unknown` when git cannot say,
+never an empty branch. The finished picker in `whiska-delivered` chooses its options by
+that line (ADR-0009's note of 2026-10-06, ADR-0074).
 
 **`Waiting` is the machine-wide reading, and `jump` is the only thing in Whiska that
 moves the person** (ADR-0043). `whiska waiting` walks every repo in the open-houses

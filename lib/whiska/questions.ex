@@ -136,10 +136,10 @@ defmodule Whiska.Questions do
   The same reading as `render/1`, told at length: nobody should have to read a
   line, pick an id out of it and type it back to see what a mouse actually
   said. Each block is exactly what `whiska questions <id>` prints for that one,
-  so the two can never drift apart.
+  so the two can never drift apart — given the same `on_branch`.
   """
-  @spec render_full(summary()) :: String.t()
-  def render_full(%{open: open} = summary) do
+  @spec render_full(summary(), on_branch() | nil) :: String.t()
+  def render_full(%{open: open} = summary, on_branch \\ nil) do
     slot = Mode.slot(open, summary.mode)
 
     open_block =
@@ -151,7 +151,7 @@ defmodule Whiska.Questions do
           Enum.map_join(
             open,
             separator(),
-            &full(&1, who(&1.mouse, &1.mouse_id), slot, summary.mode, summary.focus)
+            &full(&1, who(&1.mouse, &1.mouse_id), slot, summary.mode, summary.focus, on_branch)
           )
       end
 
@@ -215,16 +215,77 @@ defmodule Whiska.Questions do
   as merely open, and the two would read differently. `mode` is what the
   person set aside and `focus` the focused mouse's name, for the same reason.
   """
-  @spec full(Question.t(), String.t(), pos_integer() | nil, Mode.t(), String.t() | nil) ::
-          String.t()
-  def full(%Question{} = q, branch, slot, mode \\ Mode.none(), focus \\ nil) do
+  @spec full(
+          Question.t(),
+          String.t(),
+          pos_integer() | nil,
+          Mode.t(),
+          String.t() | nil,
+          on_branch() | nil
+        ) :: String.t()
+  def full(%Question{} = q, branch, slot, mode \\ Mode.none(), focus \\ nil, on_branch \\ nil) do
+    heading =
+      "##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})"
+
     """
-    ##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})
+    #{Enum.join([heading | finished_branch(q, on_branch)], "\n")}
 
     #{q.text |> Marker.strip() |> String.trim_trailing()}
     """
     |> String.trim_trailing()
   end
+
+  @typedoc """
+  Reads what a question's branch holds, as `Whiska.Git.on_branch/3` answers;
+  `{:error, :no_record}` when Whiska has no worktree or branch for its mouse.
+  """
+  @type on_branch :: (Question.t() -> {:ok, map()} | {:error, term()})
+
+  @named 3
+
+  # Only a finished question is offered a finish, so only it says what its
+  # branch holds — on the line straight under the heading, which the mouse's
+  # own text, after the blank line, can never occupy.
+  defp finished_branch(%Question{kind: "done"} = q, on_branch) when is_function(on_branch, 1),
+    do: [branch_line(on_branch.(q))]
+
+  defp finished_branch(_question, _on_branch), do: []
+
+  defp branch_line({:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}),
+    do: "On the branch: #{committed(ahead, base)} · #{uncommitted(uncommitted)}"
+
+  defp branch_line({:error, reason}), do: "On the branch: unknown — #{unknown(reason)}"
+
+  defp committed(0, base), do: "nothing committed beyond #{base}"
+  defp committed(1, base), do: "1 commit beyond #{base}"
+  defp committed(n, base), do: "#{n} commits beyond #{base}"
+
+  defp uncommitted([]), do: "nothing uncommitted"
+
+  defp uncommitted(paths) do
+    {named, rest} = Enum.split(paths, @named)
+    files = if length(paths) == 1, do: "file", else: "files"
+    more = if rest == [], do: "", else: " and #{length(rest)} more"
+
+    "#{length(paths)} #{files} not committed: " <>
+      Enum.map_join(named, ", ", &printable/1) <> more
+  end
+
+  # A path is the mouse's to name. Invalid bytes, controls, format characters
+  # and line or paragraph separators all show as `?`, so no name can break or
+  # reorder the line the picker reads.
+  defp printable(path) do
+    path
+    |> String.replace_invalid("?")
+    |> String.replace(~r/[\p{C}\p{Zl}\p{Zp}]/u, "?")
+  end
+
+  defp unknown(:no_worktree), do: "its worktree is gone"
+  defp unknown(:no_record), do: "Whiska has no record of its worktree"
+  defp unknown(:off_branch), do: "its worktree is not on its branch"
+  defp unknown(:unsafe_base), do: "its base branch's name is not a plain one"
+  defp unknown(:ambiguous_base), do: "there is no one base branch to compare it with"
+  defp unknown(_reason), do: "git could not read it"
 
   @doc """
   One listing line: id, branch, what the mouse did, its pointer, and where it

@@ -21,6 +21,7 @@ defmodule Whiska.CLI do
   alias Whiska.Doctor
   alias Whiska.Doorbell
   alias Whiska.Doctor.Report
+  alias Whiska.Git
   alias Whiska.Herdr
   alias Whiska.Install
   alias Whiska.Layout
@@ -337,7 +338,7 @@ defmodule Whiska.CLI do
   def run(["inbox"], _cwd), do: inbox(:text)
   def run(["inbox", "--json"], _cwd), do: inbox(:json)
   def run(["show"], cwd), do: questions(cwd || File.cwd!(), :full)
-  def run(["show", id], cwd), do: with_question(cwd, id, &show_question/1)
+  def run(["show", id], cwd), do: with_question(cwd, id, &show_question(&1, cwd))
   def run(["dismiss", id], cwd), do: with_question(cwd, id, &close/1)
   def run(["away"], _cwd), do: away()
   def run(["focus"], cwd), do: with_house(cwd, &show_focus/0)
@@ -346,7 +347,7 @@ defmodule Whiska.CLI do
   def run(["resume"], cwd), do: resume(cwd || File.cwd!())
   def run(["resume", branch], cwd), do: with_house(cwd, fn -> resume_branch(branch) end)
 
-  def run(["questions", id], cwd), do: with_question(cwd, id, &show_question/1)
+  def run(["questions", id], cwd), do: with_question(cwd, id, &show_question(&1, cwd))
 
   def run(["reply", id, first | rest], cwd),
     do: with_question(cwd, id, &reply(&1, Enum.join([first | rest], " ")))
@@ -1477,7 +1478,7 @@ defmodule Whiska.CLI do
       {:ok, main} ->
         case Questions.summary(main) do
           {:ok, summary} ->
-            say(render(summary, shape))
+            say(render(summary, shape, main))
 
           {:error, reason} ->
             fail("whiska: could not open this repo's house (#{inspect(reason)}).")
@@ -1488,8 +1489,8 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp render(summary, :listing), do: Questions.render(summary)
-  defp render(summary, :full), do: Questions.render_full(summary)
+  defp render(summary, :listing, _main), do: Questions.render(summary)
+  defp render(summary, :full, main), do: Questions.render_full(summary, &on_branch(main, &1))
 
   # Not repo-scoped: the line is machine-wide and herdr draws one of them for
   # the whole session (ADR-0048). Always 0 and never noisy — this runs every
@@ -1613,15 +1614,29 @@ defmodule Whiska.CLI do
   # The shape lives in Whiska.Questions, so one question read by id and one
   # block of `whiska questions --full` cannot drift apart. This question was
   # loaded by id, without its mouse, so the mouse is looked up here.
-  defp show_question(%Question{} = q) do
+  defp show_question(%Question{} = q, cwd) do
+    {:ok, main} = main_checkout(cwd || File.cwd!())
     mode = Mode.read()
     slot = Mode.slot(Storage.questions(), mode)
     focus = if mode.focus, do: Questions.who(Storage.mouse(mode.focus), mode.focus)
+    who = Questions.who(Storage.mouse(q.mouse_id), q.mouse_id)
 
-    say(
-      Questions.full(q, Questions.who(Storage.mouse(q.mouse_id), q.mouse_id), slot, mode, focus)
-    )
+    say(Questions.full(q, who, slot, mode, focus, &on_branch(main, &1)))
   end
+
+  # A question read by id comes without its mouse, and one from the listing
+  # with it — the house is already closed by the time the listing renders.
+  defp on_branch(main, %Question{mouse: %Mouse{} = mouse}), do: on_branch(main, mouse)
+  defp on_branch(_main, %Question{mouse: nil}), do: {:error, :no_record}
+
+  defp on_branch(main, %Question{mouse_id: mouse_id}),
+    do: on_branch(main, Storage.mouse(mouse_id))
+
+  defp on_branch(main, %Mouse{path: path, branch: branch})
+       when is_binary(path) and is_binary(branch),
+       do: Git.on_branch(main, path, branch)
+
+  defp on_branch(_main, _no_worktree), do: {:error, :no_record}
 
   # -- away, focus, hold and resume (ADR-0079)
 

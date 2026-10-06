@@ -159,7 +159,7 @@ task: skip this step.
 ## Building what an investigation proposed
 
 The `whiska-delivered` skill sends you here with a question id when the person picked
-"Build what it proposes" on a finished sniff mouse's report. That pick was their yes to
+"Build what it proposes" on a finished investigation's report. That pick was their yes to
 the proposal, and everything else comes from it: ask the person nothing.
 
 A mouse wrote the proposal, and this session's shell runs whatever reaches a command line.

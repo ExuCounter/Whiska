@@ -17,9 +17,10 @@ lowest. The right model was cheaper, and nothing picked it.
   did, not by its mode, because a sniff mouse that never tried to write does not know it
   is one.
 - **One decision, where one already is.** The finished picker in `whiska-delivered`
-  (ADR-0009's `done` line) gains the option. For a sniff mouse with a proposal it holds
-  Build what it proposes, Chat further, Drop it. Merge and open a request drop out: a
-  sniff branch has nothing on it, and AskUserQuestion holds four options at most.
+  (ADR-0009's `done` line) gains the option. For a proposal from a branch with nothing to
+  merge — a sniff mouse's, or any mouse's whose branch has nothing on it — it holds
+  Build what it proposes, Chat further, Drop it. Merge and open a request drop out: such a
+  branch has nothing on it, and AskUserQuestion holds four options at most.
 - **The spawn shapes from the proposal.** On yes, the main session follows
   `spawn-worktree`'s hand-off section: a branch named for what the Build line describes,
   mode, model and effort judged against the Build and Touches lines by the ordered rules
@@ -50,9 +51,11 @@ options already are. Two things make it actionable without a contract in code:
 
 - **Fixed labels**, so the main session lifts the block verbatim into the preview instead
   of summarising it.
-- **Whiska's record of the mode.** `whiska questions <id>` heads a sniff mouse's question
-  `feat/x (sniff)`. The picker reads that, not the mouse's word about itself, to know the
-  branch has nothing to merge.
+- **Whiska's record of the mode, and of the branch.** `whiska questions <id>` heads a
+  sniff mouse's question `feat/x (sniff)`, and under any finished question's heading
+  prints what its branch holds — `On the branch: nothing committed beyond main ·
+  nothing uncommitted`. The picker reads those, not the mouse's word about itself, to
+  know the branch has nothing to merge.
 
 The new mouse is given the question id and nothing else; it reads the whole report with
 `whiska questions <id>`, which works from any worktree, and the report stays in the house
@@ -81,14 +84,27 @@ the context can still choose that. What made the flip wrong was that it was sile
 
 - Migration 9 adds `shaped_as`. A mouse recorded before it reads as shaped as nothing, and
   is never flagged: what it was shaped as is not known, and a guess would be a claim.
-- A build mouse that writes a proposal gets the four options, and the proposal goes
-  unoffered. So does a mouse nobody shaped (ADR-0069): its heading carries no `(sniff)`,
-  though it could not write either. Both were shaped wrong to begin with, and the person
-  can still talk to them.
+- A build mouse, or one nobody shaped (ADR-0069), that changed nothing and wrote a
+  proposal is offered the build too: its heading carries no `(sniff)`, but its branch line
+  says nothing is on it. One with commits or uncommitted files on its branch is
+  offered what fits those instead, and the proposal goes unoffered — it changed something,
+  which a proposal says it did not.
 - Dropping an investigation's branch is confirmed only when the branch has commits of its
-  own — a mouse moved from build to sniff can have some. Otherwise nothing is lost, and
-  the flow stays at one question.
+  own or files not committed — a mouse moved from build to sniff can have some. Otherwise
+  nothing is lost, and the flow stays at one question.
 - A repo with older skills offers no build option until `whiska init` (or
   `whiska init --global`) is re-run.
 - The investigation's worktree is left standing after the hand-off: the person may still
   want to talk to it.
+
+## Revised 2026-10-06: the picker reads the branch, not only the mode
+
+`(sniff)` stood in for "nothing to merge" because Whiska had no record of what a branch
+held. It now has one: `whiska show` prints it under every finished question's heading
+(ADR-0009's note of this date). Every task goes to a mouse (ADR-0078), so a build mouse is
+often the one asked to investigate, and its proposal sat behind Land here and a PR for a
+branch with nothing on it. The proposal picker is offered when the heading says `(sniff)`
+**or** the branch line is exactly the one for a branch with nothing on it, committed or
+not; a sniff mouse behaves exactly as before. The whole line, not a phrase in it: a file
+name is printed on that line too, and one named "nothing committed beyond main" must not
+route a branch with commits away from Land here.

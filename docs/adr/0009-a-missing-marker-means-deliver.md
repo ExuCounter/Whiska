@@ -139,3 +139,28 @@ about the marker, and an unmarked turn that really did end is delivered as loudl
 before. What it now decides — from Claude Code's own transcript, not from the text — is
 whether the turn ended at all. Everything it cannot read counts as ended, so the direction
 this ADR chose is the direction the new rule fails in too.
+
+## Note, 2026-10-06: `done` means the brief is done, and the picker reads the branch
+
+A mouse told to write a failing test first did, stopped with it uncommitted, and ended on
+`done`. The finished picker recommended landing a branch with nothing committed, and
+landing the test would have broken CI. Two things change; neither is classification.
+
+- **`done` is for a finished brief.** A turn that stops short of the brief on purpose — a
+  failing test written first, an answer to a question asked mid-task — ends on
+  `needs-decision`, and its option A names the concrete next step. The marker's meaning
+  sharpens; the two markers, and the owl's reading of them, do not move.
+- **`whiska show` says what a finished branch holds**, on the line under the heading:
+  commits beyond the base, counted as Land here lists them, and files not committed, or
+  `unknown` when git cannot say. The finished picker in `whiska-delivered` offers what
+  fits — no landing for a branch with nothing committed, the next step first for one with
+  only uncommitted work. Whiska reads git, never the message: the turn is still
+  classified by its marker alone, and the line only tells the main session what the
+  branch it is about to offer a finish for actually holds.
+
+A third marker for "stopped short" was rejected: it would change the parser, the line,
+the hoot and the board, and still need a way to say "carry on". Recording the branch in
+the `Stop` hook was rejected too: it needs stored data, and the picker needs the branch as
+it is when the person picks, not as it was when the turn ended. What neither layer
+catches — a failing test that was committed, a mid-task answer on a branch that already
+has commits — looks ready to land, and the mouse's marker is the only guard there.

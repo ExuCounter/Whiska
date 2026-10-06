@@ -13,6 +13,7 @@ defmodule Whiska.CLIQuestionsTest do
   alias Whiska.CLI
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
+  alias Whiska.Test.GitRepo
   alias Whiska.Watch.Ink
   alias Whiska.Storage
 
@@ -135,6 +136,8 @@ defmodule Whiska.CLIQuestionsTest do
       assert out =~ "finished"
       assert out =~ "Merged it."
       assert out =~ "closed"
+      assert out =~ "On the branch: unknown"
+      refute out =~ "nothing committed"
     end
 
     # The finished picker in `whiska-delivered` offers a fresh build only for
@@ -168,6 +171,220 @@ defmodule Whiska.CLIQuestionsTest do
     test "--full is in the usage text" do
       out = capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
       assert out =~ "--full"
+    end
+  end
+
+  # The finished picker in `whiska-delivered` offers a landing only when this
+  # line says there is something to land.
+  describe "whiska show — what a finished question's branch holds" do
+    setup do
+      root = Path.join(System.tmp_dir!(), "whiska-onbranch-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(root)
+      on_exit(fn -> File.rm_rf!(root) end)
+      {:ok, repo: GitRepo.create(root)}
+    end
+
+    defp finished(repo, branch, opts \\ []) do
+      path = GitRepo.worktree(repo, branch, push: false, commit: Keyword.get(opts, :commit, true))
+      Enum.each(Keyword.get(opts, :files, []), &File.write!(Path.join(path, &1), "unsaved"))
+      if opts[:gone], do: File.rm_rf!(path)
+
+      {:ok, handle} = Storage.open(repo.checkout)
+
+      try do
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "m-#{branch}", path: path, branch: branch})
+
+        {:ok, q} =
+          Storage.record_question(%{
+            mouse_id: "m-#{branch}",
+            text: "Done.\n⁣⁣⁣",
+            kind: Keyword.get(opts, :kind, "done"),
+            status: Keyword.get(opts, :status, "closed")
+          })
+
+        q
+      after
+        Storage.close(handle)
+      end
+    end
+
+    defp show(repo, args) do
+      capture_io(fn -> assert CLI.run(["show" | args], repo.checkout) == 0 end)
+    end
+
+    defp show_one(repo, %{id: id}), do: show(repo, [to_string(id)])
+
+    test "commits of its own and nothing uncommitted", %{repo: repo} do
+      q = finished(repo, "feat-a")
+
+      assert show_one(repo, q) =~
+               ~r/^##{q.id}  feat-a  finished  \(closed, asked [^)]+\)\nOn the branch: 1 commit beyond main · nothing uncommitted\n\nDone\./
+    end
+
+    test "an untracked file is uncommitted work, and nothing committed is said so",
+         %{repo: repo} do
+      q = finished(repo, "fix-b", commit: false, files: ["timeout_test.exs"])
+
+      assert show_one(repo, q) =~
+               "On the branch: nothing committed beyond main · 1 file not committed: timeout_test.exs"
+    end
+
+    test "commits beside uncommitted files", %{repo: repo} do
+      q = finished(repo, "feat-c", files: ["a.txt", "b.txt"])
+
+      assert show_one(repo, q) =~
+               "On the branch: 1 commit beyond main · 2 files not committed: a.txt, b.txt"
+    end
+
+    test "names the first three uncommitted files and counts the rest", %{repo: repo} do
+      q = finished(repo, "feat-d", commit: false, files: ~w(a.txt b.txt c.txt d.txt e.txt))
+
+      assert show_one(repo, q) =~ "5 files not committed: a.txt, b.txt, c.txt and 2 more"
+    end
+
+    test "a branch with nothing on it", %{repo: repo} do
+      q = finished(repo, "ask-e", commit: false)
+
+      assert show_one(repo, q) =~
+               "On the branch: nothing committed beyond main · nothing uncommitted"
+    end
+
+    # Land here skips merges from the base, so they are nothing to land.
+    test "a merge from the base is not a commit of its own", %{repo: repo} do
+      q = finished(repo, "feat-f", commit: false)
+      path = Path.join([repo.root, "worktrees", "feat-f"])
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.git!(path, ["merge", "--no-ff", "-m", "sync", "main"])
+
+      assert show_one(repo, q) =~ "nothing committed beyond main"
+    end
+
+    test "a worktree that is gone is unknown, never empty", %{repo: repo} do
+      q = finished(repo, "feat-g", commit: false, gone: true)
+      out = show_one(repo, q)
+
+      assert out =~ "On the branch: unknown — its worktree is gone"
+      refute out =~ "nothing committed"
+    end
+
+    test "no base branch to compare with is unknown, never empty", %{repo: repo} do
+      q = finished(repo, "feat-h", commit: false)
+      GitRepo.git!(repo.checkout, ["remote", "remove", "origin"])
+      GitRepo.git!(repo.checkout, ["branch", "-m", "main", "trunk"])
+      out = show_one(repo, q)
+
+      assert out =~ "On the branch: unknown"
+      refute out =~ "nothing committed"
+    end
+
+    test "a staged rename is one uncommitted file, under its new name", %{repo: repo} do
+      q = finished(repo, "feat-l")
+      GitRepo.git!(Path.join([repo.root, "worktrees", "feat-l"]), ["mv", "feat-l.md", "moved.md"])
+
+      assert show_one(repo, q) =~ "1 commit beyond main · 1 file not committed: moved.md"
+    end
+
+    test "an untracked file counts even where git is told to hide them", %{repo: repo} do
+      q = finished(repo, "fix-m", commit: false, files: ["timeout_test.exs"])
+      path = Path.join([repo.root, "worktrees", "fix-m"])
+      GitRepo.git!(path, ["config", "status.showUntrackedFiles", "no"])
+
+      assert show_one(repo, q) =~ "1 file not committed: timeout_test.exs"
+    end
+
+    test "a worktree moved off its recorded branch is unknown, never empty", %{repo: repo} do
+      q = finished(repo, "feat-n", commit: false)
+      path = Path.join([repo.root, "worktrees", "feat-n"])
+      GitRepo.git!(path, ["switch", "-c", "elsewhere"])
+      GitRepo.commit!(path, "lost.md", "work on another branch")
+      out = show_one(repo, q)
+
+      assert out =~ "On the branch: unknown — its worktree is not on its branch"
+      refute out =~ "nothing committed"
+    end
+
+    test "a detached head is unknown, never empty", %{repo: repo} do
+      q = finished(repo, "feat-s", commit: false)
+      path = Path.join([repo.root, "worktrees", "feat-s"])
+      GitRepo.git!(path, ["switch", "--detach"])
+      GitRepo.commit!(path, "loose.md", "work on no branch")
+
+      assert show_one(repo, q) =~ "On the branch: unknown — its worktree is not on its branch"
+    end
+
+    test "a base branch named like an option is unknown", %{repo: repo} do
+      q = finished(repo, "feat-t", commit: false)
+      GitRepo.git!(repo.checkout, ["update-ref", "refs/remotes/origin/-x", "HEAD"])
+
+      GitRepo.git!(repo.checkout, [
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/-x"
+      ])
+
+      assert show_one(repo, q) =~
+               "On the branch: unknown — its base branch's name is not a plain one"
+    end
+
+    test "a folder git cannot read is unknown, never a crash", %{repo: repo} do
+      q = finished(repo, "feat-o", commit: false)
+      locked = Path.join([repo.root, "worktrees", "feat-o", "locked"])
+      File.mkdir_p!(Path.join(locked, "inner"))
+      File.chmod!(locked, 0o000)
+      on_exit(fn -> File.chmod(locked, 0o755) end)
+
+      # Root reads a 0o000 folder anyway, and then there is nothing to show.
+      case File.ls(locked) do
+        {:ok, _readable} ->
+          :ok
+
+        {:error, _} ->
+          assert show_one(repo, q) =~ "On the branch: unknown — git could not read it"
+      end
+    end
+
+    test "a path's invisible and line-breaking characters cannot bend the line",
+         %{repo: repo} do
+      q = finished(repo, "feat-p", commit: false, files: ["a\u2028b\u202Ec.txt"])
+
+      assert show_one(repo, q) =~ "1 file not committed: a?b?c.txt\n"
+    end
+
+    test "a path that is not valid UTF-8 is shown, not crashed on", %{repo: repo} do
+      q = finished(repo, "feat-q", commit: false)
+      path = Path.join([repo.root, "worktrees", "feat-q"])
+      blob = path |> GitRepo.git!(["hash-object", "-w", "README.md"]) |> String.trim()
+      GitRepo.git!(path, ["update-index", "--add", "--cacheinfo", "100644,#{blob},x\xFFy"])
+
+      assert show_one(repo, q) =~ "1 file not committed: x?y\n"
+    end
+
+    test "a base branch whose name could run as shell is unknown", %{repo: repo} do
+      q = finished(repo, "feat-r", commit: false)
+      GitRepo.git!(repo.checkout, ["branch", "$(touch-pwned)"])
+
+      GitRepo.git!(repo.checkout, [
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "refs/remotes/origin/$(touch-pwned)"
+      ])
+
+      out = show_one(repo, q)
+      assert out =~ "On the branch: unknown — its base branch's name is not a plain one"
+      refute out =~ "$(touch-pwned)"
+    end
+
+    test "a question that did not finish says nothing about the branch", %{repo: repo} do
+      q = finished(repo, "feat-i", kind: "needs-decision", status: "open")
+
+      refute show_one(repo, q) =~ "On the branch"
+    end
+
+    test "every finished block of the full listing carries the same line", %{repo: repo} do
+      q = finished(repo, "feat-j", commit: false, status: "open")
+
+      assert show(repo, []) =~
+               ~r/##{q.id}  feat-j  finished  \([^)]+\)\nOn the branch: nothing committed beyond main · nothing uncommitted\n/
     end
   end
 

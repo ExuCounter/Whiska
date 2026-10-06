@@ -1,6 +1,7 @@
 defmodule Whiska.Git do
   @moduledoc """
-  The local git questions behind cleanup (ADR-0061).
+  The local git questions behind cleanup (ADR-0061), and what a finished branch
+  holds for `whiska show` (ADR-0074).
 
   Whether a branch has landed, a worktree is clean and every commit is on a
   remote are questions git answers on this machine, with no network, no forge
@@ -176,6 +177,66 @@ defmodule Whiska.Git do
     args = ["log", "--max-count=1", "--format=%H", branch, "--not", "--remotes", "--"]
     with {:ok, out} <- git(worktree, args), do: {:ok, out != ""}
   end
+
+  @doc """
+  What a finished branch holds: its own commits beyond the base, counted as
+  Land here lists them — merges from the base skipped — and the paths its
+  worktree has not committed, untracked ones included, as git lists them.
+
+  Anything git will not say plainly is an error, never an empty branch: a
+  worktree that is not there (`:no_worktree`), one moved off `branch`
+  (`:off_branch`), a base whose name is not plain (`:unsafe_base`), or output
+  with a warning in it. The finished picker takes nothing for "nothing to land".
+  """
+  @spec on_branch(Path.t(), Path.t(), branch()) ::
+          {:ok, %{base: branch(), ahead: non_neg_integer(), uncommitted: [String.t()]}}
+          | {:error, term()}
+  def on_branch(checkout, worktree, branch) do
+    with true <- File.dir?(worktree) || {:error, :no_worktree},
+         {:ok, ^branch} <- head_branch(worktree) |> off_branch(),
+         {:ok, base} <- base(checkout),
+         true <- plain_name?(base) || {:error, :unsafe_base},
+         range = "refs/heads/#{base}..refs/heads/#{branch}",
+         {:ok, count} <- git(checkout, ["rev-list", "--count", "--no-merges", range]),
+         {ahead, ""} <- Integer.parse(count),
+         {:ok, uncommitted} <- uncommitted(worktree) do
+      {:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}
+    else
+      {:ok, _other_branch} -> {:error, :off_branch}
+      {:error, _} = error -> error
+      _unparsed_count -> {:error, :unreadable}
+    end
+  end
+
+  defp off_branch({:error, :detached}), do: {:error, :off_branch}
+  defp off_branch(head), do: head
+
+  # The base is printed for the main session, which builds git commands from
+  # it; a name with anything else in it is a name a mouse chose.
+  defp plain_name?(name), do: Regex.match?(~r/\A[A-Za-z0-9._\/][A-Za-z0-9._\/-]*\z/, name)
+
+  # `-z` keeps each path whole and unquoted; a rename or copy carries its
+  # source as the next field, which is not a second uncommitted path. Every
+  # untracked file is listed whatever the person's `status.showUntrackedFiles`
+  # says, and no optional lock is taken on an index a session may be using.
+  defp uncommitted(worktree) do
+    args = ["--no-optional-locks", "status", "--porcelain", "-z", "--untracked-files=all"]
+
+    case run(worktree, args) do
+      {out, 0} -> paths(String.split(out, "\0", trim: true), [])
+      {out, code} -> {:error, {code, String.trim(out)}}
+    end
+  end
+
+  defp paths([<<x, y, ?\s, path::binary>>, _source | rest], acc)
+       when x in [?R, ?C] or y in [?R, ?C],
+       do: paths(rest, [path | acc])
+
+  defp paths([<<_xy::binary-size(2), ?\s, path::binary>> | rest], acc),
+    do: paths(rest, [path | acc])
+
+  defp paths([], acc), do: {:ok, Enum.reverse(acc)}
+  defp paths([_warning | _rest], _acc), do: {:error, :unreadable}
 
   @doc "Remove a worktree, never forcing. Git refuses a dirty one, and that refusal stands."
   @spec remove_worktree(Path.t(), Path.t()) :: :ok | {:error, term()}

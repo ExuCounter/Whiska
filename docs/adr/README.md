@@ -47,7 +47,7 @@ are the extracted, individually citable decisions.
 - [0047](0047-delivery-holds-while-the-person-is-typing.md) — Delivery holds while the person is typing, read off the main session's prompt box (amended 2026-10-03 and 2026-10-04 by 0068)
 - [0068](0068-the-prompt-box-is-found-by-its-frame.md) — The prompt box is found by its frame, and no box on screen holds delivery (amends 0047; amended 2026-10-04: faint text in the box is not a draft)
 - [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep; the hook never opens a socket
-- [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer
+- [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer (noted 2026-10-06: `done` means the brief is done)
 - [0052](0052-a-stop-with-a-subagent-still-out-is-not-a-stop.md) — A stop with a subagent still out is not a stop
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
 - [0057](0057-nothing-unanswerable-holds-the-delivery-slot.md) — Nothing that cannot be answered holds the delivery slot (amended 2026-10-06 by next-the-person-decides-what-reaches-them: nor does a held or unfocused sent question)
@@ -80,10 +80,10 @@ are the extracted, individually citable decisions.
 - [0019](0019-model-choice-is-a-ranked-list-walked-reactively.md) — Model choice is a ranked list in dispatch.yml, walked reactively (superseded 2026-10-03 by 0069)
 - [0069](0069-a-mouse-is-shaped-before-it-starts.md) — A mouse is shaped before it starts, and its shape carries its model (makes 0018 reachable and rewrites its default; supersedes 0019; amended 2026-10-04 by ADR-0073)
 - [0073](0073-model-and-effort-are-chosen-by-ordered-rules.md) — Model and effort are chosen by ordered rules, apart from the mode, and the model that ran is recorded (amends 0069)
-- [next](0074-a-finished-investigation-hands-off.md) — A finished investigation hands its proposal to a fresh build mouse; `whiska mode` still flips, and says what it carried (follows from 0069 and 0073)
+- [0074](0074-a-finished-investigation-hands-off.md) — A finished investigation hands its proposal to a fresh build mouse; `whiska mode` still flips, and says what it carried (follows from 0069 and 0073; revised 2026-10-06: offered for any branch with nothing on it, not only a sniff mouse's)
 - [0026](0026-dead-mice-and-stuck-mice-are-separate-problems.md) — Dead mice and stuck mice are separate problems
 - [0050](0050-a-mouses-last-action-is-read-from-its-transcript.md) — A mouse's last action is read from its Claude Code transcript, never asked for
-- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl (builds 0026's rung three; amends 0044 with its one exception; amended 2026-10-06 by next-the-person-decides-what-reaches-them: a held mouse is never picked up; amended 2026-10-06 by ADR-0080: a turn begins at the take, and a chased answer is not a died turn)
+- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl (builds 0026's rung three; amends 0044 with its one exception; amended 2026-10-06 by ADR-0079: a held mouse is never picked up; amended 2026-10-06 by ADR-0080: a turn begins at the take, and a chased answer is not a died turn)
 - [0078](0078-every-task-goes-to-a-worktree.md) — Every task goes to a worktree; only the person saying "work in place" skips it (amends 0063, 0075 and 0076: a tweak or quick fix no longer skips the scout or the spec)
 
 ## Interface

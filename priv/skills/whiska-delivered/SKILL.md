@@ -46,12 +46,13 @@ what they chose.
 
 ## When the line says finished
 
-"Finished" means the work is done and there is nothing to reply to. Show
-the message verbatim first, as above, then read the file beside this one
-that fits and follow it:
+"Finished" has nothing to reply to. Show the message verbatim first, as
+above, then read the file beside this one that fits and follow it:
 
-- The heading `whiska show <id>` printed names the branch with `(sniff)`
-  after it, and the message carries a **Proposed build** block → `sniff.md`.
+- Both: the message carries a **Proposed build** block, and the heading
+  names the branch with `(sniff)` after it or the line under it is exactly
+  `On the branch: nothing committed beyond <base> · nothing uncommitted`
+  → `sniff.md`.
 - Anything else → `finished.md`.
 
 Those pickers are for a "finished" line only: a branch still working, or
@@ -62,7 +63,8 @@ one the person picked, and the judgment is theirs.
 ## Answering, and closing
 
 An answer leaves only as `whiska reply <id> "<their words>"`, never into
-the mouse's pane with `herdr agent prompt`. Never close or supersede a
-question yourself: Whiska supersedes it when that mouse's next message
-arrives, and `whiska dismiss <id>` is the person's command, run only when
-the person asks for it.
+the mouse's pane with `herdr agent prompt`; the next step `finished.md`
+sends is not an answer. Never close or supersede a question yourself:
+Whiska supersedes it when that mouse's next message arrives, and
+`whiska dismiss <id>` is the person's command, run only when the person
+asks for it.

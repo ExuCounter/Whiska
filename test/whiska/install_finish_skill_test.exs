@@ -323,10 +323,13 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/no proposal/i
     end
 
-    # Only a mouse that may only look is offered a fresh build; the skill
-    # promises nothing to the rest.
-    test "promises the fresh build only to a mouse that may only look" do
-      assert proposal_prose() =~ ~r/a mouse that may only look/i
+    # The picker offers it by what the branch holds, not by the mouse's mode;
+    # the skill promises nothing to a branch with something on it.
+    test "promises the fresh build only when the branch has nothing on it" do
+      assert proposal_prose() =~
+               ~r/when the branch has nothing on it.{0,60}offers it as a fresh build/i
+
+      assert proposal_prose() =~ ~r/otherwise it is there for the person to read/i
     end
   end
 

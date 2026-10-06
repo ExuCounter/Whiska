@@ -14,6 +14,9 @@ defmodule Whiska.InstallStatuslineTest do
 
   alias Whiska.CLI
   alias Whiska.Install
+  alias Whiska.Delivery.Mode
+  alias Whiska.Questions
+  alias Whiska.Schema.Question
 
   setup do
     root = Path.join(System.tmp_dir!(), "whiska-inst-#{System.unique_integer([:positive])}")
@@ -205,6 +208,59 @@ defmodule Whiska.InstallStatuslineTest do
       body
     end
 
+    # The options finished.md offers for one branch state: that state's row.
+    defp picker_for(state) do
+      rows =
+        delivered("finished.md")
+        |> String.split("\n")
+        |> Enum.filter(&(String.starts_with?(&1, "| `") and String.contains?(&1, state)))
+
+      assert [row] = rows, "finished.md has no one row for #{state}"
+      row
+    end
+
+    # The line `whiska show` prints under a finished question's heading.
+    defp branch_line(branch) do
+      question = %Question{id: 1, kind: "done", status: "closed", text: "Done."}
+      question = %{question | asked_at: DateTime.utc_now()}
+
+      question
+      |> Questions.full("feat-a", nil, Mode.none(), nil, fn _ -> branch end)
+      |> String.split("\n")
+      |> Enum.at(1)
+    end
+
+    # A row's first cell as a pattern for the line it stands for.
+    defp row_pattern(row) do
+      [_, shape] = Regex.run(~r/^\| `([^`]+)`/, row)
+
+      if String.starts_with?(shape, "On the branch:"),
+        do: line_pattern(shape),
+        else: line_pattern("On the branch: " <> shape)
+    end
+
+    # A line's shape as the skills write it, as a pattern for whole lines.
+    defp line_pattern(shape) do
+      shape
+      |> Regex.escape()
+      |> String.replace("<N>", "\\d+")
+      |> String.replace("<base>", "\\S+")
+      |> String.replace("…", ".*")
+      |> String.replace("\\(s\\)", "s?")
+      |> then(&Regex.compile!("^" <> &1 <> "$", "u"))
+    end
+
+    # One option in finished.md, as written once for every state.
+    defp option(name) do
+      assert [_, rest] = String.split(delivered("finished.md"), "- **#{name}** — ", parts: 2),
+             "finished.md does not define #{name}"
+
+      rest
+      |> String.split(~r/^- \*\*|^`drop-worktree`/m, parts: 2)
+      |> hd()
+      |> String.replace(~r/\s+/, " ")
+    end
+
     test "installs /show as a thin wrapper around the fixed command" do
       assert {path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
 
@@ -321,8 +377,6 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "cherry-pick"
       assert body =~ "gh"
       assert body =~ "glab"
-      # Landing is the usual one, so it is the one carrying the label.
-      assert body =~ ~r/\*\*Land here[^\n]*Recommended/
     end
 
     test "the finish picker never appears for a branch that is still working" do
@@ -349,10 +403,10 @@ defmodule Whiska.InstallStatuslineTest do
     end
 
     test "dropping the work is confirmed before anything is thrown away" do
-      body = delivered("finished.md")
+      drop = option("Drop it")
 
-      assert body =~ ~r/Ask them to confirm\s+in prose first/
-      assert body =~ ~r/discards/
+      assert drop =~ ~r/first confirm in prose.{0,40}naming what is lost/i
+      assert drop =~ ~r/every commit on the branch, and each file not committed/
     end
 
     # A sniff mouse's branch has nothing to merge, and the work it found is
@@ -378,14 +432,102 @@ defmodule Whiska.InstallStatuslineTest do
       assert prose =~ ~r/nothing else is asked/i
     end
 
-    test "every other finished line keeps the four options" do
+    test "every other finished line goes to the picker for its branch" do
       core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
       sniff = delivered("sniff.md") |> String.replace(~r/\s+/, " ")
 
       # Found anywhere in the message: a mouse may close on a line after it.
       assert core =~ ~r/the message carries a \*\*Proposed build\*\* block/
-      assert sniff =~ ~r/no proposal, or a heading without `\(sniff\)`/i
+      assert sniff =~ ~r/no proposal, or neither sign/i
       assert sniff =~ "`finished.md`"
+    end
+
+    # Rendered by the code that prints it, so rewording either side goes red.
+    test "every branch line whiska show prints has exactly one picker row" do
+      rows =
+        delivered("finished.md")
+        |> String.split("\n")
+        |> Enum.filter(&String.starts_with?(&1, "| `"))
+        |> Enum.map(&row_pattern/1)
+
+      branches =
+        for ahead <- [0, 1, 2], files <- [[], ["a.txt"], ~w(a b c d)] do
+          {:ok, %{base: "main", ahead: ahead, uncommitted: files}}
+        end
+
+      for branch <- branches ++ [{:error, :no_worktree}, {:error, :ambiguous_base}] do
+        line = branch_line(branch)
+        assert [_one] = Enum.filter(rows, &Regex.match?(&1, line)), "no one row for #{line}"
+      end
+    end
+
+    # A whole line, so a file name that reads "nothing committed beyond main"
+    # cannot route a branch with commits to the proposal (ADR-0074).
+    test "the proposal is routed by the whole line whiska show prints for an empty branch" do
+      empty = branch_line({:ok, %{base: "main", ahead: 0, uncommitted: []}})
+
+      dirty =
+        branch_line({:ok, %{base: "main", ahead: 0, uncommitted: ["nothing uncommitted"]}})
+
+      for file <- ["SKILL.md", "sniff.md"] do
+        assert delivered(file) =~ "(sniff)", file
+
+        assert [_, shape] =
+                 Regex.run(~r/is\s+exactly\s+`(On the branch:[^`]+)`/, delivered(file)),
+               file
+
+        pattern = shape |> String.replace(~r/\s+/, " ") |> line_pattern()
+        assert empty =~ pattern, "#{file} routes on #{inspect(shape)}, which show never prints"
+        refute dirty =~ pattern, file
+      end
+    end
+
+    test "a branch with commits and nothing uncommitted keeps the four options" do
+      assert picker_for("<N> commit(s) beyond <base> · nothing uncommitted") =~
+               "Land here (Recommended), Open a merge request / PR, Chat further, Drop it"
+
+      assert delivered("finished.md") =~ "finish: land here"
+    end
+
+    test "commits beside uncommitted files keep the four, none recommended" do
+      assert picker_for("<N> commit(s) beyond <base> · <N> file(s) not committed") =~
+               "the same four, none recommended"
+
+      assert option("Land here") =~ ~r/with files not committed.{0,60}stay in the worktree/i
+    end
+
+    test "uncommitted work alone is offered its next step, never a landing" do
+      assert picker_for("nothing committed beyond <base> · <N> file(s) not committed") =~
+               "| The next step (Recommended), Chat further, Drop it |"
+
+      next = option("The next step")
+      assert next =~ ~r/as specifically as the mouse's report and the branch line allow/i
+      # A mouse's text never reaches a command line (ADR-0074).
+      assert next =~
+               "herdr agent prompt <pane-id> 'Carry on with your brief from where you stopped.'"
+
+      assert next =~ ~r/never the label/i
+      assert next =~ "Other"
+    end
+
+    test "a branch with nothing on it offers only to talk further or drop it" do
+      assert picker_for("nothing committed beyond <base> · nothing uncommitted") =~
+               "| Chat further, Drop it, none recommended |"
+
+      assert option("Drop it") =~ ~r/a branch with nothing on it needs no confirmation/i
+    end
+
+    test "an unknown branch, or no line at all, keeps the four options" do
+      assert picker_for("On the branch: unknown") =~
+               "as for commits and nothing uncommitted: unknown keeps every option"
+    end
+
+    # The finished question is closed, so `whiska reply` refuses it.
+    test "the next step a finished line sends is no answer" do
+      core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
+
+      assert core =~ ~r/the next step `finished.md` sends is not an answer/i
+      assert option("The next step") =~ ~r/this is not an answer/i
     end
 
     # The flow asks once. Dropping a branch with nothing on it loses nothing, so

@@ -157,7 +157,10 @@ a third hook, `UserPromptSubmit`, hands the answer to the mouse as context and s
 taken, behind a shell fast path that starts nothing unless the worktree's answer flag is
 up; the owl rings again on its backstop at most three times, then marks the answer not
 taken on the board, in `inbox` and in `whiska questions`, with one hoot; and pickup
-leaves a mouse with an answer not yet taken alone. 2225 tests.
+leaves a mouse with an answer not yet taken alone. Then a finish that fits the branch:
+`whiska show` says what a finished question's branch holds, read from git, and the
+picker offers no landing where nothing is committed, the next step first where only
+uncommitted work is, and the proposal wherever the branch has nothing to merge. 2225 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

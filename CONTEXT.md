@@ -118,13 +118,17 @@ _Avoid_: summary, status, update, hand-off
 What becomes of a branch once its mouse is done: landed on the current branch by
 cherry-picking its own commits, oldest first, its merges from the base skipped
 (ADR-0079; it was `merge --no-ff`), opened as a
-merge request, left alone to be talked to further, or dropped unmerged. The person
-picks one when a "finished" question is told; a repo may name its usual choice, and that
-one is recommended. A **held** mouse's finished line is never told, so it is never
-offered one. A sniff mouse that ended on a **proposal** has nothing to merge, so
-its finish is built by a fresh mouse, talked to further, or dropped — and none is
-recommended. A finish is never an answer — a finished question has nothing to
-answer — and it is only ever offered for a finished one.
+merge request, carried on by its mouse, left alone to be talked to further, or dropped
+unmerged. The person picks one when a "finished" question is told, from what fits the
+branch as `whiska show` reads it from git on the line under the heading: a branch with
+nothing committed is never offered a landing or a request, one with only uncommitted
+work — a failing test written first — is offered its next step first, and one git cannot
+read is offered all four. A repo may name its usual choice, and that one is recommended
+where landing is. A **held** mouse's finished line is never told, so it is never
+offered one. A **proposal** from a branch with nothing to merge — a sniff mouse's, or any
+mouse's whose branch has nothing on it — is built by a fresh mouse, talked to
+further, or dropped, and none is recommended. A finish is never an answer — a finished
+question has nothing to answer — and it is only ever offered for a finished one.
 _Avoid_: close (which a question does), disposition, land. **Cleanup** now names something
 else — what becomes of the worktree after the branch has landed, not what becomes of the
 branch
@@ -133,10 +137,11 @@ branch
 The block a finished investigation ends its report with when it changed nothing and found
 something that should change: **Proposed build**, then a Found, a Build and a Touches
 line. Content, never classification — the turn still ends on `done` — so it travels inside
-the question's text, and the main session reads it the way it reads lettered options. Its
-lines are the preview of the one question the person is asked, and building it starts a
-fresh mouse shaped for that work rather than flipping the one shaped for the
-investigation (ADR-0074).
+the question's text, and the main session reads it the way it reads lettered options. It
+is offered when the branch has nothing to merge, whatever the mouse's mode. Its lines are
+the preview of the one question the person is asked, and building it starts a fresh
+mouse shaped for that work rather than flipping the one shaped for the investigation
+(ADR-0074).
 _Avoid_: plan, recommendation, next steps, hand-off (a word **Report** already rejected)
 
 **Waiting**:
@@ -610,7 +615,9 @@ _Avoid_: block (the whole thing), fragment, chunk
 The line a mouse ends every response with, and the only thing a turn is classified by
 (ADR-0009). It is written in invisible separators (U+2063) so the person watching the
 pane never sees it: three of them for `done`, two for `needs-decision`, whose readable
-pointer sentence sits on the line above. The older bracket spelling,
+pointer sentence sits on the line above. `done` means the brief is done: a turn that stops
+short of it on purpose — a failing test written first, a mid-task answer — ends on
+`needs-decision`, its option A the next step. The older bracket spelling,
 `[worktree-status: done]`, is still read and no longer written. The main session never
 writes one. Distinct from the **marker file** that
 carries a `mouse_id`: that one is identity on disk, this one is a line in a message.

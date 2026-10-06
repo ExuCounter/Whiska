@@ -1,9 +1,9 @@
 # A proposed build
 
 A turn that investigated, changed nothing, and found something that should change ends its
-report with a proposal. For a mouse that may only look, the person's main session offers
-it as a fresh build, shaped for that work rather than for the investigation; for any
-other, it is there for the person to read. Last before the marker, with exactly these
+report with a proposal. When the branch has nothing on it, the person's main session
+offers it as a fresh build, shaped for that work rather than for the investigation;
+otherwise it is there for the person to read. Last before the marker, with exactly these
 labels:
 
     **Proposed build**

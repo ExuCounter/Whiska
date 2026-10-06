@@ -105,12 +105,19 @@ defmodule Whiska.RulesTest do
       "the doctor says what delivery lacks": ~r/`whiska doctor` says which is missing/,
       "never read a mouse's pane": ~r/never its pane.{0,80}alternate screen/is,
       "answer only with reply, and why (ADR-0008)":
-        ~r/only with `whiska reply <id>`.{0,40}never `herdr agent prompt`.{0,160}frees the one delivery slot/is
+        ~r/only with `whiska reply <id>`.{0,40}never `herdr agent prompt`.{0,160}frees the one delivery slot/is,
+      "a finished line's next step is not an answer":
+        ~r/the next step a finished line offers is not an answer/i
     ],
     {:mouse, "marker"} => [
       "the marker is the last line": ~r/last line, alone/i,
       "a decision's pointer goes on the line above": ~r/pointer on the line above/i,
       "a forgotten marker is still delivered": ~r/delivered anyway, as an unmarked question/i,
+      # A finished line is offered a finish — land, PR, drop — so it says the
+      # brief is done, not that the turn ended.
+      "finished means the brief is done": ~r/finished — the brief is done/i,
+      "stopping short on purpose is a decision naming the next step":
+        ~r/short of the brief on purpose.{0,40}failing test written first.{0,30}mid-task answer.{0,20}is a decision.{0,20}option A names the concrete next step/is,
       "never the bracket spelling": ~r/never write `\[worktree-status: done\]`/i
     ],
     {:mouse, "report"} => [

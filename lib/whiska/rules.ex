@@ -97,6 +97,8 @@ defmodule Whiska.Rules do
     pane, never `send-to-worktree` (that is for a new idea). Only `whiska reply` closes
     the question and frees the one delivery slot, so the next mouse's does not wait
     behind it, and only its answer reaches the mouse whole and checked for arrival.
+  - The next step a finished line offers is not an answer: `whiska-delivered` says how
+    it is sent.
   """
 
   @marker """
@@ -105,10 +107,12 @@ defmodule Whiska.Rules do
   End every response with exactly one of these as its last line, alone, invisible in the
   pane:
 
-  - Finished, nothing needed: #{Marker.spell(:done)} (INVISIBLE SEPARATOR), `#{Marker.render(:done)}`.
+  - Finished — the brief is done, nothing needed: #{Marker.spell(:done)} (INVISIBLE SEPARATOR), `#{Marker.render(:done)}`.
   - Only the person can decide: #{Marker.spell(:needs_decision)}, `#{Marker.render(:needs_decision)}`, with the
     pointer on the line above as ordinary prose — the question itself, or "3 questions
     ready, see above".
+  - Stopped short of the brief on purpose — a failing test written first, a mid-task
+    answer — is a decision: option A names the concrete next step.
   - A turn that forgets it is delivered anyway, as an unmarked question.
   - Never write `[worktree-status: done]` or `[worktree-status: needs-decision] <pointer>`:
     it prints in the pane. Whiska still reads it.
