@@ -1,6 +1,6 @@
 defmodule Whiska.Rules do
   @moduledoc """
-  The rules a session starts with, by its role (ADR-next-rules-arrive-by-role).
+  The rules a session starts with, by its role (ADR-0081).
 
   ADR-0017 puts every piece of judgment in plain-English rules the model reads
   and keeps Whiska dumb. These are those rules, as named parts, each going to
@@ -95,7 +95,8 @@ defmodule Whiska.Rules do
     screen, so `herdr pane read` returns a truncated tail at any `--lines`.
   - Answer a mouse only with `whiska reply <id>` — never `herdr agent prompt` into its
     pane, never `send-to-worktree` (that is for a new idea). Only `whiska reply` closes
-    the question and frees the one delivery slot; otherwise the next mouse's waits behind.
+    the question and frees the one delivery slot, so the next mouse's does not wait
+    behind it, and only its answer reaches the mouse whole and checked for arrival.
   """
 
   @marker """

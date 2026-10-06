@@ -91,7 +91,7 @@ every repo whether Whiska was there or not. Then the rules left `CLAUDE.md` alto
 `SessionStart` hook prints the parts a session's role needs — nothing outside herdr, routing
 and delivery in the main session, the marker, report and finish trigger in a mouse — again
 after `/compact`, and `init` takes the old block out, keeping what the person marked `keep`
-(ADR-next-rules-arrive-by-role). A session is identified by where it started
+(ADR-0081). A session is identified by where it started
 and which herdr pane it runs in, never by where its shell currently stands, so the
 person's own main session can step into a worktree without being mistaken for the mouse
 that lives there (ADR-0053, `Whiska.Session`). Then the delivery slot's own guarantee:

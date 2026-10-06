@@ -335,6 +335,7 @@ defmodule Whiska.CLIInitGlobalTest do
 
       settings = settings(path)
       assert settings["hooks"]["Stop"] == []
+      assert settings["hooks"]["UserPromptSubmit"] == []
       assert settings["hooks"]["SessionStart"] == []
       refute Map.has_key?(settings, "statusLine")
     end

@@ -242,7 +242,7 @@ than drifted into: the measurement there is about the per-tool-call path, and `S
 once per turn.
 
 **`Hook.SessionStart` prints one role's rules, and `ClaudeMd` only ever takes text out**
-(ADR-next-rules-arrive-by-role). The hook reads the role the way `Hook.Stop` does — a
+(ADR-0081). The hook reads the role the way `Hook.Stop` does — a
 session started in a worktree and not in the recorded main pane is a mouse — and prints
 `Rules` for it as the hook's additional context, leaving out any part a `CLAUDE.md` holds
 as `keep` (ADR-0045). Outside herdr it prints nothing, and the global shim does not even

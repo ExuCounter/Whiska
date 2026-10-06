@@ -102,7 +102,7 @@ The rest of that template is still not in the block.
 
 ## Amendment (2026-10-06): the parts are rules a hook prints, and init takes the block out
 
-[ADR-next-rules-arrive-by-role](next-rules-arrive-by-role.md) stops writing the block. The
+[ADR-0081](0081-rules-arrive-by-role.md) stops writing the block. The
 parts live on as named rules a `SessionStart` hook prints for one role, and `keep` keeps its
 meaning: a part held as `keep` in `~/.claude/CLAUDE.md` or the project's own `CLAUDE.md` is
 left out of what the hook prints, since the person's wording is already in context.

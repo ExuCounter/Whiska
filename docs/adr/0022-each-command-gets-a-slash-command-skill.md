@@ -150,7 +150,7 @@ than `merge --no-ff`. The `## Finish` line that names it reads `finish: land her
 
 ## Note, 2026-10-06: six of the words never load into a session's context
 
-[ADR-next-rules-arrive-by-role](next-rules-arrive-by-role.md) marks `inbox`, `dismiss`,
+[ADR-0081](0081-rules-arrive-by-role.md) marks `inbox`, `dismiss`,
 `away`, `focus`, `hold` and `resume` with `disable-model-invocation`. They are the person's
 to type; their slash commands work, and no session — a mouse's included — carries their
 descriptions. `show` and `reply` stay where the main session can reach them.

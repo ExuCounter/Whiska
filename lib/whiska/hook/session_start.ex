@@ -1,6 +1,6 @@
 defmodule Whiska.Hook.SessionStart do
   @moduledoc """
-  The rules a session starts with (ADR-next-rules-arrive-by-role).
+  The rules a session starts with (ADR-0081).
 
   Claude Code runs this on every `SessionStart` — a new session, a resume, a
   `/clear` and a compaction — and adds what it prints to the session's context.

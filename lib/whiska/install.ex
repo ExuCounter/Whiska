@@ -906,7 +906,7 @@ defmodule Whiska.Install do
 
   @doc """
   The SessionStart hook command: the same shim, told it is a `session-start`.
-  It prints the rules for the session's role (ADR-next-rules-arrive-by-role).
+  It prints the rules for the session's role (ADR-0081).
   """
   @spec session_start_command(scope()) :: String.t()
   def session_start_command(scope \\ :repo)

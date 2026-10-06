@@ -1,6 +1,6 @@
 defmodule Whiska.InstallShimSessionStartTest do
   @moduledoc """
-  The global shim's `session-start` path (ADR-next-rules-arrive-by-role): the
+  The global shim's `session-start` path (ADR-0081): the
   command `merge/2` writes reaches `whiska hook session-start` and what it
   prints reaches Claude Code — unless the session is outside herdr, or the repo
   wires Whiska itself, when the global copy starts nothing at all.

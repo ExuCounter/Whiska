@@ -105,6 +105,24 @@ defmodule Whiska.InstallTest do
       assert command =~ "session-start"
     end
 
+    test "wires all four hooks, each once and each to the shim, and unmerge takes all four out" do
+      events = ~w(PreToolUse Stop UserPromptSubmit SessionStart)
+
+      for scope <- [:repo, :global] do
+        merged = %{} |> Install.merge(scope) |> Install.merge(scope)
+
+        for event <- events do
+          assert [%{"hooks" => [%{"command" => command}]}] = merged["hooks"][event],
+                 "#{scope}: #{event}"
+
+          assert command =~ Install.shim_path(), "#{scope}: #{event}"
+        end
+
+        unmerged = Install.unmerge(merged, nil)
+        for event <- events, do: assert(unmerged["hooks"][event] == [], "#{scope}: #{event}")
+      end
+    end
+
     test "unmerge takes SessionStart back out and leaves someone else's entry" do
       theirs = %{"hooks" => [%{"type" => "command", "command" => "theirs.sh"}]}
       merged = Install.merge(%{"hooks" => %{"SessionStart" => [theirs]}})

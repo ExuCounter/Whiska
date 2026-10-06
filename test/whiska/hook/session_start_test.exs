@@ -1,6 +1,6 @@
 defmodule Whiska.Hook.SessionStartTest do
   @moduledoc """
-  The rules a session starts with, chosen by its role (ADR-next-rules-arrive-by-role):
+  The rules a session starts with, chosen by its role (ADR-0081):
   none outside herdr, the main session's in herdr, a mouse's in a worktree.
   """
   # Identity reads HERDR_PANE_ID from the OS env, which is process-wide.

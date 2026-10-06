@@ -3,7 +3,7 @@ defmodule Whiska.ClaudeMd do
   Whiska's marked block in a `CLAUDE.md`, and the parts of it the person claimed.
 
   A session's rules arrive at session start, by role (`Whiska.Rules`,
-  ADR-next-rules-arrive-by-role), and Claude Code loads every `CLAUDE.md` on top
+  ADR-0081), and Claude Code loads every `CLAUDE.md` on top
   of them. So a block an older Whiska wrote is taken out, and a part the person
   holds as `keep` is read so the hook can leave it out:
 

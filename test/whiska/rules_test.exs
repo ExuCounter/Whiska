@@ -1,6 +1,6 @@
 defmodule Whiska.RulesTest do
   @moduledoc """
-  What each role is told at session start (ADR-next-rules-arrive-by-role).
+  What each role is told at session start (ADR-0081).
 
   The rules are the product (ADR-0017), so each one is pinned — but by a short
   anchor that names it, not by its sentence: a rule that is dropped fails by

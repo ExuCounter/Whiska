@@ -543,8 +543,8 @@ defmodule Whiska.CLI do
 
   defp told(:repo) do
     """
-    Wrote Whiska's hooks to .claude/settings.json — PreToolUse, Stop and
-    SessionStart. PreToolUse is the one that enforces:
+    Wrote Whiska's hooks to .claude/settings.json — PreToolUse, Stop,
+    UserPromptSubmit and SessionStart. PreToolUse is the one that enforces:
 
       matcher: #{Install.matcher()}
       command: #{Install.command()}
@@ -618,7 +618,7 @@ defmodule Whiska.CLI do
     [
       {"~/" <> Install.shim_path(), "the hook shim every hook calls"},
       {"~/" <> Install.statusline_path(), "the board"},
-      {"~/.claude/settings.json", "PreToolUse, Stop, SessionStart and the statusLine"},
+      {"~/.claude/settings.json", "the four hooks and the statusLine"},
       {"~/.claude/skills/", "inbox, show, reply, dismiss, focus, away, hold, resume,"},
       {"", "whiska-delivered, whiska-finish, whiska-spec, grilling,"},
       {"", "spawn-worktree, send-to-worktree, drop-worktree"}

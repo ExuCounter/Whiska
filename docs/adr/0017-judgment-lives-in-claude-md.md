@@ -31,7 +31,7 @@ rejected as overkill for one person's personal projects.
 
 ## Amendment (2026-10-06): the rules arrive at session start, not in CLAUDE.md
 
-[ADR-next-rules-arrive-by-role](next-rules-arrive-by-role.md) moves the rules out of the
+[ADR-0081](0081-rules-arrive-by-role.md) moves the rules out of the
 block `whiska init` wrote into `CLAUDE.md`. A `SessionStart` hook prints them, chosen by the
 session's role: none outside herdr, the main session's in a main checkout, a mouse's in a
 worktree. Judgment still lives in plain rules the model reads and Whiska still decides

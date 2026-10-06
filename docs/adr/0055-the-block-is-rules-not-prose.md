@@ -103,7 +103,7 @@ cancel that. The block says so in that bullet.
 
 ## Amendment (2026-10-06): the report part drops the person's general voice rules
 
-[ADR-next-rules-arrive-by-role](next-rules-arrive-by-role.md) narrows "How a session talks
+[ADR-0081](0081-rules-arrive-by-role.md) narrows "How a session talks
 is part of the report part". The report part keeps Whiska's own shape — the five-item order,
 the decision brief, the leave-out list, when to ask for a decision, and that a grilling round
 asks every open costly choice at once — and only a mouse gets it. The general voice rules

@@ -561,7 +561,7 @@ be on; being on this one is the symptom)
 
 **Rules** (a session's):
 The worktree protocol, in Whiska's words, as one session starts with it: the `SessionStart`
-hook prints the **parts** its role needs and nothing else (ADR-next-rules-arrive-by-role).
+hook prints the **parts** its role needs and nothing else (ADR-0081).
 Outside herdr, none. The main session gets `worktrees` (routing work to mice), `work` and
 `delivery`; a mouse gets `work`, `marker`, `report` and `finish`. Said again after
 `/compact`, `/clear` and a resume. Rules, not prose: an imperative or a concrete fact per
@@ -574,7 +574,7 @@ _Avoid_: block (the older home of the same rules), prompt, instructions, system 
 The region of a `CLAUDE.md` an older `whiska init` wrote the rules into, bounded by one
 outer marker pair and made of **parts**. Nothing writes one now: `whiska init` and
 `whiska uninstall` take it out, keeping a `keep` part and any text of the person's inside
-the markers, and leaving everything outside them byte for byte (ADR-next-rules-arrive-by-role).
+the markers, and leaving everything outside them byte for byte (ADR-0081).
 _Avoid_: section (a part is a section too, so the word cannot tell the two apart),
 template, preamble
 
@@ -603,7 +603,7 @@ One named piece of a session's **rules** — `worktrees`, `work`, `delivery`, `m
 `report` and `finish` — each going to one role or both. The name is what `keep` claims: a
 part whose start marker in a `CLAUDE.md` says `keep` is the person's, left out of what the
 hook prints and left in place when an old **block** is taken out (ADR-0045,
-ADR-next-rules-arrive-by-role). `scope` was a part of the global block only and is gone.
+ADR-0081). `scope` was a part of the global block only and is gone.
 _Avoid_: block (the whole thing), fragment, chunk
 
 **Worktree-status marker**:

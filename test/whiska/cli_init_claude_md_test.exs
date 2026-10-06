@@ -1,7 +1,7 @@
 defmodule Whiska.CLIInitClaudeMdTest do
   @moduledoc """
   `whiska init` and a repo's own `CLAUDE.md`: the rules arrive at session start
-  (ADR-next-rules-arrive-by-role), so init takes an older Whiska's block out and
+  (ADR-0081), so init takes an older Whiska's block out and
   leaves everything of the person's exactly where it was.
   """
   use ExUnit.Case, async: true

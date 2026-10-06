@@ -193,12 +193,12 @@ failing the install.
 
 ## Amendment (2026-10-06): the global install writes a hook, not a block
 
-[ADR-next-rules-arrive-by-role](next-rules-arrive-by-role.md) replaces the table's first row.
-The global install writes no block into `~/.claude/CLAUDE.md`; it wires a third hook,
+[ADR-0081](0081-rules-arrive-by-role.md) replaces the table's first row.
+The global install writes no block into `~/.claude/CLAUDE.md`; it wires one more hook,
 `SessionStart`, in `~/.claude/settings.json`, and takes an older install's block out of
 `~/.claude/CLAUDE.md` through the symlink. The `scope` part is gone: the shim's stand-down
-already makes a repo's own install win for this hook as for the other two. The global shim
+already makes a repo's own install win for this hook as for the others. The global shim
 also exits before starting Whiska for a `session-start` outside herdr, since it runs in every
-session on the machine. `whiska doctor` counts four pieces — the two hooks, `SessionStart`,
-the statusline and the skills — so an install written before `SessionStart` existed still
+session on the machine. `whiska doctor` counts four pieces — the hooks that enforce, deliver and hand a mouse its
+answer (ADR-0080), `SessionStart`, the statusline and the skills — so an install written before `SessionStart` existed still
 reads as enforcing and delivering, and its fix is `whiska init --global`.
