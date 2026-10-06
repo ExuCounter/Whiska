@@ -515,8 +515,9 @@ defmodule Whiska.Doctor do
 
   Not being installed is not a failure: a repo that carries its own `.claude/`
   needs none of it. A half-written one is, because the person meant to have it
-  and part of it is not working — the block without the hooks is rules nothing
-  enforces, the hooks without the skills is a question nothing can read back.
+  and part of it is not working — the hooks without the skills is a question
+  nothing can read back, and an install without `SessionStart` starts every
+  session without Whiska's rules.
   """
   @global_pieces [
     {:hooks?, "hooks"},
@@ -567,6 +568,10 @@ defmodule Whiska.Doctor do
   """
   @spec hooks(map(), map()) :: [Check.t()]
   def hooks(settings, global \\ %{}) when is_map(settings) do
+    # Where the repo wires Whiska itself the global copy stands down for every
+    # hook, so a hook the repo's older install lacks is covered by nothing.
+    global = if wires_whiska?(settings), do: %{}, else: global
+
     [
       hook_check(
         "PreToolUse",
@@ -615,6 +620,12 @@ defmodule Whiska.Doctor do
       {check, _global} -> check
     end
   end
+
+  defp wires_whiska?(%{"hooks" => hooks}) when is_map(hooks) do
+    Enum.any?(hooks, fn {_event, entries} -> is_list(entries) and Enum.any?(entries, &ours?/1) end)
+  end
+
+  defp wires_whiska?(_settings), do: false
 
   defp hook_check(event, settings, expected_command, expected_matcher, missing, global?) do
     entries = get_in(settings, ["hooks", event]) || []
@@ -983,7 +994,7 @@ defmodule Whiska.Doctor do
       do:
         Check.warn(
           "review loop",
-          "#{Install.review_loop_path()} is retired — nothing runs it, and finishing is the `finish` part of CLAUDE.md",
+          "#{Install.review_loop_path()} is retired — nothing runs it, and finishing is the whiska-finish skill",
           "rm #{path}"
         ),
       else: Check.ok("review loop", "none")

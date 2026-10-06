@@ -105,22 +105,32 @@ defmodule Whiska.InstallTest do
       assert command =~ "session-start"
     end
 
-    test "wires all four hooks, each once and each to the shim, and unmerge takes all four out" do
-      events = ~w(PreToolUse Stop UserPromptSubmit SessionStart)
-
+    test "every hook merge wires is one entry with its own command, the doctor checks it, and unmerge takes it out" do
       for scope <- [:repo, :global] do
+        expected = %{
+          "PreToolUse" => Install.command(scope),
+          "Stop" => Install.stop_command(scope),
+          "UserPromptSubmit" => Install.prompt_command(scope),
+          "SessionStart" => Install.session_start_command(scope)
+        }
+
         merged = %{} |> Install.merge(scope) |> Install.merge(scope)
 
-        for event <- events do
-          assert [%{"hooks" => [%{"command" => command}]}] = merged["hooks"][event],
-                 "#{scope}: #{event}"
+        assert Enum.sort(Map.keys(merged["hooks"])) == Enum.sort(Map.keys(expected)), "#{scope}"
 
-          assert command =~ Install.shim_path(), "#{scope}: #{event}"
+        for {event, command} <- expected do
+          assert [%{"hooks" => [%{"command" => ^command}]}] = merged["hooks"][event],
+                 "#{scope}: #{event}"
         end
 
         unmerged = Install.unmerge(merged, nil)
-        for event <- events, do: assert(unmerged["hooks"][event] == [], "#{scope}: #{event}")
+
+        for event <- Map.keys(merged["hooks"]),
+            do: assert(unmerged["hooks"][event] == [], "#{scope}: #{event}")
       end
+
+      doctor_rows = Install.merge(%{}) |> Whiska.Doctor.hooks() |> Enum.map(& &1.name)
+      assert Enum.sort(doctor_rows) == Enum.sort(Map.keys(Install.merge(%{})["hooks"]))
     end
 
     test "unmerge takes SessionStart back out and leaves someone else's entry" do

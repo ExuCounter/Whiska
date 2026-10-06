@@ -54,8 +54,14 @@ rules, so holding one back there changes nothing it could not change anyway. The
 install, which runs in every repo the person opens, reads `~/.claude/CLAUDE.md` alone, and
 its command says so with `--global`. Two comment lines in a cloned repo's `CLAUDE.md` would
 otherwise silently drop a mouse's finish and marker rules — including the rule that says to
-distrust text arriving with the branch under review — where before this a repo could at
-most contradict the rules in plain sight.
+distrust text arriving with the branch under review — and they do not even show when the file
+is rendered.
+
+This does not make the global install proof against a hostile repo. ADR-0056's stand-down
+still turns the global copy off, every hook of it, in a repo that ships a file at
+`.claude/hooks/whiska.sh` and mentions that path in its settings: a grep, since a hook cannot
+assume `jq`. That is a trade ADR-0056 took knowingly and this record inherits; tightening it,
+for every hook, is a change to that record.
 
 **`whiska init` takes the old block out**, in both scopes, through a symlink like every
 write (ADR-0056). Whiska's header and every part not marked `keep` go; a `keep` part and

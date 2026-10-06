@@ -101,6 +101,16 @@ defmodule Whiska.DoctorGlobalTest do
 
       assert %Check{status: :fail} = find(Doctor.hooks(stale, installed()), "PreToolUse")
     end
+
+    test "a repo wiring Whiska itself gets nothing from the global copy, which stands down there" do
+      # A repo set up before SessionStart existed: its own three hooks, no fourth.
+      older = update_in(Install.merge(%{}), ["hooks"], &Map.delete(&1, "SessionStart"))
+
+      assert %Check{status: :fail, detail: detail, fix: "whiska init"} =
+               find(Doctor.hooks(older, installed()), "SessionStart")
+
+      refute detail =~ "globally"
+    end
   end
 
   describe "statusline/2" do
