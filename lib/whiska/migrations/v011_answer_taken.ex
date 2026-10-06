@@ -1,7 +1,7 @@
 defmodule Whiska.Migrations.V011AnswerTaken do
   @moduledoc """
   Somewhere to say an answer reached its mouse, and how hard the owl tried
-  (ADR-next-an-answer-is-taken-not-typed).
+  (ADR-0080).
 
   `taken_at` is when the mouse's own `UserPromptSubmit` hook handed the answer
   over: the proof of delivery. `rung_at` is the last doorbell, `rings` how many

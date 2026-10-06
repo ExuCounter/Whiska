@@ -102,7 +102,7 @@ defmodule Whiska.WatchTest do
     end
   end
 
-  describe "an answer its mouse has not taken (ADR-next-an-answer-is-taken-not-typed)" do
+  describe "an answer its mouse has not taken (ADR-0080)" do
     test "says so on the row, ahead of a pickup note, and sorts with the questions" do
       board =
         board([mouse("feat-b"), mouse("feat-a")],

@@ -212,7 +212,7 @@ house's main session, and it does so once per dead turn.
 
 
 **The doorbell is the other, and it rings for the person's own answer**
-(ADR-next-an-answer-is-taken-not-typed). `whiska reply` saves the answer and rings once;
+(ADR-0080). `whiska reply` saves the answer and rings once;
 the mouse's own `UserPromptSubmit` hook hands the answer over and stamps it taken. A
 doorbell herdr accepted can still be swallowed, and only the missing stamp says so, so on
 the same tick `Whiska.Doorbell` rings again for every answer saved and not taken — at

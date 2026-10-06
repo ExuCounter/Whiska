@@ -93,7 +93,7 @@ defmodule Whiska.Delivery.Hoot do
 
   @doc """
   The hoot for an answer its mouse never took, after the owl rang for it as
-  often as it will (ADR-next-an-answer-is-taken-not-typed). Any prompt in that
+  often as it will (ADR-0080). Any prompt in that
   mouse's pane hands the answer over, so that is what it says to do.
   """
   @spec not_taken(Question.t(), String.t(), String.t()) :: t()

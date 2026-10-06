@@ -169,7 +169,7 @@ defmodule Whiska.Owl.House do
   # picked up on the strength of one reconnection's pane list.
   @default_settle_ms 120_000
   # How long after a doorbell, unanswered by a take, the owl rings it again
-  # (ADR-next-an-answer-is-taken-not-typed). Checked on the backstop, so the
+  # (ADR-0080). Checked on the backstop, so the
   # real spacing is this to this plus one backstop.
   @default_ring_ms 90_000
 
@@ -736,7 +736,7 @@ defmodule Whiska.Owl.House do
 
   # Ringing again for an answer not taken, on the same backstop as cleanup: a
   # swallowed doorbell happens inside the pane, so there is nothing to be told
-  # about (ADR-next-an-answer-is-taken-not-typed).
+  # about (ADR-0080).
   defp ring(%{socket: nil} = state), do: state
 
   defp ring(state) do

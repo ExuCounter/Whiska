@@ -153,7 +153,7 @@ erase pending questions. The mirror cost is that a question can outlive its mous
 state has a name already (ADR-0026) rather than being a new problem.
 
 **The answer flag sits in the worktree's git admin directory, and the answer does not**
-(ADR-next-an-answer-is-taken-not-typed). The answer itself is in the house database the
+(ADR-0080). The answer itself is in the house database the
 moment `reply` saves it; the flag is only a hint, there so the shim can tell with shell
 builtins whether a prompt has anything to hand over. Every prompt in every session runs
 that hook, and almost none has an answer waiting. Under `.git/worktrees/<name>/` git

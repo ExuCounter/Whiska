@@ -232,7 +232,7 @@ _Avoid_: notify, ping, relay (the old bash mechanism), push
 **Doorbell**:
 The one fixed line typed into a mouse's pane when the person has answered it — "🔔 The
 person answered your question #12; the answer is attached …" — and never the answer
-itself (ADR-next-an-answer-is-taken-not-typed). Never a 🐱: that is a delivered line, and
+itself (ADR-0080). Never a 🐱: that is a delivered line, and
 the `whiska-delivered` skill every session lists fires on one. `whiska reply` rings it
 once the answer is saved; the owl rings it again on the backstop while the answer is not
 **taken**, at least 90 s apart and at most three times, only into an idle pane with an
@@ -388,7 +388,7 @@ One per dead turn, and a branch whose picked-up turn dies as well is a **stuck**
 from then on (ADR-0026), never nudged again. A mouse with a **chased** answer is never
 picked up: its next turn has not begun, and the **doorbell** carries it on. One of the two
 lines the owl types anywhere but its own house's main session (ADR-0044, as ADR-0067 and
-ADR-next-an-answer-is-taken-not-typed amend it).
+ADR-0080 amend it).
 _Avoid_: retry, resend, restart, relaunch (ADR-0026's rung four, a different act)
 
 **Nudge** (retired):

@@ -1,7 +1,7 @@
 defmodule Whiska.Hook.UserPromptSubmit do
   @moduledoc """
   One prompt in a mouse's session in; the answer the person saved for it out,
-  as context for that turn (ADR-next-an-answer-is-taken-not-typed).
+  as context for that turn (ADR-0080).
 
   This is the take. Claude Code runs the hook inside the session the prompt was
   submitted to, so an answer printed here has reached that session — which is

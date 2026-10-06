@@ -1,6 +1,6 @@
 defmodule Whiska.Hook.UserPromptSubmitTest do
   @moduledoc """
-  The take (ADR-next-an-answer-is-taken-not-typed): a prompt submitted in a
+  The take (ADR-0080): a prompt submitted in a
   mouse's own session hands over the answer the person saved for it, and
   stamps it taken.
   """

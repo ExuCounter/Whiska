@@ -1,7 +1,7 @@
 defmodule Whiska.AnswerFlag do
   @moduledoc """
   An empty file saying a worktree's mouse has an answer it has not taken yet
-  (ADR-next-an-answer-is-taken-not-typed).
+  (ADR-0080).
 
   It is a hint for the hook shim, never a record: the database says what is
   chased. The shim reads it with shell builtins alone, so a prompt in a session

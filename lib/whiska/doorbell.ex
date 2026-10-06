@@ -2,7 +2,7 @@ defmodule Whiska.Doorbell do
   @moduledoc """
   The one fixed line typed into a mouse's pane when the person has answered it,
   and the owl ringing it again while the answer is not taken
-  (ADR-next-an-answer-is-taken-not-typed).
+  (ADR-0080).
 
   The answer itself never goes through the terminal. The mouse's own
   `UserPromptSubmit` hook hands it over when this line is submitted, so the

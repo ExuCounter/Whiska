@@ -147,7 +147,7 @@ answers to the word, and the same eight as slash commands replacing `/whiska-que
 and `/whiska-reply`; the gate's word on the board and in the doctor is `gated`; the
 finished picker lands a branch by cherry-pick; and a mouse's shell command that is one of
 the person's — `whiska away`, `hold`, `focus`, `resume`, `reply`, `dismiss`, `close` — is
-refused by the hook. Then answers taken, not typed (ADR-next-an-answer-is-taken-not-typed):
+refused by the hook. Then answers taken, not typed (ADR-0080):
 `whiska reply` saves the answer before anything is typed and rings a one-line doorbell;
 a third hook, `UserPromptSubmit`, hands the answer to the mouse as context and stamps it
 taken, behind a shell fast path that starts nothing unless the worktree's answer flag is

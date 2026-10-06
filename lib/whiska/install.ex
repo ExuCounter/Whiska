@@ -80,7 +80,7 @@ defmodule Whiska.Install do
 
   # Every prompt in every session runs the user-prompt-submit hook, and almost
   # none has an answer waiting, so that case leaves here before the binary or
-  # the runtime is looked for (ADR-next-an-answer-is-taken-not-typed). Shell
+  # the runtime is looked for (ADR-0080). Shell
   # builtins only: the worktree's `.git` file names its git admin directory,
   # and the answer flag sits there. With no project directory to decide on,
   # Whiska decides - an answer not handed over is worse than a prompt slowed.
@@ -996,7 +996,7 @@ defmodule Whiska.Install do
   @doc """
   The UserPromptSubmit hook command: the same shim, told it is a
   `user-prompt-submit`. It hands a mouse the answer the person saved for it
-  (ADR-next-an-answer-is-taken-not-typed).
+  (ADR-0080).
   """
   @spec prompt_command(scope()) :: String.t()
   def prompt_command(scope \\ :repo)

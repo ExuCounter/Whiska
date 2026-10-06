@@ -1787,7 +1787,7 @@ defmodule Whiska.CLI do
 
       # Whiska's own line, typed straight into the pane: taken as it is
       # answered, so the owl never rings for it as though the person had
-      # (ADR-next-an-answer-is-taken-not-typed).
+      # (ADR-0080).
       if stop.status in ["open", "sent"] do
         Storage.answer(stop.id, Mode.resume_line())
         Storage.take([stop.id], now)
@@ -1845,7 +1845,7 @@ defmodule Whiska.CLI do
 
   # Saved before anything is typed, and only the doorbell is typed: the answer
   # reaches the mouse through its own hook, which stamps it taken
-  # (ADR-next-an-answer-is-taken-not-typed). Once saved the answer is safe, so a
+  # (ADR-0080). Once saved the answer is safe, so a
   # doorbell that does not ring is the owl's to ring again, not a failed reply.
   defp reply(%Question{} = q, text) do
     with {:ok, mouse} <- live_mouse(q),

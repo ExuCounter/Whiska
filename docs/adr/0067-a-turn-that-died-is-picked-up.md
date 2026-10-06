@@ -242,7 +242,7 @@ that. `resume <branch>` is where that line comes from, typed by the person's own
 
 ## Amendment, 2026-10-06: a turn begins at the take, and a chased answer is not a died turn
 
-[ADR-next-an-answer-is-taken-not-typed](next-an-answer-is-taken-not-typed.md) stops
+[ADR-0080](0080-an-answer-is-taken-not-typed.md) stops
 typing answers into the pane: `whiska reply` saves the answer and rings a doorbell, and
 the mouse's own `UserPromptSubmit` hook hands the answer over. A doorbell can be
 swallowed, so ringing one proves no turn began, and the third place `worked_at` was

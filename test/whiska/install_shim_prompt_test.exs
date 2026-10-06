@@ -1,6 +1,6 @@
 defmodule Whiska.InstallShimPromptTest do
   @moduledoc """
-  The shim's `user-prompt-submit` path (ADR-next-an-answer-is-taken-not-typed):
+  The shim's `user-prompt-submit` path (ADR-0080):
   every prompt in every session runs it, so a session with no answer waiting
   must leave in plain shell, before Whiska or Erlang is looked for.
 

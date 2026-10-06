@@ -261,7 +261,7 @@ defmodule Whiska.Waiting do
 
   # The person answered and the owl gave up ringing for it, so it is theirs
   # again: typing anything into the mouse's pane hands it over
-  # (ADR-next-an-answer-is-taken-not-typed).
+  # (ADR-0080).
   defp from_not_taken(%Question{} = q, context) do
     %{from_question(q, context) | status: "not_taken", waits: "not taken"}
   end

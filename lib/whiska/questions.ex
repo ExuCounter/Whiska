@@ -194,7 +194,7 @@ defmodule Whiska.Questions do
   end
 
   # A prompt in the mouse's own session hands an answer over, whoever types it
-  # (ADR-next-an-answer-is-taken-not-typed).
+  # (ADR-0080).
   defp not_taken_heading([_one]),
     do: "1 answer not taken — type anything into the mouse's pane to hand it over:\n"
 

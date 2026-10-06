@@ -1,7 +1,7 @@
 defmodule Whiska.Owl.HouseDoorbellTest do
   @moduledoc """
   The house ringing a mouse's doorbell again on its backstop while an answer
-  the person saved has not been taken (ADR-next-an-answer-is-taken-not-typed).
+  the person saved has not been taken (ADR-0080).
 
   A real house with herdr faked at its one boundary (ADR-0031). The backstop is
   driven by hand, one sweep per `:backstop`, and the spacing between rings is

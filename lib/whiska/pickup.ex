@@ -231,7 +231,7 @@ defmodule Whiska.Pickup do
 
   # An answer saved but not yet taken means the turn it would start has not
   # begun: a swallowed doorbell, which the owl rings again, not a died turn
-  # (ADR-next-an-answer-is-taken-not-typed). Read as `Storage.chased/0` reads
+  # (ADR-0080). Read as `Storage.chased/0` reads
   # it: the mouse's newest question, answered and not taken.
   defp nothing_chased(%Mouse{mouse_id: id}, local) do
     case Enum.max_by(questions(local, id), & &1.id, fn -> nil end) do

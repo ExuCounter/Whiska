@@ -5,7 +5,7 @@ classification (ADR-0009), the hook's reading of the transcript before it writes
 (ADR-0052), the idle-gated delivery queue (ADR-0008) with its hold while
 the person is typing (ADR-0047) — said on the board once it has lasted (ADR-0058) — the
 release of anything nothing can answer (ADR-0057), the hoot that goes out with the line
-(ADR-0062), the reply keyed to a question id (ADR-0005), and the answer taken by the mouse's own hook rather than typed (ADR-next-an-answer-is-taken-not-typed). Shown as a dynamic diagram because the ordering is the
+(ADR-0062), the reply keyed to a question id (ADR-0005), and the answer taken by the mouse's own hook rather than typed (ADR-0080). Shown as a dynamic diagram because the ordering is the
 design. Nothing here crosses into another repo: the nudge that once did was deleted by
 ADR-0044.
 
@@ -213,7 +213,7 @@ the question is already recorded sent by then and delivery is the job.
 Keyed to an id, not to a branch (ADR-0005). That is what stops an answer landing on
 whichever question Whiska happened to guess.
 
-Taken, not typed (ADR-next-an-answer-is-taken-not-typed). `whiska reply <id>` saves the
+Taken, not typed (ADR-0080). `whiska reply <id>` saves the
 answer to the house first — the question is `answered` and the slot free from that moment
 — then asks herdr to type one fixed line into the mouse's pane, the doorbell (ADR-0020:
 Whiska never owns a Claude Code process). The answer itself never goes through the
