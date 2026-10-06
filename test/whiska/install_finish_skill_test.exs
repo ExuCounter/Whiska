@@ -54,11 +54,11 @@ defmodule Whiska.InstallFinishSkillTest do
       body = skill() |> String.split("\n") |> Enum.find(&String.starts_with?(&1, "description:"))
 
       assert body =~ ~r/finish/i
-      assert body =~ ~r/marker|done/i
+      assert body =~ ~r/commit it, then write the done marker/i
     end
   end
 
-  describe "the five steps" do
+  describe "the steps" do
     test "run in order, in the mouse's own session, before the marker" do
       body = prose()
 
@@ -110,6 +110,56 @@ defmodule Whiska.InstallFinishSkillTest do
 
     test "names how red-before-the-turn is established, not just the rule" do
       assert prose() =~ ~r/merge base/i
+    end
+  end
+
+  describe "the commit before the marker" do
+    test "comes after the second round and before the marker" do
+      body = prose()
+
+      assert index_of(body, "## 5\\. Commit the work") > index_of(body, "## 4\\. Round two")
+      assert index_of(body, "## 6\\. Then the marker") > index_of(body, "## 5\\. Commit the work")
+
+      [_, intro] = Regex.run(~r/goes down only at step (\d)/, body)
+      [_, heading] = Regex.run(~r/## (\d)\. Then the marker/, body)
+      assert intro == heading
+    end
+
+    test "leaves the worktree clean, the spec aside, and never pushes" do
+      body = prose()
+
+      assert body =~ ~r/every change the brief made.{0,40}on its branch/i
+      assert body =~ ~r/delete.{0,40}scratch files/i
+      assert body =~ ~r/done when `git status --porcelain` prints nothing/i
+
+      assert body =~
+               "Whiska's own `.whiska-mouse` and `#{Whiska.Spec.filename()}` are never committed, deleted or named"
+
+      assert body =~ ~r/never push/i
+    end
+
+    test "a secret or local setup is left, named, and never deleted" do
+      assert prose() =~
+               ~r/never commit a secret or local setup, and never delete a file this turn did not make.{0,200}`\.claude\/` folder `spawn-worktree` copied in.{0,120}leave each one and name it in the message/i
+    end
+
+    test "a repo whose own instructions say the person commits keeps that" do
+      assert prose() =~
+               ~r/this repo's own instructions say the person commits.{0,120}left uncommitted on purpose/i
+    end
+
+    test "a status git will not give is said, never taken for clean" do
+      assert prose() =~
+               ~r/`git status` fails.{0,80}say so in the message.{0,20}never call the worktree clean/i
+    end
+
+    test "a scan that reads commits gets this turn's work committed before it runs" do
+      assert prose() =~
+               ~r/reads commits rather than the working tree means this turn commits its work before the scan runs/i
+    end
+
+    test "a turn with nothing new to check still commits" do
+      assert prose() =~ ~r/skip steps 2 to 4: say so in one line, then steps 5 and 6/i
     end
   end
 
@@ -277,7 +327,7 @@ defmodule Whiska.InstallFinishSkillTest do
 
       assert body =~ "security:"
       assert body =~ ~r/read before it is run/i
-      assert body =~ ~r/commits before it finishes/i
+      assert body =~ ~r/commits its work before the scan runs/i
       assert body =~ ~r/leaves that directory behind/i
     end
 

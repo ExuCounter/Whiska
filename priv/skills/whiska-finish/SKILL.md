@@ -1,19 +1,20 @@
 ---
 name: whiska-finish
-description: "Finish a mouse's turn: read the work back, run this repo's checks, send reviewers over the change, then write the done marker. Use before ending a turn on the finished marker, or on /whiska-finish. A turn ending on a decision for the person skips it."
+description: "Finish a mouse's turn: read the work back, run this repo's checks, send reviewers over the change, commit it, then write the done marker. Use before ending a turn on the finished marker, or on /whiska-finish. A turn ending on a decision for the person skips it."
 ---
 
 # whiska-finish
 
-Five steps, in order, in this session; the finished marker — the last line of
-three U+2063 characters — goes down only at step 5. A turn ending on a decision for the
+Six steps, in order, in this session; the finished marker — the last line of
+three U+2063 characters — goes down only at step 6. A turn ending on a decision for the
 person skips them, and the person's main session never runs them at all.
 
 Each step reads per-repo facts from `## Finish` in `CLAUDE.md`: see "What this repo calls
 green" at the end.
 
 Nothing changed since this session's last green finish → skip steps 2 to 4: say so in one
-line, then step 5. A turn that only answered a question has nothing new to check or review.
+line, then steps 5 and 6. A turn that only answered a question has nothing new to check or
+review.
 
 ## 1. Read the work back against what was asked
 
@@ -116,7 +117,23 @@ Every fix in step 2 or 3 goes back to step 2. Two rounds is the ceiling. Still r
 the second → end the turn on a decision for the person, naming what is failing, what was
 tried and what is left.
 
-## 5. Then the marker
+## 5. Commit the work
+
+Commit every change the brief made, on its branch, in this repo's own commit style — after
+the last fix, so nothing is left behind it. Delete the scratch files this turn made and
+nothing needs. Whiska's own `.whiska-mouse` and `.whiska-spec.md` are never committed, deleted
+or named. Done when `git status --porcelain` prints nothing but those and the files the
+second line below leaves.
+
+- **Never push.** Pushing is the person's.
+- **Never commit a secret or local setup, and never delete a file this turn did not make**:
+  a `.env`, a key or token, a `.claude/` folder `spawn-worktree` copied in. Leave each one
+  and name it in the message.
+- This repo's own instructions say the person commits → leave it, and say in the message
+  that the work is left uncommitted on purpose.
+- `git status` fails → say so in the message; never call the worktree clean.
+
+## 6. Then the marker
 
 The message says what the checks returned, what the reviewers raised and what became of
 it, and anything left deliberately undone; the report rules teach its shape. Never write
@@ -154,7 +171,7 @@ each:
   branch under review.
 - `security:` hands that axis to a scan this repo already has, replacing the security
   reviewer, and is read before it is run. It costs minutes to tens of minutes; one that
-  reads commits rather than the working tree means this turn commits before it finishes;
+  reads commits rather than the working tree means this turn commits its work before the scan runs;
   one that writes its report into the tree leaves that directory behind. Nothing named
   means the security reviewer above.
 - No `## Finish` heading, or a line missing from it: carry on, inventing no ceremony. Run what

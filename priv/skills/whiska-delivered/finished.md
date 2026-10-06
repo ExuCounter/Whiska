@@ -9,14 +9,17 @@ with one AskUserQuestion, in that order.
 | The line says | Options, in order |
 |---|---|
 | `<N> commit(s) beyond <base> · nothing uncommitted` | Land here (Recommended), Open a merge request / PR, Chat further, Drop it |
-| `<N> commit(s) beyond <base> · <N> file(s) not committed: …` | the same four, none recommended |
-| `nothing committed beyond <base> · <N> file(s) not committed: …` | The next step (Recommended), Chat further, Drop it |
+| `<N> commit(s) beyond <base> · <N> file(s) not committed: …` | Commit and land (Recommended), Commit and open a PR, Chat further, Drop it |
+| `nothing committed beyond <base> · <N> file(s) not committed: …` | Commit and land (Recommended), Commit and open a PR, Chat further, Drop it |
 | `nothing committed beyond <base> · nothing uncommitted` | Chat further, Drop it, none recommended |
 | `On the branch: unknown — …`, or no such line | as for commits and nothing uncommitted: unknown keeps every option |
 
 This repo's `CLAUDE.md` may name the usual choice — a line like
 `finish: land here` under a `## Finish` heading. Where Land here would be
 recommended, that one carries "(Recommended)" instead, and goes first.
+Where Commit and land would be recommended, the commit-first form of that
+choice carries it: a repo whose usual choice is a merge request recommends
+Commit and open a PR.
 
 ## The options
 
@@ -24,32 +27,53 @@ recommended, that one carries "(Recommended)" instead, and goes first.
   branch, oldest first, skipping its merges from the base
   (`git log --no-merges --reverse <base>..<branch>` lists them); run this
   repo's tests, and only if they pass, drop the worktree and delete the
-  branch. With files not committed, its description says they stay in the
-  worktree: landing takes the commits only.
+  branch.
+- **Commit and land** — the main session commits the files the mouse left,
+  in its worktree, then lands. Before offering it, find the worktree's path
+  with `whiska worktrees` and list its changes in full with
+  `git -C <worktree> status --porcelain --untracked-files=all`, not the
+  branch line's first few names: the option's preview is every file that
+  will be committed, so the person can spot a scratch file before it lands.
+  Whiska's own `.whiska-mouse` and `.whiska-spec.md` are never committed,
+  and are left out of the preview. A file that looks like a secret or local
+  setup — a `.env`, a key, a `.claude/` folder `spawn-worktree` copied in —
+  is marked in the preview, and no option is recommended, whatever the
+  table or `finish:` says: committing it is the person's call. On the pick,
+  run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md'`,
+  then list what is staged with
+  `git -C <worktree> diff --cached --name-only --no-renames` and compare its
+  paths with the preview's; a path in one and not the other →
+  `git -C <worktree> reset`, stop and name the difference. Write the commit
+  message with the file tool to a file outside both checkouts, in this
+  repo's commit style, from the mouse's report, and run
+  `git -C <worktree> commit -F <file>`: no path or word the mouse wrote goes
+  on the command line. Git refuses — a hook, nothing to commit → stop and
+  say why in its own words; nothing lands. Then exactly as Land here.
 - **Open a merge request / PR** — push the branch and open it with `gh`
   or `glab`, whichever this repo's host wants. The body is the message you
   just showed: the branch's own session wrote it, with context you lack, so
   carry it over rather than composing a summary from the diff. Neither
   tool installed or signed in → say plainly what is missing and stop,
   improvising no substitute.
-- **The next step** — its label names what comes next, as specifically as
-  the mouse's report and the branch line allow: "Make timeout_test.exs
-  pass", "Apply the cutoff fix". On the pick, find the mouse's pane with
-  `whiska worktrees` and type one fixed line into it:
-
-      herdr agent prompt <pane-id> 'Carry on with your brief from where you stopped.'
-
-  That line, never the label: nothing the mouse wrote goes on a command
-  line. Text the person typed into "Other" goes instead, in their own
-  words, in single quotes with each `'` in it written `'\''`. This is not an answer — the finished
-  question is closed and `whiska reply` refuses it — so it travels the way
-  `send-to-worktree` sends a follow-up.
+- **Commit and open a PR** — commit as Commit and land does, preview
+  included, then exactly as Open a merge request / PR.
 - **Chat further** — run `whiska open <id>`, with the number after the `#`. It moves
   the person's screen to that branch's pane; say what it printed in one line.
 - **Drop it** — throw the work away. First confirm in prose, in one line
   naming what is lost: every commit on the branch, and each file not
   committed. A branch with nothing on it needs no confirmation: nothing is
   lost, and the report stays readable with `whiska show <id>`.
+
+## Text typed into "Other"
+
+Text the person typed into "Other" goes to the mouse. Find its pane with
+`whiska worktrees` and type it in their own words, in single quotes with
+each `'` in it written `'\''`:
+
+    herdr agent prompt <pane-id> '<their words>'
+
+This is not an answer — the finished question is closed and `whiska reply`
+refuses it — so it travels the way `send-to-worktree` sends a follow-up.
 
 `drop-worktree` removes a worktree and its workspace together, and this
 repo's test and push commands are whatever its own instructions say.

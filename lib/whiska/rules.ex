@@ -97,8 +97,8 @@ defmodule Whiska.Rules do
     pane, never `send-to-worktree` (that is for a new idea). Only `whiska reply` closes
     the question and frees the one delivery slot, so the next mouse's does not wait
     behind it, and only its answer reaches the mouse whole and checked for arrival.
-  - The next step a finished line offers is not an answer: `whiska-delivered` says how
-    it is sent.
+  - Text sent to a finished mouse is not an answer: `whiska-delivered` says how it is
+    sent.
   """
 
   @marker """
@@ -159,8 +159,8 @@ defmodule Whiska.Rules do
 
   Before writing the finished marker (#{Marker.spell(:done)}), run the `whiska-finish`
   skill in this session and follow it: read the work back against what was asked, run this
-  repo's checks, send reviewers over the change, then the marker. Not listed as a skill →
-  read `.claude/skills/whiska-finish/SKILL.md` in this repo, or
+  repo's checks, send reviewers over the change, commit it, then the marker. Not listed as a
+  skill → read `.claude/skills/whiska-finish/SKILL.md` in this repo, or
   `~/.claude/skills/whiska-finish/SKILL.md`, and follow that.
 
   - A turn ending on a decision for the person skips it. Neither the skill nor the file is

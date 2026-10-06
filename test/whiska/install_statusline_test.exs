@@ -489,25 +489,58 @@ defmodule Whiska.InstallStatuslineTest do
       assert delivered("finished.md") =~ "finish: land here"
     end
 
-    test "commits beside uncommitted files keep the four, none recommended" do
-      assert picker_for("<N> commit(s) beyond <base> · <N> file(s) not committed") =~
-               "the same four, none recommended"
+    test "files not committed are offered a commit first, whatever is committed" do
+      for state <- [
+            "<N> commit(s) beyond <base> · <N> file(s) not committed",
+            "nothing committed beyond <base> · <N> file(s) not committed"
+          ] do
+        assert picker_for(state) =~
+                 "| Commit and land (Recommended), Commit and open a PR, Chat further, Drop it |",
+               state
+      end
 
-      assert option("Land here") =~ ~r/with files not committed.{0,60}stay in the worktree/i
+      refute delivered("finished.md") =~ "The next step"
+      refute option("Land here") =~ ~r/stay in the worktree/i
     end
 
-    test "uncommitted work alone is offered its next step, never a landing" do
-      assert picker_for("nothing committed beyond <base> · <N> file(s) not committed") =~
-               "| The next step (Recommended), Chat further, Drop it |"
+    # Nothing a mouse wrote reaches a command line (ADR-0074).
+    test "the main session commits in the mouse's worktree, from a file, after showing every file" do
+      commit = option("Commit and land")
 
-      next = option("The next step")
-      assert next =~ ~r/as specifically as the mouse's report and the branch line allow/i
-      # A mouse's text never reaches a command line (ADR-0074).
-      assert next =~
-               "herdr agent prompt <pane-id> 'Carry on with your brief from where you stopped.'"
+      assert commit =~ ~r/preview.{0,60}every file/i
+      assert commit =~ "`git -C <worktree> status --porcelain --untracked-files=all`"
+      assert commit =~ ~r/file outside both checkouts/i
+      assert commit =~ "`git -C <worktree> commit -F <file>`"
 
-      assert next =~ ~r/never the label/i
-      assert next =~ "Other"
+      assert commit =~
+               ~r/Whiska's own `\.whiska-mouse` and `\.whiska-spec\.md` are never committed.{0,40}left out of the preview/i
+
+      assert commit =~
+               "run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md'`"
+
+      assert commit =~
+               ~r/`git -C <worktree> diff --cached --name-only --no-renames`.{0,160}`git -C <worktree> reset`, stop/i
+
+      assert commit =~
+               ~r/looks like a secret or local setup.{0,160}marked in the preview, and no option is recommended, whatever the table or `finish:` says/i
+
+      assert commit =~ ~r/git refuses.{0,60}stop/i
+      assert commit =~ ~r/then exactly as Land here/i
+    end
+
+    test "opening a request commits the rest the same way first" do
+      pr = option("Commit and open a PR")
+
+      assert pr =~ ~r/commit as Commit and land does/i
+      assert pr =~ ~r/then exactly as Open a merge request \/ PR/i
+    end
+
+    test "text typed into Other still reaches the mouse, quoted" do
+      body = delivered("finished.md") |> String.replace(~r/\s+/, " ")
+
+      assert body =~ ~r/text the person typed into "Other"/i
+      assert body =~ "herdr agent prompt <pane-id> '<their words>'"
+      assert body =~ "each `'` in it written `'\\''`"
     end
 
     test "a branch with nothing on it offers only to talk further or drop it" do
@@ -523,11 +556,14 @@ defmodule Whiska.InstallStatuslineTest do
     end
 
     # The finished question is closed, so `whiska reply` refuses it.
-    test "the next step a finished line sends is no answer" do
+    test "what a finished line sends into the pane is no answer" do
       core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
 
-      assert core =~ ~r/the next step `finished.md` sends is not an answer/i
-      assert option("The next step") =~ ~r/this is not an answer/i
+      [_, other] =
+        String.split(delivered("finished.md"), ~s(## Text typed into "Other"), parts: 2)
+
+      assert core =~ ~r/what `finished.md` sends into the pane is not an answer/i
+      assert other =~ ~r/this is not an answer/i
     end
 
     # The flow asks once. Dropping a branch with nothing on it loses nothing, so
@@ -546,6 +582,10 @@ defmodule Whiska.InstallStatuslineTest do
       # part in the block whiska init writes (ADR-0045 nest untouched).
       assert body =~ "## Finish"
       assert body =~ "finish: land here"
+
+      assert String.replace(body, ~r/\s+/, " ") =~
+               ~r/where Commit and land would be recommended.{0,120}merge request recommends Commit and open a PR/i
+
       refute body =~ "whiska:finish"
     end
 

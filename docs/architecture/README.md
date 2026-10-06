@@ -159,8 +159,9 @@ up; the owl rings again on its backstop at most three times, then marks the answ
 taken on the board, in `inbox` and in `whiska questions`, with one hoot; and pickup
 leaves a mouse with an answer not yet taken alone. Then a finish that fits the branch:
 `whiska show` says what a finished question's branch holds, read from git, and the
-picker offers no landing where nothing is committed, the next step first where only
-uncommitted work is, and the proposal wherever the branch has nothing to merge. 2225 tests.
+picker offers a commit first wherever files are not committed, no landing where the
+branch has nothing on it, and the proposal wherever the branch has nothing to merge; and
+`whiska-finish` commits a mouse's work before its done marker. 2236 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

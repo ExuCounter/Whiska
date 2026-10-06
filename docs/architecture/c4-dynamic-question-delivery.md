@@ -52,7 +52,8 @@ C4Dynamic
 ```
 
 Finishing happens before any of this, inside the turn: the mouse runs its own pipeline —
-brief, checks, reviewers, one more round — and only then writes the marker (ADR-0048).
+brief, checks, reviewers, one more round, a commit on its branch — and only then writes the
+marker (ADR-0049).
 Nothing sits in front of the stop hook, and nothing in Whiska knows whether that pipeline
 ran.
 

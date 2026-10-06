@@ -63,8 +63,8 @@ one the person picked, and the judgment is theirs.
 ## Answering, and closing
 
 An answer leaves only as `whiska reply <id> "<their words>"`, never into
-the mouse's pane with `herdr agent prompt`; the next step `finished.md`
-sends is not an answer. Never close or supersede a question yourself:
+the mouse's pane with `herdr agent prompt`; what `finished.md` sends into
+the pane is not an answer. Never close or supersede a question yourself:
 Whiska supersedes it when that mouse's next message arrives, and
 `whiska dismiss <id>` is the person's command, run only when the person
 asks for it.

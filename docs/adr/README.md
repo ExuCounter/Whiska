@@ -47,7 +47,7 @@ are the extracted, individually citable decisions.
 - [0047](0047-delivery-holds-while-the-person-is-typing.md) — Delivery holds while the person is typing, read off the main session's prompt box (amended 2026-10-03 and 2026-10-04 by 0068)
 - [0068](0068-the-prompt-box-is-found-by-its-frame.md) — The prompt box is found by its frame, and no box on screen holds delivery (amends 0047; amended 2026-10-04: faint text in the box is not a draft)
 - [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep; the hook never opens a socket
-- [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer (noted 2026-10-06: `done` means the brief is done)
+- [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer (noted 2026-10-06: `done` means the brief is done, and files not committed are offered a commit first)
 - [0052](0052-a-stop-with-a-subagent-still-out-is-not-a-stop.md) — A stop with a subagent still out is not a stop
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
 - [0057](0057-nothing-unanswerable-holds-the-delivery-slot.md) — Nothing that cannot be answered holds the delivery slot (amended 2026-10-06 by next-the-person-decides-what-reaches-them: nor does a held or unfocused sent question)
@@ -68,7 +68,7 @@ are the extracted, individually citable decisions.
 - [0014](0014-checks-come-from-a-per-repo-config.md) — Whiska runs no checks of its own (superseded 2026-09-28 by 0042)
 - [0015](0015-no-automated-diff-review-in-the-mvp.md) — No automated diff review in the MVP — the human is the review
 - [0042](0042-the-review-loop-is-a-stop-hook-the-repo-owns.md) — The review loop is a Stop hook the repo owns (superseded 2026-09-29 by 0049)
-- [0049](0049-finishing-is-a-pipeline-the-mouse-runs.md) — Finishing is a pipeline the mouse runs, not a hook that blocks it (amended 2026-10-04 by ADR-0075: a fifth axis, tests)
+- [0049](0049-finishing-is-a-pipeline-the-mouse-runs.md) — Finishing is a pipeline the mouse runs, not a hook that blocks it (amended 2026-10-04 by ADR-0075: a fifth axis, tests; noted 2026-10-06: a sixth step, commit the work)
 - [0054](0054-the-reviewer-roster-is-whatever-the-session-already-has.md) — The reviewer roster is whatever the session already has, and a finding's word decides its fate (extends 0049's step 3; amended 2026-10-04 by ADR-0075: a fifth axis, tests)
 - [0072](0072-a-reviewer-is-chosen-by-the-diff.md) — Reviewers are a required set plus what the repo's CLAUDE.md calls for, with no config (proposed, not applied; amends 0049, 0054 and 0056; its wio row narrowed 2026-10-04 by ADR-0075)
 - [0075](0075-tests-are-scouted-then-reviewed.md) — A mouse's test is scouted before the code and reviewed at finish, when there is a test to touch (follows 0063 and 0055; adds a fifth axis to 0049 and 0054, and one exception to 0054's written-prompt fallback)

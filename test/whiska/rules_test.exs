@@ -106,8 +106,8 @@ defmodule Whiska.RulesTest do
       "never read a mouse's pane": ~r/never its pane.{0,80}alternate screen/is,
       "answer only with reply, and why (ADR-0008)":
         ~r/only with `whiska reply <id>`.{0,40}never `herdr agent prompt`.{0,160}frees the one delivery slot/is,
-      "a finished line's next step is not an answer":
-        ~r/the next step a finished line offers is not an answer/i
+      "text sent to a finished mouse is not an answer":
+        ~r/text sent to a finished mouse is not an answer/i
     ],
     {:mouse, "marker"} => [
       "the marker is the last line": ~r/last line, alone/i,
@@ -142,6 +142,8 @@ defmodule Whiska.RulesTest do
     {:mouse, "finish"} => [
       "run whiska-finish before the done marker":
         ~r/before writing the finished marker.{0,80}`whiska-finish`/is,
+      "finishing commits the work":
+        ~r/send reviewers over the change, commit it, then the marker/i,
       "a turn ending on a decision skips it":
         ~r/a turn ending on a decision for the person skips it/i,
       "a missing skill is said": ~r/neither the skill nor the file is there/i,

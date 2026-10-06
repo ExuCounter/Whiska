@@ -153,8 +153,8 @@ landing the test would have broken CI. Two things change; neither is classificat
 - **`whiska show` says what a finished branch holds**, on the line under the heading:
   commits beyond the base, counted as Land here lists them, and files not committed, or
   `unknown` when git cannot say. The finished picker in `whiska-delivered` offers what
-  fits — no landing for a branch with nothing committed, the next step first for one with
-  only uncommitted work. Whiska reads git, never the message: the turn is still
+  fits — a commit first, then a landing or a request, for a branch with files not
+  committed; no landing for a branch with nothing on it. Whiska reads git, never the message: the turn is still
   classified by its marker alone, and the line only tells the main session what the
   branch it is about to offer a finish for actually holds.
 
@@ -164,3 +164,23 @@ the `Stop` hook was rejected too: it needs stored data, and the picker needs the
 it is when the person picks, not as it was when the turn ended. What neither layer
 catches — a failing test that was committed, a mid-task answer on a branch that already
 has commits — looks ready to land, and the mouse's marker is the only guard there.
+
+**Changed the same day: files not committed are offered a commit, not the next step.** As
+first written, a branch with only uncommitted files was offered "the next step" first, read
+as a mouse that stopped short. Measured across this machine's mice, 29 of 126 finished
+turns that changed files ended with changes not committed — 24 never committed at all —
+because nothing asked a mouse to commit and Claude Code commits only when asked. With the
+marker rule above in force, `done` beside files not committed is far more often finished
+work nobody committed than a mouse that stopped short, and "carry on with your brief" sent
+to a mouse that believes it is done asks it for nothing.
+
+So every branch line listing files not committed, with commits or without, is offered
+Commit and land (recommended), Commit and open a PR, Chat further and Drop it. The main
+session commits in the mouse's worktree, after the option's preview has listed every file,
+with a message passed by file: no mouse text on a command line (ADR-0074). Text typed into
+"Other" still reaches the mouse. ADR-0049's note of this date makes the mouse commit before
+it finishes, so this is the fallback for one that did not.
+
+The cost: a mouse that stopped short and still ended on `done` has its half-done work
+committed and landed. The tests Land here runs catch a failing test and keep the worktree,
+but the cherry-pick is on the local current branch by then, as with any landing.

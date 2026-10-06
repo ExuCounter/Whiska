@@ -120,11 +120,10 @@ cherry-picking its own commits, oldest first, its merges from the base skipped
 (ADR-0079; it was `merge --no-ff`), opened as a
 merge request, carried on by its mouse, left alone to be talked to further, or dropped
 unmerged. The person picks one when a "finished" question is told, from what fits the
-branch as its **branch line** reads: a branch with
-nothing committed is never offered a landing or a request, one with only uncommitted
-work — a failing test written first — is offered its next step first, and one git cannot
-read is offered all four. A repo may name its usual choice, and that one is recommended
-where landing is. A **held** mouse's finished line is never told, so it is never
+branch as its **branch line** reads: files not committed are committed first, in the
+mouse's worktree, then landed or opened as a request; a branch with nothing on it is
+offered neither; and one git cannot read is offered all four. A repo may name its usual
+choice, and that one is recommended where landing is. A **held** mouse's finished line is never told, so it is never
 offered one. A **proposal** from a branch with nothing to merge — a sniff mouse's, or any
 mouse's whose branch has nothing on it — is built by a fresh mouse, talked to
 further, or dropped, and none is recommended. A finish is never an answer — a finished
@@ -645,7 +644,8 @@ _Avoid_: summary, title, subject, preview
 **Finishing**:
 What a mouse does before it is allowed to say `done`: read the work back against the
 brief and the repo's written decisions, run the repo's checks and fix what they catch,
-send reviewers over its own diff, go round once more, and only then write the marker.
+send reviewers over its own diff, go round once more, commit the work on its branch, and
+only then write the marker.
 Plain instructions in the `whiska-finish` skill `whiska init` installs, which a mouse's
 `finish` part names as the trigger and nothing more — the steps only matter as a turn
 ends, so they stay out of context until then (ADR-0055). Nothing changed since the

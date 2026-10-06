@@ -145,3 +145,30 @@ to a shell hook is conspicuous and a `name: value` line in `CLAUDE.md` is not.
 Nothing parses it in Elixir — it is read by a model, like everything else in `CLAUDE.md`
 — but the shape is one line of `name: value`, and a new fact goes in as another line
 rather than another heading.
+
+## Note, 2026-10-06: a sixth step, commit the work
+
+Nothing in the five steps told a mouse to commit, and Claude Code commits only when asked,
+so a mouse committed only where its repo's own instructions hinted it should. Across this
+machine's mice, 29 of 126 finished turns that changed files ended with changes not
+committed: 24 never committed, 5 changed files after their last commit, usually review
+fixes. Landing those needed a commit nobody had made, and a worktree with changes in it is
+never taken down after its merge (ADR-0061).
+
+So `whiska-finish` gains a step between round two and the marker: commit every change the
+brief made on its branch, in the repo's own commit style, after the last fix; delete
+scratch files; done when `git status --porcelain` prints nothing else. Never push: push stays
+the person's decision. A secret or local setup — a `.env`, a key, a `.claude/` folder
+`spawn-worktree` copied in — is never committed, and a file the turn did not make is never
+deleted: each is left and named in the message. Whiska's own `.whiska-mouse` and
+`.whiska-spec.md` are never committed either: neither is ignored by Whiska in every repo, and
+a committed `.whiska-mouse` would hand every later worktree the same `mouse_id` (ADR-0002).
+Where the main session commits instead, the picker leaves those two out by name, marks a
+secret or local setup in its preview, and then recommends nothing. A repo whose own instructions say the person commits keeps that, and the
+message says the work is left uncommitted on purpose. A turn ending on a decision skips it
+with the rest of the pipeline, so a failing test written first stays uncommitted.
+
+Advisory like every other step. A `Stop` hook refusing `done` on a dirty worktree was
+rejected for the reasons this ADR retired the review loop. The fallback for a mouse that
+forgets is the finished picker, which offers a commit first wherever the branch line lists
+files not committed (ADR-0009's note of this date).
