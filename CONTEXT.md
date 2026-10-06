@@ -283,8 +283,9 @@ for bringing a pane into view (see **Jump**)
 **Held**:
 A mouse the person put on hold with `hold <branch>`: a `held_at` stamp on its record, a
 real stored status, lifted by `resume <branch>` or by a reply to one of its questions
-(ADR-next-the-person-decides-what-reaches-them). The hook refuses its next tool call, a
-read included, with a reason that says to end the turn here and say where it stopped
+(ADR-next-the-person-decides-what-reaches-them). The hook refuses its next write or
+shell command — a read passes until then, or until the turn ends — with a reason that
+says to end the turn here and say where it stopped
 (`Whiska.Rule.Held`); the message it ends on sits in the inbox marked `held`, never
 delivered, and never counted as waiting on the person — they parked it. A held mouse is
 never offered for landing, since its finished line is never told; never taken down by
@@ -293,6 +294,17 @@ says `held` where herdr's status would go. The word this entry took from the gat
 2026-10-06 — see **Gated**.
 _Avoid_: parked, paused, stopped (a dead turn's and herdr's word), blocked (herdr's),
 gated (the gate's), on ice
+
+**Person's command**:
+A `whiska` command only the person runs, never a mouse: `away`, `hold`, `focus`,
+`resume`, `reply`, `dismiss` and `close` — the ones that set or end what reaches them,
+which mouse stops, and what a mouse is told. The hook refuses a mouse's shell command that
+is one of them, by its head word, `whiska` in front or bare (`Whiska.Rule.Persons`,
+ADR-next-the-person-decides-what-reaches-them); a mouse that needs one says so in its
+report. The reading commands — `inbox`, `show`, `questions`, `waiting`, `mice` — are
+anyone's.
+_Avoid_: admin command, privileged command (there is no privilege, only whose decision it
+is), main-session command (the person may run one from any terminal)
 
 **Inbox**:
 The person's list of everything waiting on them across every repo on the machine —

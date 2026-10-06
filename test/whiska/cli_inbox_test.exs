@@ -332,6 +332,25 @@ defmodule Whiska.CLIInboxTest do
 
       in_house(main, fn ->
         assert %{held_at: nil, worked_at: %DateTime{}} = Storage.mouse("ma")
+        # The line answers the stop, so it is never delivered as a decision.
+        assert %{status: "answered"} = Storage.question(1)
+      end)
+    end
+
+    test "a mouse that finished after being held gets no line, and its finished line is told",
+         %{main: main} do
+      seed(main, fn ->
+        {:ok, _} = Storage.hold("ma")
+        Process.sleep(1_100)
+        ask("ma", "all done\n[worktree-status: done]", %{kind: "done"})
+      end)
+
+      {0, out, _} = run(["resume", "feat-a"], main)
+      assert out =~ "finished"
+
+      in_house(main, fn ->
+        assert Storage.mouse("ma").held_at == nil
+        assert Storage.question(1).status == "open"
       end)
     end
 

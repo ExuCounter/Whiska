@@ -23,11 +23,16 @@ defmodule Whiska.CLIInitGlobalTest do
     File.mkdir_p!(home)
     Application.put_env(:whiska, :user_home, home)
     # The commands live under the whiska home, which every test in this run
-    # shares: a wrapper one test wrote must not read as this test's.
+    # shares: a wrapper one test wrote must not read as this test's. And the
+    # clash check walks the real PATH, where the person's own installed words
+    # would read as clashes, so PATH is stripped to the system's.
     File.rm_rf!(Install.commands_dir())
+    path_was = System.get_env("PATH")
+    System.put_env("PATH", "/usr/bin:/bin")
 
     on_exit(fn ->
       Application.put_env(:whiska, :user_home, previous)
+      System.put_env("PATH", path_was)
       File.rm_rf!(Install.commands_dir())
       File.rm_rf!(root)
     end)

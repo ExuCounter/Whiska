@@ -851,7 +851,9 @@ defmodule Whiska.Owl.House do
   # nothing was open and nothing is out — earns the one wait ADR-0008 allows;
   # anything else is attempted at once, and the gate decides.
   defp collect_and_count(state) do
-    fresh_round? = Storage.open_count() == 0 and Storage.sent() == nil
+    mode = mode(state)
+    waiting = Storage.questions()
+    fresh_round? = Mode.open_count(waiting, mode) == 0 and Mode.slot(waiting, mode) == nil
 
     mice =
       state.main_checkout

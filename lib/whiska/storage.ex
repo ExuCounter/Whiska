@@ -190,10 +190,14 @@ defmodule Whiska.Storage do
   def mode(mouse_id) do
     case Repo.get(Mouse, mouse_id) do
       nil -> {:error, :no_such_mouse}
-      %Mouse{shaped_at: nil} -> {:ok, "unshaped"}
-      mouse -> {:ok, mouse.mode}
+      mouse -> {:ok, mode_of(mouse)}
     end
   end
+
+  @doc "The mode a record already read says: `unshaped` until somebody chose one (ADR-0069)."
+  @spec mode_of(Mouse.t()) :: String.t()
+  def mode_of(%Mouse{shaped_at: nil}), do: "unshaped"
+  def mode_of(%Mouse{mode: mode}), do: mode
 
   @doc """
   Move a mouse between build and sniff.
@@ -680,12 +684,19 @@ defmodule Whiska.Storage do
     |> MapSet.new(& &1.mouse_id)
   end
 
-  @doc "The mouse this house is focused on, or nil."
+  @doc """
+  The mouse this house is focused on, or nil — nil too once that mouse is dead
+  or removed, so a focus cannot outlive its mouse and leave every other mouse
+  waiting on nobody. The column is left as it was: a mouse that comes back
+  gets its focus back with it.
+  """
   @spec focus() :: String.t() | nil
   def focus do
-    case Repo.one(from(h in House, limit: 1)) do
-      nil -> nil
-      house -> house.focus
+    with %House{focus: id} when is_binary(id) <- Repo.one(from(h in House, limit: 1)),
+         %Mouse{died_at: nil, removed_at: nil} <- Repo.get(Mouse, id) do
+      id
+    else
+      _ -> nil
     end
   end
 

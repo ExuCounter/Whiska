@@ -45,6 +45,15 @@ defmodule Whiska.Delivery.ModeTest do
     test "the file lives under the whiska home, beside the open-houses record" do
       assert Path.dirname(Mode.away_path()) == Whiska.OpenHouses.home()
     end
+
+    test "a symlink where the file would go is refused, and its target untouched", %{away: away} do
+      target = away <> "-target"
+      File.write!(target, "mine\n")
+      File.ln_s!(target, away)
+
+      assert {:error, :symlink} = Mode.set_away(away)
+      assert File.read!(target) == "mine\n"
+    end
   end
 
   describe "deliverable?/2" do

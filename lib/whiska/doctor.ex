@@ -1069,10 +1069,11 @@ defmodule Whiska.Doctor do
             main_pane = Storage.main_pane()
             word = main_word(main_pane, panes, herdr, socket)
 
-            open = Storage.open_count()
-            sent = Storage.sent()
-            box = draft(main_pane, word, herdr, socket)
             mode = Mode.read()
+            waiting = Storage.questions()
+            open = Mode.open_count(waiting, mode)
+            sent = Enum.find(waiting, &(&1.status == "sent" and Mode.deliverable?(&1, mode)))
+            box = draft(main_pane, word, herdr, socket)
 
             in_house =
               [
@@ -1337,10 +1338,19 @@ defmodule Whiska.Doctor do
     written = Enum.filter(words, &executable?(Path.join(dir, &1)))
 
     cond do
-      written == [] ->
+      written == [] and foreign(dir, words) == [] ->
         Check.ok(
           "commands",
           "not installed — `whiska init --global` writes #{Enum.join(words, ", ")} to #{dir}"
+        )
+
+      (strangers = foreign(dir, words)) != [] ->
+        Check.warn(
+          "commands",
+          "#{dir} goes first on PATH and holds #{Enum.join(strangers, ", ")}, which " <>
+            "Whiska did not write — anything that can write under the whiska home can " <>
+            "put a program there",
+          "look at each, and remove what you did not put there"
         )
 
       not on_path?(env, dir) ->
@@ -1365,6 +1375,23 @@ defmodule Whiska.Doctor do
               "put #{dir} ahead of it on PATH, or use the long `whiska` names"
             )
         end
+    end
+  end
+
+  # Anything in the directory that is not one of the eight, or is one by name
+  # with something other than Whiska's script inside, or is a link.
+  defp foreign(dir, words) do
+    case File.ls(dir) do
+      {:ok, names} ->
+        names
+        |> Enum.sort()
+        |> Enum.reject(fn name ->
+          name in words and match?({:error, _}, :file.read_link(Path.join(dir, name))) and
+            File.read(Path.join(dir, name)) == {:ok, Install.command_script(name)}
+        end)
+
+      {:error, _} ->
+        []
     end
   end
 

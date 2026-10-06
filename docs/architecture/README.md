@@ -144,8 +144,10 @@ first, and the house notices a change on its board tick. With them, eight one-wo
 commands — `inbox`, `show`, `reply`, `dismiss`, `focus`, `away`, `hold`, `resume` —
 written by `whiska init --global` under the whiska home, skipped where another program
 answers to the word, and the same eight as slash commands replacing `/whiska-questions`
-and `/whiska-reply`; the gate's word on the board and in the doctor is `gated`; and the
-finished picker lands a branch by cherry-pick. 2180 tests.
+and `/whiska-reply`; the gate's word on the board and in the doctor is `gated`; the
+finished picker lands a branch by cherry-pick; and a mouse's shell command that is one of
+the person's — `whiska away`, `hold`, `focus`, `resume`, `reply`, `dismiss`, `close` — is
+refused by the hook. 2189 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

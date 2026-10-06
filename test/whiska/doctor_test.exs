@@ -784,6 +784,33 @@ defmodule Whiska.DoctorTest do
       assert detail =~ "8 of 8"
     end
 
+    test "a file in the directory that Whiska did not write is a warning naming it", %{
+      bin: bin
+    } do
+      for word <- Install.commands(), do: wrapper!(bin, word)
+      File.write!(Path.join(bin, "git"), "#!/bin/sh\necho mine\n")
+      File.chmod!(Path.join(bin, "git"), 0o755)
+
+      assert %Check{status: :warn, detail: detail} =
+               Doctor.commands(bin, %{"PATH" => bin <> ":" <> @stripped_path})
+
+      assert detail =~ "git"
+      assert detail =~ "did not write"
+    end
+
+    test "one of the eight carrying something other than Whiska's script is a stranger too",
+         %{bin: bin} do
+      wrapper!(bin, "inbox")
+      File.write!(Path.join(bin, "show"), "#!/bin/sh\necho mine\n")
+      File.chmod!(Path.join(bin, "show"), 0o755)
+
+      assert %Check{status: :warn, detail: detail} =
+               Doctor.commands(bin, %{"PATH" => bin <> ":" <> @stripped_path})
+
+      assert detail =~ "show"
+      refute detail =~ "inbox,"
+    end
+
     test "a word another program answers to first is a warning naming both", %{
       dir: dir,
       bin: bin
@@ -1386,6 +1413,29 @@ defmodule Whiska.DoctorTest do
 
       assert %Check{detail: detail} = find(there.checks, "main session")
       assert detail =~ "not this pane"
+    end
+
+    test "a held mouse's questions are not on the questions line, and the set-aside line names it",
+         %{main: main, env: env, root: root} do
+      init(main)
+      File.touch!(Path.join(root, "herdr.sock"))
+      {:ok, handle} = Storage.open(main, name: nil)
+      :ok = Storage.set_main_pane("w1:p2")
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: Path.join(main, "wt"), branch: "b"})
+      {:ok, q} = Storage.record_question(%{mouse_id: "m1", kind: "needs-decision", text: "?"})
+      {:ok, _} = Storage.mark_sent(q.id)
+      {:ok, _} = Storage.record_question(%{mouse_id: "m1", kind: "needs-decision", text: "??"})
+      {:ok, _} = Storage.hold("m1")
+      Storage.close(handle)
+
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+      stub(Herdr, :pane, fn _, "w1:p2" -> {:ok, claude("idle")} end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :ok, detail: "none waiting"} = find(report.checks, "questions")
+      assert %Check{status: :ok, detail: detail} = find(report.checks, "set aside")
+      assert detail =~ "held: b"
     end
 
     test "an open question held because the person is typing says so on the questions line", %{

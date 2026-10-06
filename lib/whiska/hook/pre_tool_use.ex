@@ -24,6 +24,7 @@ defmodule Whiska.Hook.PreToolUse do
   alias Whiska.Marker
   alias Whiska.Rule.Held
   alias Whiska.Rule.MainCheckout
+  alias Whiska.Rule.Persons
   alias Whiska.Rule.Sniff
   alias Whiska.Schema.Mouse
   alias Whiska.Session
@@ -102,6 +103,7 @@ defmodule Whiska.Hook.PreToolUse do
     tool_input = tool_input(payload)
 
     with :allow <- Held.decide(held?, layout.branch_label),
+         :allow <- Persons.decide(tool_name, tool_input),
          :allow <- Sniff.decide(tool_name, tool_input, mode) do
       MainCheckout.decide(tool_name, tool_input, layout, where(payload))
     end
@@ -191,9 +193,9 @@ defmodule Whiska.Hook.PreToolUse do
         branch: layout.branch_label
       })
 
-      case Storage.mode(mouse_id) do
-        {:ok, mode} -> {:mouse, mode, held?(Storage.mouse(mouse_id))}
-        other -> other
+      case Storage.mouse(mouse_id) do
+        nil -> {:error, :no_such_mouse}
+        mouse -> {:mouse, Storage.mode_of(mouse), held?(mouse)}
       end
     end
   end

@@ -328,10 +328,11 @@ defmodule Whiska.Hook.PreToolUseTest do
       mouse_id
     end
 
-    test "its next tool call is refused, a read included, and told to end the turn", %{
-      main: main,
-      worktree: worktree
-    } do
+    test "the rule refuses whatever the hook asks it about, a read included, and says to end the turn",
+         %{
+           main: main,
+           worktree: worktree
+         } do
       held(main, worktree)
 
       assert {:deny, reason} =
@@ -346,7 +347,10 @@ defmodule Whiska.Hook.PreToolUseTest do
       main: main,
       worktree: worktree
     } do
-      held(main, worktree)
+      mouse_id = held(main, worktree)
+      {:ok, handle} = Storage.open(main)
+      {:ok, _} = Storage.set_mode(mouse_id, "sniff")
+      Storage.close(handle)
 
       assert {:deny, reason} =
                run(%{
@@ -371,6 +375,53 @@ defmodule Whiska.Hook.PreToolUseTest do
     test "a mouse that is not held is unchanged", %{main: main, worktree: worktree} do
       shaped_build(main, worktree)
       assert :allow = run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
+    end
+  end
+
+  describe "the person's commands are not a mouse's (ADR-next-the-person-decides-what-reaches-them)" do
+    defp bash(worktree, command),
+      do:
+        run(%{"cwd" => worktree, "tool_name" => "Bash", "tool_input" => %{"command" => command}})
+
+    test "a build mouse may not put the machine away, hold or focus, or answer", %{
+      main: main,
+      worktree: worktree
+    } do
+      shaped_build(main, worktree)
+
+      for command <- [
+            "whiska away",
+            "whiska hold feat-other",
+            "whiska focus feat-thing",
+            "whiska resume feat-thing",
+            ~s(whiska reply 12 "yes"),
+            "whiska dismiss 12",
+            "whiska close 12",
+            "away",
+            "hold feat-other",
+            "cd lib && resume feat-thing",
+            "git status; whiska away"
+          ] do
+        assert {:deny, reason} = bash(worktree, command), command
+        assert reason =~ "the person's command", command
+      end
+    end
+
+    test "reading commands, and other programs' words, pass", %{main: main, worktree: worktree} do
+      shaped_build(main, worktree)
+
+      for command <- [
+            "whiska inbox",
+            "whiska show 12",
+            "whiska questions --full",
+            "whiska waiting",
+            "whiska mice",
+            "git show HEAD",
+            "grep -n hold lib/x.ex",
+            "echo focus"
+          ] do
+        assert :allow = bash(worktree, command), command
+      end
     end
   end
 

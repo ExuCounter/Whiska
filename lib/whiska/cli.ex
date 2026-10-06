@@ -1662,12 +1662,16 @@ defmodule Whiska.CLI do
 
     case main_checkout(cwd) do
       {:ok, main} ->
-        with_house(main, fn ->
-          case end_focus() do
-            nil -> say(resumed(was_away, []))
-            branch -> say(resumed(was_away, ["focus on #{branch} ended"]))
-          end
-        end)
+        if File.exists?(Storage.database_path(main)) do
+          with_house(main, fn ->
+            case end_focus() do
+              nil -> say(resumed(was_away, []))
+              branch -> say(resumed(was_away, ["focus on #{branch} ended"]))
+            end
+          end)
+        else
+          say(resumed(was_away, []))
+        end
 
       :error ->
         say(resumed(was_away, every_focus_ended()))
@@ -1729,11 +1733,19 @@ defmodule Whiska.CLI do
     end
   end
 
+  # A question asked after the stamp is the stop the hold caused: the carry-on
+  # line answers it, so it is never delivered as a decision once the hold is
+  # gone. A `done` after the stamp is a mouse that finished anyway, and its
+  # finished line is what the person hears now. Anything older was there
+  # before the hold and is the person's to answer.
   defp carry_on(mouse, branch, held_at, %Question{asked_at: asked_at} = latest)
        when is_struct(asked_at, DateTime) do
     cond do
-      DateTime.compare(asked_at, held_at) != :lt ->
-        type_carry_on(mouse, branch)
+      DateTime.compare(asked_at, held_at) == :gt and latest.kind == "done" ->
+        say("Hold on #{branch} lifted. It had finished, so its finished line is told now.")
+
+      DateTime.compare(asked_at, held_at) == :gt ->
+        type_carry_on(mouse, branch, latest)
 
       latest.status in ["open", "sent"] ->
         say(
@@ -1748,9 +1760,19 @@ defmodule Whiska.CLI do
 
   defp carry_on(_mouse, branch, _held_at, nil), do: say("Hold on #{branch} lifted.")
 
-  defp type_carry_on(mouse, branch) do
+  defp type_carry_on(%Mouse{pane: nil}, branch, _stop) do
+    IO.puts("Hold on #{branch} lifted.")
+
+    fail(
+      "whiska: #{branch} has no pane recorded, so nothing was typed into it. " <>
+        "Its last message is delivered as a question; `reply` to that."
+    )
+  end
+
+  defp type_carry_on(mouse, branch, stop) do
     with {:ok, socket} <- herdr_socket(),
          :ok <- Herdr.impl().prompt(socket, mouse.pane, Mode.resume_line()) do
+      if stop.status in ["open", "sent"], do: Storage.answer(stop.id, Mode.resume_line())
       Storage.set_working(mouse.mouse_id, DateTime.utc_now())
       say("Hold on #{branch} lifted; told it to carry on from where it stopped.")
     else
@@ -1770,9 +1792,6 @@ defmodule Whiska.CLI do
 
   defp live_mouse_on(branch) do
     case Enum.find(Storage.alive_mice(), &(&1.branch == branch)) do
-      %Mouse{pane: pane} = mouse when is_binary(pane) ->
-        {:ok, mouse}
-
       %Mouse{} = mouse ->
         {:ok, mouse}
 

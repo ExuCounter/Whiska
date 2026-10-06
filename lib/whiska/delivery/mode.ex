@@ -10,7 +10,7 @@ defmodule Whiska.Delivery.Mode do
   - **Focus** is one house's: the `mouse_id` on the house's own row whose
     questions alone reach its main session while it is set.
   - **Held** is one mouse's: `held_at` on its record. Nothing of a held mouse is
-    delivered, and its next tool call is refused (`Whiska.Rule.Held`).
+    delivered, and its next write or shell command is refused (`Whiska.Rule.Held`).
 
   The queue is judged against all three before the gate ever sees it
   (ADR-0008, ADR-0047): `next/2` is what the house delivers next, and it is
@@ -64,11 +64,22 @@ defmodule Whiska.Delivery.Mode do
   @spec away?(Path.t()) :: boolean()
   def away?(path \\ away_path()), do: File.exists?(path)
 
-  @doc "Go away: nothing is delivered anywhere until `clear_away/1`. Safe to repeat."
-  @spec set_away(Path.t()) :: :ok | {:error, File.posix()}
+  @doc """
+  Go away: nothing is delivered anywhere until `clear_away/1`. Safe to repeat.
+
+  Refused where a symlink sits at the path: the whiska home is writable by a
+  build mouse, and a write through a planted link would land in whatever it
+  points at.
+  """
+  @spec set_away(Path.t()) :: :ok | {:error, File.posix() | :symlink}
   def set_away(path \\ away_path()) do
-    with :ok <- File.mkdir_p(Path.dirname(path)) do
+    with :ok <- File.mkdir_p(Path.dirname(path)),
+         :error <-
+           :file.read_link(path) |> elem(0) |> then(&if(&1 == :ok, do: :symlink, else: :error)) do
       File.write(path, DateTime.utc_now() |> DateTime.to_iso8601() |> Kernel.<>("\n"))
+    else
+      :symlink -> {:error, :symlink}
+      error -> error
     end
   end
 

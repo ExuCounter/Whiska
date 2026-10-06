@@ -83,6 +83,15 @@ defmodule Whiska.StorageHoldFocusTest do
       assert Storage.focus() == nil
     end
 
+    test "a focus on a mouse that died reads as none, and comes back with the mouse" do
+      :ok = Storage.set_focus("m1")
+      {:ok, _} = Storage.mark_dead("m1")
+      assert Storage.focus() == nil
+
+      {:ok, _} = Storage.set_pane("m1", "w1:p1")
+      assert Storage.focus() == "m1"
+    end
+
     test "the focus survives the main session being recorded afterwards" do
       :ok = Storage.set_focus("m1")
       :ok = Storage.set_main_pane("w1:p2")

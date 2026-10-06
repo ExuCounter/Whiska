@@ -1234,26 +1234,22 @@ defmodule Whiska.Install do
 
   @doc """
   Write the eight commands into `dir`, executable, skipping a word that already
-  resolves on this PATH to anything but Whiska's own wrapper there. Returns
-  `{written, skipped}`, each skipped word with the program it would have
-  shadowed.
+  resolves on this PATH to anything but Whiska's own wrapper there, and a word
+  where a symlink sits at the path — the whiska home is writable by a build
+  mouse, and a write through a planted link would land in whatever it points
+  at. Returns `{written, skipped}`, each skipped word with the program it would
+  have shadowed or the link it would have written through.
   """
   @spec write_commands(Path.t()) ::
           {:ok, {[String.t()], [{String.t(), Path.t()}]}} | {:error, File.posix()}
   def write_commands(dir \\ commands_dir()) do
     with :ok <- File.mkdir_p(dir) do
       {skipped, free} =
-        Enum.split_with(@commands, fn word ->
-          case System.find_executable(word) do
-            nil ->
-              false
+        @commands
+        |> Enum.map(&{&1, taken_by(dir, &1)})
+        |> Enum.split_with(fn {_word, taken} -> taken != nil end)
 
-            found ->
-              Whiska.Layout.canonical(found) != Whiska.Layout.canonical(Path.join(dir, word))
-          end
-        end)
-
-      Enum.reduce_while(free, {:ok, {[], taken(skipped)}}, fn word, {:ok, {written, skip}} ->
+      Enum.reduce_while(free, {:ok, {[], skipped}}, fn {word, nil}, {:ok, {written, skip}} ->
         path = Path.join(dir, word)
 
         with :ok <- File.write(path, command_script(word)),
@@ -1266,7 +1262,25 @@ defmodule Whiska.Install do
     end
   end
 
-  defp taken(words), do: Enum.map(words, &{&1, System.find_executable(&1)})
+  defp taken_by(dir, word) do
+    path = Path.join(dir, word)
+
+    case :file.read_link(path) do
+      {:ok, target} ->
+        "a symlink at #{path} → #{target}"
+
+      {:error, _not_a_link} ->
+        case System.find_executable(word) do
+          nil ->
+            nil
+
+          found ->
+            if Whiska.Layout.canonical(found) == Whiska.Layout.canonical(path),
+              do: nil,
+              else: found
+        end
+    end
+  end
 
   @doc "Take the eight commands back out of `dir`. Returns the words that were there."
   @spec remove_commands(Path.t()) :: [String.t()]

@@ -37,9 +37,13 @@ reads all three before the gate ever does.
   repos the branch has nothing to do with.
 - **A hold is one mouse's, and a stored status.** `held_at` on the mouse record, not a
   line of text: it survives an owl restart and shows wherever the mouse is listed. The
-  mouse is stopped through the hook, which refuses its next tool call — a read included —
-  with a reason that says to end the turn here and say where it stopped. Nothing is typed
-  into its pane to stop it: a typed line lands after the current turn and costs a turn.
+  mouse is stopped through the hook, which refuses its next write or shell command — the
+  tools the `PreToolUse` matcher is wired for — with a reason that says to end the turn
+  here and say where it stopped. A read passes until the next of those, or until the turn
+  ends on its own; the rule module refuses whatever it is asked about, so wiring the
+  matcher to every tool would need no code, only the person's say, since it would charge
+  every read of every mouse the hook's startup. Nothing is typed into its pane to stop
+  it: a typed line lands after the current turn and costs a turn.
   The message it ends on reaches the inbox like any other and sits there, held,
   undelivered. A held mouse is never offered for landing (its finished line is never
   delivered, so the picker never fires), never taken down by the merged-worktree sweep,
@@ -113,6 +117,17 @@ skills in every session's context.
   read it, so they cannot disagree.
 - `Whiska.Rule.Held` runs before the sniff rule in the hook, and a database that will not
   open falls back to not held — the direction every fallback there already takes.
+- `Whiska.Rule.Persons` runs beside it: a mouse's shell command that is one of the
+  person's — `whiska away`, `hold`, `focus`, `resume`, `reply`, `dismiss`, `close`, or
+  the bare word — is refused, with the reason that those are the person's to run. The
+  eight skills land in `~/.claude/skills/`, where every mouse's session lists them, so a
+  sentence in a skill was the only thing stopping a mouse from putting the machine away
+  or holding a sibling; ADR-0010 wants that in the hook. Reading commands — `inbox`,
+  `show`, `questions`, `waiting` — are not refused.
+- `whiska doctor` warns about any file in the commands directory that is not one of
+  Whiska's own wrappers, since the person is told to put that directory first on PATH
+  and a build mouse may write under the whiska home; `whiska init --global` and `away`
+  refuse to write through a symlink where their file would go.
 - Cleanup gains a fifth precondition and pickup a precondition: not held.
 - `whiska-delivered`'s first picker option is **Land here**: cherry-pick the branch's own
   commits onto the current branch, oldest first, skipping its merges from the base, run

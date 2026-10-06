@@ -16,7 +16,8 @@ C4Component
   Container_Boundary(cli, "whiska escript") {
     Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / worktrees / waiting / jump / owl, the words inbox / show / dismiss / away / focus / hold / resume, and owl install / stop / start / uninstall")
     Component(mode, "Delivery.Mode", "the person's say", "Away: a file under the whiska home. Focus: this house's. Held: each mouse's. What may be delivered now, and why a question waits")
-    Component(heldrule, "Rule.Held", "rule", "A mouse on hold is refused every tool call, and told to end the turn")
+    Component(heldrule, "Rule.Held", "rule", "A mouse on hold is refused every call the hook sees, and told to end the turn")
+    Component(personsrule, "Rule.Persons", "rule", "The person's commands - away, hold, focus, resume, reply, dismiss, close - are not a mouse's to run")
     Component(hook, "Hook.PreToolUse", "decision", "One tool call in, one decision out")
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
     Component(session, "Session", "identity", "Which session is this: the worktree it started in, and whether its pane is the main session")
@@ -95,6 +96,8 @@ C4Component
   Rel(session, layout, "Resolves the start directory to a worktree")
   Rel(hook, markerm, "Gets the mouse_id")
   Rel(hook, heldrule, "Asks first: is this mouse on hold?")
+  Rel(hook, personsrule, "Then: is this one of the person's commands?")
+  Rel(personsrule, shell, "Splits the command line and reads each head word")
   Rel(hook, mainrule, "Asks for a decision")
   Rel(hook, sniffrule, "Asks for a decision")
   Rel(questions, mode, "Why each question waits: held, away, focus")

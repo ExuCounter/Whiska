@@ -376,7 +376,7 @@ defmodule Whiska.Watch do
     do: pointed("waits: away · ##{id}", asked.pointer)
 
   defp asked(id, %{waits: {:focus, name}} = asked, _now),
-    do: pointed("waits: focus on #{name} · ##{id}", asked.pointer)
+    do: pointed("waits: focus on #{branch(name)} · ##{id}", asked.pointer)
 
   # The sent question carries how long it has waited, not the mouse's age in
   # the elapsed column: one left unanswered for hours holds every other question

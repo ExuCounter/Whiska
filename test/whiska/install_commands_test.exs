@@ -53,6 +53,26 @@ defmodule Whiska.InstallCommandsTest do
     end
   end
 
+  describe "write_commands/1 — never through a symlink" do
+    test "a link where a word would go is skipped and named, and its target untouched" do
+      dir = Path.join(System.tmp_dir!(), "whiska-cmdlink-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      on_exit(fn -> File.rm_rf!(dir) end)
+      target = Path.join(dir, "rc")
+      File.write!(target, "mine\n")
+      File.ln_s!(target, Path.join(dir, "show"))
+      path_was = System.get_env("PATH")
+      System.put_env("PATH", "/usr/bin:/bin")
+      on_exit(fn -> System.put_env("PATH", path_was) end)
+
+      assert {:ok, {written, [{"show", why}]}} = Install.write_commands(dir)
+      assert "inbox" in written
+      refute "show" in written
+      assert why =~ "symlink"
+      assert File.read!(target) == "mine\n"
+    end
+  end
+
   describe "skills/0 — one slash command per word (ADR-0022)" do
     test "ships a skill named by each word, a thin wrapper around the fixed command" do
       for word <- @words do
