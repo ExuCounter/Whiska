@@ -861,12 +861,18 @@ defmodule Whiska.Storage do
 
   @doc """
   The chased answers the owl gave up ringing for: waiting on the person now,
-  who can hand one over by typing anything into its mouse's pane. With their
-  mice, as `questions/0` has them.
+  who can hand one over by typing anything into its mouse's pane — so only a
+  live mouse's, since a dead one has no pane to type into (ADR-0057's reading
+  of what may wait on the person), and not a landed one's, whose merge was the
+  answer (ADR-0064). With their mice, as `questions/0` has them.
   """
   @spec not_taken() :: [Question.t()]
   def not_taken do
-    chased() |> Enum.filter(& &1.stale_at) |> Repo.preload(:mouse)
+    alive = MapSet.new(Enum.reject(alive_mice(), & &1.landed_at), & &1.mouse_id)
+
+    chased()
+    |> Enum.filter(&(&1.stale_at && MapSet.member?(alive, &1.mouse_id)))
+    |> Repo.preload(:mouse)
   end
 
   @doc "Stamp answers as handed over to their mouse's session."

@@ -26,7 +26,9 @@ saved it. Three things went wrong with that:
 - `reply` saves the answer first. That is the whole of the person's part: the question is
   `answered` and ADR-0008's slot is free, exactly as before. Anything after the save
   failing is the owl's to retry, not a failed reply, so `reply` exits 0 and says so.
-- Into the pane goes only the **doorbell**: one fixed line, carrying the question id.
+- Into the pane goes only the **doorbell**: one fixed line, carrying the question id. It
+  starts with 🔔, never the 🐱 of a delivered line: the `whiska-delivered` skill is listed
+  in a mouse's session too, and fires on a 🐱 line with an id in it.
 - A **`UserPromptSubmit` hook** — Whiska's third, wired by `whiska init` beside
   `PreToolUse` and `Stop` — runs inside the session the line was submitted to. It reads
   the saved answer from the house database, gives it to the model as
@@ -36,10 +38,19 @@ saved it. Three things went wrong with that:
   pane delivers an answer the owl gave up on, with no new command.
 - **The owl rings again** while an answer is not taken: on the backstop, at least 90 s
   after the last ring, at most three times, only into an idle pane with an empty prompt
-  box that herdr calls a worktree of this checkout, never into a held mouse and never into
-  the main session. A busy pane waits and uses up no ring. 90 s after the third ring, the
-  answer is marked **not taken** (`stale_at`), once: the board row, `inbox` and `whiska
-  questions` say so, and one desktop notification goes out.
+  box that herdr calls a worktree of this checkout, never into a held mouse, a landed
+  branch (ADR-0064) or the main session. A busy pane waits and uses up no ring. 90 s after
+  the third ring, the answer is marked **not taken** (`stale_at`), once: the board row,
+  `inbox` and `whiska questions` say so, and one desktop notification goes out. Telling
+  the person waits behind what they set aside, as a delivery does (ADR-0079): while they
+  are away, or focused on another mouse, the ringing goes on and the giving up waits.
+  A dead mouse's or a landed branch's answer is not listed as not taken: nobody can act
+  on it.
+- **The take trusts nothing a mouse can forge alone.** The answers handed over are the
+  ones of the mouse whose marker the worktree carries, and only while its record says it
+  works in that worktree — a copied marker takes nothing (ADR-0005). The answer is read,
+  then stamped in a second opening of the house, so a stamp that fails or is cut off
+  still prints and leaves the flag up: an answer may arrive twice, never not at all.
 - **What is chased is derived, never stored**: answered, not taken, and the newest
   question its mouse has asked. A mouse that asked again has moved past the answer, so it
   is never handed over (ADR-0005's mismatch); death, landing and superseding need no new
@@ -91,7 +102,13 @@ it on.
   `UserPromptSubmit` entry and names the cost. The doorbell tells a mouse with no answer
   attached to say so and end the turn, so that gap reaches the person as a question too.
 - `resume <branch>`'s carry-on line and pickup's line stay typed: both are Whiska's own
-  fixed one-liners, not the person's words.
+  fixed one-liners, not the person's words. The carry-on line answers the held mouse's
+  stop, so it is stamped taken as it is saved; otherwise the owl would chase Whiska's own
+  line as though the person had written it.
+- The flag's place comes from the worktree's `.git` file, which the mouse there can
+  rewrite, and the owl and `reply` act on it. So `.git` is read only when it is a plain
+  file — a named pipe would hang the owl — and the flag is created exclusively, never
+  written through whatever a mouse left at its path (ADR-0013).
 - The owl does not lower the flag itself: a sweep that read "nothing chased" just before
   `reply` saved an answer would lower the flag `reply` had just raised. The hook lowers it
   on the next prompt, which costs one escript start.

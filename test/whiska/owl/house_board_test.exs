@@ -105,6 +105,24 @@ defmodule Whiska.Owl.HouseBoardTest do
     assert board(main) =~ "🐭 feat-a"
   end
 
+  test "shows an answer its mouse has not taken on that mouse's row", %{
+    main: main,
+    worktree: worktree
+  } do
+    {:ok, handle} = Storage.open(main, name: nil)
+    {:ok, q} = Storage.record_question(%{mouse_id: "ma", text: "which?", kind: "needs-decision"})
+    {:ok, _} = Storage.answer(q.id, "SQLite")
+    {:ok, _} = Storage.mark_not_taken(q.id, DateTime.utc_now())
+    Storage.close(handle)
+
+    stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "idle")]} end)
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+    open(main, [])
+
+    assert board(main) =~ "answer ##{q.id} not taken"
+  end
+
   test "keeps it current on its own timer", %{main: main, worktree: worktree} do
     status = :counters.new(1, [])
     :counters.put(status, 1, 0)

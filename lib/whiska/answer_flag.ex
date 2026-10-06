@@ -11,13 +11,23 @@ defmodule Whiska.AnswerFlag do
 
   It lives in the worktree's own git admin directory, which git never shows in
   `git status` and removes with the worktree.
+
+  Where that is comes from the worktree's `.git` file, which the mouse working
+  there can rewrite, and the owl and `whiska reply` act on it. So the file is
+  read only when it is a plain file — a named pipe there would never answer and
+  hang the owl — and the flag is created, never written through: whatever a
+  mouse put at the flag's path, a link to one of the person's files included,
+  is refused rather than emptied (ADR-0013).
   """
 
   @filename "whiska-answer"
 
   @spec path(Path.t()) :: {:ok, Path.t()} | {:error, term()}
   def path(worktree_root) do
-    with {:ok, contents} <- File.read(Path.join(worktree_root, ".git")),
+    dot_git = Path.join(worktree_root, ".git")
+
+    with {:ok, %File.Stat{type: :regular}} <- File.lstat(dot_git),
+         {:ok, contents} <- File.read(dot_git),
          "gitdir: " <> gitdir <- String.trim(contents) do
       {:ok, Path.join(Path.expand(gitdir, worktree_root), @filename)}
     else
@@ -28,7 +38,14 @@ defmodule Whiska.AnswerFlag do
 
   @spec set(Path.t()) :: :ok | {:error, term()}
   def set(worktree_root) do
-    with {:ok, path} <- path(worktree_root), do: File.write(path, "")
+    with {:ok, path} <- path(worktree_root) do
+      case File.lstat(path) do
+        {:ok, %File.Stat{type: :regular}} -> :ok
+        {:ok, %File.Stat{}} -> {:error, :not_a_plain_file}
+        {:error, :enoent} -> File.write(path, "", [:exclusive])
+        {:error, _} = error -> error
+      end
+    end
   end
 
   @spec clear(Path.t()) :: :ok | {:error, term()}
@@ -44,7 +61,7 @@ defmodule Whiska.AnswerFlag do
   @spec set?(Path.t()) :: boolean()
   def set?(worktree_root) do
     case path(worktree_root) do
-      {:ok, path} -> File.exists?(path)
+      {:ok, path} -> match?({:ok, %File.Stat{type: :regular}}, File.lstat(path))
       {:error, _} -> false
     end
   end

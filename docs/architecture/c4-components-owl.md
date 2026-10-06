@@ -217,8 +217,9 @@ the mouse's own `UserPromptSubmit` hook hands the answer over and stamps it take
 doorbell herdr accepted can still be swallowed, and only the missing stamp says so, so on
 the same tick `Whiska.Doorbell` rings again for every answer saved and not taken — at
 least 90 s apart, at most three times, within exactly the bounds pickup types within
-(`Whiska.MousePane`), never into a held mouse. Each ring is counted before it is typed and
-put back if herdr refuses, the order pickup's cap uses. After the third, the answer is
-marked not taken once and the house raises one hoot; the board row, `inbox` and `whiska
-questions` say so until the mouse takes it. Pickup leaves such a mouse alone: its next
-turn never began.
+(`Whiska.MousePane`), never into a held mouse or a landed branch. Each ring is counted
+before it is typed and put back if herdr refuses — or its client crashes — the order
+pickup's cap uses. After the third, the answer is marked not taken once and the house
+raises one hoot, waiting first for the person to be back if they are away or focused
+elsewhere (`Whiska.Delivery.Mode`); the board row, `inbox` and `whiska questions` say so
+until the mouse takes it. Pickup leaves such a mouse alone: its next turn never began.

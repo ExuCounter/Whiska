@@ -1783,8 +1783,17 @@ defmodule Whiska.CLI do
   defp type_carry_on(mouse, branch, stop) do
     with {:ok, socket} <- herdr_socket(),
          :ok <- Herdr.impl().prompt(socket, mouse.pane, Mode.resume_line()) do
-      if stop.status in ["open", "sent"], do: Storage.answer(stop.id, Mode.resume_line())
-      Storage.set_working(mouse.mouse_id, DateTime.utc_now())
+      now = DateTime.utc_now()
+
+      # Whiska's own line, typed straight into the pane: taken as it is
+      # answered, so the owl never rings for it as though the person had
+      # (ADR-next-an-answer-is-taken-not-typed).
+      if stop.status in ["open", "sent"] do
+        Storage.answer(stop.id, Mode.resume_line())
+        Storage.take([stop.id], now)
+      end
+
+      Storage.set_working(mouse.mouse_id, now)
       say("Hold on #{branch} lifted; told it to carry on from where it stopped.")
     else
       {:error, {:no_socket, default}} ->

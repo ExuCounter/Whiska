@@ -88,11 +88,13 @@ defmodule Whiska.InstallGlobalTest do
     end
 
     test "it never skips a stop — a lost question is worse than a slow turn" do
-      shim = Install.shim(:global)
-      [guard, _] = String.split(shim, "*/worktrees/*", parts: 2)
+      early_exits =
+        ~r/^if \[ "\$\{?1(?::-)?\}?" = "([a-z-]+)" \] && \[ -n "\$\{CLAUDE_PROJECT_DIR:-\}" \]/m
+        |> Regex.scan(Install.shim(:global), capture: :all_but_first)
+        |> List.flatten()
+        |> Enum.sort()
 
-      # The guard is reached only for pre-tool-use, so a Stop always runs.
-      assert guard =~ ~s([ "$1" = "pre-tool-use" ])
+      assert early_exits == ["pre-tool-use", "user-prompt-submit"]
     end
 
     test "it skips only when Claude Code said where the session started" do

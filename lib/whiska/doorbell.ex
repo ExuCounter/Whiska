@@ -24,6 +24,7 @@ defmodule Whiska.Doorbell do
 
   alias Whiska.AnswerFlag
   alias Whiska.Delivery.Draft
+  alias Whiska.Delivery.Mode
   alias Whiska.MousePane
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -38,9 +39,12 @@ defmodule Whiska.Doorbell do
           | :not_taken
           | {:left, atom() | {:refused, term()} | {:uncounted, term()}}
 
+  # Not the 🐱 a delivered line starts with: the `whiska-delivered` skill is
+  # listed in every session, a mouse's included, and fires on a 🐱 line with an
+  # id in it.
   @spec line(integer()) :: String.t()
   def line(question_id) do
-    "🐱 The person answered ##{question_id}; the answer is attached to this message. " <>
+    "🔔 The person answered your question ##{question_id}; the answer is attached to this message. " <>
       "If it is not, and you were not given it earlier in this session, say so and end the turn."
   end
 
@@ -61,7 +65,8 @@ defmodule Whiska.Doorbell do
   One pass over every chased answer of this house.
 
   Keys: `:main_checkout`, `:herdr`, `:socket`, `:panes` (herdr's last full
-  answer, which the house already holds), `:main_pane`, `:ring_ms`, `:now`.
+  answer, which the house already holds), `:main_pane`, `:ring_ms`, `:mode`
+  (what the person set aside, `Whiska.Delivery.Mode.t/0`), `:now`.
   """
   @spec sweep(map()) :: [{Question.t(), Mouse.t() | nil, outcome()}]
   def sweep(%{panes: {:ok, panes}} = house) do
@@ -86,12 +91,15 @@ defmodule Whiska.Doorbell do
     with :ok <- alive(mouse),
          :ok <- not_held(mouse),
          :ok <- due(q, house),
-         :ok <- rings_left(q) do
+         :ok <- rings_left(q, house) do
       pane(mouse, panes, house)
     end
   end
 
-  defp alive(%Mouse{died_at: nil, removed_at: nil, path: path}) when is_binary(path) do
+  # A landed branch's merge was the answer to everything it left waiting
+  # (ADR-0064), so it is rung for nothing more.
+  defp alive(%Mouse{died_at: nil, removed_at: nil, landed_at: nil, path: path})
+       when is_binary(path) do
     if File.dir?(path), do: :ok, else: {:leave, :gone}
   end
 
@@ -108,9 +116,21 @@ defmodule Whiska.Doorbell do
       else: {:leave, :rung_recently}
   end
 
-  defp rings_left(%Question{rings: rings}) when rings < @max_rings, do: :ok
-  defp rings_left(%Question{stale_at: nil}), do: :give_up
-  defp rings_left(_already_told), do: {:leave, :given_up}
+  # Giving up tells the person, so it waits behind what they set aside exactly
+  # as a delivery does (ADR-0079): while they are away, or focused on another
+  # mouse, the ringing goes on and the telling waits until they are back.
+  defp rings_left(%Question{rings: rings}, _house) when rings < @max_rings, do: :ok
+
+  defp rings_left(%Question{stale_at: nil} = q, house) do
+    case Mode.waits(q, house.mode) do
+      nil -> :give_up
+      :away -> {:leave, :away}
+      {:focus, _mouse_id} -> {:leave, :unfocused}
+      :held -> {:leave, :held}
+    end
+  end
+
+  defp rings_left(_already_told, _house), do: {:leave, :given_up}
 
   defp pane(mouse, panes, house) do
     case MousePane.agent_panes(mouse, panes) do

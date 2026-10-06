@@ -9,6 +9,7 @@ defmodule Whiska.InstallShimPromptTest do
   """
   use ExUnit.Case, async: true
 
+  alias Whiska.AnswerFlag
   alias Whiska.Install
 
   setup do
@@ -19,7 +20,7 @@ defmodule Whiska.InstallShimPromptTest do
     File.mkdir_p!(admin)
     File.write!(Path.join(worktree, ".git"), "gitdir: #{admin}\n")
     on_exit(fn -> File.rm_rf!(root) end)
-    {:ok, root: root, worktree: worktree, admin: admin}
+    {:ok, root: root, worktree: worktree}
   end
 
   describe "settings.json" do
@@ -55,10 +56,9 @@ defmodule Whiska.InstallShimPromptTest do
 
       test "a worktree with an answer waiting reaches Whiska, payload intact", %{
         root: root,
-        worktree: worktree,
-        admin: admin
+        worktree: worktree
       } do
-        File.write!(Path.join(admin, "whiska-answer"), "")
+        :ok = AnswerFlag.set(worktree)
 
         assert %{status: 0, called: [call]} = run(sandbox(root, unquote(scope)), worktree)
         assert call.args == ["hook", "user-prompt-submit"]
@@ -67,13 +67,23 @@ defmodule Whiska.InstallShimPromptTest do
 
       test "a gitdir written as a relative path is read the same way", %{
         root: root,
-        worktree: worktree,
-        admin: admin
+        worktree: worktree
       } do
         File.write!(Path.join(worktree, ".git"), "gitdir: ../../.git/worktrees/feat-a\n")
-        File.write!(Path.join(admin, "whiska-answer"), "")
+        :ok = AnswerFlag.set(worktree)
 
         assert %{called: [_call]} = run(sandbox(root, unquote(scope)), worktree)
+      end
+
+      test "a stop is never skipped, in a worktree or out of one", %{
+        root: root,
+        worktree: worktree
+      } do
+        sandbox = sandbox(root, unquote(scope))
+
+        for project <- [worktree, Path.join(root, "repo")] do
+          assert %{called: [%{args: ["hook", "stop"]}]} = run(sandbox, project, "stop")
+        end
       end
 
       test "with no project directory to decide on, Whiska decides", %{root: root} do
@@ -107,7 +117,7 @@ defmodule Whiska.InstallShimPromptTest do
     %{dir: dir, shim: shim, whiska: whiska, escript: escript, log: log}
   end
 
-  defp run(sandbox, project_dir) do
+  defp run(sandbox, project_dir, hook \\ "user-prompt-submit") do
     payload_file = Path.join(sandbox.dir, "payload.json")
     File.write!(payload_file, JSON.encode!(%{"prompt" => "hello", "cwd" => project_dir}))
     File.rm(sandbox.log)
@@ -122,7 +132,7 @@ defmodule Whiska.InstallShimPromptTest do
     {_out, status} =
       System.cmd(
         "bash",
-        ["-c", ~s|bash "#{sandbox.shim}" user-prompt-submit < "#{payload_file}" 2>/dev/null|],
+        ["-c", ~s|bash "#{sandbox.shim}" #{hook} < "#{payload_file}" 2>/dev/null|],
         env: env
       )
 

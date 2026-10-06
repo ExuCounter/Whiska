@@ -258,10 +258,15 @@ defmodule Whiska.Install do
   # and skipped entirely when that is unset: the working directory follows every
   # `cd` the session runs (ADR-0053) and is not safe to decide on. `Stop` never
   # takes this path at all — a question lost is worse than a turn slowed.
-  @shim_stand_down """
+  # The prompt hook's early exit comes before the stand-down, which greps the
+  # repo's settings: a prompt with no answer waiting pays for neither.
+  @global_header """
   #!/usr/bin/env bash
   # Whiska's hooks, the copy in ~/.claude (`whiska init --global`).
-  #
+
+  """
+
+  @shim_stand_down """
   # A repo that wires Whiska itself wins: Claude Code runs both this and the
   # repo's own hook, and running both would deny twice and leave two questions
   # on the doorstep for one turn.
@@ -288,8 +293,9 @@ defmodule Whiska.Install do
 
   """
 
-  @global_shim @shim_stand_down <>
+  @global_shim @global_header <>
                  @prompt_fast_path <>
+                 @shim_stand_down <>
                  @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
 
   # The retired review loop (ADR-0049). Nothing writes it and nothing runs it;

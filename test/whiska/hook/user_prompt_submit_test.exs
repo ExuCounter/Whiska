@@ -144,13 +144,51 @@ defmodule Whiska.Hook.UserPromptSubmitTest do
     assert UserPromptSubmit.run(prompt(worktree)) == :none
   end
 
-  test "is silent in the main session", %{main: main, worktree: worktree, mouse_id: mouse_id} do
+  test "is silent outside a worktree", %{main: main, worktree: worktree, mouse_id: mouse_id} do
     seed(main, worktree, mouse_id, fn ->
       q = ask(mouse_id, "?")
       {:ok, _} = Storage.answer(q.id, "yes")
     end)
 
     assert UserPromptSubmit.run(prompt(main)) == :none
+  end
+
+  test "takes nothing in the main session's pane, wherever it started (ADR-0053)", %{
+    main: main,
+    worktree: worktree,
+    mouse_id: mouse_id
+  } do
+    seed(main, worktree, mouse_id, fn ->
+      Storage.set_main_pane("w1:p7")
+      q = ask(mouse_id, "?")
+      {:ok, _} = Storage.answer(q.id, "yes")
+    end)
+
+    :ok = AnswerFlag.set(worktree)
+
+    assert UserPromptSubmit.run(prompt(worktree)) == :none
+    in_house(main, fn -> assert Storage.question(1).taken_at == nil end)
+    assert AnswerFlag.set?(worktree)
+  end
+
+  test "never hands a mouse's answer to another worktree carrying a copy of its marker", %{
+    main: main,
+    worktree: worktree,
+    mouse_id: mouse_id
+  } do
+    seed(main, worktree, mouse_id, fn ->
+      q = ask(mouse_id, "?")
+      {:ok, _} = Storage.answer(q.id, "yes")
+    end)
+
+    copy = Path.join(main, "worktrees/feat-copy")
+    File.mkdir_p!(Path.join(main, ".git/worktrees/feat-copy"))
+    File.mkdir_p!(copy)
+    File.write!(Path.join(copy, ".git"), "gitdir: #{main}/.git/worktrees/feat-copy\n")
+    File.cp!(Marker.path(worktree), Marker.path(copy))
+
+    assert UserPromptSubmit.run(prompt(copy)) == :none
+    in_house(main, fn -> assert Storage.question(1).taken_at == nil end)
   end
 
   test "`whiska hook user-prompt-submit` reads stdin, prints the hand-over, exits 0", %{

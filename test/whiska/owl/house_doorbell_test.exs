@@ -96,7 +96,7 @@ defmodule Whiska.Owl.HouseDoorbellTest do
     House.sync(house)
   end
 
-  defp open(repo) do
+  defp open(repo, opts \\ []) do
     name = :"house-#{System.unique_integer([:positive])}"
     allow(Herdr, self(), fn -> Process.whereis(name) end)
     allow(Desktop, self(), fn -> Process.whereis(name) end)
@@ -111,7 +111,8 @@ defmodule Whiska.Owl.HouseDoorbellTest do
            desktop: Desktop,
            backstop_ms: 3_600_000,
            board_ms: 3_600_000,
-           ring_ms: 0
+           ring_ms: Keyword.get(opts, :ring_ms, 0),
+           away_path: Keyword.get(opts, :away_path, Path.join(repo.root, "not-away"))
          ]}
       )
 
@@ -175,7 +176,7 @@ defmodule Whiska.Owl.HouseDoorbellTest do
   end
 
   test "stops ringing once the mouse asks a newer question (ADR-0005)", %{repo: repo} do
-    answered(repo)
+    q = answered(repo)
 
     in_house(repo, fn ->
       Storage.record_question(%{mouse_id: "ma", text: "next?", kind: "needs-decision"})
@@ -183,7 +184,55 @@ defmodule Whiska.Owl.HouseDoorbellTest do
 
     quietly(fn -> repo |> open() |> sweep() end)
 
-    refute_received {:typed, "w1:p1", "🐱" <> _}
+    line = Doorbell.line(q.id)
+    refute_received {:typed, "w1:p1", ^line}
+  end
+
+  test "stops ringing once the mouse's branch has landed (ADR-0064)", %{repo: repo} do
+    answered(repo)
+    in_house(repo, fn -> {:ok, _} = Storage.mark_landed("ma") end)
+
+    quietly(fn -> repo |> open() |> sweep() end)
+
+    refute_received {:typed, _, _}
+  end
+
+  test "rings again only once ring_ms has passed since the last doorbell", %{repo: repo} do
+    q = answered(repo, rung_at: DateTime.utc_now())
+
+    quietly(fn -> repo |> open(ring_ms: 3_600_000) |> sweep() end)
+
+    refute_received {:typed, _, _}
+    in_house(repo, fn -> assert Storage.question(q.id).rings == 0 end)
+  end
+
+  test "gives up only once ring_ms has passed since the third ring", %{repo: repo} do
+    q = answered(repo, rung_at: DateTime.utc_now(), rings: 3)
+
+    quietly(fn -> repo |> open(ring_ms: 3_600_000) |> sweep() end)
+
+    refute_received {:hoot, _}
+    in_house(repo, fn -> assert Storage.question(q.id).stale_at == nil end)
+  end
+
+  test "while the person is away it keeps ringing but waits to give up until they are back",
+       %{repo: repo} do
+    q = answered(repo, rung_at: ~U[2026-01-01 00:00:00Z], rings: 3)
+    away = Path.join(repo.root, "away")
+    File.write!(away, "")
+
+    quietly(fn ->
+      house = open(repo, away_path: away)
+      sweep(house)
+      refute_received {:hoot, _}
+      in_house(repo, fn -> assert Storage.question(q.id).stale_at == nil end)
+
+      File.rm!(away)
+      sweep(house)
+    end)
+
+    assert_received {:hoot, _}
+    in_house(repo, fn -> assert %DateTime{} = Storage.question(q.id).stale_at end)
   end
 
   test "waits while the mouse's pane is busy, and the wait uses up no ring", %{
@@ -209,17 +258,18 @@ defmodule Whiska.Owl.HouseDoorbellTest do
   end
 
   test "never rings into the main session's pane (ADR-0053)", %{repo: repo, path: path} do
-    answered(repo)
+    q = answered(repo)
     in_house(repo, fn -> Storage.set_main_pane("w1:p1") end)
     stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(path, "done")]} end)
 
     quietly(fn -> repo |> open() |> sweep() end)
 
-    refute_received {:typed, "w1:p1", "🐱 The person" <> _}
+    line = Doorbell.line(q.id)
+    refute_received {:typed, "w1:p1", ^line}
   end
 
   test "holds off while the person has a draft in the mouse's prompt box", %{repo: repo} do
-    answered(repo)
+    q = answered(repo)
 
     stub(Herdr, :read_screen, fn _, _ ->
       {:ok, File.read!(Path.join(@screens, "box-holds-a-draft.txt"))}
@@ -228,5 +278,10 @@ defmodule Whiska.Owl.HouseDoorbellTest do
     quietly(fn -> repo |> open() |> sweep() end)
 
     refute_received {:typed, _, _}
+    in_house(repo, fn -> assert Storage.question(q.id).rings == 0 end)
+  end
+
+  test "the doorbell does not read as a line the owl delivers to the main session" do
+    refute String.starts_with?(Doorbell.line(12), "🐱")
   end
 end

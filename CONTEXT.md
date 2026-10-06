@@ -230,13 +230,14 @@ the only other lines Whiska types go into a mouse's own pane — a **pickup** an
 _Avoid_: notify, ping, relay (the old bash mechanism), push
 
 **Doorbell**:
-The one fixed line typed into a mouse's pane when the person has answered it — "🐱 The
-person answered #12; the answer is attached …" — and never the answer itself
-(ADR-next-an-answer-is-taken-not-typed). `whiska reply` rings it once the answer is saved;
-the owl rings it again on the backstop while the answer is not **taken**, at least 90 s
-apart and at most three times, only into an idle pane with an empty prompt box, never a
-held mouse's and never the main session's. A doorbell rung twice is harmless: the second
-finds nothing left to hand over.
+The one fixed line typed into a mouse's pane when the person has answered it — "🔔 The
+person answered your question #12; the answer is attached …" — and never the answer
+itself (ADR-next-an-answer-is-taken-not-typed). Never a 🐱: that is a delivered line, and
+the `whiska-delivered` skill every session lists fires on one. `whiska reply` rings it
+once the answer is saved; the owl rings it again on the backstop while the answer is not
+**taken**, at least 90 s apart and at most three times, only into an idle pane with an
+empty prompt box, never a held mouse's, a landed branch's or the main session's. A
+doorbell rung twice is harmless: the second finds nothing left to hand over.
 _Avoid_: nudge (retired), ping, poke, inbox (the person's listing — see **Inbox**)
 
 **Taken**:
@@ -246,7 +247,8 @@ prompt takes it, the doorbell or one the person types into the pane. An answer t
 `answered`, not taken, and its mouse's newest question is **chased** — the owl keeps
 ringing for it. One still not taken 90 s after the owl's third ring is **not taken**: the
 board row, `inbox` and `whiska questions` say so, it counts as waiting on the person, and
-one hoot goes out. A mouse that asked a newer question has moved past the answer, so it is
+one hoot goes out — once the person is back, if they are **away** or focused elsewhere.
+A dead mouse's or a landed branch's answer is never not taken: nobody can act on it. A mouse that asked a newer question has moved past the answer, so it is
 never chased or handed over (ADR-0005).
 _Avoid_: acknowledged, acked, read, received, handled (firstmate's word, for a file a
 worker moves)

@@ -747,6 +747,7 @@ defmodule Whiska.Owl.House do
       panes: state.last_panes,
       main_pane: state.main_pane,
       ring_ms: state.ring_ms,
+      mode: mode(state),
       now: DateTime.utc_now()
     }
     |> Doorbell.sweep()

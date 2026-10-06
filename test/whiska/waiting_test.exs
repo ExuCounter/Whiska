@@ -130,6 +130,23 @@ defmodule Whiska.WaitingTest do
       assert Waiting.render([entry]) =~ "not taken"
     end
 
+    test "an answer not taken stops waiting on the person once its mouse is dead", %{
+      root: root,
+      record: record
+    } do
+      main = house!(root, "myrepo", record)
+
+      seed(main, fn ->
+        mouse("m1", "feat-a", "%3")
+        q = ask("m1", "[worktree-status: needs-decision] pick one")
+        {:ok, _} = Storage.answer(q.id, "the first")
+        {:ok, _} = Storage.mark_not_taken(q.id, DateTime.utc_now())
+        {:ok, _} = Storage.mark_dead("m1")
+      end)
+
+      assert Waiting.list(open_houses: record) == []
+    end
+
     test "reads every recorded house, not just one", %{root: root, record: record} do
       a = house!(root, "alpha", record)
       b = house!(root, "beta", record)

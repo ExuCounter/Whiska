@@ -421,6 +421,36 @@ defmodule Whiska.CLIDeliveryTest do
       in_house(main, fn -> assert Storage.question(1).status == "answered" end)
     end
 
+    test "never writes the flag through a link a mouse planted where it goes", %{
+      main: main,
+      root: root
+    } do
+      victim = Path.join(root, "victim")
+      File.write!(victim, "keep me")
+      File.ln_s!(victim, Path.join(main, ".git/worktrees/feat-a/whiska-answer"))
+      seed(main, fn -> ask("?") end)
+      expect(Herdr, :prompt, fn @socket, "w1R:p1", _doorbell -> :ok end)
+
+      {0, _, _} = run(["reply", "1", "yes"], main)
+
+      assert File.read!(victim) == "keep me"
+    end
+
+    @tag timeout: 10_000
+    test "a worktree whose .git is not a file does not hang the reply", %{
+      main: main,
+      worktree: worktree
+    } do
+      dot_git = Path.join(worktree, ".git")
+      File.rm!(dot_git)
+      {_, 0} = System.cmd("mkfifo", [dot_git])
+      seed(main, fn -> ask("?") end)
+      expect(Herdr, :prompt, fn @socket, "w1R:p1", _doorbell -> :ok end)
+
+      {0, out, _} = run(["reply", "1", "yes"], main)
+      assert out =~ "Could not mark its worktree"
+    end
+
     test "with no herdr at all the answer is still saved for the owl to ring", %{
       main: main,
       root: root,
