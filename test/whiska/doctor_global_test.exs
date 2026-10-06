@@ -16,24 +16,24 @@ defmodule Whiska.DoctorGlobalTest do
   defp find(checks, name), do: Enum.find(checks, &(&1.name == name))
 
   # The global install as the doctor sees it: which of its pieces are on disk.
-  defp installed, do: %{block?: true, hooks?: true, statusline?: true, skills?: true}
-  defp absent, do: %{block?: false, hooks?: false, statusline?: false, skills?: false}
+  defp installed, do: %{hooks?: true, statusline?: true, skills?: true}
+  defp absent, do: %{hooks?: false, statusline?: false, skills?: false}
 
   describe "global/1 — is the global install there, and whole" do
     test "nothing installed is not a failure; a repo may simply carry its own" do
       assert %Check{status: :ok, name: "global install"} = Doctor.global(absent())
     end
 
-    test "all four pieces reads as on" do
+    test "every piece there reads as on" do
       assert %Check{status: :ok, detail: detail} = Doctor.global(installed())
       assert detail =~ "~/.claude"
     end
 
-    test "a block left behind by an uninstall is not a half-written install" do
-      # `remove/1` keeps the outer markers whenever a part the person claimed
-      # with `keep` survives (ADR-0045), so the markers alone mean nothing.
-      assert %Check{status: :ok, detail: detail} = Doctor.global(%{absent() | block?: true})
-      assert detail =~ "not installed"
+    test "the hooks missing, SessionStart included, is a half-written install" do
+      assert %Check{status: :warn, detail: detail} =
+               Doctor.global(%{installed() | hooks?: false})
+
+      assert detail =~ "hooks"
     end
 
     test "a half-written install is a warning naming what is missing" do
@@ -50,8 +50,10 @@ defmodule Whiska.DoctorGlobalTest do
 
       assert %Check{status: :ok, detail: pre} = find(checks, "PreToolUse")
       assert %Check{status: :ok, detail: stop} = find(checks, "Stop")
+      assert %Check{status: :ok, detail: start} = find(checks, "SessionStart")
       assert pre =~ "globally"
       assert stop =~ "globally"
+      assert start =~ "globally"
     end
 
     test "a repo with no hooks of its own still fails when nothing is global" do

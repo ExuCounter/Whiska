@@ -25,7 +25,7 @@ C4Deployment
       Container(plist, "The owl's job", "~/Library/LaunchAgents/ or ~/.config/systemd/user/", "The plist or the unit: runs owl.sh, restarts on a crash only")
       Container(wrapper, "owl.sh + owl.log", "~/.whiska/", "Resolves binary and runtime at launch; the owl's stdout and stderr")
       Container(cache, "exqlite cache", "~/.cache/whiska/", "Unpacked SQLite native library")
-      Container(globalinstall, "Global install - optional", "~/.claude/", "The same block, shim, board script, hooks and skills, for every repo. Often symlinks into a dotfiles repo")
+      Container(globalinstall, "Global install - optional", "~/.claude/", "The same shim, board script, three hooks and skills, for every repo. Often symlinks into a dotfiles repo")
     }
   }
 
@@ -71,9 +71,10 @@ once. It disappears with ADR-0033's native hook client.
 cannot carry a committed `.claude/` — someone else's repo, or one whose owners will not
 take another tool's hooks — would otherwise spawn mice with none of the rules, because an
 uncommitted file is in no worktree git creates. `whiska init --global` writes the identical
-relative paths under `~` instead: the block in `~/.claude/CLAUDE.md`, the shim and the
-board script in `~/.claude/hooks/`, both hooks and the statusline in
-`~/.claude/settings.json`, and all nine skills in `~/.claude/skills/`. Nothing in the hooks was
+relative paths under `~` instead: the shim and the board script in `~/.claude/hooks/`, the
+three hooks — `PreToolUse`, `Stop` and `SessionStart` — and the statusline in
+`~/.claude/settings.json`, and every skill in `~/.claude/skills/`. Nothing goes into
+`~/.claude/CLAUDE.md`: the rules arrive at session start (ADR-next-rules-arrive-by-role). Nothing in the hooks was
 ever repo-specific — which worktree they are firing in comes from where the session started
 (ADR-0053), and the board file is found by walking up from the session's directory — so the
 move costs nothing. What stays in the repo is the house under `.git/whiska`, which was

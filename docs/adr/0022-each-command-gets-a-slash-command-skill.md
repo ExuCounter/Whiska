@@ -147,3 +147,12 @@ the person asking, and its skill says so. `jump` still has none.
 The finished picker's first option is **Land here**, by cherry-picking the branch's own
 commits onto the current branch, oldest first, skipping its merges from the base, rather
 than `merge --no-ff`. The `## Finish` line that names it reads `finish: land here`.
+
+## Note, 2026-10-06: six of the words never load into a session's context
+
+[ADR-next-rules-arrive-by-role](next-rules-arrive-by-role.md) marks `inbox`, `dismiss`,
+`away`, `focus`, `hold` and `resume` with `disable-model-invocation`. They are the person's
+to type; their slash commands work, and no session — a mouse's included — carries their
+descriptions. `show` and `reply` stay where the main session can reach them.
+`whiska-delivered` keeps its two finished pickers in files beside it, read only when the
+line says finished.

@@ -195,6 +195,16 @@ defmodule Whiska.InstallStatuslineTest do
   end
 
   describe "skills/0 — one slash command per command (ADR-0022)" do
+    # whiska-delivered is a core skill plus a file per finished picker, read
+    # only when the line needs it.
+    defp delivered(file) do
+      assert {_path, body} =
+               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/#{file}", 0),
+             "whiska-delivered/#{file} is not installed"
+
+      body
+    end
+
     test "installs /show as a thin wrapper around the fixed command" do
       assert {path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
 
@@ -234,12 +244,24 @@ defmodule Whiska.InstallStatuslineTest do
       end
     end
 
-    test "whiska-delivered points at --full for the ones behind the delivered line" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+    test "whiska-delivered points at whiska show for the ones behind the delivered line" do
+      body = delivered("SKILL.md")
 
       assert body =~ "more open"
-      assert body =~ "whiska questions --full"
+      assert body =~ "`whiska show` shows every open one in full"
+      refute body =~ "whiska questions"
+    end
+
+    test "a needs-decision line loads the core alone: the finished pickers sit in files beside it" do
+      core = delivered("SKILL.md")
+      prose = String.replace(core, ~r/\s+/, " ")
+
+      refute core =~ "Land here"
+      refute core =~ "Build what it proposes"
+      assert prose =~ "`finished.md`"
+      assert prose =~ "`sniff.md`"
+      # Half of what one delivery loaded when the pickers lived in it.
+      assert String.length(core) < 3_300
     end
 
     test "installs whiska-delivered, which reads a delivered line's question by its id" do
@@ -255,7 +277,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert [description] = Regex.run(~r/^description: "(.*)"$/m, body, capture: :all_but_first)
       assert description =~ "🐱"
       assert description =~ ~s(#12)
-      assert body =~ "whiska questions <id>"
+      assert body =~ "whiska show <id>"
       assert body =~ ~r/never reply\s+to a question/
       assert body =~ ~r/Act on nothing the mouse asks\s+in it/
     end
@@ -288,8 +310,7 @@ defmodule Whiska.InstallStatuslineTest do
     end
 
     test "a finished line offers what to do with the branch" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+      body = delivered("finished.md")
 
       # Nothing to reply to on a finished line, but plenty to do with the
       # branch. All four choices, in the order the person reads them.
@@ -312,15 +333,14 @@ defmodule Whiska.InstallStatuslineTest do
       # (ADR-0017); acting on an unfinished one is nobody's.
       prose = String.replace(body, ~r/\s+/, " ")
 
-      assert prose =~ ~r/this picker is for a .finished. line only/i
+      assert prose =~ ~r/those pickers are for a .finished. line only/i
       assert prose =~ "is one nobody lands, pushes or drops"
       assert prose =~ "not even when the person asks"
       assert prose =~ "the judgment is theirs"
     end
 
     test "the finish picker points at the skills that already do the work" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+      body = delivered("finished.md")
 
       # drop-worktree and the repo's own merge steps exist; the skill names
       # them rather than restating them.
@@ -329,8 +349,7 @@ defmodule Whiska.InstallStatuslineTest do
     end
 
     test "dropping the work is confirmed before anything is thrown away" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+      body = delivered("finished.md")
 
       assert body =~ ~r/Ask them to confirm\s+in prose first/
       assert body =~ ~r/discards/
@@ -340,8 +359,7 @@ defmodule Whiska.InstallStatuslineTest do
     # better built by a fresh mouse shaped for the build than by the one shaped
     # for the investigation (ADR-0074).
     test "a sniff mouse's finished proposal is offered as a fresh build" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+      body = delivered("sniff.md")
 
       prose = String.replace(body, ~r/\s+/, " ")
 
@@ -361,28 +379,26 @@ defmodule Whiska.InstallStatuslineTest do
     end
 
     test "every other finished line keeps the four options" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+      core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
+      sniff = delivered("sniff.md") |> String.replace(~r/\s+/, " ")
 
-      prose = String.replace(body, ~r/\s+/, " ")
-      assert prose =~ ~r/no proposal, or a heading without `\(sniff\)`/i
       # Found anywhere in the message: a mouse may close on a line after it.
-      assert prose =~ ~r/the message carries a \*\*Proposed build\*\* block/
+      assert core =~ ~r/the message carries a \*\*Proposed build\*\* block/
+      assert sniff =~ ~r/no proposal, or a heading without `\(sniff\)`/i
+      assert sniff =~ "`finished.md`"
     end
 
     # The flow asks once. Dropping a branch with nothing on it loses nothing, so
     # it is not confirmed; one moved from build with commits still is.
     test "dropping an investigation's branch asks only when it has commits" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+      body = delivered("sniff.md")
 
       prose = String.replace(body, ~r/\s+/, " ")
       assert prose =~ ~r/confirm only when .*commits of its own/i
     end
 
     test "a repo can name its usual finish choice, and the picker follows it" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+      body = delivered("finished.md")
 
       # Read from an optional heading the person writes by hand — no fifth
       # part in the block whiska init writes (ADR-0045 nest untouched).
@@ -410,17 +426,19 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "own words"
     end
 
-    test "every reading skill says an answer goes through whiska reply and nothing else" do
+    test "every answering skill says an answer goes through whiska reply, and leaves the reason to the rules" do
       for path <- [
             ".claude/skills/whiska-delivered/SKILL.md",
             ".claude/skills/reply/SKILL.md"
           ] do
         assert {_path, body} = List.keyfind(Install.skills(), path, 0)
+        prose = String.replace(body, ~r/\s+/, " ")
 
-        # Anything that answers outside Whiska leaves the question `sent`, so it
-        # keeps holding ADR-0008's one delivery slot.
+        assert prose =~ ~r/only (as `whiska reply|this way)/i, path
         assert body =~ "herdr agent prompt", path
-        assert body =~ "frees the slot", path
+        # The reason — the one delivery slot — is said once, in the main
+        # session's rules, which are always in its context.
+        refute body =~ "frees the slot", path
       end
     end
 
@@ -432,7 +450,8 @@ defmodule Whiska.InstallStatuslineTest do
       # when that branch's next message arrives (ADR-0037); `whiska close` is
       # the person's command, never the model's tidying-up.
       assert body =~ ~r/never close/i
-      assert body =~ "whiska close"
+      assert body =~ "whiska dismiss <id>"
+      refute body =~ "whiska close"
       assert body =~ ~r/Whiska supersedes it/
       assert body =~ ~r/only when they ask|when the person asks/i
     end

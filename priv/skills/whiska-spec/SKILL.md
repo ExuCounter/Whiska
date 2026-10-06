@@ -29,7 +29,7 @@ no grilling skips it: the person's own words are its spec. Size never skips it.
    - In the main checkout, add the line to `.git/info/exclude` yourself.
 4. **Ask.** Send the whole spec to the person as the question, and build only after they
    say ok. The message is the spec as written, with no length cap, then the pointer "Spec
-   ready, see above — ok to build?", above the decision marker the block describes, in a
+   ready, see above — ok to build?", above the decision marker a mouse's rules describe, in a
    worktree. "ok" → build. Anything else → change the file to match and send the whole
    spec again.
 5. **Build to it.** While building, the spec is what was agreed. A costly choice it does

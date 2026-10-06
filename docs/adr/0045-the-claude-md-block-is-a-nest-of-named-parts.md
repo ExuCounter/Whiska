@@ -99,3 +99,19 @@ bullet rather than the two saying it twice. Two items of ADR-0017's firstmate-de
 default template land with it — report outcomes faithfully, and evidence-first when
 asking for a decision, "with a concrete four-part template, not just the principle".
 The rest of that template is still not in the block.
+
+## Amendment (2026-10-06): the parts are rules a hook prints, and init takes the block out
+
+[ADR-next-rules-arrive-by-role](next-rules-arrive-by-role.md) stops writing the block. The
+parts live on as named rules a `SessionStart` hook prints for one role, and `keep` keeps its
+meaning: a part held as `keep` in `~/.claude/CLAUDE.md` or the project's own `CLAUDE.md` is
+left out of what the hook prints, since the person's wording is already in context.
+
+This record said:
+
+> A part from an older Whiska that is no longer shipped is left exactly where it is, not
+> tidied away.
+
+That no longer holds. `whiska init` takes Whiska's parts out of an existing block — left in
+place, every rule would reach the session twice. A `keep` part and the person's own text
+inside the markers stay. The grammar above is still how the old block is read.

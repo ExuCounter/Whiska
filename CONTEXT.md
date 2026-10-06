@@ -110,7 +110,7 @@ assumed, one thing worth knowing, then
 either nothing waiting or the one decision: a plain brief of the terms, the problem and
 why there is a choice, then its options and a recommendation. It
 names how a message reads, never the record it becomes: once collected the same message
-is a **question**. The block's `report` part teaches it. `done` report is the older,
+is a **question**. A mouse's `report` part teaches it. `done` report is the older,
 narrower use of the word — a question whose marker said `done` — and both stay.
 _Avoid_: summary, status, update, hand-off
 
@@ -559,14 +559,21 @@ much it has had to collect is the measure of whether the event-driven path is al
 _Avoid_: fallback, poller, sweep, safety net (all of them suggest a path that is fine to
 be on; being on this one is the symptom)
 
+**Rules** (a session's):
+The worktree protocol, in Whiska's words, as one session starts with it: the `SessionStart`
+hook prints the **parts** its role needs and nothing else (ADR-next-rules-arrive-by-role).
+Outside herdr, none. The main session gets `worktrees` (routing work to mice), `work` and
+`delivery`; a mouse gets `work`, `marker`, `report` and `finish`. Said again after
+`/compact`, `/clear` and a resume. Rules, not prose: an imperative or a concrete fact per
+line, with the reasoning left in Whiska's own ADRs (ADR-0055). A part the person holds as
+`keep` in a `CLAUDE.md` is left out, since their own wording is already in context.
+_Avoid_: block (the older home of the same rules), prompt, instructions, system prompt
+
 **Block**:
-The region of a `CLAUDE.md` that `whiska init` writes and re-writes — the worktree
-protocol, in Whiska's words, travelling with the repo the way the hooks do. It is bounded
-by one outer marker pair, and everything outside that pair is the person's and is never
-read. Made of **parts**. Rules, not prose: an imperative or a concrete fact per line, with
-the reasoning left in Whiska's own ADRs, which the file it is written into does not have
-(ADR-0055). Written into the project's own `CLAUDE.md`, or into `~/.claude/CLAUDE.md` —
-see **Scope**.
+The region of a `CLAUDE.md` an older `whiska init` wrote the rules into, bounded by one
+outer marker pair and made of **parts**. Nothing writes one now: `whiska init` and
+`whiska uninstall` take it out, keeping a `keep` part and any text of the person's inside
+the markers, and leaving everything outside them byte for byte (ADR-next-rules-arrive-by-role).
 _Avoid_: section (a part is a section too, so the word cannot tell the two apart),
 template, preamble
 
@@ -578,8 +585,8 @@ else, and the merge, the `keep` semantics and the idempotency are one implementa
 both. Per-repo is the default and the only one that travels to someone else's machine
 (ADR-0016); global is for a repo that will not carry a committed `.claude/`. Where a repo
 has both, the project's copy is **in force** and the global one **stands down**: its shim
-exits before doing anything, its block says so in its own header, and Claude Code's own
-rules settle the statusline and the skills (ADR-0056).
+exits before doing anything — for every hook, `SessionStart` included — and Claude Code's
+own rules settle the statusline and the skills (ADR-0056).
 _Avoid_: level, mode (build and sniff are modes), profile, target
 
 **Stands down**:
@@ -591,14 +598,11 @@ twice and leave the same question on the doorstep twice.
 _Avoid_: override, shadow, disable, precedence
 
 **Part**:
-One separately-replaceable piece of the block, in its own named markers —
-`worktrees`, `marker`, `delivery`, `report`, `finish` today, and `scope` in the global
-block only (ADR-0056). A part a scope does not ship is one that scope never adds and
-never rewrites. A part is replaced where it stands
-on the next `whiska init`, added if its markers are missing, and left exactly alone if
-its start marker says `keep`, which is how a person claims one as their own or drops
-it for good (ADR-0045). A part Whiska no longer ships stays where it is rather than
-being tidied away.
+One named piece of a session's **rules** — `worktrees`, `work`, `delivery`, `marker`,
+`report` and `finish` — each going to one role or both. The name is what `keep` claims: a
+part whose start marker in a `CLAUDE.md` says `keep` is the person's, left out of what the
+hook prints and left in place when an old **block** is taken out (ADR-0045,
+ADR-next-rules-arrive-by-role). `scope` was a part of the global block only and is gone.
 _Avoid_: block (the whole thing), fragment, chunk
 
 **Worktree-status marker**:
@@ -625,12 +629,14 @@ _Avoid_: summary, title, subject, preview
 What a mouse does before it is allowed to say `done`: read the work back against the
 brief and the repo's written decisions, run the repo's checks and fix what they catch,
 send reviewers over its own diff, go round once more, and only then write the marker.
-Plain instructions in the `whiska-finish` skill `whiska init` installs, which the block's
+Plain instructions in the `whiska-finish` skill `whiska init` installs, which a mouse's
 `finish` part names as the trigger and nothing more — the steps only matter as a turn
-ends, so they stay out of context until then (ADR-0055). Run by the mouse itself: Whiska
+ends, so they stay out of context until then (ADR-0055). Nothing changed since the
+session's last green finish → the checks and reviewers are skipped and the message says
+so. Run by the mouse itself: Whiska
 neither runs it nor knows whether it was run (ADR-0049). What green means here, where the
 decisions live and what a ticket id looks like are the repo's to say, under a `## Finish`
-heading in its own `CLAUDE.md` outside the block. The same heading carries the person's
+heading in its own `CLAUDE.md`. The same heading carries the person's
 usual choice for a finished branch, the repo's extra **reviewers**, and a security scan
 it would rather run than a reviewer.
 _Avoid_: review loop (retired, below), checks, gate (the no-mistakes gate is a different

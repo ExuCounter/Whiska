@@ -48,7 +48,7 @@ C4Container
   Rel(house, nc, "Raises a hoot herdr will not show; doctor probes the same path")
   Rel(cli, herdr, "start types claude at this pane's shell prompt when nothing runs there")
   Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
-  Rel(herdr, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session")
+  Rel(herdr, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session; SessionStart in every herdr session")
   Rel(shim, flag, "user-prompt-submit exits at once unless it is there")
   Rel(shim, cli, "Execs with the payload on stdin", "JSON")
   Rel(cli, db, "reply saves the answer first; UserPromptSubmit hands it over and stamps it taken")

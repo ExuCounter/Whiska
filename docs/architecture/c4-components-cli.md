@@ -23,6 +23,8 @@ C4Component
     Component(prompthook, "Hook.UserPromptSubmit", "the take", "One prompt in a mouse's session in; the answer saved for it out, as context, stamped taken")
     Component(flagm, "AnswerFlag", "file", "Raises and lowers the hint in the worktree's git admin directory that the shim reads")
     Component(bell, "Doorbell", "line + sweep", "The one fixed line reply types into a mouse's pane; the owl's re-ring sweep lives beside it")
+    Component(sessionstart, "Hook.SessionStart", "printer", "One session start in, its role's rules out: none outside herdr")
+    Component(rules, "Rules", "pure", "The named parts each role starts with: the main session's, a mouse's")
     Component(session, "Session", "identity", "Which session is this: the worktree it started in, and whether its pane is the main session")
     Component(layout, "Layout", "path arithmetic", "Finds worktree root and main checkout")
     Component(markerm, "Marker", "identity", "Reads or mints the mouse_id")
@@ -33,8 +35,8 @@ C4Component
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse, or one nobody shaped, writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
-    Component(install, "Install", "pure merge", "Writes the hooks, the statusline, the skills and the CLAUDE.md block into the repo, and the machine-wide status script into ~/.whiska/")
-    Component(claudemd, "ClaudeMd", "pure merge", "The worktree protocol block, merged into CLAUDE.md one named part at a time")
+    Component(install, "Install", "pure merge", "Writes the four hooks, the statusline and the skills into the repo, and the machine-wide status script into ~/.whiska/")
+    Component(claudemd, "ClaudeMd", "pure", "Which parts a CLAUDE.md keeps, and taking an older Whiska's block back out")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, answers not taken and orphaned apart, the doorstep count")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question, per answer not taken and per uncollected doorstep entry, oldest first, each with its mouse pane")
     Component(statusline, "Statusline", "one line", "herdr's tab bar: the owl always, and what is waiting machine-wide")
@@ -72,7 +74,11 @@ C4Component
   Rel(main, specm, "shape and mode: make git ignore the spec the mouse writes after grilling")
   Rel(main, install, "Delegates init; init --global writes the eight words under the whiska home, skipping one another program answers to")
   Rel(main, mode, "away, focus, hold, resume: set and clear them; inbox and show say why a question waits")
-  Rel(main, claudemd, "init: merges the block into CLAUDE.md")
+  Rel(main, claudemd, "init and uninstall: take an old block out of CLAUDE.md")
+  Rel(main, sessionstart, "Delegates hook session-start")
+  Rel(sessionstart, session, "Mouse or main session?")
+  Rel(sessionstart, claudemd, "Which parts the person keeps")
+  Rel(sessionstart, rules, "The parts that role starts with")
   Rel(main, questions, "Delegates questions")
   Rel(main, statusline, "Delegates statusline")
   Rel(main, watch, "Delegates watch and statusline --here")
@@ -235,14 +241,16 @@ Elixir despite ADR-0033 saying hooks go native, and that is written down in the 
 than drifted into: the measurement there is about the per-tool-call path, and `Stop` fires
 once per turn.
 
-**`ClaudeMd` merges the block one named part at a time, and the file stays the person's**
-(ADR-0045). The outer `<!-- whiska:start -->` pair bounds what Whiska will touch at all;
-inside it each part has its own named pair, and `init` replaces a part where it stands,
-adds one whose markers are absent, and reads straight past one whose start marker says
-`keep`. Everything else in the file — including the person's own prose sitting between
-two parts — comes back byte for byte. The marker text it writes is interpolated from
-`Question.Marker.render/1` rather than spelled out again, so what a mouse is told to
-write and what the owl reads back cannot drift.
+**`Hook.SessionStart` prints one role's rules, and `ClaudeMd` only ever takes text out**
+(ADR-next-rules-arrive-by-role). The hook reads the role the way `Hook.Stop` does — a
+session started in a worktree and not in the recorded main pane is a mouse — and prints
+`Rules` for it as the hook's additional context, leaving out any part a `CLAUDE.md` holds
+as `keep` (ADR-0045). Outside herdr it prints nothing, and the global shim does not even
+start the escript. `ClaudeMd` reads an older Whiska's block by ADR-0045's grammar and takes
+it out on `init` and `uninstall`: Whiska's header and parts go, a `keep` part and the
+person's own text inside the markers stay, and everything outside them comes back byte for
+byte. The marker text in the rules is interpolated from `Question.Marker.render/1`, so what
+a mouse is told to write and what the owl reads back cannot drift.
 
 **The `finish` part is where finishing lives, and nothing in the escript runs it**
 (ADR-0048). A mouse checks its own work against the brief, runs the repo's checks, sends

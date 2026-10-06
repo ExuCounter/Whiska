@@ -111,14 +111,31 @@ defmodule Whiska.InstallCommandsTest do
       assert body =~ "whiska reply $ARGUMENTS"
       assert body =~ "own words"
       assert body =~ "herdr agent prompt"
-      assert body =~ "frees the slot"
     end
 
-    test "/inbox is machine-wide and says so, and runs only when typed" do
+    test "/inbox is machine-wide and says so" do
       {_path, body} = List.keyfind(Install.skills(), ".claude/skills/inbox/SKILL.md", 0)
       assert body =~ "whiska inbox"
       assert body =~ ~r/every repo|across/i
-      assert body =~ ~r/only when the person types/i
+    end
+
+    test "the six words only the person types never load into a session's context" do
+      for word <- ~w(inbox dismiss away focus hold resume) do
+        {_path, body} = List.keyfind(Install.skills(), ".claude/skills/#{word}/SKILL.md", 0)
+
+        [frontmatter, _rest] =
+          body |> String.trim_leading("---\n") |> String.split("\n---\n", parts: 2)
+
+        assert frontmatter =~ ~r/^disable-model-invocation: true$/m, word
+        refute frontmatter =~ ~r/says they|asks for|asks to|says to/i, word
+      end
+    end
+
+    test "/show and /reply stay where the main session can reach them" do
+      for word <- ~w(show reply) do
+        {_path, body} = List.keyfind(Install.skills(), ".claude/skills/#{word}/SKILL.md", 0)
+        refute body =~ "disable-model-invocation", word
+      end
     end
 
     test "/away, /focus, /hold and /resume run the command and show what it said" do
@@ -136,7 +153,7 @@ defmodule Whiska.InstallCommandsTest do
 
     test "the finished picker lands a branch by cherry-pick, not by merge" do
       {_path, body} =
-        List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+        List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/finished.md", 0)
 
       assert body =~ "Land here"
       assert body =~ "cherry-pick"

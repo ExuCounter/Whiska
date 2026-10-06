@@ -176,7 +176,7 @@ only the question id.
   Whiska, so it travels by its id:
 
   ```bash
-  herdr agent prompt <root-pane-id> 'Build the Proposed build in question #<id>. Read it first with: whiska questions <id> - its Build line is the brief, the rest is what the investigation found.'
+  herdr agent prompt <root-pane-id> 'Build the Proposed build in question #<id>. Read it first with: whiska show <id> - its Build line is the brief, the rest is what the investigation found.'
   ```
 - **Report** — one line, in place of step 8's: the branch, then what `whiska shape` said on
   stderr in plain words — "A fresh session is building it on <branch>: it can change
@@ -197,6 +197,6 @@ and none of it happens in this session.
 
 Its questions reach the main session through Whiska once this repo is `whiska init`-ed and
 the owl is running (`whiska doctor` checks both): every turn there ends with a status
-marker, the owl delivers a one-line pointer, and `whiska questions <id>` shows the whole
+marker, the owl delivers a one-line pointer, and `whiska show <id>` shows the whole
 message. Read it there, never from the pane: Claude Code runs on the alternate screen, so
 `herdr pane read` returns a truncated tail.

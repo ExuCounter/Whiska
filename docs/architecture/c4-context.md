@@ -15,7 +15,7 @@ C4Context
 
   System(whiska, "Whiska", "Mints mouse identity, enforces hard rules, queues questions to the main session")
 
-  System_Ext(claude, "Claude Code", "Main session and mice; fires PreToolUse, Stop and UserPromptSubmit hooks")
+  System_Ext(claude, "Claude Code", "Main session and mice; fires PreToolUse, Stop, UserPromptSubmit and SessionStart hooks")
   System_Ext(herdr, "herdr", "Terminal multiplexer - owns panes, starts Claude, reports agent status")
   System_Ext(git, "git worktrees", "One worktree per mouse, laid out under the main checkout")
   System_Ext(launchd, "Service manager", "launchd on macOS, systemd on Linux - keeps the one owl per machine running")

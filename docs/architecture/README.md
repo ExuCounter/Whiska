@@ -8,7 +8,7 @@ an ADR disagree, the ADR wins.
 |---|---|---|
 | 1 | [c4-context.md](c4-context.md) | Whiska between the person, Claude Code, herdr, git and the service manager |
 | 2 | [c4-containers.md](c4-containers.md) | Built against designed, as two boundaries |
-| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init and the CLAUDE.md block, mode and shape, questions, the statusline, doctor, the delivery-side commands, waiting and jump |
+| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init and the rules each role starts with, mode and shape, questions, the statusline, doctor, the delivery-side commands, waiting and jump |
 | 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification, delivery |
 | — | [c4-dynamic-pretooluse.md](c4-dynamic-pretooluse.md) | One tool-call decision, end to end |
 | — | [c4-dynamic-question-delivery.md](c4-dynamic-question-delivery.md) | A question from the doorstep to its answer |
@@ -87,7 +87,11 @@ block and into a skill the session loads only as a turn ends (ADR-0055), and
 `whiska-spec`, which a mouse runs after grilling to write the spec the person approves,
 kept out of git at the worktree root, beside the person's own `grilling` skill
 (ADR-0076). Both used to live in one person's global `~/.claude/CLAUDE.md`, applying to
-every repo whether Whiska was there or not. A session is identified by where it started
+every repo whether Whiska was there or not. Then the rules left `CLAUDE.md` altogether: a
+`SessionStart` hook prints the parts a session's role needs — nothing outside herdr, routing
+and delivery in the main session, the marker, report and finish trigger in a mouse — again
+after `/compact`, and `init` takes the old block out, keeping what the person marked `keep`
+(ADR-next-rules-arrive-by-role). A session is identified by where it started
 and which herdr pane it runs in, never by where its shell currently stands, so the
 person's own main session can step into a worktree without being mistaken for the mouse
 that lives there (ADR-0053, `Whiska.Session`). Then the delivery slot's own guarantee:

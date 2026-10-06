@@ -136,7 +136,8 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       # Shaped against the proposal, not the request the investigation began from.
       assert prose =~ ~r/judged against the Build and Touches lines/i
       # The report travels by its id: it is already in Whiska, whole.
-      assert body =~ "whiska questions <id>"
+      assert body =~ "whiska show <id>"
+      refute body =~ "whiska questions"
       # Shown in one line.
       assert prose =~ ~r/one line/i
     end
@@ -285,7 +286,8 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     test "spawn and send say the question arrives through Whiska" do
       for name <- ~w(spawn-worktree send-to-worktree) do
         body = skill(name)
-        assert body =~ "whiska questions <id>", name
+        assert body =~ "whiska show <id>", name
+        refute body =~ "whiska questions", name
         assert body =~ "herdr pane read", name
         assert body =~ "alternate screen", name
       end

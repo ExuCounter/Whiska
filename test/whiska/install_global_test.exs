@@ -157,9 +157,21 @@ defmodule Whiska.InstallGlobalTest do
       end
     end
 
-    test "the per-repo install is unchanged and ships all fifteen" do
+    test "the per-repo install is unchanged and ships all fifteen, with the files beside them" do
       assert Install.skills(:repo) == Install.skills()
-      assert length(Install.skills()) == 15
+
+      {skill_files, beside} =
+        Install.skills()
+        |> Enum.map(&elem(&1, 0))
+        |> Enum.split_with(&(Path.basename(&1) == "SKILL.md"))
+
+      assert length(skill_files) == 15
+
+      assert Enum.sort(beside) == [
+               ".claude/skills/whiska-delivered/finished.md",
+               ".claude/skills/whiska-delivered/sniff.md",
+               ".claude/skills/whiska-finish/proposed-build.md"
+             ]
     end
   end
 
@@ -190,7 +202,10 @@ defmodule Whiska.InstallGlobalTest do
 
       assert merged["model"] == "opus"
       assert merged["permissions"] == settings["permissions"]
-      assert merged["hooks"]["SessionStart"] == settings["hooks"]["SessionStart"]
+      assert hd(merged["hooks"]["SessionStart"]) == hd(settings["hooks"]["SessionStart"])
+
+      assert [_theirs, %{"hooks" => [%{"command" => ours}]}] = merged["hooks"]["SessionStart"]
+      assert ours == Install.session_start_command(:global)
 
       assert Enum.any?(
                merged["hooks"]["PreToolUse"],

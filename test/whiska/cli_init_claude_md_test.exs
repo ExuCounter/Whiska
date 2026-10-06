@@ -1,15 +1,13 @@
 defmodule Whiska.CLIInitClaudeMdTest do
   @moduledoc """
-  `whiska init` writing the worktree protocol into the repo's own `CLAUDE.md`
-  (ADR-0017, ADR-0045). Whiska owns the protocol between herdr, Whiska and
-  Claude, so the rules travel with the repo the same way the hooks do
-  (ADR-0016).
+  `whiska init` and a repo's own `CLAUDE.md`: the rules arrive at session start
+  (ADR-next-rules-arrive-by-role), so init takes an older Whiska's block out and
+  leaves everything of the person's exactly where it was.
   """
   use ExUnit.Case, async: true
 
   import ExUnit.CaptureIO
 
-  alias Whiska.ClaudeMd
   alias Whiska.CLI
 
   setup do
@@ -22,57 +20,102 @@ defmodule Whiska.CLIInitClaudeMdTest do
 
   defp init(main), do: capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
 
-  test "creates CLAUDE.md when the repo has none", %{main: main, path: path} do
-    init(main)
-    assert File.read!(path) == ClaudeMd.merge("")
-    assert File.read!(path) =~ "<!-- whiska:worktrees:start -->"
-  end
+  @old_block """
+  # myrepo
 
-  test "keeps what the repo already says and appends the block", %{main: main, path: path} do
-    File.write!(path, "# myrepo\n\nDo not delete this.\n")
+  Do not delete this.
+
+  <!-- whiska:start -->
+  <!-- Whiska wrote this block (`whiska init`). Each part below is replaced in
+       place on the next run and nothing outside the markers is touched. To keep
+       a part as your own, add `keep` to its start marker — `<!-- whiska:NAME:start
+       keep -->` — and Whiska will never rewrite it again. See Whiska ADR-0045. -->
+
+  <!-- whiska:worktrees:start -->
+  ## Worktrees
+
+  Old routing rules.
+  <!-- whiska:worktrees:end -->
+
+  My own note between two parts.
+
+  <!-- whiska:marker:start keep -->
+  ## My marker wording
+  <!-- whiska:marker:end -->
+
+  <!-- whiska:report:start -->
+  ## How a session writes its message
+  <!-- whiska:report:end -->
+  <!-- whiska:end -->
+
+  ## Finish
+
+  checks: mix test
+  """
+
+  test "takes Whiska's parts out, and keeps a keep part, the person's text and every byte outside",
+       %{main: main, path: path} do
+    File.write!(path, @old_block)
     init(main)
 
     body = File.read!(path)
-    assert body =~ "Do not delete this."
-    assert body =~ "<!-- whiska:start -->"
+    refute body =~ "Old routing rules."
+    refute body =~ "How a session writes its message"
+    refute body =~ "Whiska wrote this block"
+    assert body =~ "<!-- whiska:marker:start keep -->\n## My marker wording\n"
+    assert body =~ "My own note between two parts."
+    assert String.starts_with?(body, "# myrepo\n\nDo not delete this.\n\n<!-- whiska:start -->")
+    assert String.ends_with?(body, "<!-- whiska:end -->\n\n## Finish\n\nchecks: mix test\n")
   end
 
-  test "re-running leaves the file byte for byte the same", %{main: main, path: path} do
-    File.write!(path, "# myrepo\n\nMine.\n")
+  test "a block with nothing of the person's in it goes markers and all", %{
+    main: main,
+    path: path
+  } do
+    File.write!(path, """
+    # myrepo
+
+    <!-- whiska:start -->
+    <!-- whiska:report:start -->
+    Rules.
+    <!-- whiska:report:end -->
+    <!-- whiska:end -->
+    """)
+
     init(main)
-    once = File.read!(path)
-    init(main)
-    assert File.read!(path) == once
+
+    assert File.read!(path) == "# myrepo\n"
   end
 
-  test "a part the person marked keep survives init", %{main: main, path: path} do
+  test "creates no CLAUDE.md where the repo had none", %{main: main, path: path} do
     init(main)
-
-    kept =
-      File.read!(path)
-      |> String.replace("<!-- whiska:marker:start -->", "<!-- whiska:marker:start keep -->")
-
-    File.write!(path, kept)
-    init(main)
-
-    assert File.read!(path) =~ "<!-- whiska:marker:start keep -->"
+    refute File.exists?(path)
   end
 
-  test "says so, and tells the person to commit it", %{main: main} do
-    output = init(main)
-
-    assert output =~ "CLAUDE.md"
-    assert output =~ "git add"
+  test "a CLAUDE.md with no block is left byte for byte alone", %{main: main, path: path} do
+    File.write!(path, "# myrepo\n\nMine.")
+    init(main)
+    assert File.read!(path) == "# myrepo\n\nMine."
   end
 
-  test "tells the person to write the Finish heading the finish part reads", %{main: main} do
+  test "says the old block was taken out, only when there was one", %{main: main, path: path} do
+    refute init(main) =~ "old block"
+
+    File.write!(path, @old_block)
+    assert init(main) =~ "old block"
+  end
+
+  test "tells the person to write the Finish heading the finish rules read", %{main: main} do
     output = init(main)
 
     assert output =~ "## Finish"
     refute output =~ Whiska.Install.review_loop_path()
   end
 
-  test "says the finishing pipeline is a skill the block points at", %{main: main} do
-    assert init(main) =~ "whiska-finish"
+  test "says the rules arrive at session start, by role", %{main: main} do
+    output = init(main)
+
+    assert output =~ "SessionStart"
+    assert output =~ "whiska-finish"
   end
 end

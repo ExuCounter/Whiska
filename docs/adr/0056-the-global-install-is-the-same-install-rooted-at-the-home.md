@@ -190,3 +190,14 @@ the three actually landed, marking one reached through a symlink, so the person 
 write into dotfiles rather than discover it later. A link left behind after its dotfiles
 file was deleted is written through too, recreating the file at its target, rather than
 failing the install.
+
+## Amendment (2026-10-06): the global install writes a hook, not a block
+
+[ADR-next-rules-arrive-by-role](next-rules-arrive-by-role.md) replaces the table's first row.
+The global install writes no block into `~/.claude/CLAUDE.md`; it wires a third hook,
+`SessionStart`, in `~/.claude/settings.json`, and takes an older install's block out of
+`~/.claude/CLAUDE.md` through the symlink. The `scope` part is gone: the shim's stand-down
+already makes a repo's own install win for this hook as for the other two. The global shim
+also exits before starting Whiska for a `session-start` outside herdr, since it runs in every
+session on the machine. `whiska doctor` counts three pieces — hooks, statusline, skills —
+and the hooks piece now requires `SessionStart` too.

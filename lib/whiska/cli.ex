@@ -4,13 +4,15 @@ defmodule Whiska.CLI do
 
   Built with `mix escript.build`. The hooks invoke it fresh per event (ADR-0030):
   `PreToolUse` opens SQLite, makes one decision, and exits; `Stop` writes one
-  doorstep entry and exits. `whiska owl` is the other half — the one supervised
+  doorstep entry and exits; `SessionStart` prints one role's rules and exits.
+  `whiska owl` is the other half — the one supervised
   process per machine (ADR-0001), under the platform's service manager —
   launchd on macOS, systemd on Linux — once `whiska owl install` has run
   (ADR-0040), or in the foreground before that.
   """
 
   alias Whiska.Hook.PreToolUse
+  alias Whiska.Hook.SessionStart
   alias Whiska.Hook.Stop
   alias Whiska.Hook.UserPromptSubmit
   alias Whiska.AnswerFlag
@@ -51,6 +53,11 @@ defmodule Whiska.CLI do
                          doorstep for the owl to collect. Reads the Stop
                          payload on stdin. Never opens a socket.
 
+    hook session-start   Print the rules a session starts with, for its role:
+                         nothing outside herdr, the main session's rules in a
+                         main checkout, a mouse's in a worktree. Reads the
+                         SessionStart payload on stdin.
+
     owl [<repo>...]      Run the owl in the foreground. Opens every house it
                          had open last time (~/.whiska/houses) plus the one
                          you are in, if it has a house; any repo named is
@@ -75,9 +82,10 @@ defmodule Whiska.CLI do
                          it needs the owl's socket. `whiska owl stop` stops
                          the whole owl.
 
-    init                 Write Whiska's hooks, statusline, skills and CLAUDE.md
-                         block into this repo's own .claude/, so the rules
-                         travel with the repo. Safe to re-run.
+    init                 Write Whiska's hooks, statusline and skills into this
+                         repo's own .claude/, so the rules travel with the
+                         repo, and take an older Whiska's block out of
+                         CLAUDE.md. Safe to re-run.
 
     init --global        The same, into ~/.claude, for every repo on this
                          machine — for a repo that cannot carry a committed
@@ -86,8 +94,8 @@ defmodule Whiska.CLI do
                          re-run, and it writes through a symlink rather than
                          replacing it, so a dotfiles repo stays connected.
 
-    uninstall            Take Whiska back out of this repo: the block, the
-    uninstall --global   hooks, the scripts and the skills. The house — its
+    uninstall            Take Whiska back out of this repo: the hooks, the
+    uninstall --global   scripts, the skills and any old block. The house — its
                          mice, its questions, its doorstep — is untouched, and
                          so is a part you claimed with `keep`. With --global,
                          the same against ~/.claude.
@@ -119,7 +127,7 @@ defmodule Whiska.CLI do
                          up. --json prints the same rows for a script.
 
     jump [<repo|branch>] Take me to whatever needs me: focus the main session
-                         of the house the oldest thing `whiska waiting` lists
+                         of the house the oldest thing `whiska inbox` lists
                          belongs to. With a repo name, or a branch — whichever
                          house that mouse works in — focus that house's main
                          session instead, waiting or not. It lands on the
@@ -265,6 +273,8 @@ defmodule Whiska.CLI do
     stdin() |> UserPromptSubmit.run() |> emit()
     0
   end
+
+  def run(["hook", "session-start"], _cwd), do: session_start(System.get_env())
 
   def run(["owl", "install"], _cwd), do: owl_install()
   def run(["owl", "uninstall"], _cwd), do: owl_uninstall()
@@ -422,10 +432,13 @@ defmodule Whiska.CLI do
          :ok <- write_skills(scope, root),
          retired = remove_retired_skills(root),
          {:ok, commands} <- write_commands(scope),
-         :ok <- write_claude_md(scope, root),
+         {:ok, block} <- retire_claude_md(scope, root),
          :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- write_unchanged(path, JSON.encode!(merged) |> reformat()) do
-      say(told(scope) <> retired_note(retired) <> commands_note(commands))
+      say(
+        told(scope) <>
+          retired_note(retired) <> block_note(block, scope) <> commands_note(commands)
+      )
     else
       {:error, :unparseable} ->
         IO.puts(
@@ -527,7 +540,8 @@ defmodule Whiska.CLI do
 
   defp told(:repo) do
     """
-    Wrote Whiska's PreToolUse hook to .claude/settings.json.
+    Wrote Whiska's hooks to .claude/settings.json — PreToolUse, Stop and
+    SessionStart. PreToolUse is the one that enforces:
 
       matcher: #{Install.matcher()}
       command: #{Install.command()}
@@ -546,24 +560,21 @@ defmodule Whiska.CLI do
 
     And one slash command per whiska command under .claude/skills/.
 
-    And the worktree protocol went into CLAUDE.md — how a mouse gets spawned,
-    the worktree-status marker it ends a turn with, how its question reaches
-    you, the shape the message it writes takes, and what it does before it
-    says done — that last part is a pointer at the `whiska-finish` skill,
-    installed with the rest, so the five steps cost nothing until a turn is
-    actually ending (ADR-0045, ADR-0055). Each part sits in its own named markers, so the
-    next init replaces one without touching the others and nothing outside
-    them is read at all. Add `keep` to a part's start marker to make it
-    yours and Whiska will never rewrite it again.
+    And a SessionStart hook that hands each session the worktree protocol for
+    its role: nothing outside herdr, routing and delivery in the main session,
+    and in a mouse the marker it ends a turn with, the shape of its message
+    and a pointer at the `whiska-finish` skill, so the finishing steps cost
+    nothing until a turn is actually ending. It says them again after
+    /compact and /clear.
 
-    Tell the finish part what green means here: a `## Finish` heading in
-    CLAUDE.md, outside Whiska's block, naming this repo's checks, where its
-    written decisions live and its ticket prefix. Without one a mouse runs
-    whatever the tooling obviously offers and says what it assumed.
+    Tell the finish rules what green means here: a `## Finish` heading in
+    CLAUDE.md naming this repo's checks, where its written decisions live and
+    its ticket prefix. Without one a mouse runs whatever the tooling
+    obviously offers and says what it assumed.
 
     Check them into git so the rules travel with the repo (ADR-0016):
 
-      git add .claude/settings.json .claude/hooks .claude/skills CLAUDE.md
+      git add .claude/settings.json .claude/hooks .claude/skills
       git commit -m "chore: enable whiska"
     """
     |> String.trim()
@@ -591,7 +602,7 @@ defmodule Whiska.CLI do
     live and its ticket prefix. Without one a mouse runs whatever the tooling
     obviously offers and says what it assumed.
 
-    A repo that has run `whiska init` keeps winning — its own hooks, block and
+    A repo that has run `whiska init` keeps winning — its own hooks and
     skills are the ones in force, and this copy stands down there. To hand a
     repo over to this one instead, run `whiska uninstall` inside it and commit
     what that removes.
@@ -602,10 +613,9 @@ defmodule Whiska.CLI do
 
   defp written do
     [
-      {"~/.claude/CLAUDE.md", "the worktree protocol"},
-      {"~/" <> Install.shim_path(), "the hook shim both hooks call"},
+      {"~/" <> Install.shim_path(), "the hook shim every hook calls"},
       {"~/" <> Install.statusline_path(), "the board"},
-      {"~/.claude/settings.json", "PreToolUse, Stop and the statusLine"},
+      {"~/.claude/settings.json", "PreToolUse, Stop, SessionStart and the statusLine"},
       {"~/.claude/skills/", "inbox, show, reply, dismiss, focus, away, hold, resume,"},
       {"", "whiska-delivered, whiska-finish, whiska-spec, grilling,"},
       {"", "spawn-worktree, send-to-worktree, drop-worktree"}
@@ -772,14 +782,9 @@ defmodule Whiska.CLI do
   defp base_statusline(:repo), do: []
 
   defp remove_claude_md(scope, root) do
-    path = claude_md_path(scope, root)
-
-    with {:ok, contents} <- File.read(path),
-         stripped when stripped != contents <- ClaudeMd.remove(contents),
-         :ok <- File.write(path, stripped) do
-      [Path.relative_to(path, root)]
-    else
-      _ -> []
+    case retire_claude_md(scope, root) do
+      {:ok, :retired} -> [Path.relative_to(claude_md_path(scope, root), root)]
+      _none -> []
     end
   end
 
@@ -869,24 +874,32 @@ defmodule Whiska.CLI do
     end)
   end
 
-  # The worktree protocol, into the repo's own CLAUDE.md (ADR-0017, ADR-0045).
-  # Rewritten on every init — that is the point of the per-part markers, and a
-  # part the person has claimed with `keep` is skipped by the merge rather than
-  # by refusing to write the file at all.
-  defp write_claude_md(scope, root) do
+  # The rules arrive at session start, so an older Whiska's block in CLAUDE.md
+  # would say every rule twice. Its parts go; a `keep` part and the person's own
+  # text stay (ADR-0045). A file with no block, or none at all, is left alone.
+  defp retire_claude_md(scope, root) do
     path = claude_md_path(scope, root)
 
-    existing =
-      case File.read(path) do
-        {:ok, contents} -> contents
-        {:error, :enoent} -> ""
-      end
-
-    case ClaudeMd.merge(existing, scope) do
-      ^existing -> :ok
-      merged -> with :ok <- File.mkdir_p(Path.dirname(path)), do: File.write(path, merged)
+    with {:ok, contents} <- File.read(path),
+         stripped when stripped != contents <- ClaudeMd.remove(contents),
+         :ok <- File.write(path, stripped) do
+      {:ok, :retired}
+    else
+      {:error, :enoent} -> {:ok, :none}
+      {:error, reason} -> {:error, reason}
+      _unchanged -> {:ok, :none}
     end
   end
+
+  defp block_note(:none, _scope), do: ""
+
+  defp block_note(:retired, scope) do
+    "\n\nTook the old block out of #{md_name(scope)}: its rules arrive at session " <>
+      "start now. A part you marked `keep` is still there."
+  end
+
+  defp md_name(:repo), do: "CLAUDE.md"
+  defp md_name(:global), do: "~/.claude/CLAUDE.md"
 
   defp claude_md_path(:repo, root), do: Path.join(root, "CLAUDE.md")
   defp claude_md_path(:global, root), do: Path.join(root, ".claude/CLAUDE.md")
@@ -1553,7 +1566,7 @@ defmodule Whiska.CLI do
       {:error, :no_such_target} ->
         fail(
           "whiska: no recorded house is called #{name}, and none has a live mouse on " <>
-            "a branch of that name. `whiska waiting` lists what is waiting anywhere."
+            "a branch of that name. `whiska inbox` lists what is waiting anywhere."
         )
     end
   end
@@ -1914,7 +1927,7 @@ defmodule Whiska.CLI do
 
     The worktree is still on disk at #{mouse.path}. `whiska reopen` is not
     built yet; start Claude Code there by hand and pass the answer on
-    yourself, then `whiska close #{q.id}`.
+    yourself, then `whiska dismiss #{q.id}`.
     """)
   end
 
@@ -1967,9 +1980,7 @@ defmodule Whiska.CLI do
         end)
 
       _ ->
-        fail(
-          "whiska: #{id} is not a question id — expected a number, as `whiska questions` shows."
-        )
+        fail("whiska: #{id} is not a question id — expected a number, as `whiska show` shows.")
     end
   end
 
@@ -2208,4 +2219,16 @@ defmodule Whiska.CLI do
 
   defp emit(:none), do: :ok
   defp emit(json), do: IO.puts(json)
+
+  @doc """
+  The `SessionStart` hook, given the environment it fired in, so the role it
+  picks is testable without touching the VM's own. Always 0: what it prints is
+  the whole answer, and any other status reads to Claude Code as the hook
+  failing.
+  """
+  @spec session_start(%{optional(String.t()) => String.t()}) :: 0
+  def session_start(env) do
+    stdin() |> SessionStart.run(env)
+    0
+  end
 end

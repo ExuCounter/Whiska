@@ -519,7 +519,6 @@ defmodule Whiska.Doctor do
   enforces, the hooks without the skills is a question nothing can read back.
   """
   @global_pieces [
-    {:block?, "block in CLAUDE.md"},
     {:hooks?, "hooks"},
     {:statusline?, "statusline"},
     {:skills?, "skills"}
@@ -534,10 +533,7 @@ defmodule Whiska.Doctor do
           "~/.claude — every repo on this machine is covered" <> linked(state)
         )
 
-      # The block alone is what an uninstall leaves behind when a part the
-      # person claimed with `keep` survives it (ADR-0045), so the markers on
-      # their own say nothing about whether anything is installed.
-      {there, _missing} when there == [] or there == [{:block?, "block in CLAUDE.md"}] ->
+      {[], _missing} ->
         Check.ok("global install", "not installed — this repo carries its own")
 
       {_there, missing} ->
@@ -593,6 +589,14 @@ defmodule Whiska.Doctor do
         Install.prompt_command(),
         nil,
         "not wired — mice here are rung for answers they can never take",
+        global[:hooks?]
+      ),
+      hook_check(
+        "SessionStart",
+        settings,
+        Install.session_start_command(),
+        nil,
+        "not wired — sessions here start without Whiska's rules",
         global[:hooks?]
       )
     ]

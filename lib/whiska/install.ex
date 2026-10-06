@@ -56,10 +56,12 @@ defmodule Whiska.Install do
   @command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" pre-tool-use|
   @stop_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" stop|
   @prompt_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" user-prompt-submit|
+  @session_start_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" session-start|
 
   @global_command ~s|bash "$HOME/#{@shim_path}" pre-tool-use|
   @global_stop_command ~s|bash "$HOME/#{@shim_path}" stop|
   @global_prompt_command ~s|bash "$HOME/#{@shim_path}" user-prompt-submit|
+  @global_session_start_command ~s|bash "$HOME/#{@shim_path}" session-start|
 
   @shim_header """
   #!/usr/bin/env bash
@@ -158,6 +160,8 @@ defmodule Whiska.Install do
       echo "whiska: this turn's message was not delivered - run whiska doctor" >&2
     elif [ "${2:-}" = "user-prompt-submit" ]; then
       echo "whiska: the answer waiting here was not handed over - run whiska doctor" >&2
+    elif [ "${2:-}" = "session-start" ]; then
+      echo "whiska: this session started without Whiska's rules - run whiska doctor" >&2
     else
       echo "whiska: sniff mode and worktree containment are off - run whiska doctor" >&2
     fi
@@ -289,6 +293,13 @@ defmodule Whiska.Install do
       */worktrees/*) ;;
       *) exit 0 ;;
     esac
+  fi
+
+  # Outside herdr no mouse is spawned and nothing is delivered, so a session
+  # there starts with no rules - and this copy runs in every session on the
+  # machine.
+  if [ "$1" = "session-start" ] && [ "${HERDR_ENV:-}" != 1 ]; then
+    exit 0
   fi
 
   """
@@ -535,15 +546,11 @@ defmodule Whiska.Install do
   # fixed `whiska` call, discoverable via /help, so the model never has to
   # compose the bash itself. Paths are relative to the repo root.
   #
-  # `whiska-delivered` is the one skill nobody types a slash command for. The
-  # owl's delivered line (Whiska.Delivery.Text) carries no command any more,
-  # only the id, so the main session's Claude has to know what to do when one
-  # lands as a user turn. Claude Code picks a skill by its description, so the
-  # description names the line's shape — the leading 🐱 and the number after
-  # `#` — and nothing else; the body is the same thin wrapper with the same
-  # guard. The description is a quoted YAML string, deliberately: unquoted, a
-  # space followed by `#` starts a YAML comment, and the listing Claude Code
-  # shows the model was cut off right there, before every example.
+  # The six only the person types carry `disable-model-invocation`: their
+  # slash commands work, and no session — a mouse's included — pays for their
+  # descriptions in its context. `show` and `reply` stay where the main session
+  # can reach them after a delivered question.
+  #
   # The verbatim rule every reading skill carries. Claude Code folds a Bash
   # tool's result away from the person, so "show its output" alone was read as
   # "it is already visible" and the model summarised; and a fenced block turns
@@ -564,11 +571,11 @@ defmodule Whiska.Install do
      """
      ---
      name: inbox
-     description: What is waiting on you across every repo on this machine, oldest first. Use only when the person types /inbox or asks what is waiting anywhere.
+     description: What is waiting on you across every repo on this machine, oldest first.
+     disable-model-invocation: true
      ---
 
-     Run exactly this, only when the person types `/inbox` or asks for the list
-     — never on your own initiative:
+     Run exactly this:
 
          whiska inbox
 
@@ -631,23 +638,16 @@ defmodule Whiska.Install do
      stop. If it says a hold was lifted, that mouse was on hold and the answer
      is what picks it up.
 
-     ## And nothing else
-
-     This is the only way to answer a mouse: never type the answer into the
-     mouse's pane with `herdr agent prompt`, never send it with
-     `send-to-worktree`. The mouse would read it, but the question would stay
-     `sent`: it keeps holding Whiska's one delivery slot, and the next mouse's
-     question sits unread behind it. Only `whiska reply` closes the question and
-     frees the slot.
-
-     Talking it over with the person first is fine; what that talk produces for
-     the mouse goes out as the reply.
+     A mouse is answered only this way: never with `herdr agent prompt` into
+     its pane, never with `send-to-worktree`. Talking it over with the person
+     first is fine; what that talk produces goes out as the reply.
      """},
     {".claude/skills/dismiss/SKILL.md",
      """
      ---
      name: dismiss
-     description: Close one of this repo's questions without answering it. Use only when the person says to dismiss, close or drop a question, or types /dismiss.
+     description: Close one of this repo's questions without answering it.
+     disable-model-invocation: true
      ---
 
      Run exactly this, with the id the person gave:
@@ -664,7 +664,8 @@ defmodule Whiska.Install do
      """
      ---
      name: away
-     description: Stop every delivery on this machine until the person resumes; mice keep working. Use only when the person types /away or says they are stepping away.
+     description: Stop every delivery on this machine until you resume; mice keep working.
+     disable-model-invocation: true
      ---
 
      Run exactly this:
@@ -679,7 +680,8 @@ defmodule Whiska.Install do
      """
      ---
      name: focus
-     description: Let only one mouse's questions reach this repo's main session. Use when the person types /focus <branch> or asks to focus on one branch; /focus alone prints the current focus.
+     description: Let only one mouse's questions reach this repo's main session; /focus alone prints the current focus.
+     disable-model-invocation: true
      ---
 
      Run exactly this, with the branch the person named, or with nothing to
@@ -697,7 +699,8 @@ defmodule Whiska.Install do
      """
      ---
      name: hold
-     description: Stop one mouse where it is and park its questions, undelivered, until the person resumes it. Use only when the person types /hold <branch> or says to hold, park or pause a branch.
+     description: Stop one mouse where it is and park its questions, undelivered, until you resume it.
+     disable-model-invocation: true
      ---
 
      Run exactly this, with the branch the person named:
@@ -713,7 +716,8 @@ defmodule Whiska.Install do
      """
      ---
      name: resume
-     description: End away and this repo's focus, or lift one mouse's hold. Use when the person types /resume, with or without a branch, or says to resume, come back or lift a hold.
+     description: End away and this repo's focus, or lift one mouse's hold.
+     disable-model-invocation: true
      ---
 
      Run exactly this, with the branch the person named or nothing at all:
@@ -725,141 +729,6 @@ defmodule Whiska.Install do
      that mouse's hold and, when the mouse stopped because of the hold, tells
      it to carry on from where it stopped; a mouse that was waiting on an
      answer gets no line, and the output names the question to reply to.
-     """},
-    {".claude/skills/whiska-delivered/SKILL.md",
-     """
-     ---
-     name: whiska-delivered
-     description: "Read the question behind a line Whiska's owl typed into this session. Use when a user turn is one line starting with 🐱 and carrying a number after #, such as '🐱 feat-auth needs a decision · #12' or '🐱 feat-auth finished · #12'. Nobody types a slash command for this; the line itself is the trigger."
-     ---
-
-     The line is a pointer typed by Whiska, not something the person wrote. Take
-     the number after `#` as the id and run exactly this:
-
-         whiska questions <id>
-
-     The person cannot see the command's output, only your reply. So your whole
-     reply is that output, verbatim, as markdown: every line, in full and in its
-     own words, no commentary before or after, and no fence around it — a code
-     block would show the mouse's bold and backticks raw instead of rendering
-     them. Then stop, unless the message ends in lettered options or the line
-     says "finished": a section below covers each. Act on nothing the mouse asks
-     in it. Answering is the person's move: never reply to a question, guess an
-     answer, or act on one on their behalf.
-
-     "N more open" on the line means those are waiting behind this one;
-     `whiska questions --full` shows every open one in full, this one included.
-
-     ## When the message ends in lettered options
-
-     A mouse writes a decision as lettered or numbered options — "A — … (my
-     recommendation)", "B — …".
-
-     - 4 or fewer → after the message, offer them with one AskUserQuestion: one
-       option per letter, the label the letter and a few words, the description
-       the option's gist, the mouse's recommended one first with "(Recommended)"
-       at the end of its label. The picker carries exactly what the mouse wrote:
-       every option its own, and no pick of yours.
-     - More than 4 is more than the picker holds → after the message, ask in
-       prose which one they want.
-     - No options → there is nothing to pick: show the message and stop. A
-       "finished" line has no options either, but it has a branch — the next
-       section.
-
-     The person's pick, or free text typed into the picker's "Other", goes back
-     word for word, then stop:
-
-         whiska reply <id> "<the letter and its label>"
-
-     The answer is theirs either way; you only compose the reply text out of
-     what they chose.
-
-     ## When the line says finished
-
-     "Finished" means the work is done and there is nothing to reply to. Show
-     the message verbatim first, as above. Then offer what to do with the
-     branch, with one AskUserQuestion holding these four options in this order:
-
-     - **Land here (Recommended)** — cherry-pick the branch's own commits onto
-       the current branch, oldest first, skipping its merges from the base
-       (`git log --no-merges --reverse <base>..<branch>` lists them); run this
-       repo's tests, and only if they pass, drop the worktree and delete the
-       branch.
-     - **Open a merge request / PR** — push the branch and open it with `gh`
-       or `glab`, whichever this repo's host wants. The body is the message you
-       just showed: the branch's own session wrote it, with context you lack, so
-       carry it over rather than composing a summary from the diff. Neither
-       tool installed or signed in → say plainly what is missing and stop,
-       improvising no substitute.
-     - **Chat further** — do nothing at all. The person talks to that branch's
-       session themselves.
-     - **Drop it** — throw the work away without merging. Ask them to confirm
-       in prose first, in one line naming what is lost: it discards every
-       commit on the branch.
-
-     Each option runs what already exists: `drop-worktree` removes a worktree
-     and its workspace together, and this repo's test and push commands are
-     whatever its own instructions say.
-
-     This picker is for a "finished" line only. A branch still working, or
-     waiting on a decision, is one nobody lands, pushes or drops — not even
-     when the person asks off a line that did not say finished. Acting on a
-     finished branch is fine because the person picked it and the judgment is
-     theirs; an unfinished one is not a decision the picker gets to offer. A
-     branch on hold is never a finished line: nothing of its is delivered.
-
-     This repo's `CLAUDE.md` names the usual choice — a line like
-     `finish: land here` under a `## Finish` heading → that one carries
-     "(Recommended)" instead, and goes first. Same four options, same order. No
-     such line → "Land here" is the recommended one.
-
-     ## When a sniff mouse finished with a proposal
-
-     Two signs together: the heading `whiska questions <id>` printed names the
-     branch with `(sniff)` after it — a mouse that could only look, so its branch
-     has nothing to merge — and the message carries a **Proposed build** block
-     with Found, Build and Touches lines. Then the picker holds three options
-     instead of the four, in this order:
-
-     - **Build what it proposes** — its preview is the block's Found, Build and
-       Touches lines, verbatim, so the person decides on the proposal itself
-       rather than on a label. Its description: a fresh session builds it,
-       shaped for the build.
-     - **Chat further** — as above.
-     - **Drop it** — as above, but confirm only when `git log <base>..<branch>`
-       lists commits of its own. Nothing else is lost, and a confirmation about
-       nothing is one the person learns to stop reading.
-
-     No "(Recommended)" on any of them, whatever `## Finish` names: the one thing
-     asked is whether the proposal is right, and only the person's read of it can
-     say.
-
-     On **Build what it proposes**, follow the `spawn-worktree` skill's section
-     "Building what an investigation proposed" with this question's id. Nothing
-     else is asked — not the branch name, the model or the effort: that section
-     derives each and shows them in one line.
-
-     No proposal, or a heading without `(sniff)` → the four options above.
-
-     ## An answer goes through `whiska reply` and nothing else
-
-     Whenever the person decides — off a picker, or after talking it over with
-     you — the answer leaves this session as `whiska reply <id> "<their words>"`
-     and no other way: never typed into the mouse's pane with
-     `herdr agent prompt`, never sent with `send-to-worktree`. The mouse would read it, but
-     the question would stay `sent`: it keeps holding Whiska's one delivery slot,
-     and the next mouse's question sits unread behind it. Only `whiska reply`
-     closes the question and frees the slot, and only its answer is handed to
-     the mouse whole and checked for arrival.
-
-     Talking it over with them first is fine; what that talk produces for the
-     mouse goes out as the reply.
-
-     Never close or supersede a question yourself. One the person has not
-     answered stays `sent`, and Whiska supersedes it itself when that mouse's
-     next message arrives. `whiska close <id>` settles a question nobody will
-     ever answer; it is the person's command, run only when the person asks for
-     it.
      """}
   ]
 
@@ -904,15 +773,22 @@ defmodule Whiska.Install do
   # committed copy cannot drift.
   @worktree_skills ~w(spawn-worktree send-to-worktree drop-worktree)
 
-  # The finish pipeline (ADR-0055). It binds a mouse the same way the block
-  # does, and ships as a skill for the same reason the worktree skills are
+  # The finish pipeline (ADR-0055). It binds a mouse the same way its rules
+  # do, and ships as a skill for the same reason the worktree skills are
   # files: it is long, and a session only needs it at the moment a turn is
   # ending.
   #
   # The spec binds a mouse at one moment too, after grilling and before it
   # builds. The person's grilling skill ships beside it so it has one copy
   # (ADR-0076).
-  @committed_skills @worktree_skills ++ ~w(whiska-finish grilling whiska-spec)
+  #
+  # `whiska-delivered` is the one skill nobody types a slash command for: the
+  # owl's delivered line triggers it by its shape — the leading 🐱 and the
+  # number after `#` — which its description names in a quoted YAML string,
+  # since unquoted a space followed by `#` starts a comment and cut the listing
+  # off before every example. Its two finished pickers ship beside it and are
+  # read only when the line says finished.
+  @committed_skills @worktree_skills ++ ~w(whiska-delivered whiska-finish grilling whiska-spec)
 
   # The source is `priv/skills/`, not this repo's own `.claude/skills/`. They
   # are build inputs, and a repo installed globally (ADR-0056) has no committed
@@ -922,14 +798,32 @@ defmodule Whiska.Install do
   # scope root is being written.
   @skill_source "priv/skills"
 
-  for name <- @committed_skills do
-    @external_resource "#{@skill_source}/#{name}/SKILL.md"
+  # SKILL.md first, then whatever it reads on demand, in name order.
+  @committed_sources for name <- @committed_skills,
+                         file <-
+                           ["SKILL.md"] ++
+                             ("#{@skill_source}/#{name}/*.md"
+                              |> Path.wildcard()
+                              |> Enum.map(&Path.basename/1)
+                              |> Enum.reject(&(&1 == "SKILL.md"))
+                              |> Enum.sort()),
+                         do: "#{name}/#{file}"
+
+  for source <- @committed_sources do
+    @external_resource "#{@skill_source}/#{source}"
   end
 
-  @committed_skill_files for name <- @committed_skills,
+  @committed_skill_files for source <- @committed_sources,
                              do:
-                               {".claude/skills/#{name}/SKILL.md",
-                                File.read!("#{@skill_source}/#{name}/SKILL.md")}
+                               {".claude/skills/#{source}",
+                                File.read!("#{@skill_source}/#{source}")}
+
+  # A file added beside a skill is a new build input, which @external_resource
+  # cannot see until something already listed changes.
+  def __mix_recompile__? do
+    "#{@skill_source}/*/*.md" |> Path.wildcard() |> Enum.count() !=
+      length(@committed_sources)
+  end
 
   @doc """
   The shell that finds the whiska binary: `WHISKA_BIN`, then `PATH`, then
@@ -1002,6 +896,15 @@ defmodule Whiska.Install do
   def prompt_command(scope \\ :repo)
   def prompt_command(:repo), do: @prompt_command
   def prompt_command(:global), do: @global_prompt_command
+
+  @doc """
+  The SessionStart hook command: the same shim, told it is a `session-start`.
+  It prints the rules for the session's role (ADR-next-rules-arrive-by-role).
+  """
+  @spec session_start_command(scope()) :: String.t()
+  def session_start_command(scope \\ :repo)
+  def session_start_command(:repo), do: @session_start_command
+  def session_start_command(:global), do: @global_session_start_command
 
   @doc """
   The shim script's contents.
@@ -1079,14 +982,13 @@ defmodule Whiska.Install do
   @doc """
   Which pieces of the global install are on disk right now (ADR-0056).
 
-  Four, and they are read rather than assumed because each can be removed on its
-  own: the block in `~/.claude/CLAUDE.md`, the three hooks and the statusline in
-  `~/.claude/settings.json`, and the skills. `whiska doctor` turns a half-written
+  Three, and they are read rather than assumed because each can be removed on
+  its own: the four hooks and the statusline in `~/.claude/settings.json`, and
+  the skills. `whiska doctor` turns a half-written
   answer into a warning; `whiska init` uses it only to say whether the global
   install is there at all.
   """
   @spec global_state() :: %{
-          block?: boolean(),
           hooks?: boolean(),
           statusline?: boolean(),
           skills?: boolean(),
@@ -1097,11 +999,11 @@ defmodule Whiska.Install do
     settings = read_json(Path.join(home, ".claude/settings.json"))
 
     %{
-      block?: home |> Path.join(".claude/CLAUDE.md") |> reads?("<!-- whiska:start -->"),
       hooks?:
         wired?(settings, "PreToolUse", command(:global)) and
           wired?(settings, "Stop", stop_command(:global)) and
           wired?(settings, "UserPromptSubmit", prompt_command(:global)) and
+          wired?(settings, "SessionStart", session_start_command(:global)) and
           File.exists?(Path.join(home, @shim_path)),
       statusline?:
         statusline_command_in(settings) == statusline_command(:global) and
@@ -1111,7 +1013,7 @@ defmodule Whiska.Install do
     }
   end
 
-  @global_pieces [:block?, :hooks?, :statusline?, :skills?]
+  @global_pieces [:hooks?, :statusline?, :skills?]
 
   @doc "Is any of the global install there? Part of one still counts."
   @spec global_installed?() :: boolean()
@@ -1146,13 +1048,6 @@ defmodule Whiska.Install do
       settings
     else
       _ -> %{}
-    end
-  end
-
-  defp reads?(path, needle) do
-    case File.read(path) do
-      {:ok, contents} -> String.contains?(contents, needle)
-      {:error, _} -> false
     end
   end
 
@@ -1254,7 +1149,7 @@ defmodule Whiska.Install do
   Two kinds, and both are one skill per fixed command rather than bash the model
   composes itself (ADR-0022): the reading skills that wrap `whiska`, and the
   three worktree skills that wrap `herdr` (ADR-0046). `whiska-finish` and
-  `whiska-spec` are neither: they are steps the block points at (ADR-0055).
+  `whiska-spec` are neither: they are steps a mouse's rules point at (ADR-0055).
   Nor is `grilling`, the person's own skill, shipped so it has one copy.
   """
   @spec skills() :: [{Path.t(), String.t()}]
@@ -1379,11 +1274,16 @@ defmodule Whiska.Install do
     stop = %{"hooks" => [%{"type" => "command", "command" => stop_command(scope)}]}
     prompt = %{"hooks" => [%{"type" => "command", "command" => prompt_command(scope)}]}
 
+    session_start = %{
+      "hooks" => [%{"type" => "command", "command" => session_start_command(scope)}]
+    }
+
     settings
     |> sound_hooks()
     |> put_ours("PreToolUse", [pre_tool_use])
     |> put_ours("Stop", [stop])
     |> put_ours("UserPromptSubmit", [prompt])
+    |> put_ours("SessionStart", [session_start])
     |> put_statusline(scope)
   end
 
@@ -1418,6 +1318,7 @@ defmodule Whiska.Install do
     |> drop_ours("PreToolUse")
     |> drop_ours("Stop")
     |> drop_ours("UserPromptSubmit")
+    |> drop_ours("SessionStart")
     |> restore_statusline(base)
   end
 

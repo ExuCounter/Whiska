@@ -91,6 +91,17 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :fail, detail: detail} = Doctor.hooks(only_pre) |> find("Stop")
       assert detail =~ "cannot leave questions"
     end
+
+    test "a fresh init passes SessionStart, and a missing one says sessions start without rules" do
+      assert %Check{status: :ok} = Doctor.hooks(Install.merge(%{})) |> find("SessionStart")
+
+      no_start = update_in(Install.merge(%{}), ["hooks"], &Map.delete(&1, "SessionStart"))
+
+      assert %Check{status: :fail, detail: detail, fix: "whiska init"} =
+               Doctor.hooks(no_start) |> find("SessionStart")
+
+      assert detail =~ "without Whiska's rules"
+    end
   end
 
   # -- statusline --------------------------------------------------------------

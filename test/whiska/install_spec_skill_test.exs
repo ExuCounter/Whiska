@@ -90,7 +90,7 @@ defmodule Whiska.InstallSpecSkillTest do
     end
 
     test "only a worktree session ends the question on a marker" do
-      assert prose("whiska-spec") =~ ~r/the decision marker the block describes, in a worktree/i
+      assert prose("whiska-spec") =~ ~r/the decision marker a mouse's rules describe/i
     end
 
     test "any other answer revises the file and sends the whole spec again" do

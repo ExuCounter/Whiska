@@ -45,16 +45,28 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
 
   defp still_a_link?(path), do: match?({:ok, _}, :file.read_link(path))
 
-  test "a symlinked CLAUDE.md is written through, not replaced", %{home: home, dotfiles: dotfiles} do
+  test "an old block in a symlinked CLAUDE.md is taken out through the link, not replacing it",
+       %{home: home, dotfiles: dotfiles} do
     target = Path.join(dotfiles, "CLAUDE.md")
-    File.write!(target, "# Mine\n\nPlain language, always.\n")
+
+    File.write!(target, """
+    # Mine
+
+    Plain language, always.
+
+    <!-- whiska:start -->
+    <!-- whiska:report:start -->
+    Old rules.
+    <!-- whiska:report:end -->
+    <!-- whiska:end -->
+    """)
+
     link(target, Path.join(home, ".claude/CLAUDE.md"))
 
     init_global()
 
     assert still_a_link?(Path.join(home, ".claude/CLAUDE.md"))
-    assert File.read!(target) =~ "Plain language, always."
-    assert File.read!(target) =~ "<!-- whiska:start -->"
+    assert File.read!(target) == "# Mine\n\nPlain language, always.\n"
   end
 
   test "a symlinked settings.json is written through, not replaced", %{
@@ -148,7 +160,6 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
     dotfiles: dotfiles
   } do
     target = Path.join(dotfiles, "CLAUDE.md")
-    File.write!(target, "# Mine\n")
     link(target, Path.join(home, ".claude/CLAUDE.md"))
 
     skill_target = Path.join(dotfiles, "reply.md")
@@ -157,6 +168,17 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
     link(skill_target, Path.join(home, ".claude/skills/reply/SKILL.md"))
 
     init_global()
+
+    File.write!(target, """
+    # Mine
+
+    <!-- whiska:start -->
+    <!-- whiska:report:start -->
+    Old rules.
+    <!-- whiska:report:end -->
+    <!-- whiska:end -->
+    """)
+
     output = capture_io(fn -> assert CLI.run(["uninstall", "--global"], nil) == 0 end)
 
     # The block goes, through the link; the link itself stays.

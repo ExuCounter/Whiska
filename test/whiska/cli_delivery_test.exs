@@ -478,6 +478,8 @@ defmodule Whiska.CLIDeliveryTest do
       {1, _, err} = run(["reply", "1", "yes"], main)
       assert err =~ "dead"
       assert err =~ "worktrees/feat-a"
+      assert err =~ "whiska dismiss 1"
+      refute err =~ "whiska close"
     end
 
     test "refuses a question that is already settled, and an unknown one", %{main: main} do

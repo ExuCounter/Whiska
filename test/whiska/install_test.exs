@@ -93,6 +93,25 @@ defmodule Whiska.InstallTest do
       assert command == Install.command()
     end
 
+    test "wires SessionStart to the same shim, with no matcher, so it fires on every source" do
+      merged = Install.merge(%{})
+
+      assert [%{"hooks" => [%{"type" => "command", "command" => command}]} = entry] =
+               get_in(merged, ["hooks", "SessionStart"])
+
+      refute Map.has_key?(entry, "matcher")
+      assert command == Install.session_start_command()
+      assert command =~ Install.shim_path()
+      assert command =~ "session-start"
+    end
+
+    test "unmerge takes SessionStart back out and leaves someone else's entry" do
+      theirs = %{"hooks" => [%{"type" => "command", "command" => "theirs.sh"}]}
+      merged = Install.merge(%{"hooks" => %{"SessionStart" => [theirs]}})
+
+      assert Install.unmerge(merged, nil)["hooks"]["SessionStart"] == [theirs]
+    end
+
     test "leaves unrelated settings completely alone" do
       existing = %{"model" => "opus", "env" => %{"FOO" => "bar"}}
 

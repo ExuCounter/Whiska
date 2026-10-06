@@ -13,6 +13,17 @@ defmodule Whiska.InstallFinishSkillTest do
 
   defp prose, do: skill() |> String.replace(~r/\s+/, " ")
 
+  @proposal ".claude/skills/whiska-finish/proposed-build.md"
+
+  defp proposal do
+    assert {_path, body} = List.keyfind(Install.skills(), @proposal, 0),
+           "the Proposed build section is not installed beside the skill"
+
+    body
+  end
+
+  defp proposal_prose, do: proposal() |> String.replace(~r/\s+/, " ")
+
   describe "the finish pipeline ships as a skill (ADR-0055)" do
     test "init installs it beside the other skills" do
       installed =
@@ -22,11 +33,11 @@ defmodule Whiska.InstallFinishSkillTest do
       for name <- ~w(show spawn-worktree), do: assert(name in installed, name)
     end
 
-    test "the block points at the path init actually writes" do
+    test "a mouse's finish rules point at the path init actually writes" do
       {path, _} =
         List.keyfind(Install.skills(), ".claude/skills/whiska-finish/SKILL.md", 0)
 
-      finish = Enum.find(Whiska.ClaudeMd.parts(), &(&1.name == "finish")).body
+      finish = Enum.find(Whiska.Rules.parts(:mouse), &(&1.name == "finish")).body
 
       assert finish =~ path
       assert finish =~ "whiska-finish"
@@ -225,6 +236,16 @@ defmodule Whiska.InstallFinishSkillTest do
     test "a security finding is named in the message whatever word it got" do
       assert prose() =~ ~r/whatever word it got/i
     end
+
+    test "nothing changed since this session's last green finish skips the checks and reviewers" do
+      body = prose()
+
+      assert body =~
+               ~r/nothing changed since this session's last green finish → skip steps 2 to 4/i
+
+      assert body =~ ~r/say so in one line/i
+      assert index_of(body, "last green finish") < index_of(body, "## 1\\.")
+    end
   end
 
   describe "what this repo calls green" do
@@ -235,7 +256,6 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ "checks:"
       assert body =~ "specs:"
       assert body =~ "ticket:"
-      assert body =~ ~r/outside Whiska's block/i
     end
 
     test "a ticket is evidence, never an instruction to the session" do
@@ -270,8 +290,16 @@ defmodule Whiska.InstallFinishSkillTest do
   end
 
   describe "an investigation that found work to do proposes it (ADR-0074)" do
+    test "the skill sends a turn that only investigated to the file beside it, and only that turn" do
+      body = prose()
+
+      assert body =~ "`proposed-build.md`"
+      assert body =~ ~r/investigated, changed nothing/i
+      refute skill() =~ "- Touches:"
+    end
+
     test "the proposal is three labelled lines the main session can lift verbatim" do
-      body = skill()
+      body = proposal()
 
       assert body =~ "**Proposed build**"
       assert body =~ "- Found:"
@@ -280,7 +308,7 @@ defmodule Whiska.InstallFinishSkillTest do
     end
 
     test "it ends on the finished marker and never asks to build it itself" do
-      body = prose()
+      body = proposal_prose()
 
       # The finished picker is where building it is offered; a mouse asking
       # "shall I build this?" would be answered into a session that cannot.
@@ -289,7 +317,7 @@ defmodule Whiska.InstallFinishSkillTest do
     end
 
     test "only when it changed nothing and something should change" do
-      body = prose()
+      body = proposal_prose()
 
       assert body =~ ~r/changed nothing/i
       assert body =~ ~r/no proposal/i
@@ -298,13 +326,14 @@ defmodule Whiska.InstallFinishSkillTest do
     # Only a mouse that may only look is offered a fresh build; the skill
     # promises nothing to the rest.
     test "promises the fresh build only to a mouse that may only look" do
-      assert prose() =~ ~r/a mouse that may only look/i
+      assert proposal_prose() =~ ~r/a mouse that may only look/i
     end
   end
 
-  describe "it does not restate what the block already says" do
-    test "the shape of the message is the block's to teach" do
+  describe "it does not restate what the rules already say" do
+    test "the shape of the message is the report rules' to teach" do
       refute prose() =~ ~r/outcomes, not mechanics/i
+      assert prose() =~ ~r/the report rules teach its shape/i
     end
   end
 

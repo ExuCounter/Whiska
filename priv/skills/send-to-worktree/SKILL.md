@@ -67,6 +67,6 @@ investigate now.
 
 Its questions reach the main session through Whiska once this repo is `whiska init`-ed and
 the owl is running (`whiska doctor` checks both): every turn there ends with a status
-marker, the owl delivers a one-line pointer, and `whiska questions <id>` shows the whole
+marker, the owl delivers a one-line pointer, and `whiska show <id>` shows the whole
 message. Read it there, never from the pane: Claude Code runs on the alternate screen, so
 `herdr pane read` returns a truncated tail.

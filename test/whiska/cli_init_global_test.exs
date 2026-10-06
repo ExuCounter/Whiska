@@ -10,7 +10,6 @@ defmodule Whiska.CLIInitGlobalTest do
 
   import ExUnit.CaptureIO
 
-  alias Whiska.ClaudeMd
   alias Whiska.CLI
   alias Whiska.Install
 
@@ -50,25 +49,50 @@ defmodule Whiska.CLIInitGlobalTest do
 
   defp settings(path), do: path |> File.read!() |> JSON.decode!()
 
-  describe "whiska init --global" do
-    test "writes the block into ~/.claude/CLAUDE.md", %{home: home} do
-      init_global()
+  # What an older `whiska init --global` left in ~/.claude/CLAUDE.md, below the
+  # person's own text.
+  @old_block """
+  # Mine
 
-      body = File.read!(Path.join(home, ".claude/CLAUDE.md"))
-      assert body =~ "<!-- whiska:start -->"
-      assert body =~ "## Worktrees"
-      assert body == ClaudeMd.merge("", :global)
+  Plain language, always.
+
+  <!-- whiska:start -->
+  <!-- whiska:scope:start -->
+  ## Which copy of these rules counts
+  <!-- whiska:scope:end -->
+
+  <!-- whiska:worktrees:start -->
+  ## Worktrees
+  <!-- whiska:worktrees:end -->
+  <!-- whiska:end -->
+  """
+
+  describe "whiska init --global" do
+    test "takes an older install's block out of ~/.claude/CLAUDE.md, and keeps the person's text",
+         %{home: home} do
+      path = Path.join(home, ".claude/CLAUDE.md")
+      File.mkdir_p!(Path.dirname(path))
+      File.write!(path, @old_block)
+
+      output = init_global()
+
+      assert File.read!(path) == "# Mine\n\nPlain language, always.\n"
+      assert output =~ "Took the old block out of ~/.claude/CLAUDE.md"
     end
 
-    test "keeps what the person's own global CLAUDE.md already says", %{home: home} do
+    test "writes nothing into the person's own global CLAUDE.md", %{home: home} do
       path = Path.join(home, ".claude/CLAUDE.md")
       File.mkdir_p!(Path.dirname(path))
       File.write!(path, "# Mine\n\nPlain language, always.\n")
 
       init_global()
 
-      assert File.read!(path) =~ "Plain language, always."
-      assert File.read!(path) =~ "<!-- whiska:start -->"
+      assert File.read!(path) == "# Mine\n\nPlain language, always.\n"
+    end
+
+    test "creates no ~/.claude/CLAUDE.md where there was none", %{home: home} do
+      init_global()
+      refute File.exists?(Path.join(home, ".claude/CLAUDE.md"))
     end
 
     test "writes the shim and the statusline script, executable", %{home: home} do
@@ -81,7 +105,9 @@ defmodule Whiska.CLIInitGlobalTest do
       end
     end
 
-    test "wires both hooks and the statusline into ~/.claude/settings.json", %{settings: path} do
+    test "wires the three hooks and the statusline into ~/.claude/settings.json", %{
+      settings: path
+    } do
       init_global()
 
       assert settings(path) == Install.merge(%{}, :global)
@@ -211,11 +237,15 @@ defmodule Whiska.CLIInitGlobalTest do
     end
 
     test "is idempotent — a second run changes nothing", %{home: home, settings: path} do
+      md = Path.join(home, ".claude/CLAUDE.md")
+      File.mkdir_p!(Path.dirname(md))
+      File.write!(md, @old_block)
+
       init_global()
-      before = {File.read!(Path.join(home, ".claude/CLAUDE.md")), File.read!(path)}
+      before = {File.read!(md), File.read!(path)}
       init_global()
 
-      assert {File.read!(Path.join(home, ".claude/CLAUDE.md")), File.read!(path)} == before
+      assert {File.read!(md), File.read!(path)} == before
     end
 
     test "survives a settings.json whose shape Whiska did not write", %{settings: path} do
@@ -249,7 +279,7 @@ defmodule Whiska.CLIInitGlobalTest do
     test "needs no repo at all", %{home: home} do
       # No cwd, no git checkout: the global install is about the machine.
       capture_io(fn -> assert CLI.run(["init", "--global"], nil) == 0 end)
-      assert File.exists?(Path.join(home, ".claude/CLAUDE.md"))
+      assert File.exists?(Path.join(home, ".claude/settings.json"))
     end
 
     test "says what it wrote and how to switch a repo over" do
@@ -267,7 +297,9 @@ defmodule Whiska.CLIInitGlobalTest do
 
       assert File.exists?(Path.join(repo, ".claude/hooks/whiska.sh"))
       assert File.exists?(Path.join(home, ".claude/hooks/whiska.sh"))
-      assert File.read!(Path.join(home, ".claude/CLAUDE.md")) =~ "in force"
+
+      assert settings(Path.join(repo, ".claude/settings.json"))["hooks"]["SessionStart"] ==
+               Install.merge(%{})["hooks"]["SessionStart"]
     end
 
     test "whiska init says the global install is there and how to drop the repo copy", %{
@@ -286,20 +318,24 @@ defmodule Whiska.CLIInitGlobalTest do
   end
 
   describe "whiska uninstall --global" do
-    test "takes the block, the hooks, the scripts and the skills back out", %{
+    test "takes the old block, the hooks, the scripts and the skills back out", %{
       home: home,
       settings: path
     } do
       init_global()
+      File.write!(Path.join(home, ".claude/CLAUDE.md"), @old_block)
       uninstall_global()
 
       refute File.read!(Path.join(home, ".claude/CLAUDE.md")) =~ "<!-- whiska:start -->"
       refute File.exists?(Path.join(home, Install.shim_path()))
       refute File.exists?(Path.join(home, Install.statusline_path()))
       refute File.exists?(Path.join(home, ".claude/skills/show/SKILL.md"))
+      refute File.exists?(Path.join(home, ".claude/skills/whiska-delivered"))
+      refute File.exists?(Path.join(home, ".claude/skills/whiska-finish"))
 
       settings = settings(path)
       assert settings["hooks"]["Stop"] == []
+      assert settings["hooks"]["SessionStart"] == []
       refute Map.has_key?(settings, "statusLine")
     end
 
@@ -346,8 +382,9 @@ defmodule Whiska.CLIInitGlobalTest do
   end
 
   describe "whiska uninstall — one repo" do
-    test "takes this repo's block, hooks, scripts and skills back out", %{repo: repo} do
+    test "takes this repo's old block, hooks, scripts and skills back out", %{repo: repo} do
       init(repo)
+      File.write!(Path.join(repo, "CLAUDE.md"), @old_block)
       uninstall(repo)
 
       refute File.read!(Path.join(repo, "CLAUDE.md")) =~ "<!-- whiska:start -->"
@@ -373,6 +410,7 @@ defmodule Whiska.CLIInitGlobalTest do
 
     test "prints what it removed", %{repo: repo} do
       init(repo)
+      File.write!(Path.join(repo, "CLAUDE.md"), @old_block)
       output = uninstall(repo)
 
       assert output =~ "CLAUDE.md"
