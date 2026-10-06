@@ -239,3 +239,20 @@ ends its turn because the hook refused its next tool call, which from outside is
 that was working and went quiet with nothing collected — exactly the shape above. It is
 not a dead turn: the person stopped it, and a line telling it to carry on would undo
 that. `resume <branch>` is where that line comes from, typed by the person's own command.
+
+## Amendment, 2026-10-06: a turn begins at the take, and a chased answer is not a died turn
+
+[ADR-next-an-answer-is-taken-not-typed](next-an-answer-is-taken-not-typed.md) stops
+typing answers into the pane: `whiska reply` saves the answer and rings a doorbell, and
+the mouse's own `UserPromptSubmit` hook hands the answer over. A doorbell can be
+swallowed, so ringing one proves no turn began, and the third place `worked_at` was
+stamped from — "`whiska reply`, because an answer typed into a mouse is itself a prompt"
+— would have read a swallowed doorbell as a died turn two minutes later. **`worked_at` is
+stamped at the take instead**, in the mouse's own session, which is a turn beginning.
+
+**A mouse with a chased answer — answered, not taken, and the newest question it asked —
+is never picked up.** Its next turn has not begun; the owl's doorbell is what carries it
+on, and "your last turn ended on an error" would be wrong about it.
+
+The limit above that `whiska reply` closed — a turn that began and died while the owl was
+down — is closed by the take the same way: the hook stamps whether or not the owl is up.

@@ -586,6 +586,14 @@ defmodule Whiska.Doctor do
         nil,
         "not wired — mice here cannot leave questions",
         global[:hooks?]
+      ),
+      hook_check(
+        "UserPromptSubmit",
+        settings,
+        Install.prompt_command(),
+        nil,
+        "not wired — mice here are rung for answers they can never take",
+        global[:hooks?]
       )
     ]
   end

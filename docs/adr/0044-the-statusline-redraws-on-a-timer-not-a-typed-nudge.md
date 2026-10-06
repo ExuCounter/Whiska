@@ -32,6 +32,15 @@ unfinished work — and the turn is the point of it. The rejection of "gate it a
 rate-limit it" further down stands for a redraw, which needs no turn at all, and does not
 reach resuming work, which cannot happen without one.
 
+**Amended 2026-10-06 by
+[ADR-next-an-answer-is-taken-not-typed](next-an-answer-is-taken-not-typed.md)**, which
+gives the rule a second exception: **a mouse's own pane, while an answer the person gave it
+is not taken, at most three times.** The owl rings the doorbell again — one fixed line
+with the question id — only into an idle pane with an empty prompt box, never into a held
+mouse or the main session. The same reasoning as ADR-0067's holds: the line is about that
+mouse's own answer, and the turn it costs is the answer arriving. No other exception is
+added.
+
 **Supersedes [ADR-0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md)**,
 which had the owl type `⚡ <folders> waiting` into every other open house's idle main
 session.

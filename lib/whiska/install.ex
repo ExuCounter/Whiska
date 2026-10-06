@@ -55,14 +55,16 @@ defmodule Whiska.Install do
   # serves every hook Whiska registers.
   @command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" pre-tool-use|
   @stop_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" stop|
+  @prompt_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" user-prompt-submit|
 
   @global_command ~s|bash "$HOME/#{@shim_path}" pre-tool-use|
   @global_stop_command ~s|bash "$HOME/#{@shim_path}" stop|
+  @global_prompt_command ~s|bash "$HOME/#{@shim_path}" user-prompt-submit|
 
   @shim_header """
   #!/usr/bin/env bash
-  # Whiska's hooks. Takes the hook's name - pre-tool-use or stop - and hands
-  # the payload on stdin to `whiska hook <name>`.
+  # Whiska's hooks. Takes the hook's name - pre-tool-use, stop or
+  # user-prompt-submit - and hands the payload on stdin to `whiska hook <name>`.
   #
   # Written by `whiska init` and checked into the repo so the rules travel with
   # it (ADR-0016). Everything machine-specific is resolved here, when the hook
@@ -73,6 +75,31 @@ defmodule Whiska.Install do
   # lookup ends by searching the filesystem directly rather than trusting it.
   # WHISKA_BIN and WHISKA_ESCRIPT override either, and are ignored if they do
   # not point at something runnable.
+
+  """
+
+  # Every prompt in every session runs the user-prompt-submit hook, and almost
+  # none has an answer waiting, so that case leaves here before the binary or
+  # the runtime is looked for (ADR-next-an-answer-is-taken-not-typed). Shell
+  # builtins only: the worktree's `.git` file names its git admin directory,
+  # and the answer flag sits there. With no project directory to decide on,
+  # Whiska decides - an answer not handed over is worse than a prompt slowed.
+  @prompt_fast_path """
+  if [ "${1:-}" = "user-prompt-submit" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+    case "$CLAUDE_PROJECT_DIR" in
+      */worktrees/*) ;;
+      *) exit 0 ;;
+    esac
+    [ -f "$CLAUDE_PROJECT_DIR/.git" ] || exit 0
+    whiska_gitdir=""
+    IFS= read -r whiska_gitdir < "$CLAUDE_PROJECT_DIR/.git" || [ -n "$whiska_gitdir" ] || exit 0
+    whiska_gitdir="${whiska_gitdir#gitdir: }"
+    case "$whiska_gitdir" in
+      /*) ;;
+      *) whiska_gitdir="$CLAUDE_PROJECT_DIR/$whiska_gitdir" ;;
+    esac
+    [ -e "$whiska_gitdir/whiska-answer" ] || exit 0
+  fi
 
   """
 
@@ -106,7 +133,7 @@ defmodule Whiska.Install do
   # Only where it costs something: a session in a worktree, where a mouse can
   # be, in a repo Whiska is set up in on this machine - its house exists, or
   # the binary was found. A committed hook on a machine without Whiska, or a
-  # session outside a worktree, where both hooks are no-ops, stays exit 0. The
+  # session outside a worktree, where every hook is a no-op, stays exit 0. The
   # complaint goes to stderr either way, which is what the doctor's probe reads.
   whiska_cannot_run() {
     local project="${CLAUDE_PROJECT_DIR:-$PWD}" common
@@ -129,6 +156,8 @@ defmodule Whiska.Install do
     fi
     if [ "${2:-}" = "stop" ]; then
       echo "whiska: this turn's message was not delivered - run whiska doctor" >&2
+    elif [ "${2:-}" = "user-prompt-submit" ]; then
+      echo "whiska: the answer waiting here was not handed over - run whiska doctor" >&2
     else
       echo "whiska: sniff mode and worktree containment are off - run whiska doctor" >&2
     fi
@@ -186,7 +215,12 @@ defmodule Whiska.Install do
   exit 0
   """
 
-  @shim @shim_header <> @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
+  @shim @shim_header <>
+          @prompt_fast_path <>
+          @resolve_whiska <>
+          @shim_fail_open <>
+          @resolve_escript <>
+          @shim_exec
 
   # The one thing the global copy does that the committed one does not
   # (ADR-0056). Claude Code merges the hook arrays from `~/.claude` and the
@@ -255,6 +289,7 @@ defmodule Whiska.Install do
   """
 
   @global_shim @shim_stand_down <>
+                 @prompt_fast_path <>
                  @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
 
   # The retired review loop (ADR-0049). Nothing writes it and nothing runs it;
@@ -808,7 +843,8 @@ defmodule Whiska.Install do
      `herdr agent prompt`, never sent with `send-to-worktree`. The mouse would read it, but
      the question would stay `sent`: it keeps holding Whiska's one delivery slot,
      and the next mouse's question sits unread behind it. Only `whiska reply`
-     closes the question and frees the slot.
+     closes the question and frees the slot, and only its answer is handed to
+     the mouse whole and checked for arrival.
 
      Talking it over with them first is fine; what that talk produces for the
      mouse goes out as the reply.
@@ -952,6 +988,16 @@ defmodule Whiska.Install do
   def stop_command(:global), do: @global_stop_command
 
   @doc """
+  The UserPromptSubmit hook command: the same shim, told it is a
+  `user-prompt-submit`. It hands a mouse the answer the person saved for it
+  (ADR-next-an-answer-is-taken-not-typed).
+  """
+  @spec prompt_command(scope()) :: String.t()
+  def prompt_command(scope \\ :repo)
+  def prompt_command(:repo), do: @prompt_command
+  def prompt_command(:global), do: @global_prompt_command
+
+  @doc """
   The shim script's contents.
 
   Resolves the binary and the Erlang runtime when the hook fires, and allows the
@@ -1028,7 +1074,7 @@ defmodule Whiska.Install do
   Which pieces of the global install are on disk right now (ADR-0056).
 
   Four, and they are read rather than assumed because each can be removed on its
-  own: the block in `~/.claude/CLAUDE.md`, the two hooks and the statusline in
+  own: the block in `~/.claude/CLAUDE.md`, the three hooks and the statusline in
   `~/.claude/settings.json`, and the skills. `whiska doctor` turns a half-written
   answer into a warning; `whiska init` uses it only to say whether the global
   install is there at all.
@@ -1049,6 +1095,7 @@ defmodule Whiska.Install do
       hooks?:
         wired?(settings, "PreToolUse", command(:global)) and
           wired?(settings, "Stop", stop_command(:global)) and
+          wired?(settings, "UserPromptSubmit", prompt_command(:global)) and
           File.exists?(Path.join(home, @shim_path)),
       statusline?:
         statusline_command_in(settings) == statusline_command(:global) and
@@ -1324,11 +1371,13 @@ defmodule Whiska.Install do
     }
 
     stop = %{"hooks" => [%{"type" => "command", "command" => stop_command(scope)}]}
+    prompt = %{"hooks" => [%{"type" => "command", "command" => prompt_command(scope)}]}
 
     settings
     |> sound_hooks()
     |> put_ours("PreToolUse", [pre_tool_use])
     |> put_ours("Stop", [stop])
+    |> put_ours("UserPromptSubmit", [prompt])
     |> put_statusline(scope)
   end
 
@@ -1362,6 +1411,7 @@ defmodule Whiska.Install do
     settings
     |> drop_ours("PreToolUse")
     |> drop_ours("Stop")
+    |> drop_ours("UserPromptSubmit")
     |> restore_statusline(base)
   end
 

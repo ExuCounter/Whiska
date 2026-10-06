@@ -25,6 +25,7 @@ C4Container
     Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, renamed .collected once read")
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records and questions, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
+    Container(flag, "Answer flag", "empty file, whiska-answer in the worktree's git admin directory", "This worktree's mouse has an answer not yet taken; the shim reads it so a prompt with nothing waiting starts nothing")
     Container(spec, "Spec", ".whiska-spec.md file", "What a grilled brief will build, at the worktree root; the mouse writes it, git ignores it")
     Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
@@ -47,8 +48,12 @@ C4Container
   Rel(house, nc, "Raises a hoot herdr will not show; doctor probes the same path")
   Rel(cli, herdr, "start types claude at this pane's shell prompt when nothing runs there")
   Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
-  Rel(herdr, shim, "PreToolUse and Stop fire in a mouse's session")
+  Rel(herdr, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session")
+  Rel(shim, flag, "user-prompt-submit exits at once unless it is there")
   Rel(shim, cli, "Execs with the payload on stdin", "JSON")
+  Rel(cli, db, "reply saves the answer first; UserPromptSubmit hands it over and stamps it taken")
+  Rel(cli, flag, "reply raises it; the take lowers it")
+  Rel(cli, herdr, "reply rings the mouse's doorbell - one fixed line, never the answer")
   Rel(cli, marker, "Reads, minting one on first use")
   Rel(cli, db, "shape records a new mouse's mode and model before Claude starts")
   Rel(cli, spec, "shape and mode make git ignore it, through the main checkout's info/exclude")
@@ -65,6 +70,7 @@ C4Container
   Rel(house, db, "Records questions, marks mice dead and removed; reads the next open one")
   Rel(house, herdr, "Removes a landed worktree and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
+  Rel(house, herdr, "Rings a mouse's doorbell again, at most three times, while its answer is not taken")
 
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
 ```
@@ -145,6 +151,14 @@ answerable with no database and no owl.
 **It sits in the house, not the worktree**, so an ordinary `drop-worktree` cannot silently
 erase pending questions. The mirror cost is that a question can outlive its mouse; that
 state has a name already (ADR-0026) rather than being a new problem.
+
+**The answer flag sits in the worktree's git admin directory, and the answer does not**
+(ADR-next-an-answer-is-taken-not-typed). The answer itself is in the house database the
+moment `reply` saves it; the flag is only a hint, there so the shim can tell with shell
+builtins whether a prompt has anything to hand over. Every prompt in every session runs
+that hook, and almost none has an answer waiting. Under `.git/worktrees/<name>/` git
+never shows it and removes it with the worktree; a stale or missing flag costs a slow
+prompt or a ring, never an answer.
 
 **The platform's service manager is the one thing that keeps the owl running** (ADR-0040,
 ADR-0077): a user LaunchAgent under launchd on

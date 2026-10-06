@@ -36,6 +36,7 @@ C4Deployment
   Rel(owl, globalsock, "Listens, one per machine")
   Rel(mousepane, globalinstall, "Runs its hooks where the repo wires none")
   Rel(mousepane, doorstep, "Stop hook writes an entry")
+  Rel(mousepane, housedb, "UserPromptSubmit hook takes a saved answer and stamps it")
   Rel(mousepane, markerf, "Hook reads or mints")
   Rel(mainpane, globalsock, "whiska projects / goto")
 

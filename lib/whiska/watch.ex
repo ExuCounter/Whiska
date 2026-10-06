@@ -153,7 +153,7 @@ defmodule Whiska.Watch do
   """
   @spec from_house(keyword()) :: t()
   def from_house(opts \\ []) do
-    questions = Storage.questions() ++ Storage.orphaned_questions()
+    questions = Storage.questions() ++ Storage.orphaned_questions() ++ Storage.not_taken()
 
     board(
       Storage.alive_mice(),
@@ -303,7 +303,10 @@ defmodule Whiska.Watch do
   # two spellings of `1h 33m` would be two answers.
   defp elapsed(started_at, now), do: Mice.format_uptime(DateTime.diff(now, started_at))
 
+  # An answer the board is handed is one its mouse never took (`from_house/1`),
+  # which is the person's again, so it is carried and ranked like a question.
   defp question_id(%Question{status: status, id: id}) when status in @waiting, do: id
+  defp question_id(%Question{status: "answered", id: id}), do: id
   defp question_id(_other), do: nil
 
   defp pane(mouse, {:ok, panes}) do
@@ -352,6 +355,9 @@ defmodule Whiska.Watch do
   end
 
   defp waits(_sent, _context), do: nil
+
+  defp detail(%Question{status: "answered", id: id}, _asked, _pane, _status, _picked_up, _now, _),
+    do: "answer ##{id} not taken"
 
   defp detail(%Question{} = question, %{} = asked, _pane, _status, _picked_up, now, _activity),
     do: asked(question.id, asked, now)

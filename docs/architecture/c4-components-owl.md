@@ -3,7 +3,8 @@
 Level 3 for the owl, which is real code as of the owl slice. Everything here is in
 `lib/whiska/owl/`, `lib/whiska/doorstep*`, `lib/whiska/herdr*`, `lib/whiska/delivery/`,
 `lib/whiska/open_houses.ex`, `lib/whiska/backstop.ex`, `lib/whiska/watch*`,
-`lib/whiska/cleanup.ex`, `lib/whiska/pickup.ex`, `lib/whiska/git.ex` and
+`lib/whiska/cleanup.ex`, `lib/whiska/pickup.ex`, `lib/whiska/doorbell.ex`,
+`lib/whiska/mouse_pane.ex`, `lib/whiska/git.ex` and
 `lib/whiska/question/marker.ex`, each
 with a test beside it.
 
@@ -21,7 +22,9 @@ C4Component
     Component(herdrb, "Whiska.Herdr", "behaviour", "The one mocked boundary (ADR-0031)")
     Component(sock, "Whiska.Herdr.Socket", "gen_tcp on a Unix socket", "Newline-delimited JSON; list_panes, subscribe, worktree remove")
     Component(cleanup, "Whiska.Cleanup", "sweep", "One pass per backstop: note every landed branch, then take down the clean, pushed, quiet ones")
-    Component(pickup, "Whiska.Pickup", "sweep", "One pass per backstop: whose turn ended without reaching the doorstep, and one line into that pane")
+    Component(pickup, "Whiska.Pickup", "sweep", "One pass per backstop: whose turn ended without reaching the doorstep, and one line into that pane. Never a mouse with an answer not yet taken")
+    Component(bell, "Whiska.Doorbell", "sweep", "One pass per backstop: every answer saved and not taken, rung again at most three times, then marked not taken")
+    Component(mousepane, "Whiska.MousePane", "bounds", "Which pane is a mouse's, whether herdr calls its folder a worktree of this checkout, and what its prompt box holds")
     Component(gitq, "Whiska.Git", "git", "Merged, reached by a merge, clean, unpushed - and the removals, never forced")
     Component(doorstep, "Whiska.Doorstep", "file store", "Reads entries, marks them collected by rename")
     Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text, and ran_on: the model the turn ran on")
@@ -65,8 +68,15 @@ C4Component
   Rel(cleanup, herdrb, "Removes a landed worktree and closes its pane, never forced")
   Rel(cleanup, storage, "Stamps the mouse removed")
   Rel(house, pickup, "Sweeps on the backstop, handing it the pane list it already has")
-  Rel(pickup, draft, "Judges the mouse's own screen before typing into it")
-  Rel(pickup, herdrb, "Which worktrees are this checkout's, then one line into the mouse's own pane")
+  Rel(pickup, mousepane, "Finds the pane, asks whose worktree it is, reads its box")
+  Rel(pickup, herdrb, "One line into the mouse's own pane")
+  Rel(house, bell, "Sweeps on the backstop before pickup, with the same pane list")
+  Rel(bell, mousepane, "The same bounds pickup types within")
+  Rel(bell, herdrb, "The doorbell again, into the mouse's own pane")
+  Rel(bell, storage, "Reads the chased answers; counts each ring, marks one not taken")
+  Rel(house, hoot, "One hoot for an answer the owl gave up on")
+  Rel(mousepane, draft, "Judges the mouse's own screen")
+  Rel(mousepane, herdrb, "Which worktrees are this checkout's", "worktree.list")
   Rel(pickup, doorstep, "Is anything of this mouse's still uncollected")
   Rel(pickup, storage, "Reads worked_at, stamps picked_up_at")
   Rel(house, watch, "Renders the board every second")
@@ -197,6 +207,18 @@ whether a branch is finished with; pickup asks whether a turn ended without fini
 Both are judged from what this machine already knows — the doorstep, the mouse record,
 the pane list the house re-listed a moment earlier — and both treat unknown as a refusal.
 The difference is what they do with the answer: cleanup takes a session away, pickup
-makes one work. Pickup is the only thing in Whiska that types into a pane that is not its
+makes one work. Pickup is one of two things in Whiska that type into a pane that is not its
 house's main session, and it does so once per dead turn.
 
+
+**The doorbell is the other, and it rings for the person's own answer**
+(ADR-next-an-answer-is-taken-not-typed). `whiska reply` saves the answer and rings once;
+the mouse's own `UserPromptSubmit` hook hands the answer over and stamps it taken. A
+doorbell herdr accepted can still be swallowed, and only the missing stamp says so, so on
+the same tick `Whiska.Doorbell` rings again for every answer saved and not taken — at
+least 90 s apart, at most three times, within exactly the bounds pickup types within
+(`Whiska.MousePane`), never into a held mouse. Each ring is counted before it is typed and
+put back if herdr refuses, the order pickup's cap uses. After the third, the answer is
+marked not taken once and the house raises one hoot; the board row, `inbox` and `whiska
+questions` say so until the mouse takes it. Pickup leaves such a mouse alone: its next
+turn never began.

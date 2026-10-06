@@ -5,7 +5,7 @@ classification (ADR-0009), the hook's reading of the transcript before it writes
 (ADR-0052), the idle-gated delivery queue (ADR-0008) with its hold while
 the person is typing (ADR-0047) — said on the board once it has lasted (ADR-0058) — the
 release of anything nothing can answer (ADR-0057), the hoot that goes out with the line
-(ADR-0062), and the reply keyed to a question id (ADR-0005). Shown as a dynamic diagram because the ordering is the
+(ADR-0062), the reply keyed to a question id (ADR-0005), and the answer taken by the mouse's own hook rather than typed (ADR-next-an-answer-is-taken-not-typed). Shown as a dynamic diagram because the ordering is the
 design. Nothing here crosses into another repo: the nudge that once did was deleted by
 ADR-0044.
 
@@ -42,8 +42,10 @@ C4Dynamic
   Rel(delivery, herdr, "Hoot: one desktop notification, raised in the same breath as the line")
   Rel(herdr, person, "Shows it, wherever they are")
   Rel(delivery, person, "If herdr's popups are off or nobody is attached: the same hoot, on the desktop")
-  Rel(person, delivery, "whiska reply, keyed to the question id")
-  Rel(delivery, mousepane, "herdr types the answer into that pane")
+  Rel(person, db, "whiska reply, keyed to the question id, saves the answer first")
+  Rel(person, mousepane, "Then rings its doorbell through herdr: one fixed line, never the answer")
+  Rel(mousepane, db, "Its UserPromptSubmit hook reads the answer, hands it over as context, stamps it taken")
+  Rel(delivery, mousepane, "Not taken: rings again on the backstop, at most three times, then tells the person")
 
   UpdateRelStyle(mousepane, doorstep, $textColor="blue", $lineColor="blue", $offsetY="-20")
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
@@ -206,9 +208,19 @@ sends a hoot of its own down the same path and reports what showed it, which is 
 answer and the demonstration in one. Everything the hoot can do wrong is swallowed, because
 the question is already recorded sent by then and delivery is the job.
 
-## Steps 12–13 — answers are keyed to a question id (ADR-0005)
+## Steps 12–15 — answers are keyed to a question id, and taken, not typed
 
-Not to a branch. That is what stops an answer landing on whichever question Whiska
-happened to guess. `whiska reply <id>` writes the answer to the house; the owl looks up
-the question's mouse pane and asks herdr to type there (ADR-0020) — it never owns a
-Claude Code process itself.
+Keyed to an id, not to a branch (ADR-0005). That is what stops an answer landing on
+whichever question Whiska happened to guess.
+
+Taken, not typed (ADR-next-an-answer-is-taken-not-typed). `whiska reply <id>` saves the
+answer to the house first — the question is `answered` and the slot free from that moment
+— then asks herdr to type one fixed line into the mouse's pane, the doorbell (ADR-0020:
+Whiska never owns a Claude Code process). The answer itself never goes through the
+terminal: the mouse's own `UserPromptSubmit` hook, running in that session, reads it from
+the house and hands it to the model as context, multi-line and whole, and stamps it taken.
+That stamp is the proof it arrived. A doorbell that rang but was swallowed leaves no
+stamp, so the owl rings again on its backstop — at least 90 s apart, at most three times,
+only into an idle pane with an empty box — and after that marks the answer not taken and
+raises one hoot. Any prompt in that pane hands it over, so typing anything there is the
+fix.

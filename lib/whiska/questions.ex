@@ -48,6 +48,7 @@ defmodule Whiska.Questions do
   @type summary :: %{
           open: [Question.t()],
           orphaned: [Question.t()],
+          not_taken: [Question.t()],
           doorstep: non_neg_integer(),
           doorstep_stale: boolean(),
           mode: Mode.t(),
@@ -57,7 +58,8 @@ defmodule Whiska.Questions do
   @doc """
   Everything waiting in the house whose main checkout this is.
 
-  `open` (open and sent) and `orphaned` come from the database; `doorstep`
+  `open` (open and sent), `orphaned` and `not_taken` (answers the owl gave up
+  ringing for) come from the database; `doorstep`
   counts entries the owl has not collected yet, and `doorstep_stale` says
   whether any has waited past the backstop; `mode` is what the person set
   aside, with `focus` the focused mouse's branch. A house with no database yet
@@ -65,7 +67,7 @@ defmodule Whiska.Questions do
   """
   @spec summary(Path.t(), keyword()) :: {:ok, summary()} | {:error, term()}
   def summary(main_checkout, opts \\ []) do
-    with {:ok, open, orphaned, mode, focus} <- read_house(main_checkout, opts) do
+    with {:ok, open, orphaned, not_taken, mode, focus} <- read_house(main_checkout, opts) do
       waiting = Doorstep.waiting(main_checkout)
       now = DateTime.utc_now()
 
@@ -78,6 +80,7 @@ defmodule Whiska.Questions do
        %{
          open: open,
          orphaned: orphaned,
+         not_taken: not_taken,
          doorstep: length(waiting),
          doorstep_stale: stale,
          mode: mode,
@@ -94,7 +97,9 @@ defmodule Whiska.Questions do
         {:ok, handle} ->
           try do
             mode = Mode.read(away_path: away_path)
-            {:ok, Storage.questions(), Storage.orphaned_questions(), mode, focus_name(mode)}
+
+            {:ok, Storage.questions(), Storage.orphaned_questions(), Storage.not_taken(), mode,
+             focus_name(mode)}
           after
             Storage.close(handle)
           end
@@ -103,7 +108,7 @@ defmodule Whiska.Questions do
           {:error, reason}
       end
     else
-      {:ok, [], [], %{Mode.none() | away?: Mode.away?(away_path)}, nil}
+      {:ok, [], [], [], %{Mode.none() | away?: Mode.away?(away_path)}, nil}
     end
   end
 
@@ -159,7 +164,16 @@ defmodule Whiska.Questions do
 
   defp nothing_waiting, do: "🦉 Nothing needs you · the owl delivers when something does"
 
-  defp compose(open_block, %{orphaned: orphaned, doorstep: doorstep}) do
+  defp compose(open_block, %{orphaned: orphaned, not_taken: not_taken, doorstep: doorstep}) do
+    not_taken_block =
+      case not_taken do
+        [] ->
+          nil
+
+        not_taken ->
+          not_taken_heading(not_taken) <> Enum.map_join(not_taken, "\n", &line(&1, nil))
+      end
+
     orphaned_block =
       case orphaned do
         [] ->
@@ -174,9 +188,19 @@ defmodule Whiska.Questions do
       if doorstep > 0,
         do: "#{doorstep} on the doorstep, not collected yet — is the owl running?"
 
-    [open_block, orphaned_block, doorstep_block]
+    [open_block, not_taken_block, orphaned_block, doorstep_block]
     |> Enum.reject(&is_nil/1)
     |> Enum.join("\n\n")
+  end
+
+  # A prompt in the mouse's own session hands an answer over, whoever types it
+  # (ADR-next-an-answer-is-taken-not-typed).
+  defp not_taken_heading([_one]),
+    do: "1 answer not taken — type anything into the mouse's pane to hand it over:\n"
+
+  defp not_taken_heading(many) do
+    "#{length(many)} answers not taken — type anything into a mouse's pane " <>
+      "to hand its answer over:\n"
   end
 
   @doc """
@@ -231,6 +255,11 @@ defmodule Whiska.Questions do
   """
   @spec state(Question.t(), pos_integer() | nil, Mode.t(), String.t() | nil) :: String.t()
   def state(question, slot, mode \\ Mode.none(), focus \\ nil)
+
+  def state(%Question{status: "answered", taken_at: %DateTime{} = at}, _slot, _mode, _focus),
+    do: "answered, taken #{Calendar.strftime(local(at), "%H:%M")}"
+
+  def state(%Question{status: "answered"}, _slot, _mode, _focus), do: "answered, not taken"
 
   def state(%Question{status: "sent", sent_at: %DateTime{} = at} = q, _slot, mode, _focus) do
     case Mode.waits(q, mode) do

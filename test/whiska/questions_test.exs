@@ -172,6 +172,39 @@ defmodule Whiska.QuestionsTest do
       assert out =~ ~r/live.*\n\n1 orphaned/s
     end
 
+    test "an answer its mouse has not taken is shown apart, saying how to hand it over",
+         %{main: main} do
+      seed(main, fn ->
+        q = ask("m1", "pick one")
+        {:ok, _} = Storage.answer(q.id, "the first")
+        {:ok, _} = Storage.mark_not_taken(q.id, DateTime.utc_now())
+      end)
+
+      {:ok, summary} = Questions.summary(main)
+      out = Questions.render(summary)
+
+      assert out =~ "1 answer not taken"
+      assert out =~ "type anything into the mouse's pane"
+      assert out =~ ~s(#1  feat-a  needs a decision · "pick one"  \(answered, not taken\))
+    end
+
+    test "an answered question says whether its mouse took the answer, and when", %{
+      main: main
+    } do
+      seed(main, fn ->
+        taken = ask("m1", "pick one")
+        {:ok, _} = Storage.answer(taken.id, "the first")
+        {:ok, _} = Storage.take([taken.id], ~U[2026-10-06 09:30:00Z])
+        untaken = ask("m2", "pick two")
+        {:ok, _} = Storage.answer(untaken.id, "the second")
+      end)
+
+      seed(main, fn ->
+        assert Questions.state(Storage.question(1), nil) =~ ~r/^answered, taken \d\d:\d\d$/
+        assert Questions.state(Storage.question(2), nil) == "answered, not taken"
+      end)
+    end
+
     test "uncollected doorstep entries are named, since the owl may be down", %{main: main} do
       leave(main, "waiting for the owl", 0)
       leave(main, "also waiting", 0)

@@ -7,7 +7,9 @@ defmodule Whiska.Owl do
   invisible to every other project's. It is the only thing that can see across
   all of them, which is what `open_houses/0` is for — for the statusline and
   the doctor to ask, never for one house to reach into another: nothing under
-  the owl types into a session that is not its own house's (ADR-0044).
+  the owl types into a session that is not its own house's (ADR-0044), and
+  into a mouse's pane only to carry on its own died turn (ADR-0067) or ring for
+  its own answer (`Whiska.Doorbell`).
 
   Opening and shutting only change whether a house's lights are on (ADR-0003).
   Nothing here ever creates or destroys a house on disk.

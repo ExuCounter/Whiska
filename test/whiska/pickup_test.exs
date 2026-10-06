@@ -179,6 +179,18 @@ defmodule Whiska.PickupTest do
     end
   end
 
+  describe "a mouse with an answer it has not taken (ADR-0067's amendment)" do
+    test "is left to the doorbell: its next turn never began", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      q = question(m, at: @before, kind: "needs-decision", status: "sent", text: "which?")
+      {:ok, _} = Storage.answer(q.id, "SQLite")
+      seen = died(repo, m)
+
+      assert {[{_, {:left, :answer_not_taken}}], _} = sweep(repo, @settled, seen)
+      assert %{picked_up_at: nil} = Storage.mouse(m.id)
+    end
+  end
+
   describe "a turn that did not die" do
     test "is left alone when its question reached the doorstep", %{repo: repo} do
       m = mouse(repo, "feat-a")

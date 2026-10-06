@@ -91,7 +91,8 @@ the delivery queue and wait for an answer. A turn that ends with no marker at al
 `done` report is told as "finished" with a **finish** offered in place of a reply, and
 closed the moment it is sent — it is never answered, and it neither waits for the
 delivery slot nor holds it. A question is **open** while it waits to be told, **sent** once
-delivered and waiting for its answer, then **answered**; **superseded** when its own mouse asked a
+delivered and waiting for its answer, then **answered** once `whiska reply` saved the
+answer — which frees the slot whether or not the mouse has **taken** it yet; **superseded** when its own mouse asked a
 newer one, **closed** by hand or as a `done` report once told, **settled** when its
 mouse's branch landed and there is nothing left to answer to — the merge was the answer
 (ADR-0064) — and **orphaned** when nothing can act on it and nothing ever answered it
@@ -223,9 +224,32 @@ the queue: nothing is waiting on the person in it, so it goes ahead of whatever 
 waiting, takes no slot, and is closed as it is typed.
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska questions <id>`, which the `whiska-delivered` skill runs when the line lands.
-Delivery is the only thing Whiska types anywhere, and it only ever types into the main
-session of the question's own house (ADR-0044). Every delivery raises a **hoot**.
+Delivery only ever types into the main session of the question's own house (ADR-0044);
+the only other lines Whiska types go into a mouse's own pane — a **pickup** and a
+**doorbell**. Every delivery raises a **hoot**.
 _Avoid_: notify, ping, relay (the old bash mechanism), push
+
+**Doorbell**:
+The one fixed line typed into a mouse's pane when the person has answered it — "🐱 The
+person answered #12; the answer is attached …" — and never the answer itself
+(ADR-next-an-answer-is-taken-not-typed). `whiska reply` rings it once the answer is saved;
+the owl rings it again on the backstop while the answer is not **taken**, at least 90 s
+apart and at most three times, only into an idle pane with an empty prompt box, never a
+held mouse's and never the main session's. A doorbell rung twice is harmless: the second
+finds nothing left to hand over.
+_Avoid_: nudge (retired), ping, poke, inbox (the person's listing — see **Inbox**)
+
+**Taken**:
+An answer the mouse's own `UserPromptSubmit` hook has handed over: printed as context
+into a prompt in that mouse's session and stamped `taken_at`, the proof it arrived. Any
+prompt takes it, the doorbell or one the person types into the pane. An answer that is
+`answered`, not taken, and its mouse's newest question is **chased** — the owl keeps
+ringing for it. One still not taken 90 s after the owl's third ring is **not taken**: the
+board row, `inbox` and `whiska questions` say so, it counts as waiting on the person, and
+one hoot goes out. A mouse that asked a newer question has moved past the answer, so it is
+never chased or handed over (ADR-0005).
+_Avoid_: acknowledged, acked, read, received, handled (firstmate's word, for a file a
+worker moves)
 
 **Hoot**:
 The desktop notification the owl raises as it delivers a question — one per delivered
@@ -309,7 +333,8 @@ is), main-session command (the person may run one from any terminal)
 **Inbox**:
 The person's list of everything waiting on them across every repo on the machine —
 `inbox`, the same reading as `whiska waiting` (see **Waiting**) — with a last column
-saying why a row is not being delivered (`held`, `away`, `focus: <branch>`) and a first
+saying why a row is not being delivered (`held`, `away`, `focus: <branch>`, or `not
+taken` for an answer its mouse has not **taken**) and a first
 line when they are away. It is a listing, not a place: a question sits in a house, an
 uncollected entry on a doorstep, and the inbox reads both. `show`, `reply` and `dismiss`
 act on this repo's rows only; ids repeat across repos.
@@ -358,8 +383,10 @@ The owl typing one short line into a mouse's own pane to carry a dead turn on �
 "corrective nudge" the Nudge entry below left the word with. Never the original prompt:
 the session still knows what it did, and re-asking risks redoing a file already written.
 One per dead turn, and a branch whose picked-up turn dies as well is a **stuck** mouse
-from then on (ADR-0026), never nudged again. The one thing the owl types anywhere but
-its own house's main session (ADR-0044, as ADR-0067 amends it).
+from then on (ADR-0026), never nudged again. A mouse with a **chased** answer is never
+picked up: its next turn has not begun, and the **doorbell** carries it on. One of the two
+lines the owl types anywhere but its own house's main session (ADR-0044, as ADR-0067 and
+ADR-next-an-answer-is-taken-not-typed amend it).
 _Avoid_: retry, resend, restart, relaunch (ADR-0026's rung four, a different act)
 
 **Nudge** (retired):

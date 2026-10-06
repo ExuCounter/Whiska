@@ -397,14 +397,18 @@ defmodule Whiska.CLIInboxTest do
   end
 
   describe "reply to a held mouse" do
-    test "lifts the hold and types the answer", %{main: main} do
+    test "lifts the hold before it rings the doorbell", %{main: main} do
       seed(main, fn ->
         q = ask("ma", "[worktree-status: needs-decision] which?")
         {:ok, _} = Storage.mark_sent(q.id)
         {:ok, _} = Storage.hold("ma")
       end)
 
-      expect(Herdr, :prompt, fn @socket, "w1R:p1", "SQLite" -> :ok end)
+      expect(Herdr, :prompt, fn @socket, "w1R:p1", line ->
+        assert line == Whiska.Doorbell.line(1)
+        assert Storage.mouse("ma").held_at == nil
+        :ok
+      end)
 
       {0, out, _} = run(["reply", "1", "SQLite"], main)
       assert out =~ "hold"

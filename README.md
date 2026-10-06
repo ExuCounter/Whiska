@@ -64,7 +64,7 @@ one line arrives in yours:
 ```bash
 whiska questions               # everything waiting on you here, one line each
 whiska questions 12            # that one in full
-whiska reply 12 "go with A"    # typed into that session's pane; #12 is answered
+whiska reply 12 "go with A"    # saved, and that session's doorbell rung; #12 is answered
 ```
 
 One at a time, and only while your pane is idle and you are not mid-draft; the rest queue
@@ -94,8 +94,9 @@ question waits on the **doorstep** until the owl collects it —
   nothing and goes ahead of the queue.
 - **A mouse that moved on cannot wedge the queue** — its newer question replaces its own
   older ones.
-- **Answers are routed for you** — `whiska reply 12` types into mouse #12's own pane,
-  whichever branch and worktree that is.
+- **Answers are routed for you** — `whiska reply 12` saves the answer and rings mouse #12's
+  own pane, whichever branch and worktree that is. The mouse's own hook hands the answer
+  over whole, multi-line and all, and the owl rings again until it is taken.
 - **A board where you are already looking** — a row per live mouse in this repo's
   statusline, five at most, drawn under your own line with nothing of yours replaced.
   [Details](docs/internals.md#this-repos-board-in-claude-code)
@@ -121,7 +122,7 @@ question waits on the **doorstep** until the owl collects it —
 
 ```
 whiska questions [<id>|--full]  what is waiting on you in this repo
-whiska reply <id> <text>        answer — typed into that mouse's pane
+whiska reply <id> <text>        answer — saved, then handed to that mouse by its own hook
 whiska close <id>               settle one by hand, with no answer
 whiska waiting [--json]         the same, across every repo on the machine
 whiska jump [<repo|branch>]     focus the session of whatever needs you most

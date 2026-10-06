@@ -11,7 +11,7 @@ defmodule Whiska.Waiting do
   (ADR-0036), which the database cannot see at all.
 
   Each entry carries the mouse's herdr pane, because a mouse is a herdr pane
-  (ADR-0020) and that is the address `whiska reply` types into. It is not where
+  (ADR-0020) and that is the address `whiska reply` rings. It is not where
   `whiska jump` goes: a jump lands on the house's main session (ADR-0043),
   which `house_for/2` and `main_session/1` are here to find.
 
@@ -45,10 +45,11 @@ defmodule Whiska.Waiting do
   @typedoc """
   One thing waiting on the person. `id` is the question id, or `nil` for
   something still on the doorstep — it has no id until the owl collects it.
-  `status` is `open`, `sent` or `doorstep`; `kind` is the mouse's own marker
-  (ADR-0009). `pane` is `nil` when the house has no pane recorded for the mouse.
-  `waits` is why it is not being delivered, in the listing's words — `held`,
-  `away`, `focus: <branch>` — or nil, and `held?` says whether its mouse is on
+  `status` is `open`, `sent`, `not_taken` (an answer its mouse never took) or
+  `doorstep`; `kind` is the mouse's own marker (ADR-0009). `pane` is `nil` when
+  the house has no pane recorded for the mouse. `waits` is why it is not being
+  delivered, in the listing's words — `held`, `away`, `focus: <branch>`,
+  `not taken` — or nil, and `held?` says whether its mouse is on
   hold, which is the one case the tab bar does not count.
   """
   @type entry :: %{
@@ -101,6 +102,7 @@ defmodule Whiska.Waiting do
           context = %{main: main, now: now, mode: mode, focus: focus_name(mode)}
 
           Enum.map(Storage.questions(), &from_question(&1, context)) ++
+            Enum.map(Storage.not_taken(), &from_not_taken(&1, context)) ++
             Enum.map(doorstep, fn {_file, e} -> from_doorstep(e, context, &pane_of/1) end)
         end)
       else
@@ -255,6 +257,13 @@ defmodule Whiska.Waiting do
       waits: waits(q, context),
       held?: held?(q, context)
     }
+  end
+
+  # The person answered and the owl gave up ringing for it, so it is theirs
+  # again: typing anything into the mouse's pane hands it over
+  # (ADR-next-an-answer-is-taken-not-typed).
+  defp from_not_taken(%Question{} = q, context) do
+    %{from_question(q, context) | status: "not_taken", waits: "not taken"}
   end
 
   defp from_doorstep(entry, %{main: main, now: now} = context, pane) do

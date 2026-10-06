@@ -147,7 +147,13 @@ answers to the word, and the same eight as slash commands replacing `/whiska-que
 and `/whiska-reply`; the gate's word on the board and in the doctor is `gated`; the
 finished picker lands a branch by cherry-pick; and a mouse's shell command that is one of
 the person's — `whiska away`, `hold`, `focus`, `resume`, `reply`, `dismiss`, `close` — is
-refused by the hook. 2189 tests.
+refused by the hook. Then answers taken, not typed (ADR-next-an-answer-is-taken-not-typed):
+`whiska reply` saves the answer before anything is typed and rings a one-line doorbell;
+a third hook, `UserPromptSubmit`, hands the answer to the mouse as context and stamps it
+taken, behind a shell fast path that starts nothing unless the worktree's answer flag is
+up; the owl rings again on its backstop at most three times, then marks the answer not
+taken on the board, in `inbox` and in `whiska questions`, with one hoot; and pickup
+leaves a mouse with an answer not yet taken alone. 2225 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

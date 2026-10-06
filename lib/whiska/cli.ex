@@ -12,9 +12,12 @@ defmodule Whiska.CLI do
 
   alias Whiska.Hook.PreToolUse
   alias Whiska.Hook.Stop
+  alias Whiska.Hook.UserPromptSubmit
+  alias Whiska.AnswerFlag
   alias Whiska.ClaudeMd
   alias Whiska.Delivery.Mode
   alias Whiska.Doctor
+  alias Whiska.Doorbell
   alias Whiska.Doctor.Report
   alias Whiska.Herdr
   alias Whiska.Install
@@ -180,8 +183,11 @@ defmodule Whiska.CLI do
                          the file the owl keeps. Nothing when the repo is
                          quiet. `whiska init` wires it up.
 
-    reply <id> <text>    Answer a question. The text is typed into that
-                         mouse's pane, and the question is marked answered.
+    reply <id> <text>    Answer a question. The answer is saved and the
+                         question marked answered; only a short doorbell line
+                         is typed into that mouse's pane, and the mouse's own
+                         hook hands the answer over. The owl rings again while
+                         it is not taken.
 
     close <id>           Settle a question by hand, with no answer — for one
                          you dealt with some other way.
@@ -252,6 +258,11 @@ defmodule Whiska.CLI do
 
   def run(["hook", "stop"], _cwd) do
     stdin() |> Stop.run()
+    0
+  end
+
+  def run(["hook", "user-prompt-submit"], _cwd) do
+    stdin() |> UserPromptSubmit.run() |> emit()
     0
   end
 
@@ -1823,44 +1834,70 @@ defmodule Whiska.CLI do
     fail("whiska: ##{q.id} is already #{status}; there is nothing to answer.")
   end
 
+  # Saved before anything is typed, and only the doorbell is typed: the answer
+  # reaches the mouse through its own hook, which stamps it taken
+  # (ADR-next-an-answer-is-taken-not-typed). Once saved the answer is safe, so a
+  # doorbell that does not ring is the owl's to ring again, not a failed reply.
   defp reply(%Question{} = q, text) do
     with {:ok, mouse} <- live_mouse(q),
-         {:ok, socket} <- herdr_socket(),
-         :ok <- lift_hold_for_answer(mouse),
-         :ok <- Herdr.impl().prompt(socket, mouse.pane, text),
          {:ok, _} <- Storage.answer(q.id, text) do
-      # An answer is a prompt, and a prompt is a turn beginning. Recording it
-      # here is what lets the owl pick that turn up if it dies while the owl
-      # is down and never sees the pane working (ADR-0067).
-      Storage.set_working(mouse.mouse_id, DateTime.utc_now())
-      say("Answered ##{q.id} (#{mouse.branch}): typed into #{mouse.pane}." <> lifted(mouse))
+      notes = [lift_hold_for_answer(mouse), flag(mouse)]
+      say(rang(q, mouse, ring(q, mouse)) <> Enum.join(Enum.reject(notes, &is_nil/1)))
     else
       {:error, {:dead, mouse}} ->
         dead_mouse(q, mouse)
 
-      {:error, {:no_socket, default}} ->
-        no_socket(default, "reach the mouse's pane through")
-
       {:error, reason} ->
-        fail(
-          "whiska: could not type the answer into the mouse's pane (#{describe(reason)}). " <>
-            "##{q.id} is unchanged."
-        )
+        fail("whiska: could not save the answer (#{describe(reason)}). ##{q.id} is unchanged.")
     end
   end
+
+  # herdr's client can exit rather than answer — `gen_tcp` exits `badarg` on
+  # some socket paths — and by now the answer is saved, so that is one more
+  # doorbell for the owl to ring, never a crash.
+  defp ring(q, mouse) do
+    with {:ok, socket} <- herdr_socket(),
+         :ok <- Doorbell.press(Herdr.impl(), socket, mouse.pane, q.id) do
+      Storage.rung(q.id, DateTime.utc_now())
+      :ok
+    end
+  end
+
+  defp rang(q, mouse, :ok),
+    do: "Answered ##{q.id} (#{mouse.branch}): saved, and rang its doorbell in #{mouse.pane}."
+
+  defp rang(q, mouse, {:error, reason}) do
+    "Answered ##{q.id} (#{mouse.branch}): saved, but its doorbell did not ring " <>
+      "(#{unrung(reason)}). The owl will ring it."
+  end
+
+  defp unrung({:no_socket, default}), do: "no herdr socket at #{default}"
+  defp unrung(reason), do: describe(reason)
 
   # Answering a held mouse is picking it up: a hold left in place would have the
   # hook refuse the very turn the answer starts.
   defp lift_hold_for_answer(%Mouse{held_at: %DateTime{}} = mouse) do
-    with {:ok, _} <- Storage.lift_hold(mouse.mouse_id), do: :ok
+    case Storage.lift_hold(mouse.mouse_id) do
+      {:ok, _} ->
+        " The hold on #{mouse.branch} is lifted."
+
+      {:error, reason} ->
+        " The hold on #{mouse.branch} could not be lifted (#{describe(reason)}); " <>
+          "`resume #{mouse.branch}` lifts it."
+    end
   end
 
-  defp lift_hold_for_answer(_mouse), do: :ok
+  defp lift_hold_for_answer(_mouse), do: nil
 
-  defp lifted(%Mouse{held_at: %DateTime{}, branch: branch}),
-    do: " The hold on #{branch} is lifted."
+  defp flag(mouse) do
+    case AnswerFlag.set(mouse.path) do
+      :ok ->
+        nil
 
-  defp lifted(_mouse), do: ""
+      {:error, reason} ->
+        " Could not mark its worktree (#{describe(reason)}); the owl marks it again before it rings."
+    end
+  end
 
   defp dead_mouse(q, mouse) do
     fail("""

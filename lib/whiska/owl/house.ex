@@ -134,6 +134,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Delivery.Hoot
   alias Whiska.Delivery.Mode
   alias Whiska.Delivery.Text
+  alias Whiska.Doorbell
   alias Whiska.Doorstep
   alias Whiska.Herdr
   alias Whiska.Layout
@@ -167,6 +168,10 @@ defmodule Whiska.Owl.House do
   # up (ADR-0067). Two backstops, so a laptop waking cannot have a whole fleet
   # picked up on the strength of one reconnection's pane list.
   @default_settle_ms 120_000
+  # How long after a doorbell, unanswered by a take, the owl rings it again
+  # (ADR-next-an-answer-is-taken-not-typed). Checked on the backstop, so the
+  # real spacing is this to this plus one backstop.
+  @default_ring_ms 90_000
 
   defstruct [
     :main_checkout,
@@ -183,6 +188,7 @@ defmodule Whiska.Owl.House do
     :hold_notice_ms,
     :settle_ms,
     :max_gap_ms,
+    :ring_ms,
     :away_path,
     last_mode: nil,
     held_since: nil,
@@ -218,7 +224,8 @@ defmodule Whiska.Owl.House do
   `:hold_notice_ms` (how long a hold lasts before the board says why),
   `:settle_ms` (how long a mouse's pane must have been quiet before a died turn
   is picked up), `:max_gap_ms` (how long a gap between backstops means the owl
-  was not watching, so its pane memory is thrown away), `:desktop` (where a hoot
+  was not watching, so its pane memory is thrown away), `:ring_ms` (how long
+  after a doorbell an answer not taken is rung again), `:desktop` (where a hoot
   herdr will not show is raised, `Whiska.Desktop.impl/0` by default),
   `:away_path` (the file that says the person is away, the real one by
   default), `:name`.
@@ -288,6 +295,7 @@ defmodule Whiska.Owl.House do
           hold_notice_ms: Keyword.get(opts, :hold_notice_ms, @default_hold_notice_ms),
           settle_ms: Keyword.get(opts, :settle_ms, @default_settle_ms),
           max_gap_ms: Keyword.get(opts, :max_gap_ms, backstop_ms(opts) * 3),
+          ring_ms: Keyword.get(opts, :ring_ms, @default_ring_ms),
           away_path: Keyword.get_lazy(opts, :away_path, &Mode.away_path/0),
           main_pane: Storage.main_pane()
         }
@@ -371,7 +379,15 @@ defmodule Whiska.Owl.House do
   def handle_info(:resubscribe, state), do: {:noreply, subscribe(state)}
 
   def handle_info(:backstop, state) do
-    state = state |> refresh() |> collect_on_backstop() |> deliver() |> clean_up() |> pick_up()
+    state =
+      state
+      |> refresh()
+      |> collect_on_backstop()
+      |> deliver()
+      |> clean_up()
+      |> ring()
+      |> pick_up()
+
     Process.send_after(self(), :backstop, state.backstop_ms)
     {:noreply, state}
   end
@@ -716,6 +732,57 @@ defmodule Whiska.Owl.House do
     end)
 
     state
+  end
+
+  # Ringing again for an answer not taken, on the same backstop as cleanup: a
+  # swallowed doorbell happens inside the pane, so there is nothing to be told
+  # about (ADR-next-an-answer-is-taken-not-typed).
+  defp ring(%{socket: nil} = state), do: state
+
+  defp ring(state) do
+    %{
+      main_checkout: state.main_checkout,
+      herdr: state.herdr,
+      socket: state.socket,
+      panes: state.last_panes,
+      main_pane: state.main_pane,
+      ring_ms: state.ring_ms,
+      now: DateTime.utc_now()
+    }
+    |> Doorbell.sweep()
+    |> Enum.each(&rang(&1, state))
+
+    state
+  end
+
+  defp rang({q, mouse, :rang}, state),
+    do: warn(state, "rang #{branch_or_id(mouse, q)}'s doorbell again for ##{q.id}")
+
+  defp rang({q, mouse, :not_taken}, state) do
+    branch = branch_or_id(mouse, q)
+    warn(state, "#{branch} has not taken its answer to ##{q.id} — told the person")
+    not_taken_hoot(state, q, branch)
+  end
+
+  defp rang({q, mouse, {:left, {:refused, reason}}}, state) do
+    warn(
+      state,
+      "#{branch_or_id(mouse, q)}'s doorbell for ##{q.id} was refused (#{inspect(reason)})"
+    )
+  end
+
+  defp rang(_left, _state), do: :ok
+
+  defp branch_or_id(%Mouse{branch: branch}, _q) when is_binary(branch), do: branch
+  defp branch_or_id(_mouse, q), do: q.mouse_id
+
+  # A courtesy, as every hoot is: whatever herdr or the desktop does here is
+  # swallowed rather than allowed to take the house down.
+  defp not_taken_hoot(state, q, branch) do
+    notification = Hoot.not_taken(q, Path.basename(state.main_checkout), branch)
+    Hoot.send_out(state.herdr, state.socket, state.desktop, notification)
+  catch
+    _kind, _reason -> :ok
   end
 
   # Picking up a turn that died, on the same backstop and for the same reason

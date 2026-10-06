@@ -102,6 +102,26 @@ defmodule Whiska.WatchTest do
     end
   end
 
+  describe "an answer its mouse has not taken (ADR-next-an-answer-is-taken-not-typed)" do
+    test "says so on the row, ahead of a pickup note, and sorts with the questions" do
+      board =
+        board([mouse("feat-b"), mouse("feat-a")],
+          questions: [question(7, "feat-a", status: "answered")],
+          panes: {:ok, [pane("feat-a", "idle"), pane("feat-b", "working")]},
+          picked_up: %{"m-feat-a" => DateTime.add(@now, -180, :second)}
+        )
+
+      assert [%{branch: "feat-a", detail: "answer #7 not taken"}, %{branch: "feat-b"}] =
+               board.rows
+    end
+
+    test "is counted on the waiting line when its row is not shown" do
+      board = board([], questions: [question(7, "feat-a", status: "answered")])
+
+      assert board.waiting == 1
+    end
+  end
+
   # Between herdr asks the house only moves the clock on the last board, so the
   # per-second writes never match panes or read a transcript again.
   describe "retime/2" do

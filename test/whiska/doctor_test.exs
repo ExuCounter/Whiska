@@ -31,18 +31,29 @@ defmodule Whiska.DoctorTest do
   # -- hooks -------------------------------------------------------------------
 
   describe "hooks/1 — what settings.json wires" do
-    test "a fresh init passes both" do
+    test "a fresh init passes all three" do
       checks = Doctor.hooks(Install.merge(%{}))
 
       assert %Check{status: :ok} = find(checks, "PreToolUse")
       assert %Check{status: :ok} = find(checks, "Stop")
+      assert %Check{status: :ok} = find(checks, "UserPromptSubmit")
     end
 
-    test "no hooks at all fails both, pointing at init" do
+    test "no hooks at all fails all three, pointing at init" do
       checks = Doctor.hooks(%{})
 
       assert %Check{status: :fail, fix: "whiska init"} = find(checks, "PreToolUse")
       assert %Check{status: :fail, fix: "whiska init"} = find(checks, "Stop")
+      assert %Check{status: :fail, fix: "whiska init"} = find(checks, "UserPromptSubmit")
+    end
+
+    test "a missing UserPromptSubmit hook says what it costs" do
+      without = update_in(Install.merge(%{}), ["hooks"], &Map.delete(&1, "UserPromptSubmit"))
+
+      assert %Check{status: :fail, detail: detail} =
+               Doctor.hooks(without) |> find("UserPromptSubmit")
+
+      assert detail =~ "answers"
     end
 
     test "a PreToolUse entry from before the shim took an argument is a fail, named as older" do

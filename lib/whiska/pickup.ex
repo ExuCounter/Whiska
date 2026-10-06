@@ -52,7 +52,7 @@ defmodule Whiska.Pickup do
 
   alias Whiska.Delivery.Draft
   alias Whiska.Doorstep
-  alias Whiska.Layout
+  alias Whiska.MousePane
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -145,14 +145,9 @@ defmodule Whiska.Pickup do
   # when something has already passed every check this machine can answer by
   # itself, so a house with nothing to pick up opens no socket.
   defp ours(judged, house) do
-    if Enum.any?(judged, &match?({_mouse, _pane, :ok}, &1)) do
-      case house.herdr.worktrees(house.socket, house.main_checkout) do
-        {:ok, worktrees} -> {:ok, MapSet.new(worktrees, &Layout.canonical(&1.path))}
-        {:error, _reason} -> :unknown
-      end
-    else
-      :unknown
-    end
+    if Enum.any?(judged, &match?({_mouse, _pane, :ok}, &1)),
+      do: MousePane.our_worktrees(house),
+      else: :unknown
   end
 
   # herdr's word on this mouse's pane, folded into what the last sweep saw.
@@ -168,7 +163,7 @@ defmodule Whiska.Pickup do
   defp observe(mouse, panes, house) do
     was = Map.get(house.seen, mouse.mouse_id)
 
-    case agent_panes(mouse, panes) do
+    case MousePane.agent_panes(mouse, panes) do
       [pane] -> {seen_pane(mouse, pane, was, house), pane}
       [] -> {%{status: "no pane", ready_since: nil}, nil}
       _many -> {%{status: "many panes", ready_since: nil}, nil}
@@ -191,12 +186,6 @@ defmodule Whiska.Pickup do
   defp carried(%{status: status, ready_since: since}) when status in @ready, do: since
   defp carried(_otherwise), do: nil
 
-  defp agent_panes(%Mouse{path: path}, panes) when is_binary(path) do
-    Enum.filter(panes, &(&1.agent != nil and is_binary(&1.cwd) and Layout.inside?(&1.cwd, path)))
-  end
-
-  defp agent_panes(_no_path, _panes), do: []
-
   # The checks run cheapest first and the first to refuse is the answer, so a
   # reason names the nearest thing standing in the way rather than the worst.
   defp verdict(mouse, look, pane, local, house) do
@@ -204,6 +193,7 @@ defmodule Whiska.Pickup do
          :ok <- not_held(mouse),
          :ok <- turn_died(mouse, local),
          :ok <- nothing_waiting(mouse, local),
+         :ok <- nothing_chased(mouse, local),
          :ok <- one_attempt(mouse, local),
          :ok <- quiet_long_enough(look, house),
          :ok <- claude?(pane),
@@ -237,6 +227,17 @@ defmodule Whiska.Pickup do
     if Enum.any?(questions(local, id), &(&1.status in @waiting)),
       do: {:leave, :waiting},
       else: :ok
+  end
+
+  # An answer saved but not yet taken means the turn it would start has not
+  # begun: a swallowed doorbell, which the owl rings again, not a died turn
+  # (ADR-next-an-answer-is-taken-not-typed). Read as `Storage.chased/0` reads
+  # it: the mouse's newest question, answered and not taken.
+  defp nothing_chased(%Mouse{mouse_id: id}, local) do
+    case Enum.max_by(questions(local, id), & &1.id, fn -> nil end) do
+      %Question{status: "answered", taken_at: nil} -> {:leave, :answer_not_taken}
+      _otherwise -> :ok
+    end
   end
 
   # The cap. A pickup that was followed by a turn reaching the doorstep did its
@@ -277,8 +278,8 @@ defmodule Whiska.Pickup do
   defp act(_mouse, _pane, :ok, :unknown, _house), do: {:left, :no_herdr}
 
   defp act(mouse, pane, :ok, {:ok, ours}, house) do
-    if MapSet.member?(ours, Layout.canonical(mouse.path)),
-      do: act_on_box(mouse, pane, house, box(pane, house)),
+    if MousePane.ours?(mouse, ours),
+      do: act_on_box(mouse, pane, house, MousePane.box(pane, house)),
       else: {:left, :not_our_worktree}
   end
 
@@ -286,20 +287,6 @@ defmodule Whiska.Pickup do
     case Draft.hold(reading) do
       {:hold, held} -> {:left, held}
       :go -> nudge(mouse, pane, house)
-    end
-  end
-
-  # The second half of delivery's gate, asked of the mouse's pane for the same
-  # reason (ADR-0047): herdr's idle is the model's word, and a line typed into
-  # a box somebody is halfway through lands inside what they are writing. A box
-  # that is not on the screen at all is the same refusal as a draft, for the
-  # reason ADR-0068 gives: the marker Whiska would read is the person's last
-  # message, not their prompt. An unreadable screen is an unavailable signal,
-  # so it types anyway.
-  defp box(pane, house) do
-    case house.herdr.read_screen(house.socket, pane.pane_id) do
-      {:ok, screen} -> Draft.read(screen)
-      {:error, _reason} -> :empty
     end
   end
 

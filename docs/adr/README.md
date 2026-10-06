@@ -52,10 +52,11 @@ are the extracted, individually citable decisions.
 - [0057](0057-nothing-unanswerable-holds-the-delivery-slot.md) — Nothing that cannot be answered holds the delivery slot (amended 2026-10-06 by next-the-person-decides-what-reaches-them: nor does a held or unfocused sent question)
 - [0058](0058-a-held-queue-says-so-on-the-board.md) — A held queue says so on the board (amended 2026-10-06 by next-the-person-decides-what-reaches-them: the word is "gated")
 - [next](0079-the-person-decides-what-reaches-them.md) — The person decides what reaches them: away is the machine's, a focus is one repo's, a hold is one mouse's stored status, stopped through the hook; eight one-word commands; the gate's word is "gated" (amends 0008, 0022, 0043, 0057, 0058, 0061, 0067)
+- [next](next-an-answer-is-taken-not-typed.md) — An answer is taken by the mouse's own hook, not typed into its pane: `reply` saves it and rings a doorbell, a `UserPromptSubmit` hook hands it over and stamps it taken, and the owl rings again at most three times before telling the person (amends 0044, 0067)
 - [0062](0062-the-owl-hoots-when-it-delivers.md) — The owl hoots when it delivers: one desktop notification per delivered question (amended 2026-10-04 by next-a-hoot-reaches-you-without-herdr)
 - [0071](0071-a-hoot-reaches-you-without-herdr.md) — A hoot herdr will not show is raised on the desktop (amends 0062; noted 2026-10-05: notify-send on Linux)
 - [0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md) — A nudge is a notice typed into another house's main session (superseded 2026-09-29 by 0044)
-- [0044](0044-the-statusline-redraws-on-a-timer-not-a-typed-nudge.md) — The statusline redraws on a timer, not a typed nudge (partly superseded 2026-09-29 by 0048; the refresh interval is live again on the repo-scoped line; amended 2026-10-03 by 0067 with one exception, a mouse's own pane)
+- [0044](0044-the-statusline-redraws-on-a-timer-not-a-typed-nudge.md) — The statusline redraws on a timer, not a typed nudge (partly superseded 2026-09-29 by 0048; the refresh interval is live again on the repo-scoped line; amended 2026-10-03 by 0067 with one exception, a mouse's own pane; amended 2026-10-06 by ADR-next-an-answer-is-taken-not-typed with a second, the doorbell)
 
 ## Enforcement, checks and push
 
@@ -81,7 +82,7 @@ are the extracted, individually citable decisions.
 - [next](0074-a-finished-investigation-hands-off.md) — A finished investigation hands its proposal to a fresh build mouse; `whiska mode` still flips, and says what it carried (follows from 0069 and 0073)
 - [0026](0026-dead-mice-and-stuck-mice-are-separate-problems.md) — Dead mice and stuck mice are separate problems
 - [0050](0050-a-mouses-last-action-is-read-from-its-transcript.md) — A mouse's last action is read from its Claude Code transcript, never asked for
-- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl (builds 0026's rung three; amends 0044 with its one exception; amended 2026-10-06 by next-the-person-decides-what-reaches-them: a held mouse is never picked up)
+- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl (builds 0026's rung three; amends 0044 with its one exception; amended 2026-10-06 by next-the-person-decides-what-reaches-them: a held mouse is never picked up; amended 2026-10-06 by ADR-next-an-answer-is-taken-not-typed: a turn begins at the take, and a chased answer is not a died turn)
 - [0078](0078-every-task-goes-to-a-worktree.md) — Every task goes to a worktree; only the person saying "work in place" skips it (amends 0063, 0075 and 0076: a tweak or quick fix no longer skips the scout or the spec)
 
 ## Interface

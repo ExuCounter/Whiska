@@ -2,8 +2,8 @@ defmodule Whiska.CLIDeliveryTest do
   @moduledoc """
   The commands the delivery slice adds: `whiska start` records the main
   session (ADR-0020); `whiska questions` shows what is waiting; `whiska reply`
-  answers by question id (ADR-0005) and types the answer into the mouse's pane;
-  `whiska close` settles one by hand.
+  answers by question id (ADR-0005), saves the answer and rings the mouse's
+  doorbell; `whiska close` settles one by hand.
   """
   # Serial: the code under test opens the house under the one VM-wide name
   # `Whiska.Repo`, and the tests set HOME and HERDR_* in the OS env.
@@ -12,7 +12,9 @@ defmodule Whiska.CLIDeliveryTest do
   import ExUnit.CaptureIO
   import Mox
 
+  alias Whiska.AnswerFlag
   alias Whiska.CLI
+  alias Whiska.Doorbell
   alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.Storage
 
@@ -27,6 +29,7 @@ defmodule Whiska.CLIDeliveryTest do
     File.mkdir_p!(Path.join(main, ".git"))
     File.mkdir_p!(worktree)
     File.write!(Path.join(worktree, ".git"), "gitdir: #{main}/.git/worktrees/feat-a\n")
+    File.mkdir_p!(Path.join(main, ".git/worktrees/feat-a"))
 
     was = {System.get_env("HERDR_PANE_ID"), System.get_env("HERDR_SOCKET_PATH")}
     System.put_env("HERDR_PANE_ID", "w1:p2")
@@ -316,22 +319,34 @@ defmodule Whiska.CLIDeliveryTest do
   end
 
   describe "whiska reply" do
-    test "types the answer into the mouse's pane and marks the question answered (ADR-0005)",
-         %{main: main} do
+    test "saves the answer, then rings the doorbell: the pane never sees the answer itself",
+         %{main: main, worktree: worktree} do
       seed(main, fn ->
         q = ask("[worktree-status: needs-decision] which?")
         {:ok, _} = Storage.mark_sent(q.id)
       end)
 
-      expect(Herdr, :prompt, fn @socket, "w1R:p1", "go with SQLite" -> :ok end)
+      expect(Herdr, :prompt, fn @socket, "w1R:p1", line ->
+        # Herdr is called from inside the command, against the house it opened.
+        assert Storage.question(1).status == "answered"
+        assert line == Doorbell.line(1)
+        refute line =~ "SQLite"
+        :ok
+      end)
 
-      {0, out, _} = run(["reply", "1", "go with SQLite"], main)
+      {0, out, _} = run(["reply", "1", "go with SQLite\nand keep the schema"], main)
       assert out =~ "#1"
       assert out =~ "feat-a"
 
       in_house(main, fn ->
-        assert %{status: "answered", answer: "go with SQLite"} = Storage.question(1)
+        assert %{status: "answered", answer: "go with SQLite\nand keep the schema"} =
+                 q = Storage.question(1)
+
+        assert %DateTime{} = q.rung_at
+        assert q.taken_at == nil
       end)
+
+      assert AnswerFlag.set?(worktree)
     end
 
     # The same fallback the owl has under launchd (ADR-0040): a shell that never
@@ -352,28 +367,30 @@ defmodule Whiska.CLIDeliveryTest do
       on_exit(fn -> if was_home, do: System.put_env("HOME", was_home) end)
 
       seed(main, fn -> ask("?") end)
-      expect(Herdr, :prompt, fn ^default, "w1R:p1", "yes" -> :ok end)
+      expect(Herdr, :prompt, fn ^default, "w1R:p1", _doorbell -> :ok end)
 
       {0, _, _} = run(["reply", "1", "yes"], main)
     end
 
-    test "an answer is a turn beginning, so the owl can pick it up if it dies (ADR-0067)",
+    test "a reply does not stamp the mouse as working; the take does (ADR-0067)",
          %{main: main} do
       seed(main, fn -> ask("?") end)
-      expect(Herdr, :prompt, fn @socket, "w1R:p1", "yes" -> :ok end)
+      expect(Herdr, :prompt, fn @socket, "w1R:p1", _doorbell -> :ok end)
 
       {0, _, _} = run(["reply", "1", "yes"], main)
 
-      in_house(main, fn -> assert %DateTime{} = Storage.mouse("ma").worked_at end)
+      in_house(main, fn -> assert Storage.mouse("ma").worked_at == nil end)
     end
 
     test "joins several words into one answer", %{main: main} do
       seed(main, fn -> ask("?") end)
-      expect(Herdr, :prompt, fn @socket, "w1R:p1", "yes please do" -> :ok end)
+      expect(Herdr, :prompt, fn @socket, "w1R:p1", _doorbell -> :ok end)
       {0, _, _} = run(["reply", "1", "yes", "please", "do"], main)
+      in_house(main, fn -> assert Storage.question(1).answer == "yes please do" end)
     end
 
-    test "leaves the question as it was when herdr refuses", %{main: main} do
+    test "herdr refusing the doorbell keeps the answer saved and flagged for the owl to ring",
+         %{main: main, worktree: worktree} do
       seed(main, fn ->
         q = ask("?")
         {:ok, _} = Storage.mark_sent(q.id)
@@ -383,9 +400,43 @@ defmodule Whiska.CLIDeliveryTest do
         {:error, {:herdr, %{"code" => "agent_blocked", "message" => "at a dialog"}}}
       end)
 
-      {1, _, err} = run(["reply", "1", "yes"], main)
-      assert err =~ "agent_blocked"
-      in_house(main, fn -> assert Storage.question(1).status == "sent" end)
+      {0, out, _} = run(["reply", "1", "yes"], main)
+      assert out =~ "agent_blocked"
+      assert out =~ "owl"
+
+      in_house(main, fn ->
+        assert %{status: "answered", answer: "yes", rung_at: nil} = Storage.question(1)
+      end)
+
+      assert AnswerFlag.set?(worktree)
+    end
+
+    test "a herdr client that crashes on the doorbell is a doorbell not rung, not a failed reply",
+         %{main: main} do
+      seed(main, fn -> ask("?") end)
+      expect(Herdr, :prompt, fn @socket, "w1R:p1", _ -> exit(:badarg) end)
+
+      {0, out, _} = run(["reply", "1", "yes"], main)
+      assert out =~ "owl"
+      in_house(main, fn -> assert Storage.question(1).status == "answered" end)
+    end
+
+    test "with no herdr at all the answer is still saved for the owl to ring", %{
+      main: main,
+      root: root,
+      worktree: worktree
+    } do
+      was_home = System.get_env("HOME")
+      System.delete_env("HERDR_SOCKET_PATH")
+      System.put_env("HOME", Path.join(root, "nohome"))
+      on_exit(fn -> if was_home, do: System.put_env("HOME", was_home) end)
+
+      seed(main, fn -> ask("?") end)
+
+      {0, out, _} = run(["reply", "1", "yes"], main)
+      assert out =~ "owl"
+      in_house(main, fn -> assert Storage.question(1).status == "answered" end)
+      assert AnswerFlag.set?(worktree)
     end
 
     test "refuses a dead mouse and says where its worktree is", %{main: main} do

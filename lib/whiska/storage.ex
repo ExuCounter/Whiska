@@ -31,7 +31,8 @@ defmodule Whiska.Storage do
     {7, Whiska.Migrations.V007Shape},
     {8, Whiska.Migrations.V008Effort},
     {9, Whiska.Migrations.V009ShapedAs},
-    {10, Whiska.Migrations.V010HoldAndFocus}
+    {10, Whiska.Migrations.V010HoldAndFocus},
+    {11, Whiska.Migrations.V011AnswerTaken}
   ]
 
   @modes ~w(build sniff)
@@ -832,6 +833,74 @@ defmodule Whiska.Storage do
           {:ok, Question.t()} | {:error, :no_such_question | :not_answerable | Ecto.Changeset.t()}
   def answer(id, text) do
     settle(id, %{status: "answered", answer: text})
+  end
+
+  @doc """
+  The answers still to be handed over, oldest first: answered, not taken, and
+  the newest question its mouse has asked. A mouse that asked again has moved
+  past the answer, so handing it over now would be the mismatch ADR-0005
+  exists to stop. At most one per mouse.
+  """
+  @spec chased() :: [Question.t()]
+  def chased do
+    latest =
+      from(q in Question, group_by: q.mouse_id, select: {q.mouse_id, max(q.id)})
+      |> Repo.all()
+      |> Map.new()
+
+    from(q in Question,
+      where: q.status == "answered" and is_nil(q.taken_at),
+      order_by: q.id
+    )
+    |> Repo.all()
+    |> Enum.filter(&(Map.get(latest, &1.mouse_id) == &1.id))
+  end
+
+  @spec chased(String.t()) :: [Question.t()]
+  def chased(mouse_id), do: Enum.filter(chased(), &(&1.mouse_id == mouse_id))
+
+  @doc """
+  The chased answers the owl gave up ringing for: waiting on the person now,
+  who can hand one over by typing anything into its mouse's pane. With their
+  mice, as `questions/0` has them.
+  """
+  @spec not_taken() :: [Question.t()]
+  def not_taken do
+    chased() |> Enum.filter(& &1.stale_at) |> Repo.preload(:mouse)
+  end
+
+  @doc "Stamp answers as handed over to their mouse's session."
+  @spec take([integer()], DateTime.t()) :: {:ok, non_neg_integer()}
+  def take(ids, at) do
+    {n, _} =
+      Repo.update_all(
+        from(q in Question, where: q.id in ^ids and is_nil(q.taken_at)),
+        set: [taken_at: DateTime.truncate(at, :second)]
+      )
+
+    {:ok, n}
+  end
+
+  @doc "Stamp the doorbell `reply` rang. It is not one of the owl's rings."
+  @spec rung(integer(), DateTime.t()) :: {:ok, Question.t()} | {:error, term()}
+  def rung(id, at), do: stamp_question(id, rung_at: DateTime.truncate(at, :second))
+
+  @doc "Set the owl's ring count and its last ring, or put them back after a refusal."
+  @spec set_ring(integer(), DateTime.t() | nil, non_neg_integer()) ::
+          {:ok, Question.t()} | {:error, term()}
+  def set_ring(id, at, rings) do
+    stamp_question(id, rung_at: at && DateTime.truncate(at, :second), rings: rings)
+  end
+
+  @doc "Stamp an answer the owl gave up ringing for."
+  @spec mark_not_taken(integer(), DateTime.t()) :: {:ok, Question.t()} | {:error, term()}
+  def mark_not_taken(id, at), do: stamp_question(id, stale_at: DateTime.truncate(at, :second))
+
+  defp stamp_question(id, attrs) do
+    case Repo.get(Question, id) do
+      nil -> {:error, :no_such_question}
+      q -> update_status(q, Map.new(attrs))
+    end
   end
 
   @doc """

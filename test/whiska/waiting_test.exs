@@ -108,6 +108,28 @@ defmodule Whiska.WaitingTest do
       assert entry.age_s >= 120
     end
 
+    test "an answer its mouse has not taken is waiting on the person, and says why", %{
+      root: root,
+      record: record
+    } do
+      main = house!(root, "myrepo", record)
+
+      seed(main, fn ->
+        mouse("m1", "feat-a", "%3")
+        q = ask("m1", "[worktree-status: needs-decision] pick one", asked_at: ago(300))
+        {:ok, _} = Storage.answer(q.id, "the first")
+        {:ok, _} = Storage.mark_not_taken(q.id, DateTime.utc_now())
+        # Still ringing, not yet given up on: not the person's to act on.
+        mouse("m2", "feat-b", "%4")
+        ringing = ask("m2", "[worktree-status: needs-decision] other")
+        {:ok, _} = Storage.answer(ringing.id, "yes")
+      end)
+
+      assert [entry] = Waiting.list(open_houses: record)
+      assert %{branch: "feat-a", status: "not_taken", waits: "not taken", pane: "%3"} = entry
+      assert Waiting.render([entry]) =~ "not taken"
+    end
+
     test "reads every recorded house, not just one", %{root: root, record: record} do
       a = house!(root, "alpha", record)
       b = house!(root, "beta", record)

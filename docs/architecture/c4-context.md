@@ -15,7 +15,7 @@ C4Context
 
   System(whiska, "Whiska", "Mints mouse identity, enforces hard rules, queues questions to the main session")
 
-  System_Ext(claude, "Claude Code", "Main session and mice; fires PreToolUse and Stop hooks")
+  System_Ext(claude, "Claude Code", "Main session and mice; fires PreToolUse, Stop and UserPromptSubmit hooks")
   System_Ext(herdr, "herdr", "Terminal multiplexer - owns panes, starts Claude, reports agent status")
   System_Ext(git, "git worktrees", "One worktree per mouse, laid out under the main checkout")
   System_Ext(launchd, "Service manager", "launchd on macOS, systemd on Linux - keeps the one owl per machine running")
@@ -23,7 +23,7 @@ C4Context
 
   Rel(person, claude, "Types into the main session")
   Rel(claude, whiska, "Sends hook events", "JSON on stdin / socket")
-  Rel(whiska, claude, "Denies a tool call, or types an answer into a mouse")
+  Rel(whiska, claude, "Denies a tool call, rings a mouse's doorbell, hands it the saved answer as context")
   Rel(whiska, herdr, "Opens panes, reads agent status, closes a landed mouse's pane", "herdr CLI")
   Rel(herdr, claude, "Starts and hosts every session")
   Rel(whiska, git, "Derives layout from, stores house under .git/, removes a merged worktree")

@@ -91,6 +91,20 @@ defmodule Whiska.Delivery.Hoot do
     }
   end
 
+  @doc """
+  The hoot for an answer its mouse never took, after the owl rang for it as
+  often as it will (ADR-next-an-answer-is-taken-not-typed). Any prompt in that
+  mouse's pane hands the answer over, so that is what it says to do.
+  """
+  @spec not_taken(Question.t(), String.t(), String.t()) :: t()
+  def not_taken(%Question{id: id}, house, branch) do
+    %{
+      title: "🐱 #{name(house)} · #{name(branch)} has not taken your answer",
+      body: "##{id} · type anything into its pane to hand it over",
+      sound: :request
+    }
+  end
+
   defp name(text) do
     case String.replace(text, ~r/\s+/, " ") do
       flat when byte_size(flat) > @name_max -> String.slice(flat, 0, @name_max) <> "…"
