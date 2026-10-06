@@ -274,7 +274,10 @@ defmodule Whiska.CLI do
     0
   end
 
-  def run(["hook", "session-start"], _cwd), do: session_start(System.get_env())
+  def run(["hook", "session-start"], _cwd), do: session_start(System.get_env(), :repo)
+
+  def run(["hook", "session-start", "--global"], _cwd),
+    do: session_start(System.get_env(), :global)
 
   def run(["owl", "install"], _cwd), do: owl_install()
   def run(["owl", "uninstall"], _cwd), do: owl_uninstall()
@@ -895,8 +898,13 @@ defmodule Whiska.CLI do
 
   defp block_note(:retired, scope) do
     "\n\nTook the old block out of #{md_name(scope)}: its rules arrive at session " <>
-      "start now. A part you marked `keep` is still there."
+      "start now. A part you marked `keep` is still there." <> commit_md(scope)
   end
+
+  # A mouse branches off what is committed, so a block left in the committed
+  # CLAUDE.md reaches every new mouse beside the hook's rules.
+  defp commit_md(:repo), do: " Commit that too:\n\n  git add CLAUDE.md"
+  defp commit_md(:global), do: ""
 
   defp md_name(:repo), do: "CLAUDE.md"
   defp md_name(:global), do: "~/.claude/CLAUDE.md"
@@ -2226,9 +2234,9 @@ defmodule Whiska.CLI do
   the whole answer, and any other status reads to Claude Code as the hook
   failing.
   """
-  @spec session_start(%{optional(String.t()) => String.t()}) :: 0
-  def session_start(env) do
-    stdin() |> SessionStart.run(env)
+  @spec session_start(%{optional(String.t()) => String.t()}, Install.scope()) :: 0
+  def session_start(env, scope \\ :repo) do
+    stdin() |> SessionStart.run(env, scope)
     0
   end
 end

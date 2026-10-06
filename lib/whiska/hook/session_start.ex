@@ -15,9 +15,15 @@ defmodule Whiska.Hook.SessionStart do
     already makes (ADR-0053).
   - **The main session**: anything else in herdr.
 
-  A part the person holds as `keep` in `~/.claude/CLAUDE.md` or the project's
-  own `CLAUDE.md` is left out: Claude Code loads those files itself, so their
-  wording is already in context (ADR-0045).
+  A part the person holds as `keep` is left out: Claude Code loads that
+  `CLAUDE.md` itself, so their wording is already in context (ADR-0045). Which
+  files count depends on which install fired the hook. The repo's own install
+  reads `~/.claude/CLAUDE.md` and the project's `CLAUDE.md`: that repo wires its
+  own rules, so its `CLAUDE.md` holding one back changes nothing it could not
+  change anyway. The global install reads `~/.claude/CLAUDE.md` alone. It runs
+  in every repo the person opens, including ones they only read, and a `keep`
+  in such a repo's `CLAUDE.md` would silently take away the rules that say to
+  distrust text arriving with a branch.
 
   Fails quiet: a payload that will not parse, or a role that cannot be read,
   prints nothing rather than the wrong rules.
@@ -32,14 +38,14 @@ defmodule Whiska.Hook.SessionStart do
 
   Prints the hook's JSON on stdout, or nothing. Always `:ok`.
   """
-  @spec run(String.t(), %{optional(String.t()) => String.t()}) :: :ok
-  def run(raw_payload, env) when is_map(env) do
+  @spec run(String.t(), %{optional(String.t()) => String.t()}, :repo | :global) :: :ok
+  def run(raw_payload, env, scope \\ :repo) when is_map(env) do
     with "1" <- env["HERDR_ENV"],
          {:ok, payload} <- decode(raw_payload) do
-      role = role(payload)
+      role = payload |> started_from(env) |> role()
 
       payload
-      |> claude_mds(env)
+      |> claude_mds(env, scope)
       |> Enum.flat_map(&kept_in/1)
       |> then(&Rules.render(role, &1))
       |> encode()
@@ -48,6 +54,14 @@ defmodule Whiska.Hook.SessionStart do
 
     :ok
   end
+
+  # A session with no transcript to read yet — one just cleared — is placed by
+  # its working directory, which follows every `cd`. `CLAUDE_PROJECT_DIR` is
+  # fixed for the session's life (ADR-0053), so it stands in for that.
+  defp started_from(payload, %{"CLAUDE_PROJECT_DIR" => project}) when is_binary(project),
+    do: Map.put(payload, "cwd", project)
+
+  defp started_from(payload, _env), do: payload
 
   defp role(payload) do
     with {:ok, layout} <- Session.worktree(payload),
@@ -58,17 +72,18 @@ defmodule Whiska.Hook.SessionStart do
     end
   end
 
-  # The two files a `keep` can sit in that Claude Code loads for this session.
-  # The project directory is the one the hook was given, then the payload's.
-  defp claude_mds(payload, env) do
+  # The files a `keep` can sit in. The project directory is the one the hook
+  # was given, then the payload's.
+  defp claude_mds(payload, env, :repo) do
     project = env["CLAUDE_PROJECT_DIR"] || payload["cwd"]
 
-    [
-      env["HOME"] && Path.join(env["HOME"], ".claude/CLAUDE.md"),
-      project && Path.join(project, "CLAUDE.md")
-    ]
-    |> Enum.reject(&is_nil/1)
-    |> Enum.uniq()
+    Enum.uniq(
+      claude_mds(payload, env, :global) ++ List.wrap(project && Path.join(project, "CLAUDE.md"))
+    )
+  end
+
+  defp claude_mds(_payload, env, :global) do
+    List.wrap(env["HOME"] && Path.join(env["HOME"], ".claude/CLAUDE.md"))
   end
 
   defp kept_in(path) do

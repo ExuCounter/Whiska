@@ -199,5 +199,6 @@ The global install writes no block into `~/.claude/CLAUDE.md`; it wires a third 
 `~/.claude/CLAUDE.md` through the symlink. The `scope` part is gone: the shim's stand-down
 already makes a repo's own install win for this hook as for the other two. The global shim
 also exits before starting Whiska for a `session-start` outside herdr, since it runs in every
-session on the machine. `whiska doctor` counts three pieces — hooks, statusline, skills —
-and the hooks piece now requires `SessionStart` too.
+session on the machine. `whiska doctor` counts four pieces — the two hooks, `SessionStart`,
+the statusline and the skills — so an install written before `SessionStart` existed still
+reads as enforcing and delivering, and its fix is `whiska init --global`.

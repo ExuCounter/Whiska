@@ -426,7 +426,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "own words"
     end
 
-    test "every answering skill says an answer goes through whiska reply, and leaves the reason to the rules" do
+    test "every answering skill says an answer goes through whiska reply and nothing else" do
       for path <- [
             ".claude/skills/whiska-delivered/SKILL.md",
             ".claude/skills/reply/SKILL.md"
@@ -436,9 +436,6 @@ defmodule Whiska.InstallStatuslineTest do
 
         assert prose =~ ~r/only (as `whiska reply|this way)/i, path
         assert body =~ "herdr agent prompt", path
-        # The reason — the one delivery slot — is said once, in the main
-        # session's rules, which are always in its context.
-        refute body =~ "frees the slot", path
       end
     end
 

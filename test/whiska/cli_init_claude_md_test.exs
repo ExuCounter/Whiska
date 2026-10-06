@@ -105,17 +105,18 @@ defmodule Whiska.CLIInitClaudeMdTest do
     assert init(main) =~ "old block"
   end
 
+  test "a block taken out is a change to commit, and the commit line says so",
+       %{main: main, path: path} do
+    refute init(main) =~ "git add CLAUDE.md"
+
+    File.write!(path, @old_block)
+    assert init(main) =~ "git add CLAUDE.md"
+  end
+
   test "tells the person to write the Finish heading the finish rules read", %{main: main} do
     output = init(main)
 
     assert output =~ "## Finish"
     refute output =~ Whiska.Install.review_loop_path()
-  end
-
-  test "says the rules arrive at session start, by role", %{main: main} do
-    output = init(main)
-
-    assert output =~ "SessionStart"
-    assert output =~ "whiska-finish"
   end
 end

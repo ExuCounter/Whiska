@@ -61,12 +61,22 @@ defmodule Whiska.Install do
   @global_command ~s|bash "$HOME/#{@shim_path}" pre-tool-use|
   @global_stop_command ~s|bash "$HOME/#{@shim_path}" stop|
   @global_prompt_command ~s|bash "$HOME/#{@shim_path}" user-prompt-submit|
-  @global_session_start_command ~s|bash "$HOME/#{@shim_path}" session-start|
+  @global_session_start_command ~s|bash "$HOME/#{@shim_path}" session-start --global|
+
+  # Outside herdr no mouse is spawned and nothing is delivered, so a session
+  # there starts with no rules, and the escript is not worth starting to say so.
+  @skip_outside_herdr """
+  if [ "${1:-}" = "session-start" ] && [ "${HERDR_ENV:-}" != 1 ]; then
+    exit 0
+  fi
+
+  """
 
   @shim_header """
   #!/usr/bin/env bash
-  # Whiska's hooks. Takes the hook's name - pre-tool-use, stop or
-  # user-prompt-submit - and hands the payload on stdin to `whiska hook <name>`.
+  # Whiska's hooks. Takes the hook's name - pre-tool-use, stop,
+  # user-prompt-submit or session-start - and hands the payload on stdin to
+  # `whiska hook <name>`.
   #
   # Written by `whiska init` and checked into the repo so the rules travel with
   # it (ADR-0016). Everything machine-specific is resolved here, when the hook
@@ -221,6 +231,7 @@ defmodule Whiska.Install do
 
   @shim @shim_header <>
           @prompt_fast_path <>
+          @skip_outside_herdr <>
           @resolve_whiska <>
           @shim_fail_open <>
           @resolve_escript <>
@@ -295,12 +306,7 @@ defmodule Whiska.Install do
     esac
   fi
 
-  # Outside herdr no mouse is spawned and nothing is delivered, so a session
-  # there starts with no rules - and this copy runs in every session on the
-  # machine.
-  if [ "$1" = "session-start" ] && [ "${HERDR_ENV:-}" != 1 ]; then
-    exit 0
-  fi
+  #{String.trim_trailing(@skip_outside_herdr)}
 
   """
 
@@ -821,8 +827,9 @@ defmodule Whiska.Install do
   # A file added beside a skill is a new build input, which @external_resource
   # cannot see until something already listed changes.
   def __mix_recompile__? do
-    "#{@skill_source}/*/*.md" |> Path.wildcard() |> Enum.count() !=
-      length(@committed_sources)
+    @committed_skills
+    |> Enum.flat_map(&Path.wildcard("#{@skill_source}/#{&1}/*.md"))
+    |> length() != length(@committed_sources)
   end
 
   @doc """
@@ -982,14 +989,17 @@ defmodule Whiska.Install do
   @doc """
   Which pieces of the global install are on disk right now (ADR-0056).
 
-  Three, and they are read rather than assumed because each can be removed on
-  its own: the four hooks and the statusline in `~/.claude/settings.json`, and
-  the skills. `whiska doctor` turns a half-written
+  Four, and they are read rather than assumed because each can be removed on
+  its own: the three hooks that enforce, deliver and hand a mouse its answer, the
+  `SessionStart` hook that hands out the rules, and the statusline in
+  `~/.claude/settings.json`, and the skills. `SessionStart` is apart because an
+  install written before it existed still enforces and delivers. `whiska doctor` turns a half-written
   answer into a warning; `whiska init` uses it only to say whether the global
   install is there at all.
   """
   @spec global_state() :: %{
           hooks?: boolean(),
+          session_start?: boolean(),
           statusline?: boolean(),
           skills?: boolean(),
           links: [{Path.t(), Path.t()}]
@@ -1003,7 +1013,9 @@ defmodule Whiska.Install do
         wired?(settings, "PreToolUse", command(:global)) and
           wired?(settings, "Stop", stop_command(:global)) and
           wired?(settings, "UserPromptSubmit", prompt_command(:global)) and
-          wired?(settings, "SessionStart", session_start_command(:global)) and
+          File.exists?(Path.join(home, @shim_path)),
+      session_start?:
+        wired?(settings, "SessionStart", session_start_command(:global)) and
           File.exists?(Path.join(home, @shim_path)),
       statusline?:
         statusline_command_in(settings) == statusline_command(:global) and
@@ -1013,7 +1025,7 @@ defmodule Whiska.Install do
     }
   end
 
-  @global_pieces [:hooks?, :statusline?, :skills?]
+  @global_pieces [:hooks?, :session_start?, :statusline?, :skills?]
 
   @doc "Is any of the global install there? Part of one still counts."
   @spec global_installed?() :: boolean()

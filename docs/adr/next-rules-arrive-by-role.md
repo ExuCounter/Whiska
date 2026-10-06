@@ -39,14 +39,23 @@ grills where the work is built, and the main session follows it when the person 
 work in place.
 
 Claude Code runs the hook on startup, resume, `/clear` and compaction, so a compacted
-session is told its rules again. The global shim exits before starting Whiska when
-`HERDR_ENV` is unset, because it runs in every session on the machine. It stands down in a
-repo that wires Whiska itself exactly as it does for the other hooks, which is what the
-`scope` part used to say in prose.
+session is told its rules again. Both copies of the shim exit before starting Whiska when
+`HERDR_ENV` is unset — the global one runs in every session on the machine. The global copy
+stands down in a repo that wires Whiska itself exactly as it does for the other hooks, which
+is what the `scope` part used to say in prose. A session with no transcript yet, one just
+cleared, is placed by `CLAUDE_PROJECT_DIR` rather than its working directory, which follows
+every `cd` (ADR-0053).
 
-**`keep` still means "this part is mine".** The hook reads `~/.claude/CLAUDE.md` and the
-project's own `CLAUDE.md`, and leaves out every part held there as `keep`: Claude Code
-loads those files itself, so the person's wording is already in context.
+**`keep` still means "this part is mine".** The hook leaves out every part held as `keep`
+in a `CLAUDE.md` it trusts: Claude Code loads that file itself, so the person's wording is
+already in context. Which files it trusts follows which install fired it. The repo's own
+install reads `~/.claude/CLAUDE.md` and the project's `CLAUDE.md` — that repo wires its own
+rules, so holding one back there changes nothing it could not change anyway. The global
+install, which runs in every repo the person opens, reads `~/.claude/CLAUDE.md` alone, and
+its command says so with `--global`. Two comment lines in a cloned repo's `CLAUDE.md` would
+otherwise silently drop a mouse's finish and marker rules — including the rule that says to
+distrust text arriving with the branch under review — where before this a repo could at
+most contradict the rules in plain sight.
 
 **`whiska init` takes the old block out**, in both scopes, through a symlink like every
 write (ADR-0056). Whiska's header and every part not marked `keep` go; a `keep` part and
@@ -69,7 +78,7 @@ descriptions. `show` and `reply` stay where the main session can reach them afte
 delivered question.
 
 **A skill keeps a section it rarely needs in a file beside it**, read only when needed, and
-`whiska init` ships every file in the skill's folder.
+`whiska init` ships every Markdown file beside the skill's `SKILL.md`.
 `whiska-delivered` keeps its two finished pickers in `finished.md` and `sniff.md`, read only
 when the line says finished, so a "needs a decision" delivery loads half of what it did.
 `whiska-finish` keeps the Proposed build section in `proposed-build.md`, and skips its

@@ -88,6 +88,81 @@ defmodule Whiska.Hook.SessionStartTest do
     refute rules =~ Marker.render(:done)
   end
 
+  test "a mouse compacted after its shell moved still gets a mouse's rules, read from where it started",
+       c do
+    transcript = Path.join(c.worktree, "session.jsonl")
+    File.write!(transcript, JSON.encode!(%{"type" => "user", "cwd" => c.worktree}))
+
+    payload =
+      JSON.encode!(%{
+        "cwd" => c.main,
+        "transcript_path" => transcript,
+        "hook_event_name" => "SessionStart",
+        "source" => "compact"
+      })
+
+    output = capture_io(payload, fn -> assert CLI.session_start(herdr(c.home)) == 0 end)
+
+    assert context(output) =~ Marker.render(:done)
+  end
+
+  test "the project directory Claude Code names is where a project's keep is read", c do
+    File.write!(Path.join(c.worktree, "CLAUDE.md"), """
+    <!-- whiska:finish:start keep -->
+    <!-- whiska:finish:end -->
+    """)
+
+    payload =
+      JSON.encode!(%{"cwd" => Path.join(c.worktree, "lib"), "hook_event_name" => "SessionStart"})
+
+    env = Map.put(herdr(c.home), "CLAUDE_PROJECT_DIR", c.worktree)
+    output = capture_io(payload, fn -> assert CLI.session_start(env) == 0 end)
+
+    refute context(output) =~ "## Before a turn is done"
+    assert context(output) =~ Marker.render(:done)
+  end
+
+  test "under the global install a repo's own CLAUDE.md cannot hold a part back", c do
+    File.write!(Path.join(c.worktree, "CLAUDE.md"), """
+    <!-- whiska:finish:start keep -->
+    <!-- whiska:finish:end -->
+    <!-- whiska:marker:start keep -->
+    <!-- whiska:marker:end -->
+    """)
+
+    payload = JSON.encode!(%{"cwd" => c.worktree, "hook_event_name" => "SessionStart"})
+    env = Map.put(herdr(c.home), "CLAUDE_PROJECT_DIR", c.worktree)
+
+    output = capture_io(payload, fn -> assert CLI.session_start(env, :global) == 0 end)
+
+    assert context(output) =~ "## Before a turn is done"
+    assert context(output) =~ Marker.render(:done)
+
+    File.write!(Path.join(c.home, ".claude/CLAUDE.md"), """
+    <!-- whiska:finish:start keep -->
+    <!-- whiska:finish:end -->
+    """)
+
+    output = capture_io(payload, fn -> assert CLI.session_start(env, :global) == 0 end)
+    refute context(output) =~ "## Before a turn is done"
+  end
+
+  test "with no transcript to read, the role comes from the project dir, not where the shell went",
+       c do
+    payload =
+      JSON.encode!(%{
+        "cwd" => c.worktree,
+        "hook_event_name" => "SessionStart",
+        "source" => "clear"
+      })
+
+    env = Map.put(herdr(c.home), "CLAUDE_PROJECT_DIR", c.main)
+
+    output = capture_io(payload, fn -> assert CLI.session_start(env) == 0 end)
+
+    assert context(output) =~ "# Whiska: rules for the main session"
+  end
+
   test "outside herdr a session starts with nothing at all", c do
     assert start(c.worktree, %{"HOME" => c.home}) == ""
     assert start(c.main, %{"HOME" => c.home}) == ""

@@ -75,8 +75,29 @@ defmodule Whiska.InstallShimSessionStartTest do
     end
   end
 
-  test "in a main checkout, the hook runs and what it prints passes through", c do
-    assert %{out: @rules, status: 0, args: ["hook", "session-start"]} = start(c, "1")
+  test "in a main checkout, the hook runs, told it is the global copy, and what it prints passes through",
+       c do
+    assert %{out: @rules, status: 0, args: ["hook", "session-start", "--global"]} = start(c, "1")
+  end
+
+  test "the committed per-repo shim starts nothing outside herdr either", c do
+    shim = Path.join(c.repo, Install.shim_path())
+    File.mkdir_p!(Path.dirname(shim))
+    File.write!(shim, Install.shim())
+    File.rm(c.log)
+
+    {out, 0} =
+      System.cmd("bash", [shim, "session-start"],
+        env: [
+          {"CLAUDE_PROJECT_DIR", c.repo},
+          {"HERDR_ENV", nil},
+          {"WHISKA_BIN", c.whiska},
+          {"WHISKA_ESCRIPT", c.escript}
+        ]
+      )
+
+    assert out == ""
+    assert read_args(c.log) == nil
   end
 
   test "outside herdr the global copy starts nothing and prints nothing", c do

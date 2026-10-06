@@ -24,6 +24,8 @@ defmodule Whiska.ClaudeMd do
 
   @outer_start "<!-- whiska:start -->"
   @outer_end "<!-- whiska:end -->"
+  @outer_start_line ~r/^<!-- whiska:start -->$/m
+  @outer_end_line ~r/^<!-- whiska:end -->$/m
 
   # A start marker, with the optional `keep` that makes the part the person's.
   # Anchored to whole lines: a marker is always alone on its own line, so a
@@ -104,10 +106,15 @@ defmodule Whiska.ClaudeMd do
   # The outer markers bound everything Whiska is allowed to rewrite. Only the
   # first pair counts: a second one would mean two blocks, which no Whiska ever
   # wrote, and guessing which was meant would be worse than leaving it be.
+  # Like a part's, an outer marker is a whole line of its own; one quoted in a
+  # sentence is prose.
   defp split_outer(contents) do
-    with [before_block, rest] <- String.split(contents, @outer_start, parts: 2),
-         [inside, after_block] <- String.split(rest, @outer_end, parts: 2) do
-      {before_block <> @outer_start, inside, @outer_end <> after_block}
+    with [{start_at, start_len}] <- Regex.run(@outer_start_line, contents, return: :index),
+         rest_at = start_at + start_len,
+         rest = binary_part(contents, rest_at, byte_size(contents) - rest_at),
+         [{end_at, _}] <- Regex.run(@outer_end_line, rest, return: :index) do
+      {binary_part(contents, 0, rest_at), binary_part(rest, 0, end_at),
+       binary_part(rest, end_at, byte_size(rest) - end_at)}
     else
       _ -> :none
     end
@@ -115,7 +122,8 @@ defmodule Whiska.ClaudeMd do
 
   # In order: the parts, and the text between them. A start marker with no
   # matching end is not a part at all — it is text, and copying it through
-  # unchanged is the only safe reading of a half-written marker.
+  # unchanged is the only safe reading of a half-written marker. Only that
+  # marker line is text: the parts after it are still read.
   defp segments(inside) do
     case Regex.run(@part_start, inside, return: :index) do
       nil ->
@@ -129,7 +137,10 @@ defmodule Whiska.ClaudeMd do
 
         case close(after_start, name, start_len) do
           nil ->
-            [{:other, inside}]
+            marker_end = start_at + start_len
+            rest = binary_part(inside, marker_end, byte_size(inside) - marker_end)
+            [{:other, text} | more] = segments(rest)
+            [{:other, binary_part(inside, 0, marker_end) <> text} | more]
 
           {raw, remainder} ->
             [{:other, before_part}, {:part, name, keep, raw} | segments(remainder)]

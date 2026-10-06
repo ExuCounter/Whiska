@@ -98,6 +98,40 @@ defmodule Whiska.ClaudeMdTest do
       assert body == "# Mine\n"
     end
 
+    test "a sentence that mentions the outer markers is prose, and the real block after it still goes" do
+      prose = "Whiska's block sits between `<!-- whiska:start -->` and `<!-- whiska:end -->`.\n"
+
+      assert ClaudeMd.remove(prose) == prose
+
+      assert ClaudeMd.remove("# Mine\n\n" <> prose <> "\n" <> block(part("report", "X.")) <> "\n") ==
+               "# Mine\n\n" <> prose
+    end
+
+    test "a part with no end marker is the person's text, never guessed at, and stays" do
+      contents = "# Mine\n\n" <> block("<!-- whiska:report:start -->\nHalf a part.") <> "\n"
+
+      body = ClaudeMd.remove(contents)
+
+      assert body =~ "<!-- whiska:report:start -->\nHalf a part."
+      refute body =~ "Whiska wrote this block"
+    end
+
+    test "a part missing its end marker does not hide the parts after it" do
+      contents =
+        "# Mine\n\n" <>
+          block(
+            "<!-- whiska:worktrees:start -->\nBroken.\n\n" <>
+              part("report", "Mine.", true) <> "\n\n" <> part("finish", "Old.")
+          ) <> "\n"
+
+      assert ClaudeMd.kept(contents) == ["report"]
+
+      body = ClaudeMd.remove(contents)
+      assert body =~ "<!-- whiska:worktrees:start -->\nBroken."
+      assert body =~ "<!-- whiska:report:start keep -->\nMine."
+      refute body =~ "Old."
+    end
+
     test "running it twice changes nothing more" do
       contents =
         "# Mine\n\n" <>

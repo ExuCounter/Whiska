@@ -520,6 +520,7 @@ defmodule Whiska.Doctor do
   """
   @global_pieces [
     {:hooks?, "hooks"},
+    {:session_start?, "SessionStart hook"},
     {:statusline?, "statusline"},
     {:skills?, "skills"}
   ]
@@ -591,15 +592,28 @@ defmodule Whiska.Doctor do
         "not wired — mice here are rung for answers they can never take",
         global[:hooks?]
       ),
+      session_start_check(settings, global)
+    ]
+  end
+
+  # A global install written before SessionStart existed still enforces and
+  # delivers, so only this row fails — and its fix is the global init, not
+  # one for this repo.
+  defp session_start_check(settings, global) do
+    check =
       hook_check(
         "SessionStart",
         settings,
         Install.session_start_command(),
         nil,
         "not wired — sessions here start without Whiska's rules",
-        global[:hooks?]
+        global[:session_start?]
       )
-    ]
+
+    case {check, global[:hooks?]} do
+      {%Check{status: :fail}, true} -> %{check | fix: "whiska init --global"}
+      {check, _global} -> check
+    end
   end
 
   defp hook_check(event, settings, expected_command, expected_matcher, missing, global?) do

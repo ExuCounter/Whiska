@@ -566,7 +566,8 @@ Outside herdr, none. The main session gets `worktrees` (routing work to mice), `
 `delivery`; a mouse gets `work`, `marker`, `report` and `finish`. Said again after
 `/compact`, `/clear` and a resume. Rules, not prose: an imperative or a concrete fact per
 line, with the reasoning left in Whiska's own ADRs (ADR-0055). A part the person holds as
-`keep` in a `CLAUDE.md` is left out, since their own wording is already in context.
+`keep` is left out, since their own wording is already in context — in `~/.claude/CLAUDE.md`
+always, and in the project's `CLAUDE.md` only under that repo's own install.
 _Avoid_: block (the older home of the same rules), prompt, instructions, system prompt
 
 **Block**:
