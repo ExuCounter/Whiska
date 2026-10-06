@@ -64,3 +64,12 @@ only works once you know to ask for one.
 
 **Deliver anyway after a timeout.** Rejected outright. It is the one thing ADR-0047 exists
 to prevent, and no delay makes typing into somebody's draft acceptable.
+
+## Amendment, 2026-10-06: the word is "gated"
+
+[ADR-next-the-person-decides-what-reaches-them](next-the-person-decides-what-reaches-them.md)
+gives "held" to a mouse the person put on hold, a stored status with its own row word, so
+the board's line here reads `gated: your prompt box isn't empty` and `whiska doctor` says
+`gated: person is typing`. Nothing about the fuse, the gate or when the line is drawn
+changes; and when the person is away the line says `away` instead, since the gate is then
+beside the point. CONTEXT.md's entry for this state is **Gated**.

@@ -503,37 +503,187 @@ defmodule Whiska.Install do
   # guard. The description is a quoted YAML string, deliberately: unquoted, a
   # space followed by `#` starts a YAML comment, and the listing Claude Code
   # shows the model was cut off right there, before every example.
+  # The verbatim rule every reading skill carries. Claude Code folds a Bash
+  # tool's result away from the person, so "show its output" alone was read as
+  # "it is already visible" and the model summarised; and a fenced block turns
+  # the mouse's markdown off.
+  @verbatim """
+  The person cannot see the command's output, only your reply. So your whole
+  reply is that output, verbatim, as markdown: every line, in full and in its
+  own words, no commentary before or after, and no fence around it — a code
+  block would show the mouse's bold and backticks raw instead of rendering
+  them. Then stop.
+  """
+
+  # One word each (ADR-next-the-person-decides-what-reaches-them): the slash
+  # commands are the words the person types at a shell, and the two long-named
+  # reading skills they replace are in `@retired_skills`.
   @skills [
-    {".claude/skills/whiska-questions/SKILL.md",
+    {".claude/skills/inbox/SKILL.md",
      """
      ---
-     name: whiska-questions
-     description: List the questions waiting on you from this repo's mice. Use when asked what is open, what is waiting, what the mice need, or on /whiska-questions.
+     name: inbox
+     description: What is waiting on you across every repo on this machine, oldest first. Use only when the person types /inbox or asks what is waiting anywhere.
+     ---
+
+     Run exactly this, only when the person types `/inbox` or asks for the list
+     — never on your own initiative:
+
+         whiska inbox
+
+     #{String.trim(@verbatim)} Answering is the person's move: never reply to
+     a question, guess an answer, or act on one on their behalf.
+
+     It lists every repo, not only this one. A first line saying `away` means
+     nothing is delivered anywhere until the person runs `resume`; a row's last
+     word — `held`, `away`, `focus: <branch>` — says why that one is not being
+     delivered. `/show <id>` reads one of this repo's in full.
+     """},
+    {".claude/skills/show/SKILL.md",
+     """
+     ---
+     name: show
+     description: Read this repo's open questions in full, or one by id. Use on /show, or when the person asks to see a question or what the mice are asking here.
      ---
 
      No argument → run exactly this:
 
-         whiska questions --full
+         whiska show
 
-     Every open question in full, oldest first, with anything orphaned or still
-     on the doorstep underneath.
+     Every open question of this repo in full, oldest first, each saying why it
+     is not being delivered, with anything orphaned or still on the doorstep
+     underneath.
 
      An id passed ($ARGUMENTS is not empty) → run exactly this instead:
 
-         whiska questions $ARGUMENTS
+         whiska show $ARGUMENTS
 
-     The person cannot see the command's output, only your reply. So your whole
-     reply is that output, verbatim, as markdown: every line, in full and in its
-     own words, no commentary before or after, and no fence around it — a code
-     block would show the mouse's bold and backticks raw instead of rendering
-     them. Then stop. Answering is the person's move: never reply to a question,
-     guess an answer, or act on one on their behalf.
+     #{String.trim(@verbatim)} Answering is the person's move: never reply to
+     a question, guess an answer, or act on one on their behalf.
 
      One exception, only with an id: when that question ends in 4 or fewer
      lettered options, offer them with the AskUserQuestion tool exactly as
      `whiska-delivered` describes, and relay the pick with
-     `whiska reply <id> "<the letter and its label>"`. `--full` shows several
-     questions, and no single picker can stand for all of them, so it gets none.
+     `whiska reply <id> "<the letter and its label>"`. Bare `show` prints
+     several questions, and no single picker can stand for all of them, so it
+     gets none.
+     """},
+    {".claude/skills/reply/SKILL.md",
+     """
+     ---
+     name: reply
+     description: Answer a question one of this repo's mice is waiting on. Use when the person has decided what to tell a mouse, or on /reply.
+     ---
+
+     Run exactly this:
+
+         whiska reply $ARGUMENTS
+
+     No id spelled out — they are answering a question you just showed them →
+     the id is the one from that delivered line:
+
+         whiska reply <id> <what they said>
+
+     The text is the person's own words, or the option they picked — never
+     your summary of them or an answer you worked out: answering is their
+     move, and this only carries it. Show the command's output verbatim and
+     stop. If it says a hold was lifted, that mouse was on hold and the answer
+     is what picks it up.
+
+     ## And nothing else
+
+     This is the only way to answer a mouse: never type the answer into the
+     mouse's pane with `herdr agent prompt`, never send it with
+     `send-to-worktree`. The mouse would read it, but the question would stay
+     `sent`: it keeps holding Whiska's one delivery slot, and the next mouse's
+     question sits unread behind it. Only `whiska reply` closes the question and
+     frees the slot.
+
+     Talking it over with the person first is fine; what that talk produces for
+     the mouse goes out as the reply.
+     """},
+    {".claude/skills/dismiss/SKILL.md",
+     """
+     ---
+     name: dismiss
+     description: Close one of this repo's questions without answering it. Use only when the person says to dismiss, close or drop a question, or types /dismiss.
+     ---
+
+     Run exactly this, with the id the person gave:
+
+         whiska dismiss $ARGUMENTS
+
+     Show its output verbatim and stop. This is the person's command: run it
+     only when they ask for that question to be dismissed, never on your own
+     reading that it looks handled. A question the person has not answered
+     stays as it is; Whiska supersedes it itself when that mouse's next message
+     arrives.
+     """},
+    {".claude/skills/away/SKILL.md",
+     """
+     ---
+     name: away
+     description: Stop every delivery on this machine until the person resumes; mice keep working. Use only when the person types /away or says they are stepping away.
+     ---
+
+     Run exactly this:
+
+         whiska away
+
+     Show its output verbatim and stop. Nothing is delivered to any main
+     session until the person runs `resume`; mice keep working, and `inbox`
+     keeps listing what they ask.
+     """},
+    {".claude/skills/focus/SKILL.md",
+     """
+     ---
+     name: focus
+     description: Let only one mouse's questions reach this repo's main session. Use when the person types /focus <branch> or asks to focus on one branch; /focus alone prints the current focus.
+     ---
+
+     Run exactly this, with the branch the person named, or with nothing to
+     print the current focus:
+
+         whiska focus $ARGUMENTS
+
+     Show its output verbatim and stop. Only that mouse's questions reach this
+     session now; the rest wait, still listed by `inbox`, and a question
+     already delivered from another mouse no longer blocks the focused one.
+     `resume` ends it. The branch is the person's choice: never pick one
+     yourself.
+     """},
+    {".claude/skills/hold/SKILL.md",
+     """
+     ---
+     name: hold
+     description: Stop one mouse where it is and park its questions, undelivered, until the person resumes it. Use only when the person types /hold <branch> or says to hold, park or pause a branch.
+     ---
+
+     Run exactly this, with the branch the person named:
+
+         whiska hold $ARGUMENTS
+
+     Show its output verbatim and stop. The mouse's next tool call is refused
+     and it ends its turn; its questions sit in the inbox marked held; it is
+     never offered for landing. `resume <branch>` lifts it. Never hold a
+     branch the person did not name.
+     """},
+    {".claude/skills/resume/SKILL.md",
+     """
+     ---
+     name: resume
+     description: End away and this repo's focus, or lift one mouse's hold. Use when the person types /resume, with or without a branch, or says to resume, come back or lift a hold.
+     ---
+
+     Run exactly this, with the branch the person named or nothing at all:
+
+         whiska resume $ARGUMENTS
+
+     Show its output verbatim and stop. With no branch it ends away and this
+     repo's focus, and what waited arrives oldest first. With a branch it lifts
+     that mouse's hold and, when the mouse stopped because of the hold, tells
+     it to carry on from where it stopped; a mouse that was waiting on an
+     answer gets no line, and the output names the question to reply to.
      """},
     {".claude/skills/whiska-delivered/SKILL.md",
      """
@@ -589,9 +739,11 @@ defmodule Whiska.Install do
      the message verbatim first, as above. Then offer what to do with the
      branch, with one AskUserQuestion holding these four options in this order:
 
-     - **Merge here (Recommended)** — merge the branch into the current one
-       with `--no-ff`, run this repo's tests, and only if they pass, drop the
-       worktree and delete the branch.
+     - **Land here (Recommended)** — cherry-pick the branch's own commits onto
+       the current branch, oldest first, skipping its merges from the base
+       (`git log --no-merges --reverse <base>..<branch>` lists them); run this
+       repo's tests, and only if they pass, drop the worktree and delete the
+       branch.
      - **Open a merge request / PR** — push the branch and open it with `gh`
        or `glab`, whichever this repo's host wants. The body is the message you
        just showed: the branch's own session wrote it, with context you lack, so
@@ -605,19 +757,20 @@ defmodule Whiska.Install do
        commit on the branch.
 
      Each option runs what already exists: `drop-worktree` removes a worktree
-     and its workspace together, and this repo's merge, test and push commands
-     are whatever its own instructions say.
+     and its workspace together, and this repo's test and push commands are
+     whatever its own instructions say.
 
      This picker is for a "finished" line only. A branch still working, or
-     waiting on a decision, is one nobody merges, pushes or drops — not even
+     waiting on a decision, is one nobody lands, pushes or drops — not even
      when the person asks off a line that did not say finished. Acting on a
      finished branch is fine because the person picked it and the judgment is
-     theirs; an unfinished one is not a decision the picker gets to offer.
+     theirs; an unfinished one is not a decision the picker gets to offer. A
+     branch on hold is never a finished line: nothing of its is delivered.
 
      This repo's `CLAUDE.md` names the usual choice — a line like
-     `finish: merge here` under a `## Finish` heading → that one carries
+     `finish: land here` under a `## Finish` heading → that one carries
      "(Recommended)" instead, and goes first. Same four options, same order. No
-     such line → "Merge here" is the recommended one.
+     such line → "Land here" is the recommended one.
 
      ## When a sniff mouse finished with a proposal
 
@@ -665,40 +818,38 @@ defmodule Whiska.Install do
      next message arrives. `whiska close <id>` settles a question nobody will
      ever answer; it is the person's command, run only when the person asks for
      it.
-     """},
-    {".claude/skills/whiska-reply/SKILL.md",
-     """
-     ---
-     name: whiska-reply
-     description: Answer a question one of this repo's mice is waiting on. Use when the person has decided what to tell a mouse, or on /whiska-reply.
-     ---
-
-     Run exactly this:
-
-         whiska reply $ARGUMENTS
-
-     No id spelled out — they are answering a question you just showed them →
-     the id is the one from that delivered line:
-
-         whiska reply <id> "<what they said>"
-
-     The text is the person's own words, or the option they picked, quoted —
-     never your summary of them or an answer you worked out: answering is their
-     move, and this only carries it.
-
-     ## And nothing else
-
-     This is the only way to answer a mouse: never type the answer into the
-     mouse's pane with `herdr agent prompt`, never send it with
-     `send-to-worktree`. The mouse would read it, but the question would stay
-     `sent`: it keeps holding Whiska's one delivery slot, and the next mouse's
-     question sits unread behind it. Only `whiska reply` closes the question and
-     frees the slot.
-
-     Talking it over with the person first is fine; what that talk produces for
-     the mouse goes out as the reply.
      """}
   ]
+
+  # The long-named reading skills the words replace. `whiska init` removes a
+  # plain file of these; one reached through a symlink is the person's and
+  # stays (ADR-0056).
+  @retired_skills [
+    ".claude/skills/whiska-questions/SKILL.md",
+    ".claude/skills/whiska-reply/SKILL.md"
+  ]
+
+  # The same eight, as plain commands at a shell. Each is a two-line spelling
+  # of `whiska <word>` that resolves the binary the way the shim does, written
+  # into a directory of Whiska's own so a generic word never lands among other
+  # programs, and skipped where one already answers to the word.
+  @commands ~w(inbox show reply dismiss focus away hold resume)
+
+  @command_header """
+  #!/usr/bin/env bash
+  # One of Whiska's one-word commands, written by `whiska init --global`: a
+  # spelling of `whiska WORD` for the shell. Resolves the binary the way the
+  # hook shim does; WHISKA_BIN overrides the lookup.
+
+  """
+
+  @command_exec """
+  if [ -z "$whiska_bin" ]; then
+    echo "whiska: not found - install it, or set WHISKA_BIN" >&2
+    exit 1
+  fi
+  exec "$whiska_bin" WORD "$@"
+  """
 
   # The three worktree skills (ADR-0046). Unlike the two above, these wrap
   # `herdr` rather than `whiska` — they are the half of the protocol that
@@ -1062,6 +1213,69 @@ defmodule Whiska.Install do
   """
   @spec skills(scope()) :: [{Path.t(), String.t()}]
   def skills(_scope), do: skills()
+
+  @doc "The skills an older Whiska shipped and this one removes where they are plain files."
+  @spec retired_skills() :: [Path.t()]
+  def retired_skills, do: @retired_skills
+
+  @doc "The eight one-word commands, in the order the help lists them."
+  @spec commands() :: [String.t()]
+  def commands, do: @commands
+
+  @doc "Where the commands are written: `bin` under the whiska home, never `~/.local/bin`."
+  @spec commands_dir() :: Path.t()
+  def commands_dir, do: Path.join(Whiska.OpenHouses.home(), "bin")
+
+  @doc "The script behind one word."
+  @spec command_script(String.t()) :: String.t()
+  def command_script(word) when word in @commands do
+    @command_header <> @resolve_whiska <> String.replace(@command_exec, "WORD", word)
+  end
+
+  @doc """
+  Write the eight commands into `dir`, executable, skipping a word that already
+  resolves on this PATH to anything but Whiska's own wrapper there. Returns
+  `{written, skipped}`, each skipped word with the program it would have
+  shadowed.
+  """
+  @spec write_commands(Path.t()) ::
+          {:ok, {[String.t()], [{String.t(), Path.t()}]}} | {:error, File.posix()}
+  def write_commands(dir \\ commands_dir()) do
+    with :ok <- File.mkdir_p(dir) do
+      {skipped, free} =
+        Enum.split_with(@commands, fn word ->
+          case System.find_executable(word) do
+            nil ->
+              false
+
+            found ->
+              Whiska.Layout.canonical(found) != Whiska.Layout.canonical(Path.join(dir, word))
+          end
+        end)
+
+      Enum.reduce_while(free, {:ok, {[], taken(skipped)}}, fn word, {:ok, {written, skip}} ->
+        path = Path.join(dir, word)
+
+        with :ok <- File.write(path, command_script(word)),
+             :ok <- File.chmod(path, 0o755) do
+          {:cont, {:ok, {written ++ [word], skip}}}
+        else
+          error -> {:halt, error}
+        end
+      end)
+    end
+  end
+
+  defp taken(words), do: Enum.map(words, &{&1, System.find_executable(&1)})
+
+  @doc "Take the eight commands back out of `dir`. Returns the words that were there."
+  @spec remove_commands(Path.t()) :: [String.t()]
+  def remove_commands(dir \\ commands_dir()) do
+    removed = Enum.filter(@commands, &File.regular?(Path.join(dir, &1)))
+    Enum.each(removed, &File.rm(Path.join(dir, &1)))
+    File.rmdir(dir)
+    removed
+  end
 
   @doc "The three worktree skills, as the paths both scopes write them to."
   @spec worktree_skill_paths() :: [Path.t()]

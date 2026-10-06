@@ -324,6 +324,109 @@ defmodule Whiska.WaitingTest do
     end
   end
 
+  describe "what the person set aside (ADR-next-the-person-decides-what-reaches-them)" do
+    test "a held mouse's question is listed, marked held", %{root: root, record: record} do
+      main = house!(root, "repo", record)
+
+      seed(main, fn ->
+        mouse("ma", "feat-a", "w1:p1")
+        ask("ma", "[worktree-status: needs-decision] ?")
+        {:ok, _} = Storage.hold("ma")
+      end)
+
+      assert [%{id: 1, waits: "held", held?: true}] = Waiting.list(open_houses: record)
+    end
+
+    test "a question behind a focus names the focused branch", %{root: root, record: record} do
+      main = house!(root, "repo", record)
+
+      seed(main, fn ->
+        mouse("ma", "feat-a", "w1:p1")
+        mouse("mb", "feat-b", "w1:p2")
+        ask("ma", "[worktree-status: needs-decision] ?")
+        :ok = Storage.set_focus("mb")
+      end)
+
+      assert [%{waits: "focus: feat-b", held?: false}] = Waiting.list(open_houses: record)
+    end
+
+    test "while away every entry says so, a doorstep entry included", %{
+      root: root,
+      record: record
+    } do
+      main = house!(root, "repo", record)
+      away = Path.join(root, "away")
+      :ok = Whiska.Delivery.Mode.set_away(away)
+
+      seed(main, fn ->
+        mouse("ma", "feat-a", "w1:p1")
+        ask("ma", "[worktree-status: needs-decision] ?")
+      end)
+
+      leave(main, "ma", "feat-a", "[worktree-status: needs-decision] ?", 5)
+
+      assert [%{waits: "away"}, %{waits: "away"}] =
+               Waiting.list(open_houses: record, away_path: away)
+    end
+
+    test "nothing set aside leaves the field empty", %{root: root, record: record} do
+      main = house!(root, "repo", record)
+
+      seed(main, fn ->
+        mouse("ma", "feat-a", "w1:p1")
+        ask("ma", "[worktree-status: needs-decision] ?")
+      end)
+
+      assert [%{waits: nil, held?: false}] = Waiting.list(open_houses: record)
+    end
+
+    test "the listing says away on its first line, and carries why each row waits" do
+      entries = [
+        entry(repo: "a", branch: "feat-a", id: 1, waits: "away"),
+        entry(repo: "a", branch: "feat-b", id: 2, waits: "held")
+      ]
+
+      [first | rows] = entries |> Waiting.render(away?: true) |> String.split("\n")
+      assert first =~ "away"
+      assert first =~ "resume"
+      assert Enum.at(rows, 0) =~ ~r/#1 .*away$/
+      assert Enum.at(rows, 1) =~ ~r/#2 .*held$/
+    end
+
+    test "a listing with nothing set aside has no note column" do
+      rendered = Waiting.render([entry(repo: "a", branch: "feat-a", id: 1, waits: nil)])
+      assert rendered =~ ~r/#1\s+w1:p1$/m
+    end
+
+    test "nothing waiting while away still says away first" do
+      assert Waiting.render([], away?: true) =~ ~r/\Aaway/
+    end
+
+    test "the json carries why each row waits" do
+      json = Waiting.json([entry(repo: "a", branch: "feat-a", id: 1, waits: "held")])
+      assert [%{"waits" => "held"}] = JSON.decode!(json)
+    end
+
+    defp entry(attrs) do
+      Map.merge(
+        %{
+          repo: "a",
+          main_checkout: "/r/a",
+          branch: "feat-a",
+          id: 1,
+          kind: "needs-decision",
+          status: "open",
+          pointer: "which?",
+          age_s: 60,
+          pane: "w1:p1",
+          waits: nil,
+          held?: false
+        },
+        Map.new(attrs)
+      )
+    end
+  end
+
   describe "render/1 — the plain-text listing" do
     test "one line per entry, oldest first, with a word for what it is" do
       lines =
@@ -337,7 +440,9 @@ defmodule Whiska.WaitingTest do
             status: "open",
             pointer: "pick one",
             age_s: 7200,
-            pane: "%3"
+            pane: "%3",
+            waits: nil,
+            held?: false
           }
         ])
 
@@ -367,7 +472,9 @@ defmodule Whiska.WaitingTest do
             status: "doorstep",
             pointer: "shipped",
             age_s: 30,
-            pane: "%3"
+            pane: "%3",
+            waits: nil,
+            held?: false
           }
         ])
 
@@ -382,7 +489,9 @@ defmodule Whiska.WaitingTest do
                   "status" => "doorstep",
                   "pointer" => "shipped",
                   "age_seconds" => 30,
-                  "pane" => "%3"
+                  "pane" => "%3",
+                  "waits" => nil,
+                  "held" => false
                 }
               ]} = JSON.decode(json)
     end

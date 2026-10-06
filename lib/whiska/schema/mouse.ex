@@ -50,5 +50,9 @@ defmodule Whiska.Schema.Mouse do
     # What makes the difference between a question this mouse left that the
     # merge answered and one nobody ever dealt with.
     field(:landed_at, :utc_datetime)
+    # Set when the person put this mouse on hold (`hold <branch>`): its next
+    # tool call is refused and nothing of its is delivered until `resume`
+    # clears it (ADR-next-the-person-decides-what-reaches-them).
+    field(:held_at, :utc_datetime)
   end
 end

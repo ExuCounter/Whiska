@@ -30,6 +30,7 @@ defmodule Whiska.Waiting do
   gone, or that has no database yet, is simply empty.
   """
 
+  alias Whiska.Delivery.Mode
   alias Whiska.Doorstep
   alias Whiska.Mice
   alias Whiska.OpenHouses
@@ -46,6 +47,9 @@ defmodule Whiska.Waiting do
   something still on the doorstep — it has no id until the owl collects it.
   `status` is `open`, `sent` or `doorstep`; `kind` is the mouse's own marker
   (ADR-0009). `pane` is `nil` when the house has no pane recorded for the mouse.
+  `waits` is why it is not being delivered, in the listing's words — `held`,
+  `away`, `focus: <branch>` — or nil, and `held?` says whether its mouse is on
+  hold, which is the one case the tab bar does not count.
   """
   @type entry :: %{
           repo: String.t(),
@@ -56,22 +60,26 @@ defmodule Whiska.Waiting do
           status: String.t(),
           pointer: String.t(),
           age_s: non_neg_integer(),
-          pane: String.t() | nil
+          pane: String.t() | nil,
+          waits: String.t() | nil,
+          held?: boolean()
         }
 
   @doc """
   Every waiting entry across every recorded house, oldest first.
 
   Options: `:open_houses`, the record's path (the real one unless pinned);
-  `:now`, the instant ages are measured from.
+  `:away_path`, the away file (the real one unless pinned); `:now`, the
+  instant ages are measured from.
   """
   @spec list(keyword()) :: [entry()]
   def list(opts \\ []) do
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
+    away_path = Keyword.get_lazy(opts, :away_path, &Mode.away_path/0)
 
     opts
     |> houses()
-    |> Enum.flat_map(&house(&1, now: now))
+    |> Enum.flat_map(&house(&1, now: now, away_path: away_path))
     |> Enum.sort_by(& &1.age_s, :desc)
   end
 
@@ -82,22 +90,37 @@ defmodule Whiska.Waiting do
   @spec house(Path.t(), keyword()) :: [entry()]
   def house(main_checkout, opts \\ []) do
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
+    away_path = Keyword.get_lazy(opts, :away_path, &Mode.away_path/0)
     main = Path.expand(main_checkout)
     doorstep = Doorstep.waiting(main)
 
     entries =
       if File.exists?(Storage.database_path(main)) do
         with_house(main, fn ->
-          Enum.map(Storage.questions(), &from_question(&1, main, now)) ++
-            Enum.map(doorstep, fn {_file, e} -> from_doorstep(e, main, now, &pane_of/1) end)
+          mode = Mode.read(away_path: away_path)
+          context = %{main: main, now: now, mode: mode, focus: focus_name(mode)}
+
+          Enum.map(Storage.questions(), &from_question(&1, context)) ++
+            Enum.map(doorstep, fn {_file, e} -> from_doorstep(e, context, &pane_of/1) end)
         end)
       else
-        Enum.map(doorstep, fn {_file, e} -> from_doorstep(e, main, now, fn _ -> nil end) end)
+        mode = %{Mode.none() | away?: Mode.away?(away_path)}
+        context = %{main: main, now: now, mode: mode, focus: nil}
+        Enum.map(doorstep, fn {_file, e} -> from_doorstep(e, context, fn _ -> nil end) end)
       end
 
     case entries do
       list when is_list(list) -> Enum.sort_by(list, & &1.age_s, :desc)
       :unreadable -> []
+    end
+  end
+
+  defp focus_name(%{focus: nil}), do: nil
+
+  defp focus_name(%{focus: mouse_id}) do
+    case Storage.mouse(mouse_id) do
+      %Mouse{branch: branch} when is_binary(branch) -> branch
+      _ -> mouse_id
     end
   end
 
@@ -218,7 +241,7 @@ defmodule Whiska.Waiting do
     )
   end
 
-  defp from_question(%Question{} = q, main, now) do
+  defp from_question(%Question{} = q, %{main: main, now: now} = context) do
     %{
       repo: Path.basename(main),
       main_checkout: main,
@@ -228,11 +251,15 @@ defmodule Whiska.Waiting do
       status: q.status,
       pointer: Marker.pointer(q.text),
       age_s: max(DateTime.diff(now, q.asked_at, :second), 0),
-      pane: pane_of(q.mouse)
+      pane: pane_of(q.mouse),
+      waits: waits(q, context),
+      held?: held?(q, context)
     }
   end
 
-  defp from_doorstep(entry, main, now, pane) do
+  defp from_doorstep(entry, %{main: main, now: now} = context, pane) do
+    stand_in = %Question{mouse_id: entry.mouse_id, status: "open"}
+
     %{
       repo: Path.basename(main),
       main_checkout: main,
@@ -242,9 +269,25 @@ defmodule Whiska.Waiting do
       status: "doorstep",
       pointer: Marker.pointer(entry.text),
       age_s: max(DateTime.diff(now, entry.stamped_at, :second), 0),
-      pane: pane.(entry.mouse_id)
+      pane: pane.(entry.mouse_id),
+      waits: waits(stand_in, context),
+      held?: held?(stand_in, context)
     }
   end
+
+  # A sent question was delivered and is waiting on the person whatever they
+  # set aside since; only its mouse being held says otherwise.
+  defp waits(%Question{} = q, %{mode: mode, focus: focus}) do
+    case {q.status, Mode.waits(q, mode)} do
+      {_, :held} -> "held"
+      {"sent", _} -> nil
+      {_, :away} -> "away"
+      {_, {:focus, mouse_id}} -> "focus: #{focus || mouse_id}"
+      {_, nil} -> nil
+    end
+  end
+
+  defp held?(%Question{} = q, %{mode: mode}), do: Mode.waits(q, mode) == :held
 
   defp pane_of(%Mouse{pane: pane}), do: pane
   defp pane_of(mouse_id) when is_binary(mouse_id), do: pane_of(Storage.mouse(mouse_id))
@@ -254,29 +297,45 @@ defmodule Whiska.Waiting do
   defp branch(%Question{mouse_id: mouse_id}), do: mouse_id
 
   @doc """
-  The plain-text listing: one line per entry, columns lined up, oldest first.
+  The plain-text listing: one line per entry, columns lined up, oldest first,
+  with a note on each row that is not being delivered — `held`, `away`,
+  `focus: <branch>` — and, when the person is away, a first line saying so.
 
   Deliberately one line each rather than a count — this is the list you scan
   before deciding where to go, and ADR-0027's "a count for many" is about a
   statusline segment, not about a command whose whole job is the list.
-  """
-  @spec render([entry()]) :: String.t()
-  def render([]), do: "🦉 Nothing needs you · the owl delivers when something does"
 
-  def render(entries) do
+  Options: `:away?`, whether the person is away (not read here, since the
+  entries may have come from anywhere).
+  """
+  @spec render([entry()], keyword()) :: String.t()
+  def render(entries, opts \\ [])
+
+  def render([], opts), do: away_line(opts) <> nothing_waiting()
+
+  def render(entries, opts) do
     rows = Enum.map(entries, &row/1)
-    columns = [:repo, :branch, :what, :age, :ref, :pane]
+    columns = [:repo, :branch, :what, :age, :ref, :pane, :note]
 
     widths =
       Map.new(columns, fn c ->
         {c, rows |> Enum.map(&String.length(Map.fetch!(&1, c))) |> Enum.max()}
       end)
 
-    Enum.map_join(rows, "\n", fn row ->
-      columns
-      |> Enum.map_join("  ", &String.pad_trailing(Map.fetch!(row, &1), widths[&1]))
-      |> String.trim_trailing()
-    end)
+    away_line(opts) <>
+      Enum.map_join(rows, "\n", fn row ->
+        columns
+        |> Enum.map_join("  ", &String.pad_trailing(Map.fetch!(row, &1), widths[&1]))
+        |> String.trim_trailing()
+      end)
+  end
+
+  defp nothing_waiting, do: "🦉 Nothing needs you · the owl delivers when something does"
+
+  defp away_line(opts) do
+    if Keyword.get(opts, :away?, false),
+      do: "away — nothing is delivered anywhere; `resume` ends it\n",
+      else: ""
   end
 
   defp row(entry) do
@@ -286,7 +345,8 @@ defmodule Whiska.Waiting do
       what: what(entry),
       age: Mice.format_uptime(entry.age_s),
       ref: if(entry.id, do: "##{entry.id}", else: "doorstep"),
-      pane: entry.pane || "no pane"
+      pane: entry.pane || "no pane",
+      note: entry.waits || ""
     }
   end
 
@@ -322,7 +382,9 @@ defmodule Whiska.Waiting do
           "status" => e.status,
           "pointer" => e.pointer,
           "age_seconds" => e.age_s,
-          "pane" => e.pane
+          "pane" => e.pane,
+          "waits" => e.waits,
+          "held" => e.held?
         }
       end)
     )

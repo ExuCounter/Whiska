@@ -19,7 +19,7 @@ defmodule Whiska.InstallFinishSkillTest do
         Enum.map(Install.skills(), fn {path, _} -> Path.basename(Path.dirname(path)) end)
 
       assert "whiska-finish" in installed
-      for name <- ~w(whiska-questions spawn-worktree), do: assert(name in installed, name)
+      for name <- ~w(show spawn-worktree), do: assert(name in installed, name)
     end
 
     test "the block points at the path init actually writes" do

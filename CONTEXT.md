@@ -114,10 +114,13 @@ narrower use of the word — a question whose marker said `done` — and both st
 _Avoid_: summary, status, update, hand-off
 
 **Finish**:
-What becomes of a branch once its mouse is done: merged into the current branch, opened
-as a merge request, left alone to be talked to further, or dropped unmerged. The person
+What becomes of a branch once its mouse is done: landed on the current branch by
+cherry-picking its own commits, oldest first, its merges from the base skipped
+(ADR-next-the-person-decides-what-reaches-them; it was `merge --no-ff`), opened as a
+merge request, left alone to be talked to further, or dropped unmerged. The person
 picks one when a "finished" question is told; a repo may name its usual choice, and that
-one is recommended. A sniff mouse that ended on a **proposal** has nothing to merge, so
+one is recommended. A **held** mouse's finished line is never told, so it is never
+offered one. A sniff mouse that ended on a **proposal** has nothing to merge, so
 its finish is built by a fresh mouse, talked to further, or dropped — and none is
 recommended. A finish is never an answer — a finished question has nothing to
 answer — and it is only ever offered for a finished one.
@@ -141,7 +144,10 @@ and the entries still sitting uncollected on its doorstep. A `done` report is wa
 until the person has been told, and a doorstep entry is waiting although no question
 exists for it yet. It is a state of the house, not a status on a row: the statusline
 and `whiska waiting` both ask exactly this, so the two cannot disagree about it. A house is quiet when nothing is waiting; there is no other
-word for the state, and **Quiet** is that same word said of one mouse.
+word for the state, and **Quiet** is that same word said of one mouse. A **held**
+mouse's questions are listed by the **inbox** but are not waiting on the person — they
+parked them — so neither status line counts them; a question waiting behind **away** or
+a **focus** is.
 _Avoid_: pending, outstanding, open (a question's own status, which is narrower), the
 queue (delivery's, which a doorstep entry has not reached)
 
@@ -169,7 +175,11 @@ difference. Only a working row ticks; an idle mouse, a blocked one, one waiting 
 person and one herdr cannot account for are all still, because on those rows nothing is
 meant to be moving. `whiska watch` is the same rows, worked out on the spot and printed
 once — and with no ticker, since nothing is refreshing behind them. The `waiting` line
-carries why nothing is being delivered while delivery is held (ADR-0058). Only a live
+carries what the person set aside — `away`, or `focus: <branch>` — and why nothing is
+being delivered while delivery is gated (ADR-0058, spelled `gated:`); a **held** mouse's
+row says `held` where herdr's status would go, and a question waiting behind away or a
+focus says `waits: away` or `waits: focus on <branch>` where a queued one says `queued
+behind #n`. Only a live
 mouse is a row: a dead one has none, and what it left behind unanswered is counted on an
 `orphaned` line of its own, under the `waiting` one — nobody can answer an orphan, so it
 is never counted as waiting. A question its mouse's branch landed on is **settled**
@@ -202,8 +212,12 @@ dies while holding the slot) and the session is idle again. Nothing that cannot 
 answered ever holds the slot: before each attempt, everything still waiting for a mouse
 that is dead, or for a record that no longer stands for a worktree of this house, is
 released — **settled** where its mouse's branch landed, **orphaned** where it did not
-(ADR-0057, ADR-0064). While the gate holds — the session mid-turn, a
-draft in its box, or no box on its screen — the queue is **held**, and the board says so once the hold has lasted
+(ADR-0057, ADR-0064). Before the gate, the queue is judged against what the person set
+aside (ADR-next-the-person-decides-what-reaches-them): nothing goes while they are
+**away**, only the focused mouse's under a **focus**, never a **held** mouse's — and a
+sent question of a held or unfocused mouse does not hold the slot. Oldest first, always.
+While the gate holds — the session mid-turn, a
+draft in its box, or no box on its screen — the queue is **gated**, and the board says so once the hold has lasted
 ten seconds (ADR-0058). A finished line is outside
 the queue: nothing is waiting on the person in it, so it goes ahead of whatever is
 waiting, takes no slot, and is closed as it is typed.
@@ -218,8 +232,8 @@ The desktop notification the owl raises as it delivers a question — one per de
 question, sent in the same breath as the line so the two can never disagree (ADR-0062).
 It carries the house, the mouse's branch, the verb and the id, in the line's own words,
 because the line only reaches somebody already looking at the main session and the point
-of leaving a question is that they are not. A question that is only collected, or held,
-has not hooted yet. herdr is asked to show it, from the person's own `[ui.toast]` and
+of leaving a question is that they are not. A question that is only collected, or gated,
+or set aside by **away**, a **focus** or a **hold**, has not hooted yet. herdr is asked to show it, from the person's own `[ui.toast]` and
 `[ui.sound]` settings, and says whether it drew anything; `request` is its sound when a
 decision is waiting and `done` when a branch finished. When herdr says its popups are off
 or nobody is attached, the same hoot is raised on the desktop with `terminal-notifier` or
@@ -229,16 +243,66 @@ asks, by sending a hoot of its own down the same path and reporting what showed 
 _Avoid_: toast, alert, desktop notification as a term of its own (it is herdr's word for
 how a hoot is shown, not for the thing)
 
+**Gated**:
+What delivery is while the gate says no and something deliverable is queued behind it:
+the main session mid-turn, a draft in its box, no prompt box on its screen at all
+(ADR-0068), or no main session it can reach. The question stays open and first in the
+queue, and the gate holds until it lets go — one hold however its reason changes. Said in
+two places in the same word: the board's waiting line once it has lasted ten seconds
+(ADR-0058, as ADR-next-the-person-decides-what-reaches-them respells it), and
+`whiska doctor` whenever it is asked. Being gated is never a question's own status; it is
+what delivery is doing, or not doing, to the queue. While the person is **away** the gate
+is beside the point, and the line says `away` instead.
+_Avoid_: held (a mouse the person put on hold — see **Held**; this entry carried that word
+until 2026-10-06), blocked (a mouse's herdr status), stuck (a mouse that is not
+progressing), paused, queued (every question behind the first is that anyway)
+
+**Away**:
+The person's own word for "nothing reaches me": one setting for the whole machine, a file
+under the whiska home that `away` writes and `resume` removes
+(ADR-next-the-person-decides-what-reaches-them). While it is set nothing is delivered to
+any main session, no hoot is raised, mice keep working, and `inbox` keeps listing what
+they ask, with `away` on its first line. Said on herdr's tab bar — `🦉 watching · away` —
+and on every repo's board. Not a question's status, and not the owl's state: the owl is
+watching all the while.
+_Avoid_: quiet (a house with nothing waiting, or a mouse with nothing left to do), do not
+disturb, muted, paused, held (a mouse's), gated (the gate's)
+
+**Focus**:
+One repo's narrowing of delivery to one mouse: the focused mouse's `mouse_id` on the
+house's own row, set with `focus <branch>` and cleared by `resume`
+(ADR-next-the-person-decides-what-reaches-them). Only that mouse's questions reach the
+repo's main session; the rest wait — still listed by `inbox` and `whiska questions` as
+`waits: focus on <branch>`, still counted as waiting — and a question already delivered
+from another mouse no longer holds the one slot against the focused one. Per repo because
+a branch is one repo's; silencing other repos is what **away** is for. The board's
+waiting line says `focus: <branch>`; the tab bar says nothing of it.
+_Avoid_: pin, filter, mute (the others are not muted, they wait), focus as herdr's word
+for bringing a pane into view (see **Jump**)
+
 **Held**:
-What delivery is while the gate says no and something is queued behind it: the main
-session mid-turn, a draft in its box, no prompt box on its screen at all (ADR-0068), or
-no main session it can reach. The question stays
-open and first in the queue, and the hold lasts until the gate lets go — one hold however
-its reason changes. Said in two places in the same word: the board's waiting line once it
-has lasted ten seconds (ADR-0058), and `whiska doctor` whenever it is asked. Being held is
-never a question's own status; it is what delivery is doing, or not doing, to the queue.
-_Avoid_: blocked (a mouse's herdr status), stuck (a mouse that is not progressing),
-paused, queued (every question behind the first is that anyway)
+A mouse the person put on hold with `hold <branch>`: a `held_at` stamp on its record, a
+real stored status, lifted by `resume <branch>` or by a reply to one of its questions
+(ADR-next-the-person-decides-what-reaches-them). The hook refuses its next tool call, a
+read included, with a reason that says to end the turn here and say where it stopped
+(`Whiska.Rule.Held`); the message it ends on sits in the inbox marked `held`, never
+delivered, and never counted as waiting on the person — they parked it. A held mouse is
+never offered for landing, since its finished line is never told; never taken down by
+cleanup (ADR-0061); never picked up (ADR-0067). Its row on the board and in `whiska mice`
+says `held` where herdr's status would go. The word this entry took from the gate on
+2026-10-06 — see **Gated**.
+_Avoid_: parked, paused, stopped (a dead turn's and herdr's word), blocked (herdr's),
+gated (the gate's), on ice
+
+**Inbox**:
+The person's list of everything waiting on them across every repo on the machine —
+`inbox`, the same reading as `whiska waiting` (see **Waiting**) — with a last column
+saying why a row is not being delivered (`held`, `away`, `focus: <branch>`) and a first
+line when they are away. It is a listing, not a place: a question sits in a house, an
+uncollected entry on a doorstep, and the inbox reads both. `show`, `reply` and `dismiss`
+act on this repo's rows only; ids repeat across repos.
+_Avoid_: queue (delivery's), backlog, doorstep (where an entry sits before it is a
+question — see that entry), waiting list (**Waiting** is the state, this is the listing)
 
 **Unplaced**:
 A directory under a house's `worktrees/` container that is no checkout of its own — the
@@ -306,8 +370,9 @@ hotkey they bound. The owl never jumps, and since the Nudge was retired it makes
 cross-house move at all. The destination is the house's main
 session, never a mouse's own pane: a mouse's pane is the mouse's workplace, and the
 person answers from their own (ADR-0043).
-_Avoid_: goto, focus (herdr's word for the mechanism, not for what this is), switch,
-attach, take over
+_Avoid_: goto, focus (herdr's word for the mechanism of bringing a pane into view, and
+since 2026-10-06 the person's word for narrowing delivery to one mouse — see **Focus**;
+neither is a jump), switch, attach, take over
 
 **Shape**:
 What a mouse is spawned as: its mode, the model it runs on and the effort it runs at,
@@ -376,8 +441,9 @@ _Avoid_: registry, manifest, house list (it lists open houses, not houses)
 
 **Statusline**:
 A line Whiska draws for the person. There are two, one per surface (ADR-0048). The
-machine-wide one is herdr's tab bar: the owl's state, always, and which whiskas have
-something waiting — `🦉 watching`, `🦉 owl down · 🐱 2 whiskas`. The repo-scoped one is
+machine-wide one is herdr's tab bar: the owl's state, always, whether the person is
+**away**, and which whiskas have something waiting — `🦉 watching`,
+`🦉 watching · away · 🐱 2 whiskas`, `🦉 owl down · 🐱 2 whiskas`. The repo-scoped one is
 Claude Code's own statusline in that repo, appended to the person's global line: what is
 waiting in this house and how many mice are alive here — `🐱 feat-auth · 🐭 2 mice`,
 and nothing at all when the repo is quiet. No owl on it; that fact is machine-wide and
@@ -391,7 +457,8 @@ Where a mouse leaves a question for the owl: a directory in the house, holding e
 owl has not collected yet. A mouse always leaves its question here and never hands it over
 directly, so whether the owl is awake changes nothing about what the mouse does.
 _Avoid_: spool, outbox, queue (the delivery queue is a different thing — the doorstep is
-what a question sits on before it ever reaches that queue), larder, inbox
+what a question sits on before it ever reaches that queue), larder, inbox (the person's
+listing of everything waiting, which reads this among other things — see **Inbox**)
 
 **In flight**:
 Said of a background subagent a mouse launched and has not been handed the report of.

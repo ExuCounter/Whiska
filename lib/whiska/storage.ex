@@ -30,7 +30,8 @@ defmodule Whiska.Storage do
     {6, Whiska.Migrations.V006Pickup},
     {7, Whiska.Migrations.V007Shape},
     {8, Whiska.Migrations.V008Effort},
-    {9, Whiska.Migrations.V009ShapedAs}
+    {9, Whiska.Migrations.V009ShapedAs},
+    {10, Whiska.Migrations.V010HoldAndFocus}
   ]
 
   @modes ~w(build sniff)
@@ -265,6 +266,18 @@ defmodule Whiska.Storage do
   @doc "One question, or nil."
   @spec question(integer()) :: Question.t() | nil
   def question(id), do: Repo.get(Question, id)
+
+  @doc "The question a mouse asked last, whatever became of it, or nil."
+  @spec latest_question(String.t()) :: Question.t() | nil
+  def latest_question(mouse_id) do
+    Repo.one(
+      from(q in Question,
+        where: q.mouse_id == ^mouse_id,
+        order_by: [desc: q.asked_at, desc: q.id],
+        limit: 1
+      )
+    )
+  end
 
   @doc """
   Every mouse record that still stands for a worktree of this house, oldest
@@ -626,6 +639,69 @@ defmodule Whiska.Storage do
     |> Ecto.Changeset.validate_inclusion(:kind, Question.kinds())
     |> Ecto.Changeset.validate_inclusion(:status, Question.statuses())
     |> Repo.insert()
+  end
+
+  # -- hold and focus (ADR-next-the-person-decides-what-reaches-them) ----------
+
+  @doc """
+  Put a mouse on hold: its next tool call is refused, nothing of its is
+  delivered, and it is never offered for landing, until `lift_hold/1`.
+
+  Idempotent: the first stamp stands, so `hold` twice is one hold.
+  """
+  @spec hold(String.t()) :: {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def hold(mouse_id) do
+    case Repo.get(Mouse, mouse_id) do
+      nil -> {:error, :no_such_mouse}
+      %Mouse{held_at: %DateTime{}} = mouse -> {:ok, mouse}
+      mouse -> mouse |> Ecto.Changeset.change(%{held_at: now()}) |> Repo.update()
+    end
+  end
+
+  @doc "Lift a mouse's hold. Lifting one that was never there is fine."
+  @spec lift_hold(String.t()) ::
+          {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def lift_hold(mouse_id) do
+    case Repo.get(Mouse, mouse_id) do
+      nil -> {:error, :no_such_mouse}
+      %Mouse{held_at: nil} = mouse -> {:ok, mouse}
+      mouse -> mouse |> Ecto.Changeset.change(%{held_at: nil}) |> Repo.update()
+    end
+  end
+
+  @doc """
+  The ids of every live mouse on hold. A dead one's hold is not listed: there
+  is nothing left to stop, and nothing of its is waiting anyway (ADR-0026).
+  """
+  @spec held_ids() :: MapSet.t(String.t())
+  def held_ids do
+    alive_mice()
+    |> Enum.filter(&match?(%DateTime{}, &1.held_at))
+    |> MapSet.new(& &1.mouse_id)
+  end
+
+  @doc "The mouse this house is focused on, or nil."
+  @spec focus() :: String.t() | nil
+  def focus do
+    case Repo.one(from(h in House, limit: 1)) do
+      nil -> nil
+      house -> house.focus
+    end
+  end
+
+  @doc """
+  Focus this house on one mouse, or on none. One per house: setting it again
+  replaces it. The row is the same one the main session is recorded on, made
+  here if `whiska start` has not made it yet.
+  """
+  @spec set_focus(String.t() | nil) :: :ok
+  def set_focus(mouse_id) do
+    case Repo.one(from(h in House, limit: 1)) do
+      nil -> %House{} |> Ecto.Changeset.change(%{focus: mouse_id}) |> Repo.insert!()
+      house -> house |> Ecto.Changeset.change(%{focus: mouse_id}) |> Repo.update!()
+    end
+
+    :ok
   end
 
   # -- the main session ---------------------------------------------------------

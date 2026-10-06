@@ -230,3 +230,12 @@ error wording.
 an empty doorstep (ADR-0036), so this looks like the natural home. Rejected: the case this
 exists for is a laptop waking, when the owl was suspended and the events are gone. A detector
 that only works when nothing went wrong is not one.
+
+## Amendment, 2026-10-06: a held mouse is never picked up
+
+A mouse the person put on hold
+([ADR-next-the-person-decides-what-reaches-them](next-the-person-decides-what-reaches-them.md))
+ends its turn because the hook refused its next tool call, which from outside is a pane
+that was working and went quiet with nothing collected — exactly the shape above. It is
+not a dead turn: the person stopped it, and a line telling it to carry on would undo
+that. `resume <branch>` is where that line comes from, typed by the person's own command.

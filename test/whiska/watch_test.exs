@@ -55,6 +55,7 @@ defmodule Whiska.WatchTest do
       panes: Keyword.get(opts, :panes, {:ok, Keyword.get(opts, :bare_panes, [])}),
       activity: activity(opts),
       held: Keyword.get(opts, :held),
+      mode: Keyword.get(opts, :mode, Whiska.Delivery.Mode.none()),
       picked_up: Keyword.get(opts, :picked_up, %{})
     )
   end
@@ -608,7 +609,16 @@ defmodule Whiska.WatchTest do
 
     test "a dead mouse with nothing waiting leaves no trace" do
       assert board([mouse("feat-gone", died_at: @now)]) ==
-               %{rows: [], more: 0, waiting: 0, orphaned: 0, orphan_names: [], held: nil}
+               %{
+                 rows: [],
+                 more: 0,
+                 waiting: 0,
+                 orphaned: 0,
+                 orphan_names: [],
+                 held: nil,
+                 away?: false,
+                 focus: nil
+               }
     end
 
     test "a dead mouse takes no room from the live ones" do
@@ -681,6 +691,128 @@ defmodule Whiska.WatchTest do
   defp detail_column(line) do
     [head, _detail] = String.split(line, ~r/(Edit x\.ex|waiting on you|#51 orphaned)/, parts: 2)
     String.length(head)
+  end
+
+  describe "what the person set aside (ADR-next-the-person-decides-what-reaches-them)" do
+    defp mode(attrs), do: Map.merge(Whiska.Delivery.Mode.none(), Map.new(attrs))
+
+    defp held_mouse(branch), do: %{mouse(branch) | held_at: @now}
+
+    test "the waiting line says away, and a question waiting behind it says so on its row" do
+      board =
+        board([mouse("feat-a")],
+          questions: [question(1, "feat-a", status: "open")],
+          bare_panes: [pane("feat-a", "idle")],
+          mode: mode(away?: true)
+        )
+
+      drawn = render(board)
+      assert drawn =~ ~s(🐭 feat-a  idle  0s  waits: away · #1 · "which db?")
+      assert drawn =~ "\n🐱 away"
+    end
+
+    test "a question no row carries is counted before the away word" do
+      board =
+        board([],
+          questions: [question(52, "feat-vanished", status: "open")],
+          mode: mode(away?: true)
+        )
+
+      assert render(board) == "🐱 1 waiting · away"
+    end
+
+    test "away gives way to nothing: the gate's reason is not drawn beside it" do
+      board =
+        board([],
+          questions: [question(52, "feat-vanished")],
+          held: :typing,
+          mode: mode(away?: true)
+        )
+
+      assert render(board) == "🐱 1 waiting · away"
+    end
+
+    test "the waiting line names the focus, and a question behind it names the branch" do
+      board =
+        board([mouse("feat-a"), mouse("feat-b")],
+          questions: [question(1, "feat-a", status: "open")],
+          bare_panes: [pane("feat-a", "idle"), pane("feat-b", "working")],
+          mode: mode(focus: "m-feat-b")
+        )
+
+      drawn = render(board)
+      assert drawn =~ ~s(waits: focus on feat-b · #1 · "which db?")
+      assert drawn =~ "\n🐱 focus: feat-b"
+    end
+
+    test "the focused mouse's own question is waiting on the person, as ever" do
+      board =
+        board([mouse("feat-b")],
+          questions: [question(1, "feat-b")],
+          bare_panes: [pane("feat-b", "idle")],
+          mode: mode(focus: "m-feat-b")
+        )
+
+      drawn = render(board)
+      assert drawn =~ ~s(waiting on you · #1 · "which db?")
+      assert drawn =~ "🐱 focus: feat-b"
+      refute drawn =~ "waiting ·"
+    end
+
+    test "the gate's reason stands after the focus when the focused question is gated" do
+      board =
+        board([mouse("feat-b")],
+          questions: [question(1, "feat-b", status: "open")],
+          bare_panes: [pane("feat-b", "idle")],
+          held: :mid_turn,
+          mode: mode(focus: "m-feat-b")
+        )
+
+      assert render(board) =~ "🐱 focus: feat-b · gated: this session is mid-turn"
+    end
+
+    test "a held mouse's row says held, and its question is not counted as waiting" do
+      held = held_mouse("feat-a")
+
+      board =
+        board([held],
+          questions: [question(1, "feat-a", status: "open", mouse: held)],
+          bare_panes: [pane("feat-a", "idle")],
+          mode: mode(held: MapSet.new(["m-feat-a"]))
+        )
+
+      drawn = render(board)
+      assert drawn =~ ~s(🐭 feat-a  held  0s  held · #1 · "which db?")
+      refute drawn =~ "waiting"
+      assert board.waiting == 0
+    end
+
+    test "a held mouse's row is quiet: not yellow, not first, no ticker" do
+      held = held_mouse("feat-a")
+
+      board =
+        board([held, mouse("feat-b")],
+          questions: [question(1, "feat-a", status: "sent", mouse: held)],
+          bare_panes: [pane("feat-a", "working"), pane("feat-b", "working")],
+          mode: mode(held: MapSet.new(["m-feat-a"]))
+        )
+
+      [first, second] = board |> render(frame: 0) |> String.split("\n")
+      assert first =~ "feat-b"
+      assert second =~ "feat-a"
+      refute second =~ "\e[33m"
+      assert second =~ "0s       held · #1"
+    end
+
+    test "a held mouse with nothing waiting still says held" do
+      board =
+        board([held_mouse("feat-a")],
+          bare_panes: [pane("feat-a", "idle")],
+          mode: mode(held: MapSet.new(["m-feat-a"]))
+        )
+
+      assert render(board) == "🐭 feat-a  held  0s"
+    end
   end
 
   describe "render/2" do
@@ -870,11 +1002,11 @@ defmodule Whiska.WatchTest do
       assert Watch.render(board) =~ "\e[33mwaiting on you · #52"
     end
 
-    test "a held queue rides the waiting line, and is yellow with it" do
+    test "a gated queue rides the waiting line, and is yellow with it" do
       board = board([], questions: [question(52, "feat-vanished")], held: :typing)
 
       assert Watch.render(board) ==
-               "\e[33m🐱 1 waiting · held: your prompt box isn't empty\e[39m"
+               "\e[33m🐱 1 waiting · gated: your prompt box isn't empty\e[39m"
     end
 
     test "the count of what no row carries is yellow too, and the orphans are not" do
@@ -1011,19 +1143,19 @@ defmodule Whiska.WatchTest do
                "🐱 1 orphaned (#{String.duplicate("a", 23)}…)"
     end
 
-    test "a held queue says so on the waiting line (ADR-0058)" do
+    test "a gated queue says so on the waiting line (ADR-0058)" do
       board = board([], questions: [question(52, "feat-vanished")], held: :typing)
 
-      assert render(board) == "🐱 1 waiting · held: your prompt box isn\'t empty"
+      assert render(board) == "🐱 1 waiting · gated: your prompt box isn\'t empty"
     end
 
-    test "a queue held because the box is off the screen says so (ADR-0068)" do
+    test "a queue gated because the box is off the screen says so (ADR-0068)" do
       board = board([], questions: [question(52, "feat-vanished")], held: :no_box)
 
-      assert render(board) == "🐱 1 waiting · held: your prompt box isn\'t on screen"
+      assert render(board) == "🐱 1 waiting · gated: your prompt box isn\'t on screen"
     end
 
-    test "a topic row and a held queue are drawn together" do
+    test "a topic row and a gated queue are drawn together" do
       board =
         board([mouse("feat-a")],
           bare_panes: [pane("feat-a", "working", title: "Order builder for distributors")],
@@ -1033,7 +1165,7 @@ defmodule Whiska.WatchTest do
 
       drawn = render(board)
       assert drawn =~ "Order builder for distributors"
-      assert drawn =~ "🐱 1 waiting · held: your prompt box isn't empty"
+      assert drawn =~ "🐱 1 waiting · gated: your prompt box isn't empty"
     end
 
     test "a hold is still said when every question is on a row" do
@@ -1044,16 +1176,16 @@ defmodule Whiska.WatchTest do
           held: :mid_turn
         )
 
-      assert render(board) =~ "🐱 held: this session is mid-turn"
+      assert render(board) =~ "🐱 gated: this session is mid-turn"
     end
 
     test "a hold Whiska cannot name is still a hold" do
       board = board([], questions: [question(52, "feat-vanished")], held: :unreachable)
 
-      assert render(board) == "🐱 1 waiting · held: your main session cannot be reached"
+      assert render(board) == "🐱 1 waiting · gated: your main session cannot be reached"
     end
 
-    test "nothing held adds no words" do
+    test "nothing gated adds no words" do
       assert render(board([], questions: [question(52, "feat-vanished")])) ==
                "🐱 1 waiting"
     end

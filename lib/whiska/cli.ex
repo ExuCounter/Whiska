@@ -13,6 +13,7 @@ defmodule Whiska.CLI do
   alias Whiska.Hook.PreToolUse
   alias Whiska.Hook.Stop
   alias Whiska.ClaudeMd
+  alias Whiska.Delivery.Mode
   alias Whiska.Doctor
   alias Whiska.Doctor.Report
   alias Whiska.Herdr
@@ -138,6 +139,33 @@ defmodule Whiska.CLI do
 
                          On Linux, bind `whiska jump` to a key in your
                          desktop's keyboard shortcut settings.
+
+    One word each, for handling questions. `whiska init --global` installs
+    them as plain commands under ~/.whiska/bin, and as slash commands in the
+    main session. The long names above keep working.
+
+    inbox [--json]       What is waiting on you anywhere, oldest first — the
+                         rows `waiting` prints, with why each is not being
+                         delivered (held, away, focus: <branch>) and a first
+                         line when you are away.
+    show [<id>]          This repo's open questions in full, or one by id.
+    reply <id> <text>    Answer it; no quotes needed around the text.
+    dismiss <id>         Close it without answering (`close`).
+    away                 Nothing is delivered to any main session on this
+                         machine until `resume`. Mice keep working; `inbox`
+                         keeps listing. One setting for the whole machine.
+    focus [<branch>]     Only that mouse's questions reach this repo's main
+                         session; the rest wait, still listed by `inbox`. A
+                         question already delivered from another mouse no
+                         longer blocks the focused one. Per repo. With no
+                         branch, print the focus.
+    hold <branch>        That mouse stops at its next tool call, its questions
+                         sit in the inbox undelivered, and it is never offered
+                         for landing. `resume <branch>` lifts it.
+    resume [<branch>]    End away and this repo's focus — outside any repo,
+                         every repo's focus; what waited arrives oldest first.
+                         With a branch, lift that mouse's hold and, when it
+                         stopped because of the hold, tell it to carry on.
 
     statusline           Print the one line herdr's tab bar shows: whether the
                          owl is watching or down (always, so a blank line never
@@ -282,6 +310,18 @@ defmodule Whiska.CLI do
   def run(["jump"], _cwd), do: jump_to_oldest()
   def run(["jump", name], _cwd), do: jump_to_name(name)
 
+  def run(["inbox"], _cwd), do: inbox(:text)
+  def run(["inbox", "--json"], _cwd), do: inbox(:json)
+  def run(["show"], cwd), do: questions(cwd || File.cwd!(), :full)
+  def run(["show", id], cwd), do: with_question(cwd, id, &show_question/1)
+  def run(["dismiss", id], cwd), do: with_question(cwd, id, &close/1)
+  def run(["away"], _cwd), do: away()
+  def run(["focus"], cwd), do: with_house(cwd, &show_focus/0)
+  def run(["focus", branch], cwd), do: with_house(cwd, fn -> set_focus(branch) end)
+  def run(["hold", branch], cwd), do: with_house(cwd, fn -> hold(branch) end)
+  def run(["resume"], cwd), do: resume(cwd || File.cwd!())
+  def run(["resume", branch], cwd), do: with_house(cwd, fn -> resume_branch(branch) end)
+
   def run(["questions", id], cwd), do: with_question(cwd, id, &show_question/1)
 
   def run(["reply", id, first | rest], cwd),
@@ -369,10 +409,12 @@ defmodule Whiska.CLI do
          :ok <- make_executable(shim),
          :ok <- write_statusline(root),
          :ok <- write_skills(scope, root),
+         retired = remove_retired_skills(root),
+         {:ok, commands} <- write_commands(scope),
          :ok <- write_claude_md(scope, root),
          :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- write_unchanged(path, JSON.encode!(merged) |> reformat()) do
-      say(told(scope))
+      say(told(scope) <> retired_note(retired) <> commands_note(commands))
     else
       {:error, :unparseable} ->
         IO.puts(
@@ -392,6 +434,66 @@ defmodule Whiska.CLI do
         IO.puts(:stderr, "whiska: could not write #{path} (#{inspect(reason)}).")
         1
     end
+  end
+
+  # A skill an older Whiska wrote and this one no longer ships goes, where it
+  # is a plain file of Whiska's; one reached through a symlink is the person's
+  # (ADR-0056) and stays. Returns the names removed.
+  defp remove_retired_skills(root) do
+    for rel <- Install.retired_skills(),
+        file = Path.join(root, rel),
+        File.regular?(file),
+        not through_link?(root, rel) do
+      File.rm(file)
+      File.rmdir(Path.dirname(file))
+      rel |> Path.dirname() |> Path.basename()
+    end
+  end
+
+  defp retired_note([]), do: ""
+
+  defp retired_note(names) do
+    "\n\nRemoved #{Enum.join(names, " and ")}: the one-word skills replace them " <>
+      "(/show, /reply and the rest)."
+  end
+
+  # The one-word commands are the machine's, like the home they are written
+  # under; the per-repo install writes none.
+  defp write_commands(:repo), do: {:ok, nil}
+  defp write_commands(:global), do: Install.write_commands()
+
+  defp commands_note(nil), do: ""
+
+  defp commands_note({written, skipped}) do
+    dir = Install.commands_dir()
+
+    """
+
+
+    The one-word commands went to #{dir}:
+
+      #{Enum.join(written, " ")}
+
+    Put it on PATH once, ahead of the rest, so each word runs as itself:
+
+      export PATH="#{dir}:$PATH"
+    """
+    |> String.trim_trailing()
+    |> Kernel.<>(skipped_note(skipped))
+  end
+
+  defp skipped_note([]), do: ""
+
+  defp skipped_note(skipped) do
+    """
+
+
+    Skipped, because another program on your PATH already answers to the word;
+    the long `whiska` name still works for each:
+
+    #{Enum.map_join(skipped, "\n", fn {word, other} -> "  #{word} → #{other}" end)}
+    """
+    |> String.trim_trailing()
   end
 
   # The global statusLine Whiska is about to take over, kept where both scripts
@@ -493,8 +595,8 @@ defmodule Whiska.CLI do
       {"~/" <> Install.shim_path(), "the hook shim both hooks call"},
       {"~/" <> Install.statusline_path(), "the board"},
       {"~/.claude/settings.json", "PreToolUse, Stop and the statusLine"},
-      {"~/.claude/skills/", "whiska-questions, whiska-delivered, whiska-reply,"},
-      {"", "whiska-finish, whiska-spec, grilling,"},
+      {"~/.claude/skills/", "inbox, show, reply, dismiss, focus, away, hold, resume,"},
+      {"", "whiska-delivered, whiska-finish, whiska-spec, grilling,"},
       {"", "spawn-worktree, send-to-worktree, drop-worktree"}
     ]
     |> Enum.map_join("\n", fn {path, what} ->
@@ -590,7 +692,8 @@ defmodule Whiska.CLI do
     with {:ok, settings} <- read_settings(path),
          :ok <- rewrite_settings(path, Install.unmerge(settings, base)) do
       {removed, linked} = remove_files(scope, root)
-      say(removal_report(scope, removed ++ remove_claude_md(scope, root), linked))
+      commands = remove_commands(scope)
+      say(removal_report(scope, removed ++ remove_claude_md(scope, root) ++ commands, linked))
     else
       {:error, :unparseable} ->
         IO.puts(:stderr, "whiska: could not parse #{path} — leaving it alone.")
@@ -601,6 +704,11 @@ defmodule Whiska.CLI do
         1
     end
   end
+
+  defp remove_commands(:repo), do: []
+
+  defp remove_commands(:global),
+    do: Enum.map(Install.remove_commands(), &Path.join(Install.commands_dir(), &1))
 
   defp read_base_statusline(:repo, _root), do: nil
 
@@ -1473,13 +1581,213 @@ defmodule Whiska.CLI do
   # The shape lives in Whiska.Questions, so one question read by id and one
   # block of `whiska questions --full` cannot drift apart. This question was
   # loaded by id, without its mouse, so the mouse is looked up here.
-  defp show_question(%Question{} = q),
-    do: say(Questions.full(q, Questions.who(Storage.mouse(q.mouse_id), q.mouse_id), slot_id()))
+  defp show_question(%Question{} = q) do
+    mode = Mode.read()
+    slot = Mode.slot(Storage.questions(), mode)
+    focus = if mode.focus, do: Questions.who(Storage.mouse(mode.focus), mode.focus)
 
-  defp slot_id do
-    case Storage.sent() do
-      %Question{id: id} -> id
-      nil -> nil
+    say(
+      Questions.full(q, Questions.who(Storage.mouse(q.mouse_id), q.mouse_id), slot, mode, focus)
+    )
+  end
+
+  # -- away, focus, hold and resume (ADR-next-the-person-decides-what-reaches-them)
+
+  defp inbox(:json), do: say(Waiting.json(Waiting.list()))
+  defp inbox(:text), do: say(Waiting.render(Waiting.list(), away?: Mode.away?()))
+
+  defp away do
+    was_away = Mode.away?()
+
+    case Mode.set_away() do
+      :ok when was_away ->
+        say("You were already away. Nothing is delivered anywhere until `resume`.")
+
+      :ok ->
+        say(
+          "Away. Nothing is delivered to any main session until `resume`; " <>
+            "mice keep working, and `inbox` keeps listing what they ask."
+        )
+
+      {:error, reason} ->
+        fail("whiska: could not write #{Mode.away_path()} (#{inspect(reason)}).")
+    end
+  end
+
+  defp show_focus do
+    case Storage.focus() do
+      nil ->
+        say("No focus: every mouse's questions reach the main session.")
+
+      mouse_id ->
+        say(
+          "Focus: #{name_of(mouse_id)}. Only its questions reach the main session; " <>
+            "the rest wait, and `inbox` lists them. `resume` ends it."
+        )
+    end
+  end
+
+  defp set_focus(branch) do
+    with {:ok, mouse} <- live_mouse_on(branch) do
+      :ok = Storage.set_focus(mouse.mouse_id)
+
+      say(
+        "Focus: #{branch}. Only its questions reach the main session now; the rest wait, " <>
+          "and `inbox` still lists them. `resume` ends it." <> away_note()
+      )
+    end
+  end
+
+  defp away_note do
+    if Mode.away?(),
+      do: " You are away, so nothing is delivered until `resume` — which ends this focus too.",
+      else: ""
+  end
+
+  defp hold(branch) do
+    with {:ok, mouse} <- live_mouse_on(branch),
+         {:ok, _} <- Storage.hold(mouse.mouse_id) do
+      say(
+        "#{branch} is on hold: its next tool call is refused, nothing of its is delivered, " <>
+          "and it is not offered for landing. `resume #{branch}` lifts it."
+      )
+    end
+  end
+
+  # Away is the machine's; the focus is this repo's when the command runs in
+  # one, and every recorded repo's when it runs outside any.
+  defp resume(cwd) do
+    was_away = Mode.away?()
+    :ok = Mode.clear_away()
+
+    case main_checkout(cwd) do
+      {:ok, main} ->
+        with_house(main, fn ->
+          case end_focus() do
+            nil -> say(resumed(was_away, []))
+            branch -> say(resumed(was_away, ["focus on #{branch} ended"]))
+          end
+        end)
+
+      :error ->
+        say(resumed(was_away, every_focus_ended()))
+    end
+  end
+
+  defp end_focus do
+    case Storage.focus() do
+      nil ->
+        nil
+
+      mouse_id ->
+        :ok = Storage.set_focus(nil)
+        name_of(mouse_id)
+    end
+  end
+
+  defp every_focus_ended do
+    OpenHouses.read()
+    |> Enum.filter(&File.exists?(Storage.database_path(&1)))
+    |> Enum.flat_map(fn main ->
+      case Storage.open(main) do
+        {:ok, handle} ->
+          try do
+            case end_focus() do
+              nil -> []
+              branch -> ["#{Path.basename(main)}: focus on #{branch} ended"]
+            end
+          after
+            Storage.close(handle)
+          end
+
+        {:error, _} ->
+          []
+      end
+    end)
+  end
+
+  defp resumed(false, []), do: "Nothing was set aside; everything already flows."
+
+  defp resumed(was_away, ended) do
+    said = if(was_away, do: ["away ended"], else: []) ++ ended
+    "Resumed: #{Enum.join(said, "; ")}. What waited arrives oldest first."
+  end
+
+  # The line goes only to a mouse that stopped because of the hold — its latest
+  # question was asked after the stamp. One that was waiting on the person's
+  # answer when held must not run on without it.
+  defp resume_branch(branch) do
+    with {:ok, mouse} <- live_mouse_on(branch) do
+      case mouse.held_at do
+        nil ->
+          say("#{branch} is not on hold.")
+
+        held_at ->
+          {:ok, _} = Storage.lift_hold(mouse.mouse_id)
+          carry_on(mouse, branch, held_at, Storage.latest_question(mouse.mouse_id))
+      end
+    end
+  end
+
+  defp carry_on(mouse, branch, held_at, %Question{asked_at: asked_at} = latest)
+       when is_struct(asked_at, DateTime) do
+    cond do
+      DateTime.compare(asked_at, held_at) != :lt ->
+        type_carry_on(mouse, branch)
+
+      latest.status in ["open", "sent"] ->
+        say(
+          "Hold on #{branch} lifted. Its question ##{latest.id} is still waiting on you: " <>
+            "`reply #{latest.id} <your answer>`."
+        )
+
+      true ->
+        say("Hold on #{branch} lifted.")
+    end
+  end
+
+  defp carry_on(_mouse, branch, _held_at, nil), do: say("Hold on #{branch} lifted.")
+
+  defp type_carry_on(mouse, branch) do
+    with {:ok, socket} <- herdr_socket(),
+         :ok <- Herdr.impl().prompt(socket, mouse.pane, Mode.resume_line()) do
+      Storage.set_working(mouse.mouse_id, DateTime.utc_now())
+      say("Hold on #{branch} lifted; told it to carry on from where it stopped.")
+    else
+      {:error, {:no_socket, default}} ->
+        IO.puts("Hold on #{branch} lifted.")
+        no_socket(default, "reach the mouse's pane through")
+
+      {:error, reason} ->
+        IO.puts("Hold on #{branch} lifted.")
+
+        fail(
+          "whiska: could not tell #{branch} to carry on (#{describe(reason)}). " <>
+            "Type into its pane yourself, or `reply` to its next question."
+        )
+    end
+  end
+
+  defp live_mouse_on(branch) do
+    case Enum.find(Storage.alive_mice(), &(&1.branch == branch)) do
+      %Mouse{pane: pane} = mouse when is_binary(pane) ->
+        {:ok, mouse}
+
+      %Mouse{} = mouse ->
+        {:ok, mouse}
+
+      nil ->
+        fail(
+          "whiska: no live mouse of this repo is on #{branch}. " <>
+            "`whiska mice` lists the ones there are."
+        )
+    end
+  end
+
+  defp name_of(mouse_id) do
+    case Storage.mouse(mouse_id) do
+      %Mouse{branch: branch} when is_binary(branch) -> branch
+      _ -> mouse_id
     end
   end
 
@@ -1499,13 +1807,14 @@ defmodule Whiska.CLI do
   defp reply(%Question{} = q, text) do
     with {:ok, mouse} <- live_mouse(q),
          {:ok, socket} <- herdr_socket(),
+         :ok <- lift_hold_for_answer(mouse),
          :ok <- Herdr.impl().prompt(socket, mouse.pane, text),
          {:ok, _} <- Storage.answer(q.id, text) do
       # An answer is a prompt, and a prompt is a turn beginning. Recording it
       # here is what lets the owl pick that turn up if it dies while the owl
       # is down and never sees the pane working (ADR-0067).
       Storage.set_working(mouse.mouse_id, DateTime.utc_now())
-      say("Answered ##{q.id} (#{mouse.branch}): typed into #{mouse.pane}.")
+      say("Answered ##{q.id} (#{mouse.branch}): typed into #{mouse.pane}." <> lifted(mouse))
     else
       {:error, {:dead, mouse}} ->
         dead_mouse(q, mouse)
@@ -1520,6 +1829,19 @@ defmodule Whiska.CLI do
         )
     end
   end
+
+  # Answering a held mouse is picking it up: a hold left in place would have the
+  # hook refuse the very turn the answer starts.
+  defp lift_hold_for_answer(%Mouse{held_at: %DateTime{}} = mouse) do
+    with {:ok, _} <- Storage.lift_hold(mouse.mouse_id), do: :ok
+  end
+
+  defp lift_hold_for_answer(_mouse), do: :ok
+
+  defp lifted(%Mouse{held_at: %DateTime{}, branch: branch}),
+    do: " The hold on #{branch} is lifted."
+
+  defp lifted(_mouse), do: ""
 
   defp dead_mouse(q, mouse) do
     fail("""

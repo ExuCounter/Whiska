@@ -132,3 +132,14 @@ owl. ADR-0040's fallback to herdr's fixed default socket therefore applies to `j
 `reply` too, in one shared `Whiska.Herdr.socket/1`: the variable wins when set, herdr's
 default is used when it is not, and only a default with no socket at it is refused —
 naming the path, because by then the honest answer is that herdr is not running.
+
+## Note, 2026-10-06: `waiting` has a slash command after all
+
+"Neither command gets a slash-command skill" above held for `jump` and is narrowed for
+`waiting`: `/inbox` runs `whiska waiting` (as `whiska inbox`) in the main session, only
+when the person types it
+([ADR-next-the-person-decides-what-reaches-them](next-the-person-decides-what-reaches-them.md)).
+The reason above was a session running a machine-wide command on its own judgment; a
+typed slash command is the person asking in that same breath, which is this decision's
+own test. `jump` keeps none: the person dropped it from the one-word set, and a session
+that could move their screen is the sharp case this record was written against.

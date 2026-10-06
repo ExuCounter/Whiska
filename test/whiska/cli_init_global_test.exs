@@ -22,9 +22,13 @@ defmodule Whiska.CLIInitGlobalTest do
     File.mkdir_p!(Path.join(repo, ".git"))
     File.mkdir_p!(home)
     Application.put_env(:whiska, :user_home, home)
+    # The commands live under the whiska home, which every test in this run
+    # shares: a wrapper one test wrote must not read as this test's.
+    File.rm_rf!(Install.commands_dir())
 
     on_exit(fn ->
       Application.put_env(:whiska, :user_home, previous)
+      File.rm_rf!(Install.commands_dir())
       File.rm_rf!(root)
     end)
 
@@ -104,13 +108,80 @@ defmodule Whiska.CLIInitGlobalTest do
       assert File.read!(Path.join(home, Install.base_statusline_path())) == "my-line.sh"
     end
 
-    test "writes all nine skills, the worktree ones included", %{home: home} do
+    test "writes every skill, the worktree ones and the eight words included", %{home: home} do
       init_global()
 
-      for name <- ~w(whiska-questions whiska-delivered whiska-reply whiska-finish
-                     whiska-spec grilling spawn-worktree send-to-worktree drop-worktree) do
+      for name <- ~w(whiska-delivered whiska-finish whiska-spec grilling
+                     spawn-worktree send-to-worktree drop-worktree
+                     inbox show reply dismiss focus away hold resume) do
         assert File.exists?(Path.join(home, ".claude/skills/#{name}/SKILL.md"))
       end
+    end
+
+    test "removes the two retired skills where they are plain files of Whiska's", %{home: home} do
+      for name <- ~w(whiska-questions whiska-reply) do
+        File.mkdir_p!(Path.join(home, ".claude/skills/#{name}"))
+        File.write!(Path.join(home, ".claude/skills/#{name}/SKILL.md"), "name: #{name}\n")
+      end
+
+      output = init_global()
+
+      for name <- ~w(whiska-questions whiska-reply) do
+        refute File.exists?(Path.join(home, ".claude/skills/#{name}/SKILL.md")), name
+        assert output =~ name
+      end
+    end
+
+    test "writes the eight commands under the whiska home, executable, and prints the PATH line",
+         %{home: _home} do
+      output = init_global()
+      dir = Install.commands_dir()
+
+      for word <- Install.commands() do
+        script = Path.join(dir, word)
+        assert File.exists?(script), word
+        assert Bitwise.band(File.stat!(script).mode, 0o100) != 0, word
+        assert File.read!(script) == Install.command_script(word)
+      end
+
+      assert output =~ ~s|export PATH="#{dir}:$PATH"|
+    end
+
+    test "a word that already names another program is skipped and named, never shadowed",
+         %{home: _home} do
+      taken = Path.join(System.tmp_dir!(), "whiska-taken-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(taken)
+      other = Path.join(taken, "focus")
+      File.write!(other, "#!/bin/sh\necho mine\n")
+      File.chmod!(other, 0o755)
+      path_was = System.get_env("PATH")
+      System.put_env("PATH", taken <> ":" <> path_was)
+
+      on_exit(fn ->
+        System.put_env("PATH", path_was)
+        File.rm_rf!(taken)
+      end)
+
+      output = init_global()
+
+      refute File.exists?(Path.join(Install.commands_dir(), "focus"))
+      assert File.exists?(Path.join(Install.commands_dir(), "inbox"))
+      assert output =~ "focus"
+      assert output =~ other
+    end
+
+    test "a word already resolving to Whiska's own wrapper is not a clash", %{home: _home} do
+      init_global()
+      path_was = System.get_env("PATH")
+      System.put_env("PATH", Install.commands_dir() <> ":" <> path_was)
+      on_exit(fn -> System.put_env("PATH", path_was) end)
+
+      output = init_global()
+
+      for word <- Install.commands(),
+          do: assert(File.exists?(Path.join(Install.commands_dir(), word)))
+
+      refute output =~ "skipped"
     end
 
     test "names every skill it wrote" do
@@ -220,11 +291,21 @@ defmodule Whiska.CLIInitGlobalTest do
       refute File.read!(Path.join(home, ".claude/CLAUDE.md")) =~ "<!-- whiska:start -->"
       refute File.exists?(Path.join(home, Install.shim_path()))
       refute File.exists?(Path.join(home, Install.statusline_path()))
-      refute File.exists?(Path.join(home, ".claude/skills/whiska-questions/SKILL.md"))
+      refute File.exists?(Path.join(home, ".claude/skills/show/SKILL.md"))
 
       settings = settings(path)
       assert settings["hooks"]["Stop"] == []
       refute Map.has_key?(settings, "statusLine")
+    end
+
+    test "takes the eight commands back out too" do
+      init_global()
+      assert File.exists?(Path.join(Install.commands_dir(), "inbox"))
+
+      uninstall_global()
+
+      for word <- Install.commands(),
+          do: refute(File.exists?(Path.join(Install.commands_dir(), word)), word)
     end
 
     test "gives the person their own statusline back", %{settings: path} do

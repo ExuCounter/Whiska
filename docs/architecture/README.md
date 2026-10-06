@@ -131,7 +131,21 @@ ADR-0026's stuck mouse from then on. A pane has to have been quiet for two minut
 separate sweeps first, and a herdr that will not answer throws every clock away, so a
 laptop waking is not read as a whole fleet dying. It is the one thing Whiska types into a
 session that is not its house's main one, which is the single exception ADR-0067 amends
-into ADR-0044. 1377 tests.
+into ADR-0044. Then the person's own say over delivery
+(ADR-next-the-person-decides-what-reaches-them): `away`, one file under the whiska home
+that stops every delivery on the machine; `focus <branch>`, one repo's narrowing to one
+mouse, whose question goes even while another mouse's delivered one is unanswered;
+`hold <branch>`, a stored status on the mouse record that the hook turns into a stop at
+the next tool call, with the mouse's questions parked in the inbox, never delivered, never
+offered for landing, and the mouse skipped by cleanup and pickup; `resume` to end the
+first two and `resume <branch>` to lift a hold, typing one carry-on line only into a
+mouse the hold stopped. `Whiska.Delivery.Mode` judges the queue before the gate, oldest
+first, and the house notices a change on its board tick. With them, eight one-word
+commands — `inbox`, `show`, `reply`, `dismiss`, `focus`, `away`, `hold`, `resume` —
+written by `whiska init --global` under the whiska home, skipped where another program
+answers to the word, and the same eight as slash commands replacing `/whiska-questions`
+and `/whiska-reply`; the gate's word on the board and in the doctor is `gated`; and the
+finished picker lands a branch by cherry-pick. 2180 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

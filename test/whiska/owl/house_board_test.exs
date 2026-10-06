@@ -347,7 +347,7 @@ defmodule Whiska.Owl.HouseBoardTest do
       open(main, hold_notice_ms: 0)
 
       eventually(fn ->
-        if File.read!(Snapshot.path(main)) =~ "held: this session is mid-turn",
+        if File.read!(Snapshot.path(main)) =~ "gated: this session is mid-turn",
           do: {:ok, :said},
           else: :retry
       end)

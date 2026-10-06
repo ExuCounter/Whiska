@@ -36,7 +36,7 @@ are the extracted, individually citable decisions.
 - [0028](0028-storage-stays-sqlite.md) — Storage stays SQLite rather than reverting to flat files
 - [0006](0006-both-tables-persist-live-activity-does-not.md) — Both Mouse and Question are persisted; live activity is memory-only
 - [0007](0007-nothing-is-ever-deleted.md) — Nothing is ever deleted: not questions, not mice, not worktrees (the worktree half superseded 2026-10-02 by 0061)
-- [0061](0061-a-merged-worktree-is-taken-down-by-the-owl.md) — A merged worktree is taken down by the owl, pane and all
+- [0061](0061-a-merged-worktree-is-taken-down-by-the-owl.md) — A merged worktree is taken down by the owl, pane and all (amended 2026-10-06 by next-the-person-decides-what-reaches-them: a fifth precondition, not held)
 - [0064](0064-a-landed-branch-settles-what-its-mouse-left-waiting.md) — A landed branch settles what its mouse left waiting (refines a line of 0007)
 
 ## Questions and delivery
@@ -49,8 +49,9 @@ are the extracted, individually citable decisions.
 - [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer
 - [0052](0052-a-stop-with-a-subagent-still-out-is-not-a-stop.md) — A stop with a subagent still out is not a stop
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
-- [0057](0057-nothing-unanswerable-holds-the-delivery-slot.md) — Nothing that cannot be answered holds the delivery slot
-- [0058](0058-a-held-queue-says-so-on-the-board.md) — A held queue says so on the board
+- [0057](0057-nothing-unanswerable-holds-the-delivery-slot.md) — Nothing that cannot be answered holds the delivery slot (amended 2026-10-06 by next-the-person-decides-what-reaches-them: nor does a held or unfocused sent question)
+- [0058](0058-a-held-queue-says-so-on-the-board.md) — A held queue says so on the board (amended 2026-10-06 by next-the-person-decides-what-reaches-them: the word is "gated")
+- [next](next-the-person-decides-what-reaches-them.md) — The person decides what reaches them: away is the machine's, a focus is one repo's, a hold is one mouse's stored status, stopped through the hook; eight one-word commands; the gate's word is "gated" (amends 0008, 0022, 0043, 0057, 0058, 0061, 0067)
 - [0062](0062-the-owl-hoots-when-it-delivers.md) — The owl hoots when it delivers: one desktop notification per delivered question (amended 2026-10-04 by next-a-hoot-reaches-you-without-herdr)
 - [0071](0071-a-hoot-reaches-you-without-herdr.md) — A hoot herdr will not show is raised on the desktop (amends 0062; noted 2026-10-05: notify-send on Linux)
 - [0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md) — A nudge is a notice typed into another house's main session (superseded 2026-09-29 by 0044)
@@ -80,14 +81,14 @@ are the extracted, individually citable decisions.
 - [next](0074-a-finished-investigation-hands-off.md) — A finished investigation hands its proposal to a fresh build mouse; `whiska mode` still flips, and says what it carried (follows from 0069 and 0073)
 - [0026](0026-dead-mice-and-stuck-mice-are-separate-problems.md) — Dead mice and stuck mice are separate problems
 - [0050](0050-a-mouses-last-action-is-read-from-its-transcript.md) — A mouse's last action is read from its Claude Code transcript, never asked for
-- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl (builds 0026's rung three; amends 0044 with its one exception)
+- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl (builds 0026's rung three; amends 0044 with its one exception; amended 2026-10-06 by next-the-person-decides-what-reaches-them: a held mouse is never picked up)
 - [0078](0078-every-task-goes-to-a-worktree.md) — Every task goes to a worktree; only the person saying "work in place" skips it (amends 0063, 0075 and 0076: a tweak or quick fix no longer skips the scout or the spec)
 
 ## Interface
 
 - [0004](0004-domain-names-house-and-owl.md) — The per-repo slice is a "house", the machine-wide process an "owl"
 - [0021](0021-no-whiska-spawn-command.md) — No `whiska spawn` command — spawning happens through a conversation
-- [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash
+- [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash (amended 2026-10-06 by next-the-person-decides-what-reaches-them: the one-word skills replace the two long-named ones, `/inbox` ships, the picker lands by cherry-pick)
 - [0046](0046-whiska-ships-the-worktree-skills.md) — Whiska ships the worktree skills, because Whiska owns the protocol (amended 2026-10-01: the source is `priv/skills/`, not the repo's own `.claude/`; its dotfiles follow-up landed in 0056's 2026-10-04 amendment)
 - [0027](0027-statusline-detail-for-one-count-for-many.md) — Statusline shows detail for one thing, a count for many (partly superseded 2026-09-29 by 0051: the rule is herdr's tab bar's now)
 - [0051](0051-the-repo-scoped-statusline-is-a-board-the-owl-writes.md) — The repo-scoped statusline is a board, and the owl writes it to a file (amended 2026-10-01: an orphan is counted on its own line, not under "waiting"; 2026-10-02: the detail column is the mouse's topic, with the last action as the fallback; 2026-10-03: the orphan line names the branches the orphans came off; 2026-10-03: one line on it is the script's, not a mouse's row — ADR-0065; 2026-10-04: elapsed time ticks in seconds, redrawn every second, herdr still asked every two)
@@ -96,7 +97,7 @@ are the extracted, individually citable decisions.
 - [0059](0059-the-statusline-script-carries-a-version-stamp.md) — The statusline script carries a version stamp, and an old copy is an upgrade notice
 - [0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) — The owl's line is drawn once on herdr's tab bar, machine-wide, not in every Claude session (amended 2026-09-29: the repo-scoped line stays in Claude Code's statusline)
 - [0038](0038-the-doctor-checks-and-probes-it-never-repairs.md) — The doctor checks and probes; it never repairs
-- [0043](0043-whiska-jump-moves-the-persons-focus.md) — `whiska jump` moves the person's focus, and lands on the house's main session
+- [0043](0043-whiska-jump-moves-the-persons-focus.md) — `whiska jump` moves the person's focus, and lands on the house's main session (amended 2026-10-06 by next-the-person-decides-what-reaches-them: `waiting` has a slash command, `/inbox`, typed by the person; `jump` still has none)
 
 ## Process
 

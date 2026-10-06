@@ -36,7 +36,7 @@ C4Dynamic
   Rel(herdr, collection, "Reports that mouse done or idle")
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by marker")
-  Rel(delivery, db, "Release what nothing can answer; then any finished line to tell, otherwise any open question if the slot is free")
+  Rel(delivery, db, "Release what nothing can answer; then, among what the person has not set aside (away, focus, hold), any finished line to tell, otherwise the oldest open question if the slot is free")
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
   Rel(delivery, mainpane, "Type one line only if idle and nothing half-typed, and for a question nothing sent")
   Rel(delivery, herdr, "Hoot: one desktop notification, raised in the same breath as the line")
@@ -147,6 +147,17 @@ not, which is kept, counted on the board's own `orphaned` line, and read with
 `whiska doctor` still names a dead mouse holding the slot, now as a thing that should not
 be there rather than a state to wait out.
 
+Before any of that, the queue is judged against what the person set aside
+(ADR-next-the-person-decides-what-reaches-them). Nothing goes while they are **away**,
+which is one file under the whiska home read by every house; under a **focus** only the
+focused mouse's questions go, and another mouse's `sent` question no longer holds the
+slot against it; a **held** mouse's questions never go, and its `sent` one frees the slot
+too. A `sent` question set aside this way stays `sent` — nothing is delivered twice — and
+once the mode is lifted the queue waits behind the oldest `sent` one again, oldest first.
+The person sets all three from a CLI process the owl cannot hear, so the house compares
+the mode on the tick that already rebuilds the board and attempts a delivery when it
+moved: a `resume` is followed by the first waiting question within about two seconds.
+
 When herdr reports `claude` + `unknown` — the integration is broken — **deliver anyway
 and say so**. Holding there is not caution, it is choosing silence, and the person would
 never learn why the mice went quiet.
@@ -159,11 +170,12 @@ the lowest frame of horizontal rules at column 0 that holds a prompt line (ADR-0
 marker `❯` is also how Claude Code redraws past messages, and a stray rule under the box
 would frame the status lines). A draft in it holds the question — open,
 first in the queue, gone on the next trigger once the box clears — and `whiska doctor`
-says `held: person is typing` meanwhile. A hold that lasts more than ten seconds also
-says so on the board, on its waiting line: `🐱 3 waiting · held: your prompt box isn't
-empty` (ADR-0058). Nothing is ever typed into a box the person is mid-sentence in.
+says `gated: person is typing` meanwhile. A hold that lasts more than ten seconds also
+says so on the board, on its waiting line: `🐱 3 waiting · gated: your prompt box isn't
+empty` (ADR-0058; the word was "held" until a mouse on hold took it). Nothing is ever
+typed into a box the person is mid-sentence in.
 
-A screen with **no box at all** holds too, and says `held: your prompt box isn't on
+A screen with **no box at all** holds too, and says `gated: your prompt box isn't on
 screen`: a permission prompt or a picker is waiting on the person, or the pane is
 scrolled away, and in the first case the line's own return key would answer the dialog. A
 frame whose contents Whiska cannot read is the unavailable signal, and delivers for the

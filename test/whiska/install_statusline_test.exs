@@ -195,22 +195,20 @@ defmodule Whiska.InstallStatuslineTest do
   end
 
   describe "skills/0 — one slash command per command (ADR-0022)" do
-    test "installs /whiska-questions as a thin wrapper around the fixed command" do
-      assert {path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-questions/SKILL.md", 0)
+    test "installs /show as a thin wrapper around the fixed command" do
+      assert {path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
 
-      assert path =~ "whiska-questions"
-      assert body =~ "name: whiska-questions"
-      assert body =~ "whiska questions"
+      assert path =~ "show"
+      assert body =~ "name: show"
+      assert body =~ "whiska show"
     end
 
-    test "/whiska-questions reads everything in full with no argument, one by id with one" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-questions/SKILL.md", 0)
+    test "/show reads everything in full with no argument, one by id with one" do
+      assert {_path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
 
-      assert body =~ "whiska questions --full"
+      assert body =~ "whiska show\n"
       assert body =~ "$ARGUMENTS"
-      assert body =~ "whiska questions $ARGUMENTS"
+      assert body =~ "whiska show $ARGUMENTS"
       # Still a thin wrapper of fixed commands (ADR-0022), still never answering
       # on the person's behalf (ADR-0017).
       assert body =~ ~r/never reply/
@@ -221,7 +219,7 @@ defmodule Whiska.InstallStatuslineTest do
       # Claude Code folds a Bash tool's result away from the person; "show its
       # output" alone got read as "it is already visible" and the model summarised.
       for path <- [
-            ".claude/skills/whiska-questions/SKILL.md",
+            ".claude/skills/show/SKILL.md",
             ".claude/skills/whiska-delivered/SKILL.md"
           ] do
         assert {_path, body} = List.keyfind(Install.skills(), path, 0)
@@ -295,15 +293,15 @@ defmodule Whiska.InstallStatuslineTest do
 
       # Nothing to reply to on a finished line, but plenty to do with the
       # branch. All four choices, in the order the person reads them.
-      assert body =~ "Merge here"
+      assert body =~ "Land here"
       assert body =~ "Open a merge request"
       assert body =~ "Chat further"
       assert body =~ "Drop it"
-      assert body =~ "--no-ff"
+      assert body =~ "cherry-pick"
       assert body =~ "gh"
       assert body =~ "glab"
-      # Merging is the usual one, so it is the one carrying the label.
-      assert body =~ ~r/\*\*Merge here[^\n]*Recommended/
+      # Landing is the usual one, so it is the one carrying the label.
+      assert body =~ ~r/\*\*Land here[^\n]*Recommended/
     end
 
     test "the finish picker never appears for a branch that is still working" do
@@ -315,7 +313,7 @@ defmodule Whiska.InstallStatuslineTest do
       prose = String.replace(body, ~r/\s+/, " ")
 
       assert prose =~ ~r/this picker is for a .finished. line only/i
-      assert prose =~ "is one nobody merges, pushes or drops"
+      assert prose =~ "is one nobody lands, pushes or drops"
       assert prose =~ "not even when the person asks"
       assert prose =~ "the judgment is theirs"
     end
@@ -389,26 +387,24 @@ defmodule Whiska.InstallStatuslineTest do
       # Read from an optional heading the person writes by hand — no fifth
       # part in the block whiska init writes (ADR-0045 nest untouched).
       assert body =~ "## Finish"
-      assert body =~ "finish: merge here"
+      assert body =~ "finish: land here"
       refute body =~ "whiska:finish"
     end
 
-    test "/whiska-questions offers the same picker when it read one question by id" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-questions/SKILL.md", 0)
+    test "/show offers the same picker when it read one question by id" do
+      assert {_path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
 
       assert body =~ "AskUserQuestion"
       assert body =~ ~r/whiska reply/
-      # --full is a list of several; a single picker cannot stand for all of them.
-      assert body =~ "--full"
+      # Bare `show` is a list of several; a single picker cannot stand for all of them.
+      assert body =~ ~r/no single picker/
     end
 
-    test "installs /whiska-reply as a thin wrapper around the fixed command" do
-      assert {path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-reply/SKILL.md", 0)
+    test "installs /reply as a thin wrapper around the fixed command" do
+      assert {path, body} = List.keyfind(Install.skills(), ".claude/skills/reply/SKILL.md", 0)
 
-      assert path =~ "whiska-reply"
-      assert body =~ "name: whiska-reply"
+      assert path =~ "reply"
+      assert body =~ "name: reply"
       assert body =~ "whiska reply $ARGUMENTS"
       # The text is the person's, never the model's composition (ADR-0017).
       assert body =~ "own words"
@@ -417,7 +413,7 @@ defmodule Whiska.InstallStatuslineTest do
     test "every reading skill says an answer goes through whiska reply and nothing else" do
       for path <- [
             ".claude/skills/whiska-delivered/SKILL.md",
-            ".claude/skills/whiska-reply/SKILL.md"
+            ".claude/skills/reply/SKILL.md"
           ] do
         assert {_path, body} = List.keyfind(Install.skills(), path, 0)
 

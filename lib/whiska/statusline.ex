@@ -39,12 +39,14 @@ defmodule Whiska.Statusline do
   Nothing here writes, and no house is created.
   """
 
+  alias Whiska.Delivery.Mode
   alias Whiska.Owl
   alias Whiska.Questions
   alias Whiska.Waiting
 
   @type summary :: %{
           owl: :watching | :down,
+          away?: boolean(),
           waiting: [Waiting.entry()]
         }
 
@@ -52,15 +54,16 @@ defmodule Whiska.Statusline do
   Everything the line needs, for the whole machine.
 
   Options are `Whiska.Waiting.list/1`'s — `:open_houses`, the record's path,
-  and `:now` — plus `:owl_pids`, the function that finds running owls,
-  `Whiska.Owl.pids/0` unless a test pins it.
+  `:away_path`, the away file, and `:now` — plus `:owl_pids`, the function
+  that finds running owls, `Whiska.Owl.pids/0` unless a test pins it.
   """
   @spec summary(keyword()) :: summary()
   def summary(opts \\ []) do
     owl_pids = Keyword.get(opts, :owl_pids, &Owl.pids/0)
     waiting = Waiting.list(Keyword.delete(opts, :owl_pids))
+    away? = Mode.away?(Keyword.get_lazy(opts, :away_path, &Mode.away_path/0))
 
-    %{owl: owl_state(owl_pids.(), waiting), waiting: waiting}
+    %{owl: owl_state(owl_pids.(), waiting), away?: away?, waiting: waiting}
   end
 
   # Up means in the process table and collecting: an entry left on a doorstep
@@ -75,11 +78,13 @@ defmodule Whiska.Statusline do
   end
 
   @doc """
-  The line: the owl first, always, then what waits. Never empty.
+  The line: the owl first, always, then away when the person is, then what
+  waits. Never empty. Nothing per repo is on it — a focus, a held mouse — since
+  the bar is one line for the whole machine.
   """
   @spec render(summary()) :: String.t()
-  def render(%{owl: owl, waiting: waiting}) do
-    [owl_segment(owl), waiting_segment(waiting)]
+  def render(%{owl: owl, waiting: waiting} = summary) do
+    [owl_segment(owl), away_segment(Map.get(summary, :away?, false)), waiting_segment(waiting)]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" · ")
   end
@@ -87,14 +92,17 @@ defmodule Whiska.Statusline do
   defp owl_segment(:watching), do: "🦉 watching"
   defp owl_segment(:down), do: "🦉 owl down"
 
+  defp away_segment(true), do: "away"
+  defp away_segment(false), do: nil
+
   # Counted by whiska, not by question: the person jumps to a whiska, never
   # straight to a mouse (ADR-0043), so what the bar answers is "how many places
   # need me", and two questions in one repo are one place. One is named by its
-  # repo, several are a count (ADR-0027's one-or-many rule, ADR-0048 note).
-  defp waiting_segment([]), do: nil
-
+  # repo, several are a count (ADR-0027's one-or-many rule, ADR-0048 note). A
+  # held mouse's question is not a place that needs them: they parked it.
   defp waiting_segment(waiting) do
-    case waiting |> Enum.map(& &1.repo) |> Enum.uniq() do
+    case waiting |> Enum.reject(& &1.held?) |> Enum.map(& &1.repo) |> Enum.uniq() do
+      [] -> nil
       [one] -> "🐱 #{one}"
       repos -> "🐱 #{length(repos)} whiskas"
     end

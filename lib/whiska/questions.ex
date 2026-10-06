@@ -19,6 +19,7 @@ defmodule Whiska.Questions do
   doorstep is read, never collected — collection is the owl's job (ADR-0036).
   """
 
+  alias Whiska.Delivery.Mode
   alias Whiska.Doorstep
   alias Whiska.Question.Marker
   alias Whiska.Schema.Mouse
@@ -48,7 +49,9 @@ defmodule Whiska.Questions do
           open: [Question.t()],
           orphaned: [Question.t()],
           doorstep: non_neg_integer(),
-          doorstep_stale: boolean()
+          doorstep_stale: boolean(),
+          mode: Mode.t(),
+          focus: String.t() | nil
         }
 
   @doc """
@@ -56,12 +59,13 @@ defmodule Whiska.Questions do
 
   `open` (open and sent) and `orphaned` come from the database; `doorstep`
   counts entries the owl has not collected yet, and `doorstep_stale` says
-  whether any has waited past the backstop. A house with no database yet is
-  simply empty — it is not created.
+  whether any has waited past the backstop; `mode` is what the person set
+  aside, with `focus` the focused mouse's branch. A house with no database yet
+  is simply empty — it is not created. Options: `:away_path`.
   """
-  @spec summary(Path.t()) :: {:ok, summary()} | {:error, term()}
-  def summary(main_checkout) do
-    with {:ok, open, orphaned} <- read_house(main_checkout) do
+  @spec summary(Path.t(), keyword()) :: {:ok, summary()} | {:error, term()}
+  def summary(main_checkout, opts \\ []) do
+    with {:ok, open, orphaned, mode, focus} <- read_house(main_checkout, opts) do
       waiting = Doorstep.waiting(main_checkout)
       now = DateTime.utc_now()
 
@@ -70,16 +74,27 @@ defmodule Whiska.Questions do
           DateTime.diff(now, entry.stamped_at, :second) > @backstop_s
         end)
 
-      {:ok, %{open: open, orphaned: orphaned, doorstep: length(waiting), doorstep_stale: stale}}
+      {:ok,
+       %{
+         open: open,
+         orphaned: orphaned,
+         doorstep: length(waiting),
+         doorstep_stale: stale,
+         mode: mode,
+         focus: focus
+       }}
     end
   end
 
-  defp read_house(main_checkout) do
+  defp read_house(main_checkout, opts) do
+    away_path = Keyword.get_lazy(opts, :away_path, &Mode.away_path/0)
+
     if File.exists?(Storage.database_path(main_checkout)) do
       case Storage.open(main_checkout) do
         {:ok, handle} ->
           try do
-            {:ok, Storage.questions(), Storage.orphaned_questions()}
+            mode = Mode.read(away_path: away_path)
+            {:ok, Storage.questions(), Storage.orphaned_questions(), mode, focus_name(mode)}
           after
             Storage.close(handle)
           end
@@ -88,19 +103,22 @@ defmodule Whiska.Questions do
           {:error, reason}
       end
     else
-      {:ok, [], []}
+      {:ok, [], [], %{Mode.none() | away?: Mode.away?(away_path)}, nil}
     end
   end
+
+  defp focus_name(%{focus: nil}), do: nil
+  defp focus_name(%{focus: mouse_id}), do: who(Storage.mouse(mouse_id), mouse_id)
 
   @doc "What `whiska questions` prints: the open list, then what is not actionable."
   @spec render(summary()) :: String.t()
   def render(%{open: open} = summary) do
-    slot = slot(open)
+    slot = Mode.slot(open, summary.mode)
 
     open_block =
       case open do
         [] -> nothing_waiting()
-        _ -> Enum.map_join(open, "\n", &line(&1, slot))
+        _ -> Enum.map_join(open, "\n", &line(&1, slot, summary.mode, summary.focus))
       end
 
     compose(open_block, summary)
@@ -117,12 +135,19 @@ defmodule Whiska.Questions do
   """
   @spec render_full(summary()) :: String.t()
   def render_full(%{open: open} = summary) do
-    slot = slot(open)
+    slot = Mode.slot(open, summary.mode)
 
     open_block =
       case open do
-        [] -> nothing_waiting()
-        _ -> Enum.map_join(open, separator(), &full(&1, who(&1.mouse, &1.mouse_id), slot))
+        [] ->
+          nothing_waiting()
+
+        _ ->
+          Enum.map_join(
+            open,
+            separator(),
+            &full(&1, who(&1.mouse, &1.mouse_id), slot, summary.mode, summary.focus)
+          )
       end
 
     compose(open_block, summary)
@@ -163,12 +188,14 @@ defmodule Whiska.Questions do
   What `whiska questions <id>` prints, and one block of `render_full/1`.
   `slot` is the id of the question holding the delivery slot, or nil; it is
   not optional, because a caller that forgot it would print a queued question
-  as merely open, and the two would read differently.
+  as merely open, and the two would read differently. `mode` is what the
+  person set aside and `focus` the focused mouse's name, for the same reason.
   """
-  @spec full(Question.t(), String.t(), pos_integer() | nil) :: String.t()
-  def full(%Question{} = q, branch, slot) do
+  @spec full(Question.t(), String.t(), pos_integer() | nil, Mode.t(), String.t() | nil) ::
+          String.t()
+  def full(%Question{} = q, branch, slot, mode \\ Mode.none(), focus \\ nil) do
     """
-    ##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})
+    ##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})
 
     #{q.text |> Marker.strip() |> String.trim_trailing()}
     """
@@ -177,17 +204,18 @@ defmodule Whiska.Questions do
 
   @doc """
   One listing line: id, branch, what the mouse did, its pointer, and where it
-  stands. `slot` is the id of the question holding the delivery slot, if any.
+  stands. `slot` is the id of the question holding the delivery slot, if any;
+  `mode` and `focus` as for `full/5`.
   """
-  @spec line(Question.t(), pos_integer() | nil) :: String.t()
-  def line(%Question{} = q, slot) do
+  @spec line(Question.t(), pos_integer() | nil, Mode.t(), String.t() | nil) :: String.t()
+  def line(%Question{} = q, slot, mode \\ Mode.none(), focus \\ nil) do
     pointer =
       case Marker.pointer(q.text) do
         "" -> ""
         p -> ~s( · "#{String.slice(p, 0, @pointer_max)}")
       end
 
-    "##{q.id}  #{branch(q)}  #{verb(q.kind)}#{pointer}  (#{state(q, slot)})"
+    "##{q.id}  #{branch(q)}  #{verb(q.kind)}#{pointer}  (#{state(q, slot, mode, focus)})"
   end
 
   @doc "What the mouse did, as words: asked, or merely stopped (ADR-0009)."
@@ -197,18 +225,27 @@ defmodule Whiska.Questions do
   def verb(_), do: "needs a decision"
 
   @doc """
-  Where a question stands, in the board's words (ADR-0051): waiting on the
-  person since it was delivered, queued behind the question holding the slot,
-  or its bare status otherwise.
+  Where a question stands, in the board's words (ADR-0051): held, with its
+  mouse; waiting on the person since it was delivered; waiting behind away or
+  a focus; queued behind the question holding the slot; or its bare status.
   """
-  @spec state(Question.t(), pos_integer() | nil) :: String.t()
-  def state(%Question{status: "sent", sent_at: %DateTime{} = at}, _slot),
-    do: "waiting on you since #{Calendar.strftime(local(at), "%H:%M")}"
+  @spec state(Question.t(), pos_integer() | nil, Mode.t(), String.t() | nil) :: String.t()
+  def state(question, slot, mode \\ Mode.none(), focus \\ nil)
 
-  def state(%Question{status: status} = q, slot) do
-    case behind(q, slot) do
-      nil -> status
-      behind -> "queued behind ##{behind}"
+  def state(%Question{status: "sent", sent_at: %DateTime{} = at} = q, _slot, mode, _focus) do
+    case Mode.waits(q, mode) do
+      :held -> "held"
+      _ -> "waiting on you since #{Calendar.strftime(local(at), "%H:%M")}"
+    end
+  end
+
+  def state(%Question{status: status} = q, slot, mode, focus) do
+    case {Mode.waits(q, mode), behind(q, slot)} do
+      {:held, _} -> "held"
+      {:away, _} -> "waits: away"
+      {{:focus, mouse_id}, _} -> "waits: focus on #{focus || mouse_id}"
+      {nil, nil} -> status
+      {nil, behind} -> "queued behind ##{behind}"
     end
   end
 

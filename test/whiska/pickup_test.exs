@@ -168,6 +168,17 @@ defmodule Whiska.PickupTest do
     end
   end
 
+  describe "a mouse on hold (ADR-next-the-person-decides-what-reaches-them)" do
+    test "is never picked up: the person stopped it on purpose", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      {:ok, _} = Storage.hold(m.id)
+
+      assert {[{_, {:left, :held}}], _} = sweep(repo, @settled, seen)
+      assert %{picked_up_at: nil} = Storage.mouse(m.id)
+    end
+  end
+
   describe "a turn that did not die" do
     test "is left alone when its question reached the doorstep", %{repo: repo} do
       m = mouse(repo, "feat-a")

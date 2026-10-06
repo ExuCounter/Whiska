@@ -32,6 +32,7 @@ defmodule Whiska.Doctor do
 
   alias Whiska.Backstop
   alias Whiska.Delivery.Draft
+  alias Whiska.Delivery.Mode
   alias Whiska.Doctor.Check
   alias Whiska.Doctor.Report
   alias Whiska.Doorstep
@@ -128,7 +129,8 @@ defmodule Whiska.Doctor do
           open_houses(OpenHouses.read(record), main_checkout, pids),
           tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
           hoot_probe(herdr, desktop, env),
-          global(global_state)
+          global(global_state),
+          commands(Install.commands_dir(), env)
         ] ++
         hooks ++
         [shim] ++
@@ -1070,6 +1072,7 @@ defmodule Whiska.Doctor do
             open = Storage.open_count()
             sent = Storage.sent()
             box = draft(main_pane, word, herdr, socket)
+            mode = Mode.read()
 
             in_house =
               [
@@ -1079,7 +1082,8 @@ defmodule Whiska.Doctor do
                   settings_changes(main_checkout, env)
                 ),
                 prompt_box(box, scroll_offset(word)),
-                questions(open, sent, main_pane != nil, box, now)
+                questions(open, sent, main_pane != nil, box, now),
+                set_aside(mode, focus_name(mode), held_names(mode))
               ] ++ mice(Storage.all(Mouse), panes)
 
             {Check.ok("house", "#{path}, schema v#{version}"), in_house}
@@ -1150,7 +1154,7 @@ defmodule Whiska.Doctor do
     do:
       Check.warn(
         "main session",
-        "#{named(pane, here)} is not running Claude — questions are held",
+        "#{named(pane, here)} is not running Claude — questions wait",
         @restart
       )
 
@@ -1158,7 +1162,7 @@ defmodule Whiska.Doctor do
     do:
       Check.warn(
         "main session",
-        "#{named(pane, here)} runs #{other}, not Claude — questions are held",
+        "#{named(pane, here)} runs #{other}, not Claude — questions wait",
         @restart
       )
 
@@ -1221,7 +1225,7 @@ defmodule Whiska.Doctor do
         "prompt box",
         "no prompt box on the main session's screen, and the pane is not scrolled away " <>
           "from one — either a dialog is waiting on you there, or Claude Code has changed " <>
-          "how it draws the box. Questions are held until one is found",
+          "how it draws the box. Questions wait until one is found",
         "look at the main session's pane: answer whatever is waiting there"
       )
 
@@ -1284,9 +1288,104 @@ defmodule Whiska.Doctor do
     Check.ok("questions", Enum.join(parts, ", "))
   end
 
-  defp held(:typing), do: ["held: person is typing"]
-  defp held(:no_box), do: ["held: the prompt box is not on screen"]
+  defp held(:typing), do: ["gated: person is typing"]
+  defp held(:no_box), do: ["gated: the prompt box is not on screen"]
   defp held(_free), do: []
+
+  @doc """
+  What the person set aside (ADR-next-the-person-decides-what-reaches-them):
+  away, this house's focus by the branch's name, and the branches on hold —
+  each with the word that ends it. Never a warning: every one of them is
+  something the person did on purpose.
+  """
+  @spec set_aside(Mode.t(), String.t() | nil, [String.t()]) :: Check.t()
+  def set_aside(%{away?: away?, focus: focus}, focus_name, held) do
+    parts =
+      [
+        if(away?, do: "away: nothing is delivered anywhere until `resume`"),
+        if(focus,
+          do: "focus: #{focus_name || focus} — only its questions reach the main session"
+        ),
+        if(held != [], do: "held: #{Enum.join(held, ", ")} — stopped until `resume <branch>`")
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    case parts do
+      [] -> Check.ok("set aside", "nothing — every question flows")
+      _ -> Check.ok("set aside", Enum.join(parts, "; "))
+    end
+  end
+
+  defp focus_name(%{focus: nil}), do: nil
+  defp focus_name(%{focus: id}), do: branch_of(Storage.mouse(id) || %Mouse{mouse_id: id})
+
+  defp held_names(%{held: held}) do
+    held
+    |> Enum.map(&branch_of(Storage.mouse(&1) || %Mouse{mouse_id: &1}))
+    |> Enum.sort()
+  end
+
+  @doc """
+  The one-word commands `whiska init --global` writes under the whiska home:
+  nothing written is fine (the per-repo install writes none); written but off
+  PATH, or shadowed by another program that comes first, is a warning naming
+  what to do. `dir` is `Whiska.Install.commands_dir/0` unless a test pins it.
+  """
+  @spec commands(Path.t(), map()) :: Check.t()
+  def commands(dir, env) do
+    words = Install.commands()
+    written = Enum.filter(words, &executable?(Path.join(dir, &1)))
+
+    cond do
+      written == [] ->
+        Check.ok(
+          "commands",
+          "not installed — `whiska init --global` writes #{Enum.join(words, ", ")} to #{dir}"
+        )
+
+      not on_path?(env, dir) ->
+        Check.warn(
+          "commands",
+          "#{dir} is not on PATH, so #{Enum.join(written, ", ")} do not run as plain words",
+          ~s|export PATH="#{dir}:$PATH"|
+        )
+
+      true ->
+        case shadowed(env, dir, written) do
+          [] ->
+            Check.ok(
+              "commands",
+              "#{length(written)} of #{length(words)} on PATH" <> left_out(words -- written)
+            )
+
+          shadowed ->
+            Check.warn(
+              "commands",
+              "another program comes first on PATH: " <> Enum.join(shadowed, ", "),
+              "put #{dir} ahead of it on PATH, or use the long `whiska` names"
+            )
+        end
+    end
+  end
+
+  defp on_path?(env, dir) do
+    (env["PATH"] || "")
+    |> String.split(":", trim: true)
+    |> Enum.any?(&(Path.expand(&1) == Path.expand(dir)))
+  end
+
+  defp shadowed(env, dir, words) do
+    for word <- words,
+        found = find_on_path(env, word),
+        found != nil,
+        Path.expand(found) != Path.expand(Path.join(dir, word)),
+        do: "#{word} → #{found}"
+  end
+
+  defp left_out([]), do: ""
+
+  defp left_out(words),
+    do: " (not written: #{Enum.join(words, ", ")} — another program had the word)"
 
   defp out_for(%Question{id: id, sent_at: at}, now),
     do: "1 sent (id #{id}, waiting #{age(DateTime.diff(now, at, :second))})"

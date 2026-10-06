@@ -92,6 +92,8 @@ defmodule Whiska.Mice do
   defp moved(nil), do: ""
   defp moved(as), do: " (shaped as #{as})"
 
+  defp status(%Mouse{held_at: %DateTime{}}, _panes), do: "held"
+
   defp status(mouse, {:ok, panes}) do
     case Enum.find(
            panes,

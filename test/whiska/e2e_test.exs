@@ -164,7 +164,7 @@ defmodule Whiska.E2ETest do
 
     # The board says so only once the hold has outlasted its fuse (ADR-0058),
     # so this is the owl having tried and held, not merely the owl being slow.
-    await(fn -> board(c) =~ "held: your prompt box isn't empty" end, 40_000, fn ->
+    await(fn -> board(c) =~ "gated: your prompt box isn't empty" end, 40_000, fn ->
       "the board never said the draft held delivery.\n" <>
         "received: #{inspect(received(main))}\n" <> diagnostics(c)
     end)

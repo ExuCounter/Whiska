@@ -891,6 +891,208 @@ defmodule Whiska.Owl.DeliveryTest do
     end
   end
 
+  describe "what the person set aside (ADR-next-the-person-decides-what-reaches-them)" do
+    setup %{main: main, a: a} do
+      record_main(main)
+      main_is("idle")
+      expect_prompts()
+
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok,
+         [
+           %{pane_id: @mouse_pane, cwd: a, agent: "claude", agent_status: "working"},
+           %{pane_id: "w1R:p3", cwd: b, agent: "claude", agent_status: "working"}
+         ]}
+      end)
+
+      away = Path.join(Path.dirname(main), "away-#{System.unique_integer([:positive])}")
+      {:ok, b: b, away: away}
+    end
+
+    defp seed(main, fun) do
+      {:ok, handle} = Storage.open(main, name: nil)
+      fun.()
+      Storage.close(handle)
+    end
+
+    test "while away nothing is delivered, and the question stays open", %{
+      main: main,
+      a: a,
+      away: away
+    } do
+      :ok = Whiska.Delivery.Mode.set_away(away)
+      house = open(main, away_path: away)
+
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      idle(house, @main_pane)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      in_house(house, fn -> assert Storage.question(1).status == "open" end)
+    end
+
+    test "a finished report is not told while away either", %{main: main, a: a, away: away} do
+      :ok = Whiska.Delivery.Mode.set_away(away)
+      house = open(main, away_path: away)
+
+      leave(main, a, "all done\n[worktree-status: done]")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      in_house(house, fn -> assert Storage.question(1).status == "open" end)
+    end
+
+    test "coming back is noticed on the board's own tick, and the oldest goes first", %{
+      main: main,
+      a: a,
+      b: b,
+      away: away
+    } do
+      :ok = Whiska.Delivery.Mode.set_away(away)
+      house = open(main, away_path: away, board_ms: 20, panes_ms: 20)
+
+      leave(main, a, "[worktree-status: needs-decision] first")
+      House.collect(house)
+      leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] second")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      refute_receive {:prompted, _, _}, @wait
+
+      :ok = Whiska.Delivery.Mode.clear_away(away)
+
+      assert_receive {:prompted, @main_pane, text}, @arrives
+      assert text =~ ~s("first")
+      assert text =~ "1 more open"
+    end
+
+    test "under a focus only the focused mouse's question goes, although another's is sent", %{
+      main: main,
+      a: a,
+      b: b,
+      away: away
+    } do
+      seed(main, fn ->
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: b, branch: "feat-b"})
+      end)
+
+      house = open(main, away_path: away)
+
+      leave(main, a, "[worktree-status: needs-decision] a asks")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, first}, @arrives
+      assert first =~ "feat-a"
+
+      in_house(house, fn -> :ok = Storage.set_focus("mb") end)
+
+      leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] b asks")
+      House.collect(house)
+      idle(house, @main_pane)
+
+      assert_receive {:prompted, @main_pane, second}, @arrives
+      assert second =~ "feat-b"
+      refute second =~ "more open"
+
+      in_house(house, fn ->
+        assert Storage.question(1).status == "sent"
+        assert Storage.question(2).status == "sent"
+      end)
+    end
+
+    test "under a focus the other mice's questions wait, listed but not delivered", %{
+      main: main,
+      a: a,
+      b: b,
+      away: away
+    } do
+      seed(main, fn ->
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: b, branch: "feat-b"})
+        :ok = Storage.set_focus("mb")
+      end)
+
+      house = open(main, away_path: away)
+      leave(main, a, "[worktree-status: needs-decision] a asks")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      idle(house, @main_pane)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      in_house(house, fn -> assert Storage.question(1).status == "open" end)
+    end
+
+    test "a held mouse's question is never delivered, and its sent one frees the slot", %{
+      main: main,
+      a: a,
+      b: b,
+      away: away
+    } do
+      seed(main, fn ->
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: b, branch: "feat-b"})
+      end)
+
+      house = open(main, away_path: away)
+
+      leave(main, a, "[worktree-status: needs-decision] a asks")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, first}, @arrives
+      assert first =~ "feat-a"
+
+      in_house(house, fn -> {:ok, _} = Storage.hold("ma") end)
+
+      leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] b asks")
+      House.collect(house)
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, second}, @arrives
+      assert second =~ "feat-b"
+
+      in_house(house, fn -> {:ok, _} = Storage.answer(2, "go") end)
+      leave(main, a, "[worktree-status: needs-decision] a stopped where it was")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      idle(house, @main_pane)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      in_house(house, fn ->
+        assert Storage.question(1).status == "superseded"
+        assert Storage.question(3).status == "open"
+      end)
+    end
+
+    test "a held mouse's finished report is not told, so nothing offers to land it", %{
+      main: main,
+      a: a,
+      away: away
+    } do
+      seed(main, fn -> {:ok, _} = Storage.hold("ma") end)
+      house = open(main, away_path: away)
+
+      leave(main, a, "all done\n[worktree-status: done]")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      in_house(house, fn -> assert Storage.question(1).status == "open" end)
+    end
+
+    test "a hold lifted is noticed on the tick too", %{main: main, a: a, away: away} do
+      seed(main, fn -> {:ok, _} = Storage.hold("ma") end)
+      house = open(main, away_path: away, board_ms: 20, panes_ms: 20)
+
+      leave(main, a, "[worktree-status: needs-decision] ?")
+      House.collect(house)
+      Process.sleep(@wait * 2)
+      refute_receive {:prompted, _, _}, @wait
+
+      in_house(house, fn -> {:ok, _} = Storage.lift_hold("ma") end)
+
+      assert_receive {:prompted, @main_pane, _}, @arrives
+    end
+  end
+
   describe "with no main session recorded" do
     test "nothing is delivered and the question stays open, waiting for whiska start", %{
       main: main,

@@ -723,7 +723,7 @@ defmodule Whiska.DoctorTest do
       assert detail =~ "no prompt box"
       assert detail =~ "dialog"
       assert detail =~ "Claude Code"
-      assert detail =~ "held"
+      assert detail =~ "wait"
       assert fix =~ "main session"
     end
 
@@ -741,6 +741,86 @@ defmodule Whiska.DoctorTest do
     test "a screen nobody read says it was not checked" do
       assert %Check{status: :ok, detail: detail} = Doctor.prompt_box(:not_checked, nil)
       assert detail =~ "not checked"
+    end
+  end
+
+  describe "commands/2 — the one-word commands (ADR-next-the-person-decides-what-reaches-them)" do
+    setup do
+      dir = Path.join(System.tmp_dir!(), "whiska-doc-cmd-#{System.unique_integer([:positive])}")
+      bin = Path.join(dir, "bin")
+      File.mkdir_p!(bin)
+      on_exit(fn -> File.rm_rf!(dir) end)
+      {:ok, dir: dir, bin: bin}
+    end
+
+    defp wrapper!(bin, word) do
+      path = Path.join(bin, word)
+      File.write!(path, Install.command_script(word))
+      File.chmod!(path, 0o755)
+      path
+    end
+
+    test "nothing written is ok, and says what writes them", %{bin: bin} do
+      assert %Check{status: :ok, detail: detail} = Doctor.commands(bin, %{"PATH" => bin})
+      assert detail =~ "whiska init --global"
+    end
+
+    test "written but off PATH warns with the export line", %{bin: bin} do
+      wrapper!(bin, "inbox")
+
+      assert %Check{status: :warn, detail: detail, fix: fix} =
+               Doctor.commands(bin, %{"PATH" => @stripped_path})
+
+      assert detail =~ "not on PATH"
+      assert fix == ~s|export PATH="#{bin}:$PATH"|
+    end
+
+    test "written and on PATH is ok, counting what is there", %{bin: bin} do
+      for word <- Install.commands(), do: wrapper!(bin, word)
+
+      assert %Check{status: :ok, detail: detail} =
+               Doctor.commands(bin, %{"PATH" => bin <> ":" <> @stripped_path})
+
+      assert detail =~ "8 of 8"
+    end
+
+    test "a word another program answers to first is a warning naming both", %{
+      dir: dir,
+      bin: bin
+    } do
+      wrapper!(bin, "focus")
+      other_dir = Path.join(dir, "other")
+      File.mkdir_p!(other_dir)
+      other = Path.join(other_dir, "focus")
+      File.write!(other, "#!/bin/sh\n")
+      File.chmod!(other, 0o755)
+
+      assert %Check{status: :warn, detail: detail, fix: fix} =
+               Doctor.commands(bin, %{"PATH" => other_dir <> ":" <> bin})
+
+      assert detail =~ "focus → #{other}"
+      assert fix =~ bin
+    end
+  end
+
+  describe "set_aside/3 — away, focus and hold, as the doctor says them" do
+    test "nothing set aside is ok and says everything flows" do
+      assert %Check{status: :ok, detail: detail} =
+               Doctor.set_aside(Whiska.Delivery.Mode.none(), nil, [])
+
+      assert detail =~ "flows"
+    end
+
+    test "away, a focus and held mice are each named, with the word that ends them" do
+      mode = %{Whiska.Delivery.Mode.none() | away?: true, focus: "mb"}
+
+      assert %Check{status: :ok, detail: detail} =
+               Doctor.set_aside(mode, "feat-b", ["feat-a", "feat-c"])
+
+      assert detail =~ "away"
+      assert detail =~ "focus: feat-b"
+      assert detail =~ "held: feat-a, feat-c"
+      assert detail =~ "resume"
     end
   end
 
@@ -762,21 +842,21 @@ defmodule Whiska.DoctorTest do
     test "a question held because the person is typing says so (ADR-0047)" do
       assert %Check{status: :ok, detail: detail} = Doctor.questions(2, nil, true, :typing, now())
       assert detail =~ "2 open"
-      assert detail =~ "held: person is typing"
+      assert detail =~ "gated: person is typing"
     end
 
     test "a question held because the box is off the screen says so (ADR-0068)" do
       assert %Check{status: :ok, detail: detail} = Doctor.questions(2, nil, true, :no_box, now())
       assert detail =~ "2 open"
-      assert detail =~ "held: the prompt box is not on screen"
+      assert detail =~ "gated: the prompt box is not on screen"
     end
 
-    test "a box Whiska cannot read is not a hold" do
+    test "a box Whiska cannot read is not a gate" do
       assert %Check{status: :ok, detail: detail} = Doctor.questions(2, nil, true, :unknown, now())
-      refute detail =~ "held"
+      refute detail =~ "gated"
     end
 
-    test "nothing open is not held, whatever is in the box" do
+    test "nothing open is not gated, whatever is in the box" do
       assert %Check{status: :ok, detail: "none waiting"} =
                Doctor.questions(0, nil, true, :typing, now())
     end
@@ -786,7 +866,7 @@ defmodule Whiska.DoctorTest do
       sent = %Whiska.Schema.Question{id: 7, sent_at: DateTime.add(now, -60)}
 
       assert %Check{status: :ok, detail: detail} = Doctor.questions(0, sent, true, :typing, now)
-      refute detail =~ "held"
+      refute detail =~ "gated"
     end
 
     test "open and sent are counted, with how long the sent one has waited" do
@@ -1330,7 +1410,7 @@ defmodule Whiska.DoctorTest do
 
       assert %Check{status: :ok, detail: detail} = find(report.checks, "questions")
       assert detail =~ "1 open"
-      assert detail =~ "held: person is typing"
+      assert detail =~ "gated: person is typing"
     end
 
     test "with no main session and questions open, both lines warn", %{main: main, env: env} do

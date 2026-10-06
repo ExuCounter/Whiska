@@ -248,6 +248,58 @@ defmodule Whiska.QuestionsTest do
     end
   end
 
+  describe "what the person set aside (ADR-next-the-person-decides-what-reaches-them)" do
+    test "a held mouse's question says held, in the listing and at length", %{main: main} do
+      seed(main, fn ->
+        ask("m1", "which db?\n[worktree-status: needs-decision] which db?")
+        {:ok, _} = Storage.hold("m1")
+      end)
+
+      {:ok, summary} = Questions.summary(main)
+      assert Questions.render(summary) =~ ~s|#1  feat-a  needs a decision · "which db?"  (held)|
+      assert Questions.render_full(summary) =~ "(held, asked"
+    end
+
+    test "a question waiting behind a focus names the focused branch", %{main: main} do
+      seed(main, fn ->
+        ask("m1", "[worktree-status: needs-decision] a?")
+        ask("m2", "[worktree-status: needs-decision] b?")
+        :ok = Storage.set_focus("m2")
+      end)
+
+      {:ok, summary} = Questions.summary(main)
+      listing = Questions.render(summary)
+      assert listing =~ ~s|#1  feat-a  needs a decision · "a?"  (waits: focus on feat-b)|
+      assert listing =~ ~s|#2  feat-b  needs a decision · "b?"  (open)|
+    end
+
+    test "a question behind a focus is not queued behind the other mouse's sent one", %{
+      main: main
+    } do
+      seed(main, fn ->
+        q = ask("m1", "[worktree-status: needs-decision] a?")
+        {:ok, _} = Storage.mark_sent(q.id)
+        ask("m2", "[worktree-status: needs-decision] b?")
+        :ok = Storage.set_focus("m2")
+      end)
+
+      {:ok, summary} = Questions.summary(main)
+      listing = Questions.render(summary)
+      assert listing =~ "#1  feat-a  needs a decision · \"a?\"  (waiting on you since"
+      assert listing =~ ~s|#2  feat-b  needs a decision · "b?"  (open)|
+      refute listing =~ "queued behind"
+    end
+
+    test "while away every open question says so", %{main: main} do
+      away = Path.join(Path.dirname(main), "away")
+      :ok = Whiska.Delivery.Mode.set_away(away)
+      seed(main, fn -> ask("m1", "[worktree-status: needs-decision] a?") end)
+
+      {:ok, summary} = Questions.summary(main, away_path: away)
+      assert Questions.render(summary) =~ "(waits: away)"
+    end
+  end
+
   describe "statusline/1 — detail for one, a count for many (ADR-0027)" do
     test "nothing waiting → nothing shown", %{main: main} do
       {:ok, summary} = Questions.summary(main)

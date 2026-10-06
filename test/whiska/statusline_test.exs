@@ -170,6 +170,55 @@ defmodule Whiska.StatuslineTest do
     end
   end
 
+  describe "away, on the tab bar (ADR-next-the-person-decides-what-reaches-them)" do
+    setup %{root: root} do
+      away = Path.join(root, "away")
+      :ok = Whiska.Delivery.Mode.set_away(away)
+      {:ok, away: away}
+    end
+
+    test "sits between the owl and the count, and is said with nothing waiting too", %{
+      main: main,
+      record: record,
+      away: away
+    } do
+      assert line([away_path: away], record) == "🦉 watching · away"
+
+      seed(main, "feat-a", &ask(&1, "[worktree-status: needs-decision] ?"))
+      assert line([away_path: away], record) == "🦉 watching · away · 🐱 myrepo"
+    end
+
+    test "is said with the owl down as well", %{record: record, away: away} do
+      assert line([away_path: away, owl_pids: fn -> [] end], record) == "🦉 owl down · away"
+    end
+
+    test "a held mouse's question is not what the count counts", %{
+      main: main,
+      record: record,
+      root: root
+    } do
+      seed(main, "feat-a", fn branch ->
+        ask(branch, "[worktree-status: needs-decision] ?")
+        {:ok, _} = Storage.hold("m-#{branch}")
+      end)
+
+      assert line([away_path: Path.join(root, "not-away")], record) == "🦉 watching"
+    end
+
+    test "a question waiting behind a focus still counts", %{
+      main: main,
+      record: record,
+      root: root
+    } do
+      seed(main, "feat-a", fn branch ->
+        ask(branch, "[worktree-status: needs-decision] ?")
+        :ok = Storage.set_focus("m-somebody-else")
+      end)
+
+      assert line([away_path: Path.join(root, "not-away")], record) == "🦉 watching · 🐱 myrepo"
+    end
+  end
+
   describe "the owl in the process table" do
     test "Whiska.Owl.pids/0 is the one probe the doctor and the statusline share" do
       pids = Whiska.Owl.pids()

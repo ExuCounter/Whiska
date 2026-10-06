@@ -77,7 +77,7 @@ defmodule Whiska.InstallWorktreeSkillsTest do
 
       for name <- @worktree_skills, do: assert(name in installed, name)
       # The ones that were already there are untouched by this.
-      for name <- ~w(whiska-questions whiska-delivered), do: assert(name in installed, name)
+      for name <- ~w(show whiska-delivered), do: assert(name in installed, name)
     end
 
     test "each has frontmatter naming itself, with a quoted description" do

@@ -132,6 +132,29 @@ defmodule Whiska.CleanupTest do
     end
   end
 
+  describe "a mouse on hold (ADR-next-the-person-decides-what-reaches-them)" do
+    test "is left exactly where it is, landed and quiet or not", %{repo: repo} do
+      m = mouse(repo, "feat-a", pane: "w1:p1")
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, pane: {"w1:p1", "idle"}, workspace_id: "ws-7")
+      {:ok, _} = Storage.hold("m-feat-a")
+
+      assert [{"m-feat-a", {:left, :held}}] = sweep(repo)
+      assert File.dir?(m.path)
+      assert %{removed_at: nil} = Storage.mouse("m-feat-a")
+    end
+
+    test "its landing is still noted, so a question of its settles later", %{repo: repo} do
+      m = mouse(repo, "feat-a", pane: "w1:p1")
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, pane: {"w1:p1", "idle"})
+      {:ok, _} = Storage.hold("m-feat-a")
+
+      assert [{"m-feat-a", {:left, :held}}] = sweep(repo)
+      assert %{landed_at: %DateTime{}} = Storage.mouse("m-feat-a")
+    end
+  end
+
   # The sweep's other job (ADR-0064): noting that a branch has landed, whether
   # or not the worktree may go. A mouse holding a question is never torn down
   # here, but its branch landing is what later settles that question instead of

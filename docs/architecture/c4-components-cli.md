@@ -2,7 +2,8 @@
 
 Level 3 for the escript — the hooks, `init`, `mode`, `shape`, `doctor`, the delivery-side commands
 (`start`, `questions`, `reply`, `close`, `mice`, `worktrees`), the machine-wide pair (`waiting`,
-`jump`), and the command that boots the owl.
+`jump`), the eight one-word commands (`inbox`, `show`, `reply`, `dismiss`, `focus`, `away`,
+`hold`, `resume`), and the command that boots the owl.
 Every module here exists in `lib/whiska/` with a test beside it in `test/whiska/`. The
 owl's own internals are a separate diagram: [c4-components-owl.md](c4-components-owl.md).
 
@@ -13,7 +14,9 @@ C4Component
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
 
   Container_Boundary(cli, "whiska escript") {
-    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / worktrees / waiting / jump / owl, and owl install / stop / start / uninstall")
+    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / worktrees / waiting / jump / owl, the words inbox / show / dismiss / away / focus / hold / resume, and owl install / stop / start / uninstall")
+    Component(mode, "Delivery.Mode", "the person's say", "Away: a file under the whiska home. Focus: this house's. Held: each mouse's. What may be delivered now, and why a question waits")
+    Component(heldrule, "Rule.Held", "rule", "A mouse on hold is refused every tool call, and told to end the turn")
     Component(hook, "Hook.PreToolUse", "decision", "One tool call in, one decision out")
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
     Component(session, "Session", "identity", "Which session is this: the worktree it started in, and whether its pane is the main session")
@@ -55,7 +58,8 @@ C4Component
   Rel(main, markerm, "shape and mode: mint the mouse_id before Claude starts")
   Rel(main, storage, "shape: records mode, model and when, before Claude starts")
   Rel(main, specm, "shape and mode: make git ignore the spec the mouse writes after grilling")
-  Rel(main, install, "Delegates init")
+  Rel(main, install, "Delegates init; init --global writes the eight words under the whiska home, skipping one another program answers to")
+  Rel(main, mode, "away, focus, hold, resume: set and clear them; inbox and show say why a question waits")
   Rel(main, claudemd, "init: merges the block into CLAUDE.md")
   Rel(main, questions, "Delegates questions")
   Rel(main, statusline, "Delegates statusline")
@@ -90,8 +94,12 @@ C4Component
   Rel(session, tx, "Where did this session start?")
   Rel(session, layout, "Resolves the start directory to a worktree")
   Rel(hook, markerm, "Gets the mouse_id")
+  Rel(hook, heldrule, "Asks first: is this mouse on hold?")
   Rel(hook, mainrule, "Asks for a decision")
   Rel(hook, sniffrule, "Asks for a decision")
+  Rel(questions, mode, "Why each question waits: held, away, focus")
+  Rel(waiting, mode, "The same, per house, and whether the person is away")
+  Rel(doctor, mode, "What the person set aside, as one line")
   Rel(mainrule, shell, "Is this Bash call mutating?")
   Rel(sniffrule, shell, "Is this Bash call mutating?")
   Rel(hook, storage, "Records the mouse, best-effort")

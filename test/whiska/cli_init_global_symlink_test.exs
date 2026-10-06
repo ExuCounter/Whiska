@@ -84,7 +84,7 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
     init_global()
 
     assert still_a_link?(Path.join(home, ".claude/skills"))
-    assert File.exists?(Path.join(target, "whiska-questions/SKILL.md"))
+    assert File.exists?(Path.join(target, "show/SKILL.md"))
   end
 
   test "a symlinked skill file is written through", %{home: home, dotfiles: dotfiles} do
@@ -151,10 +151,10 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
     File.write!(target, "# Mine\n")
     link(target, Path.join(home, ".claude/CLAUDE.md"))
 
-    skill_target = Path.join(dotfiles, "whiska-reply.md")
+    skill_target = Path.join(dotfiles, "reply.md")
     File.write!(skill_target, "stale\n")
-    File.mkdir_p!(Path.join(home, ".claude/skills/whiska-reply"))
-    link(skill_target, Path.join(home, ".claude/skills/whiska-reply/SKILL.md"))
+    File.mkdir_p!(Path.join(home, ".claude/skills/reply"))
+    link(skill_target, Path.join(home, ".claude/skills/reply/SKILL.md"))
 
     init_global()
     output = capture_io(fn -> assert CLI.run(["uninstall", "--global"], nil) == 0 end)
@@ -165,8 +165,23 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
     assert File.read!(target) =~ "# Mine"
 
     # A skill file that is a link is left where it is, and said so.
-    assert still_a_link?(Path.join(home, ".claude/skills/whiska-reply/SKILL.md"))
+    assert still_a_link?(Path.join(home, ".claude/skills/reply/SKILL.md"))
     assert output =~ "symlink"
+  end
+
+  test "a retired skill reached through a symlink is left alone, never removed", %{
+    home: home,
+    dotfiles: dotfiles
+  } do
+    retired = Path.join(dotfiles, "whiska-questions.md")
+    File.write!(retired, "name: whiska-questions\n")
+    File.mkdir_p!(Path.join(home, ".claude/skills/whiska-questions"))
+    link(retired, Path.join(home, ".claude/skills/whiska-questions/SKILL.md"))
+
+    init_global()
+
+    assert still_a_link?(Path.join(home, ".claude/skills/whiska-questions/SKILL.md"))
+    assert File.read!(retired) == "name: whiska-questions\n"
   end
 
   test "uninstall does not delete through a symlinked parent directory", %{
@@ -180,11 +195,11 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
     link(skills, Path.join(home, ".claude/skills"))
 
     init_global()
-    assert File.regular?(Path.join(skills, "whiska-questions/SKILL.md"))
+    assert File.regular?(Path.join(skills, "show/SKILL.md"))
 
     output = capture_io(fn -> assert CLI.run(["uninstall", "--global"], nil) == 0 end)
 
-    assert File.regular?(Path.join(skills, "whiska-questions/SKILL.md"))
+    assert File.regular?(Path.join(skills, "show/SKILL.md"))
     assert output =~ "symlink"
   end
 

@@ -201,6 +201,7 @@ defmodule Whiska.Pickup do
   # reason names the nearest thing standing in the way rather than the worst.
   defp verdict(mouse, look, pane, local, house) do
     with :ok <- standing(mouse),
+         :ok <- not_held(mouse),
          :ok <- turn_died(mouse, local),
          :ok <- nothing_waiting(mouse, local),
          :ok <- one_attempt(mouse, local),
@@ -212,6 +213,11 @@ defmodule Whiska.Pickup do
   defp standing(%Mouse{path: path}) do
     if is_binary(path) and File.dir?(path), do: :ok, else: {:leave, :gone}
   end
+
+  # The person stopped it on purpose; a line telling it to carry on would undo
+  # exactly that (ADR-next-the-person-decides-what-reaches-them).
+  defp not_held(%Mouse{held_at: %DateTime{}}), do: {:leave, :held}
+  defp not_held(_mouse), do: :ok
 
   defp turn_died(%Mouse{worked_at: nil}, _local), do: {:leave, :never_worked}
 

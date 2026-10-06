@@ -22,8 +22,10 @@ defmodule Whiska.Hook.PreToolUse do
 
   alias Whiska.Isolated
   alias Whiska.Marker
+  alias Whiska.Rule.Held
   alias Whiska.Rule.MainCheckout
   alias Whiska.Rule.Sniff
+  alias Whiska.Schema.Mouse
   alias Whiska.Session
   alias Whiska.Storage
 
@@ -55,7 +57,7 @@ defmodule Whiska.Hook.PreToolUse do
 
   defp as_mouse(payload, layout) do
     case identity(layout) do
-      {:mouse, mode} -> decide(payload, layout, mode)
+      {:mouse, mode, held?} -> decide(payload, layout, mode, held?)
       _ -> :allow
     end
   end
@@ -89,17 +91,19 @@ defmodule Whiska.Hook.PreToolUse do
     })
   end
 
-  # Sniff runs first, and deliberately so. When a sniff mouse edits the main
-  # checkout both rules would fire, and "you are in sniff mode" is the reason
-  # that actually explains what happened; "that path is outside your worktree"
-  # would send it to fix the wrong thing.
-  defp decide(payload, layout, mode) do
+  # The hold runs first: it is the thing the person just did, and it refuses
+  # every call whatever the mode. Then sniff, before containment, and
+  # deliberately so: when a sniff mouse edits the main checkout both rules
+  # would fire, and "you are in sniff mode" is the reason that actually explains
+  # what happened; "that path is outside your worktree" would send it to fix
+  # the wrong thing.
+  defp decide(payload, layout, mode, held?) do
     tool_name = tool_name(payload)
     tool_input = tool_input(payload)
 
-    case Sniff.decide(tool_name, tool_input, mode) do
-      {:deny, _} = denial -> denial
-      :allow -> MainCheckout.decide(tool_name, tool_input, layout, where(payload))
+    with :allow <- Held.decide(held?, layout.branch_label),
+         :allow <- Sniff.decide(tool_name, tool_input, mode) do
+      MainCheckout.decide(tool_name, tool_input, layout, where(payload))
     end
   end
 
@@ -142,7 +146,7 @@ defmodule Whiska.Hook.PreToolUse do
       :main_session ->
         :main_session
 
-      {:mouse, _mode} = mouse ->
+      {:mouse, _mode, _held?} = mouse ->
         mouse
 
       other ->
@@ -150,10 +154,10 @@ defmodule Whiska.Hook.PreToolUse do
     end
   end
 
-  # Falling back to build rather than sniff is deliberate. build is the common
-  # case; assuming sniff would block every edit in ordinary work over a database
-  # hiccup. This degrades sniff, and the hold on a mouse nobody shaped
-  # (ADR-0069), to build, never to unprotected —
+  # Falling back to build, and to not held, rather than to sniff is deliberate.
+  # build is the common case; assuming sniff would block every edit in ordinary
+  # work over a database hiccup. This degrades sniff, the wait on a mouse
+  # nobody shaped (ADR-0069) and a hold to build, never to unprotected —
   # worktree containment is pure path arithmetic and does not consult the
   # database at all.
   #
@@ -162,7 +166,7 @@ defmodule Whiska.Hook.PreToolUse do
   defp fall_back(layout, reason) do
     Marker.read_or_mint(layout.worktree_root)
     warn("could not read this mouse's mode (#{inspect(reason)}) — assuming #{@default_mode}")
-    {:mouse, @default_mode}
+    {:mouse, @default_mode, false}
   end
 
   defp in_house(layout) do
@@ -188,11 +192,14 @@ defmodule Whiska.Hook.PreToolUse do
       })
 
       case Storage.mode(mouse_id) do
-        {:ok, mode} -> {:mouse, mode}
+        {:ok, mode} -> {:mouse, mode, held?(Storage.mouse(mouse_id))}
         other -> other
       end
     end
   end
+
+  defp held?(%Mouse{held_at: %DateTime{}}), do: true
+  defp held?(_mouse), do: false
 
   defp warn(message), do: IO.puts(:stderr, "whiska: #{message}")
 end

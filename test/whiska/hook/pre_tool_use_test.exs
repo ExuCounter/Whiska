@@ -318,6 +318,62 @@ defmodule Whiska.Hook.PreToolUseTest do
     end
   end
 
+  describe "a mouse on hold (ADR-next-the-person-decides-what-reaches-them)" do
+    defp held(main, worktree) do
+      shaped_build(main, worktree)
+      {:ok, mouse_id} = Marker.read_or_mint(worktree)
+      {:ok, handle} = Storage.open(main)
+      {:ok, _} = Storage.hold(mouse_id)
+      Storage.close(handle)
+      mouse_id
+    end
+
+    test "its next tool call is refused, a read included, and told to end the turn", %{
+      main: main,
+      worktree: worktree
+    } do
+      held(main, worktree)
+
+      assert {:deny, reason} =
+               run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
+
+      assert reason =~ "on hold"
+      assert reason =~ "end the turn"
+      assert reason =~ "resume feat-thing"
+    end
+
+    test "a write in its own worktree is refused for the hold, not for the mode", %{
+      main: main,
+      worktree: worktree
+    } do
+      held(main, worktree)
+
+      assert {:deny, reason} =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+               })
+
+      assert reason =~ "on hold"
+      refute reason =~ "sniff"
+    end
+
+    test "lifting the hold lets it work again", %{main: main, worktree: worktree} do
+      mouse_id = held(main, worktree)
+      {:ok, handle} = Storage.open(main)
+      {:ok, _} = Storage.lift_hold(mouse_id)
+      Storage.close(handle)
+
+      assert :allow = run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
+    end
+
+    test "a mouse that is not held is unchanged", %{main: main, worktree: worktree} do
+      shaped_build(main, worktree)
+      assert :allow = run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
+    end
+  end
+
   describe "mode drives which rule applies (ADR-0018)" do
     defp set_mode(main, worktree, mode) do
       # The hook itself mints the id on first run; reuse it.

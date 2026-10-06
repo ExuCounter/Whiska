@@ -132,3 +132,18 @@ by something other than the model, a part is still available.
 never composes bash for a command it runs for the person; the board is drawn into their
 statusline, or typed by them into their own terminal, and the main session has no occasion
 to run it at all.
+
+## Note, 2026-10-06: the words replace the long names, and the picker lands by cherry-pick
+
+[ADR-next-the-person-decides-what-reaches-them](next-the-person-decides-what-reaches-them.md)
+gives the person eight one-word commands — `inbox`, `show`, `reply`, `dismiss`, `focus`,
+`away`, `hold`, `resume` — and the same eight as slash commands, each the thin wrapper this
+decision asks for. They replace `/whiska-questions` and `/whiska-reply`, which `whiska
+init` removes where they are plain files of Whiska's; `whiska-delivered` stays, since the
+delivered line triggers it. `/inbox` wraps `whiska waiting`, a machine-wide command the
+split above kept out of a session's hands: it runs only when the person types it, which is
+the person asking, and its skill says so. `jump` still has none.
+
+The finished picker's first option is **Land here**, by cherry-picking the branch's own
+commits onto the current branch, oldest first, skipping its merges from the base, rather
+than `merge --no-ff`. The `## Finish` line that names it reads `finish: land here`.

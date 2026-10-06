@@ -34,6 +34,7 @@ defmodule Whiska.Watch do
   acts — the board only reports.
   """
 
+  alias Whiska.Delivery.Mode
   alias Whiska.Herdr
   alias Whiska.Layout
   alias Whiska.Mice
@@ -91,7 +92,8 @@ defmodule Whiska.Watch do
   @type asked :: %{
           pointer: String.t(),
           sent_at: DateTime.t() | nil,
-          behind: pos_integer() | nil
+          behind: pos_integer() | nil,
+          waits: nil | :away | {:focus, String.t()}
         }
 
   @typedoc "What one dead branch is called on the board, and how many questions it left."
@@ -103,8 +105,9 @@ defmodule Whiska.Watch do
   @typedoc """
   `more` is how many live mice the cap left off; `waiting` what no row covers
   and the person can still answer; `orphaned` what nothing can act on any more,
-  with `orphan_names` naming the branches those came off; `held` why nothing is
-  being delivered.
+  with `orphan_names` naming the branches those came off; `held` why the gate
+  is not delivering; `away?` and `focus` what the person set aside — the
+  focused mouse named by its branch.
   """
   @type t :: %{
           rows: [row()],
@@ -112,7 +115,9 @@ defmodule Whiska.Watch do
           waiting: non_neg_integer(),
           orphaned: non_neg_integer(),
           orphan_names: [orphan_name()],
-          held: held()
+          held: held(),
+          away?: boolean(),
+          focus: String.t() | nil
         }
 
   @doc """
@@ -143,7 +148,8 @@ defmodule Whiska.Watch do
   them, but they are still open and the count underneath says so in its own
   words.
 
-  Options are `board/2`'s.
+  Options are `board/2`'s, plus `:away_path` for a mode read here rather than
+  handed in.
   """
   @spec from_house(keyword()) :: t()
   def from_house(opts \\ []) do
@@ -154,6 +160,9 @@ defmodule Whiska.Watch do
       opts
       |> Keyword.put(:questions, questions)
       |> Keyword.put_new_lazy(:picked_up, &Storage.picked_up/0)
+      |> Keyword.put_new_lazy(:mode, fn ->
+        Mode.read(away_path: Keyword.get_lazy(opts, :away_path, &Mode.away_path/0))
+      end)
     )
   end
 
@@ -167,9 +176,10 @@ defmodule Whiska.Watch do
   `:panes`, herdr's answer in `Whiska.Mice.panes/0` form; `:activity`, what a
   mouse is doing and how long it has been silent,
   `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:held`, why
-  delivery is holding (ADR-0058); `:picked_up`, when each branch the owl picked
-  up was picked up (ADR-0067); `:now`, what to measure each mouse's age
-  against.
+  the gate is not delivering (ADR-0058); `:mode`, what the person set aside
+  (`Whiska.Delivery.Mode.t/0`, nothing by default); `:picked_up`, when each
+  branch the owl picked up was picked up (ADR-0067); `:now`, what to measure
+  each mouse's age against.
   """
   @spec board([Mouse.t()], keyword()) :: t()
   def board(mice, opts \\ []) do
@@ -177,17 +187,20 @@ defmodule Whiska.Watch do
     panes = Keyword.get(opts, :panes, :no_socket)
     activity = Keyword.get(opts, :activity, &Transcript.activity(&1.path))
     picked_up = Keyword.get(opts, :picked_up, %{})
+    mode = Keyword.get(opts, :mode, Mode.none())
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
 
     {orphaned, live} = Enum.split_with(questions, &(&1.status == @orphaned))
     by_mouse = live |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1})
-    slot = Questions.slot(live)
+    slot = Mode.slot(live, mode)
+    focus = focus_name(mice, mode)
+    context = %{slot: slot, mode: mode, focus: focus, now: now}
 
     {rows, more} =
       mice
       |> Enum.filter(&is_nil(&1.died_at))
       |> Enum.map(
-        &row(&1, by_mouse[&1.mouse_id], slot, panes, activity, picked_up[&1.mouse_id], now)
+        &row(&1, by_mouse[&1.mouse_id], panes, activity, picked_up[&1.mouse_id], context)
       )
       |> Enum.sort_by(&rank/1)
       |> cap()
@@ -195,17 +208,58 @@ defmodule Whiska.Watch do
     %{
       rows: rows,
       more: more,
-      waiting: uncovered(live, rows),
+      waiting: live |> Enum.reject(&(Mode.waits(&1, mode) == :held)) |> uncovered(rows),
       orphaned: length(orphaned),
       orphan_names: orphan_names(orphaned),
-      held: Keyword.get(opts, :held)
+      held: Keyword.get(opts, :held),
+      away?: mode.away?,
+      focus: focus
     }
   end
 
-  defp row(mouse, question, slot, panes, activity, picked_up, now) do
+  # The focused mouse by the name the person typed; the id names nothing to them.
+  defp focus_name(_mice, %{focus: nil}), do: nil
+
+  defp focus_name(mice, %{focus: mouse_id}) do
+    case Enum.find(mice, &(&1.mouse_id == mouse_id)) do
+      %Mouse{branch: branch} when is_binary(branch) -> branch
+      _ -> mouse_id
+    end
+  end
+
+  # A held mouse's row is a quiet one whatever its question says: the person
+  # set it aside, so nothing on it is waiting on them, and its row neither
+  # ranks first nor is counted nor is yellow.
+  defp row(%Mouse{held_at: %DateTime{}} = mouse, question, panes, activity, picked_up, context) do
+    detail =
+      case question do
+        %Question{status: status, id: id} = q when status in @waiting ->
+          pointed("held · ##{id}", Text.plain(Marker.pointer(q.text), @phrase_max))
+
+        _ ->
+          detail(nil, nil, pane(mouse, panes), "held", picked_up, context.now, fn ->
+            activity.(mouse)
+          end)
+      end
+
+    %{
+      mouse_id: mouse.mouse_id,
+      question_id: nil,
+      branch: mouse.branch || mouse.mouse_id,
+      status: "held",
+      elapsed: elapsed(mouse.created_at, context.now),
+      detail: detail,
+      asked: nil,
+      started_at: mouse.created_at,
+      picked_up_at: nil
+    }
+  end
+
+  defp row(mouse, question, panes, activity, picked_up, context) do
     pane = pane(mouse, panes)
     status = status(pane)
-    asked = asked(question, slot)
+    asked = asked(question, context)
+    now = context.now
 
     %{
       mouse_id: mouse.mouse_id,
@@ -273,17 +327,31 @@ defmodule Whiska.Watch do
 
   # A question is waiting on the person only once it is the one they were told:
   # the sent one, or the next to go when nothing is sent. Everything else is
-  # queued behind the slot's holder (ADR-0008), and saying "waiting on you" on
-  # it too hides the one answer that frees the queue.
-  defp asked(%Question{status: status} = question, slot) when status in @waiting do
+  # queued behind the slot's holder (ADR-0008), or waits behind what the person
+  # set aside, and saying "waiting on you" on it too hides the one answer that
+  # frees the queue.
+  defp asked(%Question{status: status} = question, context) when status in @waiting do
     %{
       pointer: Text.plain(Marker.pointer(question.text), @phrase_max),
       sent_at: if(status == "sent", do: question.sent_at),
-      behind: Questions.behind(question, slot)
+      behind: Questions.behind(question, context.slot),
+      waits: waits(question, context)
     }
   end
 
-  defp asked(_no_question, _slot), do: nil
+  defp asked(_no_question, _context), do: nil
+
+  # Only an open question waits behind the mode: a sent one was delivered, and
+  # is waiting on the person whatever they set aside since.
+  defp waits(%Question{status: "open"} = question, %{mode: mode, focus: focus}) do
+    case Mode.waits(question, mode) do
+      :away -> :away
+      {:focus, _mouse_id} -> {:focus, focus}
+      _ -> nil
+    end
+  end
+
+  defp waits(_sent, _context), do: nil
 
   defp detail(%Question{} = question, %{} = asked, _pane, _status, _picked_up, now, _activity),
     do: asked(question.id, asked, now)
@@ -303,6 +371,12 @@ defmodule Whiska.Watch do
       do: doing || topic || "",
       else: topic || doing || ""
   end
+
+  defp asked(id, %{waits: :away} = asked, _now),
+    do: pointed("waits: away · ##{id}", asked.pointer)
+
+  defp asked(id, %{waits: {:focus, name}} = asked, _now),
+    do: pointed("waits: focus on #{name} · ##{id}", asked.pointer)
 
   # The sent question carries how long it has waited, not the mouse's age in
   # the elapsed column: one left unanswered for hours holds every other question
@@ -426,17 +500,20 @@ defmodule Whiska.Watch do
   @spec render(t(), keyword()) :: String.t()
   def render(board, opts \\ [])
 
-  def render(%{rows: [], more: 0, waiting: 0, orphaned: 0, held: nil}, _opts), do: ""
+  def render(
+        %{rows: [], more: 0, waiting: 0, orphaned: 0, held: nil, away?: false, focus: nil},
+        _
+      ),
+      do: ""
 
   def render(%{rows: rows, more: more, waiting: waiting, orphaned: orphaned} = board, opts) do
     tick = Keyword.get(opts, :frame)
     widths = widths(rows, tick)
-    held = Map.get(board, :held)
 
     (Enum.map(rows, &line(&1, widths, tick)) ++
        [
          more_line(more),
-         waiting_line(waiting, held),
+         waiting_line(waiting, board),
          orphaned_line(orphaned, Map.get(board, :orphan_names, []))
        ])
     |> Enum.reject(&is_nil/1)
@@ -481,9 +558,11 @@ defmodule Whiska.Watch do
 
   # The question is the one thing on the board the person has to act on, so it
   # is the one thing in yellow; what a mouse is doing stays plain, and so does a
-  # question queued behind another — answering it is not what frees the queue.
+  # question queued behind another, or behind what the person set aside —
+  # answering it is not what frees the queue.
   defp detail(%{question_id: nil} = row), do: row.detail
   defp detail(%{asked: %{behind: behind}} = row) when is_integer(behind), do: row.detail
+  defp detail(%{asked: %{waits: waits}} = row) when waits != nil, do: row.detail
   defp detail(row), do: Ink.yellow(row.detail)
 
   defp ticker(_row, 0, _tick), do: ""
@@ -501,15 +580,29 @@ defmodule Whiska.Watch do
   defp more_line(0), do: nil
   defp more_line(more), do: Ink.dim("🐭 +#{more} more")
 
-  # Why nothing is being delivered, where the person is already looking
-  # (ADR-0058). The gate itself is untouched: this is the queue saying it
-  # exists, in the one place a hold was otherwise silent.
-  defp waiting_line(0, nil), do: nil
-  defp waiting_line(0, held), do: Ink.yellow("🐱 held: #{reason(held)}")
-  defp waiting_line(waiting, nil), do: Ink.yellow("🐱 #{waiting} waiting")
+  # Why nothing is being delivered, where the person is already looking: what
+  # they set aside, and the gate's reason (ADR-0058) — unless they are away, in
+  # which case the gate is beside the point. The gate itself is untouched: this
+  # is the queue saying it exists, in the one place a hold was otherwise silent.
+  defp waiting_line(waiting, board) do
+    parts =
+      [
+        if(waiting > 0, do: "#{waiting} waiting"),
+        set_aside(board),
+        gate(board)
+      ]
+      |> Enum.reject(&is_nil/1)
 
-  defp waiting_line(waiting, held),
-    do: Ink.yellow("🐱 #{waiting} waiting · held: #{reason(held)}")
+    if parts == [], do: nil, else: Ink.yellow("🐱 " <> Enum.join(parts, " · "))
+  end
+
+  defp set_aside(%{away?: true}), do: "away"
+  defp set_aside(%{focus: focus}) when is_binary(focus), do: "focus: #{branch(focus)}"
+  defp set_aside(_board), do: nil
+
+  defp gate(%{away?: true}), do: nil
+  defp gate(%{held: nil}), do: nil
+  defp gate(%{held: held}), do: "gated: #{reason(held)}"
 
   defp reason(:typing), do: "your prompt box isn't empty"
   defp reason(:no_box), do: "your prompt box isn't on screen"

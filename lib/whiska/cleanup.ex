@@ -207,6 +207,7 @@ defmodule Whiska.Cleanup do
   @spec local_verdict(Mouse.t(), map()) :: {:ok, String.t()} | {:leave, term()}
   def local_verdict(%Mouse{path: path} = mouse, local) do
     with :ok <- standing(path),
+         :ok <- not_held(mouse),
          :ok <- quiet(mouse, local),
          do: landed(mouse, local)
   end
@@ -214,6 +215,11 @@ defmodule Whiska.Cleanup do
   defp standing(path) do
     if is_binary(path) and File.dir?(path), do: :ok, else: {:leave, :gone}
   end
+
+  # A fifth precondition (ADR-next-the-person-decides-what-reaches-them): the
+  # person said this one stops where it is, and that includes its worktree.
+  defp not_held(%Mouse{held_at: %DateTime{}}), do: {:leave, :held}
+  defp not_held(_mouse), do: :ok
 
   defp quiet(%Mouse{mouse_id: id}, local) do
     questions = Map.get(local.questions, id, [])

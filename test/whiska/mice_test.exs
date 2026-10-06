@@ -51,6 +51,20 @@ defmodule Whiska.MiceTest do
     end
   end
 
+  describe "a mouse on hold (ADR-next-the-person-decides-what-reaches-them)" do
+    test "says held where herdr's status would go, whatever its pane is doing" do
+      mice = [%{mouse("ma", "feat-a") | held_at: @now}]
+      panes = {:ok, [pane("w1:p1", "/repo/worktrees/feat-a", "working")]}
+
+      assert [%{status: "held"}] = Mice.rows(mice, panes, @now)
+    end
+
+    test "a mouse not on hold is unchanged" do
+      panes = {:ok, [pane("w1:p1", "/repo/worktrees/feat-a", "working")]}
+      assert [%{status: "working"}] = Mice.rows([mouse("ma", "feat-a")], panes, @now)
+    end
+  end
+
   describe "rows/3" do
     test "takes a mouse's status from the herdr pane sitting in its worktree (ADR-0020)" do
       mice = [mouse("ma", "feat-a"), mouse("mb", "feat-b", mode: "sniff", shaped_at: @now)]

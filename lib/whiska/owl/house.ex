@@ -132,6 +132,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Cleanup
   alias Whiska.Delivery.Draft
   alias Whiska.Delivery.Hoot
+  alias Whiska.Delivery.Mode
   alias Whiska.Delivery.Text
   alias Whiska.Doorstep
   alias Whiska.Herdr
@@ -182,6 +183,8 @@ defmodule Whiska.Owl.House do
     :hold_notice_ms,
     :settle_ms,
     :max_gap_ms,
+    :away_path,
+    last_mode: nil,
     held_since: nil,
     held_reason: nil,
     subscription: nil,
@@ -216,7 +219,9 @@ defmodule Whiska.Owl.House do
   `:settle_ms` (how long a mouse's pane must have been quiet before a died turn
   is picked up), `:max_gap_ms` (how long a gap between backstops means the owl
   was not watching, so its pane memory is thrown away), `:desktop` (where a hoot
-  herdr will not show is raised, `Whiska.Desktop.impl/0` by default), `:name`.
+  herdr will not show is raised, `Whiska.Desktop.impl/0` by default),
+  `:away_path` (the file that says the person is away, the real one by
+  default), `:name`.
   """
   def start_link(opts) do
     {name, opts} = Keyword.pop(opts, :name)
@@ -283,6 +288,7 @@ defmodule Whiska.Owl.House do
           hold_notice_ms: Keyword.get(opts, :hold_notice_ms, @default_hold_notice_ms),
           settle_ms: Keyword.get(opts, :settle_ms, @default_settle_ms),
           max_gap_ms: Keyword.get(opts, :max_gap_ms, backstop_ms(opts) * 3),
+          away_path: Keyword.get_lazy(opts, :away_path, &Mode.away_path/0),
           main_pane: Storage.main_pane()
         }
 
@@ -448,13 +454,31 @@ defmodule Whiska.Owl.House do
     if state.last_board && built_at &&
          System.monotonic_time(:millisecond) - built_at < state.panes_ms do
       board = Watch.retime(state.last_board, DateTime.utc_now())
-      {%{board | held: held_reason(state)}, state}
+      {%{board | held: held_reason(state, state.last_mode || mode(state))}, state}
     else
-      state = refresh_board_panes(state)
-      board = Watch.from_house(panes: state.last_panes, held: held_reason(state))
+      state = state |> refresh_board_panes() |> notice_mode()
+      mode = state.last_mode
+
+      board =
+        Watch.from_house(panes: state.last_panes, held: held_reason(state, mode), mode: mode)
+
       {board, %{state | board_built_at: System.monotonic_time(:millisecond)}}
     end
   end
+
+  # The person sets away, a focus or a hold from a CLI process that cannot
+  # reach this one, so the tick that already rebuilds the board is where a
+  # change is noticed, and a lifted mode delivers within `panes_ms` rather
+  # than at the next backstop.
+  defp notice_mode(state) do
+    mode = mode(state)
+
+    if state.last_mode != nil and state.last_mode != mode,
+      do: deliver(state),
+      else: %{state | last_mode: mode}
+  end
+
+  defp mode(state), do: Mode.read(away_path: state.away_path)
 
   # A fresh board is drawn from herdr's last answer — this one's or the one
   # matching panes fetched, if that was within `panes_ms`.
@@ -937,11 +961,12 @@ defmodule Whiska.Owl.House do
   # gathering (ADR-0057).
   defp deliver(state) do
     release_unanswerable(state)
+    state = %{state | last_mode: mode(state)}
 
-    if state.round_timer, do: state, else: to_main_session(state)
+    if state.round_timer, do: state, else: to_main_session(state, state.last_mode)
   end
 
-  defp to_main_session(%{main_pane: nil} = state) do
+  defp to_main_session(%{main_pane: nil} = state, _mode) do
     if Storage.open_count() > 0 do
       state
       |> warn_once(
@@ -955,14 +980,14 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  defp to_main_session(state) do
-    case next_to_deliver() do
+  defp to_main_session(state, mode) do
+    case next_to_deliver(mode) do
       nil ->
         release_hold(state)
 
       %Question{} = question ->
         case main_session_free?(state) do
-          {:go, notes, state} -> send_question(state, question, notes)
+          {:go, notes, state} -> send_question(state, question, notes, mode)
           {:hold, reason, state} -> hold(state, reason)
         end
     end
@@ -977,12 +1002,12 @@ defmodule Whiska.Owl.House do
 
   defp release_hold(state), do: %{state | held_since: nil, held_reason: nil}
 
-  # Said only once the hold has outlasted the fuse, and only while something is
-  # actually queued behind it.
-  defp held_reason(state) do
+  # Said only once the hold has outlasted the fuse, and only while something the
+  # person has not set aside is actually queued behind it.
+  defp held_reason(state, mode) do
     with %DateTime{} = since <- state.held_since,
          true <- DateTime.diff(now(), since, :millisecond) >= state.hold_notice_ms,
-         true <- Storage.open_count() > 0 do
+         true <- Mode.open_count(Storage.questions(), mode) > 0 do
       state.held_reason
     else
       _ -> nil
@@ -1010,16 +1035,12 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  # What goes next, if the main session will have it. A finished line is not a
-  # question — nothing is waiting on the person in it — so it neither waits for
-  # the one slot nor holds it: it goes first, and is closed as it is sent. A
-  # real question goes only when the slot is free, exactly as before.
-  defp next_to_deliver do
-    case Storage.next_done() do
-      %Question{} = report -> report
-      nil -> if Storage.sent() == nil, do: Storage.next_open()
-    end
-  end
+  # What goes next, if the main session will have it: judged against what the
+  # person set aside first, then the slot (`Whiska.Delivery.Mode`). A finished
+  # line is not a question — nothing is waiting on the person in it — so it
+  # neither waits for the one slot nor holds it: it goes first, and is closed
+  # as it is sent.
+  defp next_to_deliver(mode), do: Mode.next(Storage.questions(), mode)
 
   defp main_session_free?(%{socket: nil} = state) do
     state
@@ -1081,9 +1102,9 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  defp send_question(state, question, notes) do
+  defp send_question(state, question, notes, mode) do
     branch = branch_of(question.mouse_id)
-    more_open = Storage.open_count() - 1
+    more_open = Mode.open_count(Storage.questions(), mode) - 1
     line = Text.compose(question, branch, more_open, notes)
 
     case state.herdr.prompt(state.socket, state.main_pane, line) do
