@@ -102,3 +102,12 @@ is that the script reads one file the owl already wrote.
 **Name the recorded pane in the notice.** `answers go to w1:p2` is one more thing to read
 and, by the complaint this ADR starts from, not a thing the person can act on. `whiska
 doctor` prints the id for the case where it is genuinely wanted.
+
+## Amendment, 2026-10-07: only "no main session" survives
+
+[ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md) takes the board out of the Claude Code statusline, and with it the line this
+decision put above the rows. "No main session" moves to the main checkout's line in herdr's
+sidebar — `✖ no main session: whiska start`, while anything runs or waits. "Not
+the main session" cannot be said there: the sidebar looks the same from every pane, so
+there is no "this pane" to compare. `whiska doctor` still says `(this pane)` or
+`(not this pane)` beside the recorded one.

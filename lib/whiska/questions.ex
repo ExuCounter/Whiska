@@ -310,7 +310,7 @@ defmodule Whiska.Questions do
   def verb(_), do: "needs a decision"
 
   @doc """
-  Where a question stands, in the board's words (ADR-0051): held, with its
+  Where a question stands, in the words `whiska questions` prints: held, with its
   mouse; waiting on the person since it was delivered; waiting behind away or
   a focus; queued behind the question holding the slot; or its bare status.
   """
@@ -357,7 +357,7 @@ defmodule Whiska.Questions do
   One question holds the delivery slot at a time and the rest wait for it to
   be answered (ADR-0008), so an open question is waiting on that one, not on
   the person — a finished report included (ADR-0008, note of 2026-10-06). The
-  one rule the board, `whiska questions` and `inbox` all use, so none of them
+  one rule the sidebar, `whiska questions` and `inbox` all use, so none of them
   can spell the state apart.
   """
   @spec behind(Question.t(), pos_integer() | nil) :: pos_integer() | nil

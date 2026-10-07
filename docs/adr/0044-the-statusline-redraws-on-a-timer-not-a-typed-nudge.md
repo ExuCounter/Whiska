@@ -165,3 +165,9 @@ session, for a segment nobody reads 60 times a minute.
 idle. Rejected by the brief, and rightly: the segment is how a person with several repos
 open learns that one of them wants them. The timer makes it work; removing it would just
 admit defeat.
+
+## Amendment, 2026-10-07: no repo-scoped line is left to redraw
+
+[ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md) removes the Claude Code statusline Whiska wrote, interval and all. herdr redraws the
+tab bar on its own timer (ADR-0048), and the owl reports each mouse's sidebar line itself,
+so no Claude Code session runs anything on a timer for Whiska.

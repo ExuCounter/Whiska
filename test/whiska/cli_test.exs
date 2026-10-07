@@ -443,8 +443,7 @@ defmodule Whiska.CLITest do
 
       touched = [
         Path.join(main, ".claude/settings.json"),
-        Path.join(main, Whiska.Install.shim_path()),
-        Path.join(main, Whiska.Install.statusline_path())
+        Path.join(main, Whiska.Install.shim_path())
       ]
 
       long_ago = System.os_time(:second) - 86_400
@@ -470,13 +469,13 @@ defmodule Whiska.CLITest do
 
     test "still writes a file whose contents have changed", %{main: main} do
       capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
-      path = Path.join(main, Whiska.Install.statusline_path())
+      path = Path.join(main, Whiska.Install.shim_path())
       File.write!(path, "#!/usr/bin/env bash\n# an older one\n")
       File.touch!(path, System.os_time(:second) - 86_400)
 
       capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
 
-      assert File.read!(path) == Whiska.Install.statusline_script()
+      assert File.read!(path) == Whiska.Install.shim()
     end
   end
 end

@@ -17,6 +17,7 @@ defmodule Whiska.CLISystemdTest do
   alias Whiska.SystemdUnit
 
   setup :verify_on_exit!
+  setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   setup do
     home =

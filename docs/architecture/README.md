@@ -8,7 +8,7 @@ an ADR disagree, the ADR wins.
 |---|---|---|
 | 1 | [c4-context.md](c4-context.md) | Whiska between the person, Claude Code, herdr, git and the service manager |
 | 2 | [c4-containers.md](c4-containers.md) | Built against designed, as two boundaries |
-| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init and the rules each role starts with, mode and shape, questions, the statusline, doctor, the delivery-side commands, waiting and jump |
+| 3 | [c4-components-cli.md](c4-components-cli.md) | Inside the escript — hooks, init and the rules each role starts with, mode and shape, questions, the tab bar line and the sidebar's lines, doctor, the delivery-side commands, waiting and jump |
 | 3 | [c4-components-owl.md](c4-components-owl.md) | Inside the owl — houses, herdr, doorstep, classification, delivery |
 | — | [c4-dynamic-pretooluse.md](c4-dynamic-pretooluse.md) | One tool-call decision, end to end |
 | — | [c4-dynamic-question-delivery.md](c4-dynamic-question-delivery.md) | A question from the doorstep to its answer |
@@ -162,7 +162,14 @@ leaves a mouse with an answer not yet taken alone. Then a finish that fits the b
 `whiska show` says what a finished question's branch holds, read from git, and the
 picker offers a commit first wherever files are not committed, no landing where the
 branch has nothing on it, and the proposal wherever the branch has nothing to merge; and
-`whiska-finish` commits a mouse's work before its done marker. 2236 tests.
+`whiska-finish` commits a mouse's work before its done marker. Then the board left Claude
+Code: each mouse's state is a line the house reports under its own workspace in herdr's
+sidebar — led by a symbol the person's herdr config colours, the question wrapped under
+it, a working mouse's spinner turning once a second — read back from herdr every two
+seconds so a herdr restart is repaired, and expiring thirty seconds after its last send;
+the main checkout's workspace says what is true of the whole repo; the mice re-sort only
+when one starts or stops needing the person; and the statusline script, its board file and
+its version stamp are gone, taken out by `whiska init` (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). 2212 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

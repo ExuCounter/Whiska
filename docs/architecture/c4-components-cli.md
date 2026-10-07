@@ -35,13 +35,14 @@ C4Component
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse, or one nobody shaped, writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
     Component(storage, "Storage", "Ecto/Repo", "Opens, migrates and closes the house")
-    Component(install, "Install", "pure merge", "Writes the four hooks, the statusline and the skills into the repo, and the machine-wide status script into ~/.whiska/")
+    Component(install, "Install", "pure merge", "Writes the four hooks and the skills into the repo, and the machine-wide status script into ~/.whiska/; takes an older init's statusline back out")
     Component(claudemd, "ClaudeMd", "pure", "Which parts a CLAUDE.md keeps, and taking an older Whiska's block back out")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, answers not taken and orphaned apart, the doorstep count")
     Component(gitq, "Git", "git", "What a finished branch holds: its own commits beyond the base, and files not committed; and for where, whether a folder is the main checkout")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question, per answer not taken and per uncollected doorstep entry, oldest first, each with its mouse pane")
     Component(statusline, "Statusline", "one line", "herdr's tab bar: the owl always, and what is waiting machine-wide")
-    Component(watch, "Watch", "the board", "A row per mouse of this repo: its branch, what its pane is doing, and the question waiting on you, its topic, or what it is stuck in")
+    Component(watch, "Watch", "the board", "The facts about each mouse of this repo: its question, how its pane stands with herdr, its topic and last action")
+    Component(sidebar, "Sidebar", "pure", "Each mouse's sidebar line and the main checkout's, from the board; which workspace each goes under; the herdr rows that colour them")
     Component(doctor, "Doctor", "checks, never repairs", "Is Whiska working for this repo? Probes the hooks live, and reads herdr's config")
     Component(record, "OpenHouses", "text file", "The owl's record of open houses, trusted while an owl is alive")
     Component(backstop, "Backstop", "text file", "The house's mark of what only its backstop collected")
@@ -83,8 +84,10 @@ C4Component
   Rel(main, questions, "Delegates questions")
   Rel(main, gitq, "show: what a finished question's branch holds")
   Rel(main, statusline, "Delegates statusline")
-  Rel(main, watch, "Delegates watch and statusline --here")
+  Rel(main, sidebar, "Delegates watch")
+  Rel(sidebar, watch, "The board the lines are written from")
   Rel(watch, herdr, "What each mouse's pane is doing", "pane.list")
+  Rel(main, herdr, "watch: which mice have a workspace", "workspace.list")
   Rel(statusline, waiting, "What is waiting: every recorded house, or just this one")
   Rel(main, waiting, "Delegates waiting and jump")
   Rel(waiting, record, "Which repos to look in: read without the owl-alive guard")
@@ -97,8 +100,8 @@ C4Component
   Rel(doctor, owl, "Is it running, and older than the binary it runs?", "process table, ps")
   Rel(doctor, record, "Which houses are open, and is this repo one of them")
   Rel(doctor, backstop, "Has the backstop been doing the idle trigger's job")
-  Rel(doctor, herdr, "Is the tab bar entry that draws the line in herdr's config?", "config.toml")
-  Rel(doctor, statusline, "Is this repo's statusLine ours, and on a timer?")
+  Rel(doctor, herdr, "Are the tab bar entry and the sidebar rows in herdr's config? Is herdr 0.9?", "config.toml, ping")
+  Rel(doctor, install, "Is anything left of an older init's statusline?")
   Rel(main, agent, "owl install / stop / start / uninstall")
   Rel(agent, install, "Wrapper is built from the shim's resolution fragments")
   Rel(doctor, agent, "Installed? loaded? running? two owls? survives logout?", "launchctl print, systemctl show")
@@ -206,17 +209,19 @@ doctor uses (`Whiska.Owl.pids/0`), and collecting: the doorstep is the one sourc
 database cannot see, and an entry uncollected past the owl's backstop still means down,
 until the owl answers a socket.
 
-The repo-scoped line is no longer this component's: it is the board (ADR-0051), which
-`Watch` renders and the house writes to a file.
+What each mouse is doing is not this component's: it is a line in herdr's sidebar
+(ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar), which the house reports.
 
-**`Watch` is the board** — a row per mouse of this repo, ordered by how much each wants
-the person: waiting, blocked, working, quiet, five rows at most, and never a cap that
-drops a mouse with a question on it. The detail column is that question when there is
-one, otherwise the mouse's topic from herdr's pane list, and otherwise what it is stuck
-in, read from its own Claude Code transcript (ADR-0050). A dead mouse has no row; what it left waiting is counted underneath and
-settled with `whiska questions`. Both `whiska watch` and
-`whiska statusline --here` print it, worked out afresh; the statusline itself prints the
-file the house keeps, and starts nothing.
+**`Watch` is the board, and holds facts, not words** — for each live mouse of this repo,
+the question waiting on the person, how its pane stands with herdr (one agent pane, none,
+several, or herdr unreachable), its topic from herdr's pane list, and what it is doing,
+read from its own Claude Code transcript only when nothing else decides its line
+(ADR-0050). A dead mouse has no row; what it left is counted as orphaned. **`Sidebar`
+turns the board into words**: each mouse's line, ranked by how much it wants the person
+and led by a symbol that is its colour key, the main checkout's line, and which workspace
+each line goes under. The house and `whiska watch` both use it, so the sidebar and the
+command cannot disagree. `whiska statusline --here`, which an older init's script still
+runs, prints nothing.
 
 Nothing here writes or collects.
 
@@ -285,8 +290,7 @@ when nothing on it is a prompt box while the pane is not scrolled away from one 
 check that would catch a Claude Code redesign, which otherwise shows up only as delivery
 stopping everywhere at once (ADR-0068). It also asks how old each running thing is, because up and old
 looks exactly like up: the owl's process against the installed binary, that binary
-against the escript built in the checkout, the repo's statusline script against the
-version this build ships (ADR-0059), the owl's wrapper, the tab-bar script and every
+against the escript built in the checkout, the owl's wrapper, the tab-bar script and every
 globally installed skill file against what this build writes, and the main session — aged by the creation time of its own
 transcript file, found through the session id herdr names for its pane — against the
 `settings.json` files Whiska wires into. A mouse with an answer waiting and no answer

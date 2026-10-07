@@ -107,8 +107,8 @@ defmodule Whiska.Owl.House do
   cannot read is the unreadable signal ADR-0008 rules on, and delivers anyway.
 
   A hold is remembered — since when, and which half of the gate held — so the
-  board can say why nothing is being delivered once it has outlasted the fuse
-  (ADR-0058). Only the saying is new: the gate decides exactly as it did.
+  main checkout's sidebar line can say why nothing is being delivered once it
+  has outlasted the fuse (ADR-0058). Only the saying is new: the gate decides exactly as it did.
 
   The line is typed and a hoot goes out with it (ADR-0062): one desktop
   notification per delivered question, raised in the same breath as the line
@@ -121,8 +121,17 @@ defmodule Whiska.Owl.House do
   desktop instead (ADR-0071).
 
   A house tells no other house anything, and nothing is ever typed into
-  another repo's session (ADR-0044): the other repo's own statusline redraws
-  on its `refreshInterval` timer and reads what is waiting here off disk.
+  another repo's session (ADR-0044): herdr's tab bar redraws on its own timer
+  and reads what is waiting here off disk.
+
+  The house keeps a line under each of its mice's herdr workspaces, and one
+  under its main checkout's (`Whiska.Sidebar`,
+  ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). It reads back what
+  herdr is showing every time it asks herdr for its panes and sends whatever
+  differs — which is how a line lost to a herdr restart comes back — and sends
+  every line again before its TTL runs out, so a line nobody is keeping current
+  expires. The mice are re-sorted only when the set of them that needs the
+  person changes, so rows do not move under the cursor otherwise.
   """
 
   use GenServer
@@ -142,8 +151,8 @@ defmodule Whiska.Owl.House do
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
+  alias Whiska.Sidebar
   alias Whiska.Watch
-  alias Whiska.Watch.Snapshot
 
   @global_subscriptions [
     %{type: "pane.closed"},
@@ -156,12 +165,18 @@ defmodule Whiska.Owl.House do
   @default_resubscribe_ms 5_000
   @default_round_wait_ms 8_000
   @default_retry_ms [2_000, 5_000]
-  # The board is written every second so its elapsed column ticks, but built
-  # afresh only every two: what herdr says moves no faster than that, and
-  # asking it, the database and every transcript is what a board tick costs.
+  # The sidebar is written every second so a working mouse's spinner turns, but
+  # the board under it is built afresh only every two: what herdr says moves no
+  # faster than that, and asking it, the database and every transcript is what
+  # a build costs.
   @default_board_ms 1_000
   @default_panes_ms 2_000
-  # How long delivery has to be holding before the board says so (ADR-0058).
+  # A sidebar line lives this long unless it is sent again, and is sent again
+  # this long after it last was: a dead owl's lines are gone within the TTL,
+  # and a live owl gets two tries before one lapses.
+  @default_sidebar_ttl_ms 30_000
+  @default_sidebar_refresh_ms 20_000
+  # How long delivery has to be holding before the sidebar says so (ADR-0058).
   @default_hold_notice_ms 10_000
   # How long a mouse's pane has to have been quiet before a died turn is picked
   # up (ADR-0067). Two backstops, so a laptop waking cannot have a whole fleet
@@ -184,6 +199,8 @@ defmodule Whiska.Owl.House do
     :retry_ms,
     :board_ms,
     :panes_ms,
+    :sidebar_ttl_ms,
+    :sidebar_refresh_ms,
     :hold_notice_ms,
     :settle_ms,
     :max_gap_ms,
@@ -193,7 +210,11 @@ defmodule Whiska.Owl.House do
     held_since: nil,
     held_reason: nil,
     subscription: nil,
-    board_frame: 0,
+    sidebar_frame: 0,
+    workspaces: nil,
+    shown: %{},
+    sent_at: %{},
+    needing: nil,
     panes: %{},
     seen: %{},
     last_sweep_at: nil,
@@ -218,9 +239,12 @@ defmodule Whiska.Owl.House do
   Options: `:main_checkout` (required), `:herdr_socket` (defaults to
   `HERDR_SOCKET_PATH`), `:backstop_ms`, `:resubscribe_ms`, `:round_wait_ms`,
   `:retry_ms` (the delays, in order, of the re-collections after an idle event
-  that found nothing), `:board_ms` (how often the board is written),
-  `:panes_ms` (how often the board is built afresh rather than re-timed),
-  `:hold_notice_ms` (how long a hold lasts before the board says why),
+  that found nothing), `:board_ms` (how often the sidebar lines are written),
+  `:panes_ms` (how often the board is built afresh, herdr's panes and
+  workspaces read with it), `:sidebar_ttl_ms` (how long a sidebar line lives
+  unless it is sent again), `:sidebar_refresh_ms` (how long after a send it is
+  sent again),
+  `:hold_notice_ms` (how long a hold lasts before the sidebar says why),
   `:settle_ms` (how long a mouse's pane must have been quiet before a died turn
   is picked up), `:max_gap_ms` (how long a gap between backstops means the owl
   was not watching, so its pane memory is thrown away), `:ring_ms` (how long
@@ -250,7 +274,7 @@ defmodule Whiska.Owl.House do
   @spec repo(GenServer.server()) :: pid()
   def repo(house), do: GenServer.call(house, :repo)
 
-  @doc "Why delivery is holding, or `nil`. For tests and the board."
+  @doc "Why delivery is holding, or `nil`. For tests and the sidebar."
   @spec held(GenServer.server()) :: Watch.held()
   def held(house), do: GenServer.call(house, :held)
 
@@ -291,6 +315,8 @@ defmodule Whiska.Owl.House do
           retry_ms: Keyword.get(opts, :retry_ms, @default_retry_ms),
           board_ms: Keyword.get(opts, :board_ms, @default_board_ms),
           panes_ms: Keyword.get(opts, :panes_ms, @default_panes_ms),
+          sidebar_ttl_ms: Keyword.get(opts, :sidebar_ttl_ms, @default_sidebar_ttl_ms),
+          sidebar_refresh_ms: Keyword.get(opts, :sidebar_refresh_ms, @default_sidebar_refresh_ms),
           hold_notice_ms: Keyword.get(opts, :hold_notice_ms, @default_hold_notice_ms),
           settle_ms: Keyword.get(opts, :settle_ms, @default_settle_ms),
           max_gap_ms: Keyword.get(opts, :max_gap_ms, backstop_ms(opts) * 3),
@@ -311,6 +337,10 @@ defmodule Whiska.Owl.House do
     # The mark counts backstop collections since *this* owl opened this house,
     # so an older owl's does not follow it around (ADR-0036).
     Backstop.clear(state.main_checkout)
+
+    # A statusline script an older `whiska init` committed prints whatever it
+    # finds here; with nothing here it prints only the person's own line.
+    File.rm_rf(Path.join(Whiska.OpenHouses.home(), "board"))
 
     # Delivery is attempted at open, not only after a collection: reconciling
     # may just have freed ADR-0008's slot by marking a mouse dead that died
@@ -421,55 +451,45 @@ defmodule Whiska.Owl.House do
 
   def handle_info({:EXIT, _pid, _reason}, state), do: {:noreply, state}
 
-  # -- the board (ADR-0051) ----------------------------------------------------
+  # -- the sidebar (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar) -------
 
   # `state.panes` is the match from pane to mouse and holds no status, so the
   # board keeps herdr's last full answer beside it: the one the tick asks for,
   # or the one matching panes has just fetched.
   #
-  # Nothing about drawing the board may stop a house: it reads a file format
-  # somebody else writes (ADR-0050), and collection and delivery must outlive
-  # anything that goes wrong in it.
-  #
-  # The frame is counted in boards actually written rather than in seconds, so a
-  # working row's ticker moves exactly when the board behind it was refreshed: a
-  # house that has stopped writing leaves the dots where they were.
+  # Nothing about the sidebar may stop a house: it reads a file format somebody
+  # else writes (ADR-0050) and talks to a herdr that may not know the calls, and
+  # collection and delivery must outlive anything that goes wrong in it.
   defp write_board(state) do
-    {board, state} = board(state)
+    {board, fresh?, state} = board(state)
+    state = if fresh?, do: read_workspaces(state), else: state
 
-    # The recorded pane is read here rather than taken from `state.main_pane`,
-    # which only moves when the house refreshes: a session that has just run
-    # `whiska start` must stop being told it is not the main session on the
-    # next redraw, not on the next backstop (ADR-0065).
-    written =
-      Snapshot.write(
-        state.main_checkout,
-        Watch.render(board, frame: state.board_frame),
-        Storage.main_pane()
-      )
+    case state.workspaces do
+      nil ->
+        %{state | last_board: board}
 
-    case written do
-      :ok -> %{state | board_frame: state.board_frame + 1, last_board: board}
-      {:error, _reason} -> state
+      workspaces ->
+        state
+        |> show(board, workspaces)
+        |> Map.merge(%{last_board: board, sidebar_frame: state.sidebar_frame + 1})
     end
   rescue
     error ->
-      warn(state, "could not draw the board (#{Exception.message(error)})")
-      state
+      warn_once(state, :sidebar, "could not draw the sidebar (#{Exception.message(error)})")
   end
 
   # The board is built afresh — herdr, the database, every mouse's transcript —
-  # once every `panes_ms`. A write in between moves the last one's clock and
-  # nothing else (ADR-0051, addendum of 2026-10-04): what it shows besides the
-  # elapsed column changes no faster than herdr's answer does. Why delivery is
-  # holding is the house's own state and costs nothing, so it is always current.
+  # once every `panes_ms`. A write in between reuses it: what it says changes no
+  # faster than herdr's answer does, and the sidebar spells its ages in minutes.
+  # Why delivery is holding is the house's own state and costs nothing, so it is
+  # always current.
   defp board(state) do
     built_at = state.board_built_at
 
     if state.last_board && built_at &&
          System.monotonic_time(:millisecond) - built_at < state.panes_ms do
-      board = Watch.retime(state.last_board, DateTime.utc_now())
-      {%{board | held: held_reason(state, state.last_mode || mode(state))}, state}
+      board = %{state.last_board | held: held_reason(state, state.last_mode || mode(state))}
+      {board, false, state}
     else
       state = state |> refresh_board_panes() |> notice_mode()
       mode = state.last_mode
@@ -477,7 +497,197 @@ defmodule Whiska.Owl.House do
       board =
         Watch.from_house(panes: state.last_panes, held: held_reason(state, mode), mode: mode)
 
-      {board, %{state | board_built_at: System.monotonic_time(:millisecond)}}
+      {board, true, %{state | board_built_at: System.monotonic_time(:millisecond)}}
+    end
+  end
+
+  # What herdr is showing is read back with the panes, every `panes_ms`, so a
+  # line herdr lost — its server restarted — is noticed and sent again.
+  defp read_workspaces(%{socket: nil} = state), do: state
+
+  defp read_workspaces(state) do
+    case state.herdr.workspaces(state.socket) do
+      {:ok, workspaces} ->
+        shown = Map.new(workspaces, &{&1.workspace_id, Map.take(&1.tokens, Sidebar.keys())})
+        %{state | workspaces: workspaces, shown: shown}
+
+      {:error, reason} ->
+        warn_once(state, :workspaces, "could not list herdr workspaces (#{inspect(reason)})")
+    end
+  end
+
+  defp show(state, board, workspaces) do
+    lines = Sidebar.mice(board, now: DateTime.utc_now(), frame: state.sidebar_frame)
+    main = main_workspace(workspaces, state)
+    placed = Sidebar.place(board, workspaces, main)
+
+    no_workspace =
+      for row <- board.rows,
+          not Map.has_key?(placed, row.mouse_id),
+          into: MapSet.new(),
+          do: row.mouse_id
+
+    house =
+      Sidebar.house(board, main_pane?: Storage.main_pane() != nil, no_workspace: no_workspace)
+
+    wanted =
+      lines
+      |> Enum.filter(&Map.has_key?(placed, &1.mouse_id))
+      |> Map.new(&{placed[&1.mouse_id], &1.tokens})
+      |> put_main(main, house)
+
+    state
+    |> send_lines(wanted, ours(workspaces, wanted, state))
+    |> sort(lines, placed, workspaces)
+  end
+
+  defp main_workspace(workspaces, state) do
+    main = Path.expand(state.main_checkout)
+
+    Enum.find_value(workspaces, fn ws ->
+      if is_binary(ws.path) and Path.expand(ws.path) == main and ws.linked? != true,
+        do: ws.workspace_id
+    end) || main_pane_workspace(state, workspaces)
+  end
+
+  # Only a workspace opened on no checkout, as for a mouse (`Whiska.Sidebar.place/2`):
+  # one opened on a checkout belongs to that checkout's own house.
+  defp main_pane_workspace(%{last_panes: {:ok, panes}}, workspaces) do
+    main_pane = Storage.main_pane()
+    ws = Enum.find_value(panes, &(&1.pane_id == main_pane && Map.get(&1, :workspace_id)))
+
+    if Enum.any?(workspaces, &(&1.workspace_id == ws and is_nil(&1.path))), do: ws
+  end
+
+  defp main_pane_workspace(_state, _workspaces), do: nil
+
+  defp put_main(wanted, nil, _house), do: wanted
+  defp put_main(wanted, ws, house), do: Map.put(wanted, ws, house)
+
+  # Every workspace this house speaks for: the ones it has a line for, the ones
+  # it has sent a line to before, and any open on a worktree of this repo — so a
+  # line left on a mouse that has since stopped is cleared rather than left to
+  # expire. Another house's workspaces are none of these.
+  defp ours(workspaces, wanted, state) do
+    worktrees = Path.join(Path.expand(state.main_checkout), "worktrees")
+
+    under =
+      for ws <- workspaces,
+          is_binary(ws.path),
+          Layout.inside?(Path.expand(ws.path), worktrees),
+          do: ws.workspace_id
+
+    existing = MapSet.new(workspaces, & &1.workspace_id)
+
+    (Map.keys(wanted) ++ Map.keys(state.sent_at) ++ under)
+    |> Enum.uniq()
+    |> Enum.filter(&MapSet.member?(existing, &1))
+  end
+
+  # A line is sent when what herdr holds differs from it, and again before its
+  # TTL runs out. Every key is named on each send, a missing one as `nil`, so a
+  # line that got shorter clears what it no longer says.
+  #
+  # The first send herdr refuses or times out on ends the tick's sending: a
+  # herdr that takes connections and never answers would otherwise hold the
+  # house for one reply timeout per line.
+  defp send_lines(state, wanted, ours) do
+    now = System.monotonic_time(:millisecond)
+
+    Enum.reduce_while(ours, state, fn ws, state ->
+      want = Map.get(wanted, ws, %{})
+      held = Map.get(state.shown, ws, %{})
+
+      cond do
+        want != held -> send_line(state, ws, want, now)
+        want != %{} and due?(state, ws, now) -> send_line(state, ws, want, now)
+        true -> {:cont, state}
+      end
+    end)
+  end
+
+  defp due?(state, ws, now),
+    do:
+      now - Map.get(state.sent_at, ws, now - state.sidebar_refresh_ms) >= state.sidebar_refresh_ms
+
+  defp send_line(state, ws, want, now) do
+    tokens = Map.new(Sidebar.keys(), &{&1, Map.get(want, &1)})
+
+    case state.herdr.report_metadata(state.socket, ws, tokens, state.sidebar_ttl_ms) do
+      :ok ->
+        {:cont,
+         %{
+           state
+           | shown: Map.put(state.shown, ws, want),
+             sent_at: sent(state.sent_at, ws, want, now)
+         }}
+
+      {:error, reason} ->
+        {:halt,
+         warn_once(
+           state,
+           :report_metadata,
+           "herdr would not take a sidebar line (#{inspect(reason)})"
+         )}
+    end
+  end
+
+  # A workspace whose line has been cleared is forgotten, so the house stops
+  # speaking for one it no longer has a line on.
+  defp sent(sent_at, ws, want, _now) when want == %{}, do: Map.delete(sent_at, ws)
+  defp sent(sent_at, ws, _want, now), do: Map.put(sent_at, ws, now)
+
+  # The mice re-sort only when one starts or stops needing the person, so rows
+  # do not jump under the cursor and the person's own drag order stands
+  # otherwise; mice that want the same keep the order they are in. The block
+  # lands where its first member sits now.
+  defp sort(state, lines, placed, workspaces) do
+    needing = for line <- lines, Sidebar.needs_you?(line), into: MapSet.new(), do: line.mouse_id
+
+    if needing == state.needing do
+      state
+    else
+      reorder(%{state | needing: needing}, lines, placed, workspaces)
+    end
+  end
+
+  defp reorder(state, lines, placed, workspaces) do
+    position = workspaces |> Enum.with_index() |> Map.new(fn {ws, i} -> {ws.workspace_id, i} end)
+
+    members =
+      lines
+      |> Enum.filter(&Map.has_key?(placed, &1.mouse_id))
+      |> Enum.map(&{&1.rank, placed[&1.mouse_id]})
+      |> Enum.uniq_by(&elem(&1, 1))
+
+    wanted =
+      members |> Enum.sort_by(fn {rank, ws} -> {rank, position[ws]} end) |> Enum.map(&elem(&1, 1))
+
+    current = members |> Enum.map(&elem(&1, 1)) |> Enum.sort_by(&position[&1])
+
+    if wanted == current do
+      state
+    else
+      move(state, wanted, anchor(workspaces, current))
+    end
+  end
+
+  defp anchor(workspaces, [first | _] = members) do
+    block = MapSet.new(members)
+
+    workspaces
+    |> Enum.map(& &1.workspace_id)
+    |> Enum.drop_while(&(&1 != first))
+    |> Enum.find(&(not MapSet.member?(block, &1)))
+  end
+
+  defp move(state, ids, before) do
+    case state.herdr.move_block(state.socket, ids, before) do
+      {:ok, _order} ->
+        state
+
+      {:error, reason} ->
+        warn_once(state, :move_block, "herdr would not re-sort the mice (#{inspect(reason)})")
     end
   end
 
@@ -1063,8 +1273,8 @@ defmodule Whiska.Owl.House do
   end
 
   # How long delivery has been holding, and why. The gate is unchanged
-  # (ADR-0008, ADR-0047); this only remembers what it decided, so the board can
-  # say it (ADR-0058). A hold whose reason changes — mid-turn, then a draft in
+  # (ADR-0008, ADR-0047); this only remembers what it decided, so the sidebar
+  # can say it (ADR-0058). A hold whose reason changes — mid-turn, then a draft in
   # the box — is one hold that has not let go, so the clock keeps running.
   defp hold(%{held_since: %DateTime{}} = state, reason), do: %{state | held_reason: reason}
   defp hold(state, reason), do: %{state | held_since: now(), held_reason: reason}

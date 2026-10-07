@@ -16,6 +16,7 @@ defmodule Whiska.Owl.DeliveryTest do
   alias Whiska.Storage
 
   setup :verify_on_exit!
+  setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   @socket "/fake/herdr.sock"
   @main_pane "w1:p2"

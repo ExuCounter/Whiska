@@ -231,3 +231,10 @@ entries, not the `statusLine` command.
 That is the same trust ADR-0016 already asks for — a cloned repo's `.claude/` is executed
 — widened from "using a tool here" to "opening this". Accepted, because the alternative is
 no repo-scoped line at all, and it is written down here rather than discovered later.
+
+## Amendment, 2026-10-07: the repo-scoped line moves to herdr's sidebar
+
+The amendment above kept the repo's own line in Claude Code's statusline. [ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md) moves it
+into herdr's sidebar, a line under each mouse's workspace, and takes the statusline out. The
+tab bar is unchanged, and the rule here holds for the sidebar too: the colours are rows in
+the person's herdr config, which `whiska doctor` prints and Whiska never writes.

@@ -21,6 +21,7 @@ defmodule Whiska.Owl.HouseDoorbellTest do
   alias Whiska.Test.GitRepo
 
   setup :verify_on_exit!
+  setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   @socket "/fake/herdr.sock"
   @screens Path.expand("../../support/screens", __DIR__)

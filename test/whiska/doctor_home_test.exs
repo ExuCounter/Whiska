@@ -14,6 +14,7 @@ defmodule Whiska.DoctorHomeTest do
   alias Whiska.Install
 
   setup :verify_on_exit!
+  setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   @stripped_path "/usr/bin:/bin"
 

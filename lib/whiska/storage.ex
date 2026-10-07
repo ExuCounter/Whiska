@@ -419,7 +419,7 @@ defmodule Whiska.Storage do
   branch's parent folder used to mint, and any other stale record — is taken
   out of the queue here: `settled` where the mouse's branch landed, `orphaned`
   where it did not (ADR-0064). Either is kept (ADR-0007); an orphan is counted
-  on the board's own `orphaned` line (ADR-0051) and listed apart by
+  on the main checkout's sidebar line and listed apart by
   `whiska questions`, which says there is nowhere to reply.
 
   `mark_dead/1` does the same for one mouse at the moment it dies; this is the
@@ -609,8 +609,8 @@ defmodule Whiska.Storage do
   Every mouse whose last pickup has not been followed by anything reaching the
   doorstep, and when it was picked up (ADR-0067).
 
-  The branches the board says were picked up: once the nudged turn ends, the
-  pickup is history rather than news, and the row goes back to saying what the
+  The branches the sidebar says were picked up: once the nudged turn ends, the
+  pickup is history rather than news, and the line goes back to saying what the
   mouse is doing.
   """
   @spec picked_up() :: %{String.t() => DateTime.t()}
@@ -803,8 +803,8 @@ defmodule Whiska.Storage do
   Its mouse died (ADR-0026) or its worktree is gone (ADR-0036), and its branch
   never landed — one that did is `settled` instead (ADR-0064). Kept forever
   (ADR-0007), never delivered, and shown apart from what the person can still
-  answer: `whiska questions` lists them under their own heading and the board
-  counts them on its own `🐱 n orphaned` line (ADR-0051).
+  answer: `whiska questions` lists them under their own heading and the main
+  checkout's sidebar line counts them, `◌ n orphaned`.
   """
   @spec orphaned_questions() :: [Question.t()]
   def orphaned_questions, do: questions_with_status(["orphaned"])

@@ -37,9 +37,8 @@ C4Component
     Component(storage, "Whiska.Storage", "Ecto", "Questions, mode, dead mice")
     Component(record, "Whiska.OpenHouses", "text file", "Which houses are open; trusted only while an owl is alive")
     Component(backstop, "Whiska.Backstop", "text file", "How much this house's backstop collected that the idle trigger missed")
-    Component(watch, "Whiska.Watch", "renderer", "A row per mouse: branch, pane status, how long it has been going, and the question waiting, the mouse's topic, or its last action")
-    Component(ink, "Whiska.Watch.Ink", "renderer", "Plain ANSI for the branch, a waiting question and the elapsed time; never a full reset, so a stale board's dim survives the row")
-    Component(snapshot, "Whiska.Watch.Snapshot", "text files", "The board for one house, in ~/.whiska/board/, and the pane it delivers to beside it")
+    Component(watch, "Whiska.Watch", "the board", "The facts about each mouse: its question, how its pane stands with herdr, its topic and last action")
+    Component(sidebar, "Whiska.Sidebar", "pure", "Each mouse's sidebar line, ranked and led by its colour-key symbol; the main checkout's line; which workspace each goes under")
     Component(transcript, "Whiska.Watch.Transcript", "reader", "The last tool call or sentence and how long the mouse has been silent, from its own Claude Code transcript, over Whiska.Transcript, which pickup reads too")
   }
 
@@ -79,11 +78,11 @@ C4Component
   Rel(mousepane, herdrb, "Which worktrees are this checkout's", "worktree.list")
   Rel(pickup, doorstep, "Is anything of this mouse's still uncollected")
   Rel(pickup, storage, "Reads worked_at, stamps picked_up_at")
-  Rel(house, watch, "Renders the board every second")
-  Rel(watch, transcript, "What a blocked or stalled mouse is stuck in")
+  Rel(house, watch, "Builds the board every 2 s")
+  Rel(watch, transcript, "What a working mouse is doing, or a stalled one is stuck in")
   Rel(pickup, transcript, "Does the mouse's transcript end on an API error")
-  Rel(watch, ink, "Colours the branch, the question and the elapsed time")
-  Rel(house, snapshot, "Writes the board where the statusline will find it")
+  Rel(house, sidebar, "Turns the board into lines every second")
+  Rel(house, herdrb, "Reports each line on its workspace; reads them back; re-sorts the mice", "workspace.report_metadata, workspace.list, workspace.move_block")
   Rel(storage, db, "Ecto/exqlite")
 
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
@@ -112,15 +111,17 @@ in `Whiska.Backstop` for `whiska doctor` to read later. Collecting at open does 
 idle trigger's own retries. Without this, a trigger that never fires looks exactly like a
 healthy owl, which is what happened (ADR-0036, note of 2026-09-28).
 
-**The board is written, never asked for** (ADR-0051). Every other second the house lists herdr's
-panes, renders a row per mouse and replaces one file; in between it rewrites that file with
-only the elapsed times moved on. Nothing is typed into a session to produce it: a mouse's topic rides in on the pane list herdr answers with
-anyway, what it is stuck in comes from the transcript Claude Code is already writing
-(ADR-0050), and a mouse with neither simply has an empty column.
-The statusline script then prints that file and starts nothing, which is what makes a
-one-second refresh affordable in every open session at once. The recorded main pane is
-written beside it in the same breath, which is how a session finds out whether it is the
-one being delivered to without starting anything either (ADR-0065).
+**Each mouse's line is reported, never asked for**
+(ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). Every other second the house lists
+herdr's panes and workspaces and builds the board; every second it turns the board into
+lines and reports each one that differs from what herdr holds onto that mouse's workspace,
+with a thirty-second TTL, sent again before it lapses. Reading the workspaces back is how a
+herdr restart, which drops every line, is noticed: the lines are gone, so they are sent
+again. Nothing is typed into a session to produce them: a mouse's topic rides in on the
+pane list herdr answers with anyway, and what it is doing comes from the transcript Claude
+Code is already writing (ADR-0050). The mice are re-sorted with `workspace.move_block` only
+when the set of them needing the person changes. A house touches only its own mice's
+workspaces and its main checkout's, whose line says what is true of the whole repo.
 
 **The screen is read in one place** (ADR-0047). herdr has no input signal, so the
 delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible screen,
@@ -200,7 +201,7 @@ branch landed and `orphaned` when it did not (ADR-0064). A mouse with no pane an
 house open is dead too, found by reconciling against `pane.list`; delivery is attempted
 straight after, so a slot freed that way does not wait for the backstop. The same
 reconciling runs when `workspace.closed` arrives, since herdr closes a dropped worktree's
-workspace without a `pane.closed` for its panes, and the board is redrawn on the spot.
+workspace without a `pane.closed` for its panes, and the lines are rebuilt on the spot.
 
 **Pickup is cleanup's mirror image, and runs on the same tick** (ADR-0067). Cleanup asks
 whether a branch is finished with; pickup asks whether a turn ended without finishing.
@@ -223,5 +224,5 @@ least 90 s apart, at most three times, within exactly the bounds pickup types wi
 before it is typed and put back if herdr refuses — or its client crashes — the order
 pickup's cap uses. After the third, the answer is marked not taken once and the house
 raises one hoot, waiting first for the person to be back if they are away or focused
-elsewhere (`Whiska.Delivery.Mode`); the board row, `inbox` and `whiska questions` say so
+elsewhere (`Whiska.Delivery.Mode`); the sidebar line, `inbox` and `whiska questions` say so
 until the mouse takes it. Pickup leaves such a mouse alone: its next turn never began.

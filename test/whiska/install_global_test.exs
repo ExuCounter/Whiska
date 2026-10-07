@@ -116,35 +116,6 @@ defmodule Whiska.InstallGlobalTest do
     end
   end
 
-  describe "statusline_command/1" do
-    test "the global one names the home copy of the script" do
-      assert Install.statusline_command(:global) =~ "$HOME/.claude/hooks/whiska-statusline.sh"
-    end
-  end
-
-  describe "statusline_script/0 — keeping the person's own global line" do
-    test "falls back to the displaced line when the global statusLine is Whiska's" do
-      script = Install.statusline_script()
-
-      assert script =~ Install.base_statusline_path()
-      assert script =~ "whiska-statusline.sh"
-    end
-
-    test "the board is still found by walking up from the session's directory" do
-      # Nothing about the global install changes this: the board file is named
-      # after the main checkout, and the script walks up to find it.
-      script = Install.statusline_script()
-
-      assert script =~ "board/"
-      assert script =~ "dirname"
-      assert script =~ "project_dir current_dir cwd"
-    end
-
-    test "a mouse's own pane still draws no board" do
-      assert Install.statusline_script() =~ "*/worktrees/*"
-    end
-  end
-
   describe "skills/1" do
     test "the global install ships every skill, the worktree ones and the eight words included" do
       assert Install.skills(:global) == Install.skills()
@@ -176,7 +147,7 @@ defmodule Whiska.InstallGlobalTest do
   end
 
   describe "merge/2 — ~/.claude/settings.json" do
-    test "wires both hooks and the statusline, global-flavoured" do
+    test "wires both hooks, global-flavoured, and no statusline" do
       merged = Install.merge(%{}, :global)
 
       assert [%{"hooks" => [%{"command" => pre}]}] = merged["hooks"]["PreToolUse"]
@@ -185,7 +156,7 @@ defmodule Whiska.InstallGlobalTest do
       assert [%{"hooks" => [%{"command" => stop}]}] = merged["hooks"]["Stop"]
       assert stop == Install.stop_command(:global)
 
-      assert merged["statusLine"]["command"] == Install.statusline_command(:global)
+      refute Map.has_key?(merged, "statusLine")
     end
 
     test "never clobbers the person's other settings" do
@@ -248,7 +219,7 @@ defmodule Whiska.InstallGlobalTest do
 
         assert [%{"hooks" => [%{"command" => command}]}] = merged["hooks"]["PreToolUse"]
         assert command == Install.command(:global)
-        assert merged["statusLine"]["command"] == Install.statusline_command(:global)
+        assert merged["statusLine"] == settings["statusLine"]
         assert JSON.encode!(merged)
       end
     end
@@ -257,19 +228,6 @@ defmodule Whiska.InstallGlobalTest do
       for settings <- @malformed do
         assert JSON.encode!(Install.unmerge(settings, nil))
       end
-    end
-  end
-
-  describe "displaced/1 — the global statusLine the install pushes aside" do
-    test "names the person's own line" do
-      assert Install.displaced(%{"statusLine" => %{"command" => "mine.sh"}}) == "mine.sh"
-    end
-
-    test "is nothing when there is no line, or when the line is already ours" do
-      assert Install.displaced(%{}) == nil
-
-      assert Install.displaced(%{"statusLine" => %{"command" => Install.statusline_command()}}) ==
-               nil
     end
   end
 
@@ -293,7 +251,8 @@ defmodule Whiska.InstallGlobalTest do
     end
 
     test "restores the statusLine that was displaced" do
-      settings = Install.merge(%{}, :global)
+      ours = ~s|bash "$HOME/.claude/hooks/whiska-statusline.sh"|
+      settings = %{"statusLine" => %{"command" => ours}}
 
       assert Install.unmerge(settings, "mine.sh")["statusLine"] == %{
                "type" => "command",
@@ -302,7 +261,8 @@ defmodule Whiska.InstallGlobalTest do
     end
 
     test "drops the statusLine entirely when nothing was displaced" do
-      settings = Install.merge(%{}, :global)
+      ours = ~s|bash "$HOME/.claude/hooks/whiska-statusline.sh"|
+      settings = %{"statusLine" => %{"command" => ours}}
       refute Map.has_key?(Install.unmerge(settings, nil), "statusLine")
     end
 

@@ -149,6 +149,77 @@ defmodule Whiska.Herdr.Socket do
     %{path: raw["path"], branch: raw["branch"], workspace_id: raw["open_workspace_id"]}
   end
 
+  @impl true
+  def version(socket) do
+    with {:ok, %{"result" => %{"version" => version}}} when is_binary(version) <-
+           request(socket, "ping", %{}) do
+      {:ok, version}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  @impl true
+  def workspaces(socket) do
+    with {:ok, %{"result" => %{"workspaces" => workspaces}}} when is_list(workspaces) <-
+           request(socket, "workspace.list", %{}) do
+      {:ok, Enum.map(workspaces, &workspace/1)}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  # One source for every line Whiska reports, so herdr can tell them apart from
+  # anybody else's tokens on the same workspace. No `seq`: there is one owl
+  # (ADR-0001), and herdr applies a source's unsequenced reports in the order
+  # they arrive.
+  @impl true
+  def report_metadata(socket, workspace_id, tokens, ttl_ms) do
+    params = %{
+      "workspace_id" => workspace_id,
+      "source" => "whiska",
+      "tokens" => tokens,
+      "ttl_ms" => ttl_ms
+    }
+
+    with {:ok, %{"result" => _}} <- request(socket, "workspace.report_metadata", params) do
+      :ok
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  @impl true
+  def move_block(socket, workspace_ids, before) do
+    params =
+      if before,
+        do: %{"workspace_ids" => workspace_ids, "before_workspace_id" => before},
+        else: %{"workspace_ids" => workspace_ids}
+
+    with {:ok, %{"result" => %{"workspaces" => workspaces}}} when is_list(workspaces) <-
+           request(socket, "workspace.move_block", params) do
+      {:ok, Enum.map(workspaces, &workspace/1)}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp workspace(raw) do
+    tree = if is_map(raw["worktree"]), do: raw["worktree"], else: %{}
+
+    %{
+      workspace_id: raw["workspace_id"],
+      number: raw["number"],
+      path: tree["checkout_path"],
+      linked?: tree["is_linked_worktree"],
+      tokens: if(is_map(raw["tokens"]), do: raw["tokens"], else: %{})
+    }
+  end
+
   # `position` is deliberately not sent: herdr documents it as affecting its
   # own in-app toast only, and where that toast sits is the person's taste,
   # already settled in their config.

@@ -9,6 +9,7 @@ defmodule Whiska.CLIDoctorTest do
   alias Whiska.Herdr.Mock, as: Herdr
 
   setup :verify_on_exit!
+  setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   setup do
     root = Path.join(System.tmp_dir!(), "whiska-cli-doctor-#{System.unique_integer([:positive])}")

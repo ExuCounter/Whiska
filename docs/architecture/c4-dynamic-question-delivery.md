@@ -3,7 +3,7 @@
 **All of this is built and tested**: the doorstep and collection (ADR-0036),
 classification (ADR-0009), the hook's reading of the transcript before it writes anything
 (ADR-0052), the idle-gated delivery queue (ADR-0008) with its hold while
-the person is typing (ADR-0047) — said on the board once it has lasted (ADR-0058) — the
+the person is typing (ADR-0047) — said on the main checkout's sidebar line once it has lasted (ADR-0058) — the
 release of anything nothing can answer (ADR-0057), the hoot that goes out with the line
 (ADR-0062), the reply keyed to a question id (ADR-0005), and the answer taken by the mouse's own hook rather than typed (ADR-0080). Shown as a dynamic diagram because the ordering is the
 design. Nothing here crosses into another repo: the nudge that once did was deleted by
@@ -114,8 +114,8 @@ Claude could not tell from a prompt, and cost that session a turn each time.
 
 The machine-wide view has since left Claude Code: herdr's tab bar draws one line for the
 whole session and runs it on its own timer, reading every recorded house off disk
-(ADR-0048). What Claude Code's statusline still draws is that repo's own line, which
-needs nothing from any other house. Nothing in this flow reaches out of the repo it
+(ADR-0048). Each repo's own mice are lines its house reports under their workspaces in
+herdr's sidebar, which needs nothing from any other house. Nothing in this flow reaches out of the repo it
 started in.
 
 ## Steps 6–8 — a queue, not a batch (ADR-0008)
@@ -147,7 +147,7 @@ left on the doorstep by a mouse that was marked dead in the meantime is released
 than delivered, and so is one belonging to a record that no longer stands for a worktree
 of this house (ADR-0051). Released means `settled` where the mouse's branch landed — the
 merge was the answer, and it is counted on no line at all — and `orphaned` where it did
-not, which is kept, counted on the board's own `orphaned` line, and read with
+not, which is kept, counted on the main checkout's sidebar line, and read with
 `whiska questions`, which says there is nowhere to reply (ADR-0064).
 `whiska doctor` still names a dead mouse holding the slot, now as a thing that should not
 be there rather than a state to wait out.
@@ -160,7 +160,7 @@ slot against it; a **held** mouse's questions never go, and its `sent` one frees
 too. A `sent` question set aside this way stays `sent` — nothing is delivered twice — and
 once the mode is lifted the queue waits behind the oldest `sent` one again, oldest first.
 The person sets all three from a CLI process the owl cannot hear, so the house compares
-the mode on the tick that already rebuilds the board and attempts a delivery when it
+the mode on the tick that already rebuilds the sidebar's board and attempts a delivery when it
 moved: a `resume` is followed by the first waiting question within about two seconds.
 
 When herdr reports `claude` + `unknown` — the integration is broken — **deliver anyway
@@ -176,8 +176,8 @@ marker `❯` is also how Claude Code redraws past messages, and a stray rule und
 would frame the status lines). A draft in it holds the question — open,
 first in the queue, gone on the next trigger once the box clears — and `whiska doctor`
 says `gated: person is typing` meanwhile. A hold that lasts more than ten seconds also
-says so on the board, on its waiting line: `🐱 3 waiting · gated: your prompt box isn't
-empty` (ADR-0058; the word was "held" until a mouse on hold took it). Nothing is ever
+says so on the main checkout's sidebar line: `⏳ gated: you're typing`
+(ADR-0058; the word was "held" until a mouse on hold took it). Nothing is ever
 typed into a box the person is mid-sentence in.
 
 A screen with **no box at all** holds too, and says `gated: your prompt box isn't on

@@ -100,7 +100,7 @@ defmodule Whiska.Doctor do
     {herdr_check, panes} = herdr(env, herdr)
     settings = read_settings(main_checkout)
     global_state = Install.global_state()
-    hooks = hooks(settings, global_state) ++ [statusline(settings, global_state)]
+    hooks = hooks(settings, global_state)
     {shim_scope, shim_root} = shim_in_force(main_checkout, global_state)
     shim = shim(read_shim(shim_root), shim_scope)
 
@@ -121,7 +121,10 @@ defmodule Whiska.Doctor do
         built(main_checkout, installed_at, binary_path) ++
         [
           runtime(env),
-          herdr_check,
+          herdr_check
+        ] ++
+        herdr_version(herdr, env, panes) ++
+        [
           owl(pids, Map.new(pids, &{&1, owl_started_at.(&1)}), installed_at, binary_path)
         ] ++
         supervision(manager, ready.(), installed?, agent, pids, lingers) ++
@@ -132,13 +135,19 @@ defmodule Whiska.Doctor do
             File.exists?(Install.herdr_status_path()),
             File.read(Install.herdr_status_path()) == {:ok, Install.herdr_status_script()}
           ),
+          sidebar(read_herdr_config(env)),
           hoot_probe(herdr, desktop, env),
           global(global_state),
           commands(Install.commands_dir(), env)
         ] ++
         hooks ++
         [shim] ++
-        repo_statusline_script(main_checkout) ++
+        [
+          retired_statusline(
+            Install.retired_statusline(main_checkout),
+            Map.get(global_state, :retired_statusline, [])
+          )
+        ] ++
         retired(main_checkout) ++
         probes ++
         [
@@ -249,7 +258,7 @@ defmodule Whiska.Doctor do
   the one to stop. A process
   older than its own binary is the gap this moduledoc already claimed to cover
   and did not: nothing about a running owl changes when the escript under it is
-  replaced, so a fix lands, the board keeps drawing the behaviour from before
+  replaced, so a fix lands, the sidebar keeps showing the behaviour from before
   it, and the owl line says `running` throughout. Either time being unknown
   leaves the plain line, never a guess.
 
@@ -576,7 +585,6 @@ defmodule Whiska.Doctor do
   @global_pieces [
     {:hooks?, "hooks"},
     {:session_start?, "SessionStart hook"},
-    {:statusline?, "statusline"},
     {:skills?, "skills"}
   ]
 
@@ -745,101 +753,123 @@ defmodule Whiska.Doctor do
   end
 
   @doc """
-  The project statusline: ours, and redrawn on a timer (ADR-0027, ADR-0044).
+  What an older init left of the Claude Code statusline, in the repo and in
+  the home (`Whiska.Install.retired_statusline/1`).
 
-  Nothing is lost when this is wrong — questions are still collected and still
-  delivered — so the worst it goes is a warning. What is lost is this repo's own
-  view of itself: with no `refreshInterval`, Claude Code re-runs the line only
-  when this session's own conversation changes, and a mouse that spawns, dies or
-  asks a second question while the person sits still changes nothing in it.
-
-  Any interval of a second or more reads as ok: this reports and never argues
-  with a number the person typed. `whiska init` is the other half of ADR-0044's
-  decision and does replace the whole entry, interval included, every time it
-  runs.
+  Each mouse's state is a line in herdr's sidebar
+  (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar), and a leftover script
+  draws nothing — it prints the person's own line and stops. So a leftover is a
+  warning with the init that takes it out, never a failure.
   """
-  @spec statusline(map(), map()) :: Check.t()
-  def statusline(settings, global \\ %{}) when is_map(settings) do
-    case settings["statusLine"] do
-      %{"command" => command} = entry when is_binary(command) ->
-        ours_statusline(entry, command)
+  @spec retired_statusline([String.t()], [String.t()]) :: Check.t()
+  def retired_statusline([], []),
+    do: Check.ok("statusline", "none of Whiska's — the mice are in herdr's sidebar")
 
-      _ when not is_map_key(global, :statusline?) or not :erlang.map_get(:statusline?, global) ->
-        Check.warn(
-          "statusLine",
-          "no project statusLine — nothing here says what is waiting",
-          @init
-        )
+  def retired_statusline(repo, []), do: leftover(repo, @init)
+  def retired_statusline([], home), do: leftover(Enum.map(home, &("~/" <> &1)), @init_global)
 
-      _ ->
-        Check.ok("statusLine", "drawn globally, from ~/.claude")
-    end
-  end
+  def retired_statusline(repo, home),
+    do: leftover(repo ++ Enum.map(home, &("~/" <> &1)), @init <> "; " <> @init_global)
 
-  defp ours_statusline(entry, command) do
-    interval = entry["refreshInterval"]
-
-    cond do
-      not String.contains?(command, Install.statusline_path()) ->
-        Check.warn(
-          "statusLine",
-          "somebody else's script — this repo's line is not shown here",
-          @init
-        )
-
-      is_integer(interval) and interval >= 1 ->
-        Check.ok("statusLine", "wired, redrawn every #{interval}s")
-
-      true ->
-        Check.warn(
-          "statusLine",
-          "wired, but with no refreshInterval — a mouse that spawns or asks " <>
-            "stays invisible while this session is idle",
-          @init
-        )
-    end
+  defp leftover(paths, fix) do
+    Check.warn(
+      "statusline",
+      "an older init's Claude Code statusline is still here (#{Enum.join(paths, ", ")}); " <>
+        "the mice are in herdr's sidebar now",
+      fix
+    )
   end
 
   @doc """
-  The copy of the statusline script this repo carries (ADR-0059).
+  The rows in the person's herdr config that draw each mouse's line
+  (`Whiska.Sidebar.snippet/0`).
 
-  `contents` is the repo's own `.claude/hooks/whiska-statusline.sh`, which is
-  committed and shared with whoever else works here, so nothing rewrites it.
-  A copy an older `whiska init` wrote still runs, and what it leaves out is
-  silent: the one this build ships falls back to the base line the global
-  install kept beside it (ADR-0056), and without that fallback the person's
-  own model-and-branch line disappears along with the board.
-
-  So the stamp is compared and the answer is an upgrade notice rather than a
-  fault — nothing here is broken, there is simply a newer script to write. A
-  repo whose copy is *newer* than this build is the other direction: somebody
-  else ran a newer `whiska init` and committed it, and running this one would
-  write the older script back over a shared file, so the fix named is the
-  binary rather than `init`.
+  `config` is herdr's `config.toml`, or `nil` when there is none. A config
+  that colours the line by words in it is warned about too: a working mouse's
+  line is its own free text, so a word can colour it as a state it is not, and
+  the snippet colours by the first symbol, which only Whiska writes. The config
+  is the person's, so this prints and never writes (ADR-0048).
   """
-  @spec statusline_script(String.t()) :: Check.t()
-  def statusline_script(contents) when is_binary(contents) do
-    shipped = Install.statusline_version()
+  @spec sidebar(String.t() | nil) :: Check.t()
+  def sidebar(config) do
+    config = config || ""
+    uncoloured = Enum.reject(Whiska.Sidebar.symbols(), &coloured?(config, &1))
 
-    case Install.statusline_version_of(contents) do
-      ^shipped ->
-        Check.ok("statusline script", "up to date (v#{shipped})")
+    cond do
+      not String.contains?(config, "$whiska") ->
+        Check.warn("sidebar", "nothing in herdr's config draws the mice's lines", snippet(config))
 
-      nil ->
-        Check.warn("statusline script", "whiska upgrade is available", @init)
-
-      newer when newer > shipped ->
+      not String.contains?(config, "starts_with") ->
         Check.warn(
-          "statusline script",
-          "v#{newer} — newer than this whiska (v#{shipped}); `whiska init` would write " <>
-            "the older one back over it",
-          @reinstall
+          "sidebar",
+          "the lines are coloured by words in them, which a mouse's own topic can match; " <>
+            "colour them by their first symbol",
+          snippet(config)
         )
 
-      older ->
-        Check.warn("statusline script", "v#{older}; whiska upgrade is available", @init)
+      uncoloured != [] ->
+        Check.warn(
+          "sidebar",
+          "no colour rule for #{Enum.join(uncoloured, " ")} — those lines show uncoloured",
+          snippet(config)
+        )
+
+      true ->
+        Check.ok("sidebar", "herdr draws each mouse's line under its workspace")
     end
   end
+
+  defp coloured?(config, symbol),
+    do: Regex.match?(~r/starts_with\s*=\s*"#{Regex.escape(symbol)}"/u, config)
+
+  # herdr refuses a config with the same table twice, so one already there is
+  # replaced rather than pasted beside.
+  defp snippet(config) do
+    how =
+      if String.contains?(config, "[ui.sidebar.spaces]"),
+        do: "replace the [ui.sidebar.spaces] table in #{Herdr.config_path()} with",
+        else: "paste into #{Herdr.config_path()}"
+
+    how <> ":\n" <> Whiska.Sidebar.snippet()
+  end
+
+  @doc """
+  Whether herdr is new enough for the sidebar: `workspace.report_metadata` and
+  the `rules` its colours need arrived in 0.9. A version that does not read as
+  numbers is not called old.
+  """
+  @spec herdr_version(String.t()) :: Check.t()
+  def herdr_version(version) do
+    case parse_version(version) do
+      {major, minor} when {major, minor} < {0, 9} ->
+        Check.warn(
+          "herdr version",
+          "#{version} — the mice's sidebar lines need 0.9 or newer",
+          "herdr update"
+        )
+
+      _new_enough_or_unreadable ->
+        Check.ok("herdr version", version)
+    end
+  end
+
+  defp parse_version(version) do
+    case Regex.run(~r/^(\d+)\.(\d+)/, version, capture: :all_but_first) do
+      [major, minor] -> {String.to_integer(major), String.to_integer(minor)}
+      nil -> nil
+    end
+  end
+
+  # Asked only of a herdr that has already answered, so an unreachable one is
+  # one warning, not two.
+  defp herdr_version(herdr, env, {:ok, _panes}) do
+    case herdr.version(env["HERDR_SOCKET_PATH"]) do
+      {:ok, version} -> [herdr_version(version)]
+      {:error, _} -> []
+    end
+  end
+
+  defp herdr_version(_herdr, _env, _no_herdr), do: []
 
   @doc """
   Whether the hoot the owl raises on every delivery is seen (ADR-0062).
@@ -1089,15 +1119,6 @@ defmodule Whiska.Doctor do
           "rm #{path}"
         ),
       else: Check.ok("review loop", "none")
-  end
-
-  # A repo with no copy of its own has nothing to say here: the global install
-  # draws the line, and `statusline/2` already reports on that.
-  defp repo_statusline_script(main_checkout) do
-    case File.read(Path.join(main_checkout, Install.statusline_path())) do
-      {:ok, contents} -> [statusline_script(contents)]
-      {:error, _} -> []
-    end
   end
 
   defp retired(main_checkout) do

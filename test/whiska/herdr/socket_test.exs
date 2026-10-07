@@ -480,4 +480,133 @@ defmodule Whiska.Herdr.SocketTest do
                Socket.remove_worktree(path, "ws-7")
     end
   end
+
+  # The shape herdr 0.9.3 answers `workspace.list` with, checked live on
+  # 2026-10-07: `tokens` is there only once something reported one, and
+  # `worktree` only for a workspace opened on a git checkout.
+  defp raw_workspaces do
+    [
+      %{
+        "workspace_id" => "w1",
+        "number" => 1,
+        "label" => "myrepo",
+        "worktree" => %{"checkout_path" => "/main", "is_linked_worktree" => false}
+      },
+      %{
+        "workspace_id" => "w7",
+        "number" => 2,
+        "label" => "feat/a",
+        "tokens" => %{"whiska" => "🐭 #3 · waiting on you"},
+        "worktree" => %{"checkout_path" => "/main/worktrees/feat/a", "is_linked_worktree" => true}
+      },
+      %{"workspace_id" => "w9", "number" => 3, "label" => "scratch"}
+    ]
+  end
+
+  describe "version/1" do
+    test "asks ping and answers herdr's version" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_reply, %{"type" => "pong", "version" => "0.9.3", "protocol" => 22}})
+
+      assert {:ok, "0.9.3"} = Socket.version(path)
+      assert_received {:fake_got, %{"method" => "ping", "params" => %{}}}
+    end
+  end
+
+  describe "workspaces/1" do
+    test "asks workspace.list, in order, with the tokens herdr holds" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_reply, %{"type" => "workspace_list", "workspaces" => raw_workspaces()}})
+
+      assert {:ok, workspaces} = Socket.workspaces(path)
+      assert_received {:fake_got, %{"method" => "workspace.list", "params" => %{}}}
+
+      assert workspaces == [
+               %{workspace_id: "w1", number: 1, path: "/main", linked?: false, tokens: %{}},
+               %{
+                 workspace_id: "w7",
+                 number: 2,
+                 path: "/main/worktrees/feat/a",
+                 linked?: true,
+                 tokens: %{"whiska" => "🐭 #3 · waiting on you"}
+               },
+               %{workspace_id: "w9", number: 3, path: nil, linked?: nil, tokens: %{}}
+             ]
+    end
+
+    test "fails when there is no herdr" do
+      assert {:error, _} = Socket.workspaces("/nonexistent/herdr.sock")
+    end
+  end
+
+  describe "report_metadata/4" do
+    test "asks workspace.report_metadata as whiska, a nil token clearing it" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_reply, %{"type" => "ok"}})
+
+      tokens = %{"whiska" => "◐ order builder", "whiska_q" => nil}
+      assert :ok = Socket.report_metadata(path, "w7", tokens, 30_000)
+
+      assert_received {:fake_got,
+                       %{
+                         "method" => "workspace.report_metadata",
+                         "params" => %{
+                           "workspace_id" => "w7",
+                           "source" => "whiska",
+                           "tokens" => %{"whiska" => "◐ order builder", "whiska_q" => nil},
+                           "ttl_ms" => 30_000
+                         }
+                       }}
+    end
+
+    test "an older herdr that has no such method is an error carrying its code" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_error, %{"code" => "unknown_method", "message" => "no such method"}})
+
+      assert {:error, {:herdr, %{"code" => "unknown_method"}}} =
+               Socket.report_metadata(path, "w7", %{"whiska" => "x"}, 30_000)
+    end
+  end
+
+  describe "move_block/3" do
+    test "asks workspace.move_block and answers the new order" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_reply, %{"type" => "workspace_list", "workspaces" => raw_workspaces()}})
+
+      assert {:ok, [%{workspace_id: "w1"}, %{workspace_id: "w7"}, %{workspace_id: "w9"}]} =
+               Socket.move_block(path, ["w7", "w1"], "w9")
+
+      assert_received {:fake_got,
+                       %{
+                         "method" => "workspace.move_block",
+                         "params" => %{
+                           "workspace_ids" => ["w7", "w1"],
+                           "before_workspace_id" => "w9"
+                         }
+                       }}
+    end
+
+    test "no anchor leaves it out, which moves the block to the end" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_reply, %{"type" => "workspace_list", "workspaces" => raw_workspaces()}})
+
+      assert {:ok, _} = Socket.move_block(path, ["w7"], nil)
+
+      assert_received {:fake_got,
+                       %{
+                         "method" => "workspace.move_block",
+                         "params" => %{"workspace_ids" => ["w7"]} = params
+                       }}
+
+      refute Map.has_key?(params, "before_workspace_id")
+    end
+
+    test "herdr refusing an anchor inside the block is an error carrying its code" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_error, %{"code" => "workspace_move_block_failed", "message" => "inside"}})
+
+      assert {:error, {:herdr, %{"code" => "workspace_move_block_failed"}}} =
+               Socket.move_block(path, ["w7"], "w7")
+    end
+  end
 end

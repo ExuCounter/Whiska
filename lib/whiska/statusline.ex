@@ -10,9 +10,9 @@ defmodule Whiska.Statusline do
   surface, and a line whose meaning changed as the person switched workspaces
   would be the confusing option.
 
-  One repo's own Claude Code statusline is the board (`Whiska.Watch`,
-  ADR-0051): a row per mouse, written to a file by the owl and printed by the
-  statusline script, so that line starts nothing.
+  What each mouse of a repo is doing is a line under its own workspace in
+  herdr's sidebar (`Whiska.Sidebar`, ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar), which the owl reports to herdr
+  itself.
 
   On the tab bar:
 

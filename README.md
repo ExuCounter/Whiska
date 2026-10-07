@@ -26,7 +26,7 @@ repo before it is put under launchd or systemd, which start it with no arguments
 
 ```bash
 cd your-repo
-whiska init                    # hooks, statusline, skills and CLAUDE.md block
+whiska init                    # hooks and skills, and an older install's leftovers out
 git add .claude CLAUDE.md && git commit -m "chore: enable whiska"
 
 whiska owl .                   # record this repo — runs in the foreground, Ctrl-C it
@@ -45,8 +45,6 @@ whiska start                   # records this pane, and starts Claude Code in it
 
 From inside a session that is already running, `! whiska start` records the pane and
 starts nothing; the `!` prefix runs it inside the session, so no restart is needed.
-Every other session in this checkout is told on its own statusline that answers do not
-land there.
 
 ```bash
 whiska doctor                  # is it working? every failing line names its own fix
@@ -68,15 +66,22 @@ whiska reply 12 "go with A"    # saved, and that session's doorbell rung; #12 is
 ```
 
 One at a time, and only while your pane is idle and you are not mid-draft; the rest queue
-silently. Your statusline shows them, drawn under your own:
+silently. herdr's sidebar shows each one under its mouse's workspace:
 
 ```
-~/projects/whiska  main ✔
-🐭 feat-watch-board     working  12m     A board the owl writes
-🐭 feat-quiet-marker    idle     1h 33m  waiting on you for 4m 12s · #52 · "sqlite or a plain file?"
-🐭 fix-doctor-probe     working  4m      Bash mix test
-🐭 feat-owl-snapshot    blocked  2h 5m   permission prompt in pane
-🐭 style-header-polish  idle     3d 4h   Header spacing on narrow panes
+myrepo
+  ⏳ gated: you're typing
+feat/quiet-marker
+  🐭 #52 · waiting on you · 4m
+  sqlite or a plain file?
+fix/doctor-probe
+  ⚠ stuck 6m
+  Bash mix test
+feat/cache-ttl
+  ⏳ queued behind #52
+  which cache TTL?
+feat/watch-board
+  ◐ A board the owl writes
 ```
 
 The words are the project's own: a **mouse** is one of those task sessions, a **house** is
@@ -98,9 +103,10 @@ question waits on the **doorstep** until the owl collects it —
 - **Answers are routed for you** — `whiska reply 12` saves the answer and rings mouse #12's
   own pane, whichever branch and worktree that is. The mouse's own hook hands the answer
   over whole, multi-line and all, and the owl rings again until it is taken.
-- **A board where you are already looking** — a row per live mouse in this repo's
-  statusline, five at most, drawn under your own line with nothing of yours replaced.
-  [Details](docs/internals.md#this-repos-board-in-claude-code)
+- **Each mouse's state where you click to reach it** — a line under its workspace in
+  herdr's sidebar, coloured by your own herdr config; the mice re-sort only when one
+  starts or stops needing you.
+  [Details](docs/internals.md#each-mouses-line-in-herdrs-sidebar)
 - **Mice stay out of each other's files** — a build mouse is denied writes into the main
   checkout and the worktrees beside it; a sniff mouse is denied them everywhere. Not a
   sandbox — see below.
@@ -136,12 +142,12 @@ away                            nothing is delivered anywhere until `resume`
 focus <branch>                  only that mouse's questions reach this repo's session
 hold <branch>                   that mouse stops where it is; `resume <branch>` lifts it
 resume [<branch>]               end away and focus, or lift one hold; oldest first
-whiska watch                    this repo's board, printed once
+whiska watch                    the lines herdr's sidebar shows for this repo, printed once
 whiska mice                     what is alive here — branch, mode, pane, uptime, pickups
 whiska worktrees                linked worktrees, their herdr workspace and pane, tab-separated
 whiska where                    where this directory is, as one line of JSON, for hooks
 whiska doctor                   check this repo end to end; exits 1 on any failure
-whiska statusline [--here]      the tab-bar line, or this repo's board
+whiska statusline               the tab-bar line
 whiska mode [build|sniff]       this mouse's mode; build|sniff gives one to a mouse nobody
                                 shaped, and refuses on one that has it. sniff writes nothing
 whiska init [--global]          install into this repo's .claude/, or into ~/.claude
@@ -181,7 +187,7 @@ Every field is always present. These fields are stable: a change to them bumps
 - **The machine-wide tab-bar line** — `whiska owl install` writes
   `~/.whiska/herdr-status.sh` and prints a `tab_bar_right` entry; paste it into
   `~/.config/herdr/config.toml` yourself and run `herdr server reload-config`.
-  [Details](docs/internals.md#wiring-the-two-statuslines).
+  [Details](docs/internals.md#wiring-the-tab-bar-and-the-sidebar).
 - **`keep` on a `CLAUDE.md` block marker** — claims that part so `init` never rewrites it.
   [Details](docs/internals.md#the-claudemd-block).
 - **`WHISKA_BIN` and `WHISKA_ESCRIPT`** — override how the hook shim finds the binary and

@@ -107,7 +107,7 @@ defmodule Whiska.E2ETest do
     main = Path.join(dir, "myrepo")
     File.mkdir_p!(main)
 
-    # A home of its own per test, where the owl writes this house's board.
+    # A home of its own per test, where the owl keeps its hoots.
     home = Path.join(dir, "home")
     env = List.keystore(context.env, "WHISKA_HOME", 0, {"WHISKA_HOME", home})
 
@@ -162,12 +162,24 @@ defmodule Whiska.E2ETest do
 
     finish_turn(c, mouse, "Which colour for the badge?\n\u2063\u2063")
 
-    # The board says so only once the hold has outlasted its fuse (ADR-0058),
-    # so this is the owl having tried and held, not merely the owl being slow.
-    await(fn -> board(c) =~ "gated: your prompt box isn't empty" end, 40_000, fn ->
-      "the board never said the draft held delivery.\n" <>
-        "received: #{inspect(received(main))}\n" <> diagnostics(c)
-    end)
+    # The main checkout's sidebar line says so only once the hold has outlasted
+    # its fuse (ADR-0058), so this is the owl having tried and held, not merely
+    # the owl being slow.
+    await(
+      fn -> sidebar(c)["main"]["whiska"] == "⏳ gated: you're typing" end,
+      40_000,
+      fn ->
+        "the sidebar never said the draft held delivery.\n" <>
+          "received: #{inspect(received(main))}\n" <> diagnostics(c)
+      end
+    )
+
+    # The mouse's own workspace carries the question it is waiting on.
+    assert %{"whiska" => "🐭 #" <> said, "whiska_q" => "Which colour for the badge?"} =
+             sidebar(c)["mouse"],
+           diagnostics(c)
+
+    assert said =~ ~r/^\d+ · waiting on you$/
 
     assert received(main) == []
 
@@ -299,14 +311,10 @@ defmodule Whiska.E2ETest do
 
   defp stop_owl(owl), do: System.cmd("kill", [to_string(owl.pid)], stderr_to_stdout: true)
 
-  defp board(c) do
-    case c.home
-         |> Path.join("board/*")
-         |> Path.wildcard()
-         |> Enum.reject(&(Path.extname(&1) != "")) do
-      [path] -> File.read!(path)
-      [] -> ""
-    end
+  # What herdr is showing under each workspace, by the label the test gave it.
+  defp sidebar(c) do
+    %{"result" => %{"workspaces" => workspaces}} = JSON.decode!(herdr!(c, ["workspace", "list"]))
+    Map.new(workspaces, &{&1["label"], Map.get(&1, "tokens", %{})})
   end
 
   defp diagnostics(c) do
@@ -316,7 +324,7 @@ defmodule Whiska.E2ETest do
           File.exists?(path),
           do: "--- #{name}\n#{File.read!(path)}"
 
-    Enum.join(files ++ ["--- board\n#{board(c)}"], "\n")
+    Enum.join(files ++ ["--- sidebar\n#{inspect(sidebar(c))}"], "\n")
   end
 
   # -- the house -------------------------------------------------------------------

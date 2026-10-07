@@ -1,5 +1,10 @@
 # The statusline script carries a version stamp, and an old copy is an upgrade notice
 
+**Superseded on 2026-10-07 by [ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md).**
+No statusline script is written any more, so there is no copy to stamp: `whiska doctor`
+names a leftover one as a warning, and `whiska init` removes it. Everything below is what
+this decision said, and is history.
+
 `whiska init` writes `.claude/hooks/whiska-statusline.sh` into the repo, and the repo keeps
 it: it is committed, so everyone working there runs the same line (ADR-0016). The script
 changes as the line does — it learned to print the board rather than ask for one

@@ -17,8 +17,6 @@ C4Container
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; resolves runtime at fire time, fails open, with a visible hook error in a worktree. The global copy stands down where the repo has its own")
     Container(statusline, "herdr-status.sh", "bash", "Machine-level status script in ~/.whiska; herdr's tab bar runs it on a timer")
-    Container(repoline, "whiska-statusline.sh", "bash", "Statusline script in the repo or in ~/.claude; Claude Code runs it every second. Starts nothing - it prints the board file")
-    Container(board, "Board file", "text files, ~/.whiska/board/", "The rows of this repo's mice, rewritten by its house every second, and beside them the pane its questions are delivered to")
     Container(cli, "whiska", "Elixir escript", "Hooks, init, mode, shape - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
     Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection, delivery to the main session")
@@ -39,12 +37,10 @@ C4Container
   Rel(person, cli, "Runs whiska init / init --global / uninstall / mode / owl / questions")
   Rel(herdr, statusline, "Tab bar runs it every 5 seconds and shows its last line")
   Rel(statusline, cli, "Runs whiska statusline")
-  Rel(repoline, board, "Prints it, or nothing when it is over a minute old; says so when this pane is not the recorded one")
-  Rel(house, board, "Rewrites this repo's rows and its recorded pane every second")
-  Rel(cli, board, "watch renders the same rows now, without reading the file")
+  Rel(cli, herdr, "watch works out the sidebar's lines now, reading herdr's panes and workspaces")
   Rel(cli, db, "questions, statusline and waiting read every recorded house")
   Rel(cli, doorstep, "questions, statusline and waiting count what is uncollected")
-  Rel(cli, herdr, "mice list panes; doctor reads herdr's config for the tab bar entry")
+  Rel(cli, herdr, "mice list panes; doctor reads herdr's config for the tab bar and sidebar rows, and its version")
   Rel(house, nc, "Raises a hoot herdr will not show; doctor probes the same path")
   Rel(cli, herdr, "start types claude at this pane's shell prompt when nothing runs there")
   Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
@@ -71,26 +67,26 @@ C4Container
   Rel(house, herdr, "Removes a landed worktree and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
   Rel(house, herdr, "Rings a mouse's doorbell again, at most three times, while its answer is not taken")
+  Rel(house, herdr, "Reports each mouse's sidebar line on its workspace; reads them back every 2 s and re-sorts the mice when one starts or stops needing the person")
 
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
 ```
 
 ## Why each piece is its own container
 
-**The same two scripts hang off either root** (ADR-0056). `whiska init` writes them into
-the repo and `whiska init --global` writes the identical relative paths under `~/.claude`,
+**The same shim hangs off either root** (ADR-0056). `whiska init` writes it into
+the repo and `whiska init --global` writes the identical relative path under `~/.claude`,
 for a repo that cannot carry a committed `.claude/`. A scope is a root and nothing else, so
 there is no second container here — only two places the same one can sit. Where a repo has
 both, the repo's copy is in force and the global shim exits before resolving anything.
 
-**Two status scripts, one per surface** (ADR-0048, amended). `whiska-statusline.sh` is
-committed to the repo like the shim, and draws that repo's own line inside Claude Code:
-what is waiting in this house, and how many mice are alive here. It runs the person's
-global statusline first and appends to its output, so a quiet repo takes nothing away
-from it. `herdr-status.sh` draws the machine-wide line, once, on herdr's tab bar. Neither
-draws what the other does: the owl's state and the cross-repo view are machine-wide facts
-with one home, and the mice are a repo's own, which herdr's sidebar already shows beside
-its own tab bar.
+**No status script runs per repo** (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
+Each mouse's state is a line under its own workspace in herdr's sidebar, which the house
+reports to herdr directly — there is no file between them, and nothing runs in a Claude
+Code session. herdr forgets those lines when its server restarts, so the house reads them
+back with every pane list and sends again whatever is missing; each expires thirty seconds
+after its last send, so a dead owl leaves nothing behind. `herdr-status.sh` draws the
+machine-wide line, once, on herdr's tab bar. Neither surface draws what the other does.
 
 **`herdr-status.sh` is the one script that is not committed to a repo** (ADR-0048). It
 lives in `~/.whiska/` beside the open-houses record and the owl's wrapper,

@@ -23,6 +23,7 @@ defmodule Whiska.DoctorTest do
   alias Whiska.Storage
 
   setup :verify_on_exit!
+  setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   @stripped_path "/usr/bin:/bin"
 
@@ -102,91 +103,108 @@ defmodule Whiska.DoctorTest do
     end
   end
 
-  # -- statusline --------------------------------------------------------------
+  # -- the retired statusline ---------------------------------------------------
 
-  describe "statusline/1 — this repo's own line in the Claude statusline (ADR-0027)" do
-    test "a fresh init passes: our script, and a refresh interval" do
-      check = Doctor.statusline(Install.merge(%{}))
-
-      assert %Check{status: :ok} = check
-      assert check.detail =~ "#{Install.statusline_refresh_interval()}"
+  describe "retired_statusline/2 — what an older init left of the Claude Code statusline" do
+    test "nothing left is fine" do
+      assert %Check{status: :ok} = Doctor.retired_statusline([], [])
     end
 
-    test "no statusLine at all is a warning, pointing at init" do
-      assert %Check{status: :warn, fix: "whiska init"} = Doctor.statusline(%{})
-    end
+    test "a repo's leftovers are a warning naming them, with init as the fix" do
+      check =
+        Doctor.retired_statusline(
+          [".claude/settings.json statusLine", ".claude/hooks/whiska-statusline.sh"],
+          []
+        )
 
-    test "ours with no interval warns: nothing redraws while the session sits idle" do
-      settings = %{
-        "statusLine" => %{"type" => "command", "command" => Install.statusline_command()}
-      }
-
-      check = Doctor.statusline(settings)
       assert %Check{status: :warn, fix: "whiska init"} = check
-      assert check.detail =~ "idle"
+      assert check.detail =~ ".claude/hooks/whiska-statusline.sh"
+      assert check.detail =~ "herdr's sidebar"
     end
 
-    test "an interval the person chose themselves is left alone" do
-      settings = %{
-        "statusLine" => %{
-          "type" => "command",
-          "command" => Install.statusline_command(),
-          "refreshInterval" => 30
-        }
-      }
+    test "the home's leftovers point at the global init" do
+      check = Doctor.retired_statusline([], [".claude/whiska-base-statusline"])
 
-      check = Doctor.statusline(settings)
-      assert %Check{status: :ok} = check
-      assert check.detail =~ "30"
-    end
-
-    test "somebody else's statusLine warns that this repo's line is not shown" do
-      settings = %{"statusLine" => %{"type" => "command", "command" => "bash mine.sh"}}
-
-      assert %Check{status: :warn} = Doctor.statusline(settings)
+      assert %Check{status: :warn, fix: "whiska init --global"} = check
+      assert check.detail =~ "~/.claude/whiska-base-statusline"
     end
   end
 
-  describe "statusline_script/1 — the copy of the script this repo carries (ADR-0059)" do
-    test "the shipped script is up to date" do
-      assert %Check{status: :ok} = Doctor.statusline_script(Install.statusline_script())
+  # -- the sidebar ---------------------------------------------------------------
+
+  describe "sidebar/1 — the herdr config that draws each mouse's line" do
+    test "the shipped snippet passes" do
+      config = "[ui]\nstatus_indicators = \"symbols\"\n\n" <> Whiska.Sidebar.snippet()
+
+      assert %Check{status: :ok} = Doctor.sidebar(config)
     end
 
-    test "a copy from an older init is an upgrade notice, not a fault" do
-      stale = """
-      #!/usr/bin/env bash
-      # Whiska's project statusline, as an older init wrote it.
-      exec whiska statusline --here
+    test "no $whiska token is a warning that prints the snippet to paste" do
+      for config <- [nil, "[ui]\nstatus_indicators = \"symbols\"\n"] do
+        check = Doctor.sidebar(config)
+
+        assert %Check{status: :warn} = check
+        assert check.fix =~ "paste into"
+        assert check.fix =~ ~s(token = "$whiska")
+        assert check.fix =~ "starts_with"
+      end
+    end
+
+    test "a sidebar table already there is to be replaced, never pasted beside" do
+      config = "[ui.sidebar.spaces]\nrows = [[\"state_icon\", \"workspace\"]]\n"
+
+      check = Doctor.sidebar(config)
+
+      assert %Check{status: :warn} = check
+      assert check.fix =~ "replace the [ui.sidebar.spaces] table"
+      refute check.fix =~ "paste into"
+    end
+
+    test "a symbol with no rule is named: its lines would show uncoloured" do
+      config =
+        String.replace(Whiska.Sidebar.snippet(), ~s(starts_with = "⚠"), ~s(starts_with = "!"))
+
+      check = Doctor.sidebar(config)
+
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "⚠"
+      assert check.fix =~ "replace the [ui.sidebar.spaces] table"
+    end
+
+    test "colours matched on words in the line are a warning: free text can trip them" do
+      config = """
+      [ui.sidebar.spaces]
+      rows = [
+        [{ token = "$whiska", rules = [{ contains = "waiting", fg = "#cb4b16" }] }],
+      ]
       """
 
-      check = Doctor.statusline_script(stale)
-      assert %Check{status: :warn, fix: "whiska init"} = check
-      assert check.detail =~ "whiska upgrade is available"
-    end
+      check = Doctor.sidebar(config)
 
-    test "a copy newer than this build says so, and does not advise overwriting it" do
-      newer =
-        String.replace(
-          Install.statusline_script(),
-          "whiska-statusline: v#{Install.statusline_version()}",
-          "whiska-statusline: v#{Install.statusline_version() + 1}"
-        )
-
-      check = Doctor.statusline_script(newer)
       assert %Check{status: :warn} = check
-      assert check.detail =~ "newer than this whiska"
-      refute check.fix == "whiska init"
+      assert check.detail =~ "first symbol"
+      assert check.fix =~ "starts_with"
+    end
+  end
+
+  describe "herdr_version/1 — the sidebar needs herdr 0.9" do
+    test "0.9 and newer pass, and say which" do
+      for version <- ["0.9.0", "0.9.3", "0.10.1", "1.0.0"] do
+        assert %Check{status: :ok, detail: detail} = Doctor.herdr_version(version)
+        assert detail =~ version
+      end
     end
 
-    test "a copy stamped with an older version is an upgrade notice too" do
-      older =
-        String.replace(
-          Install.statusline_script(),
-          "whiska-statusline: v#{Install.statusline_version()}",
-          "whiska-statusline: v1"
-        )
+    test "older is a warning: the owl's sidebar lines are refused" do
+      check = Doctor.herdr_version("0.8.2")
 
-      assert %Check{status: :warn, fix: "whiska init"} = Doctor.statusline_script(older)
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "0.8.2"
+      assert check.fix =~ "herdr update"
+    end
+
+    test "a version it cannot read is not called old" do
+      assert %Check{status: :ok} = Doctor.herdr_version("nightly")
     end
   end
 
@@ -1151,7 +1169,7 @@ defmodule Whiska.DoctorTest do
       refute find(report.checks, "hook stop")
     end
 
-    test "a script an older init wrote is reported from the repo itself (ADR-0059)", %{
+    test "a statusline an older init wrote is reported from the repo itself", %{
       main: main,
       env: env
     } do
@@ -1165,8 +1183,7 @@ defmodule Whiska.DoctorTest do
 
       report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
 
-      assert %Check{status: :warn, fix: "whiska init"} =
-               find(report.checks, "statusline script")
+      assert %Check{status: :warn, fix: "whiska init"} = find(report.checks, "statusline")
     end
 
     test "herdr's popups off, the probe is raised on the desktop and the check says so", %{
@@ -1189,13 +1206,13 @@ defmodule Whiska.DoctorTest do
       assert detail =~ "terminal-notifier"
     end
 
-    test "a repo with no copy of the script says nothing about one", %{main: main, env: env} do
+    test "a repo init took the statusline out of says it is gone", %{main: main, env: env} do
       init(main)
       stub(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
 
       report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
 
-      refute find(report.checks, "statusline script")
+      assert %Check{status: :ok} = find(report.checks, "statusline")
     end
 
     test "an initialised repo with everything reachable is all ok, owl aside", %{

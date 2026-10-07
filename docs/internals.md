@@ -79,7 +79,7 @@ Pre-1.0 (`v0.0.1`). The core loop works end to end.
 
 **Built:** mouse identity, per-repo houses, worktree containment and sniff mode, the
 doorstep and collection, delivery with its queue, `reply` / `close` / `questions` /
-`waiting` / `jump`, both statuslines, the doctor, launchd and systemd supervision, `init` and
+`waiting` / `jump`, the tab bar line and each mouse's sidebar line, the doctor, launchd and systemd supervision, `init` and
 `init --global`, and the finishing pipeline a mouse runs before it reports done.
 
 **Not yet:** the per-repo socket and `whiska stop` for a single house, the read-only
@@ -192,8 +192,8 @@ whiska init --global
 ```
 
 Nothing else is needed per repo. The hooks work out for themselves which worktree they are
-firing in, and the board is found from the directory the session is sitting in — so a repo
-needs only its house and, if you want one, a `## Finish` heading in its own `CLAUDE.md`.
+firing in — so a repo needs only its house and, if you want one, a `## Finish` heading in
+its own `CLAUDE.md`.
 
 A repo that has run `whiska init` keeps winning: its own hooks, block and skills are the
 ones in force, and the global copy stands down there. To hand a repo over to the global
@@ -313,11 +313,13 @@ need no owl running and no socket. A newer question from the same mouse **supers
 its earlier open or delivered ones (ADR-0037), so a mouse that moves on cannot wedge the
 queue; `whiska close` covers the rest.
 
-## Wiring the two statuslines
+## Wiring the tab bar and the sidebar
 
 Neither repeats the other (ADR-0048). Facts about the whole machine go on herdr's tab
-bar, once, one thing named and several counted (ADR-0027). This repo's own mice go in
-this repo's Claude Code statusline, a row each (ADR-0051).
+bar, once, one thing named and several counted (ADR-0027). What each mouse is doing goes
+in herdr's sidebar, under that mouse's own workspace
+(ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). Both are rows in your own herdr
+config, which Whiska never writes; `whiska doctor` prints each.
 
 ### The machine-wide line, on herdr's tab bar
 
@@ -354,54 +356,67 @@ waiting anywhere on this machine, the same reading `whiska waiting` prints: one 
 named by its repo, several become a count. Until the owl's global socket exists the owl is
 found in the process table, the same way `whiska doctor` finds it.
 
-### This repo's board, in Claude Code
+### Each mouse's line, in herdr's sidebar
 
-`whiska init` writes `.claude/hooks/whiska-statusline.sh` and points the repo's
-`statusLine` at it. It runs your own global statusline first — the one in
-`~/.claude/settings.json` — and draws the board underneath it, so nothing of yours is
-replaced:
+The owl reports a line under each mouse's workspace (herdr 0.9 or newer), and one under
+the main checkout's for what is true of the whole repo:
 
 ```
-~/projects/whiska  main ✔
-🐭 feat-watch-board     working  12m     A board the owl writes
-🐭 feat-quiet-marker    idle     1h 33m  waiting on you for 4m 12s · #52 · "sqlite or a plain file?"
-🐭 feat-cache-ttl       idle     40m 3s  queued behind #52 · "which cache TTL?"
-🐭 fix-doctor-probe     working  4m      Bash mix test
-🐭 feat-owl-snapshot    blocked  2h 5m   permission prompt in pane
+myrepo
+  ⏳ gated: you're typing
+feat/quiet-marker
+  🐭 #52 · waiting on you · 4m
+  sqlite or a plain file?
+fix/doctor-probe
+  ⚠ stuck 6m
+  Bash mix test
+feat/cache-ttl
+  ⏳ queued behind #52
+  which cache TTL?
+feat/watch-board
+  ◐ A board the owl writes
 ```
 
-One row per mouse of this repo: its branch, what herdr says its pane is doing, and one
-thing more — the question waiting on you when there is one, with how long it has waited
-(a question behind it in the queue says `queued behind #52` instead), otherwise what the mouse is
-working on, which is the summary its own session keeps as its pane's title, and otherwise
-what it is stuck in: the tool call it is sitting in, read from its own Claude Code
-transcript and never asked for (ADR-0050). That last one takes the column when the mouse
-is blocked, or has been working with nothing written to its transcript for two minutes —
-`fix-doctor-probe` above is in a long `mix test`. Five
-rows at most, ordered by how much each wants you; the rest become `🐭 +3 more`, and a
-mouse with a question on you is never one of them. Each row also says how long that mouse
-has been going, in the words `whiska mice` uses for uptime. Three things are coloured —
-the branch, a question waiting on you, and the elapsed time, which is dim — in plain ANSI,
-so your terminal's own theme picks the shades and a light and a dark theme are both right.
-Nothing is said in colour alone. A dead mouse has no row: a branch whose
-worktree you dropped is not running here, and anything it left behind is counted on a
-`🐱 n orphaned` line of its own — nobody can answer it — which names the branches it came
-off, `🐱 2 orphaned (feat-checkout-form, fix-doctor-probe)`, and is read in full with
-`whiska questions`. A branch that left two says `feat-gone ×2`, more names than fit become
-`+n more`, and what is shown always adds up to the count. The board reports and never acts. A
-quiet repo draws nothing at all.
+The first line is the state, starting with a symbol; up to two more carry the question,
+wrapped at 31 characters. In the order they sort: `🐭` waiting on you (sent, with how
+long; or next to go), `✅` finished, `⚠ stuck` (blocked, or working and silent for two
+minutes, with the tool call it is in), `⏳ queued behind #n`, `🎯`/`💤` waiting behind a
+focus or away, `⏸` held, `↩ picked up`, `◐` working — its spinner turns once a second, so a
+still one means the owl stopped — and `✖ no pane`, `⚠ many panes`, `? herdr can't say`. An
+idle mouse with nothing to report has no line. The main checkout's line says when no main
+session is recorded, why delivery is gated, how many questions wait with no line of their
+own, and what dead branches left behind (`◌ 2 orphaned (feat-gone, fix-x)`).
 
-Your own mice's sessions draw no board: `.claude/settings.json` is committed, so every
-worktree runs the same script, and a mouse has no use for its siblings' rows.
+The mice re-sort only when one starts or stops needing you — waiting or finished — so rows
+do not jump under your cursor, and your own drag order stands otherwise. Each line expires
+thirty seconds after it was last sent, so a dead owl's lines go away rather than lie, and
+the owl sends them all again within two seconds of herdr restarting, which drops them.
 
-No owl here: that is one machine-wide fact with one home, and repeating it in every open
-session is what moved it to the tab bar in the first place. Outside herdr there is no tab
-bar, so a bare `claude` never learns the owl is down — run `whiska doctor` for that.
+The colours are yours: each line is coloured by its first symbol, which only Whiska writes,
+so a mouse whose topic says "waiting" never turns orange. `whiska doctor` prints these rows
+until your config has them; paste them into `~/.config/herdr/config.toml` and
+`herdr server reload-config`:
 
-The board redraws every second, which is affordable because the script starts nothing:
-each house renders its own rows into `~/.whiska/board/` every second and the script prints
-that file (ADR-0051). A board nothing has refreshed for a few seconds is
-drawn dimmed under `🦉 owl down · 40s stale`, and past a minute it is not drawn at all.
+```toml
+[ui.sidebar.spaces]
+rows = [
+  ["state_icon", { token = "workspace", fg = "#586e75", dim = false }],
+  ["branch", "git_status"],
+  [{ token = "$whiska", fg = "#657b83", dim = false, rules = [
+    { starts_with = "🐭", fg = "#cb4b16" },
+    { starts_with = "⚠", fg = "#dc322f" },
+    # … one rule per symbol; `whiska doctor` prints all fourteen
+  ] }],
+  [{ token = "$whiska_q", fg = "#93a1a1" }],
+  [{ token = "$whiska_q2", fg = "#93a1a1" }],
+]
+```
+
+`whiska watch` prints the same lines, worked out on the spot, when the sidebar looks wrong.
+
+Whiska no longer writes a Claude Code statusline. `whiska init` takes out the one an older
+init wrote — the script, its `statusLine` entry, and, for `init --global`, puts back the
+line it had displaced. Until then an old script draws only your own line.
 
 ## A full `whiska doctor` run
 
@@ -442,6 +457,7 @@ whiska doctor — myrepo (/Users/me/projects/myrepo)
                     fix: cp whiska /Users/me/.local/bin/whiska
   ok    runtime     /Users/me/.asdf/installs/erlang/28.1.1/bin/escript
   ok    herdr       reachable at /Users/me/.config/herdr/herdr.sock (12 panes)
+  ok    herdr version  0.9.3
   warn  owl         not running — nothing collects the doorstep
                     fix: whiska owl
   warn  launch agent  not installed — the owl is not supervised

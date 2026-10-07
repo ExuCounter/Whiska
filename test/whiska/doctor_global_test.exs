@@ -16,10 +16,10 @@ defmodule Whiska.DoctorGlobalTest do
   defp find(checks, name), do: Enum.find(checks, &(&1.name == name))
 
   # The global install as the doctor sees it: which of its pieces are on disk.
-  defp installed, do: %{hooks?: true, session_start?: true, statusline?: true, skills?: true}
+  defp installed, do: %{hooks?: true, session_start?: true, skills?: true}
 
   defp absent,
-    do: %{hooks?: false, session_start?: false, statusline?: false, skills?: false}
+    do: %{hooks?: false, session_start?: false, skills?: false}
 
   describe "global/1 — is the global install there, and whole" do
     test "nothing installed is not a failure; a repo may simply carry its own" do
@@ -129,17 +129,6 @@ defmodule Whiska.DoctorGlobalTest do
                find(Doctor.hooks(older, installed()), "SessionStart")
 
       refute detail =~ "globally"
-    end
-  end
-
-  describe "statusline/2" do
-    test "no project line is fine when the global one is Whiska's" do
-      assert %Check{status: :ok, detail: detail} = Doctor.statusline(%{}, installed())
-      assert detail =~ "globally"
-    end
-
-    test "no project line and no global one is still a warning" do
-      assert %Check{status: :warn} = Doctor.statusline(%{}, absent())
     end
   end
 end

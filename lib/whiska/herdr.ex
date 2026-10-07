@@ -18,8 +18,8 @@ defmodule Whiska.Herdr do
 
   `title` is herdr's `terminal_title_stripped`, which for a Claude Code pane is
   the short summary the agent keeps of what it is working on — the mouse's topic,
-  and the first thing the board says about it (ADR-0051's addendum of
-  2026-10-02). It is somebody else's free text: it can be empty, it can be a
+  and what a working mouse's sidebar line says about it (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). It is
+  somebody else's free text: it can be empty, it can be a
   shell command in a pane running one, and in some panes it still carries the
   agent's status glyph on the front.
 
@@ -49,6 +49,21 @@ defmodule Whiska.Herdr do
           path: String.t(),
           branch: String.t() | nil,
           workspace_id: String.t() | nil
+        }
+
+  @typedoc """
+  A workspace as the sidebar sees it.
+
+  `path` is the checkout it is open on and `linked?` whether that is a linked
+  worktree — both `nil` for a workspace herdr has no checkout for. `tokens` are
+  the display values herdr holds for it right now, string-keyed.
+  """
+  @type workspace :: %{
+          workspace_id: String.t(),
+          number: non_neg_integer(),
+          path: String.t() | nil,
+          linked?: boolean() | nil,
+          tokens: %{String.t() => String.t()}
         }
 
   @typedoc """
@@ -153,6 +168,47 @@ defmodule Whiska.Herdr do
   @doc "The linked worktrees of one checkout, each with the workspace it is open in."
   @callback worktrees(socket :: Path.t(), checkout :: Path.t()) ::
               {:ok, [worktree()]} | {:error, term()}
+
+  @doc "herdr's own version, as its `ping` answers it — `\"0.9.3\"`."
+  @callback version(socket :: Path.t()) :: {:ok, String.t()} | {:error, term()}
+
+  @doc """
+  Every workspace herdr has, in sidebar order, with the tokens it holds.
+
+  The tokens are what herdr is showing right now, not what anybody last told
+  it: herdr forgets them when its server restarts, so this is how the owl
+  finds out a line it sent is gone (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
+  """
+  @callback workspaces(socket :: Path.t()) :: {:ok, [workspace()]} | {:error, term()}
+
+  @doc """
+  Set display tokens on a workspace — the lines herdr's sidebar draws under it.
+
+  A `nil` value clears that token; tokens not named are left as they are. Every
+  token named expires after `ttl_ms` unless it is sent again, so a line nobody
+  is keeping current goes away by itself.
+  """
+  @callback report_metadata(
+              socket :: Path.t(),
+              workspace_id :: String.t(),
+              tokens :: %{String.t() => String.t() | nil},
+              ttl_ms :: pos_integer()
+            ) :: :ok | {:error, term()}
+
+  @doc """
+  Move workspaces, in the order given, to sit just before `before` — or at the
+  end, when `before` is `nil`. herdr refuses a `before` that is one of the
+  workspaces being moved. Answers the new order.
+
+  `workspace.move_block` is in herdr's socket API but not in its CLI or its
+  docs, so it is the one call here that may change under
+  us; a refusal costs the sort, never the lines.
+  """
+  @callback move_block(
+              socket :: Path.t(),
+              workspace_ids :: [String.t()],
+              before :: String.t() | nil
+            ) :: {:ok, [workspace()]} | {:error, term()}
 
   @doc """
   Open an existing worktree as a herdr workspace, and bring it into view.

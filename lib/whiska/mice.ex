@@ -108,7 +108,7 @@ defmodule Whiska.Mice do
 
   # The one thing a listing says that herdr cannot: that the owl typed into
   # this mouse's pane to carry a died turn on, and when (ADR-0067). It stays
-  # for the mouse's whole life — the board drops it the moment the turn it
+  # for the mouse's whole life — the sidebar drops it the moment the turn it
   # started ends, and this is where the person looks afterwards.
   defp note(%Mouse{picked_up_at: %DateTime{} = at}, now),
     do: "picked up #{format_uptime(DateTime.diff(now, at))} ago"
@@ -118,8 +118,8 @@ defmodule Whiska.Mice do
   @doc """
   Seconds as a person would say them: `45s`, `4m 12s`, `2h 15m`, `3d 4h`.
 
-  Seconds stay in under an hour, so a board redrawn every second visibly ticks;
-  past an hour they would only be noise.
+  Seconds stay in under an hour, where a person can tell `4m 12s` from
+  `4m 50s`; past an hour they would only be noise.
   """
   @spec format_uptime(integer()) :: String.t()
   def format_uptime(seconds) when seconds < 60, do: "#{max(seconds, 0)}s"

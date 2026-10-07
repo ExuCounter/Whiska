@@ -66,8 +66,8 @@ One that asks for such a character is followed as closely as the set allows, and
 report says so.
 
 The slug comes from the person's words, and a name the person gives whole is used as
-given, inside that set. Keep it short: Whiska's statusline shows 24
-characters of a branch, and herdr's agent name holds 32. A name you suggest is said out
+given, inside that set. Keep it short: herdr's sidebar and agent name
+show about 32 characters of a branch. A name you suggest is said out
 loud, never picked silently. Building what an investigation proposed is the one
 exception: that section, below, names the branch itself.
 

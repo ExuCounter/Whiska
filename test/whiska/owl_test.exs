@@ -12,6 +12,7 @@ defmodule Whiska.OwlTest do
 
   setup :set_mox_global
   setup :verify_on_exit!
+  setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   setup do
     root = Path.join(System.tmp_dir!(), "whiska-owl-#{System.unique_integer([:positive])}")

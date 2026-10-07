@@ -1,5 +1,11 @@
 # The repo-scoped statusline is a board, and the owl writes it to a file
 
+**Superseded on 2026-10-07 by [ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md).**
+There is no board in the Claude Code statusline: each mouse's state is a line under its own
+workspace in herdr's sidebar, written by the owl, and `whiska init` takes the statusline
+out. `Whiska.Watch` keeps the facts the board was drawn from; `whiska watch` prints the
+sidebar's lines. Everything below is what this decision said, and is history.
+
 **Supersedes the repo-scoped half of
 [ADR-0027](0027-statusline-detail-for-one-count-for-many.md)** — its mice segment and its
 "a count for many" rule for Claude Code's statusline — and **amends

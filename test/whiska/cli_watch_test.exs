@@ -1,5 +1,5 @@
 defmodule Whiska.CLIWatchTest do
-  @moduledoc "`whiska watch` at the binary: the board, printed once."
+  @moduledoc "`whiska watch` at the binary: the sidebar's lines, printed once."
   # Serial: the code under test opens the house under the one VM-wide name `Whiska.Repo`.
   use ExUnit.Case, async: false
 
@@ -8,7 +8,6 @@ defmodule Whiska.CLIWatchTest do
 
   alias Whiska.CLI
   alias Whiska.Herdr.Mock, as: Herdr
-  alias Whiska.Watch.Ink
   alias Whiska.Storage
 
   setup :verify_on_exit!
@@ -61,72 +60,110 @@ defmodule Whiska.CLIWatchTest do
   defp pane(cwd, status),
     do: %{pane_id: "w1:p1", cwd: cwd, agent: "claude", agent_status: status}
 
+  defp no_workspaces, do: stub(Herdr, :workspaces, fn _ -> {:ok, []} end)
+
   describe "whiska watch" do
-    test "prints a row for each mouse in this house", %{main: main} do
+    test "prints each mouse under its branch, with the line the sidebar shows", %{main: main} do
       path = seed_mouse(main, "ma", "feat-a")
-      stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "working")]} end)
+      no_workspaces()
 
-      out = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end))
-
-      assert out =~ "🐭 feat-a"
-      assert out =~ "working"
-    end
-
-    test "the board it prints is coloured, piped or not", %{main: main} do
-      path = seed_mouse(main, "ma", "feat-a")
-      stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "working")]} end)
+      stub(Herdr, :list_panes, fn _ ->
+        {:ok, [Map.put(pane(path, "working"), :title, "Order builder")]}
+      end)
 
       out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
-      assert out =~ "\e[36mfeat-a\e[39m"
+      assert out =~ "feat-a\n  ◐ Order builder"
     end
 
-    test "a mouse waiting on the person shows its question id", %{main: main} do
+    test "a mouse waiting on the person shows its question, wrapped", %{main: main} do
       path = seed_mouse(main, "ma", "feat-a")
       q = seed_question(main, "ma", "Body.\n\nwhich db?\n⁣⁣")
+      no_workspaces()
       stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "idle")]} end)
 
-      out = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end))
+      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
-      assert out =~ "waiting on you · ##{q.id}"
-      assert out =~ "which db?"
+      assert out =~ "feat-a\n  🐭 ##{q.id} · waiting on you\n  which db?"
     end
 
-    test "a dead mouse has no row, and what it left is counted as orphaned", %{main: main} do
+    test "a dead mouse has no lines, and what it left is counted as orphaned", %{main: main} do
       seed_mouse(main, "ma", "feat-a")
-      seed_question(main, "ma", "Body.\n\npick one\n\u2063\u2063")
+      seed_question(main, "ma", "Body.\n\npick one\n⁣⁣")
 
       {:ok, handle} = Storage.open(main, name: :seed)
       {:ok, _} = Storage.mark_dead("ma")
       Storage.close(handle)
 
+      no_workspaces()
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
 
-      out = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end))
+      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
-      refute out =~ "🐭 feat-a"
+      refute out =~ "\nfeat-a"
       refute out =~ "waiting"
-      assert out =~ "🐱 1 orphaned (feat-a)"
+      assert out =~ "◌ 1 orphaned (feat-a)"
+    end
+
+    test "a question whose mouse has no workspace is counted on the main checkout's line", %{
+      main: main
+    } do
+      path = seed_mouse(main, "ma", "feat-a")
+      seed_question(main, "ma", "Body.\n\nwhich db?\n⁣⁣")
+      stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "idle")]} end)
+
+      stub(Herdr, :workspaces, fn _ ->
+        {:ok, [%{workspace_id: "w1", number: 1, path: main, linked?: false, tokens: %{}}]}
+      end)
+
+      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+
+      assert out =~ "🐭 1 more: whiska questions"
     end
 
     test "a stale record for a folder a branch nests under is on neither list", %{main: main} do
       seed_mouse(main, "mstale", "feat")
       nested = seed_mouse(main, "mnested", "feat/checkout-form")
+      no_workspaces()
       stub(Herdr, :list_panes, fn _ -> {:ok, [pane(nested, "working")]} end)
 
-      board = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end))
+      board = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
       mice = capture_io(fn -> assert CLI.run(["mice"], main) == 0 end)
 
-      assert board =~ "🐭 feat/checkout-form"
-      refute board =~ "🐭 feat  "
+      assert board =~ "feat/checkout-form\n"
+      refute board =~ ~r/^feat$/m
       assert mice =~ "feat/checkout-form"
       refute mice =~ "feat  "
     end
 
-    test "a quiet house prints nothing", %{main: main} do
+    test "a quiet house says so, rather than printing nothing", %{main: main} do
+      no_workspaces()
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
 
-      assert Ink.plain(capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)) == ""
+      assert capture_io(fn -> assert CLI.run(["watch"], main) == 0 end) =~
+               "Nothing on the sidebar"
+    end
+
+    test "finds herdr at its own socket when nothing set the variable", %{main: main} do
+      path = seed_mouse(main, "ma", "feat-a")
+      home = Path.dirname(main)
+      default = Path.join(home, ".config/herdr/herdr.sock")
+      File.mkdir_p!(Path.dirname(default))
+      File.write!(default, "")
+      System.delete_env("HERDR_SOCKET_PATH")
+      previous_home = System.get_env("HOME")
+      System.put_env("HOME", home)
+      on_exit(fn -> System.put_env("HOME", previous_home) end)
+
+      no_workspaces()
+
+      stub(Herdr, :list_panes, fn ^default ->
+        {:ok, [Map.put(pane(path, "working"), :title, "Order builder")]}
+      end)
+
+      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+
+      assert out =~ "◐ Order builder"
     end
 
     test "is in the usage text" do
@@ -135,20 +172,24 @@ defmodule Whiska.CLIWatchTest do
       assert out =~ ~r/^\s+watch\s+\S/m
     end
 
-    test "statusline --here draws no board in a mouse's own session", %{main: main} do
+    test "statusline --here, which an older statusline script runs, prints nothing", %{
+      main: main
+    } do
       path = seed_mouse(main, "ma", "feat-a")
-      stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "working")]} end)
+      seed_question(main, "ma", "Body.\n\nwhich db?\n⁣⁣")
 
+      assert capture_io(fn -> assert CLI.run(["statusline", "--here"], main) == 0 end) == ""
       assert capture_io(fn -> assert CLI.run(["statusline", "--here"], path) == 0 end) == ""
     end
 
     test "run inside a worktree it still reports that worktree's own house", %{main: main} do
       path = seed_mouse(main, "ma", "feat-a")
+      no_workspaces()
       stub(Herdr, :list_panes, fn _ -> {:ok, [pane(path, "working")]} end)
 
-      out = Ink.plain(capture_io(fn -> assert CLI.run(["watch"], path) == 0 end))
+      out = capture_io(fn -> assert CLI.run(["watch"], path) == 0 end)
 
-      assert out =~ "🐭 feat-a"
+      assert out =~ "feat-a\n  ◐"
     end
   end
 end

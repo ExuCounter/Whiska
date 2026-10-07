@@ -31,6 +31,7 @@ defmodule Whiska.CLI do
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.ServiceManager
+  alias Whiska.Sidebar
   alias Whiska.Storage
   alias Whiska.Waiting
 
@@ -83,10 +84,10 @@ defmodule Whiska.CLI do
                          it needs the owl's socket. `whiska owl stop` stops
                          the whole owl.
 
-    init                 Write Whiska's hooks, statusline and skills into this
-                         repo's own .claude/, so the rules travel with the
-                         repo, and take an older Whiska's block out of
-                         CLAUDE.md. Safe to re-run.
+    init                 Write Whiska's hooks and skills into this repo's own
+                         .claude/, so the rules travel with the repo, and take
+                         an older Whiska's block and statusline out. Safe to
+                         re-run.
 
     init --global        The same, into ~/.claude, for every repo on this
                          machine — for a repo that cannot carry a committed
@@ -195,11 +196,6 @@ defmodule Whiska.CLI do
                          from anywhere. `whiska doctor` prints the herdr config
                          entry that draws it.
 
-    statusline --here    Print this repo's board, the same one the Claude Code
-                         statusline draws, worked out now rather than read from
-                         the file the owl keeps. Nothing when the repo is
-                         quiet. `whiska init` wires it up.
-
     reply <id> <text>    Answer a question. The answer is saved and the
                          question marked answered; only a short doorbell line
                          is typed into that mouse's pane, and the mouse's own
@@ -212,13 +208,11 @@ defmodule Whiska.CLI do
     mice                 List what is alive in this repo's house: one line per
                          mouse — branch, mode, what its pane is doing, uptime.
 
-    watch                Print this repo's board once: a row per mouse — its
-                         branch, what its pane is doing, and the question
-                         waiting on you, else what it is working on, else what
-                         it is stuck in. The owl
-                         writes this every second for the
-                         statusline to print; run it yourself when that looks
-                         wrong.
+    watch                Print the lines herdr's sidebar shows for this repo,
+                         worked out now: the main checkout's, then each mouse
+                         under its branch — what it needs from you, else what
+                         it is doing. The owl writes them every second; run
+                         this when the sidebar looks wrong.
 
     doctor               Is Whiska working for this repo right now? Checks the
                          binary, runtime, herdr, owl, this repo's hooks and
@@ -351,7 +345,7 @@ defmodule Whiska.CLI do
 
   def run(["statusline"], _cwd), do: statusline()
 
-  def run(["statusline", "--here"], cwd), do: statusline_here(cwd || File.cwd!())
+  def run(["statusline", "--here"], _cwd), do: statusline_here()
 
   def run(["waiting"], _cwd), do: waiting(:text)
   def run(["waiting", "--json"], _cwd), do: waiting(:json)
@@ -455,20 +449,22 @@ defmodule Whiska.CLI do
     shim = Path.join(root, Install.shim_path())
 
     with {:ok, settings} <- read_settings(path),
-         merged = Install.merge(settings, scope),
-         :ok <- record_displaced(scope, root, settings),
+         base = read_base_statusline(scope, root),
+         merged = Install.merge(settings, scope, base),
          :ok <- File.mkdir_p(Path.dirname(shim)),
          :ok <- write_unchanged(shim, Install.shim(scope)),
          :ok <- make_executable(shim),
-         :ok <- write_statusline(root),
          :ok <- write_skills(scope, root),
          retired = remove_retired_skills(root),
          {:ok, commands} <- write_commands(scope),
          {:ok, block} <- retire_claude_md(scope, root),
          :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- write_unchanged(path, JSON.encode!(merged) |> reformat()) do
+      statusline = retire_statusline(scope, root, settings, merged)
+
       say(
         told(scope) <>
+          statusline_note(statusline) <>
           retired_note(retired) <> block_note(block, scope) <> commands_note(commands)
       )
     else
@@ -552,22 +548,63 @@ defmodule Whiska.CLI do
     |> String.trim_trailing()
   end
 
-  # The global statusLine Whiska is about to take over, kept where both scripts
-  # read it back and run it first (ADR-0056). Only the global install displaces
-  # anything: a project line is Claude Code's own replacement of the global one,
-  # and the repo's script already runs that one.
-  defp record_displaced(:repo, _root, _settings), do: :ok
+  # The Claude Code statusline an older init wrote goes, once settings that do
+  # not name it are safely on disk: the script, and the line a global
+  # install kept beside it, which is back in `settings.json` by now. A file
+  # reached through a symlink is the person's and stays.
+  defp retire_statusline(scope, root, before, merged) do
+    {linked, removable} =
+      [Install.statusline_path() | base_statusline(scope)]
+      |> Enum.filter(&File.regular?(Path.join(root, &1)))
+      |> Enum.split_with(&through_link?(root, &1))
 
-  defp record_displaced(:global, root, settings) do
-    case Install.displaced(settings) do
-      nil ->
-        :ok
+    for rel <- removable, do: File.rm(Path.join(root, rel))
 
-      command ->
-        path = Path.join(root, Install.base_statusline_path())
+    entry? = before["statusLine"] != merged["statusLine"]
 
-        with :ok <- File.mkdir_p(Path.dirname(path)), do: File.write(path, command)
-    end
+    %{
+      removed: removable,
+      linked: linked,
+      entry?: entry?,
+      restored: entry? && merged["statusLine"]
+    }
+  end
+
+  defp statusline_note(%{removed: [], linked: [], entry?: false}), do: ""
+
+  defp statusline_note(%{removed: removed, linked: linked, entry?: entry?, restored: restored}) do
+    taken = if(entry?, do: ["settings.json statusLine"], else: []) ++ removed
+    took_out(taken, restored) <> linked_note(linked)
+  end
+
+  defp took_out([], _restored), do: ""
+
+  defp took_out(taken, restored) do
+    back =
+      case restored do
+        %{"command" => command} -> "\n\nYour own statusline is back in settings.json: #{command}"
+        _ -> ""
+      end
+
+    """
+
+
+    Took out the Claude Code statusline an older init wrote:
+
+    #{Enum.map_join(taken, "\n", &("  " <> &1))}
+
+    Each mouse's state is a line in herdr's sidebar now, written by the owl.
+    `whiska doctor` prints the herdr config that draws it.
+    """
+    |> String.trim_trailing()
+    |> Kernel.<>(back)
+  end
+
+  defp linked_note([]), do: ""
+
+  defp linked_note(linked) do
+    "\n\nLeft alone, because it is reached through a symlink and lives somewhere " <>
+      "else — delete it there:\n\n" <> Enum.map_join(linked, "\n", &("  " <> &1))
   end
 
   defp told(:repo) do
@@ -582,13 +619,9 @@ defmodule Whiska.CLI do
     binary and the Erlang runtime get resolved, when the hook fires — so
     neither file names anything specific to this machine.
 
-    Also wrote the project statusline (#{Install.statusline_path()}). It runs
-    your global statusline and appends this repo's own line: what is waiting
-    in this house, and how many mice are alive here. It redraws every
-    #{Install.statusline_refresh_interval()} seconds, so a mouse that spawns or asks while you
-    sit still shows up anyway (ADR-0044). The owl's state and the
-    machine-wide view are not on it: they are drawn once on herdr's tab bar
-    (ADR-0048), and `whiska doctor` prints the entry that draws them.
+    What each mouse is doing is drawn in herdr's sidebar, under its own
+    workspace, and the owl's state on herdr's tab bar (ADR-0048). The owl
+    writes both; `whiska doctor` prints the herdr config that draws them.
 
     And one slash command per whiska command under .claude/skills/.
 
@@ -622,12 +655,8 @@ defmodule Whiska.CLI do
     #{landed()}
 
     Nothing else is needed per repo. The hooks work out for themselves which
-    worktree they are firing in, and the board is found by the directory the
-    session is sitting in — so a repo that cannot carry a committed `.claude/`
-    is covered by this and by its house alone.
-
-    Your own global statusline still runs first; it was kept at
-    ~/#{Install.base_statusline_path()} and the board goes under it.
+    worktree they are firing in — so a repo that cannot carry a committed
+    `.claude/` is covered by this and by its house alone.
 
     Per repo there is still one thing worth writing: a `## Finish` heading in
     that repo's own CLAUDE.md naming its checks, where its written decisions
@@ -646,8 +675,7 @@ defmodule Whiska.CLI do
   defp written do
     [
       {"~/" <> Install.shim_path(), "the hook shim every hook calls"},
-      {"~/" <> Install.statusline_path(), "the board"},
-      {"~/.claude/settings.json", "the four hooks and the statusLine"},
+      {"~/.claude/settings.json", "the four hooks"},
       {"~/.claude/skills/", "inbox, show, reply, dismiss, focus, away, hold, resume,"},
       {"", "whiska-delivered, whiska-finish, whiska-spec, grilling,"},
       {"", "spawn-worktree, send-to-worktree, drop-worktree"}
@@ -881,15 +909,6 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp write_statusline(repo_root) do
-    script = Path.join(repo_root, Install.statusline_path())
-
-    with :ok <- File.mkdir_p(Path.dirname(script)),
-         :ok <- write_unchanged(script, Install.statusline_script()) do
-      make_executable(script)
-    end
-  end
-
   defp write_skills(scope, root) do
     Enum.reduce_while(Install.skills(scope), :ok, fn {rel, body}, :ok ->
       file = Path.join(root, rel)
@@ -1034,7 +1053,7 @@ defmodule Whiska.CLI do
   defp watch(cwd) do
     case main_checkout(cwd) do
       {:ok, main} ->
-        board(main)
+        sidebar(main)
 
       :error ->
         IO.puts(
@@ -1046,21 +1065,52 @@ defmodule Whiska.CLI do
     end
   end
 
-  # The board, computed now rather than read from the file the owl keeps
-  # (ADR-0051) — this is what somebody runs when the statusline looks wrong.
-  defp board(main) do
-    case Whiska.Watch.house(main) do
-      {:ok, board} ->
-        case Whiska.Watch.render(board) do
-          "" -> 0
+  # The sidebar's lines, worked out now from the same board the owl writes them
+  # from — what somebody runs when the sidebar looks wrong.
+  defp sidebar(main) do
+    socket =
+      case Herdr.socket() do
+        {:ok, socket} -> socket
+        {:error, _} -> nil
+      end
+
+    with {:ok, handle} <- Storage.open(main) do
+      try do
+        board = Whiska.Watch.from_house(panes: ask_herdr(socket, :list_panes))
+        no_workspace = no_workspace(board, ask_herdr(socket, :workspaces))
+
+        house =
+          Sidebar.house(board, main_pane?: Storage.main_pane() != nil, no_workspace: no_workspace)
+
+        case Sidebar.render(house, Sidebar.mice(board)) do
+          "" -> say("Nothing on the sidebar: no mouse here, and nothing about the repo to say.")
           lines -> say(lines)
         end
-
+      after
+        Storage.close(handle)
+      end
+    else
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not reach this repo's house (#{inspect(reason)}).")
         1
     end
   end
+
+  defp ask_herdr(nil, _call), do: :no_socket
+  defp ask_herdr(socket, call), do: apply(Herdr.impl(), call, [socket])
+
+  # With no word from herdr about its workspaces, every mouse is taken to have
+  # one: a count that cannot be checked is not said.
+  defp no_workspace(board, {:ok, workspaces}) do
+    placed = Sidebar.place(board, workspaces)
+
+    for row <- board.rows,
+        not Map.has_key?(placed, row.mouse_id),
+        into: MapSet.new(),
+        do: row.mouse_id
+  end
+
+  defp no_workspace(_board, _no_answer), do: MapSet.new()
 
   defp mice(cwd) do
     case main_checkout(cwd) do
@@ -1533,21 +1583,10 @@ defmodule Whiska.CLI do
     0
   end
 
-  # A mouse's own session draws no board (ADR-0051), and this refuses there
-  # rather than leaving it to the script, so a repo still carrying the script an
-  # older `whiska init` wrote does not put the board in every mouse's pane.
-  # Always 0 and never noisy, whatever it finds: this runs on a timer wherever a
-  # session is sitting, and a statusline is no place to report a broken house.
-  defp statusline_here(cwd) do
-    with {:error, :not_in_worktree} <- Layout.resolve(cwd),
-         {:ok, main} <- main_checkout(cwd),
-         {:ok, board} <- Whiska.Watch.house(main),
-         lines when lines != "" <- Whiska.Watch.render(board) do
-      IO.puts(lines)
-    end
-
-    0
-  end
+  # What a statusline script an older `whiska init` committed runs on a timer.
+  # The mice's state is herdr's sidebar's now, so it prints nothing and that
+  # script draws only the person's own line until `whiska init` takes it out.
+  defp statusline_here, do: 0
 
   # -- worktrees ---------------------------------------------------------------
 

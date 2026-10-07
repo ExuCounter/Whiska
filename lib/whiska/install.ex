@@ -320,194 +320,12 @@ defmodule Whiska.Install do
   # as Whiska's and dropped, and so the doctor can name a leftover file.
   @review_loop_path ".claude/hooks/review-loop.sh"
 
+  # The Claude Code statusline an older `whiska init` wrote, and the line its
+  # global install displaced and kept beside it (ADR-0056). Nothing writes
+  # either now; `init` takes them out and puts the person's line back
+  # (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
   @statusline_path ".claude/hooks/whiska-statusline.sh"
-
-  # Claude Code does not set CLAUDE_PROJECT_DIR for the statusline command, only
-  # for hooks; the command runs from the project directory, so the relative path
-  # is the fallback, and the variable is honoured if a later version sets it.
-  @statusline_command ~s|bash "${CLAUDE_PROJECT_DIR:-.}/#{@statusline_path}"|
-
-  @global_statusline_command ~s|bash "$HOME/#{@statusline_path}"|
-
-  # Where the global line Whiska displaced is kept (ADR-0056). A project
-  # `statusLine` replaces the global one rather than merging with it, and so
-  # does the global install's own entry — so the person's line would simply be
-  # gone. It is recorded here instead, and both scripts run it first.
   @base_statusline_path ".claude/whiska-base-statusline"
-
-  # Seconds between redraws, on top of Claude Code's own event triggers, which
-  # all come from the session's own conversation (ADR-0044). The board is a
-  # live picture of what every mouse is doing, so it is redrawn about as often
-  # as that picture changes, and every second so a mouse's elapsed time under
-  # an hour visibly ticks; the owl writes the board every second to match.
-  # That is affordable only because the script starts nothing: it prints a
-  # file the owl already wrote (ADR-0051), where the 0.8 core-seconds of
-  # escript startup that set the old interval of 15 used to be.
-  @statusline_refresh_interval 1
-
-  # Bumped whenever the script changes, so a copy an older `whiska init` wrote
-  # can be told apart from this one (ADR-0059). The person's own copy is
-  # committed and shared with their team, so nothing rewrites it: the doctor
-  # reads the stamp and says an upgrade is available.
-  @statusline_version 4
-
-  @statusline_script """
-  #!/usr/bin/env bash
-  # whiska-statusline: v#{@statusline_version}
-  # Whiska's project statusline (ADR-0051): a board, one row per mouse in
-  # this repo — its branch, what herdr says it is doing, and the question
-  # waiting on you, else what it is working on, else what it is stuck in.
-  #
-  # Above the rows, and only when it is true, one line saying that this pane
-  # is not where this repo's answers are delivered (ADR-0065).
-  #
-  # A project-level statusLine replaces the global one rather than merging
-  # with it, so your global statusline runs first and the board goes under
-  # it.
-  #
-  # Nothing here starts Whiska. The owl writes the board to a file every
-  # second and this prints it, which is what makes a one-second refresh
-  # affordable in every open session at once.
-  #
-  # Written by `whiska init`.
-
-  input="$(cat)"
-
-  # Reads one string field of the JSON on stdin; the value stays escaped.
-  json_field() {
-    sed -nE 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*"(([^"\\\\]|\\\\.)*)".*/\\1/p'
-  }
-
-  json_unescape() {
-    local s="$1"
-    s="${s//\\\\\\\\/$'\\001'}"
-    s="${s//\\\\\\"/\\"}"
-    s="${s//\\\\\\//\\/}"
-    printf '%s' "${s//$'\\001'/\\\\}"
-  }
-
-  global=""
-  if [ -r "$HOME/.claude/settings.json" ]; then
-    global="$(tr -d '\\n' < "$HOME/.claude/settings.json" \\
-      | sed -nE 's/.*"statusLine"[[:space:]]*:[[:space:]]*\\{[^}]*"command"[[:space:]]*:[[:space:]]*"(([^"\\\\]|\\\\.)*)".*/\\1/p')"
-    global="$(json_unescape "$global")"
-  fi
-
-  # A global statusLine that is Whiska's own is this script, or the copy in
-  # ~/.claude. The line that one displaced is kept beside it, and that is the
-  # one to run (ADR-0056).
-  case "$global" in
-    *whiska-statusline.sh*) global="" ;;
-  esac
-  if [ -z "$global" ] && [ -r "$HOME/#{@base_statusline_path}" ]; then
-    global="$(cat "$HOME/#{@base_statusline_path}")"
-  fi
-
-  base=""
-  [ -n "$global" ] && base="$(printf '%s' "$input" | bash -c "$global" 2>/dev/null)"
-
-  [ -n "$base" ] && printf '%s\n' "$base"
-
-  # The project directory before the current one, because the current one
-  # follows every cd the session runs (Whiska ADR-0053): a session speaks for
-  # the repo it started in, and a mouse that steps into the main checkout must
-  # still read as a mouse.
-  dir=""
-  for key in project_dir current_dir cwd; do
-    dir="$(json_unescape "$(printf '%s' "$input" | json_field "$key")")"
-    [ -n "$dir" ] && break
-  done
-  [ -d "$dir" ] || dir="$PWD"
-
-  # A mouse's own pane never draws the board: it is the person's view of
-  # their mice, and a mouse has no use for its siblings' rows.
-  case "$dir" in
-    */worktrees/*) exit 0 ;;
-  esac
-
-  # The board is named after the main checkout, so a session sitting in a
-  # subfolder walks up until it finds one.
-  home="${WHISKA_HOME:-$HOME/.whiska}"
-  board=""
-  probe="$dir"
-  while [ -n "$probe" ] && [ "$probe" != "/" ] && [ "$probe" != "." ]; do
-    # LC_ALL=C so tr counts bytes: a path with a non-ASCII character in it
-    # must be spelled the same here as the owl spells it.
-    candidate="$home/board/$(printf '%s' "$probe" | LC_ALL=C tr -c 'A-Za-z0-9' '-')"
-    if [ -f "$candidate" ]; then
-      board="$candidate"
-      break
-    fi
-    probe="$(dirname "$probe")"
-  done
-
-  [ -n "$board" ] || exit 0
-
-  # Whose questions land here (ADR-0065). The owl writes the main session's
-  # pane beside the board; this pane either is it or is not, and only the
-  # second case is worth a line. No pane id in the environment means herdr is
-  # not around to say, which is not the same as being the wrong pane — say
-  # nothing.
-  #
-  # `-f` rather than `-r`, like the stand-down check above: `-r` is true of a
-  # FIFO, and reading one with no writer waits for ever — here on a line
-  # Claude Code redraws every second.
-  notice=""
-  if [ -n "${HERDR_PANE_ID:-}" ] && [ -f "$board.main" ]; then
-    recorded=""
-    read -r recorded < "$board.main" 2>/dev/null
-    if [ -z "$recorded" ]; then
-      notice='🐱 no main session here — nothing is delivered until `whiska start` records this pane'
-    elif [ "$recorded" != "$HERDR_PANE_ID" ]; then
-      notice='🐱 not the main session — answers go to another pane; `whiska start` moves them here'
-    fi
-  fi
-
-  # Nothing to print and nothing to say: a quiet house writes an empty board,
-  # which is most houses most of the time, and this is the line that keeps
-  # them out of the two stat probes and the date below.
-  [ -s "$board" ] || [ -n "$notice" ] || exit 0
-
-  # BSD stat first, then GNU, and each answer is checked rather than trusted:
-  # `stat -f` on GNU means --file-system and prints a paragraph.
-  mtime="$(stat -f %m "$board" 2>/dev/null)"
-  case "$mtime" in
-    "" | *[!0-9]*) mtime="$(stat -c %Y "$board" 2>/dev/null)" ;;
-  esac
-  case "$mtime" in
-    "" | *[!0-9]*) exit 0 ;;
-  esac
-  age=$(( $(date +%s) - mtime ))
-
-  # A board nothing has refreshed is still mostly true for a little while,
-  # and hiding it the moment something goes wrong is the worse failure. Past
-  # a minute it stops being worth showing; herdr's tab bar says the owl is
-  # down either way (ADR-0048). Ten seconds, not five: a house waiting on a
-  # slow herdr — up to seven seconds — misses every write in that time without
-  # the owl being down at all.
-
-  # Only over a board the owl is currently writing: the pane beside it is the
-  # owl's answer too, and a house nobody is refreshing may have recorded a new
-  # main session since — telling the pane that just ran `whiska start` that it
-  # is the wrong one is the one false alarm this line must not raise.
-  if [ "$age" -le 10 ] && [ -n "$notice" ]; then
-    printf '\\e[33m%s\\e[0m\\n' "$notice"
-  fi
-
-  [ -s "$board" ] || exit 0
-
-  if [ "$age" -le 10 ]; then
-    cat "$board"
-  elif [ "$age" -le 60 ]; then
-    printf '🦉 owl down · %ss stale\n' "$age"
-    # Dim the whole of every row, over the colour the row already carries
-    # (`Whiska.Watch.Ink`). A row ends its own dim with `[22m`, which would end
-    # this one too and leave the rest of the line looking live, so each one is
-    # followed by a fresh `[2m`.
-    awk 'BEGIN { esc = sprintf("%c", 27); dim = esc "[2m" }
-         { gsub(esc "\\\\[22m", esc "[22m" dim); print dim $0 esc "[0m" }' "$board"
-  fi
-  """
 
   @herdr_status_name "herdr-status.sh"
 
@@ -989,24 +807,24 @@ defmodule Whiska.Install do
   @doc """
   Which pieces of the global install are on disk right now (ADR-0056).
 
-  Four, and they are read rather than assumed because each can be removed on
+  Three, and they are read rather than assumed because each can be removed on
   its own: the three hooks that enforce, deliver and hand a mouse its answer, the
-  `SessionStart` hook that hands out the rules, and the statusline in
-  `~/.claude/settings.json`, and the skills. `SessionStart` is apart because an
+  `SessionStart` hook that hands out the rules, and the skills. `SessionStart` is apart because an
   install written before it existed still enforces and delivers. `whiska doctor` turns a half-written
   answer into a warning; `whiska init` uses it only to say whether the global
   install is there at all.
 
   `stale_skills` are skill files, supporting files included, whose content is
   not what this build writes; a symlinked one is the person's and never listed
-  (ADR-0056). `retired_present` are retired skills still on disk as plain
+  (ADR-0056). `retired_statusline` is what an older install left of the Claude
+  Code statusline in the home. `retired_present` are retired skills still on disk as plain
   files, the ones `whiska init --global` removes.
   """
   @spec global_state() :: %{
           hooks?: boolean(),
           session_start?: boolean(),
-          statusline?: boolean(),
           skills?: boolean(),
+          retired_statusline: [String.t()],
           stale_skills: [Path.t()],
           retired_present: [Path.t()],
           links: [{Path.t(), Path.t()}]
@@ -1024,10 +842,8 @@ defmodule Whiska.Install do
       session_start?:
         wired?(settings, "SessionStart", session_start_command(:global)) and
           File.exists?(Path.join(home, @shim_path)),
-      statusline?:
-        statusline_command_in(settings) == statusline_command(:global) and
-          File.exists?(Path.join(home, @statusline_path)),
       skills?: Enum.all?(skills(:global), fn {rel, _} -> File.exists?(Path.join(home, rel)) end),
+      retired_statusline: retired_statusline(home),
       stale_skills: stale_skills(home),
       retired_present: Enum.filter(@retired_skills, &ours?(home, &1)),
       links: global_links()
@@ -1050,7 +866,7 @@ defmodule Whiska.Install do
       Whiska.Layout.canonical(path) == Path.join(Whiska.Layout.canonical(home), rel)
   end
 
-  @global_pieces [:hooks?, :session_start?, :statusline?, :skills?]
+  @global_pieces [:hooks?, :session_start?, :skills?]
 
   @doc "Is any of the global install there? Part of one still counts."
   @spec global_installed?() :: boolean()
@@ -1072,7 +888,7 @@ defmodule Whiska.Install do
 
     paths =
       [".claude/CLAUDE.md", ".claude/settings.json", ".claude/skills", ".claude/hooks"] ++
-        [@shim_path, @statusline_path] ++ Enum.map(skills(:global), &elem(&1, 0))
+        [@shim_path] ++ Enum.map(skills(:global), &elem(&1, 0))
 
     for rel <- paths,
         {:ok, target} <- [:file.read_link(Path.join(home, rel))],
@@ -1093,11 +909,6 @@ defmodule Whiska.Install do
     |> entries(event)
     |> Enum.any?(&(ours?(&1) and our_command(&1) == expected))
   end
-
-  defp statusline_command_in(%{"statusLine" => %{"command" => command}}) when is_binary(command),
-    do: command
-
-  defp statusline_command_in(_settings), do: nil
 
   # `~/.claude/settings.json` is the person's file and `whiska init` now reads it
   # whatever is in it. Anything but a list of entries is not a hook Whiska can
@@ -1127,58 +938,39 @@ defmodule Whiska.Install do
     end
   end
 
-  @doc "Where the project statusline script lives, relative to the repo root."
+  @doc "Where an older init put the Claude Code statusline script, relative to its root."
   @spec statusline_path() :: Path.t()
   def statusline_path, do: @statusline_path
 
-  @doc "The statusLine command that goes into `settings.json`; names only the script."
-  @spec statusline_command() :: String.t()
-  def statusline_command, do: @statusline_command
-
-  @doc "The statusLine command for one scope (ADR-0056)."
-  @spec statusline_command(scope()) :: String.t()
-  def statusline_command(:repo), do: @statusline_command
-  def statusline_command(:global), do: @global_statusline_command
-
   @doc """
-  Where the global statusline Whiska displaced is kept, relative to the home.
-
-  A `statusLine` is one value, not a list, so installing globally would
-  otherwise simply lose the person's own line. Both scripts read it.
+  Where an older global install kept the statusline it displaced, relative to
+  the home. `init` writes it back into `settings.json` and removes the file.
   """
   @spec base_statusline_path() :: Path.t()
   def base_statusline_path, do: @base_statusline_path
 
-  @doc "The statusline script's contents (ADR-0027)."
-  @spec statusline_script() :: String.t()
-  def statusline_script, do: @statusline_script
-
   @doc """
-  Which version of the statusline script this build ships (ADR-0059).
-
-  The script carries it in a `# whiska-statusline: v<n>` line, which is how
-  `whiska doctor` tells a repo's copy apart from this one.
+  What an older init left of the Claude Code statusline under `root` — the
+  repo's root or the home: its `settings.json` entry, the script, the kept line.
+  Empty once `whiska init` has run there.
   """
-  @spec statusline_version() :: pos_integer()
-  def statusline_version, do: @statusline_version
+  @spec retired_statusline(Path.t()) :: [String.t()]
+  def retired_statusline(root) do
+    settings = read_json(Path.join(root, ".claude/settings.json"))
 
-  @doc "The version stamp in a copy of the script, or `nil` when it carries none."
-  @spec statusline_version_of(String.t()) :: pos_integer() | nil
-  def statusline_version_of(contents) when is_binary(contents) do
-    case Regex.run(~r/^#\s*whiska-statusline:\s*v(\d+)/m, contents) do
-      [_, version] -> String.to_integer(version)
-      nil -> nil
-    end
+    entry =
+      if ours_statusline?(settings["statusLine"]),
+        do: [".claude/settings.json statusLine"],
+        else: []
+
+    entry ++
+      Enum.filter([@statusline_path, @base_statusline_path], &File.exists?(Path.join(root, &1)))
   end
 
-  @doc """
-  Seconds between statusline redraws, written beside the command (ADR-0044).
+  defp ours_statusline?(%{"command" => command}) when is_binary(command),
+    do: String.contains?(command, @statusline_path)
 
-  It is what keeps the mice and a second question honest while the session
-  sits idle.
-  """
-  @spec statusline_refresh_interval() :: pos_integer()
-  def statusline_refresh_interval, do: @statusline_refresh_interval
+  defp ours_statusline?(_other), do: false
 
   @doc """
   The skills `whiska init` writes, as `{path, contents}`.
@@ -1300,9 +1092,12 @@ defmodule Whiska.Install do
   Global is where "never clobber the person's other settings" earns its keep:
   that file is theirs, holds their model, permissions and hooks of their own,
   and the merge is the same surgical one either way.
+
+  A `statusLine` an older init wrote is taken out, and `base` — the line a
+  global install displaced — goes back in its place.
   """
-  @spec merge(map(), scope()) :: map()
-  def merge(settings, scope) when is_map(settings) do
+  @spec merge(map(), scope(), String.t() | nil) :: map()
+  def merge(settings, scope, base \\ nil) when is_map(settings) do
     pre_tool_use = %{
       "matcher" => @matcher,
       "hooks" => [%{"type" => "command", "command" => command(scope)}]
@@ -1321,24 +1116,7 @@ defmodule Whiska.Install do
     |> put_ours("Stop", [stop])
     |> put_ours("UserPromptSubmit", [prompt])
     |> put_ours("SessionStart", [session_start])
-    |> put_statusline(scope)
-  end
-
-  @doc """
-  The `statusLine` command this install is about to push aside, or `nil`.
-
-  Nothing when there is none and nothing when the one there is already ours —
-  a re-init must not record Whiska's own line as the person's.
-  """
-  @spec displaced(map()) :: String.t() | nil
-  def displaced(settings) when is_map(settings) do
-    case settings["statusLine"] do
-      %{"command" => command} when is_binary(command) ->
-        if String.contains?(command, @statusline_path), do: nil, else: command
-
-      _ ->
-        nil
-    end
+    |> restore_statusline(base)
   end
 
   @doc """
@@ -1369,53 +1147,19 @@ defmodule Whiska.Install do
     end
   end
 
+  # The person's own line goes back where Whiska's was: the one a global
+  # install displaced, or none. A `statusLine` that is not Whiska's is theirs and
+  # is left exactly alone.
   defp restore_statusline(settings, base) do
-    case Map.get(settings, "statusLine") do
-      %{"command" => command} when is_binary(command) ->
-        cond do
-          not String.contains?(command, @statusline_path) ->
-            settings
-
-          is_binary(base) and base != "" ->
-            Map.put(settings, "statusLine", %{"type" => "command", "command" => base})
-
-          true ->
-            Map.delete(settings, "statusLine")
-        end
-
-      _ ->
+    cond do
+      not ours_statusline?(settings["statusLine"]) ->
         settings
-    end
-  end
 
-  # A project statusLine is a single value, not a list, so there is no "beside
-  # the others" here: one that is ours, or missing, is set; one that is somebody
-  # else's is left exactly alone rather than replaced — including its refresh
-  # interval, or its want of one.
-  defp put_statusline(settings, scope) do
-    entry = %{
-      "type" => "command",
-      "command" => statusline_command(scope),
-      "refreshInterval" => @statusline_refresh_interval
-    }
+      is_binary(base) and base != "" ->
+        Map.put(settings, "statusLine", %{"type" => "command", "command" => base})
 
-    case {scope, settings["statusLine"]} do
-      # The global install takes the line over, because without it no repo gets
-      # a board at all. What it displaces is kept beside the script, which runs
-      # it first, so the person's own line survives (ADR-0056).
-      {:global, _any} ->
-        Map.put(settings, "statusLine", entry)
-
-      {:repo, nil} ->
-        Map.put(settings, "statusLine", entry)
-
-      {:repo, %{"command" => command}} when is_binary(command) ->
-        if String.contains?(command, @statusline_path),
-          do: Map.put(settings, "statusLine", entry),
-          else: settings
-
-      {:repo, _unrecognised} ->
-        settings
+      true ->
+        Map.delete(settings, "statusLine")
     end
   end
 

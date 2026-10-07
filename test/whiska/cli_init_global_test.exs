@@ -95,17 +95,15 @@ defmodule Whiska.CLIInitGlobalTest do
       refute File.exists?(Path.join(home, ".claude/CLAUDE.md"))
     end
 
-    test "writes the shim and the statusline script, executable", %{home: home} do
+    test "writes the shim, executable, and no statusline script", %{home: home} do
       init_global()
 
-      for rel <- [Install.shim_path(), Install.statusline_path()] do
-        path = Path.join(home, rel)
-        assert File.exists?(path), "#{rel} was not written"
-        assert File.stat!(path).mode |> rem(0o1000) == 0o755
-      end
+      path = Path.join(home, Install.shim_path())
+      assert File.stat!(path).mode |> rem(0o1000) == 0o755
+      refute File.exists?(Path.join(home, Install.statusline_path()))
     end
 
-    test "wires the three hooks and the statusline into ~/.claude/settings.json", %{
+    test "wires the hooks into ~/.claude/settings.json", %{
       settings: path
     } do
       init_global()
@@ -124,7 +122,7 @@ defmodule Whiska.CLIInitGlobalTest do
       assert settings(path)["hooks"]["Stop"] != nil
     end
 
-    test "keeps the person's own global statusline rather than losing it", %{
+    test "leaves the person's own global statusline exactly where it is", %{
       home: home,
       settings: path
     } do
@@ -133,10 +131,48 @@ defmodule Whiska.CLIInitGlobalTest do
 
       init_global()
 
-      # The statusLine entry is Whiska's now, and the line it displaced is
-      # recorded where the script picks it up and runs it first.
-      assert settings(path)["statusLine"]["command"] == Install.statusline_command(:global)
-      assert File.read!(Path.join(home, Install.base_statusline_path())) == "my-line.sh"
+      assert settings(path)["statusLine"] == %{"command" => "my-line.sh"}
+      refute File.exists?(Path.join(home, Install.base_statusline_path()))
+    end
+
+    test "puts back the line an older install displaced, before removing what it kept", %{
+      home: home,
+      settings: path
+    } do
+      ours = ~s|bash "$HOME/.claude/hooks/whiska-statusline.sh"|
+      script = Path.join(home, Install.statusline_path())
+      base = Path.join(home, Install.base_statusline_path())
+      File.mkdir_p!(Path.dirname(script))
+      File.write!(script, "#!/usr/bin/env bash\n")
+      File.write!(base, "my-line.sh\n")
+
+      File.write!(
+        path,
+        JSON.encode!(%{
+          "statusLine" => %{"type" => "command", "command" => ours, "refreshInterval" => 1}
+        })
+      )
+
+      output = init_global()
+
+      assert settings(path)["statusLine"] == %{"type" => "command", "command" => "my-line.sh"}
+      refute File.exists?(script)
+      refute File.exists?(base)
+      assert output =~ "herdr's sidebar"
+    end
+
+    test "keeps what an older install kept when it cannot write the line back", %{
+      home: home,
+      settings: path
+    } do
+      base = Path.join(home, Install.base_statusline_path())
+      File.mkdir_p!(Path.dirname(base))
+      File.write!(base, "my-line.sh")
+      File.write!(path, "{not json")
+
+      capture_io(:stderr, fn -> assert CLI.run(["init", "--global"], nil) == 1 end)
+
+      assert File.read!(base) == "my-line.sh"
     end
 
     test "writes every skill, the worktree ones and the eight words included", %{home: home} do
@@ -254,7 +290,7 @@ defmodule Whiska.CLIInitGlobalTest do
 
       init_global()
 
-      assert settings(path)["statusLine"]["command"] == Install.statusline_command(:global)
+      assert settings(path)["statusLine"] == "my-line.sh"
     end
 
     test "whiska init in a repo survives one too", %{repo: repo, settings: path} do
@@ -350,14 +386,19 @@ defmodule Whiska.CLIInitGlobalTest do
           do: refute(File.exists?(Path.join(Install.commands_dir(), word)), word)
     end
 
-    test "gives the person their own statusline back", %{settings: path} do
+    test "gives the person the line an older install displaced back", %{
+      home: home,
+      settings: path
+    } do
+      ours = ~s|bash "$HOME/.claude/hooks/whiska-statusline.sh"|
       File.mkdir_p!(Path.dirname(path))
-      File.write!(path, JSON.encode!(%{"statusLine" => %{"command" => "my-line.sh"}}))
+      File.write!(Path.join(home, Install.base_statusline_path()), "my-line.sh")
+      File.write!(path, JSON.encode!(%{"statusLine" => %{"command" => ours}}))
 
-      init_global()
       uninstall_global()
 
       assert settings(path)["statusLine"]["command"] == "my-line.sh"
+      refute File.exists?(Path.join(home, Install.base_statusline_path()))
     end
 
     test "leaves everything that was not Whiska's", %{home: home, settings: path} do
