@@ -76,7 +76,7 @@ beside the point. CONTEXT.md's entry for this state is **Gated**.
 
 ## Amendment, 2026-10-07: the reason is on the main checkout's sidebar line
 
-[ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md) takes the board out of the Claude Code statusline. The reason a queue is gated is
+[ADR-0082](0082-a-mouses-state-is-a-line-in-herdrs-sidebar.md) takes the board out of the Claude Code statusline. The reason a queue is gated is
 now the main checkout's own line in herdr's sidebar, worded to fit its width —
 `⏳ gated: you're typing`, `no prompt box`, `main is mid-turn`, `main unreachable` — under
 the same ten-second fuse, and not while the person is away. `whiska doctor` keeps the long

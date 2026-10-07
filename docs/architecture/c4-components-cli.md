@@ -210,7 +210,7 @@ database cannot see, and an entry uncollected past the owl's backstop still mean
 until the owl answers a socket.
 
 What each mouse is doing is not this component's: it is a line in herdr's sidebar
-(ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar), which the house reports.
+(ADR-0082), which the house reports.
 
 **`Watch` is the board, and holds facts, not words** — for each live mouse of this repo,
 the question waiting on the person, how its pane stands with herdr (one agent pane, none,

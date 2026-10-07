@@ -112,7 +112,7 @@ idle trigger's own retries. Without this, a trigger that never fires looks exact
 healthy owl, which is what happened (ADR-0036, note of 2026-09-28).
 
 **Each mouse's line is reported, never asked for**
-(ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). Every other second the house lists
+(ADR-0082). Every other second the house lists
 herdr's panes and workspaces and builds the board; every second it turns the board into
 lines and reports each one that differs from what herdr holds onto that mouse's workspace,
 with a thirty-second TTL, sent again before it lapses. Reading the workspaces back is how a

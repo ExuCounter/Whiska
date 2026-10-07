@@ -105,7 +105,7 @@ doctor` prints the id for the case where it is genuinely wanted.
 
 ## Amendment, 2026-10-07: only "no main session" survives
 
-[ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md) takes the board out of the Claude Code statusline, and with it the line this
+[ADR-0082](0082-a-mouses-state-is-a-line-in-herdrs-sidebar.md) takes the board out of the Claude Code statusline, and with it the line this
 decision put above the rows. "No main session" moves to the main checkout's line in herdr's
 sidebar — `✖ no main session: whiska start`, while anything runs or waits. "Not
 the main session" cannot be said there: the sidebar looks the same from every pane, so

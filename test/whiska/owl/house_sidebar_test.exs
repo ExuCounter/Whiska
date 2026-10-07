@@ -1,7 +1,7 @@
 defmodule Whiska.Owl.HouseSidebarTest do
   @moduledoc """
   The house keeps each mouse's line in herdr's sidebar
-  (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar): it reports the line
+  (ADR-0082): it reports the line
   on the mouse's workspace, sends it again whenever herdr no longer holds it,
   and re-sorts the mice only when one starts or stops needing the person.
 

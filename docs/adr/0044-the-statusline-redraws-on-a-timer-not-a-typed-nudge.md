@@ -168,6 +168,6 @@ admit defeat.
 
 ## Amendment, 2026-10-07: no repo-scoped line is left to redraw
 
-[ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md) removes the Claude Code statusline Whiska wrote, interval and all. herdr redraws the
+[ADR-0082](0082-a-mouses-state-is-a-line-in-herdrs-sidebar.md) removes the Claude Code statusline Whiska wrote, interval and all. herdr redraws the
 tab bar on its own timer (ADR-0048), and the owl reports each mouse's sidebar line itself,
 so no Claude Code session runs anything on a timer for Whiska.

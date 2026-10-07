@@ -80,7 +80,7 @@ for a repo that cannot carry a committed `.claude/`. A scope is a root and nothi
 there is no second container here — only two places the same one can sit. Where a repo has
 both, the repo's copy is in force and the global shim exits before resolving anything.
 
-**No status script runs per repo** (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
+**No status script runs per repo** (ADR-0082).
 Each mouse's state is a line under its own workspace in herdr's sidebar, which the house
 reports to herdr directly — there is no file between them, and nothing runs in a Claude
 Code session. herdr forgets those lines when its server restarts, so the house reads them

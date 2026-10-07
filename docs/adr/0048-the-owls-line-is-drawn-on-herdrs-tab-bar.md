@@ -234,7 +234,7 @@ no repo-scoped line at all, and it is written down here rather than discovered l
 
 ## Amendment, 2026-10-07: the repo-scoped line moves to herdr's sidebar
 
-The amendment above kept the repo's own line in Claude Code's statusline. [ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md) moves it
+The amendment above kept the repo's own line in Claude Code's statusline. [ADR-0082](0082-a-mouses-state-is-a-line-in-herdrs-sidebar.md) moves it
 into herdr's sidebar, a line under each mouse's workspace, and takes the statusline out. The
 tab bar is unchanged, and the rule here holds for the sidebar too: the colours are rows in
 the person's herdr config, which `whiska doctor` prints and Whiska never writes.

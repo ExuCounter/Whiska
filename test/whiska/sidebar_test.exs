@@ -2,7 +2,7 @@ defmodule Whiska.SidebarTest do
   @moduledoc """
   The lines herdr's sidebar draws for a house: one under each mouse's
   workspace, one under the main checkout's
-  (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
+  (ADR-0082).
 
   Pure — mouse records, questions and herdr's pane list in, through
   `Whiska.Watch.board/2`, and tokens out — so nothing here needs a house, an

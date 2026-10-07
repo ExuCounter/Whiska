@@ -318,7 +318,7 @@ queue; `whiska close` covers the rest.
 Neither repeats the other (ADR-0048). Facts about the whole machine go on herdr's tab
 bar, once, one thing named and several counted (ADR-0027). What each mouse is doing goes
 in herdr's sidebar, under that mouse's own workspace
-(ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). Both are rows in your own herdr
+(ADR-0082). Both are rows in your own herdr
 config, which Whiska never writes; `whiska doctor` prints each.
 
 ### The machine-wide line, on herdr's tab bar

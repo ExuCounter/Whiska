@@ -4,7 +4,7 @@ defmodule Whiska.Watch do
   it.
 
   The owl turns it into a line under each mouse's workspace in herdr's sidebar
-  (`Whiska.Sidebar`, ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar), and
+  (`Whiska.Sidebar`, ADR-0082), and
   `whiska watch` prints the same lines on demand. This module holds the facts
   and no words: what each mouse is waiting on, what herdr says of its pane, and
   what it is doing, so two surfaces can never spell one fact two ways.

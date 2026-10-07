@@ -757,7 +757,7 @@ defmodule Whiska.Doctor do
   the home (`Whiska.Install.retired_statusline/1`).
 
   Each mouse's state is a line in herdr's sidebar
-  (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar), and a leftover script
+  (ADR-0082), and a leftover script
   draws nothing — it prints the person's own line and stops. So a leftover is a
   warning with the init that takes it out, never a failure.
   """

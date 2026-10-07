@@ -1,7 +1,7 @@
 defmodule Whiska.Sidebar do
   @moduledoc """
   The lines herdr's sidebar draws for a house, as display tokens
-  (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar): under each mouse's
+  (ADR-0082): under each mouse's
   workspace, `whiska` is its state and `whiska_q`, `whiska_q2` the question it
   carries, wrapped; under the main checkout's workspace, what is true of the
   whole repo.

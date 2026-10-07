@@ -11,7 +11,7 @@ defmodule Whiska.Statusline do
   would be the confusing option.
 
   What each mouse of a repo is doing is a line under its own workspace in
-  herdr's sidebar (`Whiska.Sidebar`, ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar), which the owl reports to herdr
+  herdr's sidebar (`Whiska.Sidebar`, ADR-0082), which the owl reports to herdr
   itself.
 
   On the tab bar:

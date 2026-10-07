@@ -169,7 +169,7 @@ it, a working mouse's spinner turning once a second — read back from herdr eve
 seconds so a herdr restart is repaired, and expiring thirty seconds after its last send;
 the main checkout's workspace says what is true of the whole repo; the mice re-sort only
 when one starts or stops needing the person; and the statusline script, its board file and
-its version stamp are gone, taken out by `whiska init` (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). 2212 tests.
+its version stamp are gone, taken out by `whiska init` (ADR-0082). 2212 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only

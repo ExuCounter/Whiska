@@ -571,7 +571,7 @@ session behaves when Whiska delivers a question into it:
 
 > Superseded: Whiska writes no Claude Code statusline. The machine-wide line is herdr's tab
 > bar (ADR-0048), and each mouse's state is a line in herdr's sidebar
-> (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). What follows is the original design.
+> (ADR-0082). What follows is the original design.
 
 `whiska init` also adds a project-level `statusLine` entry, showing how many mice are
 currently alive and how many questions are open for that repo (e.g. `🐭×3 · 🐱 2 open`),

@@ -1,6 +1,6 @@
 # The statusline script carries a version stamp, and an old copy is an upgrade notice
 
-**Superseded on 2026-10-07 by [ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar](next-a-mouses-state-is-a-line-in-herdrs-sidebar.md).**
+**Superseded on 2026-10-07 by [ADR-0082](0082-a-mouses-state-is-a-line-in-herdrs-sidebar.md).**
 No statusline script is written any more, so there is no copy to stamp: `whiska doctor`
 names a leftover one as a warning, and `whiska init` removes it. Everything below is what
 this decision said, and is history.

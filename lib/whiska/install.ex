@@ -323,7 +323,7 @@ defmodule Whiska.Install do
   # The Claude Code statusline an older `whiska init` wrote, and the line its
   # global install displaced and kept beside it (ADR-0056). Nothing writes
   # either now; `init` takes them out and puts the person's line back
-  # (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
+  # (ADR-0082).
   @statusline_path ".claude/hooks/whiska-statusline.sh"
   @base_statusline_path ".claude/whiska-base-statusline"
 

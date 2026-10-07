@@ -3,7 +3,7 @@ defmodule Whiska.InstallStatuslineTest do
   What `whiska init` writes for questions: herdr's tab bar script and its config
   entry (ADR-0048), and the reading skills (ADR-0022) — and the Claude Code
   statusline it takes out of an older install
-  (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
+  (ADR-0082).
   """
   # Serial: each test points the global `:home` at a folder of its own.
   use ExUnit.Case, async: false

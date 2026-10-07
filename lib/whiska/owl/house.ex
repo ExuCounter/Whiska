@@ -126,7 +126,7 @@ defmodule Whiska.Owl.House do
 
   The house keeps a line under each of its mice's herdr workspaces, and one
   under its main checkout's (`Whiska.Sidebar`,
-  ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). It reads back what
+  ADR-0082). It reads back what
   herdr is showing every time it asks herdr for its panes and sends whatever
   differs — which is how a line lost to a herdr restart comes back — and sends
   every line again before its TTL runs out, so a line nobody is keeping current
@@ -451,7 +451,7 @@ defmodule Whiska.Owl.House do
 
   def handle_info({:EXIT, _pid, _reason}, state), do: {:noreply, state}
 
-  # -- the sidebar (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar) -------
+  # -- the sidebar (ADR-0082) -------
 
   # `state.panes` is the match from pane to mouse and holds no status, so the
   # board keeps herdr's last full answer beside it: the one the tick asks for,

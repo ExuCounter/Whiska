@@ -18,7 +18,7 @@ defmodule Whiska.Herdr do
 
   `title` is herdr's `terminal_title_stripped`, which for a Claude Code pane is
   the short summary the agent keeps of what it is working on — the mouse's topic,
-  and what a working mouse's sidebar line says about it (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar). It is
+  and what a working mouse's sidebar line says about it (ADR-0082). It is
   somebody else's free text: it can be empty, it can be a
   shell command in a pane running one, and in some panes it still carries the
   agent's status glyph on the front.
@@ -177,7 +177,7 @@ defmodule Whiska.Herdr do
 
   The tokens are what herdr is showing right now, not what anybody last told
   it: herdr forgets them when its server restarts, so this is how the owl
-  finds out a line it sent is gone (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
+  finds out a line it sent is gone (ADR-0082).
   """
   @callback workspaces(socket :: Path.t()) :: {:ok, [workspace()]} | {:error, term()}
 

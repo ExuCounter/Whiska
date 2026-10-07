@@ -177,13 +177,13 @@ when nothing about a question, a hold or its pane already decides what is said.
 A mouse is **stuck** when herdr says it is blocked, or it is working and has written
 nothing to its transcript for two minutes. A dead mouse has no row; what it left behind
 unanswered is counted apart as orphaned, never as waiting. **Sidebar lines** are written
-from it, and `whiska watch` prints those. It reports and never acts (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
+from it, and `whiska watch` prints those. It reports and never acts (ADR-0082).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws), the statusline (a
 surface; the board is drawn on none, only the **sidebar lines** written from it are)
 
 **Sidebar line**:
 What herdr's sidebar shows under one workspace, which the owl reports and herdr draws
-(ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar): under each mouse's workspace, its state — `🐭 #13 · waiting on you · 14m`,
+(ADR-0082): under each mouse's workspace, its state — `🐭 #13 · waiting on you · 14m`,
 `✅ #14 · finished`, `⚠ stuck 6m`, `⏳ queued behind #12`, `🎯`/`💤` waiting behind a
 **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `◐ <topic>` — with the question it
 carries wrapped on up to two lines beneath; under the main checkout's workspace, what is
@@ -498,7 +498,7 @@ owl's state, always, whether the person is **away**, and which whiskas have some
 waiting — `🦉 watching`, `🦉 watching · away · 🐱 2 whiskas`,
 `🦉 owl down · 🐱 2 whiskas`. A repo's own mice are **sidebar lines**, not a statusline:
 Whiska draws nothing in Claude Code's statusline, and `whiska init` takes out the one an
-older init wrote (ADR-next-a-mouses-state-is-a-line-in-herdrs-sidebar).
+older init wrote (ADR-0082).
 _Avoid_: status bar, status line as two words (see **Worktree-status marker**), segment
 (one part of it, not the line), tab bar (herdr's surface, not a name for the line
 itself)
