@@ -194,7 +194,8 @@ defmodule Whiska.InstallFinishSkillTest do
       body = prose()
 
       assert body =~ ~r/\| \*\*performance\*\* \| only on a hot path/i
-      assert body =~ ~r/loop, timer, scheduler, middleware or handler/
+      assert body =~ ~r/timer, scheduler, middleware or handler, or a loop over input that grows/
+      refute body =~ "the diff contains a loop"
       assert body =~ ~r/its three questions join the correctness prompt/
     end
 
