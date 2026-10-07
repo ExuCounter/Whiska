@@ -95,13 +95,11 @@ defmodule Whiska.CLIMiceTest do
       assert out =~ ~r/feat-b\s+never shaped, reads only\s/
     end
 
-    # A sniff mouse moved to build by hand keeps the model and effort chosen
-    # for the investigation; the listing is where that shows rather than hides.
-    test "says when a mouse's mode was moved off what it was shaped as", %{main: main} do
+    test "says when a mouse flipped before ADR-0074 is off what it was shaped as", %{main: main} do
       seed(main, [{"ma", "feat-a", false}, {"mb", "feat-b", false}])
       {:ok, handle} = Storage.open(main, name: :seed)
       {:ok, _} = Storage.shape("ma", "sniff", "m-heavy", "xhigh")
-      {:ok, _} = Storage.set_mode("ma", "build")
+      Whiska.Repo.update!(Ecto.Changeset.change(Storage.mouse("ma"), %{mode: "build"}))
       {:ok, _} = Storage.shape("mb", "sniff", "m-heavy", "xhigh")
       Storage.close(handle)
       stub(Herdr, :list_panes, fn _ -> {:ok, []} end)

@@ -141,7 +141,8 @@ whiska mice                     what is alive here — branch, mode, pane, uptim
 whiska worktrees                linked worktrees, their herdr workspace and pane, tab-separated
 whiska doctor                   check this repo end to end; exits 1 on any failure
 whiska statusline [--here]      the tab-bar line, or this repo's board
-whiska mode [build|sniff]       this mouse's mode; sniff writes nothing, anywhere
+whiska mode [build|sniff]       this mouse's mode; build|sniff gives one to a mouse nobody
+                                shaped, and refuses on one that has it. sniff writes nothing
 whiska init [--global]          install into this repo's .claude/, or into ~/.claude
 whiska uninstall [--global]     take it back out; the house is untouched
 whiska start [--force]          record this herdr pane as the repo's main session, and

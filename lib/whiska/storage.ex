@@ -201,21 +201,19 @@ defmodule Whiska.Storage do
   def mode_of(%Mouse{mode: mode}), do: mode
 
   @doc """
-  Move a mouse between build and sniff.
+  Give a mouse nobody shaped its mode.
 
   The mode lives here rather than in the marker file so it stays keyed to
   `mouse_id` — a renamed branch or a moved worktree does not disturb it — and so
   the marker stays the bare opaque id ADR-0002 describes.
 
-  A mode somebody chose is a shape: this stamps `shaped_at` if nothing has, so
-  `whiska mode build` is what lets a mouse nobody shaped write (ADR-0069).
-
-  It moves the mode and nothing else. `shaped_as` stays what the spawn
-  recorded, so a mouse moved off its shape keeps saying what its model and
-  effort were chosen for (ADR-0074).
+  A mode somebody chose is a shape: this stamps `shaped_at`, so
+  `whiska mode build` is what lets a mouse nobody shaped write (ADR-0069). A mouse
+  that has a shape keeps its mode for good (ADR-0074).
   """
   @spec set_mode(String.t(), String.t()) ::
-          {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}
+          {:ok, Mouse.t()}
+          | {:error, :invalid_mode | :no_such_mouse | :already_shaped | Ecto.Changeset.t()}
   def set_mode(_mouse_id, mode) when mode not in @modes, do: {:error, :invalid_mode}
 
   def set_mode(mouse_id, mode) do
@@ -223,9 +221,12 @@ defmodule Whiska.Storage do
       nil ->
         {:error, :no_such_mouse}
 
+      %Mouse{shaped_at: %DateTime{}} ->
+        {:error, :already_shaped}
+
       mouse ->
         mouse
-        |> Ecto.Changeset.change(%{mode: mode, shaped_at: mouse.shaped_at || now()})
+        |> Ecto.Changeset.change(%{mode: mode, shaped_at: now()})
         |> Repo.update()
     end
   end
@@ -237,8 +238,7 @@ defmodule Whiska.Storage do
   Run by the spawn, in the new worktree, before Claude starts — so the first
   tool call a sniff mouse makes is already judged as sniff. `shaped_at` is what
   tells this mouse apart from one nobody shaped, which may not write.
-  `shaped_as` keeps the mode the model and effort were chosen with, which
-  `set_mode/2` does not move.
+  `shaped_as` keeps the mode the model and effort were chosen with.
   """
   @spec shape(String.t(), String.t(), String.t() | nil, String.t() | nil) ::
           {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}

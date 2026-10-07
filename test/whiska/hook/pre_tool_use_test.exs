@@ -349,7 +349,7 @@ defmodule Whiska.Hook.PreToolUseTest do
     } do
       mouse_id = held(main, worktree)
       {:ok, handle} = Storage.open(main)
-      {:ok, _} = Storage.set_mode(mouse_id, "sniff")
+      {:ok, _} = Storage.shape(mouse_id, "sniff", nil, nil)
       Storage.close(handle)
 
       assert {:deny, reason} =

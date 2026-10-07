@@ -162,9 +162,10 @@ arguments; what was recorded goes to stderr for the report. The model the mouse
 actually ran on comes back later: `Hook.Stop` reads it from the transcript and carries
 it on the doorstep entry, and the owl records it as `ran_on`. A mouse minted lazily by the hook instead has no `shaped_at`: `Storage.mode`
 reads it as `unshaped`, `Rule.Sniff` holds it to sniff's rules with a reason that sends
-it to the person, and `Mice` says `never shaped, reads only`. `whiska mode` moves the mode
-alone, so `shaped_as` keeps the mode the model and effort were chosen with, and `Mice`
-says when a mouse was moved off it (ADR-0074).
+it to the person, and `Mice` says `never shaped, reads only`. `whiska mode build|sniff`
+gives a mode to such a mouse and refuses a shaped one (ADR-0074), so a mouse keeps the mode
+its model and effort were chosen for; `Mice` still says when a mouse flipped before that
+rule is off its `shaped_as`.
 
 Shaping, and setting a mode, also makes git ignore the worktree's `.whiska-spec.md`, the
 spec the mouse writes after grilling

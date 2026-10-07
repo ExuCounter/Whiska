@@ -32,8 +32,8 @@ defmodule Whiska.Schema.Mouse do
     # Nil means nobody did, and the mouse may read but not write (ADR-0069).
     field(:shaped_at, :utc_datetime)
     # The mode `whiska shape` recorded, which the model and effort were chosen
-    # with. `whiska mode` does not move it, so a mouse moved off its shape
-    # still says so; nil when no spawn ever shaped it.
+    # with; nil when no spawn ever shaped it. A mouse flipped before ADR-0074
+    # can differ from `mode`, and `whiska mice` says so.
     field(:shaped_as, :string)
     field(:created_at, :utc_datetime)
     # Set when herdr reports the pane gone (ADR-0026); cleared if a pane comes

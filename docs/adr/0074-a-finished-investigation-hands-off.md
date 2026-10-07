@@ -65,20 +65,31 @@ prompt carries only the id, and the branch is a name the main session makes out 
 quoted prompt, as first written, left one missed escape between a mouse's text and the
 person's shell.
 
-## `whiska mode` stays, and says what it carried
+## `whiska mode` gives a mode, never changes one
 
-Refusing the flip was rejected. `whiska mode` is also how a mouse nobody shaped gets its
-mode (ADR-0069), and a person who wants a small fix made by the session that already holds
-the context can still choose that. What made the flip wrong was that it was silent.
+*Rewritten 2026-10-06.* This section first kept the in-place flip and made it say what
+it carried: "feat/x is now a build mouse. It keeps opus at xhigh effort, chosen when it
+was shaped as sniff". Saying so did not fix it. The flip still left a build mouse on the
+model and effort priced for an investigation, and a person had to read a line to learn
+it. One mode per mouse removes the flip instead.
 
+- `whiska mode build|sniff` gives a mode only to a mouse nobody shaped: a spawn that
+  skipped the step, an older skill copy, a hand-made worktree (ADR-0069). It stamps
+  `shaped_at`, so the mouse is shaped from then on.
+- On a mouse that has a shape, it refuses, exits 1 and changes nothing. It says the mouse
+  keeps its mode, and points to a **Proposed build** and a fresh mouse shaped for the
+  build, the road this ADR describes.
+- `whiska mode` with no argument still prints the mode.
 - `whiska shape` records `shaped_as`, the mode the model and effort were chosen with.
-  `whiska mode` moves `mode` and leaves `shaped_as` alone.
-- A flip off the shape says what it carried: "feat/x is now a build mouse. It keeps opus
-  at xhigh effort, chosen when it was shaped as sniff". `whiska mice` shows
-  `build on … (shaped as sniff)` for as long as it runs.
-- The sniff denial stopped telling the mouse to ask the person for `whiska mode build`,
-  which was the road to the flip nobody meant: a mouse denied an edit asked to be
-  flipped, and was. It now tells the mouse to finish with a proposal.
+  `whiska mode` no longer moves `mode` off it; running `whiska shape` again still
+  re-shapes a mouse, and is the spawn's step, not a way to flip one in place.
+  `whiska mice` still shows
+  `build on … (shaped as sniff)` for a mouse flipped before this, until it ends.
+- The sniff denial does not tell the mouse to ask the person for `whiska mode build`,
+  the road to the flip nobody meant. It tells the mouse to finish with a proposal.
+
+What the person gives up: a small fix made by the investigating session, which already
+holds the context. They ask for the build, and a fresh mouse reads the proposal instead.
 
 ## Consequences
 
@@ -90,7 +101,7 @@ the context can still choose that. What made the flip wrong was that it was sile
   offered what fits those instead, and the proposal goes unoffered — it changed something,
   which a proposal says it did not.
 - Dropping an investigation's branch is confirmed only when the branch has commits of its
-  own or files not committed — a mouse moved from build to sniff can have some. Otherwise
+  own or files not committed — a mouse flipped from build to sniff before this change can have some. Otherwise
   nothing is lost, and the flow stays at one question.
 - A repo with older skills offers no build option until `whiska init` (or
   `whiska init --global`) is re-run.

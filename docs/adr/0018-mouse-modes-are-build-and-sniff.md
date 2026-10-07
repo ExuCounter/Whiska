@@ -27,10 +27,10 @@ nothing said so. A mouse nobody shaped is now held to sniff's rules, with a reas
 sends it to the person, until they run `whiska mode build` or `whiska mode sniff`. Mice
 already recorded when this landed were stamped as shaped, so none was stopped mid-task.
 
-## Note, 2026-10-04: a flip carries its shape along, and says so
+## Note, 2026-10-04, rewritten 2026-10-06: a mouse has one mode
 
-A mode moved by `whiska mode` after the spawn keeps the model and effort the mouse was
-started on, chosen for the other mode's work. The flip still works, and now says what it
-carried; a finished investigation is built by a fresh mouse instead, shaped for the build
-(ADR-0074). A sniff mouse denied an edit is told to
-end on a proposal, no longer to ask for `whiska mode build`.
+A mouse keeps the mode it was shaped with, because its model and effort were chosen for
+that mode's work. `whiska mode build|sniff` gives a mode only to a mouse nobody shaped,
+and refuses on one that has a shape, pointing to a proposed build and a fresh mouse
+(ADR-0074). A sniff mouse denied an edit is told to end on a proposal, no longer to ask
+for `whiska mode build`.

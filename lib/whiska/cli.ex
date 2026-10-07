@@ -233,13 +233,13 @@ defmodule Whiska.CLI do
                          herdr through this, so they need no jq.
 
     mode                 Print this mouse's mode.
-    mode build|sniff     Set it. A build mouse makes changes, confined to its
-                         own worktree. A sniff mouse investigates and reports,
-                         and may not write anything at all. Its model and
-                         effort stay what it was started on; moved off the
-                         mode it was shaped as, it says so, and so does
-                         `whiska mice`. Like shape, makes git ignore the
-                         worktree's .whiska-spec.md.
+    mode build|sniff     Give a mouse nobody shaped its mode. A build mouse
+                         makes changes, confined to its own worktree. A sniff
+                         mouse investigates and reports, and may not write
+                         anything at all. Refuses a mouse that has a mode: it
+                         keeps it, and a build for what it found goes to a
+                         fresh mouse, from its Proposed build. Like shape,
+                         makes git ignore the worktree's .whiska-spec.md.
 
     shape build|sniff [--model <name>] [--effort <level>]
                          Give a fresh mouse its shape, before Claude starts
@@ -1077,15 +1077,14 @@ defmodule Whiska.CLI do
     end
   end
 
-  # The flip still works — it is also how a mouse nobody shaped gets a mode —
-  # but one that moves a mouse off its shape says what it carried along: the
-  # model and effort chosen for the other mode's work, which stay until the
-  # process ends (ADR-0074).
   defp set_mode(mouse_id, layout, mode) do
     case Storage.set_mode(mouse_id, mode) do
-      {:ok, mouse} ->
+      {:ok, _mouse} ->
         ignore_spec(layout)
-        say("#{layout.branch_label} is now a #{mode} mouse." <> carried(mouse))
+        say("#{layout.branch_label} is now a #{mode} mouse.")
+
+      {:error, :already_shaped} ->
+        refuse_mode(mouse_id, layout)
 
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not set the mode (#{inspect(reason)}).")
@@ -1093,16 +1092,22 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp carried(mouse) do
-    case Whiska.Shape.moved_from(mouse) do
-      nil ->
-        ""
+  defp refuse_mode(mouse_id, layout) do
+    mouse = Storage.mouse(mouse_id)
 
-      as ->
-        " It keeps #{mouse.model || "your default model"} at " <>
-          "#{mouse.effort || "your default"} effort, chosen when it was shaped as #{as}; " <>
-          "`whiska mice` shows that while it runs."
-    end
+    had =
+      if mouse.shaped_as,
+        do: "was shaped as #{mouse.shaped_as}",
+        else: "already has its mode (#{mouse.mode})"
+
+    IO.puts(
+      :stderr,
+      "whiska: #{layout.branch_label} #{had}, and a mouse keeps its mode (ADR-0074). " <>
+        "Its model and effort were chosen for that work. To build what it found, end its " <>
+        "report on a Proposed build and have a fresh mouse shaped for the build."
+    )
+
+    1
   end
 
   # stdout is the flags to start Claude with — plain words only, or nothing —

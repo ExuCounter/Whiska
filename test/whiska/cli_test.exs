@@ -87,14 +87,15 @@ defmodule Whiska.CLITest do
       assert out =~ "unshaped"
     end
 
-    test "switches a mouse to sniff and back", %{worktree: worktree} do
+    test "gives a mouse nobody shaped its mode, once", %{worktree: worktree} do
       capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)
       out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
       assert out =~ "sniff"
 
-      capture_io(fn -> assert CLI.run(["mode", "build"], worktree) == 0 end)
+      stderr = capture_io(:stderr, fn -> assert CLI.run(["mode", "build"], worktree) == 1 end)
+      assert stderr =~ "already has its mode"
       out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
-      assert out =~ "build"
+      assert out =~ "sniff"
     end
 
     # A mouse nobody shaped can write nothing until the person sets its mode, so
@@ -109,7 +110,7 @@ defmodule Whiska.CLITest do
       assert Whiska.Spec.exclude_line() in lines
     end
 
-    test "moving a shaped mouse to the other mode says its model and effort stay", %{
+    test "refuses a shaped mouse and points to a proposed build and a fresh mouse", %{
       worktree: worktree
     } do
       with_io(:stderr, fn ->
@@ -118,25 +119,13 @@ defmodule Whiska.CLITest do
         end)
       end)
 
-      out = capture_io(fn -> assert CLI.run(["mode", "build"], worktree) == 0 end)
-      assert out =~ "is now a build mouse"
-      assert out =~ "m-heavy"
-      assert out =~ "xhigh"
-      assert out =~ "shaped as sniff"
-      assert out =~ "whiska mice"
+      stderr = capture_io(:stderr, fn -> assert CLI.run(["mode", "build"], worktree) == 1 end)
+      assert stderr =~ "shaped as sniff"
+      assert stderr =~ "Proposed build"
+      assert stderr =~ "fresh mouse"
 
-      # Back to what it was shaped as: nothing left to say.
-      out = capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)
-      assert out =~ "is now a sniff mouse."
-      refute out =~ "shaped as"
-    end
-
-    test "a mouse nobody shaped is released without a word about its model", %{
-      worktree: worktree
-    } do
-      out = capture_io(fn -> assert CLI.run(["mode", "build"], worktree) == 0 end)
-      assert out =~ "is now a build mouse."
-      refute out =~ "shaped as"
+      out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
+      assert out =~ "sniff"
     end
 
     test "mints the mouse if it has never been seen", %{worktree: worktree} do

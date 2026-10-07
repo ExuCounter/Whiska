@@ -440,10 +440,11 @@ mouse's first tool call is already judged by its mode. The spawning session pick
 model and the effort by the ordered rules in `priv/models.json`; one it leaves unnamed
 is the last rule's. The record also keeps the model the mouse actually ran on, read from
 its transcript. There is no default mode: a mouse **never shaped** may read but not
-write until the person runs `whiska mode` in its worktree. `whiska mode` moves the mode
-and nothing else, so the record also keeps what the mouse was **shaped as** — the mode its
-model and effort were chosen with — and a mouse moved off it says so, in `whiska mice`
-and in the line `whiska mode` prints.
+write until the person runs `whiska mode` in its worktree. That gives a mode to a mouse
+nobody shaped and to no other: a shaped mouse keeps its mode, since its model and effort
+were chosen for that work, and `whiska mode` refuses it, pointing to a proposed build and a
+fresh mouse. The record keeps what the mouse was **shaped as** — the mode its model and
+effort were chosen with — and `whiska mice` says so for a mouse flipped before that rule.
 _Avoid_: profile, preset, role
 
 **Build mode**:

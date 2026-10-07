@@ -245,16 +245,10 @@ defmodule Whiska.StorageTest do
       :ok
     end
 
-    test "set_mode stamps shaped_at and leaves the model alone" do
-      {:ok, _} = Storage.shape("m1", "sniff", "m-light", "low")
+    test "set_mode stamps shaped_at on a mouse nobody shaped" do
+      refute Storage.mouse("m1").shaped_at
       {:ok, _} = Storage.set_mode("m1", "build")
-      mouse = Storage.mouse("m1")
-      assert {mouse.mode, mouse.model, mouse.effort} == {"build", "m-light", "low"}
-      assert mouse.shaped_at
-
-      {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "b"})
-      {:ok, _} = Storage.set_mode("m2", "build")
-      assert Storage.mouse("m2").shaped_at
+      assert Storage.mouse("m1").shaped_at
     end
 
     test "a mouse recorded before shapes existed is not blocked by them" do
@@ -275,7 +269,7 @@ defmodule Whiska.StorageTest do
     end
   end
 
-  describe "a mode changed by hand keeps what the mouse was shaped as (ADR-0074)" do
+  describe "whiska mode leaves a shaped mouse's mode alone (ADR-0074)" do
     setup %{main: main} do
       {:ok, handle} = Storage.open(main)
       on_exit(fn -> Storage.close(handle) end)
@@ -288,22 +282,23 @@ defmodule Whiska.StorageTest do
       assert Storage.mouse("m1").shaped_as == "sniff"
     end
 
-    test "whiska mode moves the mode and leaves what it was shaped as alone" do
+    test "set_mode refuses a shaped mouse and leaves it as it was" do
       {:ok, _} = Storage.shape("m1", "sniff", "m-heavy", "xhigh")
-      {:ok, _} = Storage.set_mode("m1", "build")
+      assert {:error, :already_shaped} = Storage.set_mode("m1", "build")
 
       mouse = Storage.mouse("m1")
-      assert {mouse.mode, mouse.shaped_as, mouse.model} == {"build", "sniff", "m-heavy"}
+      assert {mouse.mode, mouse.shaped_as, mouse.model} == {"sniff", "sniff", "m-heavy"}
     end
 
-    test "a mouse whose mode only whiska mode ever chose was shaped as nothing" do
+    test "set_mode gives a mouse nobody shaped its mode once, and shaped_as stays empty" do
       {:ok, _} = Storage.set_mode("m1", "build")
       assert Storage.mouse("m1").shaped_as == nil
+      assert {:error, :already_shaped} = Storage.set_mode("m1", "sniff")
+      assert Storage.mode("m1") == {:ok, "build"}
     end
 
     test "shaping it again replaces what it was shaped as" do
       {:ok, _} = Storage.shape("m1", "sniff", "m-heavy", "xhigh")
-      {:ok, _} = Storage.set_mode("m1", "build")
       {:ok, _} = Storage.shape("m1", "build", "m-light", "low")
       assert Storage.mouse("m1").shaped_as == "build"
     end
@@ -321,17 +316,10 @@ defmodule Whiska.StorageTest do
       assert Storage.mode("m1") == {:ok, "unshaped"}
     end
 
-    test "switches a mouse to sniff" do
+    test "gives a mouse nobody shaped sniff" do
       assert {:ok, mouse} = Storage.set_mode("m1", "sniff")
       assert mouse.mode == "sniff"
       assert Storage.mode("m1") == {:ok, "sniff"}
-    end
-
-    test "switches back to build" do
-      {:ok, _} = Storage.set_mode("m1", "sniff")
-      {:ok, _} = Storage.set_mode("m1", "build")
-
-      assert Storage.mode("m1") == {:ok, "build"}
     end
 
     test "refuses a mode that is not build or sniff" do

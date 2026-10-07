@@ -185,7 +185,9 @@ defmodule Whiska.EscriptTest do
     assert out =~ "sniff mode"
   end
 
-  test "whiska mode switches enforcement, end to end", %{worktree: worktree} do
+  test "whiska mode refuses a shaped mouse, and its enforcement does not move", %{
+    worktree: worktree
+  } do
     {_, 0} = System.cmd(@binary, ["shape", "build"], cd: worktree, stderr_to_stdout: true)
 
     # build mouse: an edit inside its own worktree is fine
@@ -201,9 +203,9 @@ defmodule Whiska.EscriptTest do
 
     assert out == ""
 
-    {_, 0} = System.cmd(@binary, ["mode", "sniff"], cd: worktree, stderr_to_stdout: true)
+    {msg, 1} = System.cmd(@binary, ["mode", "sniff"], cd: worktree, stderr_to_stdout: true)
+    assert msg =~ "shaped as build"
 
-    # sniff mouse: the same edit is now denied
     {out, 0} =
       hook(
         %{
@@ -211,16 +213,6 @@ defmodule Whiska.EscriptTest do
           "tool_name" => "Write",
           "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
         },
-        worktree
-      )
-
-    assert out =~ ~s("permissionDecision":"deny")
-    assert out =~ "sniff"
-
-    # ...but reading still works
-    {out, 0} =
-      hook(
-        %{"cwd" => worktree, "tool_name" => "Bash", "tool_input" => %{"command" => "git log"}},
         worktree
       )
 
