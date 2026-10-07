@@ -3,7 +3,7 @@ defmodule Whiska.OpenHouses do
   The owl's record of which houses it has open, on disk (ADR-0039).
 
   One main checkout per line at `~/.whiska/houses` — the machine-level folder
-  ADR-0025 reserves for the global socket. The owl adds a line when it opens a
+  where the owl socket lives (ADR-0025). The owl adds a line when it opens a
   house and removes it when it shuts one, so `whiska owl` with no arguments
   can open what was open last time, and the statusline can count the whiskas
   the owl is actually keeping rather than every repo with a house file on disk.

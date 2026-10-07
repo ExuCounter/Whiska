@@ -63,7 +63,7 @@ Stated honestly: everything runs as the same OS user with no sandboxing. This st
 accidental and casual spoofing, not a determined co-resident attacker. Airtight would
 need OS-level isolation, which is out of scope.
 
-**The global socket at `~/.whiska/owl.sock` is deliberately weaker** (ADR-0025). It only
+**The owl socket at `~/.whiska/owl.sock` is deliberately weaker** (ADR-0025). It only
 answers read-only "what is open, where" — what is waiting, one question's text, the tab
 bar line — and can never approve a push or act on a mouse, so owner-only file permissions
 are enough. herdr's tab bar asks it, and so can the person's own scripts, from anywhere on
