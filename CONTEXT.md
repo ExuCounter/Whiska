@@ -680,7 +680,7 @@ thing, and it runs after a push rather than at the end of a turn), CI, ralph loo
 One subagent sent over the change in finishing's third step, on one **axis**, chosen by what
 the diff does: the **cold review** always; security when a trigger fires; performance on a hot path;
 frontend when a person can see the change; tests when the change touches a test file; and a
-small diff gets the cold review alone (ADR-next-the-correctness-review-is-cold). A repo can add axes, on its `reviewers:`
+small diff gets the cold review alone (ADR-0084). A repo can add axes, on its `reviewers:`
 line, and never remove one. The tests axis is
 wio's `wio-test-reviewer` or nothing: where wio is not installed the message says so in one
 line (ADR-0075). A reviewer **reports and never edits**, which is what
@@ -698,13 +698,13 @@ shape it. It finds the change and the spec itself, reads the repo's decisions as
 at the base, and treats anything the builder wrote as a claim. It runs in the foreground
 and its findings go into the report whole. Where the skill is missing, no other reviewer
 takes its place and the report says it did not run
-(ADR-next-the-correctness-review-is-cold).
+(ADR-0084).
 _Avoid_: correctness reviewer (what it replaced), second opinion
 
 **Disputed**:
 The mark on a finding the mouse tried to disprove and did, with the code that disproves it.
 The finding stays in the report beside it for the person to weigh; nothing a reviewer says
-is deleted (ADR-next-the-correctness-review-is-cold).
+is deleted (ADR-0084).
 
 **Important / nit / pre-existing**:
 The three words a reviewer's finding gets once it has survived being disproved, and the

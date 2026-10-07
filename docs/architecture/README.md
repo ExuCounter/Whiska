@@ -85,7 +85,7 @@ the reading skills, so the skills that create a mouse ship with the thing that t
 (ADR-0046), and `whiska-finish`, which carries ADR-0049's finishing pipeline out of the
 block and into a skill the session loads only as a turn ends (ADR-0055), and
 `cold-review`, the reviewer it always sends, which forks into its own read-only subagent
-(ADR-next-the-correctness-review-is-cold), `whiska-spec`, which a mouse runs after grilling to write the spec the person approves,
+(ADR-0084), `whiska-spec`, which a mouse runs after grilling to write the spec the person approves,
 kept out of git at the worktree root, beside the person's own `grilling` skill
 (ADR-0076). Both used to live in one person's global `~/.claude/CLAUDE.md`, applying to
 every repo whether Whiska was there or not. Then the rules left `CLAUDE.md` altogether: a
