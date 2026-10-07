@@ -309,7 +309,7 @@ defmodule Whiska.InstallStatuslineTest do
       # branch. All four choices, in the order the person reads them.
       assert body =~ "Land here"
       assert body =~ "Open a merge request"
-      assert body =~ "Chat further"
+      refute body =~ "Chat further"
       assert body =~ "Drop it"
       assert body =~ "cherry-pick"
       assert body =~ "gh"
@@ -421,7 +421,7 @@ defmodule Whiska.InstallStatuslineTest do
 
     test "a branch with commits and nothing uncommitted keeps the four options" do
       assert picker_for("<N> commit(s) beyond <base> · nothing uncommitted") =~
-               "Land here (Recommended), Open a merge request / PR, Chat further, Drop it"
+               "Land here (Recommended), Open a merge request / PR, Drop it"
 
       assert delivered("finished.md") =~ "finish: land here"
     end
@@ -432,7 +432,7 @@ defmodule Whiska.InstallStatuslineTest do
             "nothing committed beyond <base> · <N> file(s) not committed"
           ] do
         assert picker_for(state) =~
-                 "| Commit and land (Recommended), Commit and open a PR, Chat further, Drop it |",
+                 "| Commit and land (Recommended), Commit and open a PR, Drop it |",
                state
       end
 
@@ -480,10 +480,14 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "each `'` in it written `'\\''`"
     end
 
-    test "a branch with nothing on it offers only to talk further or drop it" do
+    test "a branch with nothing on it and no proposal gets no picker, only a reply" do
       assert picker_for("nothing committed beyond <base> · nothing uncommitted") =~
-               "| Chat further, Drop it, none recommended |"
+               "none: a reply, not a choice"
 
+      reply = String.replace(delivered("finished.md"), ~r/\s+/, " ")
+      assert reply =~ "send this to <branch>?"
+      assert reply =~ ~s("hold it", is not sent)
+      assert reply =~ "word for word"
       assert option("Drop it") =~ ~r/a branch with nothing on it needs no confirmation/i
     end
 
@@ -503,13 +507,14 @@ defmodule Whiska.InstallStatuslineTest do
       assert other =~ ~r/this is not an answer/i
     end
 
-    # The flow asks once. Dropping a branch with nothing on it loses nothing, so
-    # it is not confirmed; one moved from build with commits still is.
-    test "dropping an investigation's branch asks only when it has commits" do
+    test "an investigation's proposal picker is Build or Not now, with no chat or drop" do
       body = delivered("sniff.md")
 
-      prose = String.replace(body, ~r/\s+/, " ")
-      assert prose =~ ~r/confirm only when .*commits of its own/i
+      assert body =~ "**Build what it proposes**"
+      assert body =~ "**Not now**"
+      assert body =~ ~s(Text typed into "Other")
+      refute body =~ "Chat further"
+      refute body =~ "**Drop it**"
     end
 
     test "a repo can name its usual finish choice, and the picker follows it" do

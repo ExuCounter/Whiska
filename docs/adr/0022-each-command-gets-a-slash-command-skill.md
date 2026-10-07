@@ -91,9 +91,12 @@ have to read the questions table, which no rule does today. So this one stays ju
 A "finished" message has nothing to reply to, so the reading skill used to show it and
 stop — and the person then typed "merge it here" by hand, every time. `whiska-delivered`
 now follows a finished line with a second `AskUserQuestion`: merge here (the default),
-open a merge request or PR, chat further, or drop it. Unlike the lettered picker above,
+open a merge request or PR, or drop it (amended 2026-10-07: "chat further" is gone; free text
+typed into the picker is carried to the mouse's pane from the main session. The rule that an
+answer goes through `whiska reply` still holds for open questions: only a closed finished
+question gets words passed into its pane). Unlike the lettered picker above,
 these options are Whiska's rather than the mouse's, which is the one thing that makes
-this a different shape: they are the same four every time, written out in the skill, so
+this a different shape: they are the same few every time, written out in the skill, so
 nothing is composed out of what was read.
 
 The pick is acted on, not relayed — there is no `whiska reply` for a finished line. That

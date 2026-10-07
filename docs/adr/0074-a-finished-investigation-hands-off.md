@@ -19,8 +19,10 @@ lowest. The right model was cheaper, and nothing picked it.
 - **One decision, where one already is.** The finished picker in `whiska-delivered`
   (ADR-0009's `done` line) gains the option. For a proposal from a branch with nothing to
   merge — a sniff mouse's, or any mouse's whose branch has nothing on it — it holds
-  Build what it proposes, Chat further, Drop it. Merge and open a request drop out: such a
-  branch has nothing on it, and AskUserQuestion holds four options at most.
+  Build what it proposes, Not now (amended 2026-10-07: Chat further and Drop it are gone;
+  the person's notes go in free text, carried to the mouse from the main session — nobody
+  picked Drop on an investigation, and Chat further moved them out of the session they run
+  everything from). Merge and open a request drop out: such a branch has nothing on it.
 - **The spawn shapes from the proposal.** On yes, the main session follows
   `spawn-worktree`'s hand-off section: a branch named for what the Build line describes,
   mode, model and effort judged against the Build and Touches lines by the ordered rules

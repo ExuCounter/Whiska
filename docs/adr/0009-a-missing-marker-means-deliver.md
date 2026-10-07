@@ -175,7 +175,7 @@ work nobody committed than a mouse that stopped short, and "carry on with your b
 to a mouse that believes it is done asks it for nothing.
 
 So every branch line listing files not committed, with commits or without, is offered
-Commit and land (recommended), Commit and open a PR, Chat further and Drop it. The main
+Commit and land (recommended), Commit and open a PR, and Drop it (amended 2026-10-07: Chat further is gone, ADR-0022). The main
 session commits in the mouse's worktree, after the option's preview has listed every file,
 with a message passed by file: no mouse text on a command line (ADR-0074). Text typed into
 "Other" still reaches the mouse. ADR-0049's note of this date makes the mouse commit before

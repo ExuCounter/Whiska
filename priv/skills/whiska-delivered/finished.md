@@ -8,11 +8,21 @@ with one AskUserQuestion, in that order.
 
 | The line says | Options, in order |
 |---|---|
-| `<N> commit(s) beyond <base> · nothing uncommitted` | Land here (Recommended), Open a merge request / PR, Chat further, Drop it |
-| `<N> commit(s) beyond <base> · <N> file(s) not committed: …` | Commit and land (Recommended), Commit and open a PR, Chat further, Drop it |
-| `nothing committed beyond <base> · <N> file(s) not committed: …` | Commit and land (Recommended), Commit and open a PR, Chat further, Drop it |
-| `nothing committed beyond <base> · nothing uncommitted` | Chat further, Drop it, none recommended |
+| `<N> commit(s) beyond <base> · nothing uncommitted` | Land here (Recommended), Open a merge request / PR, Drop it |
+| `<N> commit(s) beyond <base> · <N> file(s) not committed: …` | Commit and land (Recommended), Commit and open a PR, Drop it |
+| `nothing committed beyond <base> · <N> file(s) not committed: …` | Commit and land (Recommended), Commit and open a PR, Drop it |
+| `nothing committed beyond <base> · nothing uncommitted` | none: a reply, not a choice — see below |
 | `On the branch: unknown — …`, or no such line | as for commits and nothing uncommitted: unknown keeps every option |
+
+## A reply: nothing on the branch, no Proposed build
+
+The message is the mouse's answer to something the person asked. Offer no
+picker: show the message and stop. The person's next message goes to that
+mouse word for word when it reads as a reply to it: a question or instruction
+about what the mouse said, or a message that names it. Send it as "Text typed
+into Other" below says. A message meant for the main session itself, or "hold
+it", is not sent. If it could be read either way, ask one line first: "send
+this to <branch>?" The mouse's answer comes back as a new finished line.
 
 This repo's `CLAUDE.md` may name the usual choice — a line like
 `finish: land here` under a `## Finish` heading. Where Land here would be
@@ -57,8 +67,6 @@ Commit and open a PR.
   improvising no substitute.
 - **Commit and open a PR** — commit as Commit and land does, preview
   included, then exactly as Open a merge request / PR.
-- **Chat further** — run `whiska open <id>`, with the number after the `#`. It moves
-  the person's screen to that branch's pane; say what it printed in one line.
 - **Drop it** — throw the work away. First confirm in prose, in one line
   naming what is lost: every commit on the branch, and each file not
   committed. A branch with nothing on it needs no confirmation: nothing is
@@ -66,14 +74,17 @@ Commit and open a PR.
 
 ## Text typed into "Other"
 
-Text the person typed into "Other" goes to the mouse. Find its pane with
+Text the person typed into "Other" goes to the mouse, and so does a reply the
+person types after a no-picker line above. Find its pane with
 `whiska worktrees` and type it in their own words, in single quotes with
 each `'` in it written `'\''`:
 
     herdr agent prompt <pane-id> '<their words>'
 
 This is not an answer — the finished question is closed and `whiska reply`
-refuses it — so it travels the way `send-to-worktree` sends a follow-up.
+refuses it — so it travels the way `send-to-worktree` sends a follow-up. The mouse's own
+reply returns here as a finished line; the person never moves into its pane
+unless they ask for `whiska open <id>`.
 
 `drop-worktree` removes a worktree and its workspace together, and this
 repo's test and push commands are whatever its own instructions say.

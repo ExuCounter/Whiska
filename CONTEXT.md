@@ -120,7 +120,7 @@ _Avoid_: summary, status, update, hand-off
 What becomes of a branch once its mouse is done: landed on the current branch by
 cherry-picking its own commits, oldest first, its merges from the base skipped
 (ADR-0079; it was `merge --no-ff`), opened as a
-merge request, carried on by its mouse, left alone to be talked to further, or dropped
+merge request, carried on by its mouse, talked to from the main session (the person's words carried to the mouse), or dropped
 unmerged. The person picks one when a "finished" question is told, from what fits the
 branch as its **branch line** reads: files not committed are committed first, in the
 mouse's worktree, then landed or opened as a request; a branch with nothing on it is
@@ -418,7 +418,7 @@ hotkey they bound. The owl never jumps, and since the Nudge was retired it makes
 cross-house move at all. The destination is the house's main
 session, never a mouse's own pane: a mouse's pane is the mouse's workplace, and the
 person answers from their own (ADR-0043). A separate move, `whiska open <id|branch>`,
-takes the person to one named mouse's own pane when they ask for that mouse; it is not a
+takes the person to one named mouse's own pane when they ask for that mouse, and no picker offers it; it is not a
 jump, and the owl never makes it either (ADR-0043's note of 2026-10-06).
 _Avoid_: goto, focus (herdr's word for the mechanism of bringing a pane into view, and
 since 2026-10-06 the person's word for narrowing delivery to one mouse — see **Focus**;

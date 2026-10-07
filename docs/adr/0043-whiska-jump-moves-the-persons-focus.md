@@ -139,11 +139,15 @@ naming the path, because by then the honest answer is that herdr is not running.
 `jump` and is narrowed: `whiska open <question-id|branch>` takes the person to that
 mouse's pane, because they named the mouse. The reason against landing there was that
 a mouse mid-turn has nothing to type into that would not interrupt it; a finished
-mouse has no turn in progress, and "Chat further" on a finished or sniff question has
-no other way to get the person there. `jump` is unchanged.
+mouse has no turn in progress, and a finished or sniff question once offered "Chat further"
+as its way there (gone; see the amendment below). `jump` is unchanged.
 
-What changes for the person: picking "Chat further" moves their screen to that
-mouse's pane. Same rule as above: only typed or picked by the person, never the owl.
+What changes for the person: `whiska open` moves their screen to that mouse's pane.
+Same rule as above: only typed by the person, never the owl.
+
+Amended 2026-10-07: "Chat further" is gone from every picker, so that reason no longer
+holds. The person talks to a finished mouse from the main session, which passes their words
+into its pane. `whiska open` stays, for when the person asks to go there; no picker offers it.
 
 - **The pane is found by its folder** inside the worktree in herdr's pane list, not
   from the stored pane column (ADR-0061).
