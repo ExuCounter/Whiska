@@ -644,7 +644,7 @@ brief and the repo's written decisions, run the repo's checks and fix what they 
 send reviewers over its own diff (the ones the diff calls for), go round once more, commit
 the work on its branch, and only then write the marker, ending its report with an agent
 ledger: one line per agent sent, with its tokens, and one per axis skipped
-(ADR-0082).
+(ADR-0083).
 Plain instructions in the `whiska-finish` skill `whiska init` installs, which a mouse's
 `finish` part names as the trigger and nothing more — the steps only matter as a turn
 ends, so they stay out of context until then (ADR-0055). Nothing changed since the
@@ -662,7 +662,7 @@ thing, and it runs after a push rather than at the end of a turn), CI, ralph loo
 One subagent sent over the change in finishing's third step, on one **axis**, chosen by what
 the diff does: correctness always; security when a trigger fires; performance on a hot path;
 frontend when a person can see the change; tests when the change touches a test file; and a
-small diff gets one combined reviewer (ADR-0082). A repo can add axes, on its `reviewers:`
+small diff gets one combined reviewer (ADR-0083). A repo can add axes, on its `reviewers:`
 line, and never remove one. The tests axis is
 wio's `wio-test-reviewer` or nothing: where wio is not installed the message says so in one
 line (ADR-0075). A reviewer **reports and never edits**, which is what

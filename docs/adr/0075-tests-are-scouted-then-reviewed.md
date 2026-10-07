@@ -1,6 +1,6 @@
 # A mouse's test is scouted before the code and reviewed at finish, when there is a test to touch
 
-**Amended 2026-10-07 by ADR-0082**: the scout runs only when a touched
+**Amended 2026-10-07 by ADR-0083**: the scout runs only when a touched
 module has no test file, the brief names no observable behaviour, or three or more modules
 change, and on the model `whiska shape --rules` picks for a clear task of known shape.
 

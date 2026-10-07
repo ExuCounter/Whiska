@@ -5,7 +5,7 @@ and the scout narrower: the test reviewer runs only when the diff touches a test
 missing wio is one line rather than a written prompt. The rest of this record is still
 proposed.
 
-**Amended 2026-10-07 by ADR-0082**, which applies two rows: the finish
+**Amended 2026-10-07 by ADR-0083**, which applies two rows: the finish
 message reports every reviewer sent and every axis skipped (as the agent ledger), and the
 required set is correctness alone, with the diff's triggers choosing the rest. Reading
 `## Finish` stays as it is.

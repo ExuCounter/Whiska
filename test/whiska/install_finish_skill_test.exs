@@ -163,7 +163,7 @@ defmodule Whiska.InstallFinishSkillTest do
     end
   end
 
-  describe "reviewers are chosen by what the diff does (ADR-0082)" do
+  describe "reviewers are chosen by what the diff does (ADR-0083)" do
     test "one table: axis, trigger, how detected, evidence" do
       assert prose() =~ "| axis | trigger | how detected | evidence |"
     end
