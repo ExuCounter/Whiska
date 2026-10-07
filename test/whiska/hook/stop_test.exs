@@ -66,10 +66,26 @@ defmodule Whiska.Hook.StopTest do
     assert [{_, %Entry{spec: "# Spec\n\nBuild it.\n"}}] = Doorstep.waiting(main)
   end
 
-  test "a worktree with no spec leaves an entry with none", %{main: main, worktree: worktree} do
-    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "hi"}))
+  test "a spec JSON cannot carry is left out, and the message still arrives", %{
+    main: main,
+    worktree: worktree
+  } do
+    File.write!(Path.join(worktree, ".whiska-spec.md"), <<0xFF, 0xFE>>)
 
-    assert [{_, %Entry{spec: nil}}] = Doorstep.waiting(main)
+    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "ok to build?"}))
+
+    assert [{_, %Entry{spec: nil, text: "ok to build?"}}] = Doorstep.waiting(main)
+  end
+
+  test "a spec that is a pipe is left out rather than read forever", %{
+    main: main,
+    worktree: worktree
+  } do
+    {_, 0} = System.cmd("mkfifo", [Path.join(worktree, ".whiska-spec.md")])
+
+    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "ok to build?"}))
+
+    assert [{_, %Entry{spec: nil, text: "ok to build?"}}] = Doorstep.waiting(main)
   end
 
   test "a session sitting in a subfolder still lands in the right house", %{

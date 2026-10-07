@@ -58,6 +58,15 @@ defmodule Whiska.DoorstepTest do
     end
   end
 
+  describe "an entry written before the spec travelled" do
+    test "still reads, with no spec" do
+      raw =
+        ~s({"mouse_id":"m1","branch":"feat-a","worktree_root":"/w","stamped_at":"2026-10-06T09:00:00Z","text":"hi"})
+
+      assert {:ok, %Entry{spec: nil, text: "hi"}} = Entry.decode(raw)
+    end
+  end
+
   describe "waiting/1" do
     test "is empty when there is no doorstep yet", %{main: main} do
       assert Doorstep.waiting(main) == []

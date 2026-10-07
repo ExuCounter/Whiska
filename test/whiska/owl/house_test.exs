@@ -283,6 +283,32 @@ defmodule Whiska.Owl.HouseTest do
       refute File.read!(file) =~ "replaced:"
     end
 
+    test "a turn with no spec keeps nothing and ignores nothing", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      leave(main, "ma", a, "[worktree-status: needs-decision] which one?")
+      House.collect(house)
+
+      refute File.exists?(Path.join(main, ".whiska"))
+      refute File.exists?(Path.join(main, ".git/info/exclude"))
+    end
+
+    test "a spec that cannot be kept still lets its question be collected", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      File.write!(Path.join(main, ".whiska"), "a file where the folder would go")
+      leave_spec(main, "ma", a, ~U[2026-10-06 09:00:00Z], "# Spec\n")
+
+      capture_io(:stderr, fn -> House.collect(house) end)
+
+      assert Doorstep.waiting(main) == []
+      in_house(house, fn -> assert [%Question{}] = Storage.all(Question) end)
+    end
+
     test "two mice on one branch name, the same day, keep two files", %{
       main: main,
       a: a,

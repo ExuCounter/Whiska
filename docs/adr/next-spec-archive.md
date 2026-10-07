@@ -34,6 +34,9 @@ The alternatives:
   remember to copy, and a worktree removed by hand would still lose its spec.
 - **The mouse copies it.** A mouse never writes to the main checkout (ADR-0013).
 
+Only a regular UTF-8 file of at most 256 KB travels. Anything else — a pipe, a binary,
+something huge — is left out, so the message itself still reaches the doorstep.
+
 Taking the copy when the spec is sent means no removal path changes. Both writers of the
 entry, the owl and the escript when the owl is down, share the code that reads the spec.
 
@@ -45,6 +48,11 @@ copies of that commit under other ids, which is why the header calls it the bran
 A mouse whose worktree is gone with no landing gets `dropped`. A dropped spec is kept
 (ADR-0007), and it can still become landed: a landing is noted from the branch alone after
 the worktree goes. Landed is final.
+
+A mouse whose folder a newer mouse took counts as gone too, though the folder stands.
+
+The sweep runs only while the house has a herdr socket, so a house without one leaves
+every status at `waiting`.
 
 The status is only as right as the sweep's own landing check. A branch landed by
 cherry-pick is not an ancestor of the base, so until that check learns cherry-picks, such

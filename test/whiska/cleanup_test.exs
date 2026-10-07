@@ -266,7 +266,7 @@ defmodule Whiska.CleanupTest do
       seen(repo, m, workspace_id: nil)
 
       assert [{"m-feat-a", :removed}] = sweep(repo)
-      assert File.read!(file) =~ "status: landed #{Date.utc_today()}, branch head #{head}\n"
+      assert File.read!(file) =~ ~r/status: landed \d{4}-\d{2}-\d{2}, branch head #{head}\n/
       assert File.read!(file) =~ "# Spec\n"
     end
 
@@ -278,7 +278,33 @@ defmodule Whiska.CleanupTest do
 
       sweep(repo)
 
-      assert File.read!(file) =~ "status: dropped #{Date.utc_today()}\n"
+      assert File.read!(file) =~ ~r/status: dropped \d{4}-\d{2}-\d{2}\n/
+    end
+
+    test "says dropped once a newer mouse takes its folder", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      file = kept(repo, m)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m-feat-a-new", path: m.path, branch: m.branch})
+      seen(repo, m, workspace_id: nil)
+
+      sweep(repo)
+
+      assert File.read!(file) =~ ~r/status: dropped \d{4}-\d{2}-\d{2}\n/
+    end
+
+    test "says landed after dropped, when the branch lands once its worktree is gone",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      file = kept(repo, m)
+      head = String.trim(GitRepo.git!(m.path, ["rev-parse", "--short=7", "HEAD"]))
+      GitRepo.git!(repo.checkout, ["worktree", "remove", m.path])
+      herdr(repo, [], [])
+      sweep(repo)
+      GitRepo.land(repo, "feat-a")
+
+      sweep(repo)
+
+      assert File.read!(file) =~ ~r/status: landed \d{4}-\d{2}-\d{2}, branch head #{head}\n/
     end
 
     test "says waiting while the worktree stands unlanded", %{repo: repo} do

@@ -99,12 +99,22 @@ defmodule Whiska.Hook.Stop do
     })
   end
 
-  # The spec as it stands when the turn ends (ADR-0076). Unreadable is the same
-  # as absent: the message itself must still reach the doorstep.
+  # The spec as it stands when the turn ends (ADR-0076). Anything but a plain
+  # UTF-8 file of sane size is the same as absent: a pipe would hang the read,
+  # and bytes JSON cannot carry would crash the encoder, and either would cost
+  # the message itself its place on the doorstep.
+  @spec_max_bytes 256 * 1024
+
   defp spec(worktree_root) do
-    case File.read(Path.join(worktree_root, Whiska.Spec.filename())) do
-      {:ok, text} -> text
-      {:error, _} -> nil
+    path = Path.join(worktree_root, Whiska.Spec.filename())
+
+    with {:ok, %File.Stat{type: :regular, size: size}} when size <= @spec_max_bytes <-
+           File.lstat(path),
+         {:ok, text} <- File.read(path),
+         true <- String.valid?(text) do
+      text
+    else
+      _ -> nil
     end
   end
 

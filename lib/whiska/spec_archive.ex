@@ -39,7 +39,7 @@ defmodule Whiska.SpecArchive do
   def keep(main_checkout, %Entry{} = entry, %Question{id: id}) do
     with :ok <- Spec.ignore(main_checkout, @exclude_line),
          :ok <- File.mkdir_p(dir(main_checkout)) do
-      case find(main_checkout, entry.mouse_id) do
+      case find(main_checkout, names(main_checkout), entry.mouse_id, entry.branch) do
         {_file, %{body: body}} when body == entry.spec ->
           :ok
 
@@ -72,17 +72,23 @@ defmodule Whiska.SpecArchive do
   @doc """
   Say what became of each mouse's work, in its kept spec: landed once its
   branch is stamped landed (ADR-0064), dropped once its worktree is gone with
-  no landing. Landed is final; dropped can still become landed, since a
-  landing is noted from the branch alone after the worktree goes. Best effort:
-  a file that cannot be read or written is left as it is.
+  no landing. A mouse in `superseded` has lost its folder to a newer record, so
+  its worktree is gone even while the folder stands. Landed is final; dropped
+  can still become landed, since a landing is noted from the branch alone after
+  the worktree goes. Best effort: a file that cannot be read or written is left
+  as it is.
   """
-  @spec settle(Path.t(), [Mouse.t()]) :: :ok
-  def settle(main_checkout, mice) do
-    kept = index(main_checkout)
+  @spec settle(Path.t(), [Mouse.t()], MapSet.t(String.t())) :: :ok
+  def settle(main_checkout, mice, superseded \\ MapSet.new()) do
+    names = names(main_checkout)
 
-    unless kept == %{} do
-      for %Mouse{} = mouse <- mice, {file, saved} <- List.wrap(kept[mouse.mouse_id]) do
-        case status(main_checkout, mouse, saved.header["status"]) do
+    unless names == [] do
+      for %Mouse{branch: branch} = mouse <- mice,
+          is_binary(branch),
+          {file, saved} <- List.wrap(find(main_checkout, names, mouse.mouse_id, branch)) do
+        gone? = MapSet.member?(superseded, mouse.mouse_id) or not standing?(mouse.path)
+
+        case status(main_checkout, mouse, gone?, saved.header["status"]) do
           nil -> :ok
           status -> File.write(file, render(Map.put(saved.header, "status", status), saved.body))
         end
@@ -92,44 +98,56 @@ defmodule Whiska.SpecArchive do
     :ok
   end
 
-  defp status(_checkout, _mouse, "landed" <> _), do: nil
+  defp status(_checkout, _mouse, _gone?, "landed" <> _), do: nil
 
-  defp status(checkout, %Mouse{landed_at: %DateTime{} = at} = mouse, _status) do
-    case head(checkout, mouse) do
+  defp status(checkout, %Mouse{landed_at: %DateTime{} = at} = mouse, gone?, _status) do
+    case head(checkout, mouse, gone?) do
       {:ok, sha} -> "landed #{Date.to_iso8601(at)}, branch head #{String.slice(sha, 0, 7)}"
       _ -> "landed #{Date.to_iso8601(at)}"
     end
   end
 
-  defp status(_checkout, %Mouse{path: path}, "waiting") do
-    if is_binary(path) and File.dir?(path), do: nil, else: "dropped #{Date.utc_today()}"
-  end
+  defp status(_checkout, _mouse, true, "waiting"), do: "dropped #{Date.utc_today()}"
+  defp status(_checkout, _mouse, _gone?, _status), do: nil
 
-  defp status(_checkout, _mouse, _status), do: nil
+  # A folder another mouse has taken holds that mouse's head, not this one's.
+  defp head(_checkout, %Mouse{path: path}, false), do: Git.head(path)
+  defp head(checkout, %Mouse{branch: branch}, true), do: Git.branch_head(checkout, branch)
 
-  defp head(checkout, %Mouse{path: path, branch: branch}) do
-    cond do
-      is_binary(path) and File.dir?(path) -> Git.head(path)
-      is_binary(branch) -> Git.branch_head(checkout, branch)
-      true -> {:error, :nothing_to_ask}
+  defp standing?(path), do: is_binary(path) and File.dir?(path)
+
+  defp names(main_checkout) do
+    case File.ls(dir(main_checkout)) do
+      {:ok, names} -> names
+      {:error, _} -> []
     end
   end
 
-  defp find(main_checkout, mouse_id), do: index(main_checkout)[mouse_id]
+  # Only the files named for this branch are opened, so the cost stays with
+  # the branch, not with how many specs the folder has kept.
+  defp find(main_checkout, names, mouse_id, branch) do
+    slug = slug(branch)
 
-  defp index(main_checkout) do
-    main_checkout
-    |> dir()
-    |> Path.join("*.md")
-    |> Path.wildcard()
-    |> Enum.flat_map(fn file ->
-      with {:ok, text} <- File.read(file), {:ok, saved} <- parse(text) do
-        [{saved.header["mouse"], {file, saved}}]
+    names
+    |> Enum.filter(&named_for?(&1, slug))
+    |> Enum.find_value(fn name ->
+      file = Path.join(dir(main_checkout), name)
+
+      with {:ok, text} <- File.read(file),
+           {:ok, %{header: %{"mouse" => ^mouse_id}} = saved} <- parse(text) do
+        {file, saved}
       else
-        _ -> []
+        _ -> nil
       end
     end)
-    |> Map.new()
+  end
+
+  defp named_for?(name, slug) do
+    case Regex.run(~r/^\d{4}-\d{2}-\d{2}-(.+)\.md$/, name) do
+      [_, ^slug] -> true
+      [_, rest] -> Regex.match?(~r/^#{Regex.escape(slug)}-\d+$/, rest)
+      nil -> false
+    end
   end
 
   # Two mice on one branch name on the same day keep a file each.
@@ -153,7 +171,10 @@ defmodule Whiska.SpecArchive do
 
   defp render(header, body) do
     lines =
-      for key <- @keys, value = header[key], not blank?(value), do: "#{key}: #{value}\n"
+      for key <- @keys,
+          value = header[key],
+          not blank?(value),
+          do: "#{key}: #{String.replace(to_string(value), ~r/[\r\n]+/, " ")}\n"
 
     "---\n" <> Enum.join(lines) <> "---\n\n" <> body
   end

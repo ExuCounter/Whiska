@@ -61,7 +61,7 @@ defmodule Whiska.Cleanup do
       |> Enum.reject(& &1.removed_at)
       |> Enum.map(&note_landing(&1, local))
 
-    SpecArchive.settle(checkout, Enum.map(noted, &elem(&1, 0)))
+    settle_specs(checkout, Enum.map(noted, &elem(&1, 0)))
 
     noted
     |> Enum.map(fn {mouse, asked} ->
@@ -106,6 +106,19 @@ defmodule Whiska.Cleanup do
       {:ok, stamped} -> stamped
       {:error, _} -> mouse
     end
+  end
+
+  # A record a newer one took the folder from is never swept again, so this is
+  # the one place its kept spec can learn the worktree went.
+  defp settle_specs(checkout, noted) do
+    current = MapSet.new(noted, & &1.mouse_id)
+
+    superseded =
+      Mouse
+      |> Storage.all()
+      |> Enum.reject(&(&1.removed_at || &1.landed_at || MapSet.member?(current, &1.mouse_id)))
+
+    SpecArchive.settle(checkout, noted ++ superseded, MapSet.new(superseded, & &1.mouse_id))
   end
 
   # While the worktree stands its own head is the authority, the same one the
