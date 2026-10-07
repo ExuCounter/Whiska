@@ -171,7 +171,7 @@ defmodule Whiska.Owl.GateLogTest do
     log = capture_io(:stderr, fn -> attempt(house) end)
 
     assert log =~ ~r/#1\b.*no_box.*idle/
-    assert log =~ ~r/held \d/
+    assert log =~ ~r/gated \d/
   end
 
   test "the end of a hold is a line, with how long it held", %{main: main, a: a} do
@@ -188,7 +188,7 @@ defmodule Whiska.Owl.GateLogTest do
         assert_receive {:prompted, @main_pane, _}, @arrives
       end)
 
-    assert log =~ ~r/#1\b.*no longer held.*held \d/
+    assert log =~ ~r/#1\b.*no longer gated.*gated \d/
   end
 
   test "a refused pane lookup is held as unreachable", %{main: main, a: a} do
@@ -229,6 +229,55 @@ defmodule Whiska.Owl.GateLogTest do
 
     assert File.read!(file) =~ "a newer draft"
     refute File.read!(file) =~ "my secret draft"
+  end
+
+  test "a change of reason keeps the clock running and says how long", %{main: main, a: a} do
+    main_is("idle")
+    box_holds("half a sentence")
+    house = open(main)
+    capture_io(:stderr, fn -> first_attempt(house, main, a) end)
+
+    :sys.replace_state(house, fn state ->
+      %{state | held_since: DateTime.add(DateTime.utc_now(), -125, :second)}
+    end)
+
+    screen_is("a dialog is up\n")
+    log = capture_io(:stderr, fn -> attempt(house) end)
+
+    assert log =~ "gated 2m 5s"
+  end
+
+  test "an attempt with nothing gated logs nothing", %{main: main} do
+    main_is("idle")
+    house = open(main)
+
+    assert capture_io(:stderr, fn -> attempt(house) end) == ""
+  end
+
+  test "a screen file that cannot be written does not change what the gate decides",
+       %{main: main, a: a} do
+    File.mkdir_p!(Path.join(main, ".git/whiska/gate-screen/in-the-way"))
+    main_is("idle")
+    box_holds("half a sentence")
+    house = open(main)
+
+    log = capture_io(:stderr, fn -> first_attempt(house, main, a) end)
+
+    assert log =~ ~r/#1\b.*typing/
+    assert House.held(house) == :typing
+    refute_received {:prompted, _, _}
+  end
+
+  test "the screen file's directory is closed to everyone else", %{main: main, a: a} do
+    main_is("idle")
+    box_holds("my secret draft")
+    house = open(main)
+
+    capture_io(:stderr, fn -> first_attempt(house, main, a) end)
+
+    dir = Path.join(main, ".git/whiska")
+    assert Bitwise.band(File.stat!(dir).mode, 0o077) == 0
+    assert Path.wildcard(Path.join(dir, "gate-screen.tmp-*")) == []
   end
 
   test "a hold that is not about the box leaves no screen file", %{main: main, a: a} do

@@ -1284,21 +1284,21 @@ defmodule Whiska.Owl.House do
   # its reason changes, and when it ends — with the question, herdr's status for
   # the main pane, and how long it held. An attempt that comes back with the
   # same answer says nothing, so a nine-minute hold is three lines, not nine.
-  defp hold(%{held_since: %DateTime{}, held_reason: reason} = state, reason, _id, _status),
-    do: state
+  defp hold(%{held_since: %DateTime{}, held_reason: reason} = state, reason, id, _status),
+    do: %{state | held_id: id}
 
   defp hold(%{held_since: %DateTime{}} = state, reason, id, status) do
     warn(
       state,
-      "#{question_label(id)} still held (held #{held_for(state)}): now #{reason} " <>
-        "(herdr: #{status})"
+      "#{question_label(id)} still gated (gated #{held_for(state)}): now #{reason} " <>
+        "(herdr: #{inspect(status)})"
     )
 
     %{state | held_reason: reason, held_id: id}
   end
 
   defp hold(state, reason, id, status) do
-    warn(state, "#{question_label(id)} held: #{reason} (herdr: #{status})")
+    warn(state, "#{question_label(id)} gated: #{reason} (herdr: #{inspect(status)})")
 
     %{state | held_since: now(), held_reason: reason, held_id: id}
   end
@@ -1306,7 +1306,7 @@ defmodule Whiska.Owl.House do
   defp release_hold(%{held_since: nil} = state), do: state
 
   defp release_hold(state) do
-    warn(state, "#{question_label(state.held_id)} no longer held (held #{held_for(state)})")
+    warn(state, "#{question_label(state.held_id)} no longer gated (gated #{held_for(state)})")
     %{state | held_since: nil, held_reason: nil, held_id: nil}
   end
 
@@ -1409,10 +1409,18 @@ defmodule Whiska.Owl.House do
     file = Path.join(state.main_checkout, @gate_screen)
     tmp = file <> ".tmp-#{System.unique_integer([:positive])}"
 
-    with :ok <- File.mkdir_p(Path.dirname(file)),
+    dir = Path.dirname(file)
+
+    with :ok <- File.mkdir_p(dir),
+         :ok <- File.chmod(dir, 0o700),
          :ok <- File.write(tmp, screen),
-         :ok <- File.chmod(tmp, 0o600) do
-      File.rename(tmp, file)
+         :ok <- File.chmod(tmp, 0o600),
+         :ok <- File.rename(tmp, file) do
+      :ok
+    else
+      error ->
+        File.rm(tmp)
+        error
     end
   end
 
