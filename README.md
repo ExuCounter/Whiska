@@ -139,6 +139,7 @@ resume [<branch>]               end away and focus, or lift one hold; oldest fir
 whiska watch                    this repo's board, printed once
 whiska mice                     what is alive here — branch, mode, pane, uptime, pickups
 whiska worktrees                linked worktrees, their herdr workspace and pane, tab-separated
+whiska where                    where this directory is, as one line of JSON, for hooks
 whiska doctor                   check this repo end to end; exits 1 on any failure
 whiska statusline [--here]      the tab-bar line, or this repo's board
 whiska mode [build|sniff]       this mouse's mode; build|sniff gives one to a mouse nobody
@@ -151,6 +152,26 @@ whiska owl [install|start|stop|uninstall]
 ```
 
 `whiska --help` has the full text for each.
+
+### `whiska where`, for scripts
+
+`whiska where` tells a hook or script where it runs, so it needs no copy of Whiska's
+layout rules. It prints one line of JSON and always exits 0:
+
+```
+{"version":1,"worktree":"/src/app/worktrees/feat/x","branch":"feat/x","main_checkout":"/src/app","main_workspace":"w3"}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `version` | Format version, `1`. Changes only when a field changes. |
+| `worktree` | The worktree's root folder; `null` outside one. |
+| `branch` | The worktree's whole branch name; `null` outside one. |
+| `main_checkout` | The main checkout's folder; `null` outside both a worktree and the main checkout. |
+| `main_workspace` | The herdr workspace id open on the main checkout; `null` when herdr is not running, takes over half a second to answer, or has none open. |
+
+Every field is always present. These fields are stable: a change to them bumps
+`version`. Read one with `jq -r '.main_workspace // empty'`.
 
 ## Advanced
 

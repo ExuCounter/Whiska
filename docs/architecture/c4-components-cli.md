@@ -38,7 +38,7 @@ C4Component
     Component(install, "Install", "pure merge", "Writes the four hooks, the statusline and the skills into the repo, and the machine-wide status script into ~/.whiska/")
     Component(claudemd, "ClaudeMd", "pure", "Which parts a CLAUDE.md keeps, and taking an older Whiska's block back out")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, answers not taken and orphaned apart, the doorstep count")
-    Component(gitq, "Git", "git", "What a finished branch holds: its own commits beyond the base, and files not committed")
+    Component(gitq, "Git", "git", "What a finished branch holds: its own commits beyond the base, and files not committed; and for where, whether a folder is the main checkout")
     Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question, per answer not taken and per uncollected doorstep entry, oldest first, each with its mouse pane")
     Component(statusline, "Statusline", "one line", "herdr's tab bar: the owl always, and what is waiting machine-wide")
     Component(watch, "Watch", "the board", "A row per mouse of this repo: its branch, what its pane is doing, and the question waiting on you, its topic, or what it is stuck in")
@@ -51,7 +51,7 @@ C4Component
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
   Container_Ext(doorstep, "Doorstep", "directory", "Uncollected entries")
-  System_Ext(herdr, "herdr", "pane list, worktree list for worktrees, main-session focus for jump, mouse-pane focus and worktree open for open, and starting Claude in a pane")
+  System_Ext(herdr, "herdr", "pane list, worktree list for worktrees and where, main-session focus for jump, mouse-pane focus and worktree open for open, and starting Claude in a pane")
   Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
 
   Rel(shim, main, "Execs", "JSON on stdin")

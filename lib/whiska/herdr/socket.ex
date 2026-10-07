@@ -111,6 +111,18 @@ defmodule Whiska.Herdr.Socket do
   end
 
   @impl true
+  def main_workspace(socket, checkout) do
+    with {:ok, %{"result" => %{"worktrees" => worktrees}}} when is_list(worktrees) <-
+           request(socket, "worktree.list", %{"cwd" => checkout}) do
+      own = Enum.find(worktrees, &(&1["is_linked_worktree"] == false))
+      {:ok, own && own["open_workspace_id"]}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  @impl true
   def open_worktree(socket, path) do
     with {:ok, %{"result" => _}} <-
            request(socket, "worktree.open", %{"path" => path, "focus" => true}) do

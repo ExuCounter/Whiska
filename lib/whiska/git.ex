@@ -57,6 +57,40 @@ defmodule Whiska.Git do
   end
 
   @doc """
+  The main checkout a directory sits in: the top folder of a checkout whose own
+  git directory is the shared one, which is never true of a linked worktree.
+
+  `{:error, :linked_worktree}` inside a linked worktree, `{:error, :submodule}`
+  inside a submodule, whose own git directory sits in its parent's `.git/modules/`,
+  and git's own error anywhere that is no checkout at all.
+  """
+  @spec main_checkout(Path.t()) :: {:ok, Path.t()} | {:error, term()}
+  def main_checkout(dir) do
+    args = [
+      "rev-parse",
+      "--path-format=absolute",
+      "--git-dir",
+      "--git-common-dir",
+      "--show-toplevel"
+    ]
+
+    # The last three lines: stderr shares the output, so a warning git prints
+    # on the way to succeeding sits above them.
+    with {:ok, out} <- git(dir, args) do
+      case out |> String.split("\n") |> Enum.take(-3) do
+        [same, same, top] ->
+          if same == Path.join(top, ".git"), do: {:ok, top}, else: {:error, :submodule}
+
+        [_git_dir, _common, _top] ->
+          {:error, :linked_worktree}
+
+        _ ->
+          {:error, {:unexpected_output, out}}
+      end
+    end
+  end
+
+  @doc """
   The branch a worktree has checked out.
 
   A detached head is `{:error, :detached}` and never a branch name: there is

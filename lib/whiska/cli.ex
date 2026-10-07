@@ -232,6 +232,22 @@ defmodule Whiska.CLI do
                          there is no workspace open. The worktree skills read
                          herdr through this, so they need no jq.
 
+    where                For scripts and hooks: where this directory is, as
+                         one line of JSON. Always exits 0. The fields are a
+                         stable interface; a change to them bumps "version".
+                           version         1
+                           worktree        this worktree's root folder
+                           branch          its whole branch name, as feat/x
+                           main_checkout   the main checkout's folder
+                           main_workspace  herdr workspace id open on the
+                                           main checkout; null when herdr
+                                           takes over half a second
+                         Every field is always present; one with no answer is
+                         null. In the main checkout, worktree and branch are
+                         null. Outside a Whiska worktree or main checkout, all
+                         four are null. Read one with
+                         jq -r '.main_workspace // empty'.
+
     mode                 Print this mouse's mode.
     mode build|sniff     Give a mouse nobody shaped its mode. A build mouse
                          makes changes, confined to its own worktree. A sniff
@@ -388,6 +404,8 @@ defmodule Whiska.CLI do
   end
 
   def run(["worktrees"], cwd), do: worktrees(cwd || File.cwd!())
+
+  def run(["where"], cwd), do: where_am_i(cwd || File.cwd!())
 
   def run(["mode"], cwd), do: with_mouse(cwd, &show_mode/2)
 
@@ -1558,6 +1576,97 @@ defmodule Whiska.CLI do
 
     [branch || "-", path, workspace || "-", pane && pane.pane_id, pane && pane.agent_status]
     |> Enum.map_join("\t", &(&1 || "-"))
+  end
+
+  # -- where ---------------------------------------------------------------------
+
+  # A stable interface for scripts outside Whiska, so the keys go out in a fixed
+  # order and every one is always there. Exits 0 everywhere: "not a worktree" is
+  # an answer, not a failure, and so is anything that goes wrong on the way —
+  # it becomes a null, never a crash a hook would have to survive. The worktree
+  # comes from the layout alone (ADR-0030); only the main checkout, which the
+  # layout cannot see from inside itself, is git's to say.
+  @where_version 1
+
+  # A hook calls this on every tool use, so a herdr that hangs must not hang it.
+  @where_herdr_deadline_ms 500
+
+  defp where_am_i(cwd) do
+    {worktree, branch, main} = place(Layout.canonical(cwd))
+
+    [
+      version: @where_version,
+      worktree: worktree,
+      branch: branch,
+      main_checkout: main,
+      main_workspace: main && main_workspace(main)
+    ]
+    |> Enum.map_join(",", fn {key, value} -> ~s("#{key}":) <> JSON.encode!(text_or_nil(value)) end)
+    |> then(&IO.puts("{" <> &1 <> "}"))
+
+    0
+  end
+
+  defp place(cwd) do
+    case Layout.resolve(cwd) do
+      {:ok, layout} ->
+        {layout.worktree_root, layout.branch_label, layout.main_checkout}
+
+      {:error, :not_in_worktree} ->
+        case Git.main_checkout(cwd) do
+          {:ok, main} -> {nil, nil, main}
+          {:error, _} -> {nil, nil, nil}
+        end
+    end
+  rescue
+    # No git on this machine.
+    _ in ErlangError -> {nil, nil, nil}
+  end
+
+  # A path that is not UTF-8 — possible on Linux — has no JSON string, so it
+  # is null rather than an encoder crash.
+  defp text_or_nil(value) when is_binary(value), do: if(String.valid?(value), do: value)
+  defp text_or_nil(value), do: value
+
+  # In a process of its own, so a herdr that never answers costs the deadline
+  # and nothing more, and a reply that makes the lookup raise is a null.
+  # `$callers` lets a test's herdr fake follow the call into it.
+  defp main_workspace(main) do
+    parent = self()
+    ref = make_ref()
+
+    {pid, monitor} =
+      spawn_monitor(fn ->
+        Process.put(:"$callers", [parent])
+        send(parent, {ref, herdr_main_workspace(main)})
+      end)
+
+    receive do
+      {^ref, id} ->
+        Process.demonitor(monitor, [:flush])
+        text_or_nil(id)
+
+      {:DOWN, ^monitor, :process, _, _} ->
+        nil
+    after
+      @where_herdr_deadline_ms ->
+        Process.exit(pid, :kill)
+        Process.demonitor(monitor, [:flush])
+        nil
+    end
+  end
+
+  # Caught here rather than left to crash the process, which would print a
+  # crash report on stderr; the JSON is the whole answer.
+  defp herdr_main_workspace(main) do
+    with {:ok, socket} <- herdr_socket(),
+         {:ok, id} when is_binary(id) <- Herdr.impl().main_workspace(socket, main) do
+      id
+    else
+      _ -> nil
+    end
+  catch
+    _kind, _reason -> nil
   end
 
   # -- waiting and jump (ADR-0043) ---------------------------------------------

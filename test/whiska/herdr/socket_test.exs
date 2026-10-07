@@ -395,6 +395,69 @@ defmodule Whiska.Herdr.SocketTest do
     end
   end
 
+  describe "main_workspace/2" do
+    test "asks worktree.list for one checkout and answers with its own entry's workspace" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "worktree_list",
+           "worktrees" => [
+             %{
+               "path" => "/main/worktrees/feat-a",
+               "is_linked_worktree" => true,
+               "open_workspace_id" => "ws-7"
+             },
+             %{"path" => "/main", "is_linked_worktree" => false, "open_workspace_id" => "ws-main"}
+           ]
+         }}
+      )
+
+      assert {:ok, "ws-main"} = Socket.main_workspace(path, "/main")
+      assert_received {:fake_got, %{"method" => "worktree.list", "params" => %{"cwd" => "/main"}}}
+    end
+
+    test "no workspace open on the checkout is nil" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "worktree_list",
+           "worktrees" => [
+             %{"path" => "/main", "is_linked_worktree" => false, "open_workspace_id" => nil}
+           ]
+         }}
+      )
+
+      assert {:ok, nil} = Socket.main_workspace(path, "/main")
+    end
+
+    test "a list with only linked worktrees has no workspace of the checkout's own" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "worktree_list",
+           "worktrees" => [
+             %{
+               "path" => "/main/worktrees/a",
+               "is_linked_worktree" => true,
+               "open_workspace_id" => "ws-7"
+             }
+           ]
+         }}
+      )
+
+      assert {:ok, nil} = Socket.main_workspace(path, "/main")
+    end
+  end
+
   describe "remove_worktree/2" do
     test "asks worktree.remove for that workspace and never forces" do
       {path, fake} = start_fake()

@@ -143,6 +143,13 @@ defmodule Whiska.Herdr do
   @callback subscribe(socket :: Path.t(), [subscription()], listener :: pid()) ::
               {:ok, pid()} | {:error, term()}
 
+  @doc """
+  The workspace open on a checkout itself — its own entry in herdr's worktree
+  list, not one of its linked worktrees. `nil` when none is open there.
+  """
+  @callback main_workspace(socket :: Path.t(), checkout :: Path.t()) ::
+              {:ok, String.t() | nil} | {:error, term()}
+
   @doc "The linked worktrees of one checkout, each with the workspace it is open in."
   @callback worktrees(socket :: Path.t(), checkout :: Path.t()) ::
               {:ok, [worktree()]} | {:error, term()}
