@@ -161,6 +161,8 @@ defmodule Whiska.Owl.House do
     %{type: "workspace.closed"}
   ]
 
+  @gate_screen ".git/whiska/gate-screen"
+
   @default_backstop_ms 60_000
   @default_resubscribe_ms 5_000
   @default_round_wait_ms 8_000
@@ -209,6 +211,7 @@ defmodule Whiska.Owl.House do
     last_mode: nil,
     held_since: nil,
     held_reason: nil,
+    held_id: nil,
     subscription: nil,
     sidebar_frame: 0,
     workspaces: nil,
@@ -1253,7 +1256,7 @@ defmodule Whiska.Owl.House do
         "questions are waiting but no main session is recorded — " <>
           "run `whiska start` in the main session's pane"
       )
-      |> hold(:unreachable)
+      |> hold(:unreachable, nil, "no main pane recorded")
     else
       release_hold(state)
     end
@@ -1267,7 +1270,7 @@ defmodule Whiska.Owl.House do
       %Question{} = question ->
         case main_session_free?(state) do
           {:go, notes, state} -> send_question(state, question, notes, mode)
-          {:hold, reason, state} -> hold(state, reason)
+          {:hold, reason, status, state} -> hold(state, reason, question.id, status)
         end
     end
   end
@@ -1276,10 +1279,46 @@ defmodule Whiska.Owl.House do
   # (ADR-0008, ADR-0047); this only remembers what it decided, so the sidebar
   # can say it (ADR-0058). A hold whose reason changes — mid-turn, then a draft in
   # the box — is one hold that has not let go, so the clock keeps running.
-  defp hold(%{held_since: %DateTime{}} = state, reason), do: %{state | held_reason: reason}
-  defp hold(state, reason), do: %{state | held_since: now(), held_reason: reason}
+  #
+  # It also writes the log line the sidebar cannot: when a hold starts, when
+  # its reason changes, and when it ends — with the question, herdr's status for
+  # the main pane, and how long it held. An attempt that comes back with the
+  # same answer says nothing, so a nine-minute hold is three lines, not nine.
+  defp hold(%{held_since: %DateTime{}, held_reason: reason} = state, reason, _id, _status),
+    do: state
 
-  defp release_hold(state), do: %{state | held_since: nil, held_reason: nil}
+  defp hold(%{held_since: %DateTime{}} = state, reason, id, status) do
+    warn(
+      state,
+      "#{question_label(id)} still held (held #{held_for(state)}): now #{reason} " <>
+        "(herdr: #{status})"
+    )
+
+    %{state | held_reason: reason, held_id: id}
+  end
+
+  defp hold(state, reason, id, status) do
+    warn(state, "#{question_label(id)} held: #{reason} (herdr: #{status})")
+
+    %{state | held_since: now(), held_reason: reason, held_id: id}
+  end
+
+  defp release_hold(%{held_since: nil} = state), do: state
+
+  defp release_hold(state) do
+    warn(state, "#{question_label(state.held_id)} no longer held (held #{held_for(state)})")
+    %{state | held_since: nil, held_reason: nil, held_id: nil}
+  end
+
+  defp question_label(nil), do: "questions"
+  defp question_label(id), do: "##{id}"
+
+  defp held_for(%{held_since: since}) do
+    case DateTime.diff(now(), since, :second) do
+      seconds when seconds < 60 -> "#{seconds}s"
+      seconds -> "#{div(seconds, 60)}m #{rem(seconds, 60)}s"
+    end
+  end
 
   # Said only once the hold has outlasted the fuse, and only while something the
   # person has not set aside is actually queued behind it.
@@ -1323,19 +1362,19 @@ defmodule Whiska.Owl.House do
   defp main_session_free?(%{socket: nil} = state) do
     state
     |> warn_once(:no_socket, "no herdr socket known — cannot deliver")
-    |> then(&{:hold, :unreachable, &1})
+    |> then(&{:hold, :unreachable, "no herdr socket", &1})
   end
 
   defp main_session_free?(state) do
     case state.herdr.pane(state.socket, state.main_pane) do
       {:ok, %{agent: "claude", agent_status: status}} when status in ["idle", "done"] ->
-        box_is_free(state, [])
+        box_is_free(state, [], status)
 
       {:ok, %{agent: "claude", agent_status: "unknown"}} ->
-        box_is_free(state, [:status_unknown])
+        box_is_free(state, [:status_unknown], "unknown")
 
-      {:ok, %{agent: "claude"}} ->
-        {:hold, :mid_turn, state}
+      {:ok, %{agent: "claude", agent_status: status}} ->
+        {:hold, :mid_turn, status, state}
 
       {:ok, %{agent: nil}} ->
         state
@@ -1344,12 +1383,12 @@ defmodule Whiska.Owl.House do
           "the main session's pane #{state.main_pane} is not running Claude — " <>
             "questions are held; run `whiska start` where it is"
         )
-        |> then(&{:hold, :unreachable, &1})
+        |> then(&{:hold, :unreachable, "no agent in the pane", &1})
 
       {:ok, %{agent: other}} ->
         state
         |> warn_once(:main_dead, "the main session's pane runs #{other}, not Claude — held")
-        |> then(&{:hold, :unreachable, &1})
+        |> then(&{:hold, :unreachable, "pane runs #{other}", &1})
 
       {:error, reason} ->
         state
@@ -1357,7 +1396,23 @@ defmodule Whiska.Owl.House do
           :main_lookup,
           "could not ask herdr about the main pane (#{inspect(reason)})"
         )
-        |> then(&{:hold, :unreachable, &1})
+        |> then(&{:hold, :unreachable, "pane lookup failed", &1})
+    end
+  end
+
+  # One file, overwritten on every hold about the box, so what the gate saw is
+  # still there to read once the hold is over. The screen holds whatever the
+  # person had typed, so it stays out of the log and out of reach of anyone
+  # else on the machine. Best effort: a file that cannot be written must never
+  # change what the gate decides.
+  defp keep_screen(state, screen) do
+    file = Path.join(state.main_checkout, @gate_screen)
+    tmp = file <> ".tmp-#{System.unique_integer([:positive])}"
+
+    with :ok <- File.mkdir_p(Path.dirname(file)),
+         :ok <- File.write(tmp, screen),
+         :ok <- File.chmod(tmp, 0o600) do
+      File.rename(tmp, file)
     end
   end
 
@@ -1367,12 +1422,16 @@ defmodule Whiska.Owl.House do
   # submits it. The screen is the only place that shows it, so the screen is
   # read. A `pane.read` herdr refuses is ADR-0008's unavailable signal — deliver
   # anyway.
-  defp box_is_free(state, notes) do
+  defp box_is_free(state, notes, status) do
     case state.herdr.read_screen(state.socket, state.main_pane) do
       {:ok, screen} ->
         case screen |> Draft.read() |> Draft.hold() do
-          {:hold, held} -> {:hold, held, state}
-          :go -> {:go, notes, state}
+          {:hold, held} ->
+            keep_screen(state, screen)
+            {:hold, held, status, state}
+
+          :go ->
+            {:go, notes, state}
         end
 
       {:error, _reason} ->
@@ -1400,7 +1459,7 @@ defmodule Whiska.Owl.House do
           :prompt_failed,
           "could not deliver ##{question.id} (#{inspect(reason)}) — will retry"
         )
-        |> hold(:unreachable)
+        |> hold(:unreachable, question.id, "herdr refused the prompt")
     end
   end
 
@@ -1444,6 +1503,6 @@ defmodule Whiska.Owl.House do
   end
 
   defp warn(state, message) do
-    IO.puts(:stderr, "whiska [#{Path.basename(state.main_checkout)}]: #{message}")
+    Whiska.Owl.Log.line("whiska [#{Path.basename(state.main_checkout)}]: #{message}")
   end
 end

@@ -41,7 +41,11 @@ warning: when a house's 60 s backstop collects anything, it is something the idl
 should have brought a minute earlier, so the house warns and marks it in
 `.git/whiska/backstop`, and the doctor reads that mark as one more line — the guard
 against a dead trigger hiding behind a working last resort (ADR-0036, note of
-2026-09-28). Then finishing, which is no longer a hook at all: `whiska init` writes a `finish` part
+2026-09-28). Then the owl log's hold lines: every line carries the local time, and a held
+delivery logs when it starts, changes reason and ends — with the question, herdr's status
+for the main pane and how long it held — while a hold about the prompt box also overwrites
+`.git/whiska/gate-screen` with the screen as read, kept out of the log because it holds
+what the person typed (ADR-0058; the gate itself is unchanged, ADR-0008, ADR-0047). Then finishing, which is no longer a hook at all: `whiska init` writes a `finish` part
 into the `CLAUDE.md` block, and a mouse runs it itself before it says `done` — the work
 read back against the brief and the repo's decisions, the repo's checks run and fixed,
 reviewers sent over its own diff, one more round, then the marker. `review-loop.sh` is

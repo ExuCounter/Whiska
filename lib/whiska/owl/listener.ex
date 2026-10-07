@@ -122,8 +122,8 @@ defmodule Whiska.Owl.Listener do
   end
 
   defp say(path, :held_by_another_owl),
-    do: IO.puts(:stderr, "whiska: another owl is answering on #{path} — not listening there")
+    do: Whiska.Owl.Log.line("whiska: another owl is answering on #{path} — not listening there")
 
   defp say(path, reason),
-    do: IO.puts(:stderr, "whiska: could not listen on #{path} (#{inspect(reason)})")
+    do: Whiska.Owl.Log.line("whiska: could not listen on #{path} (#{inspect(reason)})")
 end
