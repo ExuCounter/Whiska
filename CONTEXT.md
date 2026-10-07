@@ -453,6 +453,8 @@ push needs approval.
 **Sniff mode**:
 A mouse mode for investigation only. Never writes code, never pushes — produces a
 report instead. Says nothing about the model or the effort: those are chosen apart.
+_Avoid_: research mode, research mouse (`research/` is the prefix a sniff mouse's branch
+carries, not the mode's name)
 
 **Owl**:
 The one always-awake presence per machine, kept running by its **service manager**, that
