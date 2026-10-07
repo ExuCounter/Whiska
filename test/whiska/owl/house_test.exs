@@ -96,6 +96,20 @@ defmodule Whiska.Owl.HouseTest do
     file
   end
 
+  defp leave_spec(main, mouse_id, root, stamped_at, spec, branch \\ nil) do
+    {:ok, file} =
+      Doorstep.leave(main, %Entry{
+        mouse_id: mouse_id,
+        branch: branch || Path.basename(root),
+        worktree_root: root,
+        stamped_at: stamped_at,
+        text: "Spec ready, see above — ok to build?",
+        spec: spec
+      })
+
+    file
+  end
+
   describe "opening a house" do
     test "finds each mouse's pane by cwd and records it (ADR-0006)", %{main: main, a: a, b: b} do
       expect(Herdr, :list_panes, fn @socket ->
@@ -224,6 +238,63 @@ defmodule Whiska.Owl.HouseTest do
       stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
       stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
       {:ok, house: open(main)}
+    end
+
+    test "a revised spec overwrites its saved copy and names the question it replaced", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      leave_spec(main, "ma", a, ~U[2026-10-06 09:00:00Z], "# Spec\n\nfirst\n")
+      House.collect(house)
+      leave_spec(main, "ma", a, ~U[2026-10-07 09:00:00Z], "# Spec\n\nsecond\n")
+      House.collect(house)
+
+      [first, second] = in_house(house, fn -> Enum.sort_by(Storage.all(Question), & &1.id) end)
+
+      assert [file] = Path.wildcard(Path.join(main, ".whiska/specs/*.md"))
+      assert Path.basename(file) == "2026-10-06-feat-a.md"
+      saved = File.read!(file)
+      assert saved =~ "second"
+      refute saved =~ "first"
+      assert saved =~ "repo: myrepo\n"
+      assert saved =~ "branch: feat-a\n"
+      assert saved =~ "question: #{second.id}\n"
+      assert saved =~ "replaced: #{first.id}\n"
+      assert saved =~ "status: waiting\n"
+
+      exclude = File.read!(Path.join(main, ".git/info/exclude"))
+      assert exclude |> String.split("\n") |> Enum.count(&(&1 == "/.whiska/")) == 1
+    end
+
+    test "a later turn that leaves the spec unchanged does not move it", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      leave_spec(main, "ma", a, ~U[2026-10-06 09:00:00Z], "# Spec\n")
+      House.collect(house)
+      leave_spec(main, "ma", a, ~U[2026-10-06 10:00:00Z], "# Spec\n")
+      House.collect(house)
+
+      [first, _done] = in_house(house, fn -> Enum.sort_by(Storage.all(Question), & &1.id) end)
+      [file] = Path.wildcard(Path.join(main, ".whiska/specs/*.md"))
+      assert File.read!(file) =~ "question: #{first.id}\n"
+      refute File.read!(file) =~ "replaced:"
+    end
+
+    test "two mice on one branch name, the same day, keep two files", %{
+      main: main,
+      a: a,
+      b: b,
+      house: house
+    } do
+      leave_spec(main, "ma", a, ~U[2026-10-06 09:00:00Z], "# A\n", "feat/x")
+      leave_spec(main, "mb", b, ~U[2026-10-06 09:30:00Z], "# B\n", "feat/x")
+      House.collect(house)
+
+      names = Enum.map(Path.wildcard(Path.join(main, ".whiska/specs/*.md")), &Path.basename/1)
+      assert Enum.sort(names) == ["2026-10-06-feat-x-2.md", "2026-10-06-feat-x.md"]
     end
 
     # herdr 0.8.2 streams a per-pane subscription event under its subscription

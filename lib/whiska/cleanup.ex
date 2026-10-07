@@ -28,6 +28,7 @@ defmodule Whiska.Cleanup do
   alias Whiska.Layout
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
+  alias Whiska.SpecArchive
   alias Whiska.Storage
 
   @ready ~w(idle done)
@@ -55,9 +56,14 @@ defmodule Whiska.Cleanup do
       doorstep: doorstep(checkout)
     }
 
-    Storage.current_mice()
-    |> Enum.reject(& &1.removed_at)
-    |> Enum.map(&note_landing(&1, local))
+    noted =
+      Storage.current_mice()
+      |> Enum.reject(& &1.removed_at)
+      |> Enum.map(&note_landing(&1, local))
+
+    SpecArchive.settle(checkout, Enum.map(noted, &elem(&1, 0)))
+
+    noted
     |> Enum.map(fn {mouse, asked} ->
       {mouse, local_verdict(mouse, Map.put(local, :merged, asked))}
     end)

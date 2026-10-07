@@ -11,10 +11,15 @@ defmodule Whiska.Doorstep.Entry do
   `ran_on` is the model id the turn ran on, read from the transcript the hook
   already reads; nil when the transcript did not say, and on an entry written
   before it travelled.
+
+  `spec` is the text of the worktree's spec file when the turn ended, nil when
+  there was none. It travels here because the doorstep is in the house and
+  outlives the worktree, so the owl can keep a copy of the spec at collection
+  whatever removes the worktree first (ADR-next-spec-archive).
   """
 
   @enforce_keys [:mouse_id, :branch, :worktree_root, :stamped_at, :text]
-  defstruct [:mouse_id, :branch, :worktree_root, :stamped_at, :text, ran_on: nil]
+  defstruct [:mouse_id, :branch, :worktree_root, :stamped_at, :text, ran_on: nil, spec: nil]
 
   @type t :: %__MODULE__{
           mouse_id: String.t(),
@@ -22,7 +27,8 @@ defmodule Whiska.Doorstep.Entry do
           worktree_root: Path.t(),
           stamped_at: DateTime.t(),
           text: String.t(),
-          ran_on: String.t() | nil
+          ran_on: String.t() | nil,
+          spec: String.t() | nil
         }
 
   @doc "The on-disk form: plain JSON, one object."
@@ -34,7 +40,8 @@ defmodule Whiska.Doorstep.Entry do
       "worktree_root" => entry.worktree_root,
       "stamped_at" => DateTime.to_iso8601(entry.stamped_at),
       "text" => entry.text,
-      "ran_on" => entry.ran_on
+      "ran_on" => entry.ran_on,
+      "spec" => entry.spec
     })
   end
 
@@ -59,7 +66,8 @@ defmodule Whiska.Doorstep.Entry do
          worktree_root: root,
          stamped_at: stamped_at,
          text: text,
-         ran_on: if(is_binary(fields["ran_on"]), do: fields["ran_on"])
+         ran_on: if(is_binary(fields["ran_on"]), do: fields["ran_on"]),
+         spec: if(is_binary(fields["spec"]), do: fields["spec"])
        }}
     else
       _ -> :error

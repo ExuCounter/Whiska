@@ -21,19 +21,22 @@ defmodule Whiska.Spec do
   @spec exclude_line() :: String.t()
   def exclude_line, do: @exclude_line
 
-  @doc "Make git ignore the spec in every worktree of this checkout. Safe to repeat."
-  @spec ignore(Path.t()) :: :ok | {:error, term()}
-  def ignore(main_checkout) do
+  @doc """
+  Make git ignore the spec in every worktree of this checkout, or ignore `line`
+  instead. Safe to repeat.
+  """
+  @spec ignore(Path.t(), String.t()) :: :ok | {:error, term()}
+  def ignore(main_checkout, line \\ @exclude_line) do
     git_dir = Path.join(main_checkout, ".git")
     exclude = Path.join([git_dir, "info", "exclude"])
 
     with true <- File.dir?(git_dir) || {:error, :no_git_dir},
          :ok <- File.mkdir_p(Path.dirname(exclude)),
          {:ok, existing} <- read(exclude) do
-      if @exclude_line in String.split(existing, "\n") do
+      if line in String.split(existing, "\n") do
         :ok
       else
-        File.write(exclude, separator(existing) <> @exclude_line <> "\n", [:append])
+        File.write(exclude, separator(existing) <> line <> "\n", [:append])
       end
     end
   end

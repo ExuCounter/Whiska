@@ -51,7 +51,9 @@ out of scope, in `.whiska-spec.md` at the worktree root, which git ignores. The 
 writes it with the `whiska-spec` skill after the last grilling round, sends it whole as a
 question, and builds only on the person's ok. A brief that needed no grilling gets none;
 a task's size never skips it. The person's words are that brief's spec
-(ADR-0076).
+(ADR-0076). A copy of every spec sent is kept in `.whiska/specs/` in the main checkout,
+named by date and branch, with a header saying its question and whether the branch
+landed or was dropped (ADR-next-spec-archive).
 _Avoid_: plan, design doc, ticket
 
 **Mouse record**:

@@ -94,8 +94,18 @@ defmodule Whiska.Hook.Stop do
       worktree_root: layout.worktree_root,
       stamped_at: DateTime.utc_now(),
       text: text,
-      ran_on: ran_on
+      ran_on: ran_on,
+      spec: spec(layout.worktree_root)
     })
+  end
+
+  # The spec as it stands when the turn ends (ADR-0076). Unreadable is the same
+  # as absent: the message itself must still reach the doorstep.
+  defp spec(worktree_root) do
+    case File.read(Path.join(worktree_root, Whiska.Spec.filename())) do
+      {:ok, text} -> text
+      {:error, _} -> nil
+    end
   end
 
   defp decode(raw) do

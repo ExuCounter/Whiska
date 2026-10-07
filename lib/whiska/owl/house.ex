@@ -150,6 +150,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Question.Marker
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
+  alias Whiska.SpecArchive
   alias Whiska.Storage
   alias Whiska.Sidebar
   alias Whiska.Watch
@@ -1223,6 +1224,7 @@ defmodule Whiska.Owl.House do
              asked_at: DateTime.truncate(entry.stamped_at, :second)
            }),
          {:ok, _} <- Storage.supersede_earlier(question),
+         :ok <- keep_spec(state, entry, question),
          {:ok, _} <- Doorstep.mark_collected(file) do
       true
     else
@@ -1232,6 +1234,16 @@ defmodule Whiska.Owl.House do
         warn(state, "could not collect #{Path.basename(file)} (#{inspect(reason)})")
         false
     end
+  end
+
+  # The question is already recorded, so a copy that cannot be written is said
+  # and passed over: holding the entry back would record the question twice.
+  defp keep_spec(state, entry, question) do
+    with {:error, reason} <- SpecArchive.keep(state.main_checkout, entry, question) do
+      warn(state, "could not keep the spec of question #{question.id} (#{inspect(reason)})")
+    end
+
+    :ok
   end
 
   # -- delivery (ADR-0008) -----------------------------------------------------

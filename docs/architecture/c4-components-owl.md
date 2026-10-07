@@ -3,7 +3,7 @@
 Level 3 for the owl, which is real code as of the owl slice. Everything here is in
 `lib/whiska/owl/`, `lib/whiska/doorstep*`, `lib/whiska/herdr*`, `lib/whiska/delivery/`,
 `lib/whiska/open_houses.ex`, `lib/whiska/backstop.ex`, `lib/whiska/watch*`,
-`lib/whiska/cleanup.ex`, `lib/whiska/pickup.ex`, `lib/whiska/doorbell.ex`,
+`lib/whiska/cleanup.ex`, `lib/whiska/spec_archive.ex`, `lib/whiska/pickup.ex`, `lib/whiska/doorbell.ex`,
 `lib/whiska/mouse_pane.ex`, `lib/whiska/git.ex` and
 `lib/whiska/question/marker.ex`, each
 with a test beside it. The two sockets the owl answers on — `Whiska.Owl.Listener`,
@@ -35,7 +35,8 @@ C4Component
     Component(mousepane, "Whiska.MousePane", "bounds", "Which pane is a mouse's, whether herdr calls its folder a worktree of this checkout, and what its prompt box holds")
     Component(gitq, "Whiska.Git", "git", "Merged, reached by a merge, clean, unpushed - and the removals, never forced")
     Component(doorstep, "Whiska.Doorstep", "file store", "Reads entries, marks them collected by rename")
-    Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text, and ran_on: the model the turn ran on")
+    Component(entry, "Whiska.Doorstep.Entry", "struct", "mouse_id, branch, worktree_root, stamped_at, text, ran_on: the model the turn ran on, and spec: the worktree's spec when the turn ended")
+    Component(archive, "Whiska.SpecArchive", "file store", "A copy of each spec sent, in .whiska/specs/ in the main checkout: written at collection, marked landed or dropped by the sweep")
     Component(markerq, "Whiska.Question.Marker", "classifier", "done / needs-decision / unmarked, by marker alone")
     Component(draft, "Whiska.Delivery.Draft", "classifier", "Where would the line land? empty / typing / no box / unknown")
     Component(mode, "Whiska.Delivery.Mode", "judge", "What the person set aside: away (a file), this house's focus, its held mice. What goes next, oldest first, and why a question waits")
@@ -83,6 +84,8 @@ C4Component
   Rel(cleanup, gitq, "Asks the four preconditions, removes the worktree and the branch")
   Rel(cleanup, herdrb, "Removes a landed worktree and closes its pane, never forced")
   Rel(cleanup, storage, "Stamps the mouse removed")
+  Rel(house, archive, "Keeps the spec an entry carried, naming the question just recorded")
+  Rel(cleanup, archive, "Marks each kept spec landed or dropped, after noting landings")
   Rel(house, pickup, "Sweeps on the backstop, handing it the pane list it already has")
   Rel(pickup, mousepane, "Finds the pane, asks whose worktree it is, reads its box")
   Rel(pickup, herdrb, "One line into the mouse's own pane")

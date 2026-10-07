@@ -55,6 +55,23 @@ defmodule Whiska.Hook.StopTest do
     assert DateTime.diff(DateTime.utc_now(), entry.stamped_at, :second) < 5
   end
 
+  test "carries the worktree's spec, so it outlives the worktree", %{
+    main: main,
+    worktree: worktree
+  } do
+    File.write!(Path.join(worktree, ".whiska-spec.md"), "# Spec\n\nBuild it.\n")
+
+    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "ok to build?"}))
+
+    assert [{_, %Entry{spec: "# Spec\n\nBuild it.\n"}}] = Doorstep.waiting(main)
+  end
+
+  test "a worktree with no spec leaves an entry with none", %{main: main, worktree: worktree} do
+    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "hi"}))
+
+    assert [{_, %Entry{spec: nil}}] = Doorstep.waiting(main)
+  end
+
   test "a session sitting in a subfolder still lands in the right house", %{
     main: main,
     worktree: worktree

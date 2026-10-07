@@ -242,6 +242,56 @@ defmodule Whiska.CleanupTest do
     end
   end
 
+  describe "a kept spec" do
+    defp kept(repo, m) do
+      entry = %Whiska.Doorstep.Entry{
+        mouse_id: m.id,
+        branch: m.branch,
+        worktree_root: m.path,
+        stamped_at: ~U[2026-10-06 09:00:00Z],
+        text: "ok to build?",
+        spec: "# Spec\n"
+      }
+
+      :ok = Whiska.SpecArchive.keep(repo.checkout, entry, %Whiska.Schema.Question{id: 7})
+      [file] = Path.wildcard(Path.join(Whiska.SpecArchive.dir(repo.checkout), "*.md"))
+      file
+    end
+
+    test "says landed, with the branch's last commit, once the branch lands", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      file = kept(repo, m)
+      head = GitRepo.git!(m.path, ["rev-parse", "--short=7", "HEAD"]) |> String.trim()
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      assert File.read!(file) =~ "status: landed #{Date.utc_today()}, branch head #{head}\n"
+      assert File.read!(file) =~ "# Spec\n"
+    end
+
+    test "says dropped once its worktree is gone with no landing", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      file = kept(repo, m)
+      GitRepo.git!(repo.checkout, ["worktree", "remove", m.path])
+      herdr(repo, [], [])
+
+      sweep(repo)
+
+      assert File.read!(file) =~ "status: dropped #{Date.utc_today()}\n"
+    end
+
+    test "says waiting while the worktree stands unlanded", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      file = kept(repo, m)
+      seen(repo, m, workspace_id: nil)
+
+      sweep(repo)
+
+      assert File.read!(file) =~ "status: waiting\n"
+    end
+  end
+
   describe "the four preconditions" do
     test "an unmerged branch stays, whatever else is true", %{repo: repo} do
       m = mouse(repo, "feat-a")
