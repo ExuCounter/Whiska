@@ -399,7 +399,8 @@ its work)
 The owl typing one short line into a mouse's own pane to carry a dead turn on — the
 "corrective nudge" the Nudge entry below left the word with. Never the original prompt:
 the session still knows what it did, and re-asking risks redoing a file already written.
-One per dead turn, and a branch whose picked-up turn dies as well is a **stuck** mouse
+Waits out a settling window first, except when the mouse's transcript ends on Claude
+Code's own API error, which is picked up at once (ADR-0067). One per dead turn, and a branch whose picked-up turn dies as well is a **stuck** mouse
 from then on (ADR-0026), never nudged again. A mouse with a **chased** answer is never
 picked up: its next turn has not begun, and the **doorbell** carries it on. One of the two
 lines the owl types anywhere but its own house's main session (ADR-0044, as ADR-0067 and

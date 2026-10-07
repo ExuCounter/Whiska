@@ -204,6 +204,31 @@ defmodule Whiska.Transcript do
   end
 
   @doc """
+  The newest `.jsonl` in a Claude Code project folder, with its mtime in
+  seconds — the mouse's current session — or `nil` when there is none.
+  """
+  @spec newest(Path.t()) :: {Path.t(), integer()} | nil
+  def newest(dir) do
+    case File.ls(dir) do
+      {:ok, names} ->
+        names
+        |> Enum.filter(&String.ends_with?(&1, ".jsonl"))
+        |> Enum.map(&{Path.join(dir, &1), mtime(Path.join(dir, &1))})
+        |> Enum.max_by(&elem(&1, 1), fn -> nil end)
+
+      {:error, _gone} ->
+        nil
+    end
+  end
+
+  defp mtime(path) do
+    case File.stat(path, time: :posix) do
+      {:ok, %File.Stat{mtime: mtime}} -> mtime
+      {:error, _gone} -> 0
+    end
+  end
+
+  @doc """
   The last `bytes` of a transcript, with the first line dropped when it may have
   been cut in half. Anything that is not a plain file — gone, a directory, a
   pipe with nobody writing to it — is `""`.
@@ -255,6 +280,39 @@ defmodule Whiska.Transcript do
     |> Enum.reduce(%{agent_calls: MapSet.new(), out: %{}}, &account_for/2)
     |> Map.fetch!(:out)
     |> Enum.any?(fn {_id, launched_at} -> not abandoned?(launched_at, now) end)
+  end
+
+  @doc """
+  Whether the session's last real entry is the API error Claude Code writes when
+  a turn gives up (ADR-0067's amendment of 2026-10-07).
+
+  Claude Code stamps that entry `isApiErrorMessage: true`, read from the real
+  transcript of `feat/sidebar-status` the moment its turn died on `API Error: The
+  response stopped arriving`. It then appends bookkeeping of its own
+  (`turn_duration`, snapshots, mode changes), so "last" means the last `user` or
+  `assistant` entry of the mouse's own: anything the person, the owl or the
+  mouse says after the error means the turn is not dead any more.
+
+  Total, like every reader here: text that will not parse is `false`.
+  """
+  @spec ended_on_api_error?(String.t()) :: boolean()
+  def ended_on_api_error?(text) do
+    text
+    |> String.split("\n")
+    |> Enum.reverse()
+    |> Enum.find_value(&real_entry/1)
+    |> case do
+      %{"isApiErrorMessage" => true} -> true
+      _otherwise -> false
+    end
+  end
+
+  defp real_entry(line) do
+    case JSON.decode(line) do
+      {:ok, %{"isSidechain" => true}} -> nil
+      {:ok, %{"type" => type} = entry} when type in ["user", "assistant"] -> entry
+      _bookkeeping_or_unreadable -> nil
+    end
   end
 
   @doc """

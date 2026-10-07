@@ -200,23 +200,5 @@ defmodule Whiska.Watch.Transcript do
     end
   end
 
-  defp newest_transcript(dir) do
-    case File.ls(dir) do
-      {:ok, names} ->
-        names
-        |> Enum.filter(&String.ends_with?(&1, ".jsonl"))
-        |> Enum.map(&{Path.join(dir, &1), mtime(Path.join(dir, &1))})
-        |> Enum.max_by(&elem(&1, 1), fn -> nil end)
-
-      {:error, _gone} ->
-        nil
-    end
-  end
-
-  defp mtime(path) do
-    case File.stat(path, time: :posix) do
-      {:ok, %File.Stat{mtime: mtime}} -> mtime
-      {:error, _gone} -> 0
-    end
-  end
+  defp newest_transcript(dir), do: Transcript.newest(dir)
 end

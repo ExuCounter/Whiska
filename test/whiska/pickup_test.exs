@@ -21,6 +21,7 @@ defmodule Whiska.PickupTest do
   alias Whiska.Pickup
   alias Whiska.Storage
   alias Whiska.Test.GitRepo
+  alias Whiska.Transcript
 
   setup :verify_on_exit!
 
@@ -52,6 +53,7 @@ defmodule Whiska.PickupTest do
 
     stub(Herdr, :read_screen, fn _, _ -> {:error, :no_screen} end)
     Process.put(:worktrees, :all)
+    Process.put(:home, Path.join(root, "home"))
 
     {:ok, repo: repo}
   end
@@ -99,9 +101,40 @@ defmodule Whiska.PickupTest do
       last_sweep_at: Keyword.get_lazy(opts, :last_sweep_at, fn -> at(seconds - 60) end),
       max_gap_ms: Keyword.get(opts, :max_gap_ms, 180_000),
       settle_ms: Keyword.get(opts, :settle_ms, @settle_ms),
+      user_home: Process.get(:home),
       now: at(seconds)
     })
   end
+
+  # What Claude Code has written for this mouse's session so far, in its own
+  # folder under a home of the test's own — the owl never sees the real one.
+  defp transcript(mouse, entries) do
+    dir = Transcript.project_dir(mouse.path, Process.get(:home))
+    File.mkdir_p!(dir)
+    File.write!(Path.join(dir, "session.jsonl"), Enum.join(entries, "\n") <> "\n")
+  end
+
+  defp said(text) do
+    JSON.encode!(%{
+      "type" => "assistant",
+      "message" => %{"content" => [%{"type" => "text", "text" => text}]}
+    })
+  end
+
+  defp api_error do
+    JSON.encode!(%{
+      "type" => "assistant",
+      "isSidechain" => false,
+      "isApiErrorMessage" => true,
+      "error" => "server_error",
+      "message" => %{
+        "model" => "<synthetic>",
+        "content" => [%{"type" => "text", "text" => "API Error: The response stopped arriving."}]
+      }
+    })
+  end
+
+  defp turn_duration, do: ~s({"type":"system","subtype":"turn_duration","durationMs":215204})
 
   defp look(repo, seconds, seen, mouse, status, opts \\ []) do
     herdr(panes(mouse, status, opts))
@@ -258,6 +291,100 @@ defmodule Whiska.PickupTest do
       {_, seen} = look(repo, @between, %{}, m, "done")
 
       assert {[{_, {:left, :never_worked}}], _} = sweep(repo, @settled, seen)
+    end
+  end
+
+  describe "a turn that died on an API error" do
+    test "is picked up the first sweep its pane is quiet, without the settling window",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {_, seen} = look(repo, @before, %{}, m, "idle")
+      {_, seen} = look(repo, @worked, seen, m, "working")
+      {_, seen} = look(repo, @quiet, seen, m, "idle")
+      transcript(m, [said("on it"), api_error(), turn_duration()])
+
+      expect(Herdr, :prompt, fn "/s", "w1:p1", line ->
+        assert line == Pickup.line()
+        :ok
+      end)
+
+      assert {[{_, :picked_up}], _} = sweep(repo, @quiet, seen)
+    end
+
+    test "is picked up by an owl with no memory of the pane at all", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {_, seen} = look(repo, @before, %{}, m, "idle")
+      {_, _seen} = look(repo, @worked, seen, m, "working")
+      transcript(m, [api_error()])
+      herdr(panes(m, "idle"))
+
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+
+      assert {[{_, :picked_up}], _} = sweep(repo, @settled, %{})
+    end
+
+    test "still waits out the window when the transcript ends on an ordinary message",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {_, seen} = look(repo, @before, %{}, m, "idle")
+      {_, seen} = look(repo, @worked, seen, m, "working")
+      {_, seen} = look(repo, @quiet, seen, m, "idle")
+      transcript(m, [api_error(), said("carrying on"), turn_duration()])
+
+      assert {[{_, {:left, :settling}}], _} = sweep(repo, @quiet, seen)
+    end
+
+    test "still waits out the window when there is no transcript", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {_, seen} = look(repo, @before, %{}, m, "idle")
+      {_, seen} = look(repo, @worked, seen, m, "working")
+      {_, seen} = look(repo, @quiet, seen, m, "idle")
+
+      assert {[{_, {:left, :settling}}], _} = sweep(repo, @quiet, seen)
+    end
+
+    test "a pane that is still working is a turn still running, whatever the transcript says",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {_, seen} = look(repo, @before, %{}, m, "idle")
+      {_, seen} = look(repo, @worked, seen, m, "working")
+      transcript(m, [api_error()])
+
+      assert {[{_, {:left, {:not_ready, "working"}}}], _} =
+               look(repo, @quiet, seen, m, "working")
+    end
+
+    test "keeps every other rule: one attempt per died turn", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {_, seen} = look(repo, @before, %{}, m, "idle")
+      {_, seen} = look(repo, @worked, seen, m, "working")
+      {_, seen} = look(repo, @quiet, seen, m, "idle")
+      transcript(m, [api_error()])
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+      assert {[{_, :picked_up}], seen} = sweep(repo, @quiet, seen)
+
+      assert {[{_, {:left, :already}}], _} = sweep(repo, @between, seen)
+    end
+
+    test "keeps every other rule: the main session's pane is never typed into", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {_, seen} = look(repo, @before, %{}, m, "idle")
+      {_, seen} = look(repo, @worked, seen, m, "working")
+      {_, seen} = look(repo, @quiet, seen, m, "idle")
+      transcript(m, [api_error()])
+
+      assert {[{_, {:left, :main_session}}], _} = sweep(repo, @quiet, seen, main_pane: "w1:p1")
+    end
+
+    test "keeps every other rule: herdr has to name the folder", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {_, seen} = look(repo, @before, %{}, m, "idle")
+      {_, seen} = look(repo, @worked, seen, m, "working")
+      {_, seen} = look(repo, @quiet, seen, m, "idle")
+      transcript(m, [api_error()])
+      Process.put(:worktrees, [])
+
+      assert {[{_, {:left, :not_our_worktree}}], _} = sweep(repo, @quiet, seen)
     end
   end
 

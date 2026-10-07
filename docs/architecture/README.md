@@ -133,7 +133,8 @@ continue into that mouse's own pane — never the original prompt, which would r
 work already on disk. Once per dead turn: a branch whose picked-up turn dies as well is
 ADR-0026's stuck mouse from then on. A pane has to have been quiet for two minutes across
 separate sweeps first, and a herdr that will not answer throws every clock away, so a
-laptop waking is not read as a whole fleet dying. It is the one thing Whiska types into a
+laptop waking is not read as a whole fleet dying — except when the mouse's transcript ends on
+Claude Code's own API error, which a wake cannot write, so that turn is picked up at once. It is the one thing Whiska types into a
 session that is not its house's main one, which is the single exception ADR-0067 amends
 into ADR-0044. Then the person's own say over delivery
 (ADR-0079): `away`, one file under the whiska home

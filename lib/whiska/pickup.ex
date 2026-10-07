@@ -48,14 +48,22 @@ defmodule Whiska.Pickup do
   `settle_ms` across separate sweeps, so a reconnect storm cannot read a whole
   fleet of branches as having died at once. herdr failing to answer throws the
   clocks away, so they start again rather than counting through a gap.
+
+  **One case skips the window.** A transcript whose last real entry is Claude
+  Code's own API error (`isApiErrorMessage`) is a turn that is certainly dead,
+  and a wake cannot write that entry, so there is nothing for the window to
+  guard against. The pane still has to be ready, and every other rule stands
+  (ADR-0067, amendment of 2026-10-07).
   """
 
   alias Whiska.Delivery.Draft
   alias Whiska.Doorstep
   alias Whiska.MousePane
+  alias Whiska.ServiceManager
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
+  alias Whiska.Transcript
 
   @ready ~w(idle done)
   @waiting ~w(open sent)
@@ -96,7 +104,8 @@ defmodule Whiska.Pickup do
   Keys: `:main_checkout`, `:herdr`, `:socket`, `:panes` (herdr's last full
   answer, which the house already holds), `:main_pane`, `:seen` (the previous
   pass's memory), `:last_sweep_at` (when that memory was taken), `:settle_ms`,
-  `:now`.
+  `:now`, and optionally `:user_home` (where Claude Code's transcripts are
+  looked for; the real home unless a test pins it).
 
   herdr is not asked for its panes here. The house re-lists them on the same
   backstop to match mice and judge liveness (ADR-0026), and a second list a
@@ -195,7 +204,7 @@ defmodule Whiska.Pickup do
          :ok <- nothing_waiting(mouse, local),
          :ok <- nothing_chased(mouse, local),
          :ok <- one_attempt(mouse, local),
-         :ok <- quiet_long_enough(look, house),
+         :ok <- quiet_long_enough(mouse, look, house),
          :ok <- claude?(pane),
          do: not_the_person(pane, house)
   end
@@ -256,16 +265,31 @@ defmodule Whiska.Pickup do
   defp asked_since?(%Question{asked_at: asked_at}, stamp),
     do: DateTime.compare(asked_at, stamp) != :lt
 
-  defp quiet_long_enough(%{status: status, ready_since: %DateTime{} = since}, house)
+  defp quiet_long_enough(mouse, %{status: status, ready_since: %DateTime{} = since}, house)
        when status in @ready do
-    if DateTime.diff(house.now, since, :millisecond) >= house.settle_ms,
-      do: :ok,
-      else: {:leave, :settling}
+    if DateTime.diff(house.now, since, :millisecond) >= house.settle_ms or
+         api_error?(mouse, house),
+       do: :ok,
+       else: {:leave, :settling}
   end
 
-  defp quiet_long_enough(%{status: "no pane"}, _house), do: {:leave, :no_pane}
-  defp quiet_long_enough(%{status: "many panes"}, _house), do: {:leave, :many_panes}
-  defp quiet_long_enough(%{status: status}, _house), do: {:leave, {:not_ready, status}}
+  defp quiet_long_enough(_mouse, %{status: "no pane"}, _house), do: {:leave, :no_pane}
+  defp quiet_long_enough(_mouse, %{status: "many panes"}, _house), do: {:leave, :many_panes}
+  defp quiet_long_enough(_mouse, %{status: status}, _house), do: {:leave, {:not_ready, status}}
+
+  # A turn whose last real transcript entry is Claude Code's own API error is
+  # certainly dead, and nothing a laptop waking does can write that entry, so
+  # the settling window has nothing left to guard against (ADR-0067's
+  # amendment of 2026-10-07). Read only for a pane already reported ready and
+  # not yet settled; a transcript that is missing or unreadable says nothing.
+  defp api_error?(%Mouse{path: path}, house) do
+    home = Map.get_lazy(house, :user_home, &ServiceManager.user_home/0)
+
+    case Transcript.newest(Transcript.project_dir(path, home)) do
+      {file, _mtime} -> file |> Transcript.tail() |> Transcript.ended_on_api_error?()
+      nil -> false
+    end
+  end
 
   defp claude?(%{agent: "claude"}), do: :ok
   defp claude?(_other), do: {:leave, :no_claude}

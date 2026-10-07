@@ -395,6 +395,71 @@ defmodule Whiska.TranscriptTest do
     end
   end
 
+  describe "ended_on_api_error?/1" do
+    # The shape of the entry Claude Code wrote at 15:44:24 UTC on 2026-10-07 on
+    # feat/sidebar-status, and of the bookkeeping entries that followed it.
+    defp api_error(fields \\ %{}) do
+      Map.merge(
+        %{
+          "type" => "assistant",
+          "isSidechain" => false,
+          "isApiErrorMessage" => true,
+          "error" => "server_error",
+          "message" => %{
+            "model" => "<synthetic>",
+            "role" => "assistant",
+            "content" => [
+              %{"type" => "text", "text" => "API Error: The response stopped arriving."}
+            ]
+          }
+        },
+        fields
+      )
+      |> JSON.encode!()
+    end
+
+    defp bookkeeping do
+      [
+        ~s({"type":"system","subtype":"turn_duration","durationMs":215204}),
+        ~s({"type":"file-history-snapshot","messageId":"f3b7"}),
+        ~s({"type":"permission-mode","permissionMode":"auto"}),
+        ~s({"type":"attachment","attachment":{"type":"total_tokens_reminder"}})
+      ]
+    end
+
+    test "is true when the last real entry is the API error" do
+      text = jsonl([said("working on it"), api_error()])
+
+      assert Transcript.ended_on_api_error?(text)
+    end
+
+    test "reads past the bookkeeping Claude Code writes after the error" do
+      text = jsonl([said("working on it"), api_error(), bookkeeping()])
+
+      assert Transcript.ended_on_api_error?(text)
+    end
+
+    test "is false once anything real follows the error" do
+      assert not Transcript.ended_on_api_error?(jsonl([api_error(), typed("try again")]))
+      assert not Transcript.ended_on_api_error?(jsonl([api_error(), said("on it")]))
+    end
+
+    test "is false for a turn that ended on an ordinary message" do
+      refute Transcript.ended_on_api_error?(jsonl([api_error(), said("done"), bookkeeping()]))
+    end
+
+    test "a subagent's error is not the mouse's" do
+      refute Transcript.ended_on_api_error?(
+               jsonl([said("hi"), api_error(%{"isSidechain" => true})])
+             )
+    end
+
+    test "is false for a transcript with nothing readable in it" do
+      refute Transcript.ended_on_api_error?("")
+      refute Transcript.ended_on_api_error?("not json\n{half")
+    end
+  end
+
   describe "ran_on/1" do
     # The shape of an assistant entry, read from a real transcript on 2026-10-04.
     defp answered(model, fields \\ %{}) do

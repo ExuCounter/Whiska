@@ -83,7 +83,7 @@ are the extracted, individually citable decisions.
 - [0074](0074-a-finished-investigation-hands-off.md) — A finished investigation hands its proposal to a fresh build mouse; `whiska mode` gives a mode to a mouse nobody shaped and refuses a shaped one (follows from 0069 and 0073; revised 2026-10-06: the flip is gone; offered for any branch with nothing on it, not only a sniff mouse's)
 - [0026](0026-dead-mice-and-stuck-mice-are-separate-problems.md) — Dead mice and stuck mice are separate problems
 - [0050](0050-a-mouses-last-action-is-read-from-its-transcript.md) — A mouse's last action is read from its Claude Code transcript, never asked for
-- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl (builds 0026's rung three; amends 0044 with its one exception; amended 2026-10-06 by ADR-0079: a held mouse is never picked up; amended 2026-10-06 by ADR-0080: a turn begins at the take, and a chased answer is not a died turn)
+- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl (builds 0026's rung three; amends 0044 with its one exception; amended 2026-10-06 by ADR-0079: a held mouse is never picked up; amended 2026-10-06 by ADR-0080: a turn begins at the take, and a chased answer is not a died turn; amended 2026-10-07: an API error in the transcript skips the settling window)
 - [0078](0078-every-task-goes-to-a-worktree.md) — Every task goes to a worktree; only the person saying "work in place" skips it (amends 0063, 0075 and 0076: a tweak or quick fix no longer skips the scout or the spec)
 
 ## Interface

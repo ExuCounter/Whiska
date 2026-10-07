@@ -40,7 +40,7 @@ C4Component
     Component(watch, "Whiska.Watch", "renderer", "A row per mouse: branch, pane status, how long it has been going, and the question waiting, the mouse's topic, or its last action")
     Component(ink, "Whiska.Watch.Ink", "renderer", "Plain ANSI for the branch, a waiting question and the elapsed time; never a full reset, so a stale board's dim survives the row")
     Component(snapshot, "Whiska.Watch.Snapshot", "text files", "The board for one house, in ~/.whiska/board/, and the pane it delivers to beside it")
-    Component(transcript, "Whiska.Watch.Transcript", "reader", "The last tool call or sentence and how long the mouse has been silent, from its own Claude Code transcript, over Whiska.Transcript")
+    Component(transcript, "Whiska.Watch.Transcript", "reader", "The last tool call or sentence and how long the mouse has been silent, from its own Claude Code transcript, over Whiska.Transcript, which pickup reads too")
   }
 
   ContainerDb(db, "House database", "SQLite", "mice and questions")
@@ -81,6 +81,7 @@ C4Component
   Rel(pickup, storage, "Reads worked_at, stamps picked_up_at")
   Rel(house, watch, "Renders the board every second")
   Rel(watch, transcript, "What a blocked or stalled mouse is stuck in")
+  Rel(pickup, transcript, "Does the mouse's transcript end on an API error")
   Rel(watch, ink, "Colours the branch, the question and the elapsed time")
   Rel(house, snapshot, "Writes the board where the statusline will find it")
   Rel(storage, db, "Ecto/exqlite")
@@ -206,7 +207,9 @@ whether a branch is finished with; pickup asks whether a turn ended without fini
 Both are judged from what this machine already knows — the doorstep, the mouse record,
 the pane list the house re-listed a moment earlier — and both treat unknown as a refusal.
 The difference is what they do with the answer: cleanup takes a session away, pickup
-makes one work. Pickup is one of two things in Whiska that type into a pane that is not its
+makes one work. A transcript that ends on Claude Code's own API error is the one thing
+that lets pickup skip its two-minute settling window: a wake cannot write that entry.
+Pickup is one of two things in Whiska that type into a pane that is not its
 house's main session, and it does so once per dead turn.
 
 

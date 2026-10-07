@@ -256,3 +256,37 @@ on, and "your last turn ended on an error" would be wrong about it.
 
 The limit above that `whiska reply` closed — a turn that began and died while the owl was
 down — is closed by the take the same way: the hook stamps whether or not the owl is up.
+
+## Amendment, 2026-10-07: an API error skips the settling window
+
+On `feat/sidebar-status` the answer to a question arrived at 15:40:49 UTC, Claude Code
+wrote `API Error: The response stopped arriving` at 15:44:24, and the person typed "try
+again" by hand at 15:45:59. The owl would have stepped in only after the two-minute
+window plus the next backstop sweep: two to three minutes of a mouse that looked as if it
+were working.
+
+**When the transcript's last real entry is an API error, the settling window is skipped.**
+Claude Code writes that entry itself, stamped `"isApiErrorMessage": true`, at the moment a
+turn gives up. "Last real" means the last `user` or `assistant` entry of the mouse's own,
+read past the bookkeeping Claude Code appends after it (`turn_duration`, snapshots, mode
+changes); anything the person, the owl or the mouse says after the error makes it no
+longer last. The owl already reads this file for the board (ADR-0050), and this reads the
+same tail, nothing more.
+
+**Why the window has nothing left to guard against.** It exists because a laptop waking
+makes herdr misreport every pane, so a quiet pane proves little. A wake cannot write an
+API-error entry into a transcript, so for this one case the quiet pane is no longer the
+evidence: the transcript is, and it says the turn is certainly dead.
+
+**What does not change.** Every other rule above stands: the pane must still be reported
+`idle` or `done` (a `working` pane is not typed into, whatever the transcript says), one
+attempt per died turn, never the main session's pane, nothing waiting or chased, not
+held, and herdr's own `worktree.list` has to name the folder. A transcript that is
+missing, unreadable or ends on anything else changes nothing: the window applies as
+before. A turn that died for a reason with no such entry (a sleep that cut the response
+off before Claude Code could write it) still waits the window out.
+
+**Not verified: what herdr reports after an API error.** herdr reads agent status from the
+screen (its Claude hook reports only the session id), and an error screen shows the prompt
+box with no spinner, so it most likely reads `idle`. That was not observed. If herdr
+instead keeps saying `working`, this amendment never fires and the pickup is as before.
