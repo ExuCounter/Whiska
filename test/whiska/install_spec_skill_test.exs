@@ -106,7 +106,7 @@ defmodule Whiska.InstallSpecSkillTest do
     end
   end
 
-  describe "the template is the person's to-spec template" do
+  describe "the template keeps the person's sections and shrinks what goes under them (ADR-0076)" do
     test "keeps every section, in order" do
       body = skill("whiska-spec")
 
@@ -124,11 +124,53 @@ defmodule Whiska.InstallSpecSkillTest do
       assert at == Enum.sort(at)
     end
 
-    test "user stories keep their shape and their length" do
+    test "the spec fits on one screen; longer means the brief holds more than one build" do
+      body = prose("whiska-spec")
+
+      refute body =~ ~r/no length cap/i
+      assert body =~ ~r/fits on one screen, about 500 words/i
+
+      assert body =~
+               ~r/longer means the brief holds more than one build: say so above the spec and name the split/i
+    end
+
+    test "anything beyond the brief is one line under Out of Scope" do
+      assert prose("whiska-spec") =~
+               ~r/anything more the code suggests is one line under out of scope/i
+    end
+
+    test "user stories are about the person's users, ten at most" do
       body = prose("whiska-spec")
 
       assert body =~ "As an <actor>, I want a <feature>, so that <benefit>"
-      assert body =~ "A LONG, numbered list of user stories"
+      assert body =~ ~r/ten at most/i
+
+      assert body =~
+               ~r/actor is a mouse, the main session or a future reader is an implementation step: drop it/i
+
+      refute body =~ "A LONG, numbered list"
+      refute body =~ ~r/extremely extensive/i
+    end
+
+    test "implementation decisions are the costly choices, one line each, citing the ADR" do
+      body = prose("whiska-spec")
+
+      assert body =~ ~r/costly choices the build rests on, one line each, citing the adr/i
+
+      assert body =~
+               ~r/docs upkeep are left to the build/i
+    end
+
+    test "testing decisions name the seam, the first failing test and prior art" do
+      assert prose("whiska-spec") =~
+               ~r/the seam, the first failing test, and prior art in one line/i
+    end
+
+    test "further notes hold only what changes the ok; a grilling answer appears once" do
+      body = prose("whiska-spec")
+
+      assert body =~ ~r/only what changes the person's ok/i
+      assert body =~ ~r/grilling answers appear once, as decisions/i
     end
   end
 

@@ -25,8 +25,13 @@ The finish pipeline's first step reads the work back against the spec, beside th
 scopes install them, exactly as ADR-0046 and ADR-0055 ship the others. The person drops
 the dotfiles copies, so each skill has one copy.
 
-The spec skill keeps the person's template in full, the long user-story list included.
-Three things change:
+The spec skill keeps the person's template headings. (Amended 2026-10-07: it said "keeps
+the person's template in full, the long user-story list included". Ten real specs ran
+986 to 3,463 words, were approved unchanged, and held stories whose actor was a mouse,
+docs upkeep and byte-level detail. The guidance under the headings now asks for one
+screen, about 500 words: at most ten stories about the person's users, one line per costly
+choice citing its ADR, and anything beyond the brief as one line under Out of Scope.)
+Three other things change:
 
 - The issue-tracker step and its triage label are gone.
 - The separate check on test seams is gone, because the ok on the spec covers them.

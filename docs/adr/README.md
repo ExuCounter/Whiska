@@ -19,7 +19,7 @@ are the extracted, individually citable decisions.
 - [0055](0055-the-block-is-rules-not-prose.md) — The block is rules, not prose, and its rationale stays in Whiska's docs (amended 2026-10-06 by 0081: the report part drops the general voice rules)
 - [0081](0081-rules-arrive-by-role.md) — A session's rules arrive at session start, by its role: none outside herdr, the main session's, a mouse's; six one-word skills never load into context (amends 0017, 0022, 0045, 0055, 0056)
 - [0063](0063-a-mouse-asks-every-costly-choice-before-building.md) — A mouse reads the code, then asks every choice that is costly to undo (rewritten 2026-10-04: it grilled only when it could not name "done"; amended 2026-10-05 by ADR-0076: a spec follows the grilling)
-- [0076](0076-a-grilled-brief-is-written-down-before-it-is-built.md) — A grilled brief is written down as a spec, in a file git ignores, and approved before it is built; Whiska ships `grilling` and `whiska-spec` (amends 0063)
+- [0076](0076-a-grilled-brief-is-written-down-before-it-is-built.md) — A grilled brief is written down as a spec, in a file git ignores, and approved before it is built; Whiska ships `grilling` and `whiska-spec` (amends 0063; amended 2026-10-07: the template keeps its headings, the spec is about 500 words)
 - [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The global install is the same install rooted at the home, and the repo's copy wins (amended 2026-10-04: it ships the three worktree skills too; amended 2026-10-06 by 0081: a SessionStart hook, not a block)
 - [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim (noted 2026-10-07: only the shim changed when the hook moved onto the owl, as promised)
 

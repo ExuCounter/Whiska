@@ -18,7 +18,11 @@ no grilling skips it: the person's own words are its spec. Size never skips it.
    a new one proposed as high as it can go. The fewer seams across the codebase the
    better — the ideal number is one. They go under Testing Decisions, so the person's ok
    on the spec is their ok on the seams.
-3. **Write the spec** from the template below to `.whiska-spec.md` at the worktree root,
+3. **Keep to the brief.** Write what the brief asked for. Anything more the code suggests
+   is one line under Out of Scope, as a follow-up. The spec fits on one screen, about 500
+   words. Longer means the brief holds more than one build: say so above the spec and name
+   the split.
+4. **Write the spec** from the template below to `.whiska-spec.md` at the worktree root,
    the folder `git rev-parse --show-toplevel` names. It is never committed. Whiska makes
    git ignore it when it sets the worktree up; check with
    `git check-ignore -q .whiska-spec.md`. That fails → git sees the file as a change, and
@@ -27,12 +31,12 @@ no grilling skips it: the person's own words are its spec. Size never skips it.
      which a worktree session never edits. Say so in one line under the spec: the line
      `/.whiska-spec.md` belongs in the main checkout's `.git/info/exclude`.
    - In the main checkout, add the line to `.git/info/exclude` yourself.
-4. **Ask.** Send the whole spec to the person as the question, and build only after they
-   say ok. The message is the spec as written, with no length cap, then the pointer "Spec
+5. **Ask.** Send the whole spec to the person as the question, and build only after they
+   say ok. The message is the spec as written, then the pointer "Spec
    ready, see above — ok to build?", above the decision marker a mouse's rules describe, in a
    worktree. "ok" → build. Anything else → change the file to match and send the whole
    spec again.
-5. **Build to it.** While building, the spec is what was agreed. A costly choice it does
+6. **Build to it.** While building, the spec is what was agreed. A costly choice it does
    not settle is a new decision for the person, not a quiet edit to the file.
 
 <spec-template>
@@ -47,7 +51,8 @@ The solution to the problem, from the user's perspective.
 
 ## User Stories
 
-A LONG, numbered list of user stories. Each user story should be in the format of:
+A numbered list, one story per behaviour the person or their users will notice, ten at
+most. Each in the format:
 
 1. As an <actor>, I want a <feature>, so that <benefit>
 
@@ -55,19 +60,13 @@ A LONG, numbered list of user stories. Each user story should be in the format o
 1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
 </user-story-example>
 
-This list of user stories should be extremely extensive and cover all aspects of the feature.
+A story whose actor is a mouse, the main session or a future reader is an implementation
+step: drop it.
 
 ## Implementation Decisions
 
-A list of implementation decisions that were made. This can include:
-
-- The modules that will be built/modified
-- The interfaces of those modules that will be modified
-- Technical clarifications from the developer
-- Architectural decisions
-- Schema changes
-- API contracts
-- Specific interactions
+The costly choices the build rests on, one line each, citing the ADR that governs it.
+Commands, module names, wire formats and docs upkeep are left to the build.
 
 Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
 
@@ -75,18 +74,15 @@ Exception: if a prototype produced a snippet that encodes a decision more precis
 
 ## Testing Decisions
 
-A list of testing decisions that were made. Include:
-
-- A description of what makes a good test (only test external behavior, not implementation details)
-- Which modules will be tested
-- Prior art for the tests (i.e. similar types of tests in the codebase)
+The seam, the first failing test, and prior art in one line. A good test checks external
+behavior, not implementation details.
 
 ## Out of Scope
 
-A description of the things that are out of scope for this spec.
+The things out of scope for this spec, and anything more the code suggests: one line each, as a follow-up.
 
 ## Further Notes
 
-Any further notes about the feature.
+Only what changes the person's ok. Grilling answers appear once, as decisions.
 
 </spec-template>
