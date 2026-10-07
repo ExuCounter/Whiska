@@ -349,6 +349,13 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :ok} = check
       assert check.detail =~ "30"
     end
+
+    test "a script on disk that differs from this whiska's is a warning, fixed by owl install" do
+      check = Doctor.tab_bar(Install.tab_bar_right_snippet(), true, false)
+
+      assert %Check{status: :warn, fix: "whiska owl install"} = check
+      assert check.detail =~ "differs from what this whiska ships"
+    end
   end
 
   # -- shim --------------------------------------------------------------------
@@ -458,10 +465,10 @@ defmodule Whiska.DoctorTest do
     end
   end
 
-  describe "owl/4 — an owl that is up, against the binary on disk" do
+  describe "owl/4 — each owl that is up, against the binary on disk" do
     test "an owl started before the binary was written is running the code it replaced" do
       assert %Check{status: :warn, detail: detail, fix: "whiska owl stop && whiska owl start"} =
-               Doctor.owl([4242], ~U[2026-10-02 09:00:00Z], ~U[2026-10-02 10:00:00Z])
+               Doctor.owl([4242], %{4242 => ~U[2026-10-02 09:00:00Z]}, ~U[2026-10-02 10:00:00Z])
 
       assert detail =~ "4242"
       assert detail =~ "1 h"
@@ -469,7 +476,7 @@ defmodule Whiska.DoctorTest do
 
     test "a gap of seconds is said in seconds, not rounded down to nothing" do
       assert %Check{status: :warn, detail: detail} =
-               Doctor.owl([4242], ~U[2026-10-02 09:59:30Z], ~U[2026-10-02 10:00:00Z])
+               Doctor.owl([4242], %{4242 => ~U[2026-10-02 09:59:30Z]}, ~U[2026-10-02 10:00:00Z])
 
       assert detail =~ "30 s"
       refute detail =~ "0 min"
@@ -479,7 +486,7 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :warn, detail: detail} =
                Doctor.owl(
                  [4242],
-                 ~U[2026-10-02 09:00:00Z],
+                 %{4242 => ~U[2026-10-02 09:00:00Z]},
                  ~U[2026-10-02 10:00:00Z],
                  "/home/me/bin/whiska"
                )
@@ -489,17 +496,29 @@ defmodule Whiska.DoctorTest do
 
     test "an owl started after it is ok and says so" do
       assert %Check{status: :ok, detail: detail} =
-               Doctor.owl([4242], ~U[2026-10-02 11:00:00Z], ~U[2026-10-02 10:00:00Z])
+               Doctor.owl([4242], %{4242 => ~U[2026-10-02 11:00:00Z]}, ~U[2026-10-02 10:00:00Z])
 
       assert detail =~ "4242"
     end
 
+    test "a fresh owl beside a stale one: only the stale pid carries the age, and is the one to stop" do
+      assert %Check{status: :warn, detail: detail, fix: "kill 200"} =
+               Doctor.owl(
+                 [100, 200],
+                 %{100 => ~U[2026-10-07 14:08:35Z], 200 => ~U[2026-10-05 13:15:00Z]},
+                 ~U[2026-10-07 14:08:00Z]
+               )
+
+      assert detail =~ "pid 200 started 48 h 53 min before"
+      refute detail =~ "pid 100 started"
+    end
+
     test "no start time and no binary is the plain running line" do
       assert %Check{status: :ok, detail: detail} =
-               Doctor.owl([4242], nil, ~U[2026-10-02 10:00:00Z])
+               Doctor.owl([4242], %{}, ~U[2026-10-02 10:00:00Z])
 
       assert detail =~ "4242"
-      assert %Check{status: :ok} = Doctor.owl([4242], ~U[2026-10-02 10:00:00Z], nil)
+      assert %Check{status: :ok} = Doctor.owl([4242], %{4242 => ~U[2026-10-02 10:00:00Z]}, nil)
     end
   end
 
@@ -536,11 +555,10 @@ defmodule Whiska.DoctorTest do
                  {"~/.claude/settings.json", ~U[2026-10-02 08:00:00Z]}
                ])
 
-      assert detail =~ ".claude/settings.json"
-      assert detail =~ "30 min"
+      assert detail =~ ".claude/settings.json changed 30 min after the main session started"
       # What is known is that the file changed, not that the hooks in it did —
       # the line must not claim more than the clock can tell it.
-      assert detail =~ "if that change touched"
+      assert detail =~ "if that change touched hooks"
       assert fix =~ "restart"
     end
 
@@ -669,6 +687,53 @@ defmodule Whiska.DoctorTest do
       assert detail =~ "pane not checked"
     end
 
+    test "an answer waiting with no answer flag up is a warning of its own", %{root: root} do
+      path = worktree(root, "feat-e", "me")
+      gitdir = Path.join(root, "gitdir-e")
+      File.mkdir_p!(gitdir)
+      File.write!(Path.join(path, ".git"), "gitdir: #{gitdir}\n")
+
+      [live, flag] =
+        Doctor.mice(
+          [mouse("me", path, "feat-e")],
+          {:ok, [pane("w1:p5", path)]},
+          MapSet.new(["me"])
+        )
+
+      assert %Check{status: :ok} = live
+      assert %Check{status: :warn, name: "mice", detail: detail, fix: nil} = flag
+      assert detail =~ "feat-e"
+      assert detail =~ "never handed over"
+      # The flag's path comes from `.git`, which the mouse can write: never
+      # something the person is handed to paste.
+      refute detail =~ gitdir
+
+      File.write!(Path.join(gitdir, "whiska-answer"), "")
+
+      assert [%Check{status: :ok}] =
+               Doctor.mice(
+                 [mouse("me", path, "feat-e")],
+                 {:ok, [pane("w1:p5", path)]},
+                 MapSet.new(["me"])
+               )
+    end
+
+    test "a held or landed mouse the owl never rings has no flag line", %{root: root} do
+      path = worktree(root, "feat-f", "mf")
+      gitdir = Path.join(root, "gitdir-f")
+      File.mkdir_p!(gitdir)
+      File.write!(Path.join(path, ".git"), "gitdir: #{gitdir}\n")
+      waiting = MapSet.new(["mf"])
+      panes = {:ok, [pane("w1:p6", path)]}
+
+      for mouse <- [
+            %{mouse("mf", path, "feat-f") | held_at: now()},
+            %{mouse("mf", path, "feat-f") | landed_at: now()}
+          ] do
+        assert [%Check{status: :ok}] = Doctor.mice([mouse], panes, waiting)
+      end
+    end
+
     test "dead records are left out", %{root: root} do
       gone = Path.join([root, "worktrees", "feat-dead"])
 
@@ -785,14 +850,14 @@ defmodule Whiska.DoctorTest do
       assert detail =~ "whiska init --global"
     end
 
-    test "written but off PATH warns with the export line", %{bin: bin} do
+    test "written but off PATH is ok: the slash commands do the same job", %{bin: bin} do
       wrapper!(bin, "inbox")
 
-      assert %Check{status: :warn, detail: detail, fix: fix} =
+      assert %Check{status: :ok, detail: detail} =
                Doctor.commands(bin, %{"PATH" => @stripped_path})
 
       assert detail =~ "not on PATH"
-      assert fix == ~s|export PATH="#{bin}:$PATH"|
+      assert detail =~ "slash commands"
     end
 
     test "written and on PATH is ok, counting what is there", %{bin: bin} do

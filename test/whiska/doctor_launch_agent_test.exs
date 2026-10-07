@@ -17,6 +17,16 @@ defmodule Whiska.DoctorLaunchAgentTest do
                Doctor.service_manager(LaunchAgent, false, %{loaded: false, pid: nil}, [])
     end
 
+    test "loaded and running, with a wrapper older than this whiska's, warns and names owl install" do
+      check =
+        Doctor.service_manager(LaunchAgent, true, %{loaded: true, pid: 777}, [777], false)
+
+      assert check.status == :warn
+      assert check.detail =~ "777"
+      assert check.detail =~ "owl.sh differs from what this whiska ships"
+      assert check.fix == "whiska owl install"
+    end
+
     test "installed but not loaded" do
       check = Doctor.service_manager(LaunchAgent, true, %{loaded: false, pid: nil}, [])
       assert check.status == :warn

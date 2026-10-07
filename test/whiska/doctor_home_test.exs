@@ -98,5 +98,116 @@ defmodule Whiska.DoctorHomeTest do
       assert %Check{status: :ok} = find(report.checks, "hook pre-tool-use")
       assert %Check{status: :ok} = find(report.checks, "hook stop")
     end
+
+    test "the session-start and prompt hooks are run too, and the rules must come back", %{
+      main: main,
+      env: env
+    } do
+      root = Path.dirname(main)
+
+      whiska =
+        script(root, "whiska-rules", """
+        #!/bin/sh
+        case "$*" in
+          *"session-start --global"*) echo '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"# Whiska: rules"}}' ;;
+        esac
+        exit 0
+        """)
+
+      report = Doctor.run(main, env: %{env | "WHISKA_BIN" => whiska}, owl_pids: fn -> [] end)
+
+      assert %Check{status: :ok} = find(report.checks, "hook session-start")
+      assert %Check{status: :ok} = find(report.checks, "hook user-prompt-submit")
+
+      silent = Doctor.run(main, env: env, owl_pids: fn -> [] end)
+
+      assert %Check{status: :fail, detail: detail} = find(silent.checks, "hook session-start")
+      assert detail =~ "no rules"
+    end
+
+    test "a binary that knows no hook fails every hook run — none is skipped by the shim's early exits",
+         %{main: main, env: env} do
+      root = Path.dirname(main)
+
+      broken =
+        script(root, "whiska-old", "#!/bin/sh\necho 'Usage: whiska <command>' >&2\nexit 1\n")
+
+      # A doctor run from a Claude session in the main checkout inherits this.
+      previous = System.get_env("CLAUDE_PROJECT_DIR")
+      System.put_env("CLAUDE_PROJECT_DIR", main)
+
+      on_exit(fn ->
+        if previous,
+          do: System.put_env("CLAUDE_PROJECT_DIR", previous),
+          else: System.delete_env("CLAUDE_PROJECT_DIR")
+      end)
+
+      report =
+        Doctor.run(main,
+          env: Map.merge(env, %{"WHISKA_BIN" => broken, "HERDR_ENV" => "0"}),
+          owl_pids: fn -> [] end
+        )
+
+      for hook <- ["pre-tool-use", "stop", "session-start", "user-prompt-submit"] do
+        assert %Check{status: :fail} = find(report.checks, "hook #{hook}"), hook
+      end
+    end
+
+    test "the global state names skill files that differ from this build, and retired ones still there" do
+      home = Application.get_env(:whiska, :user_home)
+
+      for {rel, body} <- Install.skills(:global) do
+        File.mkdir_p!(Path.dirname(Path.join(home, rel)))
+        File.write!(Path.join(home, rel), body)
+      end
+
+      [{stale, _} | _] = Install.skills(:global)
+      File.write!(Path.join(home, stale), "an older skill\n")
+
+      [retired | _] = Install.retired_skills()
+      File.mkdir_p!(Path.dirname(Path.join(home, retired)))
+      File.write!(Path.join(home, retired), "retired\n")
+
+      state = Install.global_state()
+
+      assert state.skills?
+      assert state.stale_skills == [stale]
+      assert state.retired_present == [retired]
+    end
+
+    test "a skill file the person symlinked is theirs, never called stale" do
+      home = Application.get_env(:whiska, :user_home)
+      [{rel, _} | _] = Install.skills(:global)
+      own = Path.join(home, "their-own.md")
+      File.write!(own, "the person's version\n")
+      File.mkdir_p!(Path.dirname(Path.join(home, rel)))
+      File.ln_s!(own, Path.join(home, rel))
+
+      assert Install.global_state().stale_skills == []
+    end
+
+    test "a skill under a symlinked folder is the person's too, never called stale or retired" do
+      home = Application.get_env(:whiska, :user_home)
+      theirs = Path.join(Path.dirname(home), "dotfiles-skills")
+      File.mkdir_p!(theirs)
+
+      for {rel, _body} <- Install.skills(:global) do
+        target = Path.join(theirs, Path.relative_to(rel, ".claude/skills"))
+        File.mkdir_p!(Path.dirname(target))
+        File.write!(target, "the person's version\n")
+      end
+
+      [retired | _] = Install.retired_skills()
+      retired_target = Path.join(theirs, Path.relative_to(retired, ".claude/skills"))
+      File.mkdir_p!(Path.dirname(retired_target))
+      File.write!(retired_target, "kept on purpose\n")
+
+      File.mkdir_p!(Path.join(home, ".claude"))
+      File.ln_s!(theirs, Path.join(home, ".claude/skills"))
+
+      state = Install.global_state()
+      assert state.stale_skills == []
+      assert state.retired_present == []
+    end
   end
 end

@@ -19,9 +19,9 @@ defmodule Whiska.Doctor do
     the binary is the installer's. The doctor touches nothing.
   - **It probes rather than inspects.** Reading `settings.json` proves a hook is
     wired; it does not prove the shim finds a runtime or that the installed
-    binary knows the hook. So the doctor runs the repo's real shim, for both
-    hooks, with a payload whose `cwd` is outside any worktree — which makes both
-    hooks no-ops that write nothing (ADR-0035 already says the shim is verified
+    binary knows the hook. So the doctor runs the shim in force, for every
+    hook, with a payload whose `cwd` is outside any worktree — which makes each
+    hook a no-op that writes nothing (ADR-0035 already says the shim is verified
     by running it, not by unit test).
 
   Scoped to one repo, run from its main checkout or any worktree. The binary,
@@ -30,6 +30,7 @@ defmodule Whiska.Doctor do
   cannot serve it.
   """
 
+  alias Whiska.AnswerFlag
   alias Whiska.Backstop
   alias Whiska.Delivery.Draft
   alias Whiska.Delivery.Mode
@@ -105,16 +106,15 @@ defmodule Whiska.Doctor do
 
     probes =
       if binary_path != nil and shim.status == :ok,
-        do: [
-          probe(main_checkout, "pre-tool-use", env, shim_root),
-          probe(main_checkout, "stop", env, shim_root)
-        ],
+        do:
+          for(
+            hook <- ["pre-tool-use", "stop", "session-start", "user-prompt-submit"],
+            do: probe(main_checkout, hook, env, shim_root, shim_scope)
+          ),
         else: []
 
     {house, in_house} =
       house(main_checkout, panes, herdr, env["HERDR_SOCKET_PATH"], now, env)
-
-    herdr_config = read_herdr_config(env)
 
     checks =
       [binary] ++
@@ -122,12 +122,16 @@ defmodule Whiska.Doctor do
         [
           runtime(env),
           herdr_check,
-          owl(pids, oldest_owl(pids, owl_started_at), installed_at, binary_path)
+          owl(pids, Map.new(pids, &{&1, owl_started_at.(&1)}), installed_at, binary_path)
         ] ++
         supervision(manager, ready.(), installed?, agent, pids, lingers) ++
         [
           open_houses(OpenHouses.read(record), main_checkout, pids),
-          tab_bar(read_herdr_config(env), File.exists?(Install.herdr_status_path())),
+          tab_bar(
+            read_herdr_config(env),
+            File.exists?(Install.herdr_status_path()),
+            File.read(Install.herdr_status_path()) == {:ok, Install.herdr_status_script()}
+          ),
           hoot_probe(herdr, desktop, env),
           global(global_state),
           commands(Install.commands_dir(), env)
@@ -239,8 +243,10 @@ defmodule Whiska.Doctor do
   @doc """
   Is an owl running — and is it running the binary that is installed now?
 
-  `pids` are the owl processes found, `started_at` when the oldest of them
-  started, `installed_at` when the binary on disk was last written. A process
+  `pids` are the owl processes found, `started_at` when each of them started,
+  `installed_at` when the binary on disk was last written. Each owl is judged
+  on its own: beside a fresh one, a stale foreground owl is the one named, and
+  the one to stop. A process
   older than its own binary is the gap this moduledoc already claimed to cover
   and did not: nothing about a running owl changes when the escript under it is
   replaced, so a fix lands, the board keeps drawing the behaviour from before
@@ -254,30 +260,51 @@ defmodule Whiska.Doctor do
   `WHISKA_BIN` is exported in one and not the other, the two are different
   files and the person can see that here.
   """
-  @spec owl([pos_integer()], DateTime.t() | nil, DateTime.t() | nil, Path.t() | nil) :: Check.t()
-  def owl(pids, started_at \\ nil, installed_at \\ nil, installed \\ nil)
+  @spec owl(
+          [pos_integer()],
+          %{pos_integer() => DateTime.t() | nil},
+          DateTime.t() | nil,
+          Path.t() | nil
+        ) :: Check.t()
+  def owl(pids, started_at \\ %{}, installed_at \\ nil, installed \\ nil)
 
   def owl([], _started_at, _installed_at, _installed),
     do: Check.warn("owl", "not running — nothing collects the doorstep", @owl)
 
-  def owl(pids, %DateTime{} = started_at, %DateTime{} = installed_at, installed) do
-    case DateTime.diff(installed_at, started_at, :second) do
-      behind when behind > 0 ->
+  def owl(pids, started_at, %DateTime{} = installed_at, installed) do
+    known = for pid <- pids, %DateTime{} = at <- [started_at[pid]], do: {pid, at}
+
+    case for(
+           {pid, at} <- known,
+           (behind = DateTime.diff(installed_at, at)) > 0,
+           do: {pid, behind}
+         ) do
+      [] when known == [] ->
+        owl(pids, %{}, nil, installed)
+
+      [] ->
+        Check.ok("owl", "running (pid #{Enum.join(pids, ", ")}), from the installed binary")
+
+      stale ->
         Check.warn(
           "owl",
-          "running (pid #{Enum.join(pids, ", ")}), started #{age(behind)} before " <>
-            "#{installed || "the binary it runs"} was installed — it is serving the code " <>
-            "that replaced it",
-          @restart_owl
+          "running (pid #{Enum.join(pids, ", ")}); " <>
+            Enum.map_join(stale, "; ", fn {pid, behind} ->
+              "pid #{pid} started #{age(behind)} before " <>
+                "#{installed || "the binary it runs"} was installed"
+            end) <> " — serving the code that replaced it",
+          stale_fix(pids, stale)
         )
-
-      _current ->
-        Check.ok("owl", "running (pid #{Enum.join(pids, ", ")}), from the installed binary")
     end
   end
 
   def owl(pids, _started_at, _installed_at, _installed),
     do: Check.ok("owl", "running (pid #{Enum.join(pids, ", ")})")
+
+  # Every owl stale is the restart; some of them stale leaves the current one
+  # running and stops the rest.
+  defp stale_fix(pids, stale) when length(pids) == length(stale), do: @restart_owl
+  defp stale_fix(_pids, stale), do: "kill #{Enum.map_join(stale, " ", &elem(&1, 0))}"
 
   @doc """
   The escript built in this checkout, against the one on PATH (ADR-0038).
@@ -353,10 +380,10 @@ defmodule Whiska.Doctor do
       {file, at} ->
         Check.warn(
           "session wiring",
-          "the main session started #{age(DateTime.diff(at, started_at, :second))} before " <>
-            "#{file} last changed — if that change touched hooks or the statusline, this " <>
-            "session is still running the ones from before it",
-          "restart Claude in the main session's pane: its settings are read once, at startup"
+          "#{file} changed #{age(DateTime.diff(at, started_at, :second))} after the main " <>
+            "session started — hooks load at startup, so if that change touched hooks, " <>
+            "restart Claude there",
+          "restart Claude in the main session's pane"
         )
     end
   end
@@ -370,7 +397,9 @@ defmodule Whiska.Doctor do
   # Where the manager is not there at all, its own fixes would not work: the
   # one line left says so, and points at the foreground owl.
   defp supervision(manager, :ok, installed?, agent, pids, lingers),
-    do: [service_manager(manager, installed?, agent, pids)] ++ linger(manager, lingers.())
+    do:
+      [service_manager(manager, installed?, agent, pids, wrapper_current?(manager, installed?))] ++
+        linger(manager, lingers.())
 
   defp supervision(manager, {:error, reason}, _installed?, _agent, _pids, _lingers) do
     [
@@ -382,23 +411,48 @@ defmodule Whiska.Doctor do
     ]
   end
 
+  defp wrapper_current?(_manager, false), do: true
+
+  defp wrapper_current?(manager, true),
+    do: File.read(manager.paths().wrapper) == {:ok, ServiceManager.wrapper()}
+
   @doc """
   The job that keeps the owl running (ADR-0040) — a LaunchAgent on macOS, a
   systemd unit on Linux, whichever `manager` is: is it installed, loaded, and
   is the owl it runs alive — and is that the only owl. A loaded job with no
   owl and a non-zero last exit code is crash-looping, not merely stopped.
   `installed?` is whether the job file is there, `agent` is the manager's word
-  on the job, `pids` every owl in the process table. An owl running only in
+  on the job, `pids` every owl in the process table, `wrapper_current?` whether
+  the wrapper the job runs is the one this build writes. An owl running only in
   the foreground is a warning: it dies with its pane and nothing restarts it.
   Two owls is the one state nothing else can explain, and the doctor names
   both. The line is named for the manager's own kind of job.
   """
-  @spec service_manager(module(), boolean(), ServiceManager.status(), [pos_integer()]) ::
-          Check.t()
-  def service_manager(manager, false, _agent, []),
+  @spec service_manager(
+          module(),
+          boolean(),
+          ServiceManager.status(),
+          [pos_integer()],
+          boolean()
+        ) :: Check.t()
+  def service_manager(manager, installed?, agent, pids, wrapper_current? \\ true) do
+    case {job(manager, installed?, agent, pids), wrapper_current?} do
+      {%Check{status: :ok, detail: detail}, false} ->
+        Check.warn(
+          manager.noun(),
+          "#{detail}, but #{manager.paths().wrapper} differs from what this whiska ships",
+          @install
+        )
+
+      {check, _current} ->
+        check
+    end
+  end
+
+  defp job(manager, false, _agent, []),
     do: Check.warn(manager.noun(), "not installed — the owl is not supervised", @install)
 
-  def service_manager(manager, false, _agent, pids) do
+  defp job(manager, false, _agent, pids) do
     Check.warn(
       manager.noun(),
       "not installed — the owl (pid #{Enum.join(pids, ", ")}) runs in the foreground and " <>
@@ -407,11 +461,11 @@ defmodule Whiska.Doctor do
     )
   end
 
-  def service_manager(manager, true, %{loaded: false}, _pids),
+  defp job(manager, true, %{loaded: false}, _pids),
     do: Check.warn(manager.noun(), "#{manager.label()} is written but not loaded", @install)
 
-  def service_manager(manager, true, %{pid: nil, last_exit_code: code}, _pids)
-      when is_integer(code) and code != 0 do
+  defp job(manager, true, %{pid: nil, last_exit_code: code}, _pids)
+       when is_integer(code) and code != 0 do
     Check.warn(
       manager.noun(),
       "#{manager.label()} loaded but crash-looping (last exit code #{code}) — " <>
@@ -420,7 +474,7 @@ defmodule Whiska.Doctor do
     )
   end
 
-  def service_manager(manager, true, %{pid: nil}, _pids) do
+  defp job(manager, true, %{pid: nil}, _pids) do
     Check.warn(
       manager.noun(),
       "#{manager.label()} loaded, owl not running — see #{manager.paths().log}",
@@ -428,7 +482,7 @@ defmodule Whiska.Doctor do
     )
   end
 
-  def service_manager(manager, true, %{pid: pid}, pids) do
+  defp job(manager, true, %{pid: pid}, pids) do
     case Enum.reject(pids, &(&1 == pid)) do
       [] ->
         Check.ok(manager.noun(), "#{manager.label()} loaded, owl running (pid #{pid})")
@@ -528,25 +582,54 @@ defmodule Whiska.Doctor do
 
   @spec global(map()) :: Check.t()
   def global(state) do
-    case Enum.split_with(@global_pieces, &state[elem(&1, 0)]) do
-      {_there, []} ->
+    case {Enum.split_with(@global_pieces, &state[elem(&1, 0)]), drifted(state)} do
+      {{[], _missing}, _drift} ->
+        Check.ok("global install", "not installed — this repo carries its own")
+
+      {{_there, []}, []} ->
         Check.ok(
           "global install",
           "~/.claude — every repo on this machine is covered" <> linked(state)
         )
 
-      {[], _missing} ->
-        Check.ok("global install", "not installed — this repo carries its own")
-
-      {_there, missing} ->
+      {{_there, []}, drift} ->
         Check.warn(
           "global install",
-          "half there in ~/.claude: no #{Enum.map_join(missing, ", ", &elem(&1, 1))}" <>
-            linked(state),
-          "whiska init --global"
+          "~/.claude: " <> Enum.join(drift, "; ") <> linked(state),
+          @init_global
+        )
+
+      {{_there, missing}, drift} ->
+        Check.warn(
+          "global install",
+          Enum.join(
+            ["half there in ~/.claude: no #{Enum.map_join(missing, ", ", &elem(&1, 1))}" | drift],
+            "; "
+          ) <> linked(state),
+          @init_global
         )
     end
   end
+
+  defp drifted(state) do
+    stale = state[:stale_skills] || []
+    retired = state[:retired_present] || []
+
+    if(stale != [],
+      do: [
+        "#{Enum.join(stale, ", ")} #{verb(stale, "differs", "differ")} from what this whiska ships"
+      ],
+      else: []
+    ) ++
+      if retired != [],
+        do: [
+          "#{Enum.join(retired, ", ")} #{verb(retired, "is", "are")} retired and nothing reads it"
+        ],
+        else: []
+  end
+
+  defp verb([_], one, _many), do: one
+  defp verb(_list, _one, many), do: many
 
   # Said because it changes where the person commits, not because anything is
   # wrong: a linked file is written through the link, and the change is in
@@ -868,7 +951,8 @@ defmodule Whiska.Doctor do
   (ADR-0048).
 
   `config` is the contents of herdr's `config.toml`, or `nil` when there is
-  none; `script?` says whether the shipped script is on disk.
+  none; `script?` says whether the shipped script is on disk, and `current?`
+  whether it is the one this build ships.
 
   Nothing is lost when this is wrong — questions are still collected, recorded
   and delivered — so the worst it goes is a warning (ADR-0038). What is lost is
@@ -876,8 +960,8 @@ defmodule Whiska.Doctor do
   it. The config is the person's and machine-global, so the doctor prints the
   entry to paste and never writes it (ADR-0016).
   """
-  @spec tab_bar(String.t() | nil, boolean()) :: Check.t()
-  def tab_bar(config, script?) do
+  @spec tab_bar(String.t() | nil, boolean(), boolean()) :: Check.t()
+  def tab_bar(config, script?, current? \\ true) do
     entry = config && entry_line(config)
 
     cond do
@@ -885,6 +969,13 @@ defmodule Whiska.Doctor do
         Check.warn(
           "tab bar",
           "herdr runs #{Install.herdr_status_path()}, and that script is not there",
+          "whiska owl install"
+        )
+
+      script? and not current? ->
+        Check.warn(
+          "tab bar",
+          "#{Install.herdr_status_path()} differs from what this whiska ships",
           "whiska owl install"
         )
 
@@ -1020,15 +1111,18 @@ defmodule Whiska.Doctor do
   Run the repo's installed hook for real, through its shim.
 
   The payload's `cwd` is a fresh temporary directory outside any worktree, so
-  `pre-tool-use` allows and `stop` is a no-op: nothing is minted, nothing lands
-  on a doorstep. What is being tested is everything before that point — the
-  shim finds a binary and a runtime, and the binary knows this hook.
+  `pre-tool-use` allows, `stop` and `user-prompt-submit` are no-ops, and
+  `session-start` prints the main session's rules: nothing is minted, nothing
+  lands on a doorstep, no answer is taken. What is being tested is everything
+  before that point — the shim finds a binary and a runtime, and the binary
+  knows this hook. For `session-start` it is also the rules themselves: a run
+  that prints none is a session started without them (ADR-0081).
 
   The shim fails open by design (ADR-0035), so exit 0 is not enough: its
   complaint on stderr is what says the call was allowed by accident.
   """
-  @spec probe(Path.t(), String.t(), map(), Path.t() | nil) :: Check.t()
-  def probe(repo_root, hook, env, shim_root \\ nil) do
+  @spec probe(Path.t(), String.t(), map(), Path.t() | nil, Install.scope()) :: Check.t()
+  def probe(repo_root, hook, env, shim_root \\ nil, scope \\ :repo) do
     name = "hook #{hook}"
     shim = Path.join(shim_root || repo_root, Install.shim_path())
 
@@ -1045,8 +1139,14 @@ defmodule Whiska.Doctor do
       {out, status} =
         System.cmd(
           "sh",
-          [~s|-c|, ~s|bash "$0" "$1" < "$2" 2> "$3"|, shim, hook, payload_file, stderr_file],
-          env: Map.to_list(Map.put(env, "CLAUDE_PROJECT_DIR", repo_root)),
+          [
+            ~s|-c|,
+            ~s|payload=$1 stderr=$2; shift 2; bash "$0" "$@" < "$payload" 2> "$stderr"|,
+            shim,
+            payload_file,
+            stderr_file | hook_args(hook, scope)
+          ],
+          env: probe_env(env, hook),
           cd: tmp
         )
 
@@ -1059,6 +1159,16 @@ defmodule Whiska.Doctor do
 
         String.contains?(stderr, "whiska:") ->
           Check.fail(name, "allowed by accident — #{complaint}", @reinstall)
+
+        hook == "session-start" ->
+          if rules?(out),
+            do: Check.ok(name, "runs through #{shim}, and hands out the rules"),
+            else:
+              Check.fail(
+                name,
+                "ran, and printed no rules — sessions start without them",
+                @reinstall
+              )
 
         String.trim(out) != "" ->
           Check.fail(
@@ -1074,6 +1184,38 @@ defmodule Whiska.Doctor do
       File.rm_rf(tmp)
     end
   end
+
+  # The shim leaves early where a hook has nothing to do — a project folder
+  # outside a worktree, a prompt with no answer flag, a session outside herdr —
+  # and a probe that leaves there proves nothing about the binary. So the
+  # project folder is unset and herdr is claimed, which carries every hook
+  # through to `whiska hook`, where the temporary `cwd` makes it a no-op. A nil
+  # value is what unsets it: a key left out is inherited from the doctor's own
+  # environment, which a Claude session sets.
+  defp probe_env(env, hook) do
+    env
+    |> Map.put("CLAUDE_PROJECT_DIR", nil)
+    |> then(&if hook == "session-start", do: Map.put(&1, "HERDR_ENV", "1"), else: &1)
+    |> Map.to_list()
+  end
+
+  # What the scope's own settings entry passes the shim, so the probe takes the
+  # same path through the binary as the real hook does.
+  defp hook_args("session-start", :global), do: ["session-start", "--global"]
+  defp hook_args(hook, _scope), do: [hook]
+
+  defp rules?(out) do
+    case JSON.decode(String.trim(out)) do
+      {:ok, %{"hookSpecificOutput" => %{"additionalContext" => rules}}} when is_binary(rules) ->
+        String.trim(rules) != ""
+
+      _ ->
+        false
+    end
+  end
+
+  defp payload("session-start", cwd), do: %{"cwd" => cwd, "source" => "startup"}
+  defp payload("user-prompt-submit", cwd), do: %{"cwd" => cwd, "prompt" => "whiska doctor probe"}
 
   defp payload("pre-tool-use", cwd),
     do: %{
@@ -1122,7 +1264,7 @@ defmodule Whiska.Doctor do
                 prompt_box(box, scroll_offset(word)),
                 questions(open, sent, main_pane != nil, box, now),
                 set_aside(mode, focus_name(mode), held_names(mode))
-              ] ++ mice(Storage.all(Mouse), panes)
+              ] ++ mice(Storage.all(Mouse), panes, MapSet.new(Storage.chased(), & &1.mouse_id))
 
             {Check.ok("house", "#{path}, schema v#{version}"), in_house}
           after
@@ -1365,9 +1507,10 @@ defmodule Whiska.Doctor do
 
   @doc """
   The one-word commands `whiska init --global` writes under the whiska home:
-  nothing written is fine (the per-repo install writes none); written but off
-  PATH, or shadowed by another program that comes first, is a warning naming
-  what to do. `dir` is `Whiska.Install.commands_dir/0` unless a test pins it.
+  nothing written is fine (the per-repo install writes none), and so is written
+  but off PATH, since the same eight are slash commands in the main session.
+  Shadowed by another program that comes first, or a file Whiska did not write,
+  is a warning naming what to do. `dir` is `Whiska.Install.commands_dir/0` unless a test pins it.
   """
   @spec commands(Path.t(), map()) :: Check.t()
   def commands(dir, env) do
@@ -1391,10 +1534,10 @@ defmodule Whiska.Doctor do
         )
 
       not on_path?(env, dir) ->
-        Check.warn(
+        Check.ok(
           "commands",
-          "#{dir} is not on PATH, so #{Enum.join(written, ", ")} do not run as plain words",
-          ~s|export PATH="#{dir}:$PATH"|
+          "#{dir} is not on PATH — the slash commands work; add it to type " <>
+            "#{Enum.join(written, ", ")} in a shell"
         )
 
       true ->
@@ -1510,11 +1653,43 @@ defmodule Whiska.Doctor do
   `:unknown` when herdr could not be asked, in which case panes are not
   judged). Dead records are left out. Nothing is marked: reconciling is the
   owl's job (ADR-0026).
+
+  `waiting` are the mice with an answer chased and not yet taken (ADR-0080).
+  The hook shim hands one over only while the worktree's answer flag is up, so
+  one of those with no flag gets a line of its own: that answer never reaches
+  its mouse. A flag up with nothing waiting costs an escript start per prompt
+  and clears itself on the next one, so it gets none.
   """
-  @spec mice([Mouse.t()], {:ok, [Herdr.pane()]} | :unknown) :: [Check.t()]
-  def mice(mice, panes) do
-    for %Mouse{died_at: nil} = mouse <- mice, do: mouse_check(mouse, panes)
+  @spec mice([Mouse.t()], {:ok, [Herdr.pane()]} | :unknown, MapSet.t(String.t())) ::
+          [Check.t()]
+  def mice(mice, panes, waiting \\ MapSet.new()) do
+    for %Mouse{died_at: nil} = mouse <- mice,
+        check <- [mouse_check(mouse, panes) | flag_check(mouse, waiting)],
+        do: check
   end
+
+  # Only a mouse the doorbell would ring: a held one is rung once resumed, and a
+  # landed or removed one never (ADR-0064, ADR-0079).
+  defp flag_check(%Mouse{held_at: nil, landed_at: nil, removed_at: nil} = mouse, waiting) do
+    %Mouse{mouse_id: id, path: path, branch: branch} = mouse
+
+    with true <- MapSet.member?(waiting, id),
+         true <- File.dir?(path),
+         {:ok, flag} <- AnswerFlag.path(path),
+         false <- File.exists?(flag) do
+      [
+        Check.warn(
+          "mice",
+          "#{branch}: an answer is waiting and the answer flag is down — unless the owl " <>
+            "rings again, it is never handed over"
+        )
+      ]
+    else
+      _ -> []
+    end
+  end
+
+  defp flag_check(_not_rung, _waiting), do: []
 
   defp mouse_check(%Mouse{branch: branch, path: path, mouse_id: id}, panes) do
     cond do
@@ -1588,17 +1763,6 @@ defmodule Whiska.Doctor do
   defp init_fix(:repo), do: @init
   defp init_fix(:global), do: @init_global
 
-  # The oldest of the owls running: with two of them the older one is the one
-  # serving stale code, and the launch-agent check is what names the pair.
-  defp oldest_owl([], _started_at), do: nil
-
-  defp oldest_owl(pids, started_at) do
-    pids
-    |> Enum.map(started_at)
-    |> Enum.filter(&match?(%DateTime{}, &1))
-    |> Enum.min(DateTime, fn -> nil end)
-  end
-
   # Only where this checkout has both a build and a binary to compare it with:
   # elsewhere the line could only ever say "nothing built here" (ADR-0038's
   # rule, as the retired review loop reads it).
@@ -1615,16 +1779,14 @@ defmodule Whiska.Doctor do
     end
   end
 
-  # The files Claude Code reads once, at startup, and the session wiring check
-  # compares itself against — the repo's and the home's, each with the `.local`
-  # one beside it, since a hook can live in any of them. Any of them can be
-  # absent; a repo wired globally has only the home's.
+  # The files Whiska wires its hooks into, which the session wiring check
+  # compares itself against. The `.local` ones are left out: Whiska never writes
+  # them, and Claude Code rewrites them on every permission granted. Either can
+  # be absent; a repo wired globally has only the home's.
   defp settings_changes(main_checkout, env) do
     [
       {".claude/settings.json", Path.join(main_checkout, ".claude/settings.json")},
-      {".claude/settings.local.json", Path.join(main_checkout, ".claude/settings.local.json")},
-      {"~/.claude/settings.json", Path.join(home(env), ".claude/settings.json")},
-      {"~/.claude/settings.local.json", Path.join(home(env), ".claude/settings.local.json")}
+      {"~/.claude/settings.json", Path.join(home(env), ".claude/settings.json")}
     ]
     |> Enum.flat_map(fn {label, path} ->
       case changed_at(path) do

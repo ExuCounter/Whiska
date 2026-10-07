@@ -81,8 +81,9 @@ They are installed by `whiska init --global`, with the rest of the machine-wide 
 into a directory of Whiska's own under the whiska home — never `~/.local/bin`, where eight
 generic words would land among other programs. The person adds that directory to PATH
 once. A word that already resolves to another program on PATH is **skipped and named,
-never shadowed**; `whiska doctor` checks the directory is on PATH and that each word
-resolves to Whiska's own wrapper. `whiska uninstall --global` takes them out.
+never shadowed**; `whiska doctor` reports whether the directory is on PATH — information, not a warning, since
+the slash commands do the same job — and warns where a word resolves to anything but
+Whiska's own wrapper. `whiska uninstall --global` takes them out.
 
 The same eight are slash commands in the main session, each a thin wrapper around the
 fixed command (ADR-0022). They **replace** `/whiska-questions` and `/whiska-reply`, and

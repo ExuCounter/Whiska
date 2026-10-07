@@ -44,6 +44,25 @@ defmodule Whiska.DoctorGlobalTest do
 
       assert detail =~ "skills"
     end
+
+    test "a skill file that differs from what this whiska ships is named, fixed by the global init" do
+      state =
+        Map.put(installed(), :stale_skills, [".claude/skills/whiska-finish/proposed-build.md"])
+
+      assert %Check{status: :warn, detail: detail, fix: "whiska init --global"} =
+               Doctor.global(state)
+
+      assert detail =~ "whiska-finish/proposed-build.md"
+      assert detail =~ "differs from what this whiska ships"
+    end
+
+    test "a retired skill still on disk is named" do
+      state = Map.put(installed(), :retired_present, [".claude/skills/whiska-questions/SKILL.md"])
+
+      assert %Check{status: :warn, detail: detail} = Doctor.global(state)
+      assert detail =~ "whiska-questions"
+      assert detail =~ "retired"
+    end
   end
 
   describe "hooks/2 — a repo covered by the global install" do

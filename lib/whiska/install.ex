@@ -996,12 +996,19 @@ defmodule Whiska.Install do
   install written before it existed still enforces and delivers. `whiska doctor` turns a half-written
   answer into a warning; `whiska init` uses it only to say whether the global
   install is there at all.
+
+  `stale_skills` are skill files, supporting files included, whose content is
+  not what this build writes; a symlinked one is the person's and never listed
+  (ADR-0056). `retired_present` are retired skills still on disk as plain
+  files, the ones `whiska init --global` removes.
   """
   @spec global_state() :: %{
           hooks?: boolean(),
           session_start?: boolean(),
           statusline?: boolean(),
           skills?: boolean(),
+          stale_skills: [Path.t()],
+          retired_present: [Path.t()],
           links: [{Path.t(), Path.t()}]
         }
   def global_state do
@@ -1021,8 +1028,26 @@ defmodule Whiska.Install do
         statusline_command_in(settings) == statusline_command(:global) and
           File.exists?(Path.join(home, @statusline_path)),
       skills?: Enum.all?(skills(:global), fn {rel, _} -> File.exists?(Path.join(home, rel)) end),
+      stale_skills: stale_skills(home),
+      retired_present: Enum.filter(@retired_skills, &ours?(home, &1)),
       links: global_links()
     }
+  end
+
+  defp stale_skills(home) do
+    for {rel, body} <- skills(:global),
+        ours?(home, rel),
+        File.read(Path.join(home, rel)) != {:ok, body},
+        do: rel
+  end
+
+  # A plain file reached through no link at any segment below the home: a
+  # linked `~/.claude/skills` makes everything under it the person's (ADR-0056).
+  defp ours?(home, rel) do
+    path = Path.join(home, rel)
+
+    match?({:ok, %File.Stat{type: :regular}}, File.lstat(path)) and
+      Whiska.Layout.canonical(path) == Path.join(Whiska.Layout.canonical(home), rel)
   end
 
   @global_pieces [:hooks?, :session_start?, :statusline?, :skills?]

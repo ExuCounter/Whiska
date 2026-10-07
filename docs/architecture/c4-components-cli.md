@@ -274,8 +274,10 @@ wrote, so `init` removes it, and letting the doctor name a file left on disk.
 `Hook.Stop` literally as ADR-0036 describes it, unconditional and never classifying.
 
 **`Doctor` checks and never repairs, and probes rather than inspects (ADR-0038).** It
-runs the repo's committed shim for both hooks with a payload whose `cwd` is outside any
-worktree, so the whole resolution path runs and nothing is written; it compares the
+runs the shim in force for all four hooks with a payload whose `cwd` is outside any
+worktree and no project folder, so no early exit in the shim skips the binary, the whole
+resolution path runs and nothing is written — and the `session-start` run must hand out
+the rules (ADR-0081); it compares the
 shim byte for byte with what `Install` writes, because the old no-argument shim passes
 the probe silently; and it asks herdr about the recorded main session with the same call
 the delivery gate uses. It reads that session's screen with the same call too, and warns
@@ -284,9 +286,11 @@ check that would catch a Claude Code redesign, which otherwise shows up only as 
 stopping everywhere at once (ADR-0068). It also asks how old each running thing is, because up and old
 looks exactly like up: the owl's process against the installed binary, that binary
 against the escript built in the checkout, the repo's statusline script against the
-version this build ships (ADR-0059), and the main session — aged by the creation time of its own
+version this build ships (ADR-0059), the owl's wrapper, the tab-bar script and every
+globally installed skill file against what this build writes, and the main session — aged by the creation time of its own
 transcript file, found through the session id herdr names for its pane — against the
-settings files it read at startup. Every finding prints its fix. `fail` means a mouse's question
+`settings.json` files Whiska wires into. A mouse with an answer waiting and no answer
+flag is named, since the shim never hands that answer over (ADR-0080). Every finding prints its fix. `fail` means a mouse's question
 here would be lost or never written; `warn` means degraded but nothing lost.
 
 **`ServiceManager` is one behaviour with a module per platform** (ADR-0040,
