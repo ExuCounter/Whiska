@@ -169,7 +169,17 @@ it, a working mouse's spinner turning once a second — read back from herdr eve
 seconds so a herdr restart is repaired, and expiring thirty seconds after its last send;
 the main checkout's workspace says what is true of the whole repo; the mice re-sort only
 when one starts or stops needing the person; and the statusline script, its board file and
-its version stamp are gone, taken out by `whiska init` (ADR-0082). 2212 tests.
+its version stamp are gone, taken out by `whiska init` (ADR-0082). Then the owl's two
+sockets in `~/.whiska/` (ADR-0025, ADR-0033): `owl.sock`, read-only and documented,
+answering `waiting`, `show <id> <main_checkout>` and `line [hint]` for the person's own
+scripts and for herdr's tab bar, whose script now asks it with `nc -U`, starts no Erlang,
+prints `🦉 owl down` when nothing answers and adds the jump key the person passes it when
+something waits; and `hook.sock`, which every hook shim asks first — the owl runs the same
+hook modules with the hook's own environment and answers in about 16 ms, and anything
+short of an answer sends the shim to the escript exactly as before. A `Stop` the owl
+answers is written to the same doorstep and collected at once (ADR-0036, amended). The
+doctor still finds the owl through the process table, then says in a `sockets` line
+whether it answers on both. 2256 tests.
 
 **Designed, decided, not yet written.** Watching a branch after its mouse's last message:
 the mouse pushes and opens the merge request with `gh` or `glab`, the owl reads status only
@@ -180,11 +190,8 @@ the owl's first outbound network call of any kind, and it still needs ADR-0044 o
 it: ADR-0067's exception is a mouse's own dead turn and deliberately nothing wider, so a
 build result typed at a live mouse is its own decision. It chains onto cleanup rather
 than being part of it: green, then merged, then the worktree goes (ADR-0060, superseding
-ADR-0032). Then the per-repo and global sockets (ADR-0024,
-ADR-0025); `whiska stop` for one house (ADR-0003, needs the socket); push approval;
-the machine-wide line reading the owl over the
-global socket instead of the process table (ADR-0027); cross-repo commands. The doctor and the statusline find the
-owl through the process table until the global socket exists.
+ADR-0032). Then the per-repo sockets with the peer-process check (ADR-0024); `whiska stop`
+for one house (ADR-0003, needs the per-repo socket); push approval.
 
 ## Regenerating
 

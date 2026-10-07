@@ -53,9 +53,10 @@ C4Component
   ContainerDb(db, "House database", "SQLite", "mice and questions")
   Container_Ext(doorstep, "Doorstep", "directory", "Uncollected entries")
   System_Ext(herdr, "herdr", "pane list, worktree list for worktrees and where, main-session focus for jump, mouse-pane focus and worktree open for open, and starting Claude in a pane")
-  Container_Ext(owl, "Owl", "process", "Found in the process table until the global socket exists")
+  Container_Ext(owl, "Owl", "process", "Found in the process table; answers owl.sock and hook.sock, running these same hook modules")
 
-  Rel(shim, main, "Execs", "JSON on stdin")
+  Rel(shim, owl, "Asks first, over hook.sock: the owl runs the same hook modules", "nc -U")
+  Rel(shim, main, "Execs when the owl does not answer", "JSON on stdin")
   Rel(main, stop, "Delegates the stop hook")
   Rel(stop, tx, "Is this turn over, or is a reviewer still out?")
   Rel(stop, session, "Which mouse is this, if any?")
@@ -98,6 +99,7 @@ C4Component
   Rel(main, herdr, "start: types claude at this pane's prompt when nothing runs there", "pane.send_text")
   Rel(statusline, owl, "Is it running? Same probe as the doctor", "process table")
   Rel(doctor, owl, "Is it running, and older than the binary it runs?", "process table, ps")
+  Rel(doctor, owl, "Does it answer on owl.sock and hook.sock?", "Unix sockets")
   Rel(doctor, record, "Which houses are open, and is this repo one of them")
   Rel(doctor, backstop, "Has the backstop been doing the idle trigger's job")
   Rel(doctor, herdr, "Are the tab bar entry and the sidebar rows in herdr's config? Is herdr 0.9?", "config.toml, ping")
@@ -108,7 +110,7 @@ C4Component
   Rel(questions, storage, "Opens the house read-only")
   Rel(questions, doorstep, "Counts what is uncollected, and how stale")
   Rel(main, doctor, "Delegates doctor")
-  Rel(doctor, shim, "Runs each hook with a no-op payload", "outside any worktree")
+  Rel(doctor, shim, "Runs each hook with a no-op payload and the hook socket pointed at nothing", "outside any worktree")
   Rel(doctor, install, "Compares the shim and hook commands with what init writes")
   Rel(doctor, herdr, "Is the main session's prompt box on its screen?", "pane.get, pane.read")
   Rel(doctor, storage, "Opens the house; reads main session, questions, mice")
@@ -178,6 +180,14 @@ failure there is a line on stderr, not a failed spawn. The mouse's `git check-ig
 then says so under its spec, and until the line is there the owl only leaves the
 worktree standing.
 
+**Every hook takes its environment as an argument.** The escript hands each hook module
+its own process environment; the owl, answering the hook socket, hands it the one the
+shim sent — `HERDR_ENV`, `HERDR_PANE_ID`, `CLAUDE_PROJECT_DIR`, `HOME`, `PWD` — and never
+its own (ADR-0033). An owl started by hand in the main session's pane carries that pane's
+id, and read from there every mouse would be the main session. Inside the owl each hook
+also opens its house on a connection of its own (`Storage.within/2`), never the one
+VM-wide `Whiska.Repo` name, so hooks for two repos at once cannot collide.
+
 **The decision never depends on storage.** `Hook.PreToolUse` treats identity and
 bookkeeping as best-effort; the rule itself does not read the database to contain a
 worktree. A malformed payload or a house that will not open **allows** the call and
@@ -204,10 +214,14 @@ The machine-wide line is what herdr's tab bar shows, once for the whole machine,
 asks `Waiting` for every recorded house's questions and doorstep entries and renders the
 owl's state in front of them. The owl comes first and is always shown — `🦉 watching` or
 `🦉 owl down` — because a blank tab bar entry could not be told apart from a broken
-Whiska (ADR-0027, second addendum). Up means found in the process table, the probe the
-doctor uses (`Whiska.Owl.pids/0`), and collecting: the doorstep is the one source the
-database cannot see, and an entry uncollected past the owl's backstop still means down,
-until the owl answers a socket.
+Whiska (ADR-0027, second addendum). The tab bar gets it from the owl itself: its script
+asks `owl.sock` for `line`, passing on the jump key the person gave it, and the owl
+renders it with `render/2`, adding that key only beside something waiting. An owl that
+answers is watching — unless an entry has sat uncollected past its backstop, which means
+up and not collecting. Nothing answering is `🦉 owl down`, printed by the script.
+`whiska statusline` on the command line draws the same line without the owl: up there
+means found in the process table, the probe the doctor uses (`Whiska.Owl.pids/0`), and
+collecting by the same backstop test.
 
 What each mouse is doing is not this component's: it is a line in herdr's sidebar
 (ADR-0082), which the house reports.
@@ -242,19 +256,21 @@ repos to look in (ADR-0039). It lands on the house's main session rather than on
 mouse's pane: that is the pane the question was delivered into and the one the person
 answers from, while a mouse's pane is the mouse's workplace (ADR-0043, note of
 2026-09-28). And `Statusline` renders this same listing rather than keeping its own copy,
-so the line and the listing cannot disagree about what "waiting" means. Nothing in the
-owl calls `focus`, and nothing in the owl reaches into another repo at all: herdr's tab
-bar runs the status script on its own timer (ADR-0048).
+so the line and the listing cannot disagree about what "waiting" means. The owl's
+`owl.sock` answers `waiting` with these same rows (`Waiting.row_map/1`), so the person's
+own scripts get exactly what `whiska waiting --json` prints. Nothing in the owl calls
+`focus`, and nothing in the owl reaches into another repo uninvited: herdr's tab bar asks
+for the line on its own timer (ADR-0048).
 
-**`Hook.Stop` never opens a socket, and never classifies.** It reads the payload, works
-out the house, writes the whole final message to the doorstep and exits — unconditionally
-(ADR-0036). Nothing in it depends on the owl being up. It does read one row out of the
-house first, the pane `whiska start` recorded: a stop firing there is the person’s own
-session, not a mouse (ADR-0053). Outside a worktree it is a no-op: there is no mouse there
-to speak for. It is
-Elixir despite ADR-0033 saying hooks go native, and that is written down in the ADR rather
-than drifted into: the measurement there is about the per-tool-call path, and `Stop` fires
-once per turn.
+**`Hook.Stop` writes to the doorstep wherever it runs, and never classifies.** It reads
+the payload, works out the house and writes the whole final message to the doorstep —
+inside the owl when the owl answers the hook socket, in the escript when it does not
+(ADR-0036, amended). Whether the owl is up changes how fast the entry lands, never whether
+it does. `leave/2` says which house it wrote to, so the owl can ask that house, if open,
+to collect at once, after the shim has its answer. It does read one row out of the house
+first, the pane `whiska start` recorded: a stop firing there is the person’s own session,
+not a mouse (ADR-0053). Outside a worktree it is a no-op: there is no mouse there to speak
+for.
 
 **`Hook.SessionStart` prints one role's rules, and `ClaudeMd` only ever takes text out**
 (ADR-0081). The hook reads the role the way `Hook.Stop` does — a
@@ -274,14 +290,18 @@ the words and never learns whether they were followed. `Install` keeps the retir
 `review-loop.sh` path for two purposes only: recognising a `Stop` entry an older version
 wrote, so `init` removes it, and letting the doctor name a file left on disk.
 
-**The shim's `stop` path is one `exec`, like `pre-tool-use`.** One `Stop` entry in
-`settings.json`, nothing chained in front of it, no stdin capture — which is what keeps
-`Hook.Stop` literally as ADR-0036 describes it, unconditional and never classifying.
+**The shim's `stop` path is every hook's path.** One `Stop` entry in `settings.json`,
+nothing chained in front of it: the shim asks the owl over `hook.sock`, and when that gets
+no answer within two seconds it hands the payload it read to the escript in one `exec`.
+`UserPromptSubmit` is the one hook whose answer the owl stamps only after sending it: an
+answer marked taken that never reached the session is one nobody rings for again
+(ADR-0080).
 
 **`Doctor` checks and never repairs, and probes rather than inspects (ADR-0038).** It
 runs the shim in force for all four hooks with a payload whose `cwd` is outside any
-worktree and no project folder, so no early exit in the shim skips the binary, the whole
-resolution path runs and nothing is written — and the `session-start` run must hand out
+worktree, no project folder and the hook socket pointed at nothing, so no early exit in
+the shim skips the binary, no owl answers in its place, the whole resolution path runs
+and nothing is written — and the `session-start` run must hand out
 the rules (ADR-0081); it compares the
 shim byte for byte with what `Install` writes, because the old no-argument shim passes
 the probe silently; and it asks herdr about the recorded main session with the same call
@@ -294,7 +314,9 @@ against the escript built in the checkout, the owl's wrapper, the tab-bar script
 globally installed skill file against what this build writes, and the main session — aged by the creation time of its own
 transcript file, found through the session id herdr names for its pane — against the
 `settings.json` files Whiska wires into. A mouse with an answer waiting and no answer
-flag is named, since the shim never hands that answer over (ADR-0080). Every finding prints its fix. `fail` means a mouse's question
+flag is named, since the shim never hands that answer over (ADR-0080). While an owl
+runs, a `sockets` line says whether it answers on `owl.sock` and `hook.sock`; one that
+does not is a warning, since hooks still work through the escript (ADR-0033). Every finding prints its fix. `fail` means a mouse's question
 here would be lost or never written; `warn` means degraded but nothing lost.
 
 **`ServiceManager` is one behaviour with a module per platform** (ADR-0040,
@@ -307,11 +329,12 @@ call goes through a runner the tests replace, and a runner whose program is miss
 answers as a failed call rather than a crash. The test config pins the manager to launchd,
 points the user home away from the real machine, and installs runners that refuse. The
 wrapper is assembled from
-`Install`'s own `resolve_whiska` and `resolve_escript` fragments, so the shim, the tab
-bar's status script and the owl's launcher cannot disagree about where the runtime is.
+`Install`'s own `resolve_whiska` and `resolve_escript` fragments, so the shim and the
+owl's launcher cannot disagree about where the runtime is. The tab bar's status script
+needs neither: it starts nothing and asks the owl.
 
 **`BundledNIF` is scaffolding with a known end.** An escript is a zip with no `priv/`,
 and native code cannot be `dlopen`ed out of a zip — so SQLite's 1.6 MB library travels as
 embedded bytes and unpacks to `~/.cache/whiska/`. It is the only reason ADR-0030's single
-binary and ADR-0028's real SQLite both hold. When ADR-0033's native hook client lands, the
-hook stops touching storage and this module is deleted whole.
+binary and ADR-0028's real SQLite both hold. It stays: the escript is still what every
+command runs and what every hook falls back on when the owl does not answer (ADR-0033).

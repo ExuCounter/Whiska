@@ -89,7 +89,6 @@ defmodule Whiska.LaunchAgentTest do
       assert ServiceManager.wrapper() =~ Install.resolve_whiska()
       assert ServiceManager.wrapper() =~ Install.resolve_escript()
       assert Install.shim() =~ Install.resolve_whiska()
-      assert Install.herdr_status_script() =~ Install.resolve_escript()
       assert String.starts_with?(ServiceManager.wrapper(), "#!/usr/bin/env bash\n")
     end
 

@@ -1,4 +1,8 @@
-# Questions are left on the doorstep; the hook never opens a socket
+# Questions are left on the doorstep, whoever writes them
+
+*Amended 2026-10-07 (see the end): the hook asks the owl first, over its hook socket, and
+the owl writes the entry; when the owl does not answer, the escript writes it as before.
+The title used to end "the hook never opens a socket".*
 
 A mouse's `Stop` hook has to get a question to the owl. The obvious design is to connect
 to the house's socket and send it — and then answer the hard question of what to do when
@@ -214,3 +218,35 @@ owl, no socket and no retry, and a house that will not open — or has no main p
 recorded — makes no claim either way: the read runs through `Whiska.Isolated` so a broken
 database cannot take the hook down before it writes, and the entry is left exactly as
 before. The read narrows *whose* stop this is, never whether a mouse's stop is written.
+
+## Amendment, 2026-10-07: the hook asks the owl first
+
+ADR-0033 moved every hook onto the owl: the shim sends the payload to
+`~/.whiska/hook.sock`, and the owl runs the hook's own code. For `Stop` that collides
+with this record's sentence, "It writes the question to the house's doorstep and exits —
+every time, unconditionally, whether or not the owl is running", and with "there is no
+second code path for 'the owl is down'". The person decided it, put to them in this
+repo's ADR-contradiction form.
+
+What changes:
+
+- **When the owl answers, it writes the entry.** It runs `Whiska.Hook.Stop` with the
+  hook's own environment, and the entry lands on the same doorstep, in the same format.
+  The owl then asks that house, if it is open, to collect at once, after the shim has
+  had its answer. The idle trigger, its 2 s and 5 s retries and the backstop all stay;
+  they are simply beaten to it in the common case.
+- **When the owl does not answer, the escript writes it**, exactly as this record
+  describes: no socket, no socket file, an owl hung for two seconds, an owl too old to
+  know the hook — or an owl that could not write the entry itself, which hangs up rather
+  than say it did. A dead owl still loses nothing, and that was the whole reason for the
+  doorstep.
+- **The doorstep is still the one way a question gets into a house.** Nothing goes into
+  the database except by being collected from it.
+
+What the record was defending still holds: nothing about the state of the owl changes
+whether a turn's message is written, and the logic that decides it is one module, run in
+one process or the other. What is gone is "one path": there are two transports now.
+
+One new edge, accepted. If the owl writes the entry and the shim gives up waiting before
+the answer arrives, the escript writes a second entry for the same turn; ADR-0037 has
+the newer supersede the older, so the person sees one question.

@@ -238,3 +238,30 @@ The amendment above kept the repo's own line in Claude Code's statusline. [ADR-0
 into herdr's sidebar, a line under each mouse's workspace, and takes the statusline out. The
 tab bar is unchanged, and the rule here holds for the sidebar too: the colours are rows in
 the person's herdr config, which `whiska doctor` prints and Whiska never writes.
+
+## Amendment, 2026-10-07: the script asks the owl, and starts nothing
+
+`herdr-status.sh` no longer looks for the binary or the Erlang runtime. It asks the
+owl's read-only socket (ADR-0025, built) with `nc -U` — one `line` request — and prints
+the answer: about 40 ms with five houses recorded, against 180–300 ms for the escript.
+What the line says when the owl answers is unchanged.
+
+- **Nothing answering reads as `🦉 owl down`, with no count.** No socket, a socket file
+  a crashed owl left, an owl hung past one second: all one line. The old down line
+  carried the waiting count by reading every house directly, which needs Erlang; the
+  person chose the plain line, so the script never starts it. `whiska waiting` still
+  lists everything with the owl down.
+- **The owl that answers is watching** unless doorstep entries have waited past the
+  backstop — up, and not collecting. The process-table half of the old test does not
+  apply to the owl answering for itself.
+- **A jump-key hint, passed by the person.** When something not held is waiting the line
+  ends with the key they bound to reach it: `🦉 watching · 🐱 2 whiskas · ⌃a space`. Whiska
+  cannot know that key — the binding lives in the person's herdr config, which Whiska
+  never edits — so it is the script's one argument, written in the same entry:
+  `command = "~/.whiska/herdr-status.sh '⌃a space'"`. No argument, no hint. `whiska owl
+  install` prints the entry with that example, and the doctor's check still matches the
+  script's path with an argument after it.
+- **`🦉 whiska missing` and `🦉 whiska error` are gone**, with the binary they reported
+  on. Their job — never going blank — passes to `🦉 nc missing`, and to `🦉 nc cannot reach
+  the owl` for an `nc` without Unix sockets (GNU netcat), which would otherwise read as a
+  dead owl for ever.

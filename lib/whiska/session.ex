@@ -20,6 +20,10 @@ defmodule Whiska.Session do
   directory, the payload's working directory is all there is and it is used. A
   house that will not open records no main pane, and then no pane claim is made
   either way. Neither fallback is worse than what identity was before them.
+
+  Every function takes the environment the hook fired in, defaulting to this
+  VM's own. Inside the owl that default is the owl's environment, not the
+  hook's, so the owl always passes the one the hook shim sent.
   """
 
   alias Whiska.Isolated
@@ -33,9 +37,9 @@ defmodule Whiska.Session do
   `{:error, :not_a_mouse}` when it started in the main checkout, or anywhere
   else outside a `worktrees/<branch>/` folder.
   """
-  @spec worktree(map()) :: {:ok, Layout.t()} | {:error, :not_a_mouse}
-  def worktree(payload) do
-    case payload |> started_in() |> Layout.resolve() do
+  @spec worktree(map(), map()) :: {:ok, Layout.t()} | {:error, :not_a_mouse}
+  def worktree(payload, env \\ System.get_env()) do
+    case payload |> started_in(env) |> Layout.resolve() do
       {:ok, layout} -> {:ok, layout}
       _no_worktree -> {:error, :not_a_mouse}
     end
@@ -49,9 +53,9 @@ defmodule Whiska.Session do
   payload's working directory (ADR-0053) — and carried only for containment,
   never for identity (`Whiska.Layout.unplaced/1`).
   """
-  @spec unplaced(map()) :: {:ok, Layout.t()} | {:error, :not_a_mouse}
-  def unplaced(payload) do
-    case payload |> started_in() |> Layout.unplaced() do
+  @spec unplaced(map(), map()) :: {:ok, Layout.t()} | {:error, :not_a_mouse}
+  def unplaced(payload, env \\ System.get_env()) do
+    case payload |> started_in(env) |> Layout.unplaced() do
       {:ok, layout} -> {:ok, layout}
       _no_folder -> {:error, :not_a_mouse}
     end
@@ -65,11 +69,13 @@ defmodule Whiska.Session do
   invocation is in comes from herdr's own `HERDR_PANE_ID`. Outside herdr there is
   nothing to compare, and the answer is no.
   """
-  @spec main_pane?(String.t() | nil) :: boolean()
-  def main_pane?(nil), do: false
+  @spec main_pane?(String.t() | nil, map()) :: boolean()
+  def main_pane?(recorded, env \\ System.get_env())
 
-  def main_pane?(recorded) when is_binary(recorded) do
-    System.get_env("HERDR_PANE_ID") == recorded
+  def main_pane?(nil, _env), do: false
+
+  def main_pane?(recorded, env) when is_binary(recorded) do
+    env["HERDR_PANE_ID"] == recorded
   end
 
   @doc """
@@ -80,16 +86,16 @@ defmodule Whiska.Session do
   asking this has work of its own that must survive a database that will not
   open, and an unreadable house makes no claim either way.
   """
-  @spec main_session?(Path.t()) :: boolean()
-  def main_session?(main_checkout) do
-    case System.get_env("HERDR_PANE_ID") do
+  @spec main_session?(Path.t(), map()) :: boolean()
+  def main_session?(main_checkout, env \\ System.get_env()) do
+    case env["HERDR_PANE_ID"] do
       nil -> false
       pane -> pane == Isolated.run(fn -> Waiting.main_session(main_checkout) end)
     end
   end
 
-  defp started_in(payload) do
-    from_transcript(payload) || cwd(payload)
+  defp started_in(payload, env) do
+    from_transcript(payload) || cwd(payload, env)
   end
 
   defp from_transcript(%{"transcript_path" => path}) when is_binary(path),
@@ -97,9 +103,10 @@ defmodule Whiska.Session do
 
   defp from_transcript(_no_transcript), do: nil
 
-  defp cwd(%{"cwd" => cwd}) when is_binary(cwd), do: cwd
+  defp cwd(%{"cwd" => cwd}, _env) when is_binary(cwd), do: cwd
+  defp cwd(_no_cwd, %{"PWD" => "/" <> _ = pwd}), do: pwd
 
-  defp cwd(_no_cwd) do
+  defp cwd(_no_cwd, _env) do
     case File.cwd() do
       {:ok, cwd} -> cwd
       {:error, _} -> "/"

@@ -53,9 +53,10 @@ Notes:
 1. **A mouse is minted** on its first edit or shell call inside a worktree — an opaque
    `mouse_id` written to `.whiska-mouse`, and a row in this repo's house at
    `<main-checkout>/.git/whiska/whiska.db`.
-2. **A finished turn hits the doorstep.** A `Stop` hook writes the whole final message to
-   `.git/whiska/doorstep/`, one JSON file per entry. It never opens a socket — whether
-   the owl is running changes nothing about what a mouse does.
+2. **A finished turn hits the doorstep.** The `Stop` hook's whole final message lands in
+   `.git/whiska/doorstep/`, one JSON file per entry: written by the owl, which the hook
+   shim asks first over `~/.whiska/hook.sock`, or by the escript when the owl does not
+   answer. Whether the owl is running changes how fast it lands, never whether it does.
 3. **The owl collects**, when herdr reports that mouse's pane idle, when a house opens,
    and on a slow backstop timer. Entries are renamed, never deleted.
 4. **Each entry becomes a question**, classified by an invisible marker the mouse ends its
@@ -79,11 +80,13 @@ Pre-1.0 (`v0.0.1`). The core loop works end to end.
 
 **Built:** mouse identity, per-repo houses, worktree containment and sniff mode, the
 doorstep and collection, delivery with its queue, `reply` / `close` / `questions` /
-`waiting` / `jump`, the tab bar line and each mouse's sidebar line, the doctor, launchd and systemd supervision, `init` and
-`init --global`, and the finishing pipeline a mouse runs before it reports done.
+`waiting` / `jump`, the tab bar line and each mouse's sidebar line, the doctor, launchd and
+systemd supervision, `init` and `init --global`, the finishing pipeline a mouse runs before
+it reports done, and the owl's two sockets in `~/.whiska/`: `owl.sock`, read-only, for
+your own scripts and herdr's tab bar, and `hook.sock`, which every hook asks before
+starting the escript.
 
-**Not yet:** the per-repo socket and `whiska stop` for a single house, the read-only
-global socket the doctor and statusline will use for cross-repo commands, `whiska reopen`,
+**Not yet:** the per-repo socket and `whiska stop` for a single house, `whiska reopen`,
 push approval, and Linux.
 
 ## What `whiska init` writes
@@ -136,6 +139,12 @@ What it writes, and why each part is the way it is:
   absolute paths — the Erlang runtime and the binary — straight into the command, which
   pinned the file to one home directory and one Erlang version, and put a username into a
   shared repo. Check both files in.
+- **The shim asks the owl first** (ADR-0033). It sends the hook's name, a few
+  environment variables and the payload to `~/.whiska/hook.sock` with `nc -U`, and the
+  owl runs the same hook code the escript would — about 16 ms instead of 245. Anything
+  short of an answer within two seconds — no owl, no `nc`, an owl that is hung — and the
+  shim carries on to the escript below, so a dead owl only makes hooks slower.
+  `WHISKA_HOOK_SOCKET` points it at another socket.
 - **The shim resolves the runtime when the hook fires**, not when `init` runs. A
   `mix escript.build` binary starts with `#!/usr/bin/env escript`, so it only runs when
   `escript` is on `PATH` — and a hook does not necessarily inherit your shell's. With a
@@ -148,8 +157,8 @@ What it writes, and why each part is the way it is:
 - **The extra process is free at this size.** Wrapping the call in a shell costs about
   5 ms, which was the original reason not to. Measured against the real hook it is noise:
   214.5 ms unwrapped versus 204.7 ms wrapped, over 20 runs each — both dominated by BEAM
-  boot. ADR-0033's native hook is the thing that will care, and by then the shim is what
-  lets `settings.json` stay untouched while the binary behind it changes.
+  boot. With the owl answering, bash starting is about 2 ms of a 16 ms hook, and the shim
+  is what let the hooks move onto the owl with `settings.json` untouched (ADR-0033).
 
 ## The `CLAUDE.md` block
 
@@ -246,7 +255,8 @@ Two owls would collect the same doorsteps, so `install` refuses while any owl is
 process table and prints the handover (Ctrl-C the foreground one, install again), and the
 foreground `whiska owl` refuses while the supervised owl is running — unless it *is* that
 owl, which it tells by pid (ADR-0040's 2026-09-28 note). `whiska stop` is not the
-owl's stop: it shuts one house (ADR-0003) and is not built until the owl has a socket.
+owl's stop: it shuts one house (ADR-0003) and is not built until the owl has a per-repo
+socket.
 
 ## The owl, the house, the doorstep
 
@@ -255,14 +265,16 @@ whiska owl            # run the owl in the foreground, house open for this repo
 whiska owl ~/a ~/b    # ...or for each repo named (a worktree path names its repo)
 ```
 
-When a mouse finishes a turn, its `Stop` hook (`whiska hook stop`, installed by
-`whiska init`) writes the whole final message to the repo's **doorstep** —
+When a mouse finishes a turn, its `Stop` hook (installed by `whiska init`) leaves the
+whole final message on the repo's **doorstep** —
 `<main-checkout>/.git/whiska/doorstep/`, one JSON file per entry, stamped with `mouse_id`,
-branch and time. It never opens a socket, so whether the owl is running changes nothing
-about what the mouse does (ADR-0036).
+branch and time. The shim asks the owl first, over `~/.whiska/hook.sock`, and the owl
+writes the entry and collects it at once; when the owl does not answer, `whiska hook stop`
+writes the same entry. Either way the question reaches the doorstep, so whether the owl is
+running changes nothing about what the mouse does (ADR-0036, amended).
 
-The owl **collects** the doorstep when herdr reports that mouse's pane idle, when a house
-opens, and on a slow backstop timer. Each entry becomes a question, classified by its
+The owl **collects** the doorstep when it wrote an entry itself, when herdr reports that
+mouse's pane idle, when a house opens, and on a slow backstop timer. Each entry becomes a question, classified by its
 marker alone (ADR-0009), an invisible line the mouse ends on: needs-decision → open;
 `done` → open too,
 delivered as "finished" with no reply offered and closed the moment it is sent; no marker
@@ -328,13 +340,17 @@ Whiska:
 
 ```
 🦉 watching
-🦉 watching · 🐱 feat-auth
-🦉 watching · 🐱 3 waiting
-🦉 owl down · 🐱 2 waiting
+🦉 watching · 🐱 myrepo · ⌃a space
+🦉 watching · away · 🐱 2 whiskas · ⌃a space
+🦉 owl down
 ```
 
 `whiska owl install` writes the script herdr runs, `~/.whiska/herdr-status.sh`, and
-prints the entry that runs it. That entry is yours — herdr's config is machine-global and
+prints the entry that runs it. The script starts nothing: it asks the owl for the line
+over `~/.whiska/owl.sock` with `nc -U` (ADR-0025). Its one argument is the key you bound
+to reach what is waiting, written the way you want it shown; the owl adds it only when
+something not held is waiting, and with no argument there is no hint. Whiska never reads
+your herdr keybindings. That entry is yours — herdr's config is machine-global and
 hand-edited, so Whiska never writes it. Paste it into `~/.config/herdr/config.toml`,
 commit it with your dotfiles, and `herdr server reload-config`. `whiska owl install` prints
 it with your own path already filled in; `~/.whiska/herdr-status.sh` works too, since herdr
@@ -343,18 +359,20 @@ runs a command entry through a login shell:
 ```toml
 [ui]
 tab_bar_right = [
-  { type = "command", command = "/Users/you/.whiska/herdr-status.sh", interval_seconds = 5, timeout_seconds = 2 },
+  { type = "command", command = "/Users/you/.whiska/herdr-status.sh '⌃a space'", interval_seconds = 5, timeout_seconds = 2 },
 ]
 tab_bar_right_separator = " · "
 ```
 
 `whiska doctor` says whether it took.
 
-`🦉 watching` means the owl is running and collecting; `🦉 owl down` means it is not — no
-owl process, or doorstep entries sat uncollected past its backstop. `🐱` is what is
+`🦉 watching` means the owl answered and is collecting; `🦉 owl down` means nothing
+answered on its socket within a second — no owl, a crashed one, a hung one — or it
+answered with doorstep entries sat uncollected past its backstop. `🦉 nc missing` and
+`🦉 nc cannot reach the owl` say the tool is the problem, not the owl. `🐱` is what is
 waiting anywhere on this machine, the same reading `whiska waiting` prints: one whiska is
-named by its repo, several become a count. Until the owl's global socket exists the owl is
-found in the process table, the same way `whiska doctor` finds it.
+named by its repo, several become a count. `whiska statusline` prints the same line
+without the owl, finding it in the process table the way `whiska doctor` does.
 
 ### Each mouse's line, in herdr's sidebar
 
@@ -522,12 +540,13 @@ Measured on the development machine (Apple silicon, macOS 25.4, OTP 28, Elixir 1
 | `whiska --version` — escript boot floor | 126 ms |
 | **`whiska hook pre-tool-use` — the real job, SQLite included** | **~220 ms** |
 | First run ever, which also unpacks the bundled SQLite library | 627 ms, once |
+| **The hook shim with the owl answering** (ADR-0033, measured 2026-10-07) | **~16 ms** |
 
-Roughly 126 ms of that is the BEAM booting before any code runs, and the rest is
-loading Ecto, db_connection and exqlite. The SQLite work itself — open, migrate, upsert —
-is under 2 ms. Nothing inside the program can remove the first 126 ms, which is why
-ADR-0033 moves the hook client to a native binary when the owl arrives, and why the
-narrow matcher above matters more than it looks: `Read`, `Grep` and `Glob` never pay it.
+Roughly 126 ms of the escript's time is the BEAM booting before any code runs, and the
+rest is loading Ecto, db_connection and exqlite. The SQLite work itself — open, migrate,
+upsert — is under 2 ms. Nothing inside the program can remove the first 126 ms, which is
+why every hook asks the already-running owl first, and why the narrow matcher above
+matters more than it looks: `Read`, `Grep` and `Glob` never pay anything.
 
 ## Why the binary is 3 MB
 
@@ -535,5 +554,5 @@ An escript is a zip archive. It carries no `priv/` directories, and native code 
 `dlopen`ed out of a zip in any case — so SQLite's 1.6 MB native library travels as bytes
 embedded in `Whiska.BundledNIF` and is unpacked to `~/.cache/whiska/exqlite-<vsn>/` on
 first run. That is the only reason ADR-0030's "single binary" and ADR-0028's "real
-SQLite" can both hold. It is scaffolding with a known end: when ADR-0033's native hook
-client arrives, the hook stops touching storage entirely and this module is deleted whole.
+SQLite" can both hold. It stays: the escript is every command, and what every hook falls
+back on when the owl does not answer (ADR-0033).

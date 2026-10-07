@@ -52,3 +52,34 @@ machine-wide line drawn on herdr's tab bar — and with it the pane list this ad
 prices. What a refresh costs is now the per-house SQLite reads `Whiska.Waiting` already
 does, five seconds apart, once for the machine rather than once per idle session. The
 socket is still what replaces them.
+
+## Addendum (2026-10-07): built, and joined by a hook socket
+
+The socket exists. The owl listens on `~/.whiska/owl.sock` (or under `WHISKA_HOME`) from
+the moment it starts, owner-only, and answers one plain-text request line with one line:
+
+- `waiting` → `{"version":1,"waiting":[…]}`, the rows `whiska waiting --json` prints;
+- `show <id> <main_checkout>` → one question with its whole text — the checkout is
+  needed because question ids are numbered per house;
+- `line [hint]` → the tab bar's line, plain text;
+- anything else → `{"version":1,"error":"…"}`.
+
+`version` changes only when a field does. The format is documented in the README,
+because the person's own scripts — an fzf popup first — depend on it. It still only ever
+reads: `show` answers only for a house in the open-houses record whose database is
+already there, so asking about a path creates nothing.
+
+`whiska projects` and `whiska goto` never shipped under those names; what they were for
+is `whiska waiting` and `whiska jump`. Those, and `whiska statusline`, still read the
+houses directly rather than asking the socket: they start Erlang either way, and reading
+directly also works while the owl is down. The direct reads this record expected to go
+therefore stay, for the command line; what moved onto the socket is herdr's tab bar
+(ADR-0048).
+
+**A second socket sits beside it, and it is not read-only.** Whiska's own hooks ask the
+owl over `~/.whiska/hook.sock` (ADR-0033), and a hook writes: it records mice, mints
+markers, leaves questions on the doorstep and stamps answers taken. Putting that on this
+socket would have ended its one property, so it has its own, private and undocumented,
+and this one stays read-only. The hook socket carries no ADR-0024 peer check, for the
+reason ADR-0033 gives: it can do nothing the person's own account cannot already do by
+running `whiska hook` with a made-up payload.

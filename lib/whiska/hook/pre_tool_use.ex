@@ -35,10 +35,24 @@ defmodule Whiska.Hook.PreToolUse do
   @doc """
   Decide one PreToolUse event, given its raw JSON payload.
   """
-  @spec run(String.t()) :: decision()
-  def run(raw_payload) do
+  @spec run(String.t(), map()) :: decision()
+  def run(raw_payload, env \\ System.get_env()), do: judge(raw_payload, env, &fall_back/2)
+
+  @doc """
+  The same decision, or `:unreadable` where `run/2` would fall back to build
+  because this mouse's house could not be read.
+
+  The owl answers with this. A house the owl cannot open — its file
+  descriptors run out, its database is locked — may still open for a fresh
+  escript, so the owl leaves that call to it rather than answering with the
+  weaker fallback (ADR-0033).
+  """
+  @spec judge(String.t(), map()) :: decision() | :unreadable
+  def judge(raw_payload, env), do: judge(raw_payload, env, fn _layout, _ -> :unreadable end)
+
+  defp judge(raw_payload, env, unreadable) do
     case decode(raw_payload) do
-      {:ok, payload} when is_map(payload) -> placed(payload)
+      {:ok, payload} when is_map(payload) -> placed(payload, env, unreadable)
       _ -> :allow
     end
   end
@@ -49,24 +63,25 @@ defmodule Whiska.Hook.PreToolUse do
   # still gets containment: the main checkout is the one place it must not
   # write, and a folder Whiska cannot identify is where it is least able to
   # vouch for what happens (ADR-0013).
-  defp placed(payload) do
-    case Session.worktree(payload) do
-      {:ok, layout} -> as_mouse(payload, layout)
-      {:error, :not_a_mouse} -> as_nobody(payload)
+  defp placed(payload, env, unreadable) do
+    case Session.worktree(payload, env) do
+      {:ok, layout} -> as_mouse(payload, layout, env, unreadable)
+      {:error, :not_a_mouse} -> as_nobody(payload, env)
     end
   end
 
-  defp as_mouse(payload, layout) do
-    case identity(layout) do
-      {:mouse, mode, held?} -> decide(payload, layout, mode, held?)
+  defp as_mouse(payload, layout, env, unreadable) do
+    case identity(layout, env, unreadable) do
+      {:mouse, mode, held?} -> decide(payload, layout, mode, held?, env)
+      :unreadable -> :unreadable
       _ -> :allow
     end
   end
 
-  defp as_nobody(payload) do
-    with {:ok, layout} <- Session.unplaced(payload),
-         false <- Session.main_session?(layout.main_checkout) do
-      MainCheckout.decide(tool_name(payload), tool_input(payload), layout, where(payload))
+  defp as_nobody(payload, env) do
+    with {:ok, layout} <- Session.unplaced(payload, env),
+         false <- Session.main_session?(layout.main_checkout, env) do
+      MainCheckout.decide(tool_name(payload), tool_input(payload), layout, where(payload, env))
     else
       _ -> :allow
     end
@@ -98,14 +113,14 @@ defmodule Whiska.Hook.PreToolUse do
   # would fire, and "you are in sniff mode" is the reason that actually explains
   # what happened; "that path is outside your worktree" would send it to fix
   # the wrong thing.
-  defp decide(payload, layout, mode, held?) do
+  defp decide(payload, layout, mode, held?, env) do
     tool_name = tool_name(payload)
     tool_input = tool_input(payload)
 
     with :allow <- Held.decide(held?, layout.branch_label),
          :allow <- Persons.decide(tool_name, tool_input),
          :allow <- Sniff.decide(tool_name, tool_input, mode) do
-      MainCheckout.decide(tool_name, tool_input, layout, where(payload))
+      MainCheckout.decide(tool_name, tool_input, layout, where(payload, env))
     end
   end
 
@@ -126,9 +141,17 @@ defmodule Whiska.Hook.PreToolUse do
   defp tool_input(%{"tool_input" => input}) when is_map(input), do: input
   defp tool_input(_), do: %{}
 
-  # Where the shell stands for this call: a position, never an identity (ADR-0053).
-  defp where(%{"cwd" => "/" <> _ = cwd}), do: [cwd: cwd]
-  defp where(_), do: []
+  # Where the shell stands for this call: a position, never an identity
+  # (ADR-0053). `~` and `$HOME` in a command are the hook's home.
+  defp where(payload, env) do
+    Enum.reject(
+      [cwd: shell_cwd(payload), home: env["HOME"]],
+      fn {_key, value} -> is_nil(value) end
+    )
+  end
+
+  defp shell_cwd(%{"cwd" => "/" <> _ = cwd}), do: cwd
+  defp shell_cwd(_payload), do: nil
 
   # The house answers two questions in one opening: whose pane this is, and what
   # mode the mouse is in. A tool call firing in the pane `whiska start` recorded
@@ -143,8 +166,8 @@ defmodule Whiska.Hook.PreToolUse do
   # which is exactly the failure the rule is supposed to be independent of.
   @default_mode "build"
 
-  defp identity(layout) do
-    case Isolated.run(fn -> in_house(layout) end) do
+  defp identity(layout, env, unreadable) do
+    case Isolated.run(fn -> in_house(layout, env) end) do
       :main_session ->
         :main_session
 
@@ -152,7 +175,7 @@ defmodule Whiska.Hook.PreToolUse do
         mouse
 
       other ->
-        fall_back(layout, other)
+        unreadable.(layout, other)
     end
   end
 
@@ -171,18 +194,10 @@ defmodule Whiska.Hook.PreToolUse do
     {:mouse, @default_mode, false}
   end
 
-  defp in_house(layout) do
-    case Storage.open(layout.main_checkout) do
-      {:ok, handle} ->
-        try do
-          if Session.main_pane?(Storage.main_pane()), do: :main_session, else: record(layout)
-        after
-          Storage.close(handle)
-        end
-
-      other ->
-        other
-    end
+  defp in_house(layout, env) do
+    Storage.within(layout.main_checkout, fn ->
+      if Session.main_pane?(Storage.main_pane(), env), do: :main_session, else: record(layout)
+    end)
   end
 
   defp record(layout) do

@@ -40,19 +40,28 @@ defmodule Whiska.Hook.SessionStart do
   """
   @spec run(String.t(), %{optional(String.t()) => String.t()}, :repo | :global) :: :ok
   def run(raw_payload, env, scope \\ :repo) when is_map(env) do
+    case output(raw_payload, env, scope) do
+      :none -> :ok
+      json -> IO.write(json)
+    end
+  end
+
+  @doc "What `run/3` prints, or `:none`."
+  @spec output(String.t(), %{optional(String.t()) => String.t()}, :repo | :global) ::
+          String.t() | :none
+  def output(raw_payload, env, scope \\ :repo) when is_map(env) do
     with "1" <- env["HERDR_ENV"],
          {:ok, payload} <- decode(raw_payload) do
-      role = payload |> started_from(env) |> role()
+      role = payload |> started_from(env) |> role(env)
 
       payload
       |> claude_mds(env, scope)
       |> Enum.flat_map(&kept_in/1)
       |> then(&Rules.render(role, &1))
       |> encode()
-      |> IO.write()
+    else
+      _ -> :none
     end
-
-    :ok
   end
 
   # A session with no transcript to read yet — one just cleared — is placed by
@@ -63,9 +72,9 @@ defmodule Whiska.Hook.SessionStart do
 
   defp started_from(payload, _env), do: payload
 
-  defp role(payload) do
-    with {:ok, layout} <- Session.worktree(payload),
-         false <- Session.main_session?(layout.main_checkout) do
+  defp role(payload, env) do
+    with {:ok, layout} <- Session.worktree(payload, env),
+         false <- Session.main_session?(layout.main_checkout, env) do
       :mouse
     else
       _ -> :main

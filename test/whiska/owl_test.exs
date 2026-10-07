@@ -83,13 +83,17 @@ defmodule Whiska.OwlTest do
 
     assert MapSet.size(others) == 0
 
-    # The owl itself is the registry and the houses, and nothing else: the
-    # cross-house nudge is gone, and the statusline's own timer redraws the
-    # elsewhere segment instead.
+    # The owl itself is the registry, the houses and the two sockets it answers
+    # on, and nothing else: the cross-house nudge is gone, and the statusline's
+    # own timer redraws the elsewhere segment instead.
     assert Owl
            |> Supervisor.which_children()
-           |> Enum.map(fn {id, _, _, _} -> id end)
-           |> Enum.sort() == Enum.sort([Whiska.Owl.Registry, Whiska.Owl.Houses])
+           |> Enum.map(fn
+             {{Whiska.Owl.Listener, path}, _, _, _} -> Path.basename(path)
+             {id, _, _, _} -> id
+           end)
+           |> Enum.sort() ==
+             Enum.sort([Whiska.Owl.Registry, Whiska.Owl.Houses, "hook.sock", "owl.sock"])
   end
 
   test "a house that crashes is reopened by the owl", %{a: a} do

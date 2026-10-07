@@ -21,7 +21,7 @@ are the extracted, individually citable decisions.
 - [0063](0063-a-mouse-asks-every-costly-choice-before-building.md) — A mouse reads the code, then asks every choice that is costly to undo (rewritten 2026-10-04: it grilled only when it could not name "done"; amended 2026-10-05 by ADR-0076: a spec follows the grilling)
 - [0076](0076-a-grilled-brief-is-written-down-before-it-is-built.md) — A grilled brief is written down as a spec, in a file git ignores, and approved before it is built; Whiska ships `grilling` and `whiska-spec` (amends 0063)
 - [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The global install is the same install rooted at the home, and the repo's copy wins (amended 2026-10-04: it ships the three worktree skills too; amended 2026-10-06 by 0081: a SessionStart hook, not a block)
-- [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
+- [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim (noted 2026-10-07: only the shim changed when the hook moved onto the owl, as promised)
 
 ## Identity and security
 
@@ -29,7 +29,7 @@ are the extracted, individually citable decisions.
 - [0023](0023-one-mouse-per-worktree.md) — One mouse per worktree, enforced rather than assumed
 - [0024](0024-endpoint-identity-is-two-layers.md) — Endpoint identity is two layers, with an honest limit
 - [0053](0053-a-session-is-identified-by-where-it-started.md) — A session is identified by where it started and which pane it runs in, never by where its shell currently is
-- [0025](0025-a-second-read-only-global-socket.md) — Cross-repo visibility uses a second, read-only global socket
+- [0025](0025-a-second-read-only-global-socket.md) — Cross-repo visibility uses a second, read-only global socket (built 2026-10-07: `owl.sock` answers `waiting`, `show` and `line` for the person's scripts and the tab bar; the hooks ask a private `hook.sock` beside it)
 - [0039](0039-the-owl-records-its-open-houses-on-disk.md) — The owl records its open houses on disk, and that record is what makes a whiska
 
 ## Storage
@@ -46,7 +46,7 @@ are the extracted, individually citable decisions.
 - [0008](0008-delivery-is-a-queue-not-a-batch.md) — Delivery is a queue, not a batch (noted 2026-10-06: a finished line waits for the slot, and still never holds it)
 - [0047](0047-delivery-holds-while-the-person-is-typing.md) — Delivery holds while the person is typing, read off the main session's prompt box (amended 2026-10-03 and 2026-10-04 by 0068)
 - [0068](0068-the-prompt-box-is-found-by-its-frame.md) — The prompt box is found by its frame, and no box on screen holds delivery (amends 0047; amended 2026-10-04: faint text in the box is not a draft)
-- [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep; the hook never opens a socket
+- [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep, whoever writes them (amended 2026-10-07 by ADR-0033: the hook asks the owl first and the owl writes the entry; the escript writes it when the owl does not answer)
 - [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is delivered too, and never waits for an answer (noted 2026-10-06: `done` means the brief is done, and files not committed are offered a commit first)
 - [0052](0052-a-stop-with-a-subagent-still-out-is-not-a-stop.md) — A stop with a subagent still out is not a stop
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
@@ -98,7 +98,7 @@ are the extracted, individually citable decisions.
 - [0065](0065-the-board-says-when-this-pane-is-not-the-main-session.md) — The board says when this pane is not the main session, and only then (amended 2026-10-07 by next-a-mouses-state-is-a-line-in-herdrs-sidebar: only "no main session" survives, on the main checkout's sidebar line)
 - [0066](0066-whiska-start-starts-claude-in-the-pane-it-records.md) — `whiska start` starts Claude in the pane it records
 - [0059](0059-the-statusline-script-carries-a-version-stamp.md) — The statusline script carries a version stamp, and an old copy is an upgrade notice (superseded 2026-10-07 by next-a-mouses-state-is-a-line-in-herdrs-sidebar: there is no script)
-- [0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) — The owl's line is drawn once on herdr's tab bar, machine-wide, not in every Claude session (amended 2026-09-29: the repo-scoped line stays in Claude Code's statusline; amended 2026-10-07 by next-a-mouses-state-is-a-line-in-herdrs-sidebar: it moves to herdr's sidebar)
+- [0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) — The owl's line is drawn once on herdr's tab bar, machine-wide, not in every Claude session (amended 2026-09-29: the repo-scoped line stays in Claude Code's statusline; amended 2026-10-07 by next-a-mouses-state-is-a-line-in-herdrs-sidebar: it moves to herdr's sidebar; amended 2026-10-07: the script asks the owl's socket and starts nothing, says `owl down` with no count when nothing answers, and shows the jump key the person passes it)
 - [0082](0082-a-mouses-state-is-a-line-in-herdrs-sidebar.md) — A mouse's state is a line under its own workspace in herdr's sidebar, written by the owl and coloured by its first symbol; the main checkout's line says what is true of the repo; the mice re-sort only when one starts or stops needing the person; the Claude Code statusline goes (supersedes 0051, 0059; amends 0044, 0048, 0058, 0065)
 - [0038](0038-the-doctor-checks-and-probes-it-never-repairs.md) — The doctor checks and probes; it never repairs
 - [0043](0043-whiska-jump-moves-the-persons-focus.md) — `whiska jump` moves the person's focus, and lands on the house's main session (amended 2026-10-06 by next-the-person-decides-what-reaches-them: `waiting` has a slash command, `/inbox`, typed by the person; `jump` still has none; 2026-10-06: `whiska open <id|branch>` is a separate move into a mouse's own pane)
@@ -112,7 +112,7 @@ are the extracted, individually citable decisions.
 
 ## Performance
 
-- [0033](0033-the-hook-client-is-native-not-elixir.md) — The hook client is a native binary, not Elixir
+- [0033](0033-the-hook-asks-the-owl-over-a-socket.md) — The hook asks the owl over a socket, from bash, with the escript behind it (rewritten 2026-10-07: it said the hook would be a native binary; dropped)
 
 ## Proposed, not committed
 

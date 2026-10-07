@@ -53,7 +53,11 @@ defmodule Whiska.CLI do
 
     hook stop            Leave a finished turn's message on this repo's
                          doorstep for the owl to collect. Reads the Stop
-                         payload on stdin. Never opens a socket.
+                         payload on stdin.
+
+                         The hook shim asks the running owl first, over
+                         ~/.whiska/hook.sock, and runs these only when the
+                         owl does not answer.
 
     hook session-start   Print the rules a session starts with, for its role:
                          nothing outside herdr, the main session's rules in a
@@ -193,8 +197,10 @@ defmodule Whiska.CLI do
                          passes for a working Whiska), and what is waiting on
                          you anywhere on this machine — one thing named by its
                          branch, several as a count. Not repo-scoped; run it
-                         from anywhere. `whiska doctor` prints the herdr config
-                         entry that draws it.
+                         from anywhere. herdr's own script asks the running
+                         owl for the same line over ~/.whiska/owl.sock and
+                         starts nothing; `whiska doctor` prints the herdr
+                         config entry that draws it.
 
     reply <id> <text>    Answer a question. The answer is saved and the
                          question marked answered; only a short doorbell line
@@ -2340,6 +2346,8 @@ defmodule Whiska.CLI do
       it with your dotfiles:
 
       #{Install.tab_bar_right_snippet()}
+      The argument after the script is the key you bound to reach what waits,
+      shown on the line when something does; change it to yours, or drop it.
       Then `herdr server reload-config`. `whiska doctor` says whether it took.
       """)
     else

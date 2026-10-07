@@ -1108,6 +1108,67 @@ defmodule Whiska.DoctorTest do
       refute cwd =~ "/worktrees/"
       refute File.exists?(Path.join(repo, ".git/whiska/doorstep"))
     end
+
+    test "probes the installed binary even when an owl would answer the hook", %{
+      tmp: tmp,
+      repo: repo
+    } do
+      home = Path.join("/tmp", "wsk-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(home)
+      on_exit(fn -> File.rm_rf!(home) end)
+      owl = answering(Path.join(home, "hook.sock"), "ok 0\n")
+
+      whiska =
+        script(tmp, "whiska", "#!/bin/sh\ncat >/dev/null\necho 'usage: whiska' >&2\nexit 1\n")
+
+      escript = script(tmp, "escript", ~s|#!/bin/sh\nexec "$@"\n|)
+      env = Map.put(env(tmp, whiska, escript), "WHISKA_HOME", home)
+
+      assert %Check{status: :fail} = Doctor.probe(repo, "stop", env)
+      Process.exit(owl, :kill)
+    end
+  end
+
+  # A listener that sends `reply` to whoever connects, once they have said
+  # anything.
+  defp answering(path, reply) do
+    {:ok, listen} = :gen_tcp.listen(0, [:binary, active: false, ifaddr: {:local, path}])
+
+    spawn(fn ->
+      Stream.repeatedly(fn -> :gen_tcp.accept(listen) end)
+      |> Enum.each(fn {:ok, socket} ->
+        _ = :gen_tcp.recv(socket, 0, 1_000)
+        :gen_tcp.send(socket, reply)
+        :gen_tcp.close(socket)
+      end)
+    end)
+  end
+
+  describe "sockets/2 — the owl's two sockets answer (ADR-0025, ADR-0033)" do
+    setup do
+      home = Path.join("/tmp", "wsk-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(home)
+      on_exit(fn -> File.rm_rf!(home) end)
+      {:ok, paths: %{owl: Path.join(home, "owl.sock"), hook: Path.join(home, "hook.sock")}}
+    end
+
+    test "says nothing while no owl runs", %{paths: paths} do
+      assert Doctor.sockets([], paths) == []
+    end
+
+    # Its answer from a real owl is in Whiska.Owl.OwlSocketTest.
+    test "a warning naming the one that does not answer: hooks still work, slowly", %{
+      paths: paths
+    } do
+      a = answering(paths.owl, "🦉 watching\n")
+
+      assert [%Check{status: :warn, detail: detail, fix: fix}] = Doctor.sockets([123], paths)
+      assert detail =~ "hook.sock"
+      refute detail =~ "owl.sock"
+      assert fix =~ "whiska owl stop"
+
+      Process.exit(a, :kill)
+    end
   end
 
   # -- run, under a global install ---------------------------------------------

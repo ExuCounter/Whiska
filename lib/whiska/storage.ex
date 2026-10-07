@@ -73,8 +73,53 @@ defmodule Whiska.Storage do
          :ok <- openable(path),
          {:ok, pid} <- Repo.start_link([name: name] ++ repo_opts(path)) do
       point_at(name || pid)
-      migrate()
-      {:ok, pid}
+      migrated(pid)
+    end
+  end
+
+  # A database that is corrupt or locked raises from inside the migration, after
+  # the Repo process is already up. Left running, a named one would be found as
+  # `{:already_started, _}` by the next open in this VM, and an unnamed one would
+  # simply leak, so it is shut here before the failure travels on.
+  defp migrated(pid) do
+    migrate()
+    {:ok, pid}
+  catch
+    kind, reason ->
+      close(pid)
+      :erlang.raise(kind, reason, __STACKTRACE__)
+  end
+
+  @doc """
+  Run `work` against one house, on a connection of its own, then shut it.
+
+  The connection is unnamed, so any number of these can run at once in one VM
+  — the owl answering hooks for several repos at the same moment — without any
+  of them finding another's house under the one name `Whiska.Repo`. The process
+  is pointed back at whatever it was pointed at before, so a caller that already
+  had a house open keeps it.
+
+  Returns what `work` returns, or `{:error, reason}` when the house will not
+  open. Anything `work` raises still raises, after the connection is shut.
+  """
+  @spec within(Path.t(), (-> result)) :: result | {:error, term()} when result: term()
+  def within(main_checkout, work) do
+    before = Repo.get_dynamic_repo()
+
+    try do
+      case open(main_checkout, name: nil) do
+        {:ok, pid} ->
+          try do
+            work.()
+          after
+            close(pid)
+          end
+
+        {:error, _} = error ->
+          error
+      end
+    after
+      point_at(before)
     end
   end
 
@@ -102,7 +147,7 @@ defmodule Whiska.Storage do
   end
 
   @doc "Point this process at one house's Repo instance (a dynamic repo)."
-  @spec point_at(atom() | pid()) :: :ok
+  @spec point_at(atom() | pid() | nil) :: :ok
   def point_at(name) do
     Repo.put_dynamic_repo(name)
     :ok

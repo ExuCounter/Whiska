@@ -3,9 +3,10 @@ defmodule Whiska.Doorstep do
   Where a mouse leaves a question for the owl (ADR-0036).
 
   A directory in the house — `<main-checkout>/.git/whiska/doorstep/`, beside the
-  database — holding one file per entry the owl has not collected yet. The mouse's
-  `Stop` hook writes here unconditionally and never opens a socket, so whether
-  the owl is awake changes nothing about what the mouse does. Being in the house
+  database — holding one file per entry the owl has not collected yet. Every
+  finished turn is written here: by the owl when it answers the mouse's `Stop`
+  hook, by the escript when it does not, so whether the owl is awake changes
+  nothing about what is left (ADR-0036, amended). Being in the house
   rather than the worktree is what keeps an entry alive through `drop-worktree`.
 
   Two rules shape everything here:

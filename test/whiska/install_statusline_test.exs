@@ -98,38 +98,8 @@ defmodule Whiska.InstallStatuslineTest do
     end
   end
 
+  # What the script prints is driven for real in Whiska.Owl.HerdrStatusTest.
   describe "herdr_status_script/0 — what herdr's tab bar runs (ADR-0048)" do
-    test "prints the machine-wide line and nothing else" do
-      script = Install.herdr_status_script()
-
-      assert script =~ ~r/\A#!/
-      assert script =~ "whiska"
-      assert script =~ "statusline"
-      # No repo to be in: herdr draws one line for the whole session.
-      refute script =~ "CLAUDE_PROJECT_DIR"
-      refute script =~ "statusLine.command"
-      refute script =~ "--here"
-    end
-
-    test "resolves the binary and runtime exactly as the hook shim does" do
-      assert Install.herdr_status_script() =~ "WHISKA_BIN"
-      assert Install.herdr_status_script() =~ "command -v escript"
-    end
-
-    test "tells a crashed Whiska apart from a missing one" do
-      script = Install.herdr_status_script()
-
-      assert script =~ "whiska missing"
-      assert script =~ "whiska error"
-    end
-
-    test "says so when it cannot find Whiska, rather than going blank" do
-      # herdr clears the entry on empty output or failure, which is
-      # indistinguishable from nothing being configured — and the owl's state
-      # is the one thing that must always be shown (ADR-0027 addendum).
-      assert Install.herdr_status_script() =~ "whiska missing"
-    end
-
     test "lives in the whiska home, not in any repo" do
       assert Install.herdr_status_path() == Path.join(Whiska.OpenHouses.home(), "herdr-status.sh")
     end
@@ -142,7 +112,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert snippet =~ "[ui]"
       assert snippet =~ "tab_bar_right"
       assert snippet =~ ~s(type = "command")
-      assert snippet =~ Install.herdr_status_path()
+      assert snippet =~ ~s(command = "#{Install.herdr_status_path()} '⌃a space'")
       assert snippet =~ "interval_seconds = #{Install.herdr_status_interval()}"
       assert snippet =~ "timeout_seconds = #{Install.herdr_status_timeout()}"
     end

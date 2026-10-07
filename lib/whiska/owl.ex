@@ -22,6 +22,13 @@ defmodule Whiska.Owl do
   `whiska owl` runs it: under launchd or systemd with no arguments, opening
   what the record says (ADR-0040), or in the foreground with houses named on
   the command line. `whiska stop` reaching one house over a socket comes later.
+
+  Beside the houses it answers on two Unix sockets in the whiska home
+  (`Whiska.Owl.Listener`): `owl.sock`, read-only, for the person's scripts and
+  herdr's tab bar (`Whiska.Owl.Answers`, ADR-0025), and `hook.sock`, for
+  Whiska's own hooks (`Whiska.Owl.Hooks`, ADR-0033). `:sockets` names another
+  folder for them, or `false` for none; `:answers` pins what the read-only one
+  reads, for a test.
   """
 
   use Supervisor
@@ -42,22 +49,45 @@ defmodule Whiska.Owl do
 
   @impl true
   def init(opts) do
-    children = [
-      {Registry, keys: :unique, name: @registry},
-      {DynamicSupervisor, name: @houses, strategy: :one_for_one, extra_arguments: [opts]}
-    ]
+    {sockets, opts} = Keyword.pop_lazy(opts, :sockets, &OpenHouses.home/0)
+    {answers, opts} = Keyword.pop(opts, :answers, [])
+
+    children =
+      [
+        {Registry, keys: :unique, name: @registry},
+        {DynamicSupervisor, name: @houses, strategy: :one_for_one, extra_arguments: [opts]}
+      ] ++ listeners(sockets, answers)
 
     Supervisor.init(children, strategy: :rest_for_one)
+  end
+
+  # The two sockets beside the open-houses record (ADR-0025): the one the
+  # person's scripts read, and the one Whiska's own hooks ask (ADR-0033).
+  # `answers` pins what the read-only one reads, for a test.
+  defp listeners(false, _answers), do: []
+
+  defp listeners(dir, answers) do
+    [
+      {__MODULE__.Listener,
+       path: Path.join(dir, "owl.sock"), handler: __MODULE__.Answers, handler_opts: answers},
+      {__MODULE__.Listener, path: Path.join(dir, "hook.sock"), handler: __MODULE__.Hooks}
+    ]
+  end
+
+  @doc "Where the owl's two sockets live: the read-only one and the hook one."
+  @spec socket_paths() :: %{owl: Path.t(), hook: Path.t()}
+  def socket_paths do
+    home = OpenHouses.home()
+    %{owl: Path.join(home, "owl.sock"), hook: Path.join(home, "hook.sock")}
   end
 
   @doc """
   The pids of the owls running on this machine, from the process table.
 
-  No pidfile and no global socket yet (ADR-0025 is unbuilt), so the process
-  table is the only place to look. Shared by `whiska doctor` and the
-  statusline so the two cannot disagree about whether the owl is up. When the
-  owl's socket exists this asks it instead, and learns which houses are open
-  for free.
+  Shared by `whiska doctor` and `whiska statusline` so the two cannot disagree
+  about whether the owl is up. The process table, not the socket: a socket
+  answers only once the owl is listening, and the doctor's `sockets` line is
+  what says whether it does.
   """
   @spec pids() :: [pos_integer()]
   def pids do

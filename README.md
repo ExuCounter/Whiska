@@ -179,6 +179,27 @@ layout rules. It prints one line of JSON and always exits 0:
 Every field is always present. These fields are stable: a change to them bumps
 `version`. Read one with `jq -r '.main_workspace // empty'`.
 
+### `~/.whiska/owl.sock`, for scripts
+
+The running owl answers questions over a Unix socket, so a script can ask without
+starting Whiska: a few milliseconds instead of a quarter of a second. Send one line, get
+one line back, then the owl closes the connection:
+
+```
+echo waiting | nc -U ~/.whiska/owl.sock | jq -r '.waiting[] | "\(.repo)  \(.branch)  \(.pointer)"'
+```
+
+| Request | Answer |
+| --- | --- |
+| `waiting` | `{"version":1,"waiting":[…]}` — everything waiting on every repo, oldest first. Each row has the fields `whiska waiting --json` prints: `repo`, `main_checkout`, `branch`, `id` (`null` while still on the doorstep), `kind`, `status`, `pointer`, `age_seconds`, `pane`, `waits`, `held`. |
+| `show <id> <main_checkout>` | `{"version":1,"question":{…}}` — one question: `id`, `repo`, `main_checkout`, `branch`, `kind`, `status`, `pointer`, `text` (the whole message), `asked_at` (ISO 8601). Ids are numbered per repo, so the main checkout is needed; everything after the id is the path, spaces and all. |
+| `line [hint]` | The tab-bar line, as plain text. A hint is added at the end when something not held is waiting. |
+| anything else | `{"version":1,"error":"…"}` — `unknown request`, `no such house`, `no such question`, `unreadable house`. |
+
+`version` is `1` and changes only when a field changes. No answer at all means the owl is
+not running; `whiska waiting --json` reads the same rows without it. The socket lives
+under `WHISKA_HOME` when that is set, and only your own user can open it.
+
 ## Advanced
 
 - **A repo that cannot carry a committed `.claude/`** — `whiska init --global`, once, for
@@ -186,7 +207,10 @@ Every field is always present. These fields are stable: a change to them bumps
   [Details](docs/internals.md#the-global-install).
 - **The machine-wide tab-bar line** — `whiska owl install` writes
   `~/.whiska/herdr-status.sh` and prints a `tab_bar_right` entry; paste it into
-  `~/.config/herdr/config.toml` yourself and run `herdr server reload-config`.
+  `~/.config/herdr/config.toml` yourself and run `herdr server reload-config`. The script
+  asks the owl over `owl.sock` and starts nothing. Its one argument is the key you bound
+  to reach what waits, shown when something does — `herdr-status.sh '⌃a space'` draws
+  `🦉 watching · 🐱 2 whiskas · ⌃a space`; leave it off and no hint is shown.
   [Details](docs/internals.md#wiring-the-tab-bar-and-the-sidebar).
 - **`keep` on a `CLAUDE.md` block marker** — claims that part so `init` never rewrites it.
   [Details](docs/internals.md#the-claudemd-block).
@@ -212,7 +236,9 @@ Where the spec and an ADR disagree, the ADR wins.
 
 ## Development
 
-Elixir/OTP, SQLite via Ecto, one escript serving both the per-event hooks and the owl.
+Elixir/OTP, SQLite via Ecto, one escript serving the owl. The hooks are a bash shim that
+asks the running owl over a socket and runs the same escript only when the owl does not
+answer (ADR-0033).
 
 ```bash
 mix deps.get

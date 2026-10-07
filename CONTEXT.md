@@ -492,21 +492,39 @@ statusline, the doctor — trusts it only while an owl is running. It says nothi
 whether a house exists; that is the house's own affair.
 _Avoid_: registry, manifest, house list (it lists open houses, not houses)
 
+**Owl socket**:
+The owl's read-only Unix socket, `~/.whiska/owl.sock` (ADR-0025): one request line in —
+`waiting`, `show <id> <main_checkout>`, `line [hint]` — one line out. It is what the
+person's own scripts and herdr's tab bar ask instead of starting Whiska, its format is
+documented and versioned, and it only ever reads.
+_Avoid_: global socket (its name before it was built, and the hook socket is global too),
+API, endpoint, server
+
+**Hook socket**:
+The owl's private Unix socket for Whiska's own hooks, `~/.whiska/hook.sock` (ADR-0033).
+The hook shim sends the hook's name, its environment and its payload; the owl runs the
+same hook code the escript would and answers. Anything but an answer sends the shim to
+the escript, so it makes hooks fast and never makes them depend on the owl.
+_Avoid_: owl socket (the read-only one), daemon socket, RPC
+
 **Statusline**:
 The line Whiska draws on herdr's tab bar, once for the whole machine (ADR-0048): the
 owl's state, always, whether the person is **away**, and which whiskas have something
-waiting — `🦉 watching`, `🦉 watching · away · 🐱 2 whiskas`,
-`🦉 owl down · 🐱 2 whiskas`. A repo's own mice are **sidebar lines**, not a statusline:
-Whiska draws nothing in Claude Code's statusline, and `whiska init` takes out the one an
-older init wrote (ADR-0082).
+waiting — `🦉 watching`, `🦉 watching · away · 🐱 2 whiskas`, and `🦉 owl down` when the
+owl does not answer. When something waits it ends with the key the person bound to reach
+it, if they passed one to the script: `🦉 watching · 🐱 2 whiskas · ⌃a space`. A repo's
+own mice are **sidebar lines**, not a statusline: Whiska draws nothing in Claude Code's
+statusline, and `whiska init` takes out the one an older init wrote (ADR-0082).
 _Avoid_: status bar, status line as two words (see **Worktree-status marker**), segment
 (one part of it, not the line), tab bar (herdr's surface, not a name for the line
 itself)
 
 **Doorstep**:
 Where a mouse leaves a question for the owl: a directory in the house, holding entries the
-owl has not collected yet. A mouse always leaves its question here and never hands it over
-directly, so whether the owl is awake changes nothing about what the mouse does.
+owl has not collected yet. Every question gets into a house through here and only through
+here. The owl writes the entry when it answers the mouse's `Stop` hook over the **hook
+socket**, and the escript writes the same entry when it does not, so whether the owl is
+awake changes nothing about what is left (ADR-0036, amended).
 _Avoid_: spool, outbox, queue (the delivery queue is a different thing — the doorstep is
 what a question sits on before it ever reaches that queue), larder, inbox (the person's
 listing of everything waiting, which reads this among other things — see **Inbox**)

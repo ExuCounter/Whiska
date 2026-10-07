@@ -15,7 +15,7 @@ C4Container
   System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
 
   Container_Boundary(built, "Built") {
-    Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; resolves runtime at fire time, fails open, with a visible hook error in a worktree. The global copy stands down where the repo has its own")
+    Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; asks the owl first, else resolves the runtime at fire time; fails open, with a visible hook error in a worktree. The global copy stands down where the repo has its own")
     Container(statusline, "herdr-status.sh", "bash", "Machine-level status script in ~/.whiska; herdr's tab bar runs it on a timer")
     Container(cli, "whiska", "Elixir escript", "Hooks, init, mode, shape - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
@@ -27,16 +27,19 @@ C4Container
     Container(spec, "Spec", ".whiska-spec.md file", "What a grilled brief will build, at the worktree root; the mouse writes it, git ignores it")
     Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
+    Container(owlsock, "owl.sock", "Unix socket, ~/.whiska/", "Read-only and documented: waiting, show one question, the tab bar line")
+    Container(hooksock, "hook.sock", "Unix socket, ~/.whiska/", "Private: the shim asks it first, and the owl runs the hook's own code")
     Container(svc, "Owl's job", "launchd com.whiska.owl, or systemd whiska-owl.service", "Starts the owl at login, restarts a crash; runs the owl.sh wrapper")
   }
 
   Container_Boundary(todo, "Designed, not built") {
-    Container(sockets, "Sockets", "Unix, per-repo and global", "Push approval, mouse identity, cross-repo reads")
+    Container(sockets, "Repo sockets", "Unix, per-repo", "Push approval, mouse identity")
   }
 
   Rel(person, cli, "Runs whiska init / init --global / uninstall / mode / owl / questions")
   Rel(herdr, statusline, "Tab bar runs it every 5 seconds and shows its last line")
-  Rel(statusline, cli, "Runs whiska statusline")
+  Rel(statusline, owlsock, "Asks for the line with nc; owl down when nothing answers")
+  Rel(owl, owlsock, "Answers waiting, show and line from every recorded house")
   Rel(cli, herdr, "watch works out the sidebar's lines now, reading herdr's panes and workspaces")
   Rel(cli, db, "questions, statusline and waiting read every recorded house")
   Rel(cli, doorstep, "questions, statusline and waiting count what is uncollected")
@@ -46,14 +49,17 @@ C4Container
   Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
   Rel(herdr, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session; SessionStart in every herdr session")
   Rel(shim, flag, "user-prompt-submit exits at once unless it is there")
-  Rel(shim, cli, "Execs with the payload on stdin", "JSON")
+  Rel(shim, hooksock, "Asks first, with nc", "hook name, environment, payload")
+  Rel(owl, hooksock, "Runs the same hook modules, with the hook's environment")
+  Rel(shim, cli, "Execs with the payload on stdin when the owl does not answer", "JSON")
   Rel(cli, db, "reply saves the answer first; UserPromptSubmit hands it over and stamps it taken")
   Rel(cli, flag, "reply raises it; the take lowers it")
   Rel(cli, herdr, "reply rings the mouse's doorbell - one fixed line, never the answer")
   Rel(cli, marker, "Reads, minting one on first use")
   Rel(cli, db, "shape records a new mouse's mode and model before Claude starts")
   Rel(cli, spec, "shape and mode make git ignore it, through the main checkout's info/exclude")
-  Rel(cli, doorstep, "Stop hook writes one entry, unconditionally")
+  Rel(cli, doorstep, "Stop hook writes one entry when the owl does not answer")
+  Rel(owl, doorstep, "Stop over the hook socket writes the entry; the open house collects it at once")
   Rel(cli, owl, "whiska owl boots it in the foreground")
   Rel(cli, svc, "whiska owl install / stop / start / uninstall", "launchctl or systemctl --user")
   Rel(svc, owl, "Runs whiska owl with no arguments; restarts on a crash only")
@@ -96,13 +102,25 @@ mouse's branch, several as a count. `whiska owl install` writes it; a `tab_bar_r
 command entry in the person's own herdr config runs it every five seconds and shows its
 last line. Whiska never edits that config: it is machine-global and hand-edited, and a
 per-repo `init` writing into it is the boundary ADR-0016 draws. `whiska doctor` reads it
-and prints the entry to paste. The script shares the shim's binary-and-runtime lookup,
-generated from the same source, so the two cannot drift, and prints `🦉 whiska missing`
-rather than nothing when the lookup fails — herdr clears an entry that produces no
+and prints the entry to paste. The script starts nothing: it asks the owl for the line over
+`owl.sock` with `nc -U`, passing on its one argument, the jump key the person bound
+(`'⌃a space'`), which the owl adds only when something not held is waiting. When nothing
+answers it prints `🦉 owl down`, and `🦉 nc missing` or `🦉 nc cannot reach the owl` when
+the tool is the problem, rather than nothing — herdr clears an entry that produces no
 output, which would look exactly like nothing being configured.
 
+**Two sockets beside the record, one for scripts and one for hooks** (ADR-0025,
+ADR-0033). `owl.sock` is read-only and documented: one request line in, one line of JSON
+or text out, a `version` that changes only when a field does, so the person's own
+scripts can lean on it the way they lean on `whiska where`. `hook.sock` is Whiska's own:
+the shim sends it the hook's name, the few environment variables the hooks read and the
+payload, and the owl runs the same `Whiska.Hook.*` modules the escript would. It is
+private and believes its caller as the escript believes its stdin — both sockets are
+owner-only, and a hook request approves nothing. Neither is the per-repo socket ADR-0024
+hardens with a peer-process check; that one is still designed only.
+
 **The open-houses record is the one machine-level file** (ADR-0039). It sits in
-`~/.whiska/`, the folder ADR-0025 reserves for the global socket, and says which houses
+`~/.whiska/`, beside the owl's two sockets (ADR-0025), and says which houses
 the owl has open — not which exist (ADR-0003). The owl writes it as it opens and shuts
 houses and leaves it behind when it stops, so `whiska owl` with no arguments reopens the
 same houses. The doctor reads it to know which houses the owl has open, and only while an owl is in
@@ -120,8 +138,10 @@ opens the house, so the mark is always about the run happening now.
 
 **`whiska.sh` is separate from the binary on purpose** (ADR-0035). The committed
 `settings.json` names only the shim — now with a subcommand argument, `pre-tool-use` or
-`stop` — so nothing machine-specific reaches a shared repo. The shim resolves the runtime
-when the hook fires, so an Erlang upgrade needs no re-`init`.
+`stop` — so nothing machine-specific reaches a shared repo. The shim asks the owl over
+`hook.sock` first, and only when that gets no answer resolves the runtime, when the hook
+fires, so an Erlang upgrade needs no re-`init`. Moving the hooks onto the owl changed the
+shim and nothing in `settings.json`, as ADR-0035 promised.
 
 **The house database lives under the main checkout's `.git/`**, which every worktree
 shares. That is what puts all of a repo's mice in one house instead of one per worktree,
@@ -136,10 +156,11 @@ worktree down, so `whiska shape` and `whiska mode` add `/.whiska-spec.md` to the
 checkout's `.git/info/exclude`, which every worktree of the repo reads. The mouse never
 writes that file itself: it is in the main checkout (ADR-0013).
 
-**The doorstep is a directory, not a socket** (ADR-0036). The `Stop` hook writes a file
-and exits — unconditionally, whether or not the owl is running. "The owl is down" is
-therefore not a case: there is no fallback path because there is no primary path to fall
-back from. Entries are written to a temp name and renamed into place, so the owl never
+**The doorstep is a directory, not a socket** (ADR-0036, amended 2026-10-07). Every
+finished turn lands there as a file, whoever writes it: the owl, when it answers the hook
+socket, and then the open house collects it at once; the escript, when the owl does not
+answer. A dead owl still loses nothing, and the doorstep stays the one way a question
+gets into a house. Entries are written to a temp name and renamed into place, so the owl never
 reads a half-written file; collected ones are renamed `.collected` rather than deleted
 (ADR-0007), which means `ls *.json` on the doorstep is exactly what is still waiting —
 answerable with no database and no owl.
@@ -163,7 +184,7 @@ neither manager's `PATH` can find `escript`, and the wrapper is generated from t
 fragments as the hook shim, so the runtime is found at every launch and an Erlang upgrade
 needs no reinstall. Both restart on a crash only, which is what lets `whiska owl stop` be a
 clean exit that stays stopped without removing the job. `whiska stop` is a different,
-per-house verb (ADR-0003) and waits for the socket.
+per-house verb (ADR-0003) and waits for the per-repo socket.
 
 **One owl, many houses** (ADR-0001). An earlier draft gave each repo its own OS process;
 that fought the service manager and made "what is waiting on me anywhere" a new subsystem. Each house
@@ -173,7 +194,8 @@ is supervised independently, so one project's house crashing is invisible to eve
 ADR-0048). Each house owns its own idle-gated queue to its own main session, and that is
 the only place Whiska ever types. Telling the person that something is waiting in another
 repo is the tab bar's job, not the owl's: herdr runs the machine-wide status script every
-five seconds and it reads every recorded house off disk. The Nudge process that once
+five seconds, it asks the owl over `owl.sock`, and the owl reads every recorded house.
+The Nudge process that once
 typed into other sessions is deleted.
 
 **herdr is the one boundary with a fake behind it** (ADR-0031). `Whiska.Herdr` is a
@@ -183,5 +205,5 @@ collection, classification — is plain code with nothing mocked.
 
 ## What is still designed only
 
-The per-repo and global sockets with the peer-PID check (ADR-0024, ADR-0025);
-`whiska stop` for one house; push approval; cross-repo commands.
+The per-repo sockets with the peer-PID check (ADR-0024); `whiska stop` for one house;
+push approval.

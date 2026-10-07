@@ -37,24 +37,47 @@ defmodule Whiska.Hook.UserPromptSubmit do
   alias Whiska.Storage
 
   @doc "The hook's stdout for one payload, or `:none` to print nothing."
-  @spec run(String.t()) :: String.t() | :none
-  def run(raw_payload) do
+  @spec run(String.t(), map()) :: String.t() | :none
+  def run(raw_payload, env \\ System.get_env()) do
+    case handover(raw_payload, env) do
+      {:error, _} ->
+        :none
+
+      {output, take} ->
+        take.()
+        output
+
+      :none ->
+        :none
+    end
+  end
+
+  @doc """
+  The hook's stdout and the stamp that marks its answers taken, apart.
+
+  The owl answers this hook over a socket, and an answer stamped taken before it
+  reached the session is one nobody rings for again: so it sends the output
+  first and stamps after, only once the output is written. A house that will
+  not open is `{:error, reason}`, which the owl leaves to the escript.
+  """
+  @spec handover(String.t(), map()) :: {String.t(), (-> :ok)} | :none | {:error, term()}
+  def handover(raw_payload, env) do
     with {:ok, payload} <- decode(raw_payload),
-         {:ok, layout} <- Session.worktree(payload),
-         {:ok, waiting} <- Isolated.run(fn -> in_house(layout, &waiting/1) end) do
+         {:ok, layout} <- Session.worktree(payload, env),
+         {:ok, waiting} <- Isolated.run(fn -> in_house(layout, &waiting(&1, env)) end) do
       hand_over(layout, waiting)
     else
-      {:error, reason} when reason != :not_a_mouse ->
+      {:error, reason} = error when reason != :not_a_mouse ->
         warn("could not hand over a saved answer (#{inspect(reason)})")
-        :none
+        error
 
       _nothing ->
         :none
     end
   end
 
-  defp waiting(layout) do
-    if Session.main_pane?(Storage.main_pane()),
+  defp waiting(layout, env) do
+    if Session.main_pane?(Storage.main_pane(), env),
       do: {:ok, :not_a_mouse},
       else: ours(layout)
   end
@@ -81,6 +104,10 @@ defmodule Whiska.Hook.UserPromptSubmit do
   end
 
   defp hand_over(layout, {mouse_id, answers}) do
+    {encode(answers), fn -> take(layout, mouse_id, answers) end}
+  end
+
+  defp take(layout, mouse_id, answers) do
     case Isolated.run(fn -> in_house(layout, fn _ -> stamp(mouse_id, answers) end) end) do
       {:ok, _} ->
         AnswerFlag.clear(layout.worktree_root)
@@ -89,7 +116,7 @@ defmodule Whiska.Hook.UserPromptSubmit do
         warn("handed the answer over but could not stamp it (#{inspect(other)})")
     end
 
-    encode(answers)
+    :ok
   end
 
   defp stamp(mouse_id, answers) do
@@ -100,17 +127,7 @@ defmodule Whiska.Hook.UserPromptSubmit do
   end
 
   defp in_house(layout, work) do
-    case Storage.open(layout.main_checkout) do
-      {:ok, handle} ->
-        try do
-          work.(layout)
-        after
-          Storage.close(handle)
-        end
-
-      other ->
-        other
-    end
+    Storage.within(layout.main_checkout, fn -> work.(layout) end)
   end
 
   defp encode(answers) do

@@ -32,8 +32,8 @@ C4Dynamic
   ContainerDb(db, "House database", "SQLite", "questions")
 
   Rel(mousepane, jsonl, "End of a turn: the stop hook reads the tail. A subagent still out and it writes nothing")
-  Rel(mousepane, doorstep, "Otherwise the turn is over: write a file and exit")
-  Rel(herdr, collection, "Reports that mouse done or idle")
+  Rel(mousepane, doorstep, "Otherwise the turn is over: one entry lands, written by the owl over its hook socket, or by the escript when the owl does not answer")
+  Rel(herdr, collection, "Reports that mouse done or idle, unless the owl that wrote the entry has already asked")
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by marker")
   Rel(delivery, db, "Release what nothing can answer; then, among what the person has not set aside (away, focus, hold), and only if the slot is free: any finished line to tell, otherwise the oldest open question")
@@ -57,7 +57,7 @@ marker (ADR-0049).
 Nothing sits in front of the stop hook, and nothing in Whiska knows whether that pipeline
 ran.
 
-## Steps 1–2 — the hook reads the turn, then writes, and never opens a socket
+## Steps 1–2 — the hook reads the turn, then the entry lands on the doorstep
 
 A background subagent ends the mouse's turn every time the mouse waits on one, and the
 finish pipeline sends three (ADR-0049). So the hook's first act is to read the tail of
@@ -65,17 +65,23 @@ the transcript Claude Code hands it: an agent launched with no hand-back against
 the turn is not over, and the hook exits quietly with nothing written (ADR-0052). Anything
 it cannot read counts as over, so the direction it fails in is noise rather than silence.
 
-Then it writes, and that write never opens a socket (ADR-0036).
+Then the entry is written, and where it goes does not depend on whether the owl is up
+(ADR-0036, amended 2026-10-07). The shim asks the owl first, over `~/.whiska/hook.sock`
+(ADR-0033): the owl runs the same `Whiska.Hook.Stop`, with the hook's own environment,
+and leaves the entry on the doorstep itself. When the owl does not answer within two
+seconds — no socket, a socket file a crashed owl left, an owl that is hung — the shim runs
+the escript, which writes the very same entry.
 
-The obvious design connects to the house's socket, and then has to answer what happens
-when nothing is listening. The spec required that case to "fail loudly", but loudly has
-no target: the hook is a short-lived process whose stderr lands in the mouse's own
-transcript, seen by the mouse and nobody else. So the hook writes to the doorstep and
-exits, every time. No connect timeout, no retry, no error handling, and no second code
-path that differs between a healthy machine and a broken one.
+What the original design defended still holds. A hook cannot "fail loudly" to anyone:
+its stderr lands in the mouse's own transcript, seen by the mouse and nobody else. So a
+dead owl is not an error the hook reports; it is simply the slower path, and the
+question still reaches the doorstep. There are two transports now, and one piece of logic
+behind both. The doorstep is still the only way a question gets into a house.
 
 ## Steps 3–4 — collection is event-driven, not a sweep
 
+When the owl wrote the entry itself, it asks the house to collect at once, after the
+shim has its answer, and herdr's event that follows usually finds nothing left. Otherwise
 herdr reporting a mouse `done` or `idle` is what triggers collection of that house;
 opening the house collects too, and a slow timer is only a backstop. An idle collection
 that finds the doorstep empty — the mouse's `Stop` hook may still be writing — looks again

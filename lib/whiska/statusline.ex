@@ -23,7 +23,10 @@ defmodule Whiska.Statusline do
     entry uncollected past the backstop still means down, whatever the process
     table says. Delivery cannot report its own outage, so this is the only
     place the outage can appear — and it still works, because the line is
-    drawn by herdr's server rather than by the owl.
+    drawn by herdr's server rather than by the owl. herdr's script asks the
+    owl for this line over its socket (`Whiska.Owl.Answers`); the owl that
+    answers is up by definition, so only the backstop half applies there, and
+    the script says down itself when nothing answers.
   - **Waiting** is `Whiska.Waiting`' own listing, every recorded house's open
     and sent questions plus the entries still on its doorstep, so the line and
     `whiska waiting` can never disagree about what "waiting" means. One thing
@@ -82,11 +85,25 @@ defmodule Whiska.Statusline do
   waits. Never empty. Nothing per repo is on it — a focus, a held mouse — since
   the bar is one line for the whole machine.
   """
-  @spec render(summary()) :: String.t()
-  def render(%{owl: owl, waiting: waiting} = summary) do
-    [owl_segment(owl), away_segment(Map.get(summary, :away?, false)), waiting_segment(waiting)]
+  @spec render(summary(), keyword()) :: String.t()
+  def render(%{owl: owl, waiting: waiting} = summary, opts \\ []) do
+    waits = waiting_segment(waiting)
+
+    [owl_segment(owl), away_segment(Map.get(summary, :away?, false)), waits, hint(waits, opts)]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" · ")
+  end
+
+  # The key the person bound to reach what waits, as they wrote it in their own
+  # herdr entry: Whiska never reads their keybindings (ADR-0048). Shown only
+  # beside something to reach.
+  defp hint(nil, _opts), do: nil
+
+  defp hint(_waits, opts) do
+    case Keyword.get(opts, :hint) do
+      hint when is_binary(hint) and hint != "" -> hint
+      _none -> nil
+    end
   end
 
   defp owl_segment(:watching), do: "🦉 watching"

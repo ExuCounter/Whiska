@@ -3,7 +3,8 @@ defmodule Whiska.Hook.SessionStartTest do
   The rules a session starts with, chosen by its role (ADR-0081):
   none outside herdr, the main session's in herdr, a mouse's in a worktree.
   """
-  # Identity reads HERDR_PANE_ID from the OS env, which is process-wide.
+  # Serial: the setup clears HERDR_PANE_ID in the OS env, which is process-wide;
+  # the hook reads it from the environment it is handed.
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
@@ -80,9 +81,8 @@ defmodule Whiska.Hook.SessionStartTest do
     {:ok, handle} = Whiska.Storage.open(c.main)
     :ok = Whiska.Storage.set_main_pane("w1:p2")
     Whiska.Storage.close(handle)
-    System.put_env("HERDR_PANE_ID", "w1:p2")
 
-    rules = c.worktree |> start(herdr(c.home)) |> context()
+    rules = c.worktree |> start(Map.put(herdr(c.home), "HERDR_PANE_ID", "w1:p2")) |> context()
 
     assert rules =~ "# Whiska: rules for the main session"
     refute rules =~ Marker.render(:done)

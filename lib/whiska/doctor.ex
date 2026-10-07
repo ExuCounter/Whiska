@@ -43,6 +43,7 @@ defmodule Whiska.Doctor do
   alias Whiska.Layout
   alias Whiska.Marker
   alias Whiska.OpenHouses
+  alias Whiska.Owl
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.ServiceManager
@@ -77,7 +78,8 @@ defmodule Whiska.Doctor do
   default), `:linger` (whether the owl outlives a logout, the manager's own
   answer by default), `:owl_started_at`
   (a function giving when a pid started, `ps` by default), `:desktop` (where a
-  hoot herdr will not show is raised, `Whiska.Desktop.impl/0` by default).
+  hoot herdr will not show is raised, `Whiska.Desktop.impl/0` by default),
+  `:socket_paths` (the owl's two sockets, `Whiska.Owl.socket_paths/0` by default).
   """
   @spec run(Path.t(), keyword()) :: Report.t()
   def run(main_checkout, opts \\ []) do
@@ -91,6 +93,7 @@ defmodule Whiska.Doctor do
     lingers = Keyword.get(opts, :linger, &manager.linger/0)
     owl_started_at = Keyword.get(opts, :owl_started_at, &Whiska.Owl.started_at/1)
     desktop = Keyword.get(opts, :desktop, Whiska.Desktop.impl())
+    socket_paths = Keyword.get_lazy(opts, :socket_paths, &Owl.socket_paths/0)
     now = DateTime.utc_now()
     pids = owl_pids.()
     {installed?, agent} = supervision.()
@@ -128,8 +131,9 @@ defmodule Whiska.Doctor do
           owl(pids, Map.new(pids, &{&1, owl_started_at.(&1)}), installed_at, binary_path)
         ] ++
         supervision(manager, ready.(), installed?, agent, pids, lingers) ++
+        [open_houses(OpenHouses.read(record), main_checkout, pids)] ++
+        sockets(pids, socket_paths) ++
         [
-          open_houses(OpenHouses.read(record), main_checkout, pids),
           tab_bar(
             read_herdr_config(env),
             File.exists?(Install.herdr_status_path()),
@@ -309,6 +313,65 @@ defmodule Whiska.Doctor do
 
   def owl(pids, _started_at, _installed_at, _installed),
     do: Check.ok("owl", "running (pid #{Enum.join(pids, ", ")})")
+
+  @doc """
+  Whether a running owl answers on its two sockets (ADR-0025, ADR-0033).
+
+  No line while no owl runs: `owl` already says so. One that does not answer
+  is a warning, never a failure — every hook falls back to the escript and
+  still does its job, a quarter of a second slower each time, and the tab bar
+  says the owl is down.
+  """
+  @spec sockets([pos_integer()], %{owl: Path.t(), hook: Path.t()}) :: [Check.t()]
+  def sockets(pids, paths \\ Owl.socket_paths())
+
+  def sockets([], _paths), do: []
+
+  def sockets(_pids, paths) do
+    silent =
+      [owl: answers?(paths.owl, "line\n", "🦉"), hook: answers?(paths.hook, hook_probe(), "ok ")]
+      |> Enum.reject(fn {_which, answered?} -> answered? end)
+      |> Enum.map(fn {which, _} -> Path.basename(paths[which]) end)
+
+    case silent do
+      [] ->
+        [Check.ok("sockets", "the owl answers on #{paths.owl} and #{paths.hook}")]
+
+      names ->
+        [
+          Check.warn(
+            "sockets",
+            "the owl is running and does not answer on #{Enum.join(names, " or ")} — " <>
+              "hooks still work, through the escript, a quarter of a second slower each",
+            @restart_owl
+          )
+        ]
+    end
+  end
+
+  # A pre-tool-use call from outside any worktree: nobody's, so it decides
+  # nothing and writes nothing.
+  defp hook_probe do
+    payload = JSON.encode!(%{"cwd" => "/", "tool_name" => "Read", "tool_input" => %{}})
+    "hook 1 pre-tool-use #{byte_size(payload)}\n\n" <> payload
+  end
+
+  defp answers?(path, request, starts_with) do
+    with {:ok, socket} <- :gen_tcp.connect({:local, path}, 0, [:binary, active: false], 1_000) do
+      try do
+        with :ok <- :gen_tcp.send(socket, request),
+             {:ok, answer} <- :gen_tcp.recv(socket, 0, 2_000) do
+          String.starts_with?(answer, starts_with)
+        else
+          _ -> false
+        end
+      after
+        :gen_tcp.close(socket)
+      end
+    else
+      _ -> false
+    end
+  end
 
   # Every owl stale is the restart; some of them stale leaves the current one
   # running and stops the rest.
@@ -1213,9 +1276,13 @@ defmodule Whiska.Doctor do
   # through to `whiska hook`, where the temporary `cwd` makes it a no-op. A nil
   # value is what unsets it: a key left out is inherited from the doctor's own
   # environment, which a Claude session sets.
+  # The hook socket points at nothing, so the probe runs the installed binary
+  # even while an owl would answer for it: the binary is what every hook falls
+  # back on, and the owl's own answer is the `sockets` check's to judge.
   defp probe_env(env, hook) do
     env
     |> Map.put("CLAUDE_PROJECT_DIR", nil)
+    |> Map.put("WHISKA_HOOK_SOCKET", "/dev/null/no-owl")
     |> then(&if hook == "session-start", do: Map.put(&1, "HERDR_ENV", "1"), else: &1)
     |> Map.to_list()
   end

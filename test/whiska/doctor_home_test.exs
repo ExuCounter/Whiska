@@ -28,7 +28,7 @@ defmodule Whiska.DoctorHomeTest do
   end
 
   describe "tab_bar/2 — the herdr entry that draws the owl's line (ADR-0048)" do
-    test "the tilde form of the path counts: herdr runs the entry through a login shell" do
+    test "the tilde form of the path counts, with the hint after it: herdr runs the entry through a login shell" do
       whiska_home = Path.join(Whiska.ServiceManager.user_home(), ".whiska")
       previous = Application.get_env(:whiska, :home)
       Application.put_env(:whiska, :home, whiska_home)
@@ -36,7 +36,7 @@ defmodule Whiska.DoctorHomeTest do
 
       config = String.replace(Install.tab_bar_right_snippet(), whiska_home, "~/.whiska")
 
-      assert config =~ ~s(command = "~/.whiska/herdr-status.sh")
+      assert config =~ ~s(command = "~/.whiska/herdr-status.sh '⌃a space'")
       assert %Check{status: :ok} = Doctor.tab_bar(config, true)
     end
   end

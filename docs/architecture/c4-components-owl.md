@@ -6,7 +6,9 @@ Level 3 for the owl, which is real code as of the owl slice. Everything here is 
 `lib/whiska/cleanup.ex`, `lib/whiska/pickup.ex`, `lib/whiska/doorbell.ex`,
 `lib/whiska/mouse_pane.ex`, `lib/whiska/git.ex` and
 `lib/whiska/question/marker.ex`, each
-with a test beside it.
+with a test beside it. The two sockets the owl answers on — `Whiska.Owl.Listener`,
+`Whiska.Owl.Answers` and `Whiska.Owl.Hooks` — are tested through their real clients:
+`nc -U`, the hook shim run by `/bin/bash`, and herdr's tab bar script.
 
 ```mermaid
 C4Component
@@ -15,10 +17,16 @@ C4Component
   System_Ext(herdrd, "herdr", "Panes and agent status")
   System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
   Container_Ext(cliboot, "whiska owl", "escript command", "Boots the owl in the foreground")
+  Container_Ext(shim, "whiska.sh", "bash", "Hook shim; asks the owl first")
+  Container_Ext(tabbar, "herdr-status.sh", "bash", "herdr's tab bar script; the person's own scripts ask the same way")
+  Container_Ext(hookmods, "Whiska.Hook.*", "the hook modules", "The same code the escript runs for whiska hook")
 
   Container_Boundary(owl, "Owl") {
     Component(sup, "Whiska.Owl", "Supervisor", "One House per open project, each supervised alone")
     Component(house, "Whiska.Owl.House", "GenServer", "Pane discovery, subscription, collection, delivery")
+    Component(listener, "Whiska.Owl.Listener", "one per socket", "owl.sock and hook.sock in ~/.whiska, owner-only; each connection in its own process")
+    Component(answers, "Whiska.Owl.Answers", "read-only", "owl.sock: waiting, show one question, the tab bar line - JSON with a version")
+    Component(hooks, "Whiska.Owl.Hooks", "hook socket", "hook.sock: runs a hook with the environment the shim sent, answers ok and its stdout")
     Component(herdrb, "Whiska.Herdr", "behaviour", "The one mocked boundary (ADR-0031)")
     Component(sock, "Whiska.Herdr.Socket", "gen_tcp on a Unix socket", "Newline-delimited JSON; list_panes, subscribe, worktree remove")
     Component(cleanup, "Whiska.Cleanup", "sweep", "One pass per backstop: note every landed branch, then take down the clean, pushed, quiet ones")
@@ -47,6 +55,15 @@ C4Component
   Rel(cliboot, record, "Reads what was open last time")
   Rel(cliboot, sup, "Starts with the repos to open")
   Rel(sup, house, "Opens and shuts")
+  Rel(sup, listener, "Starts both, apart from the houses")
+  Rel(tabbar, listener, "line, with the jump key", "nc -U, owl.sock")
+  Rel(shim, listener, "hook name, environment, payload", "nc -U, hook.sock")
+  Rel(listener, answers, "Hands each owl.sock connection to")
+  Rel(listener, hooks, "Hands each hook.sock connection to")
+  Rel(answers, record, "Which houses to read; show answers only for one in it")
+  Rel(answers, storage, "Each house on a connection of its own, never creating one")
+  Rel(hooks, hookmods, "Runs the hook, with the hook's environment")
+  Rel(hooks, house, "After a Stop is written: collect now")
   Rel(sup, record, "Adds on open, removes on shut")
   Rel(house, herdrb, "Lists panes, subscribes, raises the hoot")
   Rel(herdrb, sock, "Dispatched to the configured implementation")
@@ -98,8 +115,22 @@ first and only thing that ever fills ADR-0006's `pane` column — and reopens th
 subscription whenever that set changes. A dropped connection is retried with a wait, and
 kept being retried while herdr is down.
 
-**Three collection triggers, only one a timer.** A mouse pane going idle, the house
-opening, and a slow backstop. An idle collection that finds nothing retries after 2 s and
+**The owl answers on two sockets, and neither is a house's** (ADR-0025, ADR-0033).
+`Whiska.Owl` starts one `Whiska.Owl.Listener` per socket beside its houses, so a house
+crashing never takes them down and a busy house never holds up a caller: each connection
+is handed to a process of its own. `owl.sock` is read-only and documented —
+`Whiska.Owl.Answers` reads `Whiska.Waiting` and `Whiska.Statusline`, the same code
+`whiska waiting` and `whiska statusline` run, so the socket and the commands cannot
+disagree. `hook.sock` is private: `Whiska.Owl.Hooks` runs the very `Whiska.Hook.*` module
+the escript would, with the environment the shim forwarded rather than the owl's own, and
+answers `ok` with what the escript would have printed. Every house read on either socket
+opens a connection of its own, so two callers at once never meet on one name. A socket
+file left by a crashed owl is removed at start; one that still answers is another owl's,
+and is left alone (ADR-0001). A clean stop removes both.
+
+**Four collection triggers, only one a timer.** The owl writing a `Stop` entry itself,
+over the hook socket, then asking that house to collect at once (ADR-0036, amended); a
+mouse pane going idle; the house opening; and a slow backstop. An idle collection that finds nothing retries after 2 s and
 5 s, since the idle event can beat the mouse's `Stop` hook to the doorstep. Collection
 reads and marks; it never deletes and never touches the worktree (ADR-0007). Cleanup, on
 the same backstop, is the one thing in the owl that does (ADR-0061).
@@ -150,8 +181,9 @@ reads the last marker line — a line of invisible separators, three for `done` 
 Only that one line is read, and only that one line is stripped before the person sees the
 message, so a marker quoted mid-prose survives intact.
 
-**The hook does not classify.** `Whiska.Hook.Stop` writes the raw final message and exits;
-the owl reads the marker on collection. That keeps the writer dumb and puts the one piece
+**The hook does not classify.** `Whiska.Hook.Stop` writes the raw final message — run by
+the owl over the hook socket, or by the escript when the owl does not answer — and the
+house reads the marker on collection. That keeps the writer dumb and puts the one piece
 of judgment on the side that can be changed without touching every mouse's `settings.json`.
 
 **A `done` report waits for the slot but never holds it** — typed as "finished" with no
@@ -166,10 +198,10 @@ else. Until 2026-09-29 one process did reach across — `Whiska.Owl.Nudge`, whic
 `⚡ <folders> waiting` into every other open house's main session so its statusline would
 redraw — and ADR-0044 deleted it: that line arrived as a user turn the other session's
 Claude could not tell from a prompt. What is waiting in another repo now reaches the
-person through the machine-wide line herdr's tab bar draws, which reads every recorded
-house off disk on its own timer (ADR-0048). The open-houses record is still written by the owl and
-still read, but only by the statusline and the doctor asking questions, never by anything
-acting.
+person through the machine-wide line herdr's tab bar draws, which asks the owl for it over
+`owl.sock` on its own timer; the owl reads every recorded house to answer (ADR-0048). The
+open-houses record is still written by the owl and still read, but only by the statusline,
+the read-only socket and the doctor asking questions, never by anything acting.
 
 **Cleanup asks this machine first and herdr last** (ADR-0061). Each mouse is judged by what
 git and the house's own database can answer alone — the branch merged into the base, the

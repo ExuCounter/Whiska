@@ -22,10 +22,11 @@ C4Context
   System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
 
   Rel(person, claude, "Types into the main session")
-  Rel(claude, whiska, "Sends hook events", "JSON on stdin / socket")
+  Rel(claude, whiska, "Sends hook events; the shim hands them to the owl over its socket", "JSON on stdin, nc -U")
   Rel(whiska, claude, "Denies a tool call, rings a mouse's doorbell, hands it the saved answer as context")
   Rel(whiska, herdr, "Opens panes, reads agent status, closes a landed mouse's pane", "herdr CLI")
   Rel(herdr, claude, "Starts and hosts every session")
+  Rel(herdr, whiska, "Tab bar asks the owl for its line every five seconds", "nc -U")
   Rel(whiska, git, "Derives layout from, stores house under .git/, removes a merged worktree")
   Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
   Rel(whiska, nc, "Raises a hoot herdr will not show")

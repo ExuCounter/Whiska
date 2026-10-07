@@ -115,6 +115,57 @@ defmodule Whiska.Install do
 
   """
 
+  # Asking the owl comes after every early exit and before the binary or the
+  # runtime is looked for: an answer from it costs a few milliseconds, and the
+  # escript costs a quarter of a second (ADR-0033). The payload is read once and
+  # handed to the escript too when the owl does not answer. The byte count is
+  # taken with LC_ALL=C so it counts bytes, not characters.
+  @ask_owl """
+  # Ask the owl first (ADR-0033). It runs the same hook code, already started.
+  # Anything but an answer - no socket, no nc, an owl that is down, hung or too
+  # old to know this hook - goes on to the escript below, which needs no owl.
+  # The request, built in a function: bash 3.2, which macOS ships, misreads a
+  # `case` written inside `$( )`.
+  whiska_request() {
+    local var
+    printf 'hook 1 %s %s' "$1" "$whiska_bytes"
+    if [ "$2" = "--global" ]; then printf ' --global'; fi
+    printf '\\n'
+    for var in HERDR_ENV HERDR_PANE_ID CLAUDE_PROJECT_DIR HOME PWD; do
+      case "${!var-}" in
+        "" | *$'\\n'*) ;;
+        *) printf '%s=%s\\n' "$var" "${!var}" ;;
+      esac
+    done
+    printf '\\n%s' "$whiska_payload"
+  }
+
+  whiska_hook_socket="${WHISKA_HOOK_SOCKET:-${WHISKA_HOME:-$HOME/.whiska}/hook.sock}"
+  # Only a socket this user owns: its answer is final, so one another account
+  # bound first - under a WHISKA_HOME in a shared folder - would decide every hook.
+  if [ -S "$whiska_hook_socket" ] && [ -O "$whiska_hook_socket" ] &&
+    command -v nc >/dev/null 2>&1; then
+    whiska_payload="$(cat)"
+    whiska_payload_read=1
+    whiska_lc_all="${LC_ALL-}"
+    whiska_lc_set="${LC_ALL+set}"
+    LC_ALL=C
+    whiska_bytes=${#whiska_payload}
+    if [ -n "$whiska_lc_set" ]; then LC_ALL="$whiska_lc_all"; else unset LC_ALL; fi
+    whiska_answer="$(whiska_request "${1:-}" "${2:-}" | nc -w 2 -U "$whiska_hook_socket" 2>/dev/null)"
+    whiska_status="${whiska_answer%%$'\\n'*}"
+    case "$whiska_status" in
+      "ok "[0-9] | "ok "[0-9][0-9] | "ok "[0-9][0-9][0-9])
+        if [ "$whiska_status" != "$whiska_answer" ]; then
+          printf '%s\\n' "${whiska_answer#*$'\\n'}"
+        fi
+        exit "${whiska_status#ok }"
+        ;;
+    esac
+  fi
+
+  """
+
   # Finding the binary and the runtime is written once and shared with both
   # status scripts below, so they never drift apart.
   @resolve_whiska """
@@ -215,6 +266,11 @@ defmodule Whiska.Install do
   """
 
   @shim_exec """
+  # The owl was asked and did not answer: the payload it was sent is the hook's.
+  if [ -n "${whiska_payload_read:-}" ]; then
+    exec 0<<<"$whiska_payload"
+  fi
+
   if [ -n "$escript_bin" ]; then
     # Not `exit 0`: exec carries the hook's status out, and the doctor reads it
     # to tell a working hook from a binary that does not know it.
@@ -232,6 +288,7 @@ defmodule Whiska.Install do
   @shim @shim_header <>
           @prompt_fast_path <>
           @skip_outside_herdr <>
+          @ask_owl <>
           @resolve_whiska <>
           @shim_fail_open <>
           @resolve_escript <>
@@ -313,6 +370,7 @@ defmodule Whiska.Install do
   @global_shim @global_header <>
                  @prompt_fast_path <>
                  @shim_stand_down <>
+                 @ask_owl <>
                  @resolve_whiska <> @shim_fail_open <> @resolve_escript <> @shim_exec
 
   # The retired review loop (ADR-0049). Nothing writes it and nothing runs it;
@@ -330,41 +388,59 @@ defmodule Whiska.Install do
   @herdr_status_name "herdr-status.sh"
 
   # herdr runs the entry every `interval_seconds` without overlapping a previous
-  # run, and one process per interval covers the whole machine — so five seconds
-  # costs a fraction of what fifteen cost per idle Claude Code session. The
-  # timeout is what herdr waits before clearing the entry; two seconds is well
-  # clear of the escript startup the script pays for.
+  # run, and one process per interval covers the whole machine. The timeout is
+  # what herdr waits before clearing the entry; the script gives the owl one
+  # second to answer, well inside it.
   @herdr_status_interval 5
   @herdr_status_timeout 2
 
+  # An example of the one argument the script takes, the key the person bound
+  # to reach what waits. It is theirs: Whiska never reads herdr's keybindings.
+  @herdr_status_hint "⌃a space"
+
   @herdr_status_script """
-                       #!/usr/bin/env bash
-                       # The line herdr's tab bar shows (ADR-0048): whether the owl is watching or
-                       # down, always, and what is waiting anywhere on this machine. herdr takes
-                       # the last line of output, so nothing else may be printed on stdout.
-                       #
-                       # Written by `whiska owl install`. The entry that runs it is the person's
-                       # own herdr config; `whiska doctor` prints it. The binary and runtime are
-                       # resolved the same way the hook shim resolves them, at run time.
+  #!/usr/bin/env bash
+  # The line herdr's tab bar shows (ADR-0048): whether the owl is watching or
+  # down, always, and what is waiting anywhere on this machine. herdr takes
+  # the last line of output, so nothing else may be printed on stdout.
+  #
+  # It asks the owl over its socket (ADR-0025) and starts nothing. Its one
+  # argument, optional, is the key you bound to reach what waits, shown when
+  # something does: herdr-status.sh '#{@herdr_status_hint}'.
+  #
+  # Written by `whiska owl install`. The entry that runs it is your own herdr
+  # config; `whiska doctor` prints it.
 
-                       """ <>
-                         @resolve_whiska <>
-                         @resolve_escript <>
-                         """
-                         # A blank line reads as "nothing configured", and the owl's state is the one
-                         # thing that must always be shown (ADR-0027 addendum), so both ways of
-                         # getting no line say which one happened rather than going quiet.
-                         if [ -z "$whiska_bin" ]; then
-                           printf '🦉 whiska missing'
-                           exit 0
-                         fi
+  socket="${WHISKA_HOME:-$HOME/.whiska}/owl.sock"
 
-                         if [ -n "$escript_bin" ]; then
-                           "$escript_bin" "$whiska_bin" statusline 2>/dev/null || printf '🦉 whiska error'
-                         else
-                           "$whiska_bin" statusline 2>/dev/null || printf '🦉 whiska error'
-                         fi
-                         """
+  # A blank line reads as "nothing configured", and the owl's state is the one
+  # thing that must always be shown (ADR-0027 addendum), so every way of
+  # getting no answer says which one happened rather than going quiet.
+  if ! command -v nc >/dev/null 2>&1; then
+    printf '🦉 nc missing'
+    exit 0
+  fi
+
+  # Only a socket you own speaks for your owl.
+  line=""
+  if [ -S "$socket" ] && [ -O "$socket" ]; then
+    line="$(printf 'line %s\\n' "${1:-}" | nc -w 1 -U "$socket" 2>/dev/null)"
+  fi
+
+  if [ -n "$line" ]; then
+    printf '%s' "$line"
+    exit 0
+  fi
+
+  # An nc with no Unix sockets in it (GNU netcat) would read as a dead owl for
+  # ever, so it is told apart - and only here, after an empty answer.
+  if [ -S "$socket" ] && ! nc -h 2>&1 | grep -q -- '-U'; then
+    printf '🦉 nc cannot reach the owl'
+    exit 0
+  fi
+
+  printf '🦉 owl down'
+  """
 
   # One slash-command skill per command (ADR-0022): a thin wrapper around the
   # fixed `whiska` call, discoverable via /help, so the model never has to
@@ -798,7 +874,7 @@ defmodule Whiska.Install do
     """
     [ui]
     tab_bar_right = [
-      { type = "command", command = "#{herdr_status_path()}", interval_seconds = #{@herdr_status_interval}, timeout_seconds = #{@herdr_status_timeout} },
+      { type = "command", command = "#{herdr_status_path()} '#{@herdr_status_hint}'", interval_seconds = #{@herdr_status_interval}, timeout_seconds = #{@herdr_status_timeout} },
     ]
     tab_bar_right_separator = " · "
     """

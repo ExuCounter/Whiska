@@ -83,3 +83,12 @@ complaint goes to stderr in every case, which is what `whiska doctor`'s probe re
 **One more moving part to keep honest.** The shim is shell, so it is not covered by the
 Elixir suite beyond its contents being asserted; its resolution logic is verified by
 running the installed hook end to end rather than by unit test.
+
+## Note, 2026-10-07: only the shim changed
+
+ADR-0033 was rewritten: the hook did not become a native binary, it learned to ask the
+owl over a socket. As this record promised, `settings.json` did not change and no repo
+had to re-run `whiska init` to keep working — an older committed shim never asks the owl
+and goes on through the escript. The "no `bash` wrapper" rule this record reversed stays
+reversed: the hook is bash now by design, and its 2.4 ms is the smallest part of the
+16 ms it costs.

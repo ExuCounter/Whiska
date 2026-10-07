@@ -1,6 +1,6 @@
 # Spike: how fast can the PreToolUse hook be?
 
-**Date:** 2026-09-25 · **Outcome:** [ADR-0033](../../adr/0033-the-hook-client-is-native-not-elixir.md)
+**Date:** 2026-09-25 · **Outcome:** [ADR-0033](../../adr/0033-the-hook-asks-the-owl-over-a-socket.md)
 
 Not production code. This is the throwaway that produced ADR-0033's numbers, kept so the
 measurement can be re-run and argued with rather than taken on trust.

@@ -2,10 +2,11 @@ defmodule Whiska.Hook.Stop do
   @moduledoc """
   One finished turn in, one entry on the doorstep out (ADR-0036).
 
-  The hook never opens a socket. It reads the `Stop` payload, works out which
-  house this worktree belongs to, and writes the mouse's whole final message to
-  that house's doorstep, whether or not the owl is running. There is no second
-  code path for "the owl is down", because there is no first one.
+  It reads the `Stop` payload, works out which house this worktree belongs to,
+  and writes the mouse's whole final message to that house's doorstep. It runs
+  inside the owl when the owl answers the hook socket, and in the escript when
+  it does not; either way the entry lands on the same doorstep, so a dead owl
+  still loses nothing (ADR-0036, amended).
 
   It reads one thing out of the house before it writes: the pane `whiska start`
   recorded as the main session. A stop firing in that pane is the person's own
@@ -24,14 +25,6 @@ defmodule Whiska.Hook.Stop do
   in — this is a no-op: there is no mouse here to speak for. Which session this
   is comes from `Whiska.Session`, not from the working directory it was handed
   (ADR-0053).
-
-  ## Why this is Elixir when ADR-0033 says hooks go native
-
-  ADR-0033's measurement is about `PreToolUse`, which fires on every tool call.
-  `Stop` fires once per turn, so the ~200 ms escript start is paid a few times a
-  minute at most. The final shape here — read JSON, write a file — is the same
-  thirty lines in C whenever the native hook is written, and `whiska init`'s
-  shim means `settings.json` will not change when it is (ADR-0035).
   """
 
   alias Whiska.Doorstep
@@ -41,16 +34,27 @@ defmodule Whiska.Hook.Stop do
   alias Whiska.Transcript
 
   @doc "Handle one Stop payload. Always `:ok`; problems go to stderr."
-  @spec run(String.t()) :: :ok
-  def run(raw_payload) do
+  @spec run(String.t(), map()) :: :ok
+  def run(raw_payload, env \\ System.get_env()) do
+    _ = leave(raw_payload, env)
+    :ok
+  end
+
+  @doc """
+  The same, saying which house an entry was left in, so the owl can collect it
+  at once. `:ok` when there was nothing to leave, `{:error, reason}` when an
+  entry could not be written — which the owl leaves to the escript to try.
+  """
+  @spec leave(String.t(), map()) :: {:left, Path.t()} | :ok | {:error, term()}
+  def leave(raw_payload, env) do
     with {:ok, payload} <- decode(raw_payload),
-         {:ok, layout} <- Session.worktree(payload),
-         false <- Session.main_session?(layout.main_checkout),
+         {:ok, layout} <- Session.worktree(payload, env),
+         false <- Session.main_session?(layout.main_checkout, env),
          tail = transcript_tail(payload),
          :over <- turn_state(tail),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
-         {:ok, _file} <- leave(layout, mouse_id, message(payload), Transcript.ran_on(tail)) do
-      :ok
+         {:ok, _file} <- write(layout, mouse_id, message(payload), Transcript.ran_on(tail)) do
+      {:left, layout.main_checkout}
     else
       :in_flight ->
         :ok
@@ -61,8 +65,9 @@ defmodule Whiska.Hook.Stop do
       {:error, :not_a_mouse} ->
         :ok
 
-      {:error, reason} ->
+      {:error, reason} = error ->
         warn("could not leave the question on the doorstep (#{inspect(reason)})")
+        error
 
       :error ->
         :ok
@@ -82,7 +87,7 @@ defmodule Whiska.Hook.Stop do
 
   defp transcript_tail(_no_transcript), do: ""
 
-  defp leave(layout, mouse_id, text, ran_on) do
+  defp write(layout, mouse_id, text, ran_on) do
     Doorstep.leave(layout.main_checkout, %Entry{
       mouse_id: mouse_id,
       branch: layout.branch_label,

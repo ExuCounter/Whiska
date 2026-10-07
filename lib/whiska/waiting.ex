@@ -206,37 +206,21 @@ defmodule Whiska.Waiting do
   # other house's questions must still be listable when one database is corrupt,
   # locked or mid-migration. Opening can fail by returning, and querying can
   # fail by raising or exiting (`DBConnection` does both), so both are caught.
+  #
+  # Each house is read on a connection of its own (`Storage.within/2`): inside
+  # the owl, a listing and a hook for another repo run at the same moment. A
+  # database that raises while it opens is shut by the open itself.
   defp with_house(main, work) do
-    try do
-      case Storage.open(main) do
-        {:ok, handle} ->
-          try do
-            work.()
-          after
-            Storage.close(handle)
-          end
-
-        {:error, _} ->
-          warn(main)
-          :unreadable
-      end
-    catch
-      :error, _ -> abandon(main)
-      :exit, _ -> abandon(main)
+    case Storage.within(main, work) do
+      {:error, _} -> unreadable(main)
+      result -> result
     end
+  catch
+    :error, _ -> unreadable(main)
+    :exit, _ -> unreadable(main)
   end
 
-  # `Storage.open/1` migrates as it opens, so a database that is corrupt or
-  # locked raises from inside the open — after the Repo process is already up.
-  # Left running it would be found as `{:already_started, _}` by the *next*
-  # house, turning one bad repo into every repo. So the connection is shut down
-  # here before moving on.
-  defp abandon(main) do
-    case Process.whereis(Whiska.Repo) do
-      nil -> :ok
-      pid -> Storage.close(pid)
-    end
-
+  defp unreadable(main) do
     warn(main)
     :unreadable
   end
@@ -393,23 +377,26 @@ defmodule Whiska.Waiting do
   anything else that would rather not parse columns. An empty list is `[]`.
   """
   @spec json([entry()]) :: String.t()
-  def json(entries) do
-    JSON.encode!(
-      Enum.map(entries, fn e ->
-        %{
-          "repo" => e.repo,
-          "main_checkout" => e.main_checkout,
-          "branch" => e.branch,
-          "id" => e.id,
-          "kind" => e.kind,
-          "status" => e.status,
-          "pointer" => e.pointer,
-          "age_seconds" => e.age_s,
-          "pane" => e.pane,
-          "waits" => e.waits,
-          "held" => e.held?
-        }
-      end)
-    )
+  def json(entries), do: JSON.encode!(Enum.map(entries, &row_map/1))
+
+  @doc """
+  One entry as `json/1` writes it. The owl's socket answers `waiting` with these
+  same rows, so its fields and the command's cannot drift apart.
+  """
+  @spec row_map(entry()) :: map()
+  def row_map(e) do
+    %{
+      "repo" => e.repo,
+      "main_checkout" => e.main_checkout,
+      "branch" => e.branch,
+      "id" => e.id,
+      "kind" => e.kind,
+      "status" => e.status,
+      "pointer" => e.pointer,
+      "age_seconds" => e.age_s,
+      "pane" => e.pane,
+      "waits" => e.waits,
+      "held" => e.held?
+    }
   end
 end
