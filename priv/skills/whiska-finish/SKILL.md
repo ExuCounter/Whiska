@@ -49,18 +49,30 @@ Subagents in parallel, one per axis, each reading the real diff and reporting, n
 changing anything. Done when every reviewer has reported and every finding has its word
 and its outcome.
 
-The axes:
+The axes are chosen by what the diff does, read from `git diff` at the merge base, never
+from what the author feels it needs:
 
-- **correctness** — against the brief, the specs and the recorded decisions.
-- **security** — this change's own surface: input it trusts, secrets, access it widens,
-  what it writes to a log.
-- **performance** — what it makes slower or heavier, at the scale this repo runs at.
-- **frontend** — only when the change touches something a person sees: keyboard and
-  screen-reader access, empty and error states, small screens, the repo's own design
-  language.
-- **tests** — only when the change adds, edits or deletes a test file — one under a test
-  directory or named as a test, support files included — by `git diff --name-only` from the
-  merge base: `wio-test-reviewer`, which says KEEP, REDO or REMOVE for each test. REDO or
+| axis | trigger | how detected | evidence |
+| --- | --- | --- | --- |
+| **correctness** | always | none | the brief, the specs and the recorded decisions |
+| **security** | any trigger fires; skipped when none does | added code runs something built from text; decides allow or deny or permissions; reads outside input such as network, socket, env, a file it did not write, another agent's text; emits text a person or program will run; changes agent instructions, hooks or scripts; touches secrets or auth | the changed lines: input it trusts, secrets, access it widens, what it writes to a log |
+| **performance** | only on a hot path: the repo's `CLAUDE.md` names one, the diff contains a loop, timer, scheduler, middleware or handler, or the file is such an entry point; otherwise its three questions join the correctness prompt | the diff and the repo's `CLAUDE.md` | what it makes slower, what it makes heavier, and whether either grows with the scale this repo runs at |
+| **frontend** | the change touches something a person sees | the changed files | keyboard and screen-reader access, empty and error states, small screens, the repo's own design language |
+| **tests** | the change adds, edits or deletes a test file — one under a test directory or named as a test, support files included | `git diff --name-only` from the merge base | `wio-test-reviewer`, below |
+
+- **Small diff:** under 40 changed lines, at most two files and no security trigger → one
+  combined reviewer holding every question of the axes above that apply, in place of one per
+  axis. Tests and frontend stay their own axes.
+- **Model:** pass the Agent call's `model` parameter: performance and the scout on the
+  model `whiska shape --rules` picks for a clear task of known shape, every other reviewer
+  inherits.
+- **Doubt fires it.** A security trigger the mouse cannot rule out counts as fired; a
+  diff touching `.claude/`, `priv/skills/`, the rules text, a hook or script fires it
+  whatever else is true. A `security:` scan replaces the security reviewer only when a
+  trigger fires, and is skipped with it otherwise.
+- **A repo only adds:** its `CLAUDE.md` prose, its `.claude/agents/*-reviewer.md` and its
+  `reviewers:` line add axes and never remove one the table fires.
+- **tests** — `wio-test-reviewer` says KEEP, REDO or REMOVE for each test. REDO or
   REMOVE on a test this change added or edited is **important**; on any other,
   **pre-existing**. A test is removed for being worthless, never to make a check pass. A
   `.claude/agents/wio-test-reviewer.md` in this repo is the copy that runs, not the one in
@@ -138,6 +150,15 @@ second line below leaves.
 The message says what the checks returned, what the reviewers raised and what became of
 it, and anything left deliberately undone; the report rules teach its shape. Never write
 the done marker on the strength of having written the code.
+
+The report ends with the agent ledger, copied from the usage block Claude Code hands back
+with each subagent (`subagent_tokens`, `tool_uses`, `duration_ms`), never estimated:
+
+- One line per agent sent: axis, agent type, model asked for, new tokens, tool uses,
+  seconds, findings and what became of them. New tokens are cache writes plus input plus
+  output; cache reads are not counted. A split the hand-back does not give → write the
+  total it gives and say it is a total.
+- One line per axis skipped, naming the triggers it checked.
 
 ## When the work was finding out, and something should change
 

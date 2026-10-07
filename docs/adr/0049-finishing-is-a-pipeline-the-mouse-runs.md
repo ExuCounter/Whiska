@@ -1,5 +1,8 @@
 # Finishing is a pipeline the mouse runs, not a hook that blocks it
 
+**Amended 2026-10-07 by ADR-0082**: step 3's axes are no longer a fixed
+four. The diff's triggers choose them, and step 6 ends the report with an agent ledger.
+
 ADR-0042 made "is this turn actually over?" a `Stop` hook the repo owns:
 `.claude/hooks/review-loop.sh`, with a `CHECK` command at the top, blocking the turn
 while the checks were red and once more for a single review pass. That is superseded.

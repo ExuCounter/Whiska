@@ -4,6 +4,10 @@
 `wio-test-reviewer` when the change touches a test file, and it is the one axis that is not
 written as a prompt when nothing is listed — its absence is said in one line instead.
 
+**Amended 2026-10-07 by ADR-0082**: "the four axes do not move" no
+longer holds. Which axes run is read from the diff, and a repo's own agents and `reviewers:`
+line can only add.
+
 ADR-0049 gave finishing five steps, and step 3 sends reviewers over the change on four
 axes — correctness, security, performance, frontend. It did not say where a reviewer
 comes from, so every mouse wrote four prompts from scratch, and it did not say what a

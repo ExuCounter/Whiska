@@ -82,6 +82,8 @@ defmodule Whiska.RulesTest do
         ~r/wio-candidate-scout\.md` in this repo.{0,80}read it before dispatching.{0,140}decision for the person/is,
       "docs or untestable change skips the scout":
         ~r/skip the scout for docs, or when no test can reach it/i,
+      "the scout is gated on risk (ADR-0075)":
+        ~r/no test file.{0,60}no observable behaviour.{0,60}three or more modules.{0,120}scout was skipped/is,
       "no scout is said in a line": ~r/scout not listed → say so in one line/i,
       "grilling lists every costly choice with a recommendation":
         ~r/every \*\*costly\*\* choice with real alternatives, each with its recommended answer/,
@@ -136,6 +138,8 @@ defmodule Whiska.RulesTest do
       "the marker line is only the pointer": ~r/the marker line is only the pointer/i,
       "leave out the mechanics, keep what a review found":
         ~r/the mechanics of a review, never what it turned up/i,
+      "the report ends with the agent ledger":
+        ~r/ends with the agent ledger `whiska-finish` describes/i,
       "a grilling round asks everything at once":
         ~r/a grilling round asks every open costly choice in one message/i
     ],

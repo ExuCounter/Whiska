@@ -163,25 +163,99 @@ defmodule Whiska.InstallFinishSkillTest do
     end
   end
 
+  describe "reviewers are chosen by what the diff does (ADR-0082)" do
+    test "one table: axis, trigger, how detected, evidence" do
+      assert prose() =~ "| axis | trigger | how detected | evidence |"
+    end
+
+    test "correctness always runs" do
+      assert prose() =~ ~r/\| \*\*correctness\*\* \| always \|/
+    end
+
+    test "security runs when any trigger fires and is skipped when none does" do
+      body = prose()
+
+      assert body =~ ~r/\| \*\*security\*\* \| any trigger fires.{0,40}skipped when none/i
+
+      for trigger <- [
+            "built from text",
+            "allow or deny or permissions",
+            "network, socket, env",
+            "another agent's text",
+            "a person or program will run",
+            "agent instructions, hooks or scripts",
+            "secrets or auth"
+          ] do
+        assert body =~ trigger, trigger
+      end
+    end
+
+    test "performance runs on a hot path, else its questions join correctness" do
+      body = prose()
+
+      assert body =~ ~r/\| \*\*performance\*\* \| only on a hot path/i
+      assert body =~ ~r/loop, timer, scheduler, middleware or handler/
+      assert body =~ ~r/its three questions join the correctness prompt/
+    end
+
+    test "a small diff gets one combined reviewer" do
+      assert prose() =~
+               ~r/under 40 changed lines, at most two files and no security trigger.{0,80}one combined reviewer/i
+    end
+
+    test "model per axis goes through the Agent call's model parameter" do
+      assert prose() =~
+               ~r/`model` parameter.{0,80}performance and the scout on the model `whiska shape --rules` picks.{0,60}inherit/i
+    end
+
+    test "a repo can only add reviewers" do
+      assert prose() =~ ~r/a repo only adds.{0,200}`reviewers:` line/i
+    end
+  end
+
+  describe "the agent ledger ends the report" do
+    test "one line per agent sent, from the hand-back usage block" do
+      body = prose()
+
+      assert body =~ ~r/agent ledger/i
+
+      for field <- ["`subagent_tokens`", "`tool_uses`", "`duration_ms`"] do
+        assert body =~ field, field
+      end
+
+      assert body =~
+               ~r/axis, agent type, model asked for, new tokens, tool uses, seconds, findings and what became of them/
+    end
+
+    test "new tokens are cache writes plus input plus output, said once" do
+      assert prose() =~
+               ~r/new tokens are cache writes plus input plus output.{0,40}cache reads are not counted/i
+    end
+
+    test "one line per axis skipped, naming the triggers checked" do
+      assert prose() =~ ~r/one line per axis skipped.{0,40}triggers it checked/i
+    end
+  end
+
   describe "the reviewers" do
     test "names the axes, and frontend only when a person sees it" do
       body = prose()
 
       for axis <- ["correctness", "security", "performance", "frontend"] do
-        assert body =~ "**#{axis}** —", axis
+        assert body =~ "| **#{axis}** |", axis
       end
 
-      assert body =~ ~r/only when the change touches something a person sees/i
+      assert body =~ ~r/the change touches something a person sees/i
     end
 
     # ADR-0075 narrows ADR-0072's always-on wio row.
     test "the test reviewer is a fifth axis, only when the change touches a test file" do
       body = prose()
 
-      assert body =~ "**tests** —"
+      assert body =~ "| **tests** |"
       assert body =~ "`wio-test-reviewer`"
-      assert body =~ ~r/only when the change adds, edits or deletes a test file/i
-      assert body =~ ~r/`git diff --name-only` from the merge base: `wio-test-reviewer`/
+      assert body =~ ~r/the change adds, edits or deletes a test file/i
+      assert body =~ ~r/`git diff --name-only` from the merge base \| `wio-test-reviewer`/
       assert body =~ "beyond the five"
     end
 
