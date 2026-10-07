@@ -10,7 +10,7 @@ are the extracted, individually citable decisions.
 
 - [0001](0001-one-owl-per-machine.md) — One owl per machine, with a house per repo inside it
 - [0040](0040-the-owl-is-supervised-by-a-launchagent.md) — The owl is supervised by a user LaunchAgent, and `whiska owl stop` stops the whole owl (amended 2026-10-05 by next-the-owl-is-kept-by-the-platforms-service-manager: launchd is macOS's half)
-- [next](0077-the-owl-is-kept-by-the-platforms-service-manager.md) — The owl is kept running by the platform's own service manager: launchd on macOS, systemd on Linux (amends 0040)
+- [0077](0077-the-owl-is-kept-by-the-platforms-service-manager.md) — The owl is kept running by the platform's own service manager: launchd on macOS, systemd on Linux (amends 0040)
 - [0003](0003-a-house-persists-across-start-and-stop.md) — A house persists; start and stop only open and shut it
 - [0020](0020-mice-stay-herdr-panes.md) — Mice stay herdr panes; Whiska never owns Claude Code directly
 - [0017](0017-judgment-lives-in-claude-md.md) — All judgment lives in CLAUDE.md; Whiska stays dumb (amended 2026-10-06 by 0081: the rules arrive at session start)
@@ -52,8 +52,8 @@ are the extracted, individually citable decisions.
 - [0037](0037-a-newer-question-supersedes-its-mouses-earlier-ones.md) — A newer question supersedes its mouse's earlier open and sent ones
 - [0057](0057-nothing-unanswerable-holds-the-delivery-slot.md) — Nothing that cannot be answered holds the delivery slot (amended 2026-10-06 by next-the-person-decides-what-reaches-them: nor does a held or unfocused sent question)
 - [0058](0058-a-held-queue-says-so-on-the-board.md) — A held queue says so on the board (amended 2026-10-06 by next-the-person-decides-what-reaches-them: the word is "gated"; amended 2026-10-07 by next-a-mouses-state-is-a-line-in-herdrs-sidebar: said on the main checkout's sidebar line)
-- [next](0079-the-person-decides-what-reaches-them.md) — The person decides what reaches them: away is the machine's, a focus is one repo's, a hold is one mouse's stored status, stopped through the hook; eight one-word commands; the gate's word is "gated" (amends 0008, 0022, 0043, 0057, 0058, 0061, 0067)
-- [next](0080-an-answer-is-taken-not-typed.md) — An answer is taken by the mouse's own hook, not typed into its pane: `reply` saves it and rings a doorbell, a `UserPromptSubmit` hook hands it over and stamps it taken, and the owl rings again at most three times before telling the person (amends 0044, 0067)
+- [0079](0079-the-person-decides-what-reaches-them.md) — The person decides what reaches them: away is the machine's, a focus is one repo's, a hold is one mouse's stored status, stopped through the hook; eight one-word commands; the gate's word is "gated" (amends 0008, 0022, 0043, 0057, 0058, 0061, 0067)
+- [0080](0080-an-answer-is-taken-not-typed.md) — An answer is taken by the mouse's own hook, not typed into its pane: `reply` saves it and rings a doorbell, a `UserPromptSubmit` hook hands it over and stamps it taken, and the owl rings again at most three times before telling the person (amends 0044, 0067)
 - [0062](0062-the-owl-hoots-when-it-delivers.md) — The owl hoots when it delivers: one desktop notification per delivered question (amended 2026-10-04 by next-a-hoot-reaches-you-without-herdr)
 - [0071](0071-a-hoot-reaches-you-without-herdr.md) — A hoot herdr will not show is raised on the desktop (amends 0062; noted 2026-10-05: notify-send on Linux)
 - [0041](0041-a-nudge-is-a-notice-typed-into-another-houses-main-session.md) — A nudge is a notice typed into another house's main session (superseded 2026-09-29 by 0044)
@@ -72,6 +72,7 @@ are the extracted, individually citable decisions.
 - [0054](0054-the-reviewer-roster-is-whatever-the-session-already-has.md) — The reviewer roster is whatever the session already has, and a finding's word decides its fate (extends 0049's step 3; amended 2026-10-04 by ADR-0075: a fifth axis, tests; amended 2026-10-07 by ADR-0083: axes chosen by the diff)
 - [0072](0072-a-reviewer-is-chosen-by-the-diff.md) — Reviewers are a required set plus what the repo's CLAUDE.md calls for, with no config (proposed, not applied; amends 0049, 0054 and 0056; its wio row narrowed 2026-10-04 by ADR-0075; two rows applied 2026-10-07 by ADR-0083)
 - [0075](0075-tests-are-scouted-then-reviewed.md) — A mouse's test is scouted before the code and reviewed at finish, when there is a test to touch (follows 0063 and 0055; adds a fifth axis to 0049 and 0054, and one exception to 0054's written-prompt fallback; scout gated 2026-10-07 by ADR-0083)
+- [0083](0083-reviewers-by-trigger.md) — Reviewers are chosen by what the diff does, and every finished report ends with an agent ledger (amends 0049, 0054, 0075; applies two rows of 0072)
 - [0034](0034-shell-commands-are-judged-by-a-read-only-allowlist.md) — Shell commands are judged by a read-only allowlist, not a mutating denylist
 
 ## Mice: modes, dispatch, liveness
@@ -98,7 +99,7 @@ are the extracted, individually citable decisions.
 - [0066](0066-whiska-start-starts-claude-in-the-pane-it-records.md) — `whiska start` starts Claude in the pane it records
 - [0059](0059-the-statusline-script-carries-a-version-stamp.md) — The statusline script carries a version stamp, and an old copy is an upgrade notice (superseded 2026-10-07 by next-a-mouses-state-is-a-line-in-herdrs-sidebar: there is no script)
 - [0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) — The owl's line is drawn once on herdr's tab bar, machine-wide, not in every Claude session (amended 2026-09-29: the repo-scoped line stays in Claude Code's statusline; amended 2026-10-07 by next-a-mouses-state-is-a-line-in-herdrs-sidebar: it moves to herdr's sidebar)
-- [next](0082-a-mouses-state-is-a-line-in-herdrs-sidebar.md) — A mouse's state is a line under its own workspace in herdr's sidebar, written by the owl and coloured by its first symbol; the main checkout's line says what is true of the repo; the mice re-sort only when one starts or stops needing the person; the Claude Code statusline goes (supersedes 0051, 0059; amends 0044, 0048, 0058, 0065)
+- [0082](0082-a-mouses-state-is-a-line-in-herdrs-sidebar.md) — A mouse's state is a line under its own workspace in herdr's sidebar, written by the owl and coloured by its first symbol; the main checkout's line says what is true of the repo; the mice re-sort only when one starts or stops needing the person; the Claude Code statusline goes (supersedes 0051, 0059; amends 0044, 0048, 0058, 0065)
 - [0038](0038-the-doctor-checks-and-probes-it-never-repairs.md) — The doctor checks and probes; it never repairs
 - [0043](0043-whiska-jump-moves-the-persons-focus.md) — `whiska jump` moves the person's focus, and lands on the house's main session (amended 2026-10-06 by next-the-person-decides-what-reaches-them: `waiting` has a slash command, `/inbox`, typed by the person; `jump` still has none; 2026-10-06: `whiska open <id|branch>` is a separate move into a mouse's own pane)
 
