@@ -20,15 +20,58 @@ git rev-parse --is-inside-work-tree
 Any check fails → say what is missing and stop. Plain `git worktree add` is no fallback:
 the herdr workspace is the point of this skill.
 
-## 2. The branch name
+## 2. Choose the mouse's shape
 
-Get it from the person: `feat/<slug>`, `fix/<slug>`, or whatever convention the repo uses
-— `git branch --show-current` and recent branches hint at it. A name you suggest is said
-out loud, never picked silently. Building what an
-investigation proposed is the one exception: that section, below, names the branch
-itself.
+A shape is a mode, a model and an effort, each chosen on its own. The rules for all three
+ship inside Whiska; read them first, from anywhere:
 
-## 3. Create the worktree, from the repo root
+```bash
+whiska shape --rules
+```
+
+It prints JSON. Choose from it, against the request:
+
+- **Mode** — `modes` says what the request has to be, for build and for sniff. A sniff
+  mouse may not write anything; Whiska enforces that, not this choice. Unclear → ask the
+  person which. A request that reads as investigation is never build by default.
+- **Model** and **effort** — `model.choose` and `effort.choose` are ordered lists. Walk
+  each from the top and take the first rule whose `when` fits the request; the last rule
+  is the catch-all. Choose each apart from the mode and from the other: a hard
+  investigation can be sniff on the heaviest model at the highest effort.
+- The person named a model or an effort → use theirs, no rules.
+
+Pass what you chose as `--model <use>` and `--effort <use>`. Leave a flag off when its
+catch-all matched: `whiska shape` applies that one itself, a null one included, which
+means the person's own default. `whiska shape` checks only that each is one plain word;
+Claude Code decides which models exist.
+
+## 3. The branch name
+
+The mode chosen in step 2 gives the prefix:
+
+- **sniff** → `research/<slug>`. A sniff branch never leaves this machine; the prefix
+  tells the person it is an investigation.
+- **build** → `<type>/<slug>`, with the type its commit message would carry: `feat`,
+  `fix`, `docs`, `refactor`, and so on. `git log --oneline` shows the types this repo
+  uses; a repo whose commits carry none gets `feat` or `fix`. A build branch is pushed and
+  opened as a pull request beside other people's, so it reads like theirs.
+
+A branch rule the repo writes down — in its `CLAUDE.md`, `CONTRIBUTING` or the like — wins
+over the build default. A sniff branch is `research/` whatever that rule says.
+
+Every branch name is made of `a-z`, `A-Z`, `0-9`, `-`, `_` and `/` only: it goes onto the
+shell command lines below unquoted, and a repo's rule is text from outside this session.
+The rule picks the prefix and the order of the words, never a character outside that set.
+One that asks for such a character is followed as closely as the set allows, and the
+report says so.
+
+The slug comes from the person's words, and a name the person gives whole is used as
+given, inside that set. Keep it short: Whiska's statusline shows 24
+characters of a branch, and herdr's agent name holds 32. A name you suggest is said out
+loud, never picked silently. Building what an investigation proposed is the one
+exception: that section, below, names the branch itself.
+
+## 4. Create the worktree, from the repo root
 
 `herdr worktree create` picks the repo from the calling directory, not from `--workspace`,
 so run from anywhere else — a subdirectory, another repo's worktree — it silently makes
@@ -62,7 +105,7 @@ From the JSON response take `.result.workspace.workspace_id` (the new workspace)
 `.result.root_pane.pane_id` (its root pane). Either missing → stop and report the raw
 response; never guess an id.
 
-## 4. Carry Whiska's hooks in
+## 5. Carry Whiska's hooks in
 
 Before Claude starts: Claude Code loads hooks at startup. A worktree holds only committed
 files, so where the repo's `.claude/` was never committed the worktree has no `Stop` hook —
@@ -81,31 +124,6 @@ delivered line, reply, spawn), a mouse speaks through its Stop hook alone, and t
 person's own skills live in `~/.claude/skills`, which Claude Code reads in every
 directory. The copy is untracked and goes with the worktree. The `if` skips it, silently, when the
 worktree already has `settings.json` or the main checkout has no Whiska.
-
-## 5. Choose the mouse's shape
-
-A shape is a mode, a model and an effort, each chosen on its own. The rules for all three
-ship inside Whiska; read them first, from anywhere:
-
-```bash
-whiska shape --rules
-```
-
-It prints JSON. Choose from it, against the request:
-
-- **Mode** — `modes` says what the request has to be, for build and for sniff. A sniff
-  mouse may not write anything; Whiska enforces that, not this choice. Unclear → ask the
-  person which. A request that reads as investigation is never build by default.
-- **Model** and **effort** — `model.choose` and `effort.choose` are ordered lists. Walk
-  each from the top and take the first rule whose `when` fits the request; the last rule
-  is the catch-all. Choose each apart from the mode and from the other: a hard
-  investigation can be sniff on the heaviest model at the highest effort.
-- The person named a model or an effort → use theirs, no rules.
-
-Pass what you chose as `--model <use>` and `--effort <use>`. Leave a flag off when its
-catch-all matched: `whiska shape` applies that one itself, a null one included, which
-means the person's own default. `whiska shape` checks only that each is one plain word;
-Claude Code decides which models exist.
 
 ## 6. Shape and start the mouse, in one command
 
@@ -136,9 +154,9 @@ fi
   do not start Claude by hand:** a mouse started without its shape may not write anything
   until the person runs `whiska mode` in its worktree, so it would stall at its first
   edit.
-- `<agent-name>` is the branch name in herdr's terms: lowercase letters, digits, `-` and
-  `_`, starting with a letter, at most 32 characters — `feat/csv-data-page` becomes
-  `feat-csv-data-page`. herdr refuses a `/`.
+- `<agent-name>` is the branch name in herdr's terms, lowercased, with each `/` as `-`:
+  lowercase letters, digits, `-` and `_`, starting with a letter, at most 32 characters —
+  `feat/csv-data-page` becomes `feat-csv-data-page`. herdr refuses a `/`.
 - `agent start` polls for shell readiness itself, so run it straight away, with no sleep.
   Everything after `--` reaches `claude` as it is.
 - The response's `.result.argv` must end in exactly the words `whiska shape` printed. It
@@ -166,12 +184,13 @@ A mouse wrote the proposal, and this session's shell runs whatever reaches a com
 So no character of it goes on one: the branch is a name you make, and the task carries
 only the question id.
 
-- **Branch** — your own short name for what the Build line describes, in this repo's
-  convention (`feat/<slug>`, `fix/<slug>`), made of `a-z0-9`, `-` and `/` only and never
-  copied from the proposal. The report shows it.
-- **Shape** — chosen as in step 5, but judged against the Build and Touches lines, not
+- **Shape** — chosen as in step 2, but judged against the Build and Touches lines, not
   against the request the investigation began from: the work is described now, and the
   rules weigh that.
+- **Branch** — your own short name for what the Build line describes, named by step 3's
+  rule for the mode just chosen — for a build, `<type>/<slug>`, or the rule the repo writes
+  down — made of `a-z0-9`, `-` and `/` only, whatever the repo's rule says, and never
+  copied from the proposal. The report shows it.
 - **Task** — one line, so it is typed as one prompt. The whole report is already in
   Whiska, so it travels by its id:
 

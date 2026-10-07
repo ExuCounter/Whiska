@@ -22,6 +22,22 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     block
   end
 
+  defp section(title) do
+    heading = ~r/^## (\d+\. )?#{Regex.escape(title)}\n.*?(?=\n## )/ms
+    assert [section | _] = Regex.run(heading, skill("spawn-worktree")), "no section #{title}"
+    section
+  end
+
+  defp hand_off_section, do: section("Building what an investigation proposed")
+
+  defp prose(text), do: String.replace(text, ~r/\s+/, " ")
+
+  defp heading_at(title) do
+    heading = ~r/^## \d+\. #{Regex.escape(title)}$/m
+    assert [{at, _}] = Regex.run(heading, skill("spawn-worktree"), return: :index), title
+    at
+  end
+
   defp base_argv, do: ~w(agent start feat-x --kind claude --pane w1:p1 --timeout 15000)
 
   # The skill's own block, with its placeholders filled in, run against a
@@ -145,18 +161,72 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     # A mouse wrote the proposal, and the main session's shell runs both the
     # branch name and the prompt line: no character of the proposal goes in.
     test "puts nothing a mouse wrote on the main session's command line" do
-      [section] =
-        Regex.run(
-          ~r/## Building what an investigation proposed.*?(?=\n## )/s,
-          skill("spawn-worktree")
-        )
+      section = hand_off_section()
 
       [prompt] = Regex.run(~r/^\s*herdr agent prompt .*$/m, section)
       filled_in = ~r/<[^>]+>/ |> Regex.scan(prompt) |> List.flatten() |> Enum.uniq()
       assert filled_in == ["<root-pane-id>", "<id>"]
 
       assert section =~ "a-z0-9"
-      assert String.replace(section, ~r/\s+/, " ") =~ ~r/never copied from the proposal/i
+      assert prose(section) =~ ~r/never copied from the proposal/i
+    end
+
+    test "chooses the shape before naming the branch" do
+      assert heading_at("Choose the mouse's shape") < heading_at("The branch name")
+    end
+
+    # A sniff branch never leaves this machine; a build branch is pushed beside
+    # other people's, so it reads like theirs.
+    test "names a sniff branch research/ and a build branch by its commit type" do
+      branch = prose(section("The branch name"))
+
+      assert branch =~ ~r/\*\*sniff\*\* → `research\/<slug>`/
+
+      assert branch =~
+               ~r/\*\*build\*\* → `<type>\/<slug>`, with the type its commit message would carry/
+
+      assert branch =~ ~r/a branch rule the repo writes down .* wins over the build default/i
+      assert branch =~ "A sniff branch is `research/` whatever that rule says"
+      refute prose(skill("spawn-worktree")) =~ ~r/recent branches/i
+    end
+
+    test "uses a branch name the person gives whole, as given" do
+      assert prose(section("The branch name")) =~ ~r/a name the person gives whole is used as/i
+    end
+
+    # The name goes onto shell command lines unquoted, and a repo's written
+    # rule is text from outside this session.
+    test "keeps a branch name to characters the shell does not act on, whatever the repo's rule" do
+      branch = prose(section("The branch name"))
+
+      assert branch =~ "`a-z`, `A-Z`, `0-9`, `-`, `_` and `/` only"
+      assert branch =~ ~r/never a character outside that set/i
+      assert prose(skill("spawn-worktree")) =~ ~r/agent-name.*lowercased/
+    end
+
+    # The rules may judge a proposal's work as sniff, and the branch follows
+    # the mode.
+    test "shapes a build from a proposal before naming its branch" do
+      hand_off = prose(hand_off_section())
+      {shape_at, _} = :binary.match(hand_off, "**Shape**")
+      {branch_at, _} = :binary.match(hand_off, "**Branch**")
+
+      assert shape_at < branch_at
+      assert hand_off =~ "`<type>/<slug>`, or the rule the repo writes down"
+      assert hand_off =~ ~r/whatever the repo's rule says/i
+    end
+
+    test "the proposal hand-off cites the steps it means" do
+      hand_off = hand_off_section()
+      cited = fn pattern -> Regex.run(pattern, hand_off, capture: :all_but_first) end
+
+      [shape_step] = cited.(~r/chosen as in step (\d+)/)
+      [branch_step] = cited.(~r/named by step (\d+)'s/)
+      [report_step] = cited.(~r/in place of step (\d+)'s/)
+
+      assert skill("spawn-worktree") =~ "## #{shape_step}. Choose the mouse's shape"
+      assert skill("spawn-worktree") =~ "## #{branch_step}. The branch name"
+      assert skill("spawn-worktree") =~ "## #{report_step}. Report"
     end
 
     test "carries the hooks in before Claude starts, so the Stop hook exists" do
@@ -172,8 +242,10 @@ defmodule Whiska.InstallWorktreeSkillsTest do
 
       # The order is the whole point: a shape recorded after Claude starts
       # gives a sniff mouse its first tool calls as a build mouse.
+      {create_at, _} = :binary.match(body, "herdr worktree create \\")
       {shape_at, _} = :binary.match(body, "whiska shape <build|sniff>")
       {start_at, _} = :binary.match(body, "herdr agent start <agent-name>")
+      assert create_at < shape_at
       assert shape_at < start_at
 
       # One fenced block: a shell variable does not survive between two Bash
