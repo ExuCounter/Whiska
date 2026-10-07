@@ -121,14 +121,14 @@ defmodule Whiska.InstallGlobalTest do
       assert Install.skills(:global) == Install.skills()
       paths = Install.skills(:global) |> Enum.map(&elem(&1, 0))
 
-      for name <- ~w(whiska-delivered whiska-finish whiska-spec grilling
+      for name <- ~w(whiska-delivered whiska-finish cold-review whiska-spec grilling
                      spawn-worktree send-to-worktree drop-worktree
                      inbox show reply dismiss focus away hold resume) do
         assert ".claude/skills/#{name}/SKILL.md" in paths
       end
     end
 
-    test "the per-repo install is unchanged and ships all fifteen, with the files beside them" do
+    test "the per-repo install is unchanged and ships all sixteen, with the files beside them" do
       assert Install.skills(:repo) == Install.skills()
 
       {skill_files, beside} =
@@ -136,7 +136,7 @@ defmodule Whiska.InstallGlobalTest do
         |> Enum.map(&elem(&1, 0))
         |> Enum.split_with(&(Path.basename(&1) == "SKILL.md"))
 
-      assert length(skill_files) == 15
+      assert length(skill_files) == 16
 
       assert Enum.sort(beside) == [
                ".claude/skills/whiska-delivered/finished.md",

@@ -678,6 +678,10 @@ defmodule Whiska.Install do
   # files: it is long, and a session only needs it at the moment a turn is
   # ending.
   #
+  # `cold-review` is the reviewer finishing always sends (ADR-0083): a skill
+  # that forks into its own read-only subagent, so the caller cannot write its
+  # brief.
+  #
   # The spec binds a mouse at one moment too, after grilling and before it
   # builds. The person's grilling skill ships beside it so it has one copy
   # (ADR-0076).
@@ -688,7 +692,8 @@ defmodule Whiska.Install do
   # since unquoted a space followed by `#` starts a comment and cut the listing
   # off before every example. Its two finished pickers ship beside it and are
   # read only when the line says finished.
-  @committed_skills @worktree_skills ++ ~w(whiska-delivered whiska-finish grilling whiska-spec)
+  @committed_skills @worktree_skills ++
+                      ~w(whiska-delivered whiska-finish cold-review grilling whiska-spec)
 
   # The source is `priv/skills/`, not this repo's own `.claude/skills/`. They
   # are build inputs, and a repo installed globally (ADR-0056) has no committed

@@ -54,15 +54,20 @@ from what the author feels it needs:
 
 | axis | trigger | how detected | evidence |
 | --- | --- | --- | --- |
-| **correctness** | always | none | the brief, the specs and the recorded decisions |
+| **cold review** | always | none | the `cold-review` skill's own prompt, run as its own read-only subagent; you never write its brief |
 | **security** | any trigger fires; skipped when none does | added code runs something built from text; decides allow or deny or permissions; reads outside input such as network, socket, env, a file it did not write, another agent's text; emits text a person or program will run; changes agent instructions, hooks or scripts; touches secrets or auth | the changed lines: input it trusts, secrets, access it widens, what it writes to a log |
-| **performance** | only on a hot path: the repo's `CLAUDE.md` names one, the diff adds or changes a timer, scheduler, middleware or handler, or a loop over input that grows with scale, or the file is such an entry point; otherwise its three questions join the correctness prompt | the diff and the repo's `CLAUDE.md` | what it makes slower, what it makes heavier, and whether either grows with the scale this repo runs at |
+| **performance** | only on a hot path: the repo's `CLAUDE.md` names one, the diff adds or changes a timer, scheduler, middleware or handler, or a loop over input that grows with scale, or the file is such an entry point; otherwise its three questions are already in the cold review | the diff and the repo's `CLAUDE.md` | what it makes slower, what it makes heavier, and whether either grows with the scale this repo runs at |
 | **frontend** | the change touches something a person sees | the changed files | keyboard and screen-reader access, empty and error states, small screens, the repo's own design language |
 | **tests** | the change adds, edits or deletes a test file — one under a test directory or named as a test, support files included | `git diff --name-only` from the merge base | `wio-test-reviewer`, below |
 
-- **Small diff:** under 40 changed lines, at most two files and no security trigger → one
-  combined reviewer holding every question of the axes above that apply, in place of one per
-  axis. Tests and frontend stay their own axes.
+- **Small diff:** under 40 changed lines, at most two files and no security trigger → the
+  cold review alone, in place of one reviewer per axis. Tests and frontend stay their own
+  axes.
+- **Order:** send the trigger reviewers first, in the background, then invoke `cold-review`
+  with no arguments; it runs in the foreground while they work. It is a skill, not an
+  `Agent` call, and the foreground is why: the stop hook counts only `Agent` launches
+  (ADR-0052). Not listed → send no substitute, and say in one line in the report that the
+  cold review did not run.
 - **Model:** pass the Agent call's `model` parameter: performance and the scout on the
   model `whiska shape --rules` picks for a clear task of known shape, every other reviewer
   inherits.
@@ -108,8 +113,12 @@ What they find:
   handled. No progress note to the person. Claude Code ends the turn while a reviewer is
   still out and wakes this session when it reports — that ending is not the turn
   finishing, it carries no marker, and nothing is delivered from it.
-- A finding is a claim, not a verdict: **try to disprove** each one against the code and
-  keep only what survives. Each survivor gets one word, and the word is what happens:
+- A finding is a claim, not a verdict: **try to disprove** each one against the code, and
+  **delete none**. The cold review goes in whole under `Cold review`: its header and every
+  finding in its own words. Every other reviewer's findings go in as numbered items in the
+  reviewer's own words. Under each item, one line: its word and what became of it, or
+  **disputed** with the code that disproves it. A disputed finding stays for the person to
+  weigh. Each finding that survives gets one word, and the word is what happens:
   - **important** — fix it now, in this turn, under step 2's two limits.
   - **nit** — fix it now if it is cheap, let it go if it is not.
   - **pre-existing** — this change did not cause it: name it in the message and leave it.

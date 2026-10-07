@@ -124,7 +124,7 @@ defmodule Whiska.Rules do
   The person reads the whole final message later, from another terminal, with none of this
   session's scrollback. It is a report, not a log: a finished
   one fits in six lines plus a line per cheap choice made without asking. Longer only when
-  they ask for detail, for a spec sent for their ok, which goes whole, and for a decision's
+  they ask for detail, for a spec sent for their ok or findings, which go whole, and for a decision's
   brief.
 
   In this order, skipping what has nothing to say:

@@ -683,7 +683,7 @@ defmodule Whiska.CLI do
       {"~/" <> Install.shim_path(), "the hook shim every hook calls"},
       {"~/.claude/settings.json", "the four hooks"},
       {"~/.claude/skills/", "inbox, show, reply, dismiss, focus, away, hold, resume,"},
-      {"", "whiska-delivered, whiska-finish, whiska-spec, grilling,"},
+      {"", "whiska-delivered, whiska-finish, cold-review, whiska-spec, grilling,"},
       {"", "spawn-worktree, send-to-worktree, drop-worktree"}
     ]
     |> Enum.map_join("\n", fn {path, what} ->

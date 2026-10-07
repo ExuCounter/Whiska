@@ -659,7 +659,7 @@ _Avoid_: summary, title, subject, preview
 **Finishing**:
 What a mouse does before it is allowed to say `done`: read the work back against the
 brief and the repo's written decisions, run the repo's checks and fix what they catch,
-send reviewers over its own diff (the ones the diff calls for), go round once more, commit
+send reviewers over its own diff (the ones the diff calls for, the cold review always), put every finding in the report, go round once more, commit
 the work on its branch, and only then write the marker, ending its report with an agent
 ledger: one line per agent sent, with its tokens, and one per axis skipped
 (ADR-0083).
@@ -678,9 +678,9 @@ thing, and it runs after a push rather than at the end of a turn), CI, ralph loo
 
 **Reviewer**:
 One subagent sent over the change in finishing's third step, on one **axis**, chosen by what
-the diff does: correctness always; security when a trigger fires; performance on a hot path;
+the diff does: the **cold review** always; security when a trigger fires; performance on a hot path;
 frontend when a person can see the change; tests when the change touches a test file; and a
-small diff gets one combined reviewer (ADR-0083). A repo can add axes, on its `reviewers:`
+small diff gets the cold review alone (ADR-next-the-correctness-review-is-cold). A repo can add axes, on its `reviewers:`
 line, and never remove one. The tests axis is
 wio's `wio-test-reviewer` or nothing: where wio is not installed the message says so in one
 line (ADR-0075). A reviewer **reports and never edits**, which is what
@@ -690,6 +690,21 @@ Whiska writes none of them. Wherever the session already lists an agent built fo
 that one is sent, and where it lists none the mouse writes the prompt — the ordinary case,
 not a degraded one (ADR-0054).
 _Avoid_: critic, auditor, linter, checker (a check is step 2 and a different thing), gate
+
+**Cold review**:
+The reviewer finishing always sends: the `cold-review` skill, which forks into its own
+read-only subagent and writes its own brief, so the mouse that built the change cannot
+shape it. It finds the change and the spec itself, reads the repo's decisions as they stood
+at the base, and treats anything the builder wrote as a claim. It runs in the foreground
+and its findings go into the report whole. Where the skill is missing, no other reviewer
+takes its place and the report says it did not run
+(ADR-next-the-correctness-review-is-cold).
+_Avoid_: correctness reviewer (what it replaced), second opinion
+
+**Disputed**:
+The mark on a finding the mouse tried to disprove and did, with the code that disproves it.
+The finding stays in the report beside it for the person to weigh; nothing a reviewer says
+is deleted (ADR-next-the-correctness-review-is-cold).
 
 **Important / nit / pre-existing**:
 The three words a reviewer's finding gets once it has survived being disproved, and the

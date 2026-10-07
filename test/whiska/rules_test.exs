@@ -126,6 +126,8 @@ defmodule Whiska.RulesTest do
       "it is read later, without scrollback": ~r/later, from another terminal/i,
       "a size, with what rides outside it":
         ~r/six lines plus a line per cheap choice.{0,120}a spec sent for their ok.{0,60}a decision's brief/is,
+      "reviewers' findings go whole":
+        ~r/a spec sent for their ok or findings, which go whole, and for a decision's brief/,
       "lead with what is true now": ~r/\*\*what is true now\*\*/i,
       "what changed, cheap choices included":
         ~r/\*\*what changed\*\*.{0,60}each cheap choice made without asking/is,

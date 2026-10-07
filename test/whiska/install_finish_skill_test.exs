@@ -168,8 +168,37 @@ defmodule Whiska.InstallFinishSkillTest do
       assert prose() =~ "| axis | trigger | how detected | evidence |"
     end
 
-    test "correctness always runs" do
-      assert prose() =~ ~r/\| \*\*correctness\*\* \| always \|/
+    test "the cold review always runs, in place of correctness (ADR-0083)" do
+      body = prose()
+
+      assert body =~ ~r/\| \*\*cold review\*\* \| always \|/
+      refute body =~ "| **correctness** |"
+      assert body =~ ~r/you never write its brief/i
+    end
+
+    test "trigger reviewers go to the background, then the cold review runs in the foreground" do
+      assert prose() =~
+               ~r/send the trigger reviewers first, in the background, then invoke `cold-review` with no arguments/i
+    end
+
+    test "a missing cold review is never replaced, only said" do
+      body = prose()
+
+      assert body =~ ~r/send no substitute/i
+      assert body =~ ~r/the cold review did not run/i
+      refute body =~ ~r/correctness reviewer as a written prompt/i
+    end
+
+    test "every reviewer's findings go in the report numbered, in their own words, none deleted" do
+      body = prose()
+
+      assert body =~ ~r/the cold review goes in whole/i
+
+      assert body =~
+               ~r/every other reviewer's findings go in as numbered items in the reviewer's own words/i
+
+      assert body =~ ~r/\*\*disputed\*\* with the code that disproves it/i
+      assert body =~ ~r/delete none/i
     end
 
     test "security runs when any trigger fires and is skipped when none does" do
@@ -196,12 +225,12 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/\| \*\*performance\*\* \| only on a hot path/i
       assert body =~ ~r/timer, scheduler, middleware or handler, or a loop over input that grows/
       refute body =~ "the diff contains a loop"
-      assert body =~ ~r/its three questions join the correctness prompt/
+      assert body =~ ~r/its three questions are already in the cold review/
     end
 
-    test "a small diff gets one combined reviewer" do
+    test "a small diff gets the cold review alone, beside tests and frontend" do
       assert prose() =~
-               ~r/under 40 changed lines, at most two files and no security trigger.{0,80}one combined reviewer/i
+               ~r/under 40 changed lines, at most two files and no security trigger.{0,80}the cold review alone/i
     end
 
     test "model per axis goes through the Agent call's model parameter" do
@@ -242,7 +271,7 @@ defmodule Whiska.InstallFinishSkillTest do
     test "names the axes, and frontend only when a person sees it" do
       body = prose()
 
-      for axis <- ["correctness", "security", "performance", "frontend"] do
+      for axis <- ["cold review", "security", "performance", "frontend"] do
         assert body =~ "| **#{axis}** |", axis
       end
 
