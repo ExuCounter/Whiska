@@ -49,7 +49,8 @@ and not a "debug mode": *mode* already means a mouse's build-or-sniff state (ADR
 one word for two unrelated things is what `CONTEXT.md` exists to prevent.
 
 **A `done` report is delivered like any other question, and closed the moment it is
-sent.** This revises the original decision, which closed it on arrival and never delivered
+sent** (changed 2026-10-08: it is closed once the person writes something after it,
+ADR-0008). This revises the original decision, which closed it on arrival and never delivered
 it. In practice that meant a finished mouse vanished: its whole final report sat in the
 house, readable only by someone who already knew to run `whiska questions <id>`, and the
 person learned a branch was ready by going to look. The marker rule in `CLAUDE.md` asks
@@ -140,10 +141,10 @@ before. What it now decides — from Claude Code's own transcript, not from the 
 whether the turn ended at all. Everything it cannot read counts as ended, so the direction
 this ADR chose is the direction the new rule fails in too.
 
-## Note, 2026-10-06: `done` means the brief is done, and the picker reads the branch
+## Note, 2026-10-06: `done` means the brief is done, and the finish options read the branch
 
 A mouse told to write a failing test first did, stopped with it uncommitted, and ended on
-`done`. The finished picker recommended landing a branch with nothing committed, and
+`done`. The finish options recommended landing a branch with nothing committed, and
 landing the test would have broken CI. Two things change; neither is classification.
 
 - **`done` is for a finished brief.** A turn that stops short of the brief on purpose — a
@@ -152,7 +153,7 @@ landing the test would have broken CI. Two things change; neither is classificat
   sharpens; the two markers, and the owl's reading of them, do not move.
 - **`whiska show` says what a finished branch holds**, on the line under the heading:
   commits beyond the base, counted as Land here lists them, and files not committed, or
-  `unknown` when git cannot say. The finished picker in `whiska-delivered` offers what
+  `unknown` when git cannot say. The finish options in `whiska-delivered` offer what
   fits — a commit first, then a landing or a request, for a branch with files not
   committed; no landing for a branch with nothing on it. Whiska reads git, never the message: the turn is still
   classified by its marker alone, and the line only tells the main session what the
@@ -160,7 +161,7 @@ landing the test would have broken CI. Two things change; neither is classificat
 
 A third marker for "stopped short" was rejected: it would change the parser, the line,
 the hoot and the board, and still need a way to say "carry on". Recording the branch in
-the `Stop` hook was rejected too: it needs stored data, and the picker needs the branch as
+the `Stop` hook was rejected too: it needs stored data, and the options need the branch as
 it is when the person picks, not as it was when the turn ended. What neither layer
 catches — a failing test that was committed, a mid-task answer on a branch that already
 has commits — looks ready to land, and the mouse's marker is the only guard there.

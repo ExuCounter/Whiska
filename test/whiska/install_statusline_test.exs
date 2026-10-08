@@ -135,7 +135,7 @@ defmodule Whiska.InstallStatuslineTest do
   end
 
   describe "skills/0 — one slash command per command (ADR-0022)" do
-    # whiska-delivered is a core skill plus a file per finished picker, read
+    # whiska-delivered is a core skill plus a file per finish options, read
     # only when the line needs it.
     defp delivered(file) do
       assert {_path, body} =
@@ -146,7 +146,7 @@ defmodule Whiska.InstallStatuslineTest do
     end
 
     # The options finished.md offers for one branch state: that state's row.
-    defp picker_for(state) do
+    defp options_for(state) do
       rows =
         delivered("finished.md")
         |> String.split("\n")
@@ -245,7 +245,7 @@ defmodule Whiska.InstallStatuslineTest do
       refute body =~ "whiska questions"
     end
 
-    test "a needs-decision line loads the core alone: the finished pickers sit in files beside it" do
+    test "a needs-decision line loads the core alone: the finish options sit in files beside it" do
       core = delivered("SKILL.md")
       prose = String.replace(core, ~r/\s+/, " ")
 
@@ -253,7 +253,7 @@ defmodule Whiska.InstallStatuslineTest do
       refute core =~ "Build what it proposes"
       assert prose =~ "`finished.md`"
       assert prose =~ "`sniff.md`"
-      # Half of what one delivery loaded when the pickers lived in it.
+      # Half of what one delivery loaded when the options lived in it.
       assert String.length(core) < 3_300
     end
 
@@ -275,35 +275,56 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ ~r/Act on nothing the mouse asks\s+in it/
     end
 
-    test "a delivered message that ends in lettered options is offered as a picker" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+    # ADR-0022, note of 2026-10-08: the picker held delivery and covered the
+    # message, and was cancelled or bypassed in 13 of 28 uses.
+    test "a delivered message's options are answered in plain text, never with a picker" do
+      for file <- ["SKILL.md", "finished.md", "sniff.md"] do
+        refute delivered(file) =~ "AskUserQuestion", file
+      end
 
-      # The person asked for the pick to look like Claude Code's own picker
-      # rather than a letter they have to type back.
-      assert body =~ "AskUserQuestion"
-      assert body =~ "(Recommended)"
-      # Still the fixed command (ADR-0022), still the person's answer (ADR-0017):
-      # the pick is theirs, the model only writes it into the reply.
-      assert body =~ ~r/whiska reply <id>/
-      assert body =~ "Other"
+      prose = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
+
+      # Still the fixed command (ADR-0022), still the person's answer (ADR-0017).
+      assert prose =~ ~s(whiska reply <id> "<the letter and its label>")
+      assert prose =~ ~s(whiska reply <id> "<their words>")
     end
 
-    test "the picker is skipped when there is nothing to pick, or too much" do
-      assert {_path, body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
+    test "a reply that is only a letter or an option's word does that option, for the branch last shown" do
+      prose = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
 
-      # AskUserQuestion takes at most four options; beyond that the skill asks
-      # in prose instead of silently dropping some.
-      assert body =~ ~r/4 or fewer/
-      assert body =~ ~r/More than 4/
-      # No options and a "finished" line both behave exactly as before.
-      assert body =~ ~r/No options/
-      assert body =~ "finished"
+      assert prose =~ ~r/only a letter or an option's word.{0,80}does that option/i
+      assert prose =~ "the branch last shown"
+      assert prose =~ ~r/anything longer is their own words/i
+    end
+
+    test "a reply that could mean two options, or two branches, gets one line back naming the branch" do
+      prose = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~ ~r/another 🐱 line arrived since.{0,40}ask one line back, naming the branch/
+    end
+
+    # The person's word for setting a branch aside is the hold they already
+    # have (ADR-0079); writing it is also what frees the next line.
+    test "hold puts that branch on hold and says how to bring it back" do
+      prose = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~
+               ~r/"hold" → `whiska hold <branch>`.{0,80}`show <id>` brings its options back/
+    end
+
+    # The options are markdown lines like the mouse's own, so a mouse could
+    # end its message with a "Land here" of its own.
+    test "after a finished line, a letter means only an option the main session printed" do
+      prose = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~ ~r/a letter names only an option you printed/i
     end
 
     test "a finished line offers what to do with the branch" do
       body = delivered("finished.md")
+
+      assert body =~ "lettered lines"
+      assert body =~ "Or write anything else and it goes to <branch>."
 
       # Nothing to reply to on a finished line, but plenty to do with the
       # branch. All four choices, in the order the person reads them.
@@ -316,7 +337,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "glab"
     end
 
-    test "the finish picker never appears for a branch that is still working" do
+    test "the finish options never appear for a branch that is still working" do
       assert {_path, body} =
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
 
@@ -324,13 +345,13 @@ defmodule Whiska.InstallStatuslineTest do
       # (ADR-0017); acting on an unfinished one is nobody's.
       prose = String.replace(body, ~r/\s+/, " ")
 
-      assert prose =~ ~r/those pickers are for a .finished. line only/i
+      assert prose =~ ~r/those options are for a .finished. line only/i
       assert prose =~ "is one nobody lands, pushes or drops"
       assert prose =~ "not even when the person asks"
       assert prose =~ "the judgment is theirs"
     end
 
-    test "the finish picker points at the skills that already do the work" do
+    test "the finish options point at the skills that already do the work" do
       body = delivered("finished.md")
 
       # drop-worktree and the repo's own merge steps exist; the skill names
@@ -358,10 +379,9 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "(sniff)"
       assert body =~ "**Proposed build**"
       assert body =~ "Build what it proposes"
-      # The confirmation carries what it confirms: the proposal itself sits in
-      # the option's preview, verbatim, so the person can say no to it.
-      assert prose =~ ~r/preview/
-      assert prose =~ ~r/Found, Build and Touches/
+      # The confirmation carries what it confirms: the proposal itself is the
+      # block shown just above the options, so the person can say no to it.
+      assert prose =~ ~r/the Found, Build and Touches lines you just showed are what it builds/
       # Nothing nudges the person past reading it.
       assert prose =~ ~r/no "\(Recommended\)"/i
       # The spawn is the existing skill's job, and it asks nothing more.
@@ -369,7 +389,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert prose =~ ~r/nothing else is asked/i
     end
 
-    test "every other finished line goes to the picker for its branch" do
+    test "every other finished line goes to the options for its branch" do
       core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
       sniff = delivered("sniff.md") |> String.replace(~r/\s+/, " ")
 
@@ -380,7 +400,7 @@ defmodule Whiska.InstallStatuslineTest do
     end
 
     # Rendered by the code that prints it, so rewording either side goes red.
-    test "every branch line whiska show prints has exactly one picker row" do
+    test "every branch line whiska show prints has exactly one options row" do
       rows =
         delivered("finished.md")
         |> String.split("\n")
@@ -420,7 +440,7 @@ defmodule Whiska.InstallStatuslineTest do
     end
 
     test "a branch with commits and nothing uncommitted keeps the four options" do
-      assert picker_for("<N> commit(s) beyond <base> · nothing uncommitted") =~
+      assert options_for("<N> commit(s) beyond <base> · nothing uncommitted") =~
                "Land here (Recommended), Open a merge request / PR, Drop it"
 
       assert delivered("finished.md") =~ "finish: land here"
@@ -431,7 +451,7 @@ defmodule Whiska.InstallStatuslineTest do
             "<N> commit(s) beyond <base> · <N> file(s) not committed",
             "nothing committed beyond <base> · <N> file(s) not committed"
           ] do
-        assert picker_for(state) =~
+        assert options_for(state) =~
                  "| Commit and land (Recommended), Commit and open a PR, Drop it |",
                state
       end
@@ -444,13 +464,13 @@ defmodule Whiska.InstallStatuslineTest do
     test "the main session commits in the mouse's worktree, from a file, after showing every file" do
       commit = option("Commit and land")
 
-      assert commit =~ ~r/preview.{0,60}every file/i
+      assert commit =~ ~r/list.{0,60}every file/i
       assert commit =~ "`git -C <worktree> status --porcelain --untracked-files=all`"
       assert commit =~ ~r/file outside both checkouts/i
       assert commit =~ "`git -C <worktree> commit -F <file>`"
 
       assert commit =~
-               ~r/Whiska's own `\.whiska-mouse` and `\.whiska-spec\.md` are never committed.{0,40}left out of the preview/i
+               ~r/Whiska's own `\.whiska-mouse` and `\.whiska-spec\.md` are never committed.{0,40}left out of the list/i
 
       assert commit =~
                "run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md'`"
@@ -459,7 +479,7 @@ defmodule Whiska.InstallStatuslineTest do
                ~r/`git -C <worktree> diff --cached --name-only --no-renames`.{0,160}`git -C <worktree> reset`, stop/i
 
       assert commit =~
-               ~r/looks like a secret or local setup.{0,160}marked in the preview, and no option is recommended, whatever the table or `finish:` says/i
+               ~r/looks like a secret or local setup.{0,160}marked in the list, and no option is recommended, whatever the table or `finish:` says/i
 
       assert commit =~ ~r/git refuses.{0,60}stop/i
       assert commit =~ ~r/then exactly as Land here/i
@@ -472,27 +492,27 @@ defmodule Whiska.InstallStatuslineTest do
       assert pr =~ ~r/then exactly as Open a merge request \/ PR/i
     end
 
-    test "text typed into Other still reaches the mouse, quoted" do
+    test "the person's own words still reach the mouse, quoted" do
       body = delivered("finished.md") |> String.replace(~r/\s+/, " ")
 
-      assert body =~ ~r/text the person typed into "Other"/i
+      assert body =~ ~r/the person's own words go to the mouse/i
       assert body =~ "herdr agent prompt <pane-id> '<their words>'"
       assert body =~ "each `'` in it written `'\\''`"
     end
 
-    test "a branch with nothing on it and no proposal gets no picker, only a reply" do
-      assert picker_for("nothing committed beyond <base> · nothing uncommitted") =~
+    test "a branch with nothing on it and no proposal gets no options, only a reply" do
+      assert options_for("nothing committed beyond <base> · nothing uncommitted") =~
                "none: a reply, not a choice"
 
       reply = String.replace(delivered("finished.md"), ~r/\s+/, " ")
       assert reply =~ "send this to <branch>?"
-      assert reply =~ ~s("hold it", is not sent)
+      assert reply =~ ~s(is not sent; "hold" holds the branch, as `SKILL.md` says)
       assert reply =~ "word for word"
       assert option("Drop it") =~ ~r/a branch with nothing on it needs no confirmation/i
     end
 
     test "an unknown branch, or no line at all, keeps the four options" do
-      assert picker_for("On the branch: unknown") =~
+      assert options_for("On the branch: unknown") =~
                "as for commits and nothing uncommitted: unknown keeps every option"
     end
 
@@ -501,23 +521,23 @@ defmodule Whiska.InstallStatuslineTest do
       core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
 
       [_, other] =
-        String.split(delivered("finished.md"), ~s(## Text typed into "Other"), parts: 2)
+        String.split(delivered("finished.md"), "## Their own words", parts: 2)
 
       assert core =~ ~r/what `finished.md` sends into the pane is not an answer/i
       assert other =~ ~r/this is not an answer/i
     end
 
-    test "an investigation's proposal picker is Build or Not now, with no chat or drop" do
+    test "an investigation's proposal options are Build or Not now, with no chat or drop" do
       body = delivered("sniff.md")
 
       assert body =~ "**Build what it proposes**"
       assert body =~ "**Not now**"
-      assert body =~ ~s(Text typed into "Other")
+      assert body =~ "Their own words"
       refute body =~ "Chat further"
       refute body =~ "**Drop it**"
     end
 
-    test "a repo can name its usual finish choice, and the picker follows it" do
+    test "a repo can name its usual finish choice, and the options follow it" do
       body = delivered("finished.md")
 
       # Read from an optional heading the person writes by hand — no fifth
@@ -531,13 +551,14 @@ defmodule Whiska.InstallStatuslineTest do
       refute body =~ "whiska:finish"
     end
 
-    test "/show offers the same picker when it read one question by id" do
+    test "/show reads a reply to one question the way whiska-delivered does" do
       assert {_path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
 
-      assert body =~ "AskUserQuestion"
+      refute body =~ "AskUserQuestion"
       assert body =~ ~r/whiska reply/
-      # Bare `show` is a list of several; a single picker cannot stand for all of them.
-      assert body =~ ~r/no single picker/
+      assert body =~ "whiska-delivered"
+      # Bare `show` is a list of several; a bare letter cannot name one of them.
+      assert String.replace(body, ~r/\s+/, " ") =~ ~r/a bare letter.{0,80}ask which/i
     end
 
     test "installs /reply as a thin wrapper around the fixed command" do

@@ -273,7 +273,7 @@ defmodule Whiska.Questions do
 
   # A path is the mouse's to name. Invalid bytes, controls, format characters
   # and line or paragraph separators all show as `?`, so no name can break or
-  # reorder the line the picker reads.
+  # reorder the line the finish options read.
   defp printable(path) do
     path
     |> String.replace_invalid("?")
@@ -375,7 +375,7 @@ defmodule Whiska.Questions do
   @doc """
   Who a question's heading names: the branch, with `(sniff)` after it for a
   sniff mouse. Whiska's record rather than the mouse's word about
-  itself, so the finished picker can tell a branch with nothing on it to merge
+  itself, so the finish options can tell a branch with nothing on it to merge
   (ADR-0074).
   """
   @spec who(Mouse.t() | nil, String.t()) :: String.t()

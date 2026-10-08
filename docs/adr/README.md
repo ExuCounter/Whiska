@@ -44,7 +44,7 @@ are the extracted, individually citable decisions.
 ## Questions and delivery
 
 - [0005](0005-answers-are-keyed-to-a-question-id.md) — Answers are keyed to a question id, not a branch
-- [0008](0008-delivery-is-a-queue-not-a-batch.md) — Delivery is a queue, not a batch (noted 2026-10-06: a finished line waits for the slot, and still never holds it)
+- [0008](0008-delivery-is-a-queue-not-a-batch.md) — Delivery is a queue, not a batch (noted 2026-10-06: a finished line waits for the slot; 2026-10-08: once typed it holds the slot until the person writes something)
 - [0047](0047-delivery-holds-while-the-person-is-typing.md) — Delivery holds while the person is typing, read off the main session's prompt box (amended 2026-10-03 and 2026-10-04 by 0068)
 - [0068](0068-the-prompt-box-is-found-by-its-frame.md) — The prompt box is found by its frame, and no box on screen holds delivery (amends 0047; amended 2026-10-04: faint text in the box is not a draft)
 - [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep, whoever writes them (amended 2026-10-07 by ADR-0033: the hook asks the owl first and the owl writes the entry; the escript writes it when the owl does not answer)
@@ -93,7 +93,7 @@ are the extracted, individually citable decisions.
 
 - [0004](0004-domain-names-house-and-owl.md) — The per-repo slice is a "house", the machine-wide process an "owl"
 - [0021](0021-no-whiska-spawn-command.md) — No `whiska spawn` command — spawning happens through a conversation
-- [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash (amended 2026-10-06 by ADR-0079: the one-word skills replace the two long-named ones, `/inbox` ships, the picker lands by cherry-pick; 2026-10-07: no Chat further, free text goes to the mouse; and by 0081: six of them never load into context)
+- [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash (amended 2026-10-06 by ADR-0079: the one-word skills replace the two long-named ones, `/inbox` ships, a finished branch lands by cherry-pick; 2026-10-07: no Chat further, free text goes to the mouse; and by 0081: six of them never load into context; 2026-10-08: no picker, options are lettered lines read against the branch last shown)
 - [0046](0046-whiska-ships-the-worktree-skills.md) — Whiska ships the worktree skills, because Whiska owns the protocol (amended 2026-10-01: the source is `priv/skills/`, not the repo's own `.claude/`; its dotfiles follow-up landed in 0056's 2026-10-04 amendment)
 - [0027](0027-statusline-detail-for-one-count-for-many.md) — Statusline shows detail for one thing, a count for many (partly superseded 2026-09-29 by 0051: the rule is herdr's tab bar's now)
 - [0051](0051-the-repo-scoped-statusline-is-a-board-the-owl-writes.md) — The repo-scoped statusline is a board, and the owl writes it to a file (amended 2026-10-01: an orphan is counted on its own line, not under "waiting"; 2026-10-02: the detail column is the mouse's topic, with the last action as the fallback; 2026-10-03: the orphan line names the branches the orphans came off; 2026-10-03: one line on it is the script's, not a mouse's row — ADR-0065; 2026-10-04: elapsed time ticks in seconds, redrawn every second, herdr still asked every two; superseded 2026-10-07 by ADR-0082: the mice's state is a line in herdr's sidebar)

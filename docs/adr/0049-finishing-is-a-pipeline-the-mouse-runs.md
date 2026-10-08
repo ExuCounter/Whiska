@@ -60,7 +60,7 @@ Per-repo facts live under a `## Finish` heading in the repo's own `CLAUDE.md`, o
 Whiska's block, one `name: value` line each: `checks:` for step 2, `specs:` for step 1,
 `ticket:` for the prefix a ticket id carries. Missing heading, or a missing line: run
 what the repo's tooling plainly offers and say in the message what was assumed. That
-heading is shared, not Whiska's — the finished-branch picker reads `finish:` from the
+heading is shared, not Whiska's — the finished-branch options read `finish:` from the
 same heading in the same shape.
 
 ## Why the hook had to go
@@ -144,7 +144,7 @@ retired hook had the same exposure through its `CHECK` line, quieter only becaus
 to a shell hook is conspicuous and a `name: value` line in `CLAUDE.md` is not.
 
 **`## Finish` is now a shared heading with its own grammar.** The finish part reads
-`checks:`, `specs:` and `ticket:` from it; the finished-branch picker reads `finish:`.
+`checks:`, `specs:` and `ticket:` from it; the finished-branch options read `finish:`.
 Nothing parses it in Elixir — it is read by a model, like everything else in `CLAUDE.md`
 — but the shape is one line of `name: value`, and a new fact goes in as another line
 rather than another heading.
@@ -166,12 +166,12 @@ the person's decision. A secret or local setup — a `.env`, a key, a `.claude/`
 deleted: each is left and named in the message. Whiska's own `.whiska-mouse` and
 `.whiska-spec.md` are never committed either: neither is ignored by Whiska in every repo, and
 a committed `.whiska-mouse` would hand every later worktree the same `mouse_id` (ADR-0002).
-Where the main session commits instead, the picker leaves those two out by name, marks a
-secret or local setup in its preview, and then recommends nothing. A repo whose own instructions say the person commits keeps that, and the
+Where the main session commits instead, the finish options leave those two out by name, mark a
+secret or local setup in their file list, and then recommends nothing. A repo whose own instructions say the person commits keeps that, and the
 message says the work is left uncommitted on purpose. A turn ending on a decision skips it
 with the rest of the pipeline, so a failing test written first stays uncommitted.
 
 Advisory like every other step. A `Stop` hook refusing `done` on a dirty worktree was
 rejected for the reasons this ADR retired the review loop. The fallback for a mouse that
-forgets is the finished picker, which offers a commit first wherever the branch line lists
+forgets is the finish options, which offer a commit first wherever the branch line lists
 files not committed (ADR-0009's note of this date).

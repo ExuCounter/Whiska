@@ -16,7 +16,7 @@ lowest. The right model was cheaper, and nothing picked it.
   and on the done marker. `whiska-finish` teaches it. The rule is phrased by what the turn
   did, not by its mode, because a sniff mouse that never tried to write does not know it
   is one.
-- **One decision, where one already is.** The finished picker in `whiska-delivered`
+- **One decision, where one already is.** The finish options in `whiska-delivered`
   (ADR-0009's `done` line) gains the option. For a proposal from a branch with nothing to
   merge — a sniff mouse's, or any mouse's whose branch has nothing on it — it holds
   Build what it proposes, Not now (amended 2026-10-07: Chat further and Drop it are gone;
@@ -36,7 +36,8 @@ The person settled this, and it is why the flow asks exactly once.
 - The model, the effort and the branch name are derived and shown, never asked. Each is
   reversible in a sentence, and being wrong costs money or quality, not a wrong feature.
 - The proposal can be wrong, so that one confirmation stays — and it carries enough to say
-  no to. The option's preview is the Found, Build and Touches lines verbatim. A
+  no to. The Found, Build and Touches lines are shown verbatim just above the options
+  (amended 2026-10-08: they were the picker option's preview, ADR-0022). A
   confirmation nobody reads is worse than none: it looks like oversight and provides none.
 - For the same reason no option carries "(Recommended)", whatever `## Finish` names. The
   question is whether the proposal is right, and only the person's read of it can say.
@@ -51,12 +52,12 @@ text, would be Whiska reading prose to decide something, which ADR-0009 and ADR-
 refuse. So the proposal is content, read by the main session's Claude the way lettered
 options already are. Two things make it actionable without a contract in code:
 
-- **Fixed labels**, so the main session lifts the block verbatim into the preview instead
+- **Fixed labels**, so the main session shows the block verbatim instead
   of summarising it.
 - **Whiska's record of the mode, and of the branch.** `whiska questions <id>` heads a
   sniff mouse's question `feat/x (sniff)`, and under any finished question's heading
   prints what its branch holds — `On the branch: nothing committed beyond main ·
-  nothing uncommitted`. The picker reads those, not the mouse's word about itself, to
+  nothing uncommitted`. The options read those, not the mouse's word about itself, to
   know the branch has nothing to merge.
 
 The new mouse is given the question id and nothing else; it reads the whole report with
@@ -110,13 +111,13 @@ holds the context. They ask for the build, and a fresh mouse reads the proposal 
 - The investigation's worktree is left standing after the hand-off: the person may still
   want to talk to it.
 
-## Revised 2026-10-06: the picker reads the branch, not only the mode
+## Revised 2026-10-06: the options read the branch, not only the mode
 
 `(sniff)` stood in for "nothing to merge" because Whiska had no record of what a branch
 held. It now has one: `whiska show` prints it under every finished question's heading
 (ADR-0009's note of this date). Every task goes to a mouse (ADR-0078), so a build mouse is
 often the one asked to investigate, and its proposal sat behind Land here and a PR for a
-branch with nothing on it. The proposal picker is offered when the heading says `(sniff)`
+branch with nothing on it. The proposal options are offered when the heading says `(sniff)`
 **or** the branch line is exactly the one for a branch with nothing on it, committed or
 not; a sniff mouse behaves exactly as before. The whole line, not a phrase in it: a file
 name is printed on that line too, and one named "nothing committed beyond main" must not

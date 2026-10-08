@@ -64,7 +64,7 @@ defmodule Whiska.Owl.House do
   while the owl was down" path.
 
   A `done` report waits for the slot, goes ahead of the queue once it is free,
-  and is closed the moment it is sent; an entry whose worktree is no longer on disk is recorded as
+  and holds the slot once sent until the person writes something; an entry whose worktree is no longer on disk is recorded as
   orphaned rather than delivered. Whatever a mouse
   leaves supersedes its own earlier open or sent questions: it has moved past
   them, and an answer could no longer land.
@@ -85,9 +85,11 @@ defmodule Whiska.Owl.House do
   and on the backstop.
 
   A finished line waits for the slot like any question, so it never lands over
-  one the person is reading, but it never holds it (ADR-0008, note of
-  2026-10-06): once the slot is free it goes ahead of whatever is queued, and
-  is closed as it is typed. A round's wait only ever gathers a count for a
+  one the person is reading (ADR-0008, note of 2026-10-06), and once typed it
+  holds the slot until the person's next prompt in the main session settles it
+  (note of 2026-10-08). The house raises `Whiska.FinishFlag` as it types one,
+  so that prompt reaches the hook. Once the slot is free a finished line goes
+  ahead of whatever is queued. A round's wait only ever gathers a count for a
   house that was quiet, so a finished line arriving while something is out
   starts no round; it waits for the slot and nothing else.
 
@@ -144,6 +146,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Delivery.Text
   alias Whiska.Doorbell
   alias Whiska.Doorstep
+  alias Whiska.FinishFlag
   alias Whiska.Herdr
   alias Whiska.Layout
   alias Whiska.Pickup
@@ -1190,7 +1193,7 @@ defmodule Whiska.Owl.House do
   end
 
   # A done report is open like any other and delivered in its turn (ADR-0009);
-  # it is closed the moment it is sent, in send_question/3. An entry whose
+  # once sent it holds the slot until the person writes something. An entry whose
   # worktree has already gone has nowhere to reply to, so it arrives where the
   # rest of that mouse's questions went — settled if its branch landed,
   # orphaned if it did not (ADR-0064). The mouse is recorded first, so the
@@ -1367,8 +1370,7 @@ defmodule Whiska.Owl.House do
 
   # What goes next, if the main session will have it: judged against what the
   # person set aside first, then the slot (`Whiska.Delivery.Mode`). A finished
-  # line waits for the slot but never holds it: it goes first once the slot is
-  # free, and is closed as it is sent.
+  # line waits for the slot, goes first once it is free, and holds it once sent.
   defp next_to_deliver(mode), do: Mode.next(Storage.questions(), mode)
 
   defp main_session_free?(%{socket: nil} = state) do
@@ -1467,7 +1469,7 @@ defmodule Whiska.Owl.House do
     case state.herdr.prompt(state.socket, state.main_pane, line) do
       :ok ->
         {:ok, _} = Storage.mark_sent(question.id)
-        settle_report(question)
+        flag_report(state, question)
         hoot(state, question, branch, more)
         %{release_hold(state) | warned: MapSet.new()}
 
@@ -1499,10 +1501,19 @@ defmodule Whiska.Owl.House do
     _kind, _reason -> :ok
   end
 
-  # A done report is told once and never waits for an answer: closing it as
-  # soon as it is sent means it never holds ADR-0008's one slot.
-  defp settle_report(%Question{kind: "done", id: id}), do: {:ok, _} = Storage.close_question(id)
-  defp settle_report(_question), do: :ok
+  # Best effort: a flag that cannot be raised leaves the report holding the
+  # slot until `dismiss`, a hold, or its branch's next message.
+  defp flag_report(state, %Question{kind: "done", id: id}) do
+    case FinishFlag.set(state.main_checkout) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        warn(state, "##{id} told, but the finish flag failed (#{inspect(reason)})")
+    end
+  end
+
+  defp flag_report(_state, _question), do: :ok
 
   defp branch_of(mouse_id) do
     case Storage.mouse(mouse_id) do

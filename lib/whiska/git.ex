@@ -243,7 +243,7 @@ defmodule Whiska.Git do
   Anything git will not say plainly is an error, never an empty branch: a
   worktree that is not there (`:no_worktree`), one moved off `branch`
   (`:off_branch`), a base whose name is not plain (`:unsafe_base`), or output
-  with a warning in it. The finished picker takes nothing for "nothing to land".
+  with a warning in it. The finish options take nothing for "nothing to land".
   """
   @spec on_branch(Path.t(), Path.t(), branch()) ::
           {:ok, %{base: branch(), ahead: non_neg_integer(), uncommitted: [String.t()]}}

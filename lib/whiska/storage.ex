@@ -471,9 +471,9 @@ defmodule Whiska.Storage do
   sweep that catches what arrived after it, and it is run before every delivery
   so the slot is judged by what is alive now. Returns what it released.
 
-  A `done` report is outside it. Nothing is waiting on the person in one, so it
-  never holds the slot (ADR-0008, note of 2026-10-06) — and a branch whose
-  mouse is gone is exactly the one the person still wants to hear finished.
+  A `done` report is outside it: a branch whose mouse is gone is exactly the
+  one the person still wants to hear finished, and one already told holds the
+  slot only until the person writes something (ADR-0008, note of 2026-10-08).
   """
   @spec release_unanswerable() :: [Question.t()]
   def release_unanswerable do
@@ -798,8 +798,8 @@ defmodule Whiska.Storage do
   @doc """
   The oldest `done` report still waiting to be told, or nil.
 
-  A finished line goes ahead of the queue once the one delivery slot is free,
-  and never holds it (ADR-0008, note of 2026-10-06). It is read apart from
+  A finished line goes ahead of the queue once the one delivery slot is free
+  (ADR-0008, note of 2026-10-06). It is read apart from
   `next_open/0` for that reason.
   """
   @spec next_done() :: Question.t() | nil
@@ -975,6 +975,23 @@ defmodule Whiska.Storage do
   defp update_status(question, attrs) do
     question |> Ecto.Changeset.change(attrs) |> Repo.update()
   end
+
+  @doc """
+  Close every finished report already told: the person has written something
+  in the main session since, so the slot it held is free (ADR-0008, note of
+  2026-10-08). Returns how many were closed.
+  """
+  @spec settle_reports() :: non_neg_integer()
+  def settle_reports do
+    {n, _} = Repo.update_all(reports_out(), set: [status: "closed"])
+    n
+  end
+
+  @doc "Is a finished report told and not yet settled?"
+  @spec reports_out?() :: boolean()
+  def reports_out?, do: Repo.exists?(reports_out())
+
+  defp reports_out, do: from(q in Question, where: q.kind == "done" and q.status == "sent")
 
   @doc """
   A newer question from a mouse supersedes its earlier open and sent ones: the

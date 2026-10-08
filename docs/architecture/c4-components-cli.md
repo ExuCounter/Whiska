@@ -20,8 +20,9 @@ C4Component
     Component(personsrule, "Rule.Persons", "rule", "The person's commands - away, hold, focus, resume, reply, dismiss, close - are not a mouse's to run")
     Component(hook, "Hook.PreToolUse", "decision", "One tool call in, one decision out")
     Component(stop, "Hook.Stop", "writer", "One finished turn in, one doorstep entry out")
-    Component(prompthook, "Hook.UserPromptSubmit", "the take", "One prompt in a mouse's session in; the answer saved for it out, as context, stamped taken")
+    Component(prompthook, "Hook.UserPromptSubmit", "the take", "One prompt in a mouse's session in; the answer saved for it out, as context, stamped taken. In the main session, the person's prompt settles a finished line")
     Component(flagm, "AnswerFlag", "file", "Raises and lowers the hint in the worktree's git admin directory that the shim reads")
+    Component(finishflag, "FinishFlag", "file", "The hint in the main checkout's .git that a finished line is out; the owl raises it, the hook lowers it")
     Component(bell, "Doorbell", "line + sweep", "The one fixed line reply types into a mouse's pane; the owl's re-ring sweep lives beside it")
     Component(sessionstart, "Hook.SessionStart", "printer", "One session start in, its role's rules out: none outside herdr")
     Component(rules, "Rules", "pure", "The named parts each role starts with: the main session's, a mouse's")
@@ -242,7 +243,7 @@ Nothing here writes or collects.
 **`show` reads git for a finished question, and only for one.** Under its heading it
 prints what the branch holds — its own commits beyond the base, merges from the base
 skipped, and the files its worktree has not committed — or `unknown` when git cannot say,
-never an empty branch. The finished picker in `whiska-delivered` chooses its options by
+never an empty branch. The finish options in `whiska-delivered` are chosen by
 that line (ADR-0009's note of 2026-10-06, ADR-0074).
 
 **`Waiting` is the machine-wide reading, and `jump` is the only thing in Whiska that

@@ -46,6 +46,7 @@ C4Dynamic
   Rel(person, mousepane, "Then rings its doorbell through herdr: one fixed line, never the answer")
   Rel(mousepane, db, "Its UserPromptSubmit hook reads the answer, hands it over as context, stamps it taken")
   Rel(delivery, mousepane, "Not taken: rings again on the backstop, at most three times, then tells the person")
+  Rel(mainpane, db, "After a finished line: the person's next prompt there, through its UserPromptSubmit hook, settles it and frees the slot")
 
   UpdateRelStyle(mousepane, doorstep, $textColor="blue", $lineColor="blue", $offsetY="-20")
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
@@ -97,7 +98,8 @@ heard:**
 
 - no marker at all → **deliver**. The mouse stopped and did not say why.
 - `done` → delivered as "finished", no reply offered, behind whatever is sent but ahead of
-  the queue, and closed the moment it is sent.
+  the queue, and holding the slot once sent until the person writes something in the main
+  session.
 - `needs-decision` → delivered. Still valid, now redundant.
 
 Forgetting is the safe direction: a mouse that forgets its marker makes noise instead of
@@ -134,9 +136,14 @@ with more trickling in. A newer question from the same mouse supersedes its earl
 so a mouse that moves on cannot wedge the queue (ADR-0037).
 
 A finished line waits for the slot like any question, so it never lands over a decision
-the person is still reading, but it never holds it: once the slot is free it goes ahead of
-whatever is queued and is closed as it is typed (ADR-0008, note of 2026-10-06). Several go
-one at a time, each line counting `n more finished` apart from `n more open`. The idle
+the person is still reading: once the slot is free it goes ahead of whatever is queued
+(ADR-0008, note of 2026-10-06). Once typed it holds the slot itself, until the person's
+next prompt in the main session — whatever it says, short of the owl's own 🐱 line. The
+owl raises a flag in the main checkout's `.git` as it types the line, so the shim lets that
+prompt through to the `UserPromptSubmit` hook, which closes the report and lowers the flag
+(note of 2026-10-08). `dismiss`, a hold on the branch, or the branch's next message free it
+too. Several go one per prompt of the person's, each line counting `n more finished` apart
+from `n more open`. The idle
 gate and the draft gate still apply to it — it lands in the same prompt box. Freeing the
 slot starts no round: the first-of-round wait opens only on a collection that finds the
 house quiet.
@@ -233,3 +240,12 @@ stamp, so the owl rings again on its backstop — at least 90 s apart, at most t
 only into an idle pane with an empty box — and after that marks the answer not taken and
 raises one hoot. Any prompt in that pane hands it over, so typing anything there is the
 fix.
+
+## Step 16 — the person's next prompt frees a finished line's slot
+
+A finished line holds the slot once typed (ADR-0008, note of 2026-10-08), so the next line
+cannot land over the report the person is reading. Their next prompt in the main session,
+whatever it says, runs the same `UserPromptSubmit` hook there: the owl raised a flag in the
+main checkout's `.git` as it typed the line, so the shim lets the prompt through, and the
+hook closes the report and lowers the flag. The owl's own 🐱 line does not count. When that
+prompt's turn ends the pane goes idle, and the next line goes.

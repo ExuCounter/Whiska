@@ -93,6 +93,9 @@ queue in front of it clears.
 
 ## Note, 2026-10-06: a finished line waits for the slot, and still never holds it
 
+*Its "never holds the slot" is changed by the note of 2026-10-08 below: once typed, a
+finished line holds the slot until the person writes something.*
+
 The note of 2026-10-01 priced waiting at nothing, because a report needs no answer. Typing
 one is not free, though. The line makes the main session take a turn, and that turn prints
 the report and its land-or-PR picker over whatever the person was reading. Seen live: #192,
@@ -106,12 +109,12 @@ of the turn when the person answers or dismisses from the main session. Otherwis
 the next trigger, at worst the backstop's minute, the same as a queued question. Everything
 else in the 2026-10-01 note still holds:
 
-- **It never holds the slot.** It is closed as it is typed, so the next question does not
+- **It never holds the slot** (changed 2026-10-08, see below). It is closed as it is typed, so the next question does not
   wait for the person to act on the finish picker.
 - **It goes first once the slot is free.** A finished report goes ahead of any question that
   is only queued, oldest report first.
 - **The gates still apply.** It needs an idle main session and an empty prompt box (ADR-0047),
-  and an open finish picker on screen keeps the next line out (ADR-0068).
+  and any picker on screen keeps the next line out (ADR-0068).
 - **Away, focus and hold judge it first** (ADR-0079). A sent question of a held mouse, or of
   one that is not focused, does not make a report wait.
 - **Freeing the slot starts no round.** Only a collection that finds the house quiet opens
@@ -144,3 +147,45 @@ the finish.
 can arrive while they are still reading what the landing printed. Closing that gap would
 mean a finished report holding the slot until its finish is acted on, which is a larger
 decision than this one.
+
+## Note, 2026-10-08: a finished line holds the slot until the person writes something
+
+*Changes the note of 2026-10-06 above: a finished line no longer "never holds the slot".
+The rest of that note stands.*
+
+ADR-0022's note of 2026-10-08 drops the picker that followed a delivered line: the options
+are now lettered lines at the end of the reply. The picker had held delivery by accident —
+a screen with no prompt box on it holds (ADR-0068) — and with it gone, nothing stopped the
+next finished line landing while the person was still reading the last. A bare "A" could
+then mean either branch. The person asked for the hold back on purpose: "I should hold
+delivery until I answer".
+
+**So a finished line, once typed, holds the slot until the person's next prompt in the main
+session.** Any prompt counts — an option, their own words, "hold" — because the main
+session reads each one against the branch last shown, and a message meant for the main
+session itself sends nothing to the branch. Only the owl's own 🐱 line does not count.
+
+- The report is left `sent` when typed rather than closed, so `Whiska.Delivery.Mode` holds
+  the slot exactly as it does for a decision. The `UserPromptSubmit` hook (ADR-0080), which
+  now also runs in the main session, closes it on the person's prompt. The main session's
+  turn then ends, the pane goes idle, and the next line goes.
+- The owl raises a flag file, `whiska-finish` in the main checkout's `.git`, as it types a
+  finished line, and the hook lowers it. The hook shim exits in shell builtins unless the
+  flag is there, so a main session with nothing out never starts the escript.
+- What else frees it is what already freed a sent question: `dismiss`, a hold on the
+  branch (ADR-0079 — "hold" in the reply runs `whiska hold <branch>`), the mouse's next
+  message superseding it (ADR-0037), and the mouse's death (ADR-0026).
+- Every finished line holds, the plain reply with nothing on its branch included: the
+  person's next message may be meant for that branch too.
+- This closes the gap the 2026-10-06 note left open: after the person picks Land here, the
+  next line waits for the landing turn to end.
+
+**The cost, accepted knowingly.** A repo whose shim predates this never runs the hook in
+the main session, so a finished report there holds the slot until `dismiss`, a hold, or
+the branch's next message. `whiska doctor` already fails a shim that differs from what
+`whiska init` writes today; re-running `whiska init` fixes it.
+
+**Firstmate's way was considered and rejected**: no hold at all, every answer keyed to its
+question, and an ambiguous reply asked back. Firstmate lists open decisions and waits to be
+asked; Whiska types each line into the person's prompt box, so with no hold a second
+report prints over the one being read.

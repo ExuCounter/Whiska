@@ -145,9 +145,9 @@ as its way there (gone; see the amendment below). `jump` is unchanged.
 What changes for the person: `whiska open` moves their screen to that mouse's pane.
 Same rule as above: only typed by the person, never the owl.
 
-Amended 2026-10-07: "Chat further" is gone from every picker, so that reason no longer
+Amended 2026-10-07: "Chat further" is gone from every set of options, so that reason no longer
 holds. The person talks to a finished mouse from the main session, which passes their words
-into its pane. `whiska open` stays, for when the person asks to go there; no picker offers it.
+into its pane. `whiska open` stays, for when the person asks to go there; no option offers it.
 
 - **The pane is found by its folder** inside the worktree in herdr's pane list, not
   from the stored pane column (ADR-0061).

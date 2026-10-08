@@ -45,7 +45,7 @@ secondary; the redraw is the point.
   and then something again.
 - **Only what can be acted on from elsewhere qualifies:** an open or sent question that
   is `needs-decision` or unmarked. A `done` report does not nudge. It is told in its own
-  house and closed the moment it is sent (ADR-0009), and from another repo it can only be
+  house and closed once the person writes something after it (ADR-0009, ADR-0008), and from another repo it can only be
   read, which can wait.
 - **The line is `⚡ <folders> waiting` and nothing else.** One repo: `⚡ whiska waiting`,
   named by its folder exactly like the elsewhere segment. If more than one source house

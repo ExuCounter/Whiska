@@ -85,7 +85,7 @@ delivered question.
 
 **A skill keeps a section it rarely needs in a file beside it**, read only when needed, and
 `whiska init` ships every Markdown file beside the skill's `SKILL.md`.
-`whiska-delivered` keeps its two finished pickers in `finished.md` and `sniff.md`, read only
+`whiska-delivered` keeps its two sets of finish options in `finished.md` and `sniff.md`, read only
 when the line says finished, so a "needs a decision" delivery loads half of what it did.
 `whiska-finish` keeps the Proposed build section in `proposed-build.md`, and skips its
 checks and reviewers when nothing changed since the session's last green finish.

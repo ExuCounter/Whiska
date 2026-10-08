@@ -95,11 +95,10 @@ defmodule Whiska.InstallCommandsTest do
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
     end
 
-    test "/show reads everything in full with no argument, one by id with one, and offers the picker" do
+    test "/show reads everything in full with no argument, one by id with one" do
       {_path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
       assert body =~ "whiska show\n"
       assert body =~ "whiska show $ARGUMENTS"
-      assert body =~ "AskUserQuestion"
       assert body =~ "cannot see"
       assert body =~ "verbatim"
       assert body =~ "no fence"
@@ -151,7 +150,7 @@ defmodule Whiska.InstallCommandsTest do
       assert resume =~ "whiska resume $ARGUMENTS"
     end
 
-    test "the finished picker lands a branch by cherry-pick, not by merge" do
+    test "the finish options land a branch by cherry-pick, not by merge" do
       {_path, body} =
         List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/finished.md", 0)
 

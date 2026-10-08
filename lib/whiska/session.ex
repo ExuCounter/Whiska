@@ -46,6 +46,19 @@ defmodule Whiska.Session do
   end
 
   @doc """
+  The main checkout this session started in: a folder whose `.git` is a
+  directory. `{:error, :not_a_main_checkout}` anywhere else.
+  """
+  @spec main_checkout(map(), map()) :: {:ok, Path.t()} | {:error, :not_a_main_checkout}
+  def main_checkout(payload, env \\ System.get_env()) do
+    dir = started_in(payload, env)
+
+    if File.dir?(Path.join(dir, ".git")),
+      do: {:ok, dir},
+      else: {:error, :not_a_main_checkout}
+  end
+
+  @doc """
   The folder this session started in when it is under a `worktrees/` container
   but in no worktree of it.
 

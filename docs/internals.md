@@ -277,7 +277,7 @@ The owl **collects** the doorstep when it wrote an entry itself, when herdr repo
 mouse's pane idle, when a house opens, and on a slow backstop timer. Each entry becomes a question, classified by its
 marker alone (ADR-0009), an invisible line the mouse ends on: needs-decision → open;
 `done` → open too,
-delivered as "finished" with no reply offered and closed the moment it is sent; no marker
+delivered as "finished" with no reply offered, and closed once the person writes something after it (ADR-0008, note of 2026-10-08); no marker
 → `unmarked`, and open — forgetting the marker makes noise rather than silence. An entry whose worktree is gone is recorded as `orphaned`. Collected entries are
 renamed `.collected`, never deleted (ADR-0007), so `ls *.json` on the doorstep is exactly
 what is still waiting.

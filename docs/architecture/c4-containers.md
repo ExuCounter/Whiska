@@ -48,7 +48,7 @@ C4Container
   Rel(house, nc, "Raises a hoot herdr will not show; doctor probes the same path")
   Rel(cli, herdr, "start types claude at this pane's shell prompt when nothing runs there")
   Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
-  Rel(herdr, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session; SessionStart in every herdr session")
+  Rel(herdr, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session, UserPromptSubmit in the main session too; SessionStart in every herdr session")
   Rel(shim, flag, "user-prompt-submit exits at once unless it is there")
   Rel(shim, hooksock, "Asks first, with nc", "hook name, environment, payload")
   Rel(owl, hooksock, "Runs the same hook modules, with the hook's environment")

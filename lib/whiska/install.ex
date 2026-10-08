@@ -94,23 +94,30 @@ defmodule Whiska.Install do
   # none has an answer waiting, so that case leaves here before the binary or
   # the runtime is looked for (ADR-0080). Shell
   # builtins only: the worktree's `.git` file names its git admin directory,
-  # and the answer flag sits there. With no project directory to decide on,
-  # Whiska decides - an answer not handed over is worse than a prompt slowed.
+  # and the answer flag sits there. A main checkout goes on only while a
+  # finished line is out, flagged in its own `.git` (ADR-0008, note of
+  # 2026-10-08). With no project directory to decide on, Whiska decides - an
+  # answer not handed over is worse than a prompt slowed.
   @prompt_fast_path """
   if [ "${1:-}" = "user-prompt-submit" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
     case "$CLAUDE_PROJECT_DIR" in
       */worktrees/*) ;;
-      *) exit 0 ;;
+      *)
+        [ -f "$CLAUDE_PROJECT_DIR/.git/whiska-finish" ] || exit 0
+        whiska_main=1
+        ;;
     esac
-    [ -f "$CLAUDE_PROJECT_DIR/.git" ] || exit 0
-    whiska_gitdir=""
-    IFS= read -r whiska_gitdir < "$CLAUDE_PROJECT_DIR/.git" || [ -n "$whiska_gitdir" ] || exit 0
-    whiska_gitdir="${whiska_gitdir#gitdir: }"
-    case "$whiska_gitdir" in
-      /*) ;;
-      *) whiska_gitdir="$CLAUDE_PROJECT_DIR/$whiska_gitdir" ;;
-    esac
-    [ -e "$whiska_gitdir/whiska-answer" ] || exit 0
+    if [ -z "${whiska_main:-}" ]; then
+      [ -f "$CLAUDE_PROJECT_DIR/.git" ] || exit 0
+      whiska_gitdir=""
+      IFS= read -r whiska_gitdir < "$CLAUDE_PROJECT_DIR/.git" || [ -n "$whiska_gitdir" ] || exit 0
+      whiska_gitdir="${whiska_gitdir#gitdir: }"
+      case "$whiska_gitdir" in
+        /*) ;;
+        *) whiska_gitdir="$CLAUDE_PROJECT_DIR/$whiska_gitdir" ;;
+      esac
+      [ -e "$whiska_gitdir/whiska-answer" ] || exit 0
+    fi
   fi
 
   """
@@ -509,12 +516,10 @@ defmodule Whiska.Install do
      #{String.trim(@verbatim)} Answering is the person's move: never reply to
      a question, guess an answer, or act on one on their behalf.
 
-     One exception, only with an id: when that question ends in 4 or fewer
-     lettered options, offer them with the AskUserQuestion tool exactly as
-     `whiska-delivered` describes, and relay the pick with
-     `whiska reply <id> "<the letter and its label>"`. Bare `show` prints
-     several questions, and no single picker can stand for all of them, so it
-     gets none.
+     With an id, the person's reply to that question is read as
+     `whiska-delivered`'s "Reading the person's reply" says, and an answer
+     leaves as `whiska reply <id> "<their words>"`. Bare `show` prints several
+     questions, so a bare letter after it names none of them: ask which.
      """},
     {".claude/skills/reply/SKILL.md",
      """
@@ -690,7 +695,7 @@ defmodule Whiska.Install do
   # owl's delivered line triggers it by its shape — the leading 🐱 and the
   # number after `#` — which its description names in a quoted YAML string,
   # since unquoted a space followed by `#` starts a comment and cut the listing
-  # off before every example. Its two finished pickers ship beside it and are
+  # off before every example. Its two files of finish options ship beside it and are
   # read only when the line says finished.
   @committed_skills @worktree_skills ++
                       ~w(whiska-delivered whiska-finish cold-review grilling whiska-spec)

@@ -26,7 +26,7 @@ Amends:
 - **ADR-0056.** It calls `## Finish` "the repo's to write". After this, finishing does not
   read it.
 
-**Not changed: ADR-0022's `finish:` line.** The finished-branch picker still reads
+**Not changed: ADR-0022's `finish:` line.** The finished-branch options still read
 `finish: merge here` under `## Finish` when a repo has written one by hand. That line is
 about which way a finished branch lands, not about review. Whiska never writes it, and a
 repo without it gets "Merge here" recommended, as today.
@@ -188,7 +188,7 @@ Each `## Finish` line had a job, and here is where each job goes:
 | `ticket:` | a ticket the brief names is read; one it does not name is not looked for |
 | `reviewers:` | the repo's `CLAUDE.md` and its own agents |
 | `security:` | gone. The security reviewer always runs, and the gap where a branch could replace it with `security: true` goes with the line. |
-| `finish:` | unchanged: the picker reads it (ADR-0022). Not a finishing line. |
+| `finish:` | unchanged: the finish options read it (ADR-0022). Not a finishing line. |
 
 A repo that still has a `## Finish` heading is not broken. To finishing, the heading is just
 text in its `CLAUDE.md`. Its commands are picked up the way any command `CLAUDE.md` names is
@@ -512,5 +512,5 @@ stays inside the repo**: relative to its root, not following symlinks. Say in th
 message what was assumed.
 
 A `finish:` line under a `## Finish` heading, where a repo wrote one by hand, is the
-finished-branch picker's and not this skill's.
+finished-branch options' and not this skill's.
 ```

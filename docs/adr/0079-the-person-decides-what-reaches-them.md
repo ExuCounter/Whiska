@@ -19,7 +19,7 @@ commands — `whiska waiting`, `whiska questions 12`, `whiska reply 12 "..."`,
 `whiska close 12` — and there was no way to say "not now".
 
 A mouse told *in conversation* to hold kept finishing its turns. Each one was delivered,
-and each offered the land-or-merge picker again. Nothing in Whiska knew the mouse was on
+and each offered the land-or-merge choice again. Nothing in Whiska knew the mouse was on
 hold, because a hold existed only as a line of text the mouse had read.
 
 ## Decision
@@ -46,7 +46,7 @@ reads all three before the gate ever does.
   it: a typed line lands after the current turn and costs a turn.
   The message it ends on reaches the inbox like any other and sits there, held,
   undelivered. A held mouse is never offered for landing (its finished line is never
-  delivered, so the picker never fires), never taken down by the merged-worktree sweep,
+  delivered, so its options are never offered), never taken down by the merged-worktree sweep,
   and never nudged to carry on by the dead-turn pickup: "stops where it is" means that.
 - **The queue is judged against all three first** (`Whiska.Delivery.Mode`), then the gate
   decides exactly as before. A `sent` question whose mouse is held, or is not the focused
@@ -130,10 +130,10 @@ skills in every session's context.
   and a build mouse may write under the whiska home; `whiska init --global` and `away`
   refuse to write through a symlink where their file would go.
 - Cleanup gains a fifth precondition and pickup a precondition: not held.
-- `whiska-delivered`'s first picker option is **Land here**: cherry-pick the branch's own
+- `whiska-delivered`'s first finish option is **Land here**: cherry-pick the branch's own
   commits onto the current branch, oldest first, skipping its merges from the base, run
   the repo's checks, then drop the worktree and delete the branch. The person lands
-  branches this way, and the picker said `merge --no-ff`. A `## Finish` heading names it
+  branches this way, and the options said `merge --no-ff`. A `## Finish` heading names it
   as `finish: land here`.
 - CONTEXT.md gains Inbox, Away, Focus and Held (the mouse); the gate's entry is Gated.
 

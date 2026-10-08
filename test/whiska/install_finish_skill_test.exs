@@ -464,7 +464,7 @@ defmodule Whiska.InstallFinishSkillTest do
     test "it ends on the finished marker and never asks to build it itself" do
       body = proposal_prose()
 
-      # The finished picker is where building it is offered; a mouse asking
+      # The finish options are where building it is offered; a mouse asking
       # "shall I build this?" would be answered into a session that cannot.
       assert body =~ ~r/end on the finished marker/i
       assert body =~ ~r/never ask whether to build it/i
@@ -477,7 +477,7 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/no proposal/i
     end
 
-    # The picker offers it by what the branch holds, not by the mouse's mode;
+    # The options offer it by what the branch holds, not by the mouse's mode;
     # the skill promises nothing to a branch with something on it.
     test "promises the fresh build only when the branch has nothing on it" do
       assert proposal_prose() =~

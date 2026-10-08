@@ -45,27 +45,28 @@ full with `whiska questions 1` or `whiska questions 3`", and had to read an id
 off a list and type it back. Now the default prints everything open in full, so
 there is no id to type; an id still reads exactly one.
 
-## Note, 2026-09-29: a lettered decision is offered as a picker
+## Note, 2026-09-29: a lettered decision is answered by its letter
 
-When a delivered message ends in 2–4 lettered options, the reading skills offer them
-with Claude Code's own `AskUserQuestion` tool after showing the message, then relay the
-pick with the fixed `whiska reply <id> "<the letter and its label>"`. The person still
-answers — this decision's line is that the model must not compose the command out of
-what it read, and it does not: the command is written out, the options come from the
-mouse, and the only thing composed is the reply text out of the person's pick. Free
-text typed into the picker's "Other" is relayed word for word, so ADR-0017 holds too.
+*Rewritten 2026-10-08: this note offered the options with Claude Code's `AskUserQuestion`
+picker. The note of 2026-10-08 below says why that went.*
+
+When a delivered message ends in lettered options, they are already the last lines the
+reading skills show, and the person answers in plain text. The skill relays the answer
+with the fixed `whiska reply <id> "<the letter and its label>"`, or the person's own
+words as written. The person still answers — this decision's line is that the model
+must not compose the command out of what it read, and it does not: the command is
+written out, the options come from the mouse, and the only thing composed is the reply
+text out of the person's answer. Their own words go word for word, so ADR-0017 holds too.
 
 The pointer-first rule is untouched. The message still goes out verbatim as markdown
-first, in full; the picker comes after it and adds nothing to it. More than four options
-is beyond what the tool takes, so the skill asks in prose instead of quietly dropping
-some.
+first, in full.
 
 ## Note, 2026-09-29: `/whiska-reply` exists, and it is the only way to answer
 
 The list at the top named `reply` from the start, but `whiska init` shipped only the two
 reading skills. It does now ship `whiska-reply`, the same thin wrapper: `whiska reply
 $ARGUMENTS`, or the id from the delivered line with the person's own words as the text.
-Same shape as the picker section already used, so there is one way to write the command.
+Same shape as the lettered-options section already used, so there is one way to write the command.
 
 Both it and `whiska-delivered` now say what the reading skills only implied: an answer to
 a mouse goes through `whiska reply <id>` and nothing else — never `herdr agent prompt`
@@ -90,18 +91,19 @@ have to read the questions table, which no rule does today. So this one stays ju
 
 A "finished" message has nothing to reply to, so the reading skill used to show it and
 stop — and the person then typed "merge it here" by hand, every time. `whiska-delivered`
-now follows a finished line with a second `AskUserQuestion`: merge here (the default),
-open a merge request or PR, or drop it (amended 2026-10-07: "chat further" is gone; free text
-typed into the picker is carried to the mouse's pane from the main session. The rule that an
-answer goes through `whiska reply` still holds for open questions: only a closed finished
-question gets words passed into its pane). Unlike the lettered picker above,
+now ends its reply to a finished line with lettered options (rewritten 2026-10-08: they were
+an `AskUserQuestion` picker): land here (the default), open a merge request or PR, or drop
+it (amended 2026-10-07: "chat further" is gone; the person's own words are carried to the
+mouse's pane from the main session. The rule that an answer goes through `whiska reply`
+still holds for open questions: only a finished question gets words passed into its pane).
+Unlike the mouse's lettered options above,
 these options are Whiska's rather than the mouse's, which is the one thing that makes
 this a different shape: they are the same few every time, written out in the skill, so
 nothing is composed out of what was read.
 
 The pick is acted on, not relayed — there is no `whiska reply` for a finished line. That
 is the main session doing work on a branch, which ADR-0017 allows precisely because the
-person picked it. The guard is that the picker appears for a finished line and nothing
+person picked it. The guard is that the options appear for a finished line and nothing
 else: a branch still working, or waiting on a decision, is one nobody should merge, push
 or drop. The steps themselves are not restated; `drop-worktree` and the repo's own merge
 and push commands already exist, and the skill names them.
@@ -111,14 +113,14 @@ from the diff, which is ADR-0032's reasoning — the branch's own session has th
 write a real title and summary, and the main session is holding exactly what it wrote.
 That ADR is still `proposed` and describes an automated flow behind a `pr: true` opt-in;
 this is the manual path it says is today's behaviour ("handle PRs and merges yourself"),
-with the picker as the hands. Merging in the main checkout is that same sanctioned path,
+with the options as the hands. Merging in the main checkout is that same sanctioned path,
 so ADR-0013 is untouched: it blocks edits that bypass review, not the merge that is how
 reviewed work is meant to land.
 
 ### Where the per-repo default lives: a heading, not a fifth part
 
 A repo can name its usual choice with a line like `finish: merge here` under a `## Finish`
-heading in its `CLAUDE.md`, and the picker recommends that one instead. The heading is
+heading in its `CLAUDE.md`, and the options recommend that one instead. The heading is
 the person's to write by hand. It is deliberately *not* a fifth part of the ADR-0045 nest.
 
 A shipped part would mean Whiska writing a default preference into every repo it touches,
@@ -136,7 +138,7 @@ never composes bash for a command it runs for the person; the board is drawn int
 statusline, or typed by them into their own terminal, and the main session has no occasion
 to run it at all.
 
-## Note, 2026-10-06: the words replace the long names, and the picker lands by cherry-pick
+## Note, 2026-10-06: the words replace the long names, and a finished branch lands by cherry-pick
 
 [ADR-0079](0079-the-person-decides-what-reaches-them.md)
 gives the person eight one-word commands — `inbox`, `show`, `reply`, `dismiss`, `focus`,
@@ -147,7 +149,7 @@ delivered line triggers it. `/inbox` wraps `whiska waiting`, a machine-wide comm
 split above kept out of a session's hands: it runs only when the person types it, which is
 the person asking, and its skill says so. `jump` still has none.
 
-The finished picker's first option is **Land here**, by cherry-picking the branch's own
+The finish options' first is **Land here**, by cherry-picking the branch's own
 commits onto the current branch, oldest first, skipping its merges from the base, rather
 than `merge --no-ff`. The `## Finish` line that names it reads `finish: land here`.
 
@@ -157,5 +159,35 @@ than `merge --no-ff`. The `## Finish` line that names it reads `finish: land her
 `away`, `focus`, `hold` and `resume` with `disable-model-invocation`. They are the person's
 to type; their slash commands work, and no session — a mouse's included — carries their
 descriptions. `show` and `reply` stay where the main session can reach them.
-`whiska-delivered` keeps its two finished pickers in files beside it, read only when the
-line says finished.
+`whiska-delivered` keeps its two sets of finish options in files beside it, read only when
+the line says finished.
+
+## Note, 2026-10-08: no picker; options are lettered lines, read against the branch last shown
+
+The `AskUserQuestion` picker of the 2026-09-29 notes is gone from `whiska-delivered`, its
+`finished.md` and `sniff.md`, and `/show`. On 2026-10-07 the person got 28 of them and
+cancelled or bypassed 13: 4 cancelled, 5 answered through "Other", 4 "chat further". A
+cancel came back as "the user doesn't want to proceed", so "not yet" read as "no"; the
+picker covered the message it followed; and while it was up the screen had no prompt box,
+so all delivery stopped (ADR-0068). Tools that pass answers between sessions — firstmate,
+no-mistakes — ask in plain text; the picker suits a tool that lives in one session.
+
+Options are now the last lines of the reply: recommended first, then "Or write anything
+else and it goes to <branch>." The person's reply is read against the branch last shown:
+
+- Only a letter or an option's word — "A", "land", "land it" — does that option.
+- "hold" runs `whiska hold <branch>` (ADR-0079); `show <id>` brings the options back.
+- Anything longer is the person's own words, and goes to that branch as written, unless it
+  is plainly meant for the main session.
+- Two options could fit, or another 🐱 line arrived since → one line back, naming the
+  branch: "feat-auth: land it, or open a PR?"
+- Drop still confirms in one line.
+
+What the picker gave — one keypress, no typos — plain letters keep. What it held by
+accident, delivery, is now held on purpose: a finished line holds the slot until the
+person writes something (ADR-0008, note of 2026-10-08), so "the branch last shown" is one
+branch. On 2026-09-29 the person had asked for the picker "rather than a letter they have
+to type back"; this reverses that, at their request.
+
+Claude Code's own pickers — plan mode's approval, permission prompts — are outside Whiska
+and still hold delivery (ADR-0068, ADR-0047).

@@ -91,12 +91,12 @@ _Avoid_: cwd, working directory (both name the thing that moves)
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
 **unmarked** question: delivered like any other, recorded as having arrived unmarked. A
-`done` report is told as "finished" with a **finish** offered in place of a reply, and
-closed the moment it is sent — it is never answered, and it waits for the delivery slot
-but never holds it. A question is **open** while it waits to be told, **sent** once
+`done` report is told as "finished" with a **finish** offered in place of a reply. It is
+never answered: once sent it holds the delivery slot until the person writes anything in
+the main session, and is closed then. A question is **open** while it waits to be told, **sent** once
 delivered and waiting for its answer, then **answered** once `whiska reply` saved the
 answer — which frees the slot whether or not the mouse has **taken** it yet; **superseded** when its own mouse asked a
-newer one, **closed** by hand or as a `done` report once told, **settled** when its
+newer one, **closed** by hand or as a `done` report once the person wrote something after it, **settled** when its
 mouse's branch landed and there is nothing left to answer to — the merge was the answer
 (ADR-0064) — and **orphaned** when nothing can act on it and nothing ever answered it
 (its mouse died, its worktree is gone, its record no longer stands for a worktree of this
@@ -123,7 +123,9 @@ What becomes of a branch once its mouse is done: landed on the current branch by
 cherry-picking its own commits, oldest first, its merges from the base skipped
 (ADR-0079; it was `merge --no-ff`), opened as a
 merge request, carried on by its mouse, talked to from the main session (the person's words carried to the mouse), or dropped
-unmerged. The person picks one when a "finished" question is told, from what fits the
+unmerged. The person picks one when a "finished" question is told — lettered options at
+the end of the reply, answered by a letter, an option's word, or their own words; "hold"
+sets the branch aside as **held** (ADR-0022, note of 2026-10-08) — from what fits the
 branch as its **branch line** reads: files not committed are committed first, in the
 mouse's worktree, then landed or opened as a request; a branch with nothing on it is
 offered neither; and one git cannot read is offered all four. A repo may name its usual
@@ -224,10 +226,11 @@ sent question of a held or unfocused mouse does not hold the slot. Oldest first,
 While the gate holds — the session mid-turn, a
 draft in its box, or no box on its screen — the queue is **gated**, and the main checkout's **sidebar line** says so once the hold has lasted
 ten seconds (ADR-0058). A finished line waits for the
-slot like any question, so it never lands over one the person is reading, but it never
-holds it: once the slot is free it goes ahead of whatever is queued and is closed as it
-is typed. Several go one at a time, each line counting how many more finished are
-behind it (ADR-0008, note of 2026-10-06).
+slot like any question, so it never lands over one the person is reading, and once the
+slot is free it goes ahead of whatever is queued. Once typed it holds the slot until the
+person's next prompt in the main session, whatever it says. Several go one per prompt,
+each line counting how many more finished are behind it (ADR-0008, notes of 2026-10-06
+and 2026-10-08).
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska questions <id>`, which the `whiska-delivered` skill runs when the line lands.
 Delivery only ever types into the main session of the question's own house (ADR-0044);

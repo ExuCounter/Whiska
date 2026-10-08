@@ -16,7 +16,7 @@ the branch merges.**
 - `mix adr.claim`, run on the branch right before the person merges it, gives each
   placeholder the next number free on both the branch and main. It rewrites the file name,
   the link and every citation in one go, so the file name and the citation key stay one
-  string. The person merges locally from the picker, so the claim belongs there; nothing
+  string. The person merges locally from the finish options, so the claim belongs there; nothing
   of the owl's touches it.
 - `mix test` carries the check (`Whiska.Adr.problems/2`). It fails on two files with one
   number, on a citation or README link with no file behind it, and on a placeholder that

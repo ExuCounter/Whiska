@@ -114,7 +114,7 @@ worktree that has gone; while one stands, its own head is the authority.
 
 ### Why `settled` is its own status rather than `closed`
 
-`closed` is already two things — a `done` report closed as it is told, and a question the
+`closed` is already two things — a `done` report closed once the person has read it, and a question the
 person closed by hand with `whiska close`. Folding a third in would throw away the one
 distinction this change exists to make: a question somebody dealt with, against one that
 was simply abandoned. Keeping them apart is the point, and a status is the cheapest place

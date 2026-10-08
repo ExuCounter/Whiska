@@ -3,8 +3,17 @@
 `whiska show <id>` printed a line straight under the heading, starting
 `On the branch:` — Whiska's record of the branch, read from git just now.
 Choose by that line, never by the mouse's account of its own work: read it
-from its start, find the row it begins as, then offer that row's options
-with one AskUserQuestion, in that order.
+from its start, find the row it begins as, then end your reply with that
+row's options as lettered lines, one list item each, in that order, and
+one line more:
+
+    - **A** — Land here (Recommended)
+    - **B** — Open a merge request / PR
+    - **C** — Drop it
+
+    Or write anything else and it goes to <branch>.
+
+The person's reply is read as `SKILL.md`'s "Reading the person's reply" says.
 
 | The line says | Options, in order |
 |---|---|
@@ -17,11 +26,11 @@ with one AskUserQuestion, in that order.
 ## A reply: nothing on the branch, no Proposed build
 
 The message is the mouse's answer to something the person asked. Offer no
-picker: show the message and stop. The person's next message goes to that
+options: show the message and stop. The person's next message goes to that
 mouse word for word when it reads as a reply to it: a question or instruction
-about what the mouse said, or a message that names it. Send it as "Text typed
-into Other" below says. A message meant for the main session itself, or "hold
-it", is not sent. If it could be read either way, ask one line first: "send
+about what the mouse said, or a message that names it. Send it as "Their own
+words" below says. A message meant for the main session itself
+is not sent; "hold" holds the branch, as `SKILL.md` says. If it could be read either way, ask one line first: "send
 this to <branch>?" The mouse's answer comes back as a new finished line.
 
 This repo's `CLAUDE.md` may name the usual choice — a line like
@@ -42,17 +51,17 @@ Commit and open a PR.
   in its worktree, then lands. Before offering it, find the worktree's path
   with `whiska worktrees` and list its changes in full with
   `git -C <worktree> status --porcelain --untracked-files=all`, not the
-  branch line's first few names: the option's preview is every file that
-  will be committed, so the person can spot a scratch file before it lands.
-  Whiska's own `.whiska-mouse` and `.whiska-spec.md` are never committed,
-  and are left out of the preview. A file that looks like a secret or local
-  setup — a `.env`, a key, a `.claude/` folder `spawn-worktree` copied in —
-  is marked in the preview, and no option is recommended, whatever the
-  table or `finish:` says: committing it is the person's call. On the pick,
+  branch line's first few names: under the option's line, list every file
+  that will be committed, so the person can spot a scratch file before it
+  lands. Whiska's own `.whiska-mouse` and `.whiska-spec.md` are never
+  committed, and are left out of the list. A file that looks like a secret
+  or local setup — a `.env`, a key, a `.claude/` folder `spawn-worktree`
+  copied in — is marked in the list, and no option is recommended, whatever
+  the table or `finish:` says: committing it is the person's call. On the pick,
   run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md'`,
   then list what is staged with
   `git -C <worktree> diff --cached --name-only --no-renames` and compare its
-  paths with the preview's; a path in one and not the other →
+  paths with the list's; a path in one and not the other →
   `git -C <worktree> reset`, stop and name the difference. Write the commit
   message with the file tool to a file outside both checkouts, in this
   repo's commit style, from the mouse's report, and run
@@ -65,17 +74,17 @@ Commit and open a PR.
   carry it over rather than composing a summary from the diff. Neither
   tool installed or signed in → say plainly what is missing and stop,
   improvising no substitute.
-- **Commit and open a PR** — commit as Commit and land does, preview
-  included, then exactly as Open a merge request / PR.
+- **Commit and open a PR** — commit as Commit and land does, file
+  list included, then exactly as Open a merge request / PR.
 - **Drop it** — throw the work away. First confirm in prose, in one line
   naming what is lost: every commit on the branch, and each file not
   committed. A branch with nothing on it needs no confirmation: nothing is
   lost, and the report stays readable with `whiska show <id>`.
 
-## Text typed into "Other"
+## Their own words
 
-Text the person typed into "Other" goes to the mouse, and so does a reply the
-person types after a no-picker line above. Find its pane with
+The person's own words go to the mouse, after the options or after a reply
+line above with none. Find its pane with
 `whiska worktrees` and type it in their own words, in single quotes with
 each `'` in it written `'\''`:
 

@@ -21,13 +21,19 @@ defmodule Whiska.Hook.UserPromptSubmit do
   can copy (ADR-0002), and an answer handed to the wrong session is one the
   owl stops ringing for (ADR-0005).
 
+  In the main session it does one other thing: the person's first prompt
+  after a finished line settles that line, freeing the slot it holds
+  (ADR-0008, note of 2026-10-08).
+
   The hook shim exits before this runs unless the worktree's answer flag is
-  set (`Whiska.AnswerFlag`), so a session with nothing waiting never starts the
+  set (`Whiska.AnswerFlag`), or in a main checkout its finish flag
+  (`Whiska.FinishFlag`), so a session with nothing waiting never starts the
   escript.
   """
 
   alias Whiska.AnswerFlag
   alias Whiska.Delivery.Text
+  alias Whiska.FinishFlag
   alias Whiska.Isolated
   alias Whiska.Layout
   alias Whiska.Marker
@@ -62,19 +68,67 @@ defmodule Whiska.Hook.UserPromptSubmit do
   """
   @spec handover(String.t(), map()) :: {String.t(), (-> :ok)} | :none | {:error, term()}
   def handover(raw_payload, env) do
-    with {:ok, payload} <- decode(raw_payload),
-         {:ok, layout} <- Session.worktree(payload, env),
-         {:ok, waiting} <- Isolated.run(fn -> in_house(layout, &waiting(&1, env)) end) do
-      hand_over(layout, waiting)
+    with {:ok, payload} <- decode(raw_payload) do
+      case Session.worktree(payload, env) do
+        {:ok, layout} -> mouse(layout, env)
+        {:error, :not_a_mouse} -> settle_finished(payload, env)
+      end
     else
-      {:error, reason} = error when reason != :not_a_mouse ->
+      {:error, reason} = error ->
         warn("could not hand over a saved answer (#{inspect(reason)})")
         error
+    end
+  end
+
+  defp mouse(layout, env) do
+    case Isolated.run(fn -> in_house(layout, &waiting(&1, env)) end) do
+      {:ok, waiting} ->
+        hand_over(layout, waiting)
+
+      {:error, reason} = error ->
+        warn("could not hand over a saved answer (#{inspect(reason)})")
+        error
+    end
+  end
+
+  # The person writing anything in the main session after a finished line —
+  # an option, their own words, "hold" — frees the slot that line holds
+  # (ADR-0008, note of 2026-10-08). The owl's own 🐱 line is not the person.
+  defp settle_finished(payload, env) do
+    with {:ok, main} <- Session.main_checkout(payload, env),
+         true <- FinishFlag.set?(main),
+         false <- owl_line?(payload["prompt"]),
+         {:ok, true} <- Isolated.run(fn -> Storage.within(main, fn -> settle(env) end) end) do
+      FinishFlag.clear(main)
+      :none
+    else
+      {:error, reason} when reason != :not_a_main_checkout ->
+        warn("could not settle the finished line (#{inspect(reason)})")
+        :none
 
       _nothing ->
         :none
     end
   end
+
+  # The flag also comes down once nothing is out — a `dismiss`, a hold or the
+  # branch's next message freed it — so a stale one costs one escript start.
+  defp settle(env) do
+    cond do
+      Session.main_pane?(Storage.main_pane(), env) ->
+        Storage.settle_reports()
+        {:ok, true}
+
+      Storage.reports_out?() ->
+        {:ok, false}
+
+      true ->
+        {:ok, true}
+    end
+  end
+
+  defp owl_line?("🐱" <> _), do: true
+  defp owl_line?(_prompt), do: false
 
   defp waiting(layout, env) do
     if Session.main_pane?(Storage.main_pane(), env),

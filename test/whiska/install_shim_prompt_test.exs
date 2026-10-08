@@ -10,6 +10,7 @@ defmodule Whiska.InstallShimPromptTest do
   use ExUnit.Case, async: true
 
   alias Whiska.AnswerFlag
+  alias Whiska.FinishFlag
   alias Whiska.Install
 
   setup do
@@ -45,6 +46,14 @@ defmodule Whiska.InstallShimPromptTest do
       test "a session outside any worktree never reaches Whiska", %{root: root} do
         assert %{status: 0, called: []} =
                  run(sandbox(root, unquote(scope)), Path.join(root, "repo"))
+      end
+
+      test "a main checkout with a finished line out reaches Whiska", %{root: root} do
+        main = Path.join(root, "repo")
+        :ok = FinishFlag.set(main)
+
+        assert %{status: 0, called: [call]} = run(sandbox(root, unquote(scope)), main)
+        assert call.args == ["hook", "user-prompt-submit"]
       end
 
       test "a worktree with no answer waiting never reaches Whiska", %{
