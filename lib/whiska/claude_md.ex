@@ -11,7 +11,7 @@ defmodule Whiska.ClaudeMd do
     on `whiska uninstall`.
   - **`kept/1`** — the parts the person holds in their own words.
 
-  ## The grammar, still ADR-0045's
+  ## The grammar, still ADR-0081's
 
   One outer `<!-- whiska:start -->` … `<!-- whiska:end -->` pair bounds what
   Whiska will touch at all, and inside it each part carries its own named pair
@@ -34,8 +34,9 @@ defmodule Whiska.ClaudeMd do
 
   # The comment every older Whiska put at the top of its block, in either scope.
   # It quotes a part marker of its own, `keep -->` included, so it ends at the
-  # first `-->` after the ADR it names.
-  @header ~r/<!-- Whiska wrote this block.*?ADR-0045\..*?-->/s
+  # first `-->` after the ADR it names: a number from before the fold, which no
+  # current record carries, so it is matched by shape rather than cited.
+  @header ~r/<!-- Whiska wrote this block.*?ADR-\d{4}\..*?-->/s
 
   @doc """
   The names of the parts a `CLAUDE.md` holds as `keep`, wherever they sit.

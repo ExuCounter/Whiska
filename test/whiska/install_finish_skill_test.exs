@@ -24,7 +24,7 @@ defmodule Whiska.InstallFinishSkillTest do
 
   defp proposal_prose, do: proposal() |> String.replace(~r/\s+/, " ")
 
-  describe "the finish pipeline ships as a skill (ADR-0055)" do
+  describe "the finish pipeline ships as a skill (ADR-0081)" do
     test "init installs it beside the other skills" do
       installed =
         Enum.map(Install.skills(), fn {path, _} -> Path.basename(Path.dirname(path)) end)
@@ -163,12 +163,12 @@ defmodule Whiska.InstallFinishSkillTest do
     end
   end
 
-  describe "reviewers are chosen by what the diff does (ADR-0083)" do
+  describe "reviewers are chosen by what the diff does (ADR-0049)" do
     test "one table: axis, trigger, how detected, evidence" do
       assert prose() =~ "| axis | trigger | how detected | evidence |"
     end
 
-    test "the cold review always runs, in place of correctness (ADR-0083)" do
+    test "the cold review always runs, in place of correctness (ADR-0049)" do
       body = prose()
 
       assert body =~ ~r/\| \*\*cold review\*\* \| always \|/
@@ -288,7 +288,7 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/the change touches something a person sees/i
     end
 
-    # ADR-0075 narrows ADR-0072's always-on wio row.
+    # ADR-0075: the test reviewer runs only when the change touches a test file.
     test "the test reviewer is a fifth axis, only when the change touches a test file" do
       body = prose()
 

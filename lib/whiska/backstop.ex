@@ -7,7 +7,7 @@ defmodule Whiska.Backstop do
   up is one herdr's idle event should have brought a minute earlier. That is
   worth a warning, and for weeks it was not one — the idle trigger had never
   fired at all, and nobody noticed, because the backstop quietly collected
-  everything a minute late (ADR-0036, note of 2026-09-28).
+  everything a minute late (ADR-0036).
 
   The house prints the warning as it happens, and leaves this mark so
   `whiska doctor` can say it afterwards: the doctor is a separate process and

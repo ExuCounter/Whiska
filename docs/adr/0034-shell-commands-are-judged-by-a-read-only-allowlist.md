@@ -1,7 +1,7 @@
 # Shell commands are judged by a read-only allowlist, not a mutating denylist
 
 Two rules need to read an arbitrary `Bash` string. Sniff mode has to know whether a
-command changes anything at all (ADR-0018); worktree containment has to know whether a
+command changes anything at all (ADR-0069); worktree containment has to know whether a
 command changes anything *in the main checkout* (ADR-0013). Neither can be answered
 exactly — a shell command is a program, and Whiska is not a shell.
 
@@ -44,7 +44,7 @@ into the worktree and run. Those are allowed — the rule catches honest mistake
 than a mouse set on escaping, which no text check can (ADR-0024's honest limit). What it
 denies that it need not: a mutating command whose text quotes the main checkout's
 absolute path, such as a commit message, and any mutating command run while standing in
-the main checkout, wherever it writes. Added 2026-10-04.
+the main checkout, wherever it writes.
 
 **`git` is judged per subcommand.** Only an explicit list — `log`, `diff`, `status`,
 `show`, `blame`, `rev-parse`, and similar — is read-only. `branch`, `tag`, `stash`,
@@ -105,8 +105,7 @@ writing name, since getopt accepts `sort --out=x`, and a flag whose value is not
 to the code has that value counted as an operand, so `uniq` with an unknown flag can be
 denied but never let through. Each command is read only as far as needed — which
 letters write, which take a value — never parsed in full. Where BSD getopt stops at
-the first operand, so does the check: `xxd in -out` writes a file named `-out`. Added
-2026-10-04.
+the first operand, so does the check: `xxd in -out` writes a file named `-out`.
 
 ## How a mouse gets its mode
 

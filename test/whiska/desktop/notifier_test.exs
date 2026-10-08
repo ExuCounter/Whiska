@@ -1,7 +1,7 @@
 defmodule Whiska.Desktop.NotifierTest do
   @moduledoc """
   The desktop notifier Whiska raises a hoot with when herdr will not show it
-  (ADR-0071): terminal-notifier or osascript on macOS, notify-send on Linux.
+  (ADR-0062): terminal-notifier or osascript on macOS, notify-send on Linux.
 
   A branch name and a pointer line are somebody else's text — anything in the
   repo can write the doorstep file they come from — and here they reach a

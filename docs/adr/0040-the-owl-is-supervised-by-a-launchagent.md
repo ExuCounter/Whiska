@@ -1,151 +1,99 @@
-# The owl is supervised by a user LaunchAgent, and `whiska owl stop` stops the whole owl
+# The owl is kept running by the platform's service manager: launchd on macOS, systemd on Linux
 
-ADR-0001 chose one owl per machine partly *because* that is the shape `launchd` supervises
-cleanly, and CONTEXT.md has called the owl "supervised by `launchd`" since the design was
-written. It was not: the owl ran in the foreground of whichever pane `whiska owl <repo>…`
-was typed in, and the day this was built it had died once for a reason nobody found, and
-nobody noticed until a mouse asked why its question was not being delivered. This ADR
-records how the supervision is wired, and what the stop verbs mean under it.
+Each platform's own user service manager starts the owl at login and restarts it after a
+crash. `Whiska.ServiceManager` is the behaviour; `Whiska.LaunchAgent` and
+`Whiska.SystemdUnit` answer to it, picked by `:os.type()`. ADR-0001 chose one owl per
+machine partly because that is the shape a service manager supervises cleanly, and before
+this the owl ran in the foreground of whichever pane started it, died once for a reason
+nobody found, and nobody noticed until a mouse asked why its question was not delivered.
 
 ## Decision
 
-**A user LaunchAgent, `com.whiska.owl`, is the one supervisor.** `whiska owl install`
-writes it to `~/Library/LaunchAgents/` and loads it into the user's `gui` domain;
-`RunAtLoad` starts the owl at login and `KeepAlive` restarts it if it crashes. Not
-`brew services`, which the spec mentioned: that is a wrapper around the same plist, and
-Whiska is not a formula yet. Not socket activation, which ADR-0036 already rejected.
+**macOS: a user LaunchAgent, `com.whiska.owl`**, at `~/Library/LaunchAgents/`, loaded into
+the `gui` domain, `RunAtLoad` true. **Linux: a user unit, `whiska-owl.service`**, at
+`~/.config/systemd/user/`, the plist translated rather than redesigned: `Restart=on-failure`,
+`RestartSec=10` (launchd's own throttle, and it keeps a crash loop under systemd's start
+limit so the unit keeps retrying). Both append to `~/.whiska/owl.log`, not the journal, so
+the doctor and the person look in one place on both platforms. Not `brew services`, a
+wrapper around the same plist; not socket activation (ADR-0036).
 
-**The plist runs a wrapper, not the escript.** launchd starts a job with
-`PATH=/usr/bin:/bin:/usr/sbin:/sbin`, so an escript's `#!/usr/bin/env escript` never
-resolves. The alternative was to resolve the runtime's absolute path once, at install
-time, and bake it in. Rejected for the reason ADR-0035 gives for the hook shim: an Erlang
-upgrade would break the job silently, and under `KeepAlive` silently means a restart loop
-in the log. So the plist runs `~/.whiska/owl.sh`, generated from the *same* shell
-fragments the hook shim and the statusline script are built from (`Whiska.Install`), and
-that wrapper resolves the binary and the runtime at every launch. Three scripts, one
-source, no drift. `WHISKA_BIN`, `WHISKA_ESCRIPT`, `WHISKA_HOME` and `HERDR_SOCKET_PATH`
-are copied from the installing shell into the plist's environment when set; launchd
-passes nothing else on.
+**Both run a wrapper, `~/.whiska/owl.sh`, not the escript.** Neither manager's PATH can
+find `escript`, so `#!/usr/bin/env escript` never resolves. The wrapper is generated from
+the same shell fragments as the hook shim (ADR-0035) and resolves the binary and the
+runtime at every launch, so an Erlang upgrade needs no reinstall. The unit runs it through
+its own `#!/usr/bin/env bash`: NixOS and Guix have no `/bin/bash`. `WHISKA_BIN`,
+`WHISKA_ESCRIPT`, `WHISKA_HOME` and `HERDR_SOCKET_PATH` are copied from the installing
+shell when set; nothing else is passed. With `HERDR_SOCKET_PATH` unset the owl uses herdr's
+fixed default socket, since a supervised job inherits no pane's environment.
 
-**`KeepAlive` is `SuccessfulExit = false`**, not `true`. launchd restarts a crash and
-leaves a clean exit alone. That is what makes the stop verb possible without
-uninstalling: `whiska owl stop` sends `TERM`, the BEAM turns it into a clean exit 0,
-and the job stays loaded and comes back at the next login or on `whiska owl start`.
-With `KeepAlive = true` the only way to stop the owl would be to boot the job out, which
-is uninstalling by another name.
+**A crash restarts, a clean exit does not.** `KeepAlive` is `SuccessfulExit = false`, not
+`true`, which is what lets `whiska owl stop` be a clean exit 0 that stays stopped with the
+job still loaded. Under the manager the owl starts with no arguments, opens what the
+open-houses record lists (ADR-0039), and with nothing recorded idles rather than exits: an
+exit would be a crash and a restart loop.
 
-**Under launchd the owl starts with no arguments.** It opens whatever the open-houses
-record (ADR-0039) lists; started from the home directory with nothing recorded it opens
-no house, says so, and idles until `whiska owl <repo>` records one. Idling rather than
-exiting matters here: an exit would be a crash to launchd and a restart loop.
+**The verbs mean the same on both:**
 
-**`HERDR_SOCKET_PATH` falls back in code.** A launchd job inherits no pane's environment.
-herdr 0.8.2 puts its socket at a fixed `~/.config/herdr/herdr.sock` and recreates it there
-on every restart, so the owl uses that when the variable is unset, and the plist's copy
-wins when it was set at install — a named herdr session lives elsewhere.
+| Command | launchd | systemd | The owl |
+|---|---|---|---|
+| `whiska owl install` | writes and loads the job | writes the unit, `daemon-reload`, `enable --now` | starts, reopening the recorded houses |
+| `whiska owl stop` | job stays loaded | `stop`; unit stays enabled | exits 0; back on `start` or the next login |
+| `whiska owl start` | `kickstart` | `start` | starts now |
+| `whiska owl uninstall` | boots the job out, removes the files | `disable --now`, removes the files | stops; nothing restarts it |
+| `whiska owl` | refused if the supervised owl runs | same | foreground |
+| `whiska stop` | — | — | **not this**: one house (ADR-0003), unbuilt until the per-repo socket (ADR-0024) |
 
-**Two owls is the one state install must never produce.** Two owls collect the same
-doorsteps, and each entry would become a question twice. So `whiska owl install` refuses
-while any owl is in the process table — a foreground one, with the handover spelled out
-(Ctrl-C it, install again), or launchd's own, pointing at `whiska owl stop` first. And
-the foreground `whiska owl` refuses while launchd's owl is running. The doctor names both
-when it finds them.
+`whiska stop` keeps its per-house meaning and says so, pointing at `whiska owl stop`,
+rather than taking the per-house verb's name for the owl.
 
-## What the verbs mean
+**Never two owls.** Two owls collect the same doorsteps and each entry becomes a question
+twice. `whiska owl install` refuses while any owl is in the process table, naming the
+handover; the foreground `whiska owl` refuses while the supervised one runs. The refusal
+knows which owl it is looking at: `Whiska.CLI.start_owl/2` compares the pid the manager
+reports with its own, because the wrapper `exec`s and the pid carries through to the BEAM.
+The first real install crash-looped on exactly this: the supervised owl refused itself as
+"already running", exited 1, and was restarted every time. A pid comparison answers "am I
+that process?"; an environment marker would be inherited by every child and let a
+descendant become the second owl.
 
-| Command | launchd | The owl |
-|---|---|---|
-| `whiska owl install` | writes and loads the job | starts, reopening the recorded houses |
-| `whiska owl stop` | job stays loaded | exits 0; back at login or on `start` |
-| `whiska owl start` | `kickstart` | starts now |
-| `whiska owl uninstall` | boots the job out, removes the files | stops; nothing restarts it |
-| `whiska owl` | untouched; refused if launchd's owl runs | foreground, as before |
-| `whiska stop` | — | **not this.** One house, per ADR-0003; needs the socket, not built |
+**Lingering is said, never set.** systemd stops a user's services when their last session
+ends unless `loginctl enable-linger` is on; over SSH that means closing the last terminal
+stops the owl. It is a machine setting that outlives Whiska, so `install` prints the
+command and the doctor's `logout` line warns while it is off. launchd has no such switch.
 
-`whiska stop` keeps ADR-0003's meaning exactly — shut *this repo's* house, the owl keeps
-running for every other — and stays unbuilt until the owl can be told about one house,
-which is the per-repo or global socket (ADR-0024, ADR-0025). Until then it prints that,
-and points at `whiska owl stop`. The temptation was to let `whiska stop` mean the owl
-because that is what can be built today; it was refused because it would take the
-per-house verb's name for a different thing, and ADR-0003 would have to be rewritten to
-cover the wrong operation.
+**No systemd for this user is a refusal with a way out.** Containers and WSL without
+systemd: `install` exits 1 and says to run `whiska owl` in a pane; the doctor says the same.
+Every manager call goes through a runner that answers a missing program as a failed call,
+never a raise, so the foreground owl and the doctor start anywhere.
 
-## The doctor
-
-One new line, `launch agent`, right after `owl` (ADR-0038: checks and probes, never
-repairs). Not installed is a warning — the owl is unsupervised and dies with its pane —
-and so is written-but-not-loaded, loaded-but-not-running (with the log's path), and two
-owls. Each carries its fix: `whiska owl install`, `whiska owl start`, or Ctrl-C the
-foreground one.
+**The doctor** has a `launch agent` or `systemd unit` line: not installed, written but not
+loaded, loaded but not running, crash-looping (loaded, no pid, non-zero last exit code, the
+line that names the bug above), two owls. Warnings with their fix, never failures
+(ADR-0038).
 
 ## Consequences
 
-- The handover from a foreground owl is by hand and in that order: stop the foreground
-  owl, then `whiska owl install`. The record (ADR-0039) is what makes it painless — the
-  supervised owl reopens the same houses.
-- The owl's stderr, which ADR-0038 called "the one person who needs to know is the one
-  it cannot reach", now lands in `~/.whiska/owl.log`. Nothing rotates it yet.
-- `Whiska.Owl.pids/0` now excludes the calling process: `pgrep -f "whiska owl"` matches
+- The handover from a foreground owl is by hand: stop it, then install. The record makes
+  it painless.
+- The log is not rotated.
+- `Whiska.Owl.pids/0` excludes the calling process; `pgrep -f "whiska owl"` matches
   `whiska owl install` itself.
-- The plist, the wrapper and the install and uninstall writes are unit-tested against a
-  temporary home; the test config points the user home and the launchctl runner away from
-  the real machine, so no test can load a job. `launchctl` itself, and the handover, are
-  verified by hand.
-- The `launchd` node of the deployment diagram, and the "launchd service" container, move
-  from designed to built.
+- The test config pins the manager to launchd and both runners refuse the real program;
+  the systemd tests ask for `Whiska.SystemdUnit` themselves and verify the unit with
+  `systemd-analyze verify` where it exists. Verified by hand in a Debian container.
+- One macOS-only call remains, in code not yet written: ADR-0024's peer check names
+  `LOCAL_PEERPID`; Linux's is `SO_PEERCRED`.
 
-## Note, 2026-09-28: the owl refused itself
+## Alternatives
 
-The first real install of the LaunchAgent never produced a running owl. `whiska owl
-install` wrote the wrapper and the plist, launchd loaded the job, the wrapper resolved
-the binary and ran `whiska owl` with no arguments — and that owl refused to start,
-because the refusal above ("the foreground `whiska owl` refuses while launchd's owl is
-running") could not tell that the owl launchd had up *was itself*. `launchctl print`
-reported the job loaded with a pid; that pid was this very process, since the wrapper
-`exec`s and the pid is carried through bash, escript and the BEAM unchanged. So it
-printed "the owl is already running under launchd (pid N). Run `whiska owl stop` first",
-exited 1, and `KeepAlive` with `SuccessfulExit = false` did exactly what it is for: it
-restarted a crash. `~/.whiska/owl.log` filled with the same line at rising pids, and
-`launchctl print` said `runs = 4, last exit code = 1, state = spawn scheduled`. The
-doctor said `com.whiska.owl loaded, owl not running — see ~/.whiska/owl.log`, which was
-true and did not name the loop.
+- **Resolve the runtime at install time and bake it in.** An Erlang upgrade breaks the
+  job silently, and under restart-on-crash silently means a restart loop.
+- **`KeepAlive = true`.** The only stop would be uninstalling.
+- **No supervisor on Linux.** Reopens the failure this record was written for.
+- **Whiska's own restart loop.** Rebuilds what both platforms ship and still needs
+  something to start it at login.
+- **Turn lingering on during install.** Changes a machine setting the person did not ask
+  for, and it outlives uninstall.
+- **Journal logging under systemd.** Two places to look.
 
-**The refusal stays; it learns which owl it is looking at.** `Whiska.CLI.start_owl/2`
-compares the pid `launchctl print` reports with this process's own pid, and proceeds when
-they are the same. A hand-started foreground owl has a different pid and is refused
-exactly as before, so the invariant this section exists for — never two owls on the same
-doorstep — is untouched.
-
-Two mechanisms were weighed. The other was a marker in the environment: the plist's
-`EnvironmentVariables` would carry `WHISKA_SUPERVISED=1` and the refusal would be skipped
-when it is set. The pid comparison was chosen for two reasons. It answers the question
-actually being asked — "am I that process?" — rather than an inherited claim about who
-started me, and an environment variable is inherited by every child a process spawns,
-so any `whiska owl` descended from the supervised owl would skip the refusal and become
-the second owl. And it needs no plist change: an install already on disk is fixed by the
-new binary alone, which matters here because `whiska owl install` refuses while any owl
-is in the process table, and a crash-looping owl is in the process table.
-
-The pid comparison rests on the wrapper's `exec` — without it launchd's pid would be the
-bash process, not the BEAM. That is already a tested property of the wrapper
-(`exec "$whiska_bin" owl`), and it is the shape the wrapper wants anyway.
-
-**Why no test caught it.** The test config installs a launchctl runner that answers every
-`print` with "could not find service", so `status/0` never returned a loaded job to
-`start_owl/2` in any test; the refusal's true branch had never run under test at all.
-`test/whiska/cli_owl_test.exs` now injects a runner that reports the job loaded with this
-BEAM's own pid, and asserts the owl opens its houses; a sibling test reports a different
-pid and asserts the refusal still fires.
-
-**The doctor names the loop.** `LaunchAgent.status/2` also reads `last exit code` from the
-same `launchctl print` output. Loaded, no pid, non-zero code now reads
-`com.whiska.owl loaded but crash-looping (last exit code N) — see ~/.whiska/owl.log`,
-which is the line that would have pointed at this bug directly. Loaded, no pid, exit 0 —
-the owl stopped cleanly by `whiska owl stop` — keeps the old "loaded, owl not running".
-
-## Note, 2026-10-05: launchd is macOS's half
-
-ADR-0077 amends this record. Everything above
-still holds on macOS. "The one supervisor" now reads as the platform's own service
-manager: this LaunchAgent on macOS, and a systemd user unit, `whiska-owl.service`, on
-Linux. The verbs, the shared wrapper and the never-two-owls refusals are the same on both.
+Folded in on 2026-10-08: 0077 (its text is in git history).

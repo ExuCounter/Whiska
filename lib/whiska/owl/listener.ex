@@ -1,6 +1,6 @@
 defmodule Whiska.Owl.Listener do
   @moduledoc """
-  One Unix socket the owl answers on (ADR-0025).
+  One Unix socket the owl answers on (ADR-0033).
 
   Each connection is handed to its own process, so an answer that takes a while
   — a house whose database is busy — never holds up the next caller. The

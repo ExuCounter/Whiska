@@ -6,7 +6,7 @@ defmodule Whiska.Doorstep do
   database — holding one file per entry the owl has not collected yet. Every
   finished turn is written here: by the owl when it answers the mouse's `Stop`
   hook, by the escript when it does not, so whether the owl is awake changes
-  nothing about what is left (ADR-0036, amended). Being in the house
+  nothing about what is left (ADR-0036). Being in the house
   rather than the worktree is what keeps an entry alive through `drop-worktree`.
 
   Two rules shape everything here:
@@ -16,7 +16,7 @@ defmodule Whiska.Doorstep do
   - **Collection marks, it never deletes** (ADR-0007). A collected entry is
     renamed to `.collected` in the same directory. That is also what lets the
     statusline count what is waiting straight off disk when the owl is down
-    (ADR-0027): the waiting entries are exactly the `.json` files.
+    (ADR-0048): the waiting entries are exactly the `.json` files.
   """
 
   alias Whiska.Doorstep.Entry

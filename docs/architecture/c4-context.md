@@ -47,6 +47,5 @@ C4Context
 - **The service manager** matters because there is exactly one owl per machine, not one
   process per repo (ADR-0001). `whiska owl install` writes the user LaunchAgent
   `com.whiska.owl` on macOS, or the systemd user unit `whiska-owl.service` on Linux, which
-  starts the owl at login and restarts it if it crashes (ADR-0040,
-  ADR-0077). The foreground `whiska owl`
+  starts the owl at login and restarts it if it crashes (ADR-0040). The foreground `whiska owl`
   still exists, and refuses while the supervised owl is running.

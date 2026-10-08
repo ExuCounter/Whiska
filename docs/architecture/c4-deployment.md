@@ -50,70 +50,17 @@ C4Deployment
 
 ## What the placement buys
 
-**Sockets under the repo's own `.git/` are the security property** (ADR-0024, ADR-0001).
-A rogue process cannot guess a shared port — it has to already be inside a specific repo
-to find that repo's socket. That survived the move from one process per repo to one owl,
-because one process can listen on many private sockets. On top of that, a request must
-present the actual marker-file content (not merely claim an id), and the listening side
-asks the kernel for the peer PID (`LOCAL_PEERPID`, unfakeable by the connecting process)
-and walks its real parent chain to confirm it descends from the legitimate `claude`
-process for that worktree.
+Sockets under a repo's own `.git/` are the security property: a rogue process cannot
+guess a shared port, it has to already be inside the repo (ADR-0024, ADR-0001). The two
+sockets in `~/.whiska/` are deliberately weaker, one read-only and one trusting its caller
+as the escript trusts stdin, and they sit in the home so no socket path passes macOS's
+104-byte cap (ADR-0033). `~/.cache/whiska/` exists because an escript is a zip and native
+code must be unpacked before it can be loaded. `~/.claude/` is the second place the same
+install can live, for a repo that cannot carry a committed `.claude/`; its paths are often
+symlinks into a dotfiles repo, so every write goes through the link (ADR-0056). The owl's
+job is in the user's own service-manager domain and runs the wrapper because neither
+manager's `PATH` finds `escript`; under systemd the owl stops with the person's last
+session unless lingering is on (ADR-0040).
 
-Stated honestly: everything runs as the same OS user with no sandboxing. This stops
-accidental and casual spoofing, not a determined co-resident attacker. Airtight would
-need OS-level isolation, which is out of scope.
-
-**The owl socket at `~/.whiska/owl.sock` is deliberately weaker** (ADR-0025). It only
-answers read-only "what is open, where" — what is waiting, one question's text, the tab
-bar line — and can never approve a push or act on a mouse, so owner-only file permissions
-are enough. herdr's tab bar asks it, and so can the person's own scripts, from anywhere on
-the machine.
-
-**`~/.whiska/hook.sock` sits beside it, and is no stronger** (ADR-0033). The hook shim
-sends it what `whiska hook <name>` would have read, and the owl runs the same code. It
-believes the payload as the escript does: anything that reaches an owner-only socket is
-the person's own account, which can already run `whiska hook stop` with any payload, and
-a hook request approves nothing. When it does not answer, the shim runs the escript.
-Placed in the home rather than under each repo's `.git/`, it also keeps every socket path
-short: macOS caps a socket's path at 104 bytes, and a deeply nested repo would pass it.
-
-**`~/.cache/whiska/` exists only because an escript is a zip.** Native code cannot be
-`dlopen`ed out of one, so the bundled SQLite library unpacks there on first run — 627 ms,
-once. The escript is still what every hook falls back on when the owl does not answer
-(ADR-0033), so the cache stays.
-
-**`~/.claude/` is the second place the same install can live** (ADR-0056). A repo that
-cannot carry a committed `.claude/` — someone else's repo, or one whose owners will not
-take another tool's hooks — would otherwise spawn mice with none of the rules, because an
-uncommitted file is in no worktree git creates. `whiska init --global` writes the identical
-relative paths under `~` instead: the shim in `~/.claude/hooks/`, the four hooks —
-`PreToolUse`, `Stop`, `UserPromptSubmit` and `SessionStart` — in `~/.claude/settings.json`,
-and every skill in `~/.claude/skills/`. Nothing goes into
-`~/.claude/CLAUDE.md`: the rules arrive at session start (ADR-0081). Nothing in the hooks was
-ever repo-specific — which worktree they are firing in comes from where the session started
-(ADR-0053) — so the move costs nothing. What stays in the repo is the house under `.git/whiska`, which was
-never committed anyway.
-
-The boundary that moves with it is who wins. Claude Code merges the hook arrays from both
-files, so in a repo that wires Whiska itself the global shim exits before resolving
-anything: the repo's copy is in force and this one stands down. These paths are also
-commonly symlinks into a dotfiles repo, so every write goes through the link and changes
-the target in place; replacing the link would disconnect that repo silently.
-
-**The owl's job lives in the user's own service-manager domain** (ADR-0040,
-ADR-0077). On macOS it is the LaunchAgent
-`com.whiska.owl` in launchd's `gui` domain, at
-`~/Library/LaunchAgents/com.whiska.owl.plist`. On Linux it is the systemd user unit
-`whiska-owl.service`, at `~/.config/systemd/user/whiska-owl.service`. Either starts the owl
-at login and restarts it on a crash. Either runs the wrapper in `~/.whiska/` rather than
-the escript, because neither manager's `PATH` can find `escript`, and the wrapper shares
-the hook shim's runtime lookup. The owl it starts takes no arguments and opens what the
-open-houses record lists. Under systemd, the owl stops when the person's last session ends
-unless lingering is on.
-
-**What actually exists today**: `whiska.db`, `.whiska-mouse`, `doorstep/`, the cache, the
-open-houses record, the global install, the owl's job (plist or unit) with its wrapper and log, the
-owl itself with its houses and herdr subscription, and its two sockets in `~/.whiska/`,
-`owl.sock` and `hook.sock`. Not yet: the repo socket, and `whiska stop` for one house. The
-repo socket is drawn because its placement is the security argument above, not because
-it is written.
+Not built: the repo socket, drawn because its placement is the security argument, and
+`whiska stop` for one house.

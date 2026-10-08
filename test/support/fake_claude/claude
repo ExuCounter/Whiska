@@ -6,7 +6,7 @@
 # the real one: a spinner in the window title is `working`, a `❯` line between
 # two rules at the bottom is `idle`. So what is faked is the model, never herdr's
 # judgment and never Whiska's — the owl's gate reads this screen with the same
-# code it reads Claude Code's with (ADR-0047, ADR-0068).
+# code it reads Claude Code's with (ADR-0047).
 #
 # Like Claude Code it draws on the alternate screen, takes keystrokes one at a
 # time, shows what has been typed in its prompt box, and starts a turn on Enter.

@@ -1,7 +1,6 @@
 defmodule Whiska.LedgerTest do
   @moduledoc """
-  The agent ledger read from Claude Code's transcripts on disk (ADR-0083,
-  ADR-0084): one line for the mouse's own session and one per agent it sent
+  The agent ledger read from Claude Code's transcripts on disk (ADR-0049): one line for the mouse's own session and one per agent it sent
   this turn.
 
   Every shape here is copied from a real session read on 2026-10-08: a

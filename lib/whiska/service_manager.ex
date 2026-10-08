@@ -1,7 +1,7 @@
 defmodule Whiska.ServiceManager do
   @moduledoc """
   The platform's own service manager, which keeps the owl running: starts it
-  at login and restarts it if it crashes (ADR-0040, ADR-0077).
+  at login and restarts it if it crashes (ADR-0040).
 
   - macOS: launchd, through a user LaunchAgent — `Whiska.LaunchAgent`.
   - Linux: systemd, through a user unit — `Whiska.SystemdUnit`.

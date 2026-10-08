@@ -26,7 +26,7 @@ defmodule Whiska.Herdr do
   `scroll_offset` is how many rows above the bottom the viewport is sitting —
   `0` when the pane is showing the live end of its output, and `nil` when herdr
   did not say. It is what tells a screen with no prompt box on it apart from a
-  person who has simply scrolled up past one (ADR-0068).
+  person who has simply scrolled up past one (ADR-0047).
   """
   @type pane :: %{
           pane_id: String.t(),
@@ -214,7 +214,7 @@ defmodule Whiska.Herdr do
   Open an existing worktree as a herdr workspace, and bring it into view.
 
   Starts no session in it: the workspace opens on a shell, because a second
-  Claude Code session in one worktree is what ADR-0023 forbids. Only `whiska
+  Claude Code session in one worktree is what ADR-0024 forbids. Only `whiska
   open` asks, and only because the person did.
   """
   @callback open_worktree(socket :: Path.t(), path :: Path.t()) :: :ok | {:error, term()}

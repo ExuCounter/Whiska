@@ -13,7 +13,7 @@ defmodule Whiska.Owl.House do
   The house learns which herdr panes are its mice by matching each pane's `cwd`
   to a mouse record's worktree path — at open, whenever herdr reports a new agent
   pane, and the moment a collection records a mouse no pane is known for. That is
-  the first and only thing that ever fills a mouse's `pane` column (ADR-0006).
+  the first and only thing that ever fills a mouse's `pane` column (ADR-0028).
 
   Only the first two judge liveness: a mouse with no pane anywhere is dead
   (ADR-0026), and is marked, never deleted (ADR-0007). Matching on collection
@@ -85,9 +85,9 @@ defmodule Whiska.Owl.House do
   and on the backstop.
 
   A finished line waits for the slot like any question, so it never lands over
-  one the person is reading (ADR-0008, note of 2026-10-06), and once typed it
-  holds the slot until the person's next prompt in the main session settles it
-  (note of 2026-10-08). The house raises `Whiska.FinishFlag` as it types one,
+  one the person is reading (ADR-0008), and once typed it
+  holds the slot until the person's next prompt in the main session settles it.
+  The house raises `Whiska.FinishFlag` as it types one,
   so that prompt reaches the hook. Once the slot is free a finished line goes
   ahead of whatever is queued. A round's wait only ever gathers a count for a
   house that was quiet, so a finished line arriving while something is out
@@ -104,13 +104,13 @@ defmodule Whiska.Owl.House do
   idle is the model's word, and typing into an occupied box would land inside
   what the person is writing. A draft holds the question — open, first in the
   queue, delivered on the next trigger. A screen with no box on it at all holds
-  it too (ADR-0068): there is nowhere for the line to land, and a dialog waiting
+  it too (ADR-0047): there is nowhere for the line to land, and a dialog waiting
   on the person is one of the ways to get there. A box whose contents Whiska
   cannot read is the unreadable signal ADR-0008 rules on, and delivers anyway.
 
   A hold is remembered — since when, and which half of the gate held — so the
   main checkout's sidebar line can say why nothing is being delivered once it
-  has outlasted the fuse (ADR-0058). Only the saying is new: the gate decides exactly as it did.
+  has outlasted the fuse (ADR-0082). Only the saying is new: the gate decides exactly as it did.
 
   The line is typed and a hoot goes out with it (ADR-0062): one desktop
   notification per delivered question, raised in the same breath as the line
@@ -120,7 +120,7 @@ defmodule Whiska.Owl.House do
   courtesy, not the job: a hoot that errors or raises is swallowed, and the
   question stays delivered. When herdr says it will not draw the hoot because
   its popups are off or nobody is attached, the same hoot is raised on the
-  desktop instead (ADR-0071).
+  desktop instead (ADR-0062).
 
   A house tells no other house anything, and nothing is ever typed into
   another repo's session (ADR-0044): herdr's tab bar redraws on its own timer
@@ -182,7 +182,7 @@ defmodule Whiska.Owl.House do
   # and a live owl gets two tries before one lapses.
   @default_sidebar_ttl_ms 30_000
   @default_sidebar_refresh_ms 20_000
-  # How long delivery has to be holding before the sidebar says so (ADR-0058).
+  # How long delivery has to be holding before the sidebar says so (ADR-0082).
   @default_hold_notice_ms 10_000
   # How long a mouse's pane has to have been quiet before a died turn is picked
   # up (ADR-0067). Two backstops, so a laptop waking cannot have a whole fleet
@@ -788,7 +788,7 @@ defmodule Whiska.Owl.House do
   # `workspace_closed` alone — the panes inside it get no `pane_closed` (herdr
   # 0.8.2, checked on 2026-10-04). The event names no pane, so the house asks
   # herdr again, marks dead whatever it no longer lists (ADR-0026), and redraws
-  # the board now rather than on its next build (ADR-0051).
+  # the board now rather than on its next build (ADR-0082).
   defp herdr_event("workspace_closed", _data, state) do
     state |> refresh() |> Map.put(:board_built_at, nil) |> write_board()
   end
@@ -1082,7 +1082,7 @@ defmodule Whiska.Owl.House do
   # thing — that is the designed "what landed while the owl was down" path — and
   # so are the idle trigger's own 2 s and 5 s retries; neither is counted here.
   # This announcing itself is what stops a dead trigger hiding behind a working
-  # backstop, as it did for weeks (ADR-0036, note of 2026-09-28).
+  # backstop, as it did for weeks (ADR-0036).
   defp collect_on_backstop(state) do
     case collect_and_count(state) do
       {0, state} -> state
@@ -1163,7 +1163,7 @@ defmodule Whiska.Owl.House do
   # matched to a pane — `collect_entry/3` records the mouse from the entry
   # itself. Left to `refresh/1`'s own triggers the pane column stayed nil until
   # the backstop's minute was up, and in that minute `whiska waiting` said "no
-  # pane" and `whiska reply` refused (ADR-0043's note of 2026-09-28). So an
+  # pane" and `whiska reply` refused (ADR-0043). So an
   # unmatched mouse is matched here and now: one `list_panes` call, and only
   # when a collection named a mouse no pane is known for. A mouse already in
   # `state.panes` asks herdr nothing.
@@ -1255,7 +1255,7 @@ defmodule Whiska.Owl.House do
   # this on every trigger is safe; only a delivery changes anything.
   # The sweep runs whatever the gate then decides, a round's wait included: a
   # question nothing can answer must not sit in the count that wait is
-  # gathering (ADR-0057).
+  # gathering (ADR-0008).
   defp deliver(state) do
     release_unanswerable(state)
     state = %{state | last_mode: mode(state)}
@@ -1292,7 +1292,7 @@ defmodule Whiska.Owl.House do
 
   # How long delivery has been holding, and why. The gate is unchanged
   # (ADR-0008, ADR-0047); this only remembers what it decided, so the sidebar
-  # can say it (ADR-0058). A hold whose reason changes — mid-turn, then a draft in
+  # can say it (ADR-0082). A hold whose reason changes — mid-turn, then a draft in
   # the box — is one hold that has not let go, so the clock keeps running.
   #
   # It also writes the log line the sidebar cannot: when a hold starts, when
@@ -1349,7 +1349,7 @@ defmodule Whiska.Owl.House do
 
   defp now, do: DateTime.utc_now()
 
-  # Nothing that cannot be answered may hold the one slot (ADR-0057). A mouse
+  # Nothing that cannot be answered may hold the one slot (ADR-0008). A mouse
   # dies and is marked dead; a doorstep entry it left behind is collected after
   # that, arrives `open` and is delivered, and then holds the slot with nothing
   # alive behind it. Judging the queue here, on every trigger, is what makes
@@ -1475,7 +1475,7 @@ defmodule Whiska.Owl.House do
 
       {:error, reason} ->
         # Stays open, and stays held: a delivery herdr keeps refusing is the
-        # silence ADR-0058 exists for, not a clean slate.
+        # silence ADR-0082 exists for, not a clean slate.
         state
         |> warn_once(
           :prompt_failed,
@@ -1488,7 +1488,7 @@ defmodule Whiska.Owl.House do
   # The hoot (ADR-0062), raised from inside the same branch that typed the
   # line, so the two can never disagree about what reached the person — and
   # that holds for the desktop fallback too, since it is decided here, off
-  # herdr's answer to this very hoot (ADR-0071).
+  # herdr's answer to this very hoot (ADR-0062).
   #
   # Delivery is the job and the hoot is a courtesy: the question is already
   # recorded sent before this runs, and whatever herdr or the desktop does here

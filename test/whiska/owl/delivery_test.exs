@@ -471,7 +471,7 @@ defmodule Whiska.Owl.DeliveryTest do
       assert second =~ "feat-b finished"
     end
 
-    # ADR-0008, note of 2026-10-06. A finished line typed while a decision is
+    # ADR-0008. A finished line typed while a decision is
     # out lands on top of the decision the person is reading.
     test "a finished line waits while a decision is out, and goes once it is answered", %{
       main: main,
@@ -806,7 +806,7 @@ defmodule Whiska.Owl.DeliveryTest do
     end
   end
 
-  # Nothing that cannot be answered may hold the one delivery slot (ADR-0057).
+  # Nothing that cannot be answered may hold the one delivery slot (ADR-0008).
   describe "a question nothing can answer" do
     setup %{main: main} do
       record_main(main)
@@ -870,7 +870,7 @@ defmodule Whiska.Owl.DeliveryTest do
       assert text =~ "finished"
     end
 
-    test "a finished line already told, from a record that no longer stands for a worktree, lets the slot go (ADR-0057)",
+    test "a finished line already told, from a record that no longer stands for a worktree, lets the slot go (ADR-0008)",
          %{main: main} do
       main_is("idle")
       expect_prompts()
@@ -920,7 +920,7 @@ defmodule Whiska.Owl.DeliveryTest do
       expect_prompts()
 
       # The phantom a slashed branch's parent folder used to mint, with the
-      # real mouse nested inside it (ADR-0051's addendum, ADR-0030's note).
+      # real mouse nested inside it (ADR-0082, ADR-0030).
       phantom = Path.join([main, "worktrees", "quality"])
       real = Path.join(phantom, "QUAL-350")
       File.mkdir_p!(real)
@@ -1013,7 +1013,7 @@ defmodule Whiska.Owl.DeliveryTest do
       in_house(house, fn -> assert Storage.question(1).status == "sent" end)
     end
 
-    test "a screen with no prompt box on it holds — there is nowhere to type (ADR-0068)",
+    test "a screen with no prompt box on it holds — there is nowhere to type (ADR-0047)",
          %{main: main, a: a} do
       stub(Herdr, :read_screen, fn @socket, @main_pane -> {:ok, "a dialog is up\n"} end)
       house = open(main, hold_notice_ms: 0)
@@ -1062,7 +1062,7 @@ defmodule Whiska.Owl.DeliveryTest do
     end
   end
 
-  describe "a hold the board can see (ADR-0058)" do
+  describe "a hold the board can see (ADR-0082)" do
     setup %{main: main} do
       record_main(main)
       :ok

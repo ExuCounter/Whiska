@@ -1,6 +1,6 @@
 defmodule Whiska.StatuslineTest do
   @moduledoc """
-  Two lines, drawn in two places (ADR-0048, amended).
+  Two lines, drawn in two places (ADR-0048).
 
   `summary/1` and `render/1` are herdr's tab bar: the owl's state, always, and
   what is waiting on the whole machine. Machine-wide, so nothing there is
@@ -90,7 +90,7 @@ defmodule Whiska.StatuslineTest do
 
   defp line(opts, record), do: opts |> summary(record) |> Statusline.render()
 
-  describe "the owl's state is always shown (ADR-0027 addendum)" do
+  describe "the owl's state is always shown (ADR-0048)" do
     test "a quiet machine reads just the owl watching", %{record: record} do
       assert summary([], record).owl == :watching
       assert line([], record) == "🦉 watching"

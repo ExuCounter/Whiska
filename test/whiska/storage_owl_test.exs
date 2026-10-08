@@ -68,7 +68,7 @@ defmodule Whiska.StorageOwlTest do
   end
 
   describe "set_pane/2" do
-    test "records the pane herdr reported for a mouse (ADR-0006)" do
+    test "records the pane herdr reported for a mouse (ADR-0028)" do
       assert {:ok, %Mouse{pane: "w1:p2"}} = Storage.set_pane("m1", "w1:p2")
       assert Storage.mouse("m1").pane == "w1:p2"
     end
@@ -142,10 +142,10 @@ defmodule Whiska.StorageOwlTest do
     end
   end
 
-  # Nothing that cannot be answered may hold the one delivery slot (ADR-0057):
+  # Nothing that cannot be answered may hold the one delivery slot (ADR-0008):
   # a dead mouse's sent question, and a question from a record that no longer
   # stands for a worktree of this house.
-  describe "release_unanswerable/0 (ADR-0057)" do
+  describe "release_unanswerable/0 (ADR-0008)" do
     test "releases a dead mouse's open and sent questions" do
       open = ask("m1")
       sent = ask("m1")
@@ -190,8 +190,8 @@ defmodule Whiska.StorageOwlTest do
       assert Storage.question(theirs.id).status == "open"
     end
 
-    # A finished line never takes the slot and never holds it (ADR-0008, note of
-    # 2026-10-01), so it is not this sweep's business: releasing it would be the
+    # A finished line never takes the slot and never holds it (ADR-0008), so it is not
+    # this sweep's business: releasing it would be the
     # branch finishing silently.
     test "leaves a done report alone when it arrives after its mouse died" do
       {:ok, _} = Storage.mark_dead("m1")
@@ -337,7 +337,7 @@ defmodule Whiska.StorageOwlTest do
 
     test "a record whose worktree holds another mouse's worktree is stale" do
       # A branch with a slash nests on disk, and `worktrees/feat` owns nothing
-      # (ADR-0030 note). The record made before that was understood points at it.
+      # (ADR-0030). The record made before that was understood points at it.
       {:ok, _} = Storage.record_mouse(%{mouse_id: "stale", path: "/w/feat", branch: "feat"})
 
       {:ok, _} =

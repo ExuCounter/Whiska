@@ -2,7 +2,7 @@ defmodule Whiska.Hook.PreToolUse do
   @moduledoc """
   One tool call in, one decision out.
 
-  ADR-0010 puts hard rules here rather than in `CLAUDE.md`: a line in `CLAUDE.md`
+  ADR-0011 puts hard rules here rather than in `CLAUDE.md`: a line in `CLAUDE.md`
   is a suggestion that works only if the mouse chooses to follow it, whereas a
   `PreToolUse` hook runs before the tool call and can actually block it.
 
@@ -59,7 +59,7 @@ defmodule Whiska.Hook.PreToolUse do
 
   # A session that started in a worktree is a mouse and gets both rules. One
   # that started in a folder under `worktrees/` which is no worktree of its own
-  # is nobody — no identity, no mode, nothing recorded (ADR-0030's note) — and
+  # is nobody — no identity, no mode, nothing recorded (ADR-0030) — and
   # still gets containment: the main checkout is the one place it must not
   # write, and a folder Whiska cannot identify is where it is least able to
   # vouch for what happens (ADR-0013).

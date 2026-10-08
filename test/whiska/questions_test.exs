@@ -2,7 +2,7 @@ defmodule Whiska.QuestionsTest do
   @moduledoc """
   `Whiska.Questions` is the one place that answers "what is waiting on me in
   this house" — read by `whiska questions` and by the statusline alike, so the
-  two can never disagree (ADR-0027 for how the statusline shows it).
+  two can never disagree (ADR-0048 for how the statusline shows it).
   """
   # Serial: the code under test opens the house under the one VM-wide name `Whiska.Repo`.
   use ExUnit.Case, async: false
@@ -348,7 +348,7 @@ defmodule Whiska.QuestionsTest do
     end
   end
 
-  describe "statusline/1 — detail for one, a count for many (ADR-0027)" do
+  describe "statusline/1 — detail for one, a count for many (ADR-0048)" do
     test "nothing waiting → nothing shown", %{main: main} do
       {:ok, summary} = Questions.summary(main)
       assert Questions.statusline(summary) == ""

@@ -16,7 +16,7 @@ defmodule Whiska.Hook.SessionStart do
   - **The main session**: anything else in herdr.
 
   A part the person holds as `keep` is left out: Claude Code loads that
-  `CLAUDE.md` itself, so their wording is already in context (ADR-0045). Which
+  `CLAUDE.md` itself, so their wording is already in context (ADR-0081). Which
   files count depends on which install fired the hook. The repo's own install
   reads `~/.claude/CLAUDE.md` and the project's `CLAUDE.md`: that repo wires its
   own rules, so its `CLAUDE.md` holding one back changes nothing it could not

@@ -38,7 +38,7 @@ defmodule Whiska.MousePane do
   The prompt box, read exactly as delivery reads the main session's (ADR-0047):
   herdr's idle is the model's word, and a line typed into a box somebody is
   halfway through lands inside what they are writing. A box not on the screen
-  at all is the same refusal as a draft (ADR-0068). An unreadable screen is an
+  at all is the same refusal as a draft (ADR-0047). An unreadable screen is an
   unavailable signal, so it reads as empty.
   """
   @spec box(map(), map()) :: Draft.t()

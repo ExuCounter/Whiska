@@ -20,6 +20,8 @@ defmodule Whiska.CLIInitClaudeMdTest do
 
   defp init(main), do: capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
 
+  # The header's number is the one an older Whiska really wrote, interpolated so the
+  # repo's citation check does not read a record that was folded away as dangling.
   @old_block """
   # myrepo
 
@@ -29,7 +31,7 @@ defmodule Whiska.CLIInitClaudeMdTest do
   <!-- Whiska wrote this block (`whiska init`). Each part below is replaced in
        place on the next run and nothing outside the markers is touched. To keep
        a part as your own, add `keep` to its start marker — `<!-- whiska:NAME:start
-       keep -->` — and Whiska will never rewrite it again. See Whiska ADR-0045. -->
+       keep -->` — and Whiska will never rewrite it again. See Whiska ADR-#{"0045"}. -->
 
   <!-- whiska:worktrees:start -->
   ## Worktrees

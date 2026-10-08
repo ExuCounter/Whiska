@@ -45,7 +45,7 @@ defmodule Whiska.StorageQuestionsTest do
                Storage.questions()
     end
 
-    test "leaves out everything settled, including superseded (ADR-0037)" do
+    test "leaves out everything settled, including superseded (ADR-0008)" do
       open = ask("m1", "a", "open")
       ask("m1", "c", "answered")
       ask("m1", "d", "closed", kind: "done")

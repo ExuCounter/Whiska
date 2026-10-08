@@ -34,7 +34,7 @@ session speaks for is derived from that first entry, and only from the payload's
 directory when there is no transcript, or none that names a directory.
 
 `Whiska.Session` is where both live. `Layout` is untouched — it still turns *a* directory
-into a worktree (ADR-0030 and its note); what changed is which directory it is handed.
+into a worktree (ADR-0030); what changed is which directory it is handed.
 
 ## Consequences
 

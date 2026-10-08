@@ -6,15 +6,15 @@ reachable." Building it forced two decisions the sentence did not make.
 
 ## Why it exists now
 
-The bash relay that used to tell the main terminal about a waiting question is gone
-(ADR-0029). Delivery now exists — the owl types a question into the main session when
+The bash relay that used to tell the main terminal about a waiting question is gone.
+Delivery now exists — the owl types a question into the main session when
 that session is idle — but nothing reports the cases where delivery cannot happen: the
 owl is down, no main session was ever recorded, the recorded pane stopped running
 Claude, the installed binary cannot serve the Stop hook. The owl logs those to its own
 stderr, in whichever pane started it, which is the "one person who needs to know is the
-one it cannot reach" problem ADR-0036 names. The statusline that ADR-0027 makes the
-home for "the owl is down" is still unbuilt. So from the main terminal, a broken pipe
-and a quiet fleet look identical: silence. The doctor is the command you run to learn
+one it cannot reach" problem ADR-0036 names. The tab bar line says when the owl is down
+(ADR-0048) and nothing more. So from the main terminal, every other broken pipe and a
+quiet fleet look identical: silence. The doctor is the command you run to learn
 which silence you are in.
 
 That fixes the problem it is for. It is not first-time setup, though it covers that as
@@ -70,9 +70,8 @@ cover each other.
 One repo, run from its main checkout or any worktree. The binary, runtime, herdr and
 owl are reported alongside, because they are that repo's prerequisites: a wired Stop
 hook is worth nothing if the installed binary cannot serve it. Machine-wide — "every
-house" — was considered and is blocked rather than rejected: nothing on the machine can
-list every house until the owl's global socket exists (ADR-0025). When it does, that is
-one query, and the doctor can also stop guessing at the owl from the process table.
+house" — was considered and deferred: `owl.sock` answers `waiting` for every house
+(ADR-0033), so it is one query away when wanted.
 
 ## The main session and the queue
 
@@ -104,5 +103,5 @@ without reading the text.
 ADR-0008 rejected a startup check inside `whiska start` because a one-shot check "catches
 the least likely moment and misses the likely one". The doctor has the same limit and
 makes no claim otherwise: it reports the moment it is run. It is not monitoring, and it
-does not replace the statusline that ADR-0027 says is where "the owl is down" belongs.
-It is the thing to run when the statusline is not there yet.
+does not replace the tab bar line, where "the owl is down" belongs (ADR-0048). It is the
+thing to run when that line says something is wrong.

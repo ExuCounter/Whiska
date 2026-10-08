@@ -4,12 +4,10 @@ status: proposed
 
 # Watching a branch is the owl's one networked job, and it only ever reads
 
-**Supersedes [ADR-0032](0032-pr-opening-and-merge-tracking.md)**, which worked out the
-same idea for GitHub alone, through `gh`, with Whiska running `gh pr merge` itself.
-Everything below keeps its shape and changes two things that do not survive contact: the
-forge is not always GitHub, and Whiska reads but never writes.
-
-Nothing here is built. It is recorded so it is not redesigned from scratch.
+Nothing here is built. It is recorded so it is not redesigned from scratch. An earlier
+draft worked the same idea out for GitHub alone, through `gh`, with Whiska running
+`gh pr merge` itself; two things in it did not survive contact: the forge is not always
+GitHub, and Whiska reads but never writes.
 
 ## The question this starts from
 
@@ -33,7 +31,7 @@ What they share is one question — which branch does this mouse own — and not
 | Answer | deterministic, always available | three-valued, often unavailable |
 | Failure | there is none to speak of | rate limit, outage, expired token |
 | Wants the mouse | gone — it ends the mouse's life | alive — it has work to send it |
-| Blocked on | ADR-0007 (nothing is ever deleted) | ADR-0044 (what Whiska may type into) |
+| Blocked on | nothing: built (ADR-0061) | ADR-0044 (what Whiska may type into) |
 
 The last row but one is the one that settles it. Watching wants a mouse's pane kept open
 so a red build can go back to the session that still has the context; cleanup wants the
@@ -122,7 +120,7 @@ A `Whiska.Forge` behaviour with two callbacks — `merge_request(repo, branch)` 
 `curl` invocation and a parse. Nothing outside an adapter knows which forge a repo has.
 Which adapter is a per-repo fact: a `forge:` line in `.whiska/dispatch.yml`, defaulting to
 what the `origin` remote's host says, and `none` is a supported answer. Watching is
-opt-in per repo, as ADR-0032 had it, and a repo that never opts in keeps today's owl
+opt-in per repo, and a repo that never opts in keeps today's owl
 exactly.
 
 ## Polling is the cheap part
@@ -182,11 +180,10 @@ the main session of the question's own house — and ADR-0044 put it in the broa
 
 That rule was written against a nudge into a *person's* session, where the cost was a turn
 the person paid for and a model improvising on a prompt that was not theirs. A mouse is
-the opposite case: it exists to be given work, and ADR-0026's corrective nudge into a
-stuck mouse's own pane is already the same shape, designed and unbuilt. The reasoning may
+the opposite case: it exists to be given work, and the pickup ADR-0067 types into a dead
+turn's own pane is already the same shape, built as the one exception. The reasoning may
 well not hold here — but the letter of ADR-0044 does, so this records the gate rather than
-stepping over it. **Building this half means reopening ADR-0044 first**, deliberately,
-with that corrective nudge in the same conversation.
+stepping over it. **Building this half means widening ADR-0044 first**, deliberately.
 
 Two things follow if it is reopened:
 
@@ -247,8 +244,8 @@ sleeping laptop, are the whole reason the feature exists.
   leave a worktree standing.
 - **A merge ends every watch on that branch**, with no further forge call: merged is a
   local git fact, and the offline answer wins whenever both are available.
-- If cleanup stays person-triggered, watching composes with it by producing the question
-  the person acts on — green, mergeable, nothing left to do — and nothing else changes.
+- Cleanup is the owl's and unattended (ADR-0061); a watch that ends merged simply hands
+  the branch to it.
 
 ## Considered options
 
@@ -260,8 +257,10 @@ against a timer nobody is watching.
 process per branch, no GitLab equivalent of the same shape, and it would put the polling
 back on the write-capable credential.
 
-**Whiska running the merge itself**, as ADR-0032 had it. Rejected: it is the one write
-that would force a write-capable credential into the owl, and it buys a keystroke.
+**Whiska running the merge itself**, as the first draft had it. Rejected: it is the one
+write that would force a write-capable credential into the owl, and it buys a keystroke.
 
 **One adapter, GitHub only.** Rejected by the brief. The port costs two functions behind a
 behaviour, and the second adapter is written when the work repo needs it.
+
+Folded in on 2026-10-08: 0032 (its text is in git history).

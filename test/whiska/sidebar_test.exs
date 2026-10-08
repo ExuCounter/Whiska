@@ -539,7 +539,7 @@ defmodule Whiska.SidebarTest do
       assert house([], main_pane?: false) == %{}
     end
 
-    test "says why delivery is gated (ADR-0058)" do
+    test "says why delivery is gated (ADR-0082)" do
       for {held, reason} <- [
             typing: "you're typing",
             no_box: "no prompt box",

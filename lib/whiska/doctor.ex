@@ -8,7 +8,7 @@ defmodule Whiska.Doctor do
   this repo's `init` predates, an owl that never got started, a main session
   never recorded. First-time setup is the degenerate case where everything
   fails. Delivery cannot report the cases where it cannot deliver, and the
-  statusline (ADR-0027) has one line to say it in, so this is the command the
+  statusline (ADR-0048) has one line to say it in, so this is the command the
   person runs when the mice have gone quiet and they want to know whether that
   is real quiet.
 
@@ -315,7 +315,7 @@ defmodule Whiska.Doctor do
     do: Check.ok("owl", "running (pid #{Enum.join(pids, ", ")})")
 
   @doc """
-  Whether a running owl answers on its two sockets (ADR-0025, ADR-0033).
+  Whether a running owl answers on its two sockets (ADR-0033).
 
   No line while no owl runs: `owl` already says so. One that does not answer
   is a warning, never a failure — every hook falls back to the escript and
@@ -940,7 +940,7 @@ defmodule Whiska.Doctor do
   `probe` is what `Whiska.Herdr.notify/2` answered to a notification sent for
   this check, or `:no_socket` when there was no herdr to send one to; `desktop`
   is what the desktop did when herdr's answer sent the hoot there
-  (ADR-0071), or `:not_needed`. Both are asked
+  (ADR-0062), or `:not_needed`. Both are asked
   rather than read from config, so the person sees the notification exactly
   when it works, which is the answer and the demonstration in one (ADR-0038).
 
@@ -948,7 +948,7 @@ defmodule Whiska.Doctor do
   in the main session, and `whiska questions` still lists it. What is lost is
   hearing about it while looking at something else. herdr's config is the
   person's and machine-global, so the fix says what to change in the table they
-  already have and never writes it (ADR-0016).
+  already have and never writes it (ADR-0056).
   """
   @spec hoot(Herdr.notify_result() | :no_socket, Whiska.Desktop.result() | :not_needed) ::
           Check.t()
@@ -1051,7 +1051,7 @@ defmodule Whiska.Doctor do
   and delivered — so the worst it goes is a warning (ADR-0038). What is lost is
   the one place the owl's own outage can appear, since delivery cannot report
   it. The config is the person's and machine-global, so the doctor prints the
-  entry to paste and never writes it (ADR-0016).
+  entry to paste and never writes it (ADR-0056).
   """
   @spec tab_bar(String.t() | nil, boolean(), boolean()) :: Check.t()
   def tab_bar(config, script?, current? \\ true) do
@@ -1367,7 +1367,7 @@ defmodule Whiska.Doctor do
     end
   end
 
-  # The same screen read the delivery gate makes (ADR-0047, ADR-0068), taken
+  # The same screen read the delivery gate makes (ADR-0047), taken
   # whenever there is a main pane running Claude to ask about. It is read even
   # with nothing queued: a box the gate can no longer find stops delivery
   # whether or not anything is waiting yet, and that is the warning worth
@@ -1443,14 +1443,14 @@ defmodule Whiska.Doctor do
       )
 
   # A pane id is not something a person recognises on sight, so the line says
-  # whether it is the pane they are asking from (ADR-0065). Outside a herdr
+  # whether it is the pane they are asking from (ADR-0082). Outside a herdr
   # pane there is nothing to compare it with, and the id stands alone.
   defp named(pane, here) when here in [nil, ""], do: pane
   defp named(pane, pane), do: "#{pane} (this pane)"
   defp named(pane, _elsewhere), do: "#{pane} (not this pane)"
 
   @doc """
-  Whether the main session is showing a prompt box at all (ADR-0068).
+  Whether the main session is showing a prompt box at all (ADR-0047).
 
   The delivery gate reads this screen before every line it types, and two of
   its four answers mean nothing will be typed again until something changes.
@@ -1512,7 +1512,7 @@ defmodule Whiska.Doctor do
   The queue as a diagnosis, not a listing (`whiska questions` is the listing):
   how many are open, whether one is sent and for how long, whether the queue is
   held because the main session's prompt box has something half-typed in it or
-  is not on the screen at all (ADR-0047, ADR-0068) — and a warning for
+  is not on the screen at all (ADR-0047) — and a warning for
   each combination that means nothing can move: open questions with no main
   session to deliver them to, and a sent question whose mouse is dead. The
   second holds ADR-0008's one slot with nothing behind it able to move — no

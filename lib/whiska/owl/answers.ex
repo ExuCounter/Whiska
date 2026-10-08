@@ -1,6 +1,6 @@
 defmodule Whiska.Owl.Answers do
   @moduledoc """
-  The owl's read-only socket, `~/.whiska/owl.sock` (ADR-0025): what the
+  The owl's read-only socket, `~/.whiska/owl.sock` (ADR-0033): what the
   person's own scripts ask, with `nc -U`, instead of starting Whiska.
 
   One request line in, one line out, then the connection is closed. Every JSON

@@ -4,8 +4,8 @@ defmodule Whiska.BundledNIF do
 
   ## Why this exists
 
-  ADR-0030 asks for two things that are, on the face of it, incompatible: a single
-  binary from `mix escript.build`, and real Ecto + SQLite. An escript is a zip
+  Two decisions ask for things that are, on the face of it, incompatible: a single
+  binary from `mix escript.build` (ADR-0033), and real Ecto + SQLite (ADR-0028). An escript is a zip
   archive, and two things follow from that. It contains no `priv/` directories at
   all, so `exqlite`'s `sqlite3_nif.so` never ships inside it; and even if it did,
   native code has to be `dlopen`ed from a real file on disk, which nothing inside

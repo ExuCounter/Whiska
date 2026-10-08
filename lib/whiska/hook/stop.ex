@@ -6,7 +6,7 @@ defmodule Whiska.Hook.Stop do
   and writes the mouse's whole final message to that house's doorstep. It runs
   inside the owl when the owl answers the hook socket, and in the escript when
   it does not; either way the entry lands on the same doorstep, so a dead owl
-  still loses nothing (ADR-0036, amended).
+  still loses nothing (ADR-0036).
 
   It reads one thing out of the house before it writes: the pane `whiska start`
   recorded as the main session. A stop firing in that pane is the person's own
@@ -99,7 +99,7 @@ defmodule Whiska.Hook.Stop do
     })
   end
 
-  # The spec as it stands when the turn ends (ADR-0076). Anything but a plain
+  # The spec as it stands when the turn ends (ADR-0063). Anything but a plain
   # UTF-8 file of sane size is the same as absent: a pipe would hang the read,
   # and bytes JSON cannot carry would crash the encoder, and either would cost
   # the message itself its place on the doorstep.

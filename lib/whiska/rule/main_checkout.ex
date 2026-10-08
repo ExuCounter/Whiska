@@ -5,7 +5,7 @@ defmodule Whiska.Rule.MainCheckout do
   ADR-0013 is the why. Every other protection in this design — worktree
   containment, the finish pipeline, diff review, push approval — only covers a mouse's
   own worktree. An edit made directly in the main checkout skips all of it. So the
-  rule is mechanical (ADR-0010): a `PreToolUse` hook that can actually block,
+  rule is mechanical (ADR-0011): a `PreToolUse` hook that can actually block,
   rather than a line in `CLAUDE.md` that a mouse may or may not follow.
 
   ## What is policed

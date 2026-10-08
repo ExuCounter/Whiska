@@ -77,7 +77,7 @@ defmodule Whiska.Hook.PreToolUseTest do
   end
 
   # A folder under `worktrees/` that is no checkout of its own is nobody — no
-  # mouse, no mode, no marker (ADR-0030's note). Containment does not go with
+  # mouse, no mode, no marker (ADR-0030). Containment does not go with
   # identity: a session there still cannot write into the main checkout
   # (ADR-0013).
   describe "a folder under worktrees that is no worktree" do
@@ -425,7 +425,7 @@ defmodule Whiska.Hook.PreToolUseTest do
     end
   end
 
-  describe "mode drives which rule applies (ADR-0018)" do
+  describe "mode drives which rule applies (ADR-0069)" do
     defp set_mode(main, worktree, mode) do
       # The hook itself mints the id on first run; reuse it.
       run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})

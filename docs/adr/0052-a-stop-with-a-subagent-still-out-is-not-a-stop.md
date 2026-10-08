@@ -42,8 +42,8 @@ reading `agentId: something` would register a launch that could never be handed 
 silence the mouse for hours.
 
 **A hand-back is read in every shape it arrives in, and from the queued copy as well as
-the live one.** Amended 2026-09-30, after the shape this originally missed silenced a
-mouse for four hours. Three shapes, checked against
+the live one.** The shape the first version missed silenced a mouse for four hours.
+Three shapes, checked against
 `~/.claude/projects/…/7453bb5e-….jsonl`:
 
 - the `origin` stamp above;

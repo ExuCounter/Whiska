@@ -19,7 +19,7 @@ defmodule Whiska.Schema.Mouse do
     field(:pane, :string)
     field(:path, :string)
     field(:branch, :string)
-    # Read by the sniff rule on every tool call (ADR-0018).
+    # Read by the sniff rule on every tool call (ADR-0069).
     field(:mode, :string, default: "build")
     # The model and effort the spawn asked for; nil is the person's own
     # default (ADR-0069).

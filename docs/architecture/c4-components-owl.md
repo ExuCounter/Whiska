@@ -114,11 +114,11 @@ C4Component
 0.8.2: `pane.agent_status_changed` needs a named `pane_id` and rejects a wildcard, while
 `pane.closed`, `pane.exited`, `pane.agent_detected` and `workspace.closed` are global. So a house matches each
 pane's `cwd` up to a mouse record's worktree path, records the pane id on the mouse — the
-first and only thing that ever fills ADR-0006's `pane` column — and reopens the
+first and only thing that ever fills ADR-0028's `pane` column — and reopens the
 subscription whenever that set changes. A dropped connection is retried with a wait, and
 kept being retried while herdr is down.
 
-**The owl answers on two sockets, and neither is a house's** (ADR-0025, ADR-0033).
+**The owl answers on two sockets, and neither is a house's** (ADR-0033).
 `Whiska.Owl` starts one `Whiska.Owl.Listener` per socket beside its houses, so a house
 crashing never takes them down and a busy house never holds up a caller: each connection
 is handed to a process of its own. `owl.sock` is read-only and documented —
@@ -132,7 +132,7 @@ file left by a crashed owl is removed at start; one that still answers is anothe
 and is left alone (ADR-0001). A clean stop removes both.
 
 **Four collection triggers, only one a timer.** The owl writing a `Stop` entry itself,
-over the hook socket, then asking that house to collect at once (ADR-0036, amended); a
+over the hook socket, then asking that house to collect at once (ADR-0036); a
 mouse pane going idle; the house opening; and a slow backstop. An idle collection that finds nothing retries after 2 s and
 5 s, since the idle event can beat the mouse's `Stop` hook to the doorstep. Collection
 reads and marks; it never deletes and never touches the worktree (ADR-0007). Cleanup, on
@@ -143,7 +143,7 @@ trigger should have brought a minute earlier, so the house warns on stderr and m
 in `Whiska.Backstop` for `whiska doctor` to read later. Collecting at open does not count
 — that is the designed "what landed while the owl was down" path — and neither do the
 idle trigger's own retries. Without this, a trigger that never fires looks exactly like a
-healthy owl, which is what happened (ADR-0036, note of 2026-09-28).
+healthy owl, which is what happened (ADR-0036).
 
 **Each mouse's line is reported, never asked for**
 (ADR-0082). Every other second the house lists
@@ -161,7 +161,7 @@ workspaces and its main checkout's, whose line says what is true of the whole re
 delivery gate asks `Whiska.Herdr.read_screen/2` for the main pane's visible screen,
 styling included, and `Whiska.Delivery.Draft` finds the box by its frame and decides
 whether there is anywhere safe for the line to land, counting Claude Code's faint
-suggestion as nothing (ADR-0068). Pickup asks the same question of a mouse's pane and
+suggestion as nothing (ADR-0047). Pickup asks the same question of a mouse's pane and
 takes the same answer. The boundary returns
 text and judges nothing; the classifier judges text and talks to nothing — the same split
 as `Whiska.Question.Marker`, for the same reason (ADR-0031).
@@ -172,7 +172,7 @@ desktop notification, and `Whiska.Delivery.Hoot` builds it out of the same
 event rather than two. The house sends it with `Whiska.Delivery.Hoot.send_out/4` in the
 same branch that typed the line. That asks herdr first and, when herdr says its popups are
 off or nobody is attached, raises the same hoot through `Whiska.Desktop`
-(ADR-0071). Whatever comes back is swallowed: the question is
+(ADR-0062). Whatever comes back is swallowed: the question is
 already recorded sent, and an owl that crashed on a failed notification would lose the
 thing the notification was about. `whiska doctor` is where the outcome is read, from a hoot
 it sends itself down the same path.
@@ -192,7 +192,7 @@ of judgment on the side that can be changed without touching every mouse's `sett
 **A `done` report waits for the slot, then holds it** — typed as "finished" with no
 reply command once nothing is sent, ahead of whatever is queued, and left sent with the
 main checkout's finish flag raised until the person's next prompt there settles it
-(ADR-0009 revised 2026-09-27, ADR-0008's notes of 2026-10-06 and 2026-10-08). An entry whose worktree is gone is settled or orphaned by its branch
+(ADR-0009, ADR-0008). An entry whose worktree is gone is settled or orphaned by its branch
 (ADR-0064):
 recorded, surfaced, never interrupting, because there is nowhere to reply and nothing
 left to change.

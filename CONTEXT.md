@@ -51,9 +51,9 @@ out of scope, in `.whiska-spec.md` at the worktree root, which git ignores. The 
 writes it with the `whiska-spec` skill after the last grilling round, sends it whole as a
 question, and builds only on the person's ok. A brief that needed no grilling gets none;
 a task's size never skips it. The person's words are that brief's spec
-(ADR-0076). A copy of every spec sent is kept in `.whiska/specs/` in the main checkout,
+(ADR-0063). A copy of every spec sent is kept in `.whiska/specs/` in the main checkout,
 named by date and branch, with a header saying its question and whether the branch
-landed or was dropped (ADR-0085).
+landed or was dropped (ADR-0063).
 _Avoid_: plan, design doc, ticket
 
 **Mouse record**:
@@ -83,7 +83,7 @@ handed: that one follows every `cd` the session runs, so a main session that ste
 a worktree read as that branch's mouse and a mouse that stepped out read as nobody
 (ADR-0053). A start directory under `worktrees/` that is no checkout of its own — the
 ordinary folder a slashed branch nests under — is **nobody**: no mouse, no mode, no
-marker (ADR-0030's note). It keeps containment all the same, and a write into the main
+marker (ADR-0030). It keeps containment all the same, and a write into the main
 checkout from there is denied (ADR-0013).
 _Avoid_: cwd, working directory (both name the thing that moves)
 
@@ -103,7 +103,7 @@ mouse's branch landed and there is nothing left to answer to — the merge was t
 house) with the work still not landed. An open question is **queued behind** the sent one while
 another holds the slot, a `done` report included; the **sidebar line**, `whiska questions`
 and the **inbox** say that — `finished · queued behind #n` for a report — and keep "waiting on
-you" for the one actually sent (ADR-0051).
+you" for the one actually sent (ADR-0082).
 _Avoid_: report (as the table/record name — the word now names how a message reads,
 see **Report**), event (as the table/record name)
 
@@ -125,7 +125,7 @@ cherry-picking its own commits, oldest first, its merges from the base skipped
 merge request, carried on by its mouse, talked to from the main session (the person's words carried to the mouse), or dropped
 unmerged. The person picks one when a "finished" question is told — lettered options at
 the end of the reply, answered by a letter, an option's word, or their own words; "hold"
-sets the branch aside as **held** (ADR-0022, note of 2026-10-08) — from what fits the
+sets the branch aside as **held** (ADR-0022) — from what fits the
 branch as its **branch line** reads: files not committed are committed first, in the
 mouse's worktree, then landed or opened as a request; a branch with nothing on it is
 offered neither; and one git cannot read is offered all four. A repo may name its usual
@@ -207,7 +207,7 @@ which also starts Claude Code there when nothing is running in that pane yet (AD
 A house has at most one; nothing is delivered until one is recorded, and it is also where
 a Jump lands. A house with none, while anything runs or waits, says so on the main
 checkout's **sidebar line**; whether this pane is the one is `whiska doctor`'s to say
-(ADR-0065 as amended) — a session cannot be asked which it is, so it is never guessed at
+(ADR-0082) — a session cannot be asked which it is, so it is never guessed at
 from anything but the recorded pane.
 _Avoid_: primary, parent, captain
 
@@ -219,18 +219,17 @@ dies while holding the slot) and the session is idle again. Nothing that cannot 
 answered ever holds the slot: before each attempt, everything still waiting for a mouse
 that is dead, or for a record that no longer stands for a worktree of this house, is
 released — **settled** where its mouse's branch landed, **orphaned** where it did not
-(ADR-0057, ADR-0064). Before the gate, the queue is judged against what the person set
+(ADR-0008, ADR-0064). Before the gate, the queue is judged against what the person set
 aside (ADR-0079): nothing goes while they are
 **away**, only the focused mouse's under a **focus**, never a **held** mouse's — and a
 sent question of a held or unfocused mouse does not hold the slot. Oldest first, always.
 While the gate holds — the session mid-turn, a
 draft in its box, or no box on its screen — the queue is **gated**, and the main checkout's **sidebar line** says so once the hold has lasted
-ten seconds (ADR-0058). A finished line waits for the
+ten seconds (ADR-0082). A finished line waits for the
 slot like any question, so it never lands over one the person is reading, and once the
 slot is free it goes ahead of whatever is queued. Once typed it holds the slot until the
 person's next prompt in the main session, whatever it says. Several go one per prompt,
-each line counting how many more finished are behind it (ADR-0008, notes of 2026-10-06
-and 2026-10-08).
+each line counting how many more finished are behind it (ADR-0008).
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska questions <id>`, which the `whiska-delivered` skill runs when the line lands.
 Delivery only ever types into the main session of the question's own house (ADR-0044);
@@ -272,7 +271,7 @@ or set aside by **away**, a **focus** or a **hold**, has not hooted yet. herdr i
 `[ui.sound]` settings, and says whether it drew anything; `request` is its sound when a
 decision is waiting and `done` when a branch finished. When herdr says its popups are off
 or nobody is attached, the same hoot is raised on the desktop with `terminal-notifier` or
-`osascript` on macOS, or `notify-send` on Linux, instead (ADR-0071). A hoot that fails is swallowed —
+`osascript` on macOS, or `notify-send` on Linux, instead (ADR-0062). A hoot that fails is swallowed —
 delivery is the job and the hoot is a courtesy — so `whiska doctor` is where the person
 asks, by sending a hoot of its own down the same path and reporting what showed it.
 _Avoid_: toast, alert, desktop notification as a term of its own (it is herdr's word for
@@ -281,10 +280,10 @@ how a hoot is shown, not for the thing)
 **Gated**:
 What delivery is while the gate says no and something deliverable is queued behind it:
 the main session mid-turn, a draft in its box, no prompt box on its screen at all
-(ADR-0068), or no main session it can reach. The question stays open and first in the
+(ADR-0047), or no main session it can reach. The question stays open and first in the
 queue, and the gate holds until it lets go — one hold however its reason changes. Said in
 two places in the same word: the main checkout's **sidebar line** once it has lasted ten seconds
-(ADR-0058, as ADR-0079 respells it), and
+(ADR-0082), and
 `whiska doctor` whenever it is asked. Being gated is never a question's own status; it is
 what delivery is doing, or not doing, to the queue. While the person is **away** the gate
 is beside the point, and the line says `away` instead.
@@ -361,7 +360,7 @@ ordinary folder a slashed branch nests under, or a worktree laid out by hand. It
 not nowhere, though — the main checkout is still above it, and a session sitting there is
 denied a write into it exactly as a mouse would be (ADR-0013). Reading such a folder as a
 mouse is what minted a mouse called `quality` for `quality/QUAL-350-lnkd-emails` and let
-its question wedge a queue (ADR-0030's note, ADR-0057).
+its question wedge a queue (ADR-0030, ADR-0008).
 _Avoid_: phantom mouse (it is no mouse), ghost, orphan (a question's status), the
 container (the `worktrees/` folder itself, which is not this)
 
@@ -373,7 +372,7 @@ occupied box lands inside the draft or submits it. The box is the lowest **frame
 screen — a pair of horizontal rules at column 0 — that holds a prompt line, and the whole
 of it is read, not its first line. Neither half finds it alone: the marker `❯` is also how
 Claude Code redraws the person's past messages and how a picker marks its highlighted row,
-and a stray rule under the box would frame the status lines (ADR-0068). A screen with **no box on it**
+and a stray rule under the box would frame the status lines (ADR-0047). A screen with **no box on it**
 holds too, and for a different reason — not a draft, but nowhere for the line to land,
 which is what a dialog waiting on the person looks like. A frame Whiska cannot read is no
 draft, and delivers. `whiska doctor` has a line of its own for the box, because a Claude
@@ -399,8 +398,7 @@ Waits out a settling window first, except when the mouse's transcript ends on Cl
 Code's own API error, which is picked up at once (ADR-0067). One per dead turn, and a branch whose picked-up turn dies as well is a **stuck** mouse
 from then on (ADR-0026), never nudged again. A mouse with a **chased** answer is never
 picked up: its next turn has not begun, and the **doorbell** carries it on. One of the two
-lines the owl types anywhere but its own house's main session (ADR-0044, as ADR-0067 and
-ADR-0080 amend it).
+lines the owl types anywhere but its own house's main session (ADR-0044).
 _Avoid_: retry, resend, restart, relaunch (ADR-0026's rung four, a different act)
 
 **Nudge** (retired):
@@ -424,7 +422,7 @@ cross-house move at all. The destination is the house's main
 session, never a mouse's own pane: a mouse's pane is the mouse's workplace, and the
 person answers from their own (ADR-0043). A separate move, `whiska open <id|branch>`,
 takes the person to one named mouse's own pane when they ask for that mouse, and no picker offers it; it is not a
-jump, and the owl never makes it either (ADR-0043's note of 2026-10-06).
+jump, and the owl never makes it either (ADR-0043).
 _Avoid_: goto, focus (herdr's word for the mechanism of bringing a pane into view, and
 since 2026-10-06 the person's word for narrowing delivery to one mouse — see **Focus**;
 neither is a jump), switch, attach, take over
@@ -467,7 +465,7 @@ _Avoid_: daemon, server, service
 The operating system's own program that keeps the owl running: it starts it at login
 and restarts it after a crash. launchd on macOS, through the user LaunchAgent
 `com.whiska.owl`; systemd on Linux, through the user unit `whiska-owl.service`
-(ADR-0040, ADR-0077). `whiska owl
+(ADR-0040). `whiska owl
 install|stop|start|uninstall` drive whichever is in force, and mean the same on both.
 Either runs the same wrapper, `~/.whiska/owl.sh`.
 _Avoid_: supervisor (OTP's word, for the process tree inside the owl), service (the owl
@@ -498,7 +496,7 @@ whether a house exists; that is the house's own affair.
 _Avoid_: registry, manifest, house list (it lists open houses, not houses)
 
 **Owl socket**:
-The owl's read-only Unix socket, `~/.whiska/owl.sock` (ADR-0025): one request line in —
+The owl's read-only Unix socket, `~/.whiska/owl.sock` (ADR-0033): one request line in —
 `waiting`, `show <id> <main_checkout>`, `line [hint]` — one line out. It is what the
 person's own scripts and herdr's tab bar ask instead of starting Whiska, its format is
 documented and versioned, and it only ever reads.
@@ -529,7 +527,7 @@ Where a mouse leaves a question for the owl: a directory in the house, holding e
 owl has not collected yet. Every question gets into a house through here and only through
 here. The owl writes the entry when it answers the mouse's `Stop` hook over the **hook
 socket**, and the escript writes the same entry when it does not, so whether the owl is
-awake changes nothing about what is left (ADR-0036, amended).
+awake changes nothing about what is left (ADR-0036).
 _Avoid_: spool, outbox, queue (the delivery queue is a different thing — the doorstep is
 what a question sits on before it ever reaches that queue), larder, inbox (the person's
 listing of everything waiting, which reads this among other things — see **Inbox**)
@@ -598,7 +596,7 @@ hook prints the **parts** its role needs and nothing else (ADR-0081).
 Outside herdr, none. The main session gets `worktrees` (routing work to mice), `work` and
 `delivery`; a mouse gets `work`, `marker`, `report` and `finish`. Said again after
 `/compact`, `/clear` and a resume. Rules, not prose: an imperative or a concrete fact per
-line, with the reasoning left in Whiska's own ADRs (ADR-0055). A part the person holds as
+line, with the reasoning left in Whiska's own ADRs (ADR-0081). A part the person holds as
 `keep` is left out, since their own wording is already in context — in `~/.claude/CLAUDE.md`
 always, and in the project's `CLAUDE.md` only under that repo's own install.
 _Avoid_: block (the older home of the same rules), prompt, instructions, system prompt
@@ -617,7 +615,7 @@ Which root an install hangs off: the project (`whiska init`) or the person's hom
 `.claude/hooks/whiska.sh` is one file in two places — so a scope is a root and nothing
 else, and the merge, the `keep` semantics and the idempotency are one implementation for
 both. Per-repo is the default and the only one that travels to someone else's machine
-(ADR-0016); global is for a repo that will not carry a committed `.claude/`. Where a repo
+(ADR-0056); global is for a repo that will not carry a committed `.claude/`. Where a repo
 has both, the project's copy is **in force** and the global one **stands down**: its shim
 exits before doing anything — for every hook, `SessionStart` included — and Claude Code's
 own rules settle the skills (ADR-0056).
@@ -635,8 +633,7 @@ _Avoid_: override, shadow, disable, precedence
 One named piece of a session's **rules** — `worktrees`, `work`, `delivery`, `marker`,
 `report` and `finish` — each going to one role or both. The name is what `keep` claims: a
 part whose start marker in a `CLAUDE.md` says `keep` is the person's, left out of what the
-hook prints and left in place when an old **block** is taken out (ADR-0045,
-ADR-0081). `scope` was a part of the global block only and is gone.
+hook prints and left in place when an old **block** is taken out (ADR-0081). `scope` was a part of the global block only and is gone.
 _Avoid_: block (the whole thing), fragment, chunk
 
 **Worktree-status marker**:
@@ -668,10 +665,10 @@ send reviewers over its own diff (the ones the diff calls for, the cold review a
 the work on its branch, and only then write the marker, ending its report with an agent
 ledger: one line per agent sent, with its tokens, one for the mouse's own session, and
 one per axis skipped, printed by `whiska ledger` from the session's transcripts
-(ADR-0083).
+(ADR-0049).
 Plain instructions in the `whiska-finish` skill `whiska init` installs, which a mouse's
 `finish` part names as the trigger and nothing more — the steps only matter as a turn
-ends, so they stay out of context until then (ADR-0055). Nothing changed since the
+ends, so they stay out of context until then (ADR-0081). Nothing changed since the
 session's last green finish → the checks and reviewers are skipped and the message says
 so. Run by the mouse itself: Whiska
 neither runs it nor knows whether it was run (ADR-0049). What green means here, where the
@@ -686,7 +683,7 @@ thing, and it runs after a push rather than at the end of a turn), CI, ralph loo
 One subagent sent over the change in finishing's third step, on one **axis**, chosen by what
 the diff does: the **cold review** always; security when a trigger fires; performance on a hot path;
 frontend when a person can see the change; tests when the change touches a test file; and a
-small diff gets the cold review alone (ADR-0084). A repo can add axes, on its `reviewers:`
+small diff gets the cold review alone (ADR-0049). A repo can add axes, on its `reviewers:`
 line, and never remove one. The tests axis is
 wio's `wio-test-reviewer` or nothing: where wio is not installed the message says so in one
 line (ADR-0075). A reviewer **reports and never edits**, which is what
@@ -694,7 +691,7 @@ separates it from an agent that merely reads code well: one that changes code, o
 description says not to dispatch it directly, is not a reviewer however good it is.
 Whiska writes none of them. Wherever the session already lists an agent built for an axis
 that one is sent, and where it lists none the mouse writes the prompt — the ordinary case,
-not a degraded one (ADR-0054).
+not a degraded one (ADR-0049).
 _Avoid_: critic, auditor, linter, checker (a check is step 2 and a different thing), gate
 
 **Cold review**:
@@ -704,19 +701,19 @@ shape it. It finds the change and the spec itself, reads the repo's decisions as
 at the base, and treats anything the builder wrote as a claim. It runs in the foreground
 and its findings go into the report whole. Where the skill is missing, no other reviewer
 takes its place and the report says it did not run
-(ADR-0084).
+(ADR-0049).
 _Avoid_: correctness reviewer (what it replaced), second opinion
 
 **Disputed**:
 The mark on a finding the mouse tried to disprove and did, with the code that disproves it.
 The finding stays in the report beside it for the person to weigh; nothing a reviewer says
-is deleted (ADR-0084).
+is deleted (ADR-0049).
 
 **Important / nit / pre-existing**:
 The three words a reviewer's finding gets once it has survived being disproved, and the
 word is what happens to it: fix it now; fix it if it is cheap; name it in the message and
 leave it alone. Taken from the band names Anthropic's own reviewer already scores with,
-rather than spelled a fourth way here (ADR-0054). None of the three reaches the person as
+rather than spelled a fourth way here (ADR-0049). None of the three reaches the person as
 a decision: what a review can lead to is a wrong scope, a recorded decision the repo's
 rules do not say how to change, or a second round still red, and all three were already
 finishing's. Finishing escalates three further things that are not findings — an

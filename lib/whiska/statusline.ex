@@ -17,8 +17,8 @@ defmodule Whiska.Statusline do
   On the tab bar:
 
   - **The owl** is always shown — `🦉 watching` or `🦉 owl down` — because a
-    blank line could not be told apart from Whiska being broken (ADR-0027,
-    second addendum). Up means in the process table (`Whiska.Owl.pids/0`, the
+    blank line could not be told apart from Whiska being broken (ADR-0048).
+    Up means in the process table (`Whiska.Owl.pids/0`, the
     doctor's probe, shared so the two cannot disagree) *and* collecting: an
     entry uncollected past the backstop still means down, whatever the process
     table says. Delivery cannot report its own outage, so this is the only
@@ -30,7 +30,7 @@ defmodule Whiska.Statusline do
   - **Waiting** is `Whiska.Waiting`' own listing, every recorded house's open
     and sent questions plus the entries still on its doorstep, so the line and
     `whiska waiting` can never disagree about what "waiting" means. One thing
-    is named by its mouse's branch, several become a count (ADR-0027's
+    is named by its mouse's branch, several become a count (ADR-0048's
     one-or-many rule, counted by whiska, not by question). Nothing waiting adds
     no segment.
 
@@ -70,7 +70,7 @@ defmodule Whiska.Statusline do
   end
 
   # Up means in the process table and collecting: an entry left on a doorstep
-  # past the backstop is still "down", whatever pgrep says (ADR-0027). Anything
+  # past the backstop is still "down", whatever pgrep says (ADR-0048). Anything
   # younger may just be the normal race between the two Stop hooks (ADR-0036).
   defp owl_state([], _waiting), do: :down
 
@@ -115,7 +115,7 @@ defmodule Whiska.Statusline do
   # Counted by whiska, not by question: the person jumps to a whiska, never
   # straight to a mouse (ADR-0043), so what the bar answers is "how many places
   # need me", and two questions in one repo are one place. One is named by its
-  # repo, several are a count (ADR-0027's one-or-many rule, ADR-0048 note). A
+  # repo, several are a count (ADR-0048's one-or-many rule). A
   # held mouse's question is not a place that needs them: they parked it.
   defp waiting_segment(waiting) do
     case waiting |> Enum.reject(& &1.held?) |> Enum.map(& &1.repo) |> Enum.uniq() do

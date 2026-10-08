@@ -2,7 +2,7 @@ defmodule Whiska.Rule.Sniff do
   @moduledoc """
   A sniff mouse investigates and reports; it never writes code.
 
-  ADR-0018 defines the two modes. **build** produces a real change — its edits
+  ADR-0069 defines the two modes. **build** produces a real change — its edits
   are confined to its own worktree by `Whiska.Rule.MainCheckout`. **sniff** is
   investigation only, and `PreToolUse` blocks *all* edits, not just ones outside
   the worktree. A mouse nobody shaped is held to the same rule until the person
@@ -70,7 +70,7 @@ defmodule Whiska.Rule.Sniff do
     Whiska denied this: #{what}, and this mouse is in sniff mode.
 
     A sniff mouse investigates and reports — it never writes code, anywhere,
-    including inside its own worktree (ADR-0018). Reading tools are unaffected:
+    including inside its own worktree (ADR-0069). Reading tools are unaffected:
     Read, Grep and Glob all work, as do read-only shell commands like
     `git log`, `git diff` and `grep`.
 

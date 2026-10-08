@@ -87,7 +87,7 @@ your own scripts and herdr's tab bar, and `hook.sock`, which every hook asks bef
 starting the escript.
 
 **Not yet:** the per-repo socket and `whiska stop` for a single house, `whiska reopen`,
-push approval, and Linux.
+push approval, and watching a branch after its merge request (ADR-0060).
 
 ## What `whiska init` writes
 
@@ -98,7 +98,7 @@ git add .claude/settings.json .claude/hooks/whiska.sh .claude/skills CLAUDE.md
 git commit -m "chore: enable whiska"
 ```
 
-`whiska init` writes the hook into the repo's own `.claude/settings.json` (ADR-0016), so
+`whiska init` writes the hook into the repo's own `.claude/settings.json` (ADR-0056), so
 the rules travel with the repo: anyone who clones it and has Whiska installed gets the
 same enforcement. It is safe to re-run, leaves unrelated settings and other people's
 hooks alone, and refuses rather than overwriting a settings file it cannot parse.
@@ -163,11 +163,11 @@ What it writes, and why each part is the way it is:
 ## The `CLAUDE.md` block
 
 `whiska init` also writes the worktree protocol into the repo's own `CLAUDE.md`
-(ADR-0045) and installs the skills that drive it — `spawn-worktree`, `send-to-worktree`
-and `drop-worktree` (ADR-0046), `whiska-finish`, which holds the finishing pipeline
-the block only points at (ADR-0055), `whiska-spec`, which a mouse runs after grilling, and
+(ADR-0081) and installs the skills that drive it — `spawn-worktree`, `send-to-worktree`
+and `drop-worktree` (ADR-0056), `whiska-finish`, which holds the finishing pipeline
+the block only points at (ADR-0081), `whiska-spec`, which a mouse runs after grilling, and
 the person's own `grilling` skill
-(ADR-0076). The block is rules, not prose: an imperative or a
+(ADR-0063). The block is rules, not prose: an imperative or a
 concrete fact per line, with the reasoning left in these ADRs. It is a nest of named
 markers, one pair per part:
 
@@ -232,7 +232,7 @@ whiska owl uninstall  # unload the job and remove it; the log and the record sta
 The job is the platform's own: a user LaunchAgent,
 `~/Library/LaunchAgents/com.whiska.owl.plist`, on macOS, and a systemd user unit,
 `~/.config/systemd/user/whiska-owl.service`, on Linux
-(ADR-0077). Either starts the owl at login
+(ADR-0040). Either starts the owl at login
 and restarts it if it crashes — only on a crash, so `whiska owl stop` is a clean exit that
 stays stopped (ADR-0040). The job runs
 `~/.whiska/owl.sh`, a wrapper generated from the same shell the hook shim uses, so the
@@ -254,7 +254,7 @@ the supervised owl picks it up on `whiska owl start`.
 Two owls would collect the same doorsteps, so `install` refuses while any owl is in the
 process table and prints the handover (Ctrl-C the foreground one, install again), and the
 foreground `whiska owl` refuses while the supervised owl is running — unless it *is* that
-owl, which it tells by pid (ADR-0040's 2026-09-28 note). `whiska stop` is not the
+owl, which it tells by pid (ADR-0040). `whiska stop` is not the
 owl's stop: it shuts one house (ADR-0003) and is not built until the owl has a per-repo
 socket.
 
@@ -271,13 +271,13 @@ whole final message on the repo's **doorstep** —
 branch and time. The shim asks the owl first, over `~/.whiska/hook.sock`, and the owl
 writes the entry and collects it at once; when the owl does not answer, `whiska hook stop`
 writes the same entry. Either way the question reaches the doorstep, so whether the owl is
-running changes nothing about what the mouse does (ADR-0036, amended).
+running changes nothing about what the mouse does (ADR-0036).
 
 The owl **collects** the doorstep when it wrote an entry itself, when herdr reports that
 mouse's pane idle, when a house opens, and on a slow backstop timer. Each entry becomes a question, classified by its
 marker alone (ADR-0009), an invisible line the mouse ends on: needs-decision → open;
 `done` → open too,
-delivered as "finished" with no reply offered, and closed once the person writes something after it (ADR-0008, note of 2026-10-08); no marker
+delivered as "finished" with no reply offered, and closed once the person writes something after it (ADR-0008); no marker
 → `unmarked`, and open — forgetting the marker makes noise rather than silence. An entry whose worktree is gone is recorded as `orphaned`. Collected entries are
 renamed `.collected`, never deleted (ADR-0007), so `ls *.json` on the doorstep is exactly
 what is still waiting.
@@ -322,13 +322,13 @@ whiska close 12              # settled some other way, no answer
 
 `whiska reply` and `whiska close` open the house directly and ask herdr to type; they
 need no owl running and no socket. A newer question from the same mouse **supersedes**
-its earlier open or delivered ones (ADR-0037), so a mouse that moves on cannot wedge the
+its earlier open or delivered ones (ADR-0008), so a mouse that moves on cannot wedge the
 queue; `whiska close` covers the rest.
 
 ## Wiring the tab bar and the sidebar
 
 Neither repeats the other (ADR-0048). Facts about the whole machine go on herdr's tab
-bar, once, one thing named and several counted (ADR-0027). What each mouse is doing goes
+bar, once, one thing named and several counted (ADR-0048). What each mouse is doing goes
 in herdr's sidebar, under that mouse's own workspace
 (ADR-0082). Both are rows in your own herdr
 config, which Whiska never writes; `whiska doctor` prints each.
@@ -347,7 +347,7 @@ Whiska:
 
 `whiska owl install` writes the script herdr runs, `~/.whiska/herdr-status.sh`, and
 prints the entry that runs it. The script starts nothing: it asks the owl for the line
-over `~/.whiska/owl.sock` with `nc -U` (ADR-0025). Its one argument is the key you bound
+over `~/.whiska/owl.sock` with `nc -U` (ADR-0033). Its one argument is the key you bound
 to reach what is waiting, written the way you want it shown; the owl adds it only when
 something not held is waiting, and with no argument there is no hint. Whiska never reads
 your herdr keybindings. That entry is yours — herdr's config is machine-global and
@@ -525,9 +525,9 @@ already replaced, so the doctor checks all three by age rather than by liveness.
   so a change to either is live the moment it lands.
 
 `whiska init` leaves a file alone when what it would write is already there, mtime
-included — otherwise a harmless re-init would make every live session look stale. The
-repo's statusline script is the fourth of these and is versioned rather than timed
-(ADR-0059): the stamp in the copy on disk against the one this build ships.
+included — otherwise a harmless re-init would make every live session look stale. A
+statusline script an older init left in the repo is taken out rather than compared
+(ADR-0082).
 
 ## Cold start
 
@@ -553,6 +553,6 @@ matters more than it looks: `Read`, `Grep` and `Glob` never pay anything.
 An escript is a zip archive. It carries no `priv/` directories, and native code cannot be
 `dlopen`ed out of a zip in any case — so SQLite's 1.6 MB native library travels as bytes
 embedded in `Whiska.BundledNIF` and is unpacked to `~/.cache/whiska/exqlite-<vsn>/` on
-first run. That is the only reason ADR-0030's "single binary" and ADR-0028's "real
+first run. That is the only reason the single binary (ADR-0033) and ADR-0028's "real
 SQLite" can both hold. It stays: the escript is every command, and what every hook falls
 back on when the owl does not answer (ADR-0033).

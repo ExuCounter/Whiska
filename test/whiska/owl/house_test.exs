@@ -111,7 +111,7 @@ defmodule Whiska.Owl.HouseTest do
   end
 
   describe "opening a house" do
-    test "finds each mouse's pane by cwd and records it (ADR-0006)", %{main: main, a: a, b: b} do
+    test "finds each mouse's pane by cwd and records it (ADR-0028)", %{main: main, a: a, b: b} do
       expect(Herdr, :list_panes, fn @socket ->
         panes([pane("w1:p1", a), pane("w2:p1", Path.join(b, "lib")), pane("w3:p1", "/elsewhere")])
       end)
@@ -666,8 +666,7 @@ defmodule Whiska.Owl.HouseTest do
 
   # The backstop is the last resort, not a working trigger: everything it picks
   # up is something the idle trigger should have picked up first. It went unseen
-  # for weeks that the idle trigger had never fired at all (ADR-0036, note of
-  # 2026-09-28), because the backstop quietly collected every entry a minute
+  # for weeks that the idle trigger had never fired at all (ADR-0036), because the backstop quietly collected every entry a minute
   # late. It says so now.
   describe "the backstop announces what the trigger missed" do
     setup %{a: a} do

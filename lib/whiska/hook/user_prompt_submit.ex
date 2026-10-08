@@ -23,7 +23,7 @@ defmodule Whiska.Hook.UserPromptSubmit do
 
   In the main session it does one other thing: the person's first prompt
   after a finished line settles that line, freeing the slot it holds
-  (ADR-0008, note of 2026-10-08).
+  (ADR-0008).
 
   The hook shim exits before this runs unless the worktree's answer flag is
   set (`Whiska.AnswerFlag`), or in a main checkout its finish flag
@@ -93,7 +93,7 @@ defmodule Whiska.Hook.UserPromptSubmit do
 
   # The person writing anything in the main session after a finished line —
   # an option, their own words, "hold" — frees the slot that line holds
-  # (ADR-0008, note of 2026-10-08). The owl's own 🐱 line is not the person.
+  # (ADR-0008). The owl's own 🐱 line is not the person.
   defp settle_finished(payload, env) do
     with {:ok, main} <- Session.main_checkout(payload, env),
          true <- FinishFlag.set?(main),

@@ -1,6 +1,6 @@
 defmodule Whiska.Desktop.Notifier do
   @moduledoc """
-  Raises a notification with the first notifier this machine has (ADR-0071):
+  Raises a notification with the first notifier this machine has (ADR-0062):
   `terminal-notifier`, then `osascript` on macOS, then `notify-send` on Linux.
   None — a machine with no desktop — is `{:error, :no_notifier}`, never a
   crash.

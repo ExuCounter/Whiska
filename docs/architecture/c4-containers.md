@@ -1,10 +1,8 @@
 # Container Diagram — Whiska
 
-Level 2. The deployable and storable pieces.
-
-**Read the two boundaries as a timeline.** Everything in *built* exists and is tested
-today (2000 tests). Everything in *designed, not built* is decided in the ADRs and has no
-code yet.
+Level 2. The deployable and storable pieces. Read the two boundaries as a timeline:
+everything in *built* exists and is tested; everything in *designed, not built* is decided
+in the ADRs and has no code yet.
 
 ```mermaid
 C4Container
@@ -82,130 +80,40 @@ C4Container
 
 ## Why each piece is its own container
 
-**The same shim hangs off either root** (ADR-0056). `whiska init` writes it into
-the repo and `whiska init --global` writes the identical relative path under `~/.claude`,
-for a repo that cannot carry a committed `.claude/`. A scope is a root and nothing else, so
-there is no second container here — only two places the same one can sit. Where a repo has
-both, the repo's copy is in force and the global shim exits before resolving anything.
+The reasoning is in the ADR each line names; this is the map.
 
-**No status script runs per repo** (ADR-0082).
-Each mouse's state is a line under its own workspace in herdr's sidebar, which the house
-reports to herdr directly — there is no file between them, and nothing runs in a Claude
-Code session. herdr forgets those lines when its server restarts, so the house reads them
-back with every pane list and sends again whatever is missing; each expires thirty seconds
-after its last send, so a dead owl leaves nothing behind. `herdr-status.sh` draws the
-machine-wide line, once, on herdr's tab bar. Neither surface draws what the other does.
+- **`whiska.sh`**: the committed hook command names only a shim, so nothing machine-specific
+  reaches a shared repo; it asks `hook.sock` first and resolves the runtime itself only
+  when the owl does not answer (ADR-0035, ADR-0033). The same shim hangs off the repo or
+  the home; where both exist, the repo's is in force and the global one stands down
+  (ADR-0056).
+- **`herdr-status.sh`**: the one script not committed to a repo, because its line is
+  machine-wide; it asks `owl.sock` and starts nothing (ADR-0048). No script runs per repo:
+  each mouse's state is a sidebar line the house reports to herdr directly (ADR-0082).
+- **`owl.sock` and `hook.sock`**: one read-only and documented, for scripts and the tab
+  bar; one private, for the hooks. Neither is the per-repo socket still designed only
+  (ADR-0033, ADR-0024).
+- **Open-houses record**: the one machine-level file; which houses the owl has open, not
+  which exist (ADR-0039, ADR-0003).
+- **House database under the main checkout's `.git/`**: every worktree shares it, so a
+  repo's mice are one house; SQLite, not flat files (ADR-0028).
+- **Doorstep, a directory in the house**: every question enters through it, whoever writes
+  the entry; a dead owl loses nothing; collected entries are renamed, never deleted, and an
+  ordinary `drop-worktree` cannot erase a pending question (ADR-0036, ADR-0007).
+- **Backstop mark**: per house, so the doctor's one line is about this run of this house
+  (ADR-0036).
+- **Mouse marker**: the opaque `mouse_id`, never the branch or path (ADR-0002).
+- **Answer flag**: a hint for the shim in the worktree's git admin directory, never the
+  answer, which is in the house database (ADR-0080).
+- **Spec in the worktree, kept specs in the main checkout**: the spec lives and dies with
+  its mouse; the copy is the archive (ADR-0063).
+- **The owl's job**: the platform's service manager runs the wrapper, restarts a crash only
+  (ADR-0040).
+- **One owl, many houses**, each supervised independently (ADR-0001). Delivery lives in the
+  house, and nothing types across houses (ADR-0008, ADR-0044).
+- **herdr is the one boundary with a fake behind it** (ADR-0031).
 
-**`herdr-status.sh` is the one script that is not committed to a repo** (ADR-0048). It
-lives in `~/.whiska/` beside the open-houses record and the owl's wrapper,
-because the line it prints is machine-wide: the owl's state, always, so a blank line
-never passes for a working Whiska, and what is waiting anywhere — one thing named by its
-mouse's branch, several as a count. `whiska owl install` writes it; a `tab_bar_right`
-command entry in the person's own herdr config runs it every five seconds and shows its
-last line. Whiska never edits that config: it is machine-global and hand-edited, and a
-per-repo `init` writing into it is the boundary ADR-0016 draws. `whiska doctor` reads it
-and prints the entry to paste. The script starts nothing: it asks the owl for the line over
-`owl.sock` with `nc -U`, passing on its one argument, the jump key the person bound
-(`'⌃a space'`), which the owl adds only when something not held is waiting. When nothing
-answers it prints `🦉 owl down`, and `🦉 nc missing` or `🦉 nc cannot reach the owl` when
-the tool is the problem, rather than nothing — herdr clears an entry that produces no
-output, which would look exactly like nothing being configured.
+## Designed only
 
-**Two sockets beside the record, one for scripts and one for hooks** (ADR-0025,
-ADR-0033). `owl.sock` is read-only and documented: one request line in, one line of JSON
-or text out, a `version` that changes only when a field does, so the person's own
-scripts can lean on it the way they lean on `whiska where`. `hook.sock` is Whiska's own:
-the shim sends it the hook's name, the few environment variables the hooks read and the
-payload, and the owl runs the same `Whiska.Hook.*` modules the escript would. It is
-private and believes its caller as the escript believes its stdin — both sockets are
-owner-only, and a hook request approves nothing. Neither is the per-repo socket ADR-0024
-hardens with a peer-process check; that one is still designed only.
-
-**The open-houses record is the one machine-level file** (ADR-0039). It sits in
-`~/.whiska/`, beside the owl's two sockets (ADR-0025), and says which houses
-the owl has open — not which exist (ADR-0003). The owl writes it as it opens and shuts
-houses and leaves it behind when it stops, so `whiska owl` with no arguments reopens the
-same houses. The doctor reads it to know which houses the owl has open, and only while an owl is in
-the process table: a file a dead owl left says nothing. The statusline and `whiska
-waiting` read it either way — something already recorded is waiting on the person whether
-or not an owl is awake, and a dead owl is when that listing matters most.
-
-**The backstop mark is a house's file, not a machine-level one** (ADR-0036, note of
-2026-09-28). Everything the backstop collects is something herdr's idle event should have
-brought a minute earlier, so the house warns as it happens and leaves a count and a
-timestamp beside the doorstep; `whiska doctor` turns that into one line. It is per house
-because the fact is one house's and the doctor is scoped to one repo — and because
-per-house files mean no two houses ever rewrite the same one. The owl clears it when it
-opens the house, so the mark is always about the run happening now.
-
-**`whiska.sh` is separate from the binary on purpose** (ADR-0035). The committed
-`settings.json` names only the shim — now with a subcommand argument, `pre-tool-use` or
-`stop` — so nothing machine-specific reaches a shared repo. The shim asks the owl over
-`hook.sock` first, and only when that gets no answer resolves the runtime, when the hook
-fires, so an Erlang upgrade needs no re-`init`. Moving the hooks onto the owl changed the
-shim and nothing in `settings.json`, as ADR-0035 promised.
-
-**The house database lives under the main checkout's `.git/`**, which every worktree
-shares. That is what puts all of a repo's mice in one house instead of one per worktree,
-and it is gitignored by construction. Storage is real SQLite, not flat files (ADR-0028).
-
-**The spec sits in the worktree, not the house**
-(ADR-0076). It is what one mouse is
-building, so it lives and dies with that mouse's worktree: the person reads it in full
-in the question that asks for their ok, and once the branch lands the commits hold the
-outcome. It is never committed, and an untracked file would keep the owl from taking the
-worktree down, so `whiska shape` and `whiska mode` add `/.whiska-spec.md` to the main
-checkout's `.git/info/exclude`, which every worktree of the repo reads. The mouse never
-writes that file itself: it is in the main checkout (ADR-0013).
-
-**The doorstep is a directory, not a socket** (ADR-0036, amended 2026-10-07). Every
-finished turn lands there as a file, whoever writes it: the owl, when it answers the hook
-socket, and then the open house collects it at once; the escript, when the owl does not
-answer. A dead owl still loses nothing, and the doorstep stays the one way a question
-gets into a house. Entries are written to a temp name and renamed into place, so the owl never
-reads a half-written file; collected ones are renamed `.collected` rather than deleted
-(ADR-0007), which means `ls *.json` on the doorstep is exactly what is still waiting —
-answerable with no database and no owl.
-
-**It sits in the house, not the worktree**, so an ordinary `drop-worktree` cannot silently
-erase pending questions. The mirror cost is that a question can outlive its mouse; that
-state has a name already (ADR-0026) rather than being a new problem.
-
-**The answer flag sits in the worktree's git admin directory, and the answer does not**
-(ADR-0080). The answer itself is in the house database the
-moment `reply` saves it; the flag is only a hint, there so the shim can tell with shell
-builtins whether a prompt has anything to hand over. Every prompt in every session runs
-that hook, and almost none has an answer waiting. Under `.git/worktrees/<name>/` git
-never shows it and removes it with the worktree; a stale or missing flag costs a slow
-prompt or a ring, never an answer.
-
-**The platform's service manager is the one thing that keeps the owl running** (ADR-0040,
-ADR-0077): a user LaunchAgent under launchd on
-macOS, a user unit under systemd on Linux. Either runs `~/.whiska/owl.sh`, not the escript:
-neither manager's `PATH` can find `escript`, and the wrapper is generated from the same
-fragments as the hook shim, so the runtime is found at every launch and an Erlang upgrade
-needs no reinstall. Both restart on a crash only, which is what lets `whiska owl stop` be a
-clean exit that stays stopped without removing the job. `whiska stop` is a different,
-per-house verb (ADR-0003) and waits for the per-repo socket.
-
-**One owl, many houses** (ADR-0001). An earlier draft gave each repo its own OS process;
-that fought the service manager and made "what is waiting on me anywhere" a new subsystem. Each house
-is supervised independently, so one project's house crashing is invisible to every other.
-
-**Delivery lives in the house, and nothing lives across houses** (ADR-0008, ADR-0044,
-ADR-0048). Each house owns its own idle-gated queue to its own main session, and that is
-the only place Whiska ever types. Telling the person that something is waiting in another
-repo is the tab bar's job, not the owl's: herdr runs the machine-wide status script every
-five seconds, it asks the owl over `owl.sock`, and the owl reads every recorded house.
-The Nudge process that once
-typed into other sessions is deleted.
-
-**herdr is the one boundary with a fake behind it** (ADR-0031). `Whiska.Herdr` is a
-behaviour; `Whiska.Herdr.Socket` is the real client and tests use a Mox fake, checked
-against an in-test server speaking herdr's own wire protocol. Everything downstream —
-collection, classification — is plain code with nothing mocked.
-
-## What is still designed only
-
-The per-repo sockets with the peer-PID check (ADR-0024); `whiska stop` for one house;
-push approval.
+The per-repo sockets with the peer-process check (ADR-0024); `whiska stop` for one house
+(ADR-0003); push approval (ADR-0011).

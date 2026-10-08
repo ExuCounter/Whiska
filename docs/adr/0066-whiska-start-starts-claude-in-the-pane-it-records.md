@@ -4,7 +4,7 @@ Setting a house up took two commands in a fixed order: start Claude Code in a pa
 `! whiska start` from inside it — or run `whiska start` in a shell first and then remember
 to start Claude there. The help said outright that `start` "does not launch Claude Code
 itself yet". Getting the order wrong is one of the ways a repo ends up with no main session
-at all, which is the failure ADR-0065 exists to make visible.
+at all, which is the failure ADR-0082 exists to make visible.
 
 ## Decision
 
@@ -52,7 +52,7 @@ because the person's own `claude` may be a shell function, an alias or a wrapper
 types anywhere, after delivery (ADR-0044) — and unlike delivery it is the person's own
 command, in the person's own pane, in the breath they asked for it.
 
-**It is not a `whiska spawn`.** ADR-0021 refused a command that spawns a *mouse*, because
+**It is not a `whiska spawn`.** ADR-0022 refused a command that spawns a *mouse*, because
 which mode, which model and whether the work deserves a worktree are judgment calls that
 belong in a conversation. None of that applies here: there is one main session per house,
 it lives in the main checkout, and the pane is already chosen — it is the one the command

@@ -255,7 +255,7 @@ defmodule Whiska.Herdr.SocketTest do
 
   describe "read_screen/2" do
     # The styling is the only thing that tells Claude Code's dim suggestion
-    # from the person's own words (ADR-0068), so herdr must not strip it.
+    # from the person's own words (ADR-0047), so herdr must not strip it.
     test "asks pane.read for the visible screen with its styling kept" do
       {path, fake} = start_fake()
       screen = "❯ \e[0m\e[2mpush and open a PR\e[0m\r\n"

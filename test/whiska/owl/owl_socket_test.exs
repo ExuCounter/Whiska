@@ -1,7 +1,7 @@
 defmodule Whiska.Owl.OwlSocketTest do
   @moduledoc """
   The owl's read-only socket, asked the way the person's own scripts ask it:
-  one line through `nc -U`, one line back (ADR-0025).
+  one line through `nc -U`, one line back (ADR-0033).
   """
   # Serial: the owl is one named process per VM.
   use ExUnit.Case, async: false

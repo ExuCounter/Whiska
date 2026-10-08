@@ -2,7 +2,7 @@ defmodule Whiska.CLI do
   @moduledoc """
   The `whiska` binary.
 
-  Built with `mix escript.build`. The hooks invoke it fresh per event (ADR-0030):
+  Built with `mix escript.build`. The hooks invoke it fresh per event (ADR-0033):
   `PreToolUse` opens SQLite, makes one decision, and exits; `Stop` writes one
   doorstep entry and exits; `SessionStart` prints one role's rules and exits.
   `whiska owl` is the other half — the one supervised
@@ -675,7 +675,7 @@ defmodule Whiska.CLI do
     its ticket prefix. Without one a mouse runs whatever the tooling
     obviously offers and says what it assumed.
 
-    Check them into git so the rules travel with the repo (ADR-0016):
+    Check them into git so the rules travel with the repo (ADR-0056):
 
       git add .claude/settings.json .claude/hooks .claude/skills
       git commit -m "chore: enable whiska"
@@ -965,7 +965,7 @@ defmodule Whiska.CLI do
 
   # The rules arrive at session start, so an older Whiska's block in CLAUDE.md
   # would say every rule twice. Its parts go; a `keep` part and the person's own
-  # text stay (ADR-0045). A file with no block, or none at all, is left alone.
+  # text stay (ADR-0081). A file with no block, or none at all, is left alone.
   defp retire_claude_md(scope, root) do
     path = claude_md_path(scope, root)
 
@@ -1797,7 +1797,7 @@ defmodule Whiska.CLI do
   end
 
   # `whiska open` takes the person to a mouse's own pane — the separate move
-  # ADR-0043's 2026-10-06 note allows, which `jump` never makes. The pane is
+  # ADR-0043 allows, which `jump` never makes. The pane is
   # found by its folder inside the worktree, not by the stored pane column
   # (ADR-0061). What it says when there is no pane depends on what is left of
   # the mouse; none of those is a failure, so all exit 0.
@@ -2085,7 +2085,7 @@ defmodule Whiska.CLI do
   # line answers it, so it is never delivered as a decision once the hold is
   # gone. A `done` after the stamp is a mouse that finished anyway, and its
   # finished line is what the person hears next, once nothing is out waiting
-  # on them (ADR-0008, note of 2026-10-06). Anything older was there before
+  # on them (ADR-0008). Anything older was there before
   # the hold and is the person's to answer.
   defp carry_on(mouse, branch, held_at, %Question{asked_at: asked_at} = latest)
        when is_struct(asked_at, DateTime) do
@@ -2337,7 +2337,7 @@ defmodule Whiska.CLI do
   end
 
   # -- the owl under its service manager (ADR-0040) -------------------------------
-  # launchd on macOS, systemd on Linux (ADR-0077);
+  # launchd on macOS, systemd on Linux (ADR-0040);
   # the verbs mean the same on both.
 
   defp owl_install do

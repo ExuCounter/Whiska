@@ -420,14 +420,14 @@ defmodule Whiska.CLIQuestionsTest do
       assert after_owl(out) == " · 🐱 myrepo\n"
     end
 
-    test "one whiska waiting is named by its repo (ADR-0048 note)", %{main: main} do
+    test "one whiska waiting is named by its repo (ADR-0048)", %{main: main} do
       seed(main, fn -> ask("[worktree-status: needs-decision] pick one") end)
 
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
       assert after_owl(out) == " · 🐱 myrepo\n"
     end
 
-    test "prints only the owl when nothing is waiting (ADR-0027 addendum)", %{main: main} do
+    test "prints only the owl when nothing is waiting (ADR-0048)", %{main: main} do
       out = capture_io(fn -> assert CLI.run(["statusline"], main) == 0 end)
       assert after_owl(out) == "\n"
     end

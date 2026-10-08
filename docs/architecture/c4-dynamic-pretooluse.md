@@ -60,7 +60,7 @@ through.
 
 **One failure is not an allow.** A start directory *under* the `worktrees/` container
 that is no checkout of its own — the ordinary folder a slashed branch nests under — is
-nobody: no mouse, no mode, no marker minted (ADR-0030's note). Containment does not go
+nobody: no mouse, no mode, no marker minted (ADR-0030). Containment does not go
 with identity. `Layout.unplaced/1` reads the same folder for the main-checkout rule
 alone, and a write into the main checkout from there is denied like any other
 (ADR-0013). A folder Whiska cannot identify is where it can vouch for least, so it fails

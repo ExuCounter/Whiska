@@ -1,117 +1,118 @@
-# Delivery holds while the person is typing
+# Delivery holds while the person is typing, read off the prompt box's frame
 
-ADR-0008 gates delivery on the main session being idle. "Idle" reaches Whiska from
-Claude Code's `Stop` hook, by way of herdr, and it means one thing: the model is not
-working. It says nothing about the person. A half-typed prompt sits in the input box
-while the pane is every bit as idle, and `agent.prompt` types into that box — so the
-owl's line lands inside the person's draft, or submits it. Either way the person loses
-what they were writing and Claude Code answers something nobody wrote.
+"Idle" reaches Whiska from Claude Code's `Stop` hook by way of herdr, and it means one
+thing: the model is not working. It says nothing about the person. A half-typed prompt sits
+in the box while the pane is every bit as idle, and `agent.prompt` types into that box, so
+the owl's line would land inside the draft or submit it. So the gate (ADR-0008) has a
+second half: **the main session's prompt box must be empty.** A box with a draft in it
+holds the question, still `open` and first in the queue, until the next trigger finds the
+box clear; at worst the backstop, so a minute late.
 
-**The gate grows a second half: the box must also be empty.** When it is not, the
-question is *held* — still `open`, still first in the queue, delivered on the next
-trigger once the box clears (ADR-0008's queue semantics, ADR-0007's nothing is lost).
-The worst case is the backstop, so a held question is at most a minute late.
+The box is read off the screen because herdr has no other signal. No field on `pane.get` or
+`agent.get` records a keystroke and no event announces one. herdr's `focused` was
+rejected: the person sitting in the main session is exactly when a question is welcome, and
+a main pane left focused all day would hold the queue indefinitely. Mice are never
+screen-read; only the main session is, once per delivery attempt.
 
-## The signal is the screen, because herdr has no other
+## The frame is the signal, not the marker
 
-Checked against herdr 0.8.2 on 2026-09-29, the live socket and `herdr api schema`:
+**The box is the lowest frame on the screen that holds a prompt line, and the marker is
+read only inside a frame.** Claude Code draws the box between two full-width `─` rules at
+column 0, under everything else. Nothing else on the screen has that frame: a past message
+has no rule above or below it, and a rule that belongs to content, a diff view's frame or
+a markdown rule, is indented with everything Claude Code prints.
 
-- **No input signal.** No field on `pane.get` or `agent.get` records a last keystroke or
-  a last input time. No event announces one: the three per-pane subscriptions are
-  `pane.output_matched`, `pane.agent_status_changed` and `pane.scroll_changed`, and no
-  global event is about input either. There is nothing to hold on.
-- **`focused` exists and was rejected.** herdr does report which pane the person is
-  looking at, and it is reliable. But the person sitting in the main session is exactly
-  when a question is most welcome, and a main pane left focused all day would hold the
-  queue indefinitely. It answers a question we are not asking.
-- **The screen shows the box.** `pane.read` with `source: "visible"` returns the
-  viewport as plain text, and Claude Code's prompt box is in it: `❯` and a non-breaking
-  space, then whatever has been typed. An empty box is the marker and nothing else. This
-  was verified against a live pane — empty, one word, a multi-line draft, and a
-  `[Pasted text #5 +8 lines]` chip — and against the person's own main session, which was
-  mid-sentence at the time.
+Neither half is enough alone. The marker alone is wrong: Claude Code redraws the person's
+past messages in the scrollback with the same `❯` at the same column, so whenever the box
+was off the screen "the last line beginning with `❯`" found a past message, which always
+has text in it, and the gate held delivery for days saying the box was not empty. A picker
+marks its highlighted row with a `❯` of its own. The frame alone is wrong the other way: a
+stray rule drawn under the box, a statusline separator, would make the box's bottom rule
+the top of a frame around the status lines, which hold no marker, and reading that as a
+box Whiska cannot understand would deliver over the draft. So the frames are walked upward
+until one holds a prompt line, and only running out of them is an answer.
 
-Reading the screen is a worse kind of signal than a hook, and ADR-0008 says as much
-approvingly. It is taken here because the alternative is not a better signal, it is no
-signal — and the failure it prevents is the loudest one Whiska has.
+**The whole of the box is read, not its first line.** A draft begun with shift+enter
+leaves the marker line bare and the words on the line under it. The box is empty when
+every line inside the frame is blank once the marker is taken off the one that carries it.
 
-## The spec rejected screen reading, for a different job
+**Faint text in the box is Claude Code's, not the person's.** After a reply, Claude Code
+offers the next prompt inside the empty box, and a fresh session shows a placeholder, both
+as plain words after the marker. The screen is therefore read with its escapes
+(`format: "ansi"`), the frame is found on the text with the escapes taken out, and the box
+is empty when everything inside it that is not faint (SGR 2) is whitespace:
 
-`specs/spec.md`, under "Knowing what a mouse is doing": *"This also replaces the earlier
-plan to read each pane's visible screen content directly — that would've needed a
-separate, unverified code path just for this. The hook data is already flowing for
-enforcement, so this is free."*
+| what is in the box | how the line after `❯` is drawn |
+|---|---|
+| a suggested next prompt, or the fresh-session placeholder | `ESC[2m` text `ESC[0m`, faint |
+| a typed line, or a `[Pasted text]` chip | no style at all |
+| nothing | the marker and a non-breaking space |
 
-That rejection stands, and this decision does not reopen it. It is about a different
-subject and a different job: every *mouse* pane, read continuously, to turn into an
-activity phrase — and it was rejected because a signal for that was already flowing from
-`PreToolUse` for nothing. Here the subject is the *main session*, the read happens once
-per delivery attempt, and no hook carries what is needed: Claude Code has no event for
-the person typing, and herdr forwards none. The spec's own reason for saying no — there
-is a free signal already — is exactly what is missing, so the answer comes out the other
-way. Mice are still never screen-read.
+Faint rather than a colour, because past messages are drawn in explicit greys that move
+with the theme and faint does not. An unrecognised style counts as text, so a theme or
+release that draws its ghost text some other way falls to holding, which the sidebar line
+explains, never to typing over a draft.
+
+## The four answers
+
+| the screen shows | reading | delivery |
+|---|---|---|
+| a framed box, nothing but whitespace after the marker | `:empty` | deliver |
+| a framed box with anything else in it | `:typing` | hold: the person is mid-sentence |
+| no frame at all | `:no_box` | **hold: there is nowhere for the line to land** |
+| frames, none holding a prompt line | `:unknown` | deliver anyway (ADR-0008) |
+
+**No box on the screen holds**, for a different reason than a draft. It is not an
+unavailable signal; it says the session has no prompt box open, because a permission
+dialog or a picker is waiting on the person, or the pane is scrolled away from it. In the
+first case delivering is destructive: `agent.prompt` types the line and presses return,
+and the return goes to whatever the dialog had highlighted, so the person answers something
+they never read and loses the question with it. The hold says `your prompt box isn't on
+screen`, true of every way of getting here. The risk taken on is a Claude Code that stops
+drawing the frame, which would hold everything; it is bounded, clears the moment a frame
+is seen, and has a check of its own below.
+
+`:unknown` means something on the screen is framed the way the box is and no frame holds a
+prompt line. There is no signal, so holding would be silence. A `pane.read` herdr refuses
+never reaches the reading and delivers.
+
+Delivery and pickup (ADR-0067) both type into a box, and `Whiska.Delivery.Draft.hold/1`
+turns a reading into hold or go for both, so they cannot drift.
+
+## The check that catches the cost
+
+`whiska doctor`'s `prompt box` line is the only check that reads the live main session's
+screen. It runs whether or not anything is queued, because a box the gate cannot find
+stops delivery before there is anything to deliver. It warns on `:no_box` with the pane at
+the bottom of its output, naming both causes it cannot tell apart (a dialog waiting, or
+Claude Code drawing the box differently), and on `:unknown`. A pane the person has scrolled
+up in is reported as that and clears itself: herdr's `scroll.offset_from_bottom` says so,
+and a herdr that does not report scroll reads as at the bottom, so a missing field never
+turns the safeguard off.
+
+## Considered options
+
+- **An equal-width test on the two rules.** Rejected: a full-width separator under a
+  full-width box is the same width by construction, and a narrower one below turns a box
+  plainly on screen into a permanent hold.
+- **Position alone**, the lowest `❯` with only the status footer under it. Rejected: it
+  needs a list of what the footer may contain, which changes with every release.
+- **The cursor position** as the draft signal. Not available: herdr 0.8.2 reports none.
+- **A ghost-text rule relative to the marker's colour.** Rejected by the captures: the
+  marker carries no style and its ghost text is faint.
+- **A dialog reason of its own.** Not shipped: the picker draws a `▔` rule where the box
+  would be, but a permission prompt and an `AskUserQuestion` picker could not be captured,
+  so whether every dialog draws it is unverified. All three ways of having no box share one
+  reason worded to be true of all of them.
 
 ## Consequences
 
-The guesswork is confined. `Whiska.Herdr` gains one callback, `read_screen/2`, which
-returns the text and judges nothing; `Whiska.Delivery.Draft` judges the text and talks to
-nothing (ADR-0031). When Claude Code changes how it draws the box, one function is wrong
-and its tests say so.
+- `Whiska.Herdr.read_screen/2` returns the text and judges nothing; `Whiska.Delivery.Draft`
+  judges the text and talks to nothing (ADR-0031). When Claude Code changes how it draws
+  the box, one function is wrong and its tests say so.
+- Every reading is a test over a screen captured from a live pane, kept under
+  `test/support/screens/`; the few edited or redrawn fixtures say so where they are used.
+- A hold is never silent: the main checkout's sidebar line says `gated` with the reason
+  once it has lasted ten seconds (ADR-0082), and `whiska doctor` says it whenever asked.
 
-**A screen with no box on it is ADR-0008's unavailable signal, and delivers anyway.** A
-pane scrolled away from the prompt, a `pane.read` herdr refuses, a Claude Code that draws
-the marker differently — all of them read as `:unknown`, and holding on `:unknown` would
-be choosing silence with no explanation, which is the reasoning ADR-0008 already settled
-for `agent_status: "unknown"`.
-
-**Being held is never silent.** `whiska doctor`'s questions line says
-`N open, held: person is typing`. That is the check that catches the failure this design
-can have — a box Whiska reads as occupied when it is not, holding the queue forever.
-
-## Amendment, 2026-10-03: no box on the screen holds (ADR-0068)
-
-Two things above are wrong and are corrected here rather than in a superseding decision,
-because the gate itself stands: the box must still be empty, and the screen is still the
-only place to read it from.
-
-**Finding the box.** "The last line that begins with `❯`" is not the box. Claude Code
-redraws the person's own past messages with the same marker at the same column, so
-whenever the box was not on the screen the rule found a message — and a message always
-has text in it. The gate failed closed to `:typing` and held delivery, saying *your
-prompt box isn't empty* about a box that was not there. The box is now found by its
-frame, the pair of horizontal rules at column 0 that nothing else on the screen has, and
-the marker is read only inside it.
-
-**The dialog case is what made the paragraph above wrong.** It lists "a pane scrolled
-away from the prompt" and stops there, and on that case it was right. The case it does
-not name is a permission prompt or a picker: Claude Code takes the box off the screen
-while one is open, and the session cannot accept a typed line at all. Delivering then is
-not a slightly rude interruption, which is what this paragraph weighed. `agent.prompt`
-types the line *and presses return*, and the return goes to whatever the dialog had
-highlighted — so the person answers something they never read, and loses the question
-with it. That is unrecoverable, and no board can undo it.
-
-**So a screen with no box on it holds**, under its own reason — *your prompt box isn't on
-screen* — true of the dialog, of the scrolled-away pane, and of a Claude Code that has
-stopped drawing a frame. The reason given above for delivering was that holding "would be
-choosing silence with no explanation"; ADR-0058 ended that, and a hold now says itself on
-the board and in `whiska doctor`. The other two cases still deliver: a `pane.read` herdr
-refuses never reaches the reading, and a frame whose contents cannot be read is
-`:unknown`, which is ADR-0008's unavailable signal and genuinely reachable now.
-
-`whiska doctor` grew a `prompt box` line for the cost that comes with this: a Claude Code
-that changes its frame would read as no box on every screen and hold everything. That
-line reads the live main session's screen whether or not anything is queued, and warns
-when there is no box and the pane is not scrolled away from one.
-
-ADR-0068 has the captured screens and the full reasoning.
-
-## Amendment, 2026-10-04: the screen is read with its styling (ADR-0068)
-
-*"`pane.read` with `source: "visible"` returns the viewport as plain text … An empty box
-is the marker and nothing else"* is no longer how the box is read. Claude Code draws its
-own suggested next prompt, and a fresh session's placeholder, as faint text inside an
-empty box, and as plain text that is a line of words the person never typed. The screen
-is now read with its escapes, and faint text inside the box does not count as a draft.
-`read_screen/2` still judges nothing. ADR-0068's amendment of the same date has the
-captures and the reasoning.
+Folded in on 2026-10-08: 0068 (its text is in git history).

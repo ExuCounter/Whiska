@@ -1,10 +1,8 @@
 # A merged worktree is taken down by the owl, pane and all
 
-**Supersedes the worktree half of
-[ADR-0007](0007-nothing-is-ever-deleted.md)** — its "removing a worktree for good is only
-ever a deliberate, human-triggered `whiska cleanup`". The rest of ADR-0007 is untouched
-and still binding: answered questions are kept forever, a dead mouse is marked and never
-deleted, collection still never touches disk.
+Records are kept (ADR-0007): answered questions forever, a dead mouse marked and never
+deleted, collection never touching disk. The worktree is the one thing that goes, and it
+goes by itself.
 
 ## Why the old rule was narrower than it needed to be
 
@@ -114,7 +112,7 @@ so it fails the fourth condition without anything here having to know what stuck
 ### The pane goes with the worktree
 
 Removing the git worktree and leaving herdr's workspace open leaves half a thing, which is
-why the `drop-worktree` skill has always done both (ADR-0046). The owl does what that skill
+why the `drop-worktree` skill has always done both (ADR-0056). The owl does what that skill
 does: one `worktree.remove` on herdr's socket with the workspace id, `force: false`, which
 removes the worktree and closes the workspace together. A worktree with no open workspace —
 the mouse was already dead — is removed with plain `git worktree remove`.
@@ -160,7 +158,7 @@ record. Anything able to write that file already runs as the person.
 
 ## Consequences
 
-- **The sweep gained a second job on 2026-10-03**
+- **The sweep has a second job**
   ([ADR-0064](0064-a-landed-branch-settles-what-its-mouse-left-waiting.md)): it notes
   that a branch has landed for every mouse, not only for the ones it may tear down, so a
   question a landed mouse left waiting settles rather than orphaning. The four
@@ -201,10 +199,9 @@ folder that no longer exists.
 it is a folder recreatable from a merged branch, so the archive would never be read, and
 ADR-0007's own reasoning (small, text-only, cheap to keep) does not apply to a checkout.
 
-## Amendment, 2026-10-06: a fifth precondition
+## A held mouse is left where it is
 
-A mouse the person put on hold
-([ADR-0079](0079-the-person-decides-what-reaches-them.md))
-is left exactly where it is, landed and quiet or not: "stops where it is" includes its
-worktree. Its landing is still noted, so a question of its settles later rather than
-orphaning. The four preconditions above are untouched; this one is checked before them.
+A mouse the person put on hold (ADR-0079) is left exactly where it is, landed and quiet
+or not: "stops where it is" includes its worktree. Its landing is still noted, so a
+question of its settles later rather than orphaning. This is checked before the four
+preconditions above.

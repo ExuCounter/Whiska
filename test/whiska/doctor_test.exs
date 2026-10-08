@@ -975,7 +975,7 @@ defmodule Whiska.DoctorTest do
       assert detail =~ "gated: person is typing"
     end
 
-    test "a question held because the box is off the screen says so (ADR-0068)" do
+    test "a question held because the box is off the screen says so (ADR-0047)" do
       assert %Check{status: :ok, detail: detail} = Doctor.questions(2, nil, true, :no_box, now())
       assert detail =~ "2 open"
       assert detail =~ "gated: the prompt box is not on screen"
@@ -1144,7 +1144,7 @@ defmodule Whiska.DoctorTest do
     end)
   end
 
-  describe "sockets/2 — the owl's two sockets answer (ADR-0025, ADR-0033)" do
+  describe "sockets/2 — the owl's two sockets answer (ADR-0033)" do
     setup do
       home = Path.join("/tmp", "wsk-#{System.unique_integer([:positive])}")
       File.mkdir_p!(home)
@@ -1201,7 +1201,7 @@ defmodule Whiska.DoctorTest do
       {:ok, root: root, main: main, env: env}
     end
 
-    # Claude Code's prompt box, framed the way it draws it (ADR-0068).
+    # Claude Code's prompt box, framed the way it draws it (ADR-0047).
     defp box(draft) do
       rule = String.duplicate("─", 40)
       "✻ Baked for 46s\n\n#{rule}\n❯\u00a0#{draft}\n#{rule}\n  ⏵⏵ auto mode on\n"
@@ -1552,7 +1552,7 @@ defmodule Whiska.DoctorTest do
       assert detail =~ "scrolled 340 rows up"
     end
 
-    # A pane id is not something a person recognises on sight (ADR-0065), so
+    # A pane id is not something a person recognises on sight (ADR-0082), so
     # the line says whether it is the pane they are asking from.
     test "the main session line says whether this is that pane", %{
       main: main,

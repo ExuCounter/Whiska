@@ -73,7 +73,7 @@ defmodule Whiska.Transcript do
   # A launch this old is abandoned, not pending. Long enough that no reviewer
   # this repo runs comes near it, short enough that a lost hand-back costs one
   # quiet stop rather than a whole night of them. A repo that names a `security:`
-  # scan under its own `## Finish` heading (ADR-0054) can sit inside step 3 for
+  # scan under its own `## Finish` heading (ADR-0049) can sit inside step 3 for
   # tens of minutes, which is the one sanctioned way to approach this bound.
   @stale_after_seconds 30 * 60
 
@@ -284,7 +284,7 @@ defmodule Whiska.Transcript do
 
   @doc """
   Whether the session's last real entry is the API error Claude Code writes when
-  a turn gives up (ADR-0067's amendment of 2026-10-07).
+  a turn gives up (ADR-0067).
 
   Claude Code stamps that entry `isApiErrorMessage: true`, read from the real
   transcript of `feat/sidebar-status` the moment its turn died on `API Error: The

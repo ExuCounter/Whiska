@@ -9,7 +9,7 @@ defmodule Whiska.Rule.Persons do
   where every mouse's session lists them too, so the sentence in each skill
   saying "only when the person types" was the one thing between a mouse and
   putting the whole machine away, holding a sibling, or lifting its own hold.
-  ADR-0010 puts a rule like that in the hook, not in prose.
+  ADR-0011 puts a rule like that in the hook, not in prose.
 
   Judged on the text of a shell command, segment by segment (`Whiska.Shell`):
   `whiska <word>` and the bare word at the head of a command. Reading commands —

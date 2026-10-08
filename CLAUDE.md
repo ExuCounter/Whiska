@@ -3,15 +3,10 @@
 An Elixir/OTP coordinator for Claude Code sessions working in isolated git worktrees.
 Replaces this dotfiles setup's bash worktree-notification relay.
 
-The design is finished and written down; read it before writing code:
-
-- `CONTEXT.md` — the glossary: the canonical name for every domain concept.
-- `docs/adr/` — every architectural decision, one file each, indexed by area in
-  `docs/adr/README.md`.
-- `specs/spec.md` — the long-form design narrative. `handoffs/` — session handoffs.
-
-`CONTEXT.md` and the ADRs are the authority. Where the spec and an ADR disagree, the ADR
-wins: it is the later, extracted decision.
+The design is written down. `CONTEXT.md` is the glossary, the canonical name for every
+concept; `docs/adr/README.md` indexes every decision by area, one file each. Before a
+change, read the glossary entries for what you touch and the ADRs the index lists under
+that area. `CONTEXT.md` and the ADRs are the authority.
 
 ## ADRs are binding
 
@@ -57,34 +52,11 @@ the thing does. Use the glossary's own name for each concept: no synonyms, and n
 
 ## Keep the architecture diagrams honest
 
-`docs/architecture/` holds C4 diagrams of the system — context, containers, components,
-two flows, deployment. They are a *view* onto `CONTEXT.md` and the ADRs, never a third
-source of truth: where a diagram and an ADR disagree, the ADR wins and the diagram is the
-thing that is wrong.
-
-**When the architecture moves, the diagram moves in the same piece of work** — same rule
-as an ADR, for the same reason: a stale diagram is worse than none. It has moved when any
-of these is true:
-
-- A new container, component or stored thing exists, or one is gone.
-- A boundary moved — something changed which process, socket or file it lives behind.
-- A documented flow reordered, gained a step, or lost one.
-- A piece crossed from "designed, not built" to built. `docs/architecture/README.md`
-  keeps that split, and it is the part that rots fastest.
-
-A change that touches none of those is a normal outcome: say so in one line and leave the
-diagrams as they are.
-
-### Mermaid traps already hit
-
-The diagrams must actually render.
-
-- **`C4Dynamic` numbers its own relationships**, in declaration order, so a `"1. "` in a
-  `Rel` label renders as `1. 1.`. Order the `Rel` lines to be the flow, and let the
-  prose's step numbers follow them.
-- **An angle bracket in a label is eaten as an HTML tag** — `<branch>` inside a quoted
-  label vanishes. Describe the shape in words, and keep the literal path in the prose
-  underneath.
+`docs/architecture/` holds C4 diagrams: a view onto the ADRs, never a third source of
+truth. Where they disagree, the ADR wins and the diagram is what is wrong. When a
+container, a stored thing, a boundary, a documented flow or the built-and-designed split
+moves, the diagram moves in the same piece of work; a change that moves none of those is
+a normal outcome, said in one line. Its README lists the Mermaid traps already hit.
 
 ## When a piece of work is done and green
 
@@ -109,7 +81,7 @@ to write documentation would be the wrong trade, and both skills read what lande
 ## Finish
 
 checks: mix test, mix format --check-formatted
-specs: CONTEXT.md, docs/adr/, docs/architecture/, specs/spec.md
+specs: CONTEXT.md, docs/adr/, docs/architecture/
 
 ## Inherited, not repeated here
 
@@ -117,6 +89,7 @@ The global `CLAUDE.md` still applies in full: TDD is mandatory (failing test fir
 claim "done" without running it, and push committed work through the gate where one is
 set up. Nothing in this file overrides those.
 
-The worktree protocol comes from the global install in `~/.claude/CLAUDE.md`, the block
-`whiska init --global` writes (ADR-0045, ADR-0056). This repo keeps no local install, so
-the copy in force here is the one every other repo on this machine gets.
+The worktree protocol comes from the global install `whiska init --global` writes
+(ADR-0056): a `SessionStart` hook prints each session's rules by role (ADR-0081). This
+repo keeps no local install, so the copy in force here is the one every other repo on
+this machine gets.

@@ -130,7 +130,7 @@ defmodule Whiska.Delivery.Mode do
   deliverable question is sent; otherwise the oldest deliverable finished
   report, else the oldest deliverable open question. A finished report waits
   for the slot, then holds it once sent until the person writes something
-  (ADR-0008, notes of 2026-10-06 and 2026-10-08). Oldest
+  (ADR-0008). Oldest
   first, always; newest-first was rejected (a newer question from any mouse
   would jump ahead, and old ones could wait forever).
   """

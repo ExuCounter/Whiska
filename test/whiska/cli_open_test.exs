@@ -1,7 +1,7 @@
 defmodule Whiska.CLIOpenTest do
   @moduledoc """
   `whiska open <question-id|branch>` — take the person to a mouse's own pane
-  (ADR-0043's 2026-10-06 note), faked at the herdr boundary (ADR-0031) over a
+  (ADR-0043), faked at the herdr boundary (ADR-0031) over a
   real git repo, since what is left of a mouse is git's to say.
   """
   # Serial: the house opens under the one VM-wide name `Whiska.Repo`, and the

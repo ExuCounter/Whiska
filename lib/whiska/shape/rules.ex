@@ -1,7 +1,7 @@
 defmodule Whiska.Shape.Rules do
   @moduledoc """
   `priv/models.json`: the modes, and the ordered rules a spawn picks a model and
-  an effort by (ADR-0069, ADR-0073).
+  an effort by (ADR-0069).
 
   `Whiska.Shape` reads it while it compiles, so everything here raises: a file
   that is wrong stops the build, with a message naming what to fix.

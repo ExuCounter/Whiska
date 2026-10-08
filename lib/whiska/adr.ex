@@ -12,7 +12,7 @@ defmodule Whiska.Adr do
   branch and is fine; one main holds reached main unclaimed.
   """
 
-  @scanned ~w(.claude .gitignore CLAUDE.md CONTEXT.md README.md mix.exs config docs handoffs lib priv specs test)
+  @scanned ~w(.claude .gitignore CLAUDE.md CONTEXT.md README.md mix.exs config docs lib priv specs test)
   @numbered ~r/^(\d{4})-.+\.md$/
   @placeholder_file ~r/^next-(.+)\.md$/
   @cited ~r/ADR-(\d+)|ADR-next-([a-z0-9-]*[a-z0-9])/

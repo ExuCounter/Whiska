@@ -230,9 +230,6 @@ under `WHISKA_HOME` when that is set, and only your own user can open it.
 | [`docs/adr/`](docs/adr/README.md) | Every architectural decision, one file each. Binding |
 | [`docs/architecture/`](docs/architecture/README.md) | C4 diagrams, including two end-to-end flows |
 | [`docs/internals.md`](docs/internals.md) | What `init` writes, what is enforced, how a question travels, cold start |
-| [`specs/spec.md`](specs/spec.md) | The long-form design narrative |
-
-Where the spec and an ADR disagree, the ADR wins.
 
 ## Development
 

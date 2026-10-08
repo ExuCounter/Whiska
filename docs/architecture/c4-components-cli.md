@@ -79,7 +79,7 @@ C4Component
   Rel(main, specm, "shape and mode: make git ignore the spec the mouse writes after grilling")
   Rel(main, install, "Delegates init; init --global writes the eight words under the whiska home, skipping one another program answers to")
   Rel(main, mode, "away, focus, hold, resume: set and clear them; inbox and show say why a question waits")
-  Rel(main, ledger, "ledger: this session's figures, found by CLAUDE_CODE_SESSION_ID (ADR-0083)")
+  Rel(main, ledger, "ledger: this session's figures, found by CLAUDE_CODE_SESSION_ID (ADR-0049)")
   Rel(main, claudemd, "init and uninstall: take an old block out of CLAUDE.md")
   Rel(main, sessionstart, "Delegates hook session-start")
   Rel(sessionstart, session, "Mouse or main session?")
@@ -164,7 +164,7 @@ effort are in the house before any tool call can arrive — the first one a snif
 makes is already judged as sniff. The model and effort are chosen by the spawning
 session from the ordered rules in `priv/models.json`, which `Shape.Rules` checks at
 build time and `whiska shape --rules` prints
-(ADR-0073). stdout is only the flags to
+(ADR-0069). stdout is only the flags to
 start Claude with, plain words or nothing, so the skill can split them into `claude`'s
 arguments; what was recorded goes to stderr for the report. The model the mouse
 actually ran on comes back later: `Hook.Stop` reads it from the transcript and carries
@@ -177,7 +177,7 @@ rule is off its `shaped_as`.
 
 Shaping, and setting a mode, also makes git ignore the worktree's `.whiska-spec.md`, the
 spec the mouse writes after grilling
-(ADR-0076). The line goes into the
+(ADR-0063). The line goes into the
 main checkout's `.git/info/exclude`, which a mouse may not edit itself (ADR-0013). A
 failure there is a line on stderr, not a failed spawn. The mouse's `git check-ignore`
 then says so under its spec, and until the line is there the owl only leaves the
@@ -210,14 +210,14 @@ of equal byte length before locating operators, so `grep -r "=>" lib/` is not re
 redirect, and it judges on tokens rather than raw text so `find . -exec grep …` is not
 confused with `exec rm`. Substitutions and nested shells are refused outright.
 
-**`Statusline` draws two lines, one per surface** (ADR-0048). Both follow ADR-0027's rule:
+**`Statusline` draws two lines, one per surface** (ADR-0048). Both follow ADR-0048's rule:
 detail for one thing, a count for several.
 
 The machine-wide line is what herdr's tab bar shows, once for the whole machine, so it
 asks `Waiting` for every recorded house's questions and doorstep entries and renders the
 owl's state in front of them. The owl comes first and is always shown — `🦉 watching` or
 `🦉 owl down` — because a blank tab bar entry could not be told apart from a broken
-Whiska (ADR-0027, second addendum). The tab bar gets it from the owl itself: its script
+Whiska (ADR-0048). The tab bar gets it from the owl itself: its script
 asks `owl.sock` for `line`, passing on the jump key the person gave it, and the owl
 renders it with `render/2`, adding that key only beside something waiting. An owl that
 answers is watching — unless an entry has sat uncollected past its backstop, which means
@@ -246,7 +246,7 @@ Nothing here writes or collects.
 prints what the branch holds — its own commits beyond the base, merges from the base
 skipped, and the files its worktree has not committed — or `unknown` when git cannot say,
 never an empty branch. The finish options in `whiska-delivered` are chosen by
-that line (ADR-0009's note of 2026-10-06, ADR-0074).
+that line (ADR-0009, ADR-0074).
 
 **`Waiting` is the machine-wide reading, and `jump` is the only thing in Whiska that
 moves the person** (ADR-0043). `whiska waiting` walks every repo in the open-houses
@@ -257,8 +257,7 @@ are worth naming. It reads the record with `read/1` rather than `open/2`, so it 
 with the owl down — nothing here claims a house is *open*, the record only says which
 repos to look in (ADR-0039). It lands on the house's main session rather than on a
 mouse's pane: that is the pane the question was delivered into and the one the person
-answers from, while a mouse's pane is the mouse's workplace (ADR-0043, note of
-2026-09-28). And `Statusline` renders this same listing rather than keeping its own copy,
+answers from, while a mouse's pane is the mouse's workplace (ADR-0043). And `Statusline` renders this same listing rather than keeping its own copy,
 so the line and the listing cannot disagree about what "waiting" means. The owl's
 `owl.sock` answers `waiting` with these same rows (`Waiting.row_map/1`), so the person's
 own scripts get exactly what `whiska waiting --json` prints. Nothing in the owl calls
@@ -268,7 +267,7 @@ for the line on its own timer (ADR-0048).
 **`Hook.Stop` writes to the doorstep wherever it runs, and never classifies.** It reads
 the payload, works out the house and writes the whole final message to the doorstep —
 inside the owl when the owl answers the hook socket, in the escript when it does not
-(ADR-0036, amended). Whether the owl is up changes how fast the entry lands, never whether
+(ADR-0036). Whether the owl is up changes how fast the entry lands, never whether
 it does. `leave/2` says which house it wrote to, so the owl can ask that house, if open,
 to collect at once, after the shim has its answer. It does read one row out of the house
 first, the pane `whiska start` recorded: a stop firing there is the person’s own session,
@@ -279,8 +278,8 @@ for.
 (ADR-0081). The hook reads the role the way `Hook.Stop` does — a
 session started in a worktree and not in the recorded main pane is a mouse — and prints
 `Rules` for it as the hook's additional context, leaving out any part a `CLAUDE.md` holds
-as `keep` (ADR-0045). Outside herdr it prints nothing, and the global shim does not even
-start the escript. `ClaudeMd` reads an older Whiska's block by ADR-0045's grammar and takes
+as `keep` (ADR-0081). Outside herdr it prints nothing, and the global shim does not even
+start the escript. `ClaudeMd` reads an older Whiska's block by ADR-0081's grammar and takes
 it out on `init` and `uninstall`: Whiska's header and parts go, a `keep` part and the
 person's own text inside the markers stay, and everything outside them comes back byte for
 byte. The marker text in the rules is interpolated from `Question.Marker.render/1`, so what
@@ -311,7 +310,7 @@ the probe silently; and it asks herdr about the recorded main session with the s
 the delivery gate uses. It reads that session's screen with the same call too, and warns
 when nothing on it is a prompt box while the pane is not scrolled away from one — the one
 check that would catch a Claude Code redesign, which otherwise shows up only as delivery
-stopping everywhere at once (ADR-0068). It also asks how old each running thing is, because up and old
+stopping everywhere at once (ADR-0047). It also asks how old each running thing is, because up and old
 looks exactly like up: the owl's process against the installed binary, that binary
 against the escript built in the checkout, the owl's wrapper, the tab-bar script and every
 globally installed skill file against what this build writes, and the main session — aged by the creation time of its own
@@ -322,8 +321,7 @@ runs, a `sockets` line says whether it answers on `owl.sock` and `hook.sock`; on
 does not is a warning, since hooks still work through the escript (ADR-0033). Every finding prints its fix. `fail` means a mouse's question
 here would be lost or never written; `warn` means degraded but nothing lost.
 
-**`ServiceManager` is one behaviour with a module per platform** (ADR-0040,
-ADR-0077). `LaunchAgent` renders a plist for
+**`ServiceManager` is one behaviour with a module per platform** (ADR-0040). `LaunchAgent` renders a plist for
 launchd and `SystemdUnit` a unit for systemd; `:os.type()` picks one, and the CLI's four
 `owl` verbs and the doctor's line go through whichever is in force. Both are pure values
 plus writes under a given home: the job file and the wrapper are rendered from data;

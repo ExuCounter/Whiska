@@ -86,7 +86,7 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     File.chmod!(path, 0o755)
   end
 
-  describe "the three worktree skills ship with Whiska (ADR-0046)" do
+  describe "the three worktree skills ship with Whiska (ADR-0056)" do
     test "init installs all three, beside the reading skills" do
       installed =
         Enum.map(Install.skills(), fn {path, _} -> Path.basename(Path.dirname(path)) end)
@@ -366,7 +366,7 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     end
   end
 
-  describe "the long skills are build inputs under priv/ (ADR-0046)" do
+  describe "the long skills are build inputs under priv/ (ADR-0056)" do
     @committed_skills @worktree_skills ++ ~w(whiska-finish)
 
     test "each is read from priv/skills/, not from this repo's own .claude/" do
@@ -380,7 +380,7 @@ defmodule Whiska.InstallWorktreeSkillsTest do
              "the shipped skills no longer live in this repo's own .claude/"
     end
 
-    # What ADR-0046 forbids is a second *committed* copy, which is the one that
+    # What ADR-0056 forbids is a second *committed* copy, which is the one that
     # can drift from `priv/` and the one a build would read. `whiska init` in
     # this checkout writes an untracked `.claude/skills/` as its output — this
     # repo runs on the block it ships — and that copy is nobody's source.

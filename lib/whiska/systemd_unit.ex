@@ -1,6 +1,6 @@
 defmodule Whiska.SystemdUnit do
   @moduledoc """
-  The owl under systemd, on Linux (ADR-0077):
+  The owl under systemd, on Linux (ADR-0040):
   one user unit, `whiska-owl.service`, that starts the owl at login and
   restarts it if it crashes. The same job `Whiska.LaunchAgent` is on macOS,
   through the same `Whiska.ServiceManager` verbs.

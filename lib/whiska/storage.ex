@@ -4,7 +4,7 @@ defmodule Whiska.Storage do
   owl keeps the house open.
 
   A hook invocation opens the SQLite file, migrates it if needed, does its one
-  job and exits (ADR-0030); an open house (`Whiska.Owl.House`) holds it for its
+  job and exits (ADR-0033); an open house (`Whiska.Owl.House`) holds it for its
   whole life. The file itself is permanent — a house exists from the first
   invocation onwards and is never destroyed (ADR-0003, ADR-0007).
 
@@ -41,7 +41,7 @@ defmodule Whiska.Storage do
 
   @busy_timeout 5_000
 
-  @doc "The modes a mouse can be in (ADR-0018)."
+  @doc "The modes a mouse can be in (ADR-0069)."
   def modes, do: @modes
 
   @doc "Where this repo's house lives."
@@ -225,7 +225,7 @@ defmodule Whiska.Storage do
   @doc """
   This mouse's mode, as the rules read it.
 
-  Read by the sniff rule on every invocation (ADR-0018). A mouse nobody shaped
+  Read by the sniff rule on every invocation (ADR-0069). A mouse nobody shaped
   is `"unshaped"` whatever its stored mode, and may read but not write
   (ADR-0069). Returns
   `{:error, :no_such_mouse}` rather than guessing, so the caller decides what an
@@ -335,7 +335,7 @@ defmodule Whiska.Storage do
 
   Nothing is ever deleted (ADR-0007), so a house keeps records that no longer
   stand for anything: a second record made for a worktree that was recorded
-  once already, and — the case ADR-0030's note left behind — a record whose
+  once already, and — the case ADR-0030 left behind — a record whose
   `path` is the ordinary folder a slashed branch nests under, `worktrees/feat`
   holding `worktrees/feat/checkout-form`. Of two records whose folders nest the
   deeper one stands, since git will not carry a branch `feat` and a branch
@@ -456,7 +456,7 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  Release every question nothing can act on any more (ADR-0057).
+  Release every question nothing can act on any more (ADR-0008).
 
   Nothing that cannot be answered may hold ADR-0008's one delivery slot, so
   what is still waiting for a mouse that is dead (ADR-0026), or for a record
@@ -473,7 +473,7 @@ defmodule Whiska.Storage do
 
   A `done` report is outside it: a branch whose mouse is gone is exactly the
   one the person still wants to hear finished, and one already told holds the
-  slot only until the person writes something (ADR-0008, note of 2026-10-08).
+  slot only until the person writes something (ADR-0008).
   """
   @spec release_unanswerable() :: [Question.t()]
   def release_unanswerable do
@@ -799,7 +799,7 @@ defmodule Whiska.Storage do
   The oldest `done` report still waiting to be told, or nil.
 
   A finished line goes ahead of the queue once the one delivery slot is free
-  (ADR-0008, note of 2026-10-06). It is read apart from
+  (ADR-0008). It is read apart from
   `next_open/0` for that reason.
   """
   @spec next_done() :: Question.t() | nil
@@ -836,7 +836,7 @@ defmodule Whiska.Storage do
   @doc """
   Every question still waiting on the person: open and sent, oldest first, with
   its mouse loaded. The one query behind `whiska questions` and the statusline's
-  count (ADR-0027).
+  count (ADR-0048).
   """
   @spec questions() :: [Question.t()]
   def questions, do: questions_with_status(@waiting)
@@ -906,7 +906,7 @@ defmodule Whiska.Storage do
   @doc """
   The chased answers the owl gave up ringing for: waiting on the person now,
   who can hand one over by typing anything into its mouse's pane — so only a
-  live mouse's, since a dead one has no pane to type into (ADR-0057's reading
+  live mouse's, since a dead one has no pane to type into (ADR-0008's reading
   of what may wait on the person), and not a landed one's, whose merge was the
   answer (ADR-0064). With their mice, as `questions/0` has them.
   """
@@ -978,8 +978,7 @@ defmodule Whiska.Storage do
 
   @doc """
   Close every finished report already told: the person has written something
-  in the main session since, so the slot it held is free (ADR-0008, note of
-  2026-10-08). Returns how many were closed.
+  in the main session since, so the slot it held is free (ADR-0008). Returns how many were closed.
   """
   @spec settle_reports() :: non_neg_integer()
   def settle_reports do

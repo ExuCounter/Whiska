@@ -6,7 +6,7 @@ defmodule Whiska.Mice do
   with nothing pending. Two sources, each asked for what only it knows:
 
   - **The house** says which mice exist and are not dead (`died_at`, ADR-0026),
-    their branch and mode labels (ADR-0002, ADR-0018), and when each record was
+    their branch and mode labels (ADR-0002, ADR-0069), and when each record was
     created, which is where uptime comes from.
   - **herdr** says what each mouse's pane is doing right now. A mouse is a herdr
     pane (ADR-0020), and its `agent_status` — `working`, `idle`, `blocked` — is
@@ -19,7 +19,7 @@ defmodule Whiska.Mice do
   (ADR-0026). A listing only reports.
 
   The "what is it doing" excerpt the spec describes — the last tool call, kept in
-  the owl's memory (ADR-0006) — is not here. Nothing captures it yet (the hook
+  the owl's memory (ADR-0028) — is not here. Nothing captures it yet (the hook
   opens SQLite and exits; ADR-0030, ADR-0033), and a fresh CLI process has no
   channel to the owl's memory either way.
   """
@@ -130,7 +130,7 @@ defmodule Whiska.Mice do
 
   def format_uptime(seconds), do: "#{div(seconds, 86_400)}d #{rem(div(seconds, 3600), 24)}h"
 
-  @doc "Rows as lines, columns lined up. One line per mouse, no width fight (ADR-0027)."
+  @doc "Rows as lines, columns lined up. One line per mouse, no width fight (ADR-0048)."
   @spec render([row()]) :: String.t()
   def render([]), do: "No mice alive."
 

@@ -25,7 +25,7 @@ defmodule Whiska.Owl do
 
   Beside the houses it answers on two Unix sockets in the whiska home
   (`Whiska.Owl.Listener`): `owl.sock`, read-only, for the person's scripts and
-  herdr's tab bar (`Whiska.Owl.Answers`, ADR-0025), and `hook.sock`, for
+  herdr's tab bar (`Whiska.Owl.Answers`, ADR-0033), and `hook.sock`, for
   Whiska's own hooks (`Whiska.Owl.Hooks`, ADR-0033). `:sockets` names another
   folder for them, or `false` for none; `:answers` pins what the read-only one
   reads, for a test.
@@ -61,7 +61,7 @@ defmodule Whiska.Owl do
     Supervisor.init(children, strategy: :rest_for_one)
   end
 
-  # The two sockets beside the open-houses record (ADR-0025): the one the
+  # The two sockets beside the open-houses record (ADR-0033): the one the
   # person's scripts read, and the one Whiska's own hooks ask (ADR-0033).
   # `answers` pins what the read-only one reads, for a test.
   defp listeners(false, _answers), do: []

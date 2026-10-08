@@ -20,7 +20,7 @@ commands that work from anywhere on the machine rather than inside a repo.
 ## Addendum (2026-09-27): until the socket exists, the statusline goes around it
 
 The global socket is designed and not built. The statusline's "elsewhere" segment
-(ADR-0027) does not wait for it: it finds every whiska on the machine through herdr's
+(ADR-0048) does not wait for it: it finds every whiska on the machine through herdr's
 own machine-wide pane list — an agent pane in a repo root that has a house — and reads
 each such house's database directly, the way `whiska questions` reads this repo's.
 That is one `pane.list` call plus a read-only open per other house, on every refresh.

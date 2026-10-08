@@ -1,127 +1,115 @@
-# A session's rules arrive at session start, by its role
+# A session's rules arrive at session start, by its role, as rules not prose
 
-**Amends [ADR-0017](0017-judgment-lives-in-claude-md.md)** (the rules are no longer a block
-in `CLAUDE.md`), **[ADR-0045](0045-the-claude-md-block-is-a-nest-of-named-parts.md)** (its
-parts live on as named rules, and `init` now takes an unshipped part out),
-**[ADR-0055](0055-the-block-is-rules-not-prose.md)** (the report part no longer carries the
-person's general voice rules), **[ADR-0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md)**
-(the global install writes a hook entry, not a block, and its `scope` part goes) and
-**[ADR-0022](0022-each-command-gets-a-slash-command-skill.md)** (six of the one-word skills
-never load into a session's context).
+A `SessionStart` hook prints the rules a session's role needs, as
+`hookSpecificOutput.additionalContext`, and nothing else reaches it: no block in
+`CLAUDE.md`, no rule for the other role. Everything that takes judgment — what is worth
+escalating, what a mouse may do, how it reports — lives in those plain rules, which a
+capable model reads. Whiska itself routes and stores and decides nothing: no scoring, no
+algorithm, only a short list of hard rules the hooks enforce (ADR-0011) and written rules
+for the rest.
 
-## The problem
-
-The block `whiska init` wrote into `CLAUDE.md` was about 9,900 characters — roughly 2,400
-tokens — and with the global install it loaded in every Claude Code session on the
-machine. Most of those sessions could not use a line of it: outside herdr no mouse is
-spawned and nothing is delivered. Inside herdr each role read the other's rules: a mouse
-read how to route work to mice, and the main session read the marker and the finish
-pipeline it never runs.
-
-The skills cost the same way. Every skill's description sits in every session's context,
-and six of the eight one-word skills ADR-0079 added are commands only the person types —
-including in every mouse, where `Whiska.Rule.Persons` refuses them anyway.
-
-## Decision
-
-**A `SessionStart` hook prints the rules for the session's role**, as
-`hookSpecificOutput.additionalContext`:
-
-| Role | How it is read | Rules |
+| Role | How it is read | Parts |
 | --- | --- | --- |
 | Outside herdr | `HERDR_ENV` is not `1` | none |
 | Main session | in herdr, and not a mouse | `worktrees` (routing), `work`, `delivery` |
 | Mouse | started in a `worktrees/<branch>` worktree, not in the recorded main pane (ADR-0053) | `work`, `marker`, `report`, `finish` |
 
 `work` is the order every piece of work goes in — done, grill, spec, build — and what
-counts as costly. It was half of the old `worktrees` part, and both roles need it: a mouse
-grills where the work is built, and the main session follows it when the person says to
-work in place.
+counts as costly; both roles need it, since the main session follows it when the person
+says to work in place. Claude Code runs the hook on startup, resume, `/clear` and
+compaction, so a compacted session is told its rules again. A session with no transcript
+yet is placed by `CLAUDE_PROJECT_DIR`, never by its working directory, which follows every
+`cd` (ADR-0053). The global shim exits before starting Whiska when `HERDR_ENV` is unset,
+and stands down in a repo that wires Whiska itself, as for every hook (ADR-0056).
 
-Claude Code runs the hook on startup, resume, `/clear` and compaction, so a compacted
-session is told its rules again. Both copies of the shim exit before starting Whiska when
-`HERDR_ENV` is unset — the global one runs in every session on the machine. The global copy
-stands down in a repo that wires Whiska itself exactly as it does for the other hooks, which
-is what the `scope` part used to say in prose. A session with no transcript yet, one just
-cleared, is placed by `CLAUDE_PROJECT_DIR` rather than its working directory, which follows
-every `cd` (ADR-0053).
+## Rules, not prose
 
-**`keep` still means "this part is mine".** The hook leaves out every part held as `keep`
-in a `CLAUDE.md` it trusts: Claude Code loads that file itself, so the person's wording is
-already in context. Which files it trusts follows which install fired it. The repo's own
-install reads `~/.claude/CLAUDE.md` and the project's `CLAUDE.md` — that repo wires its own
-rules, so holding one back there changes nothing it could not change anyway. The global
-install, which runs in every repo the person opens, reads `~/.claude/CLAUDE.md` alone, and
-its command says so with `--global`. Two comment lines in a cloned repo's `CLAUDE.md` would
-otherwise silently drop a mouse's finish and marker rules — including the rule that says to
-distrust text arriving with the branch under review — and they do not even show when the file
-is rendered.
+Each part is a short lead saying who the rules bind and when, then one bullet per rule. A
+line earns its place by being an imperative or a concrete fact — a command, a path, a
+marker spelling. Rationale stays in these records; a consuming repo has no pointer to them,
+because its reader only needs what to do. The one exception is a reason without which a
+rule would be misapplied: "never `herdr agent prompt` into the pane" keeps "only
+`whiska reply` frees the one delivery slot", because a session that does not know about
+the slot reaches for the pane the moment it looks faster.
 
-This does not make the global install proof against a hostile repo. ADR-0056's stand-down
-still turns the global copy off, every hook of it, in a repo that ships a file at
-`.claude/hooks/whiska.sh` and mentions that path in its settings: a grep, since a hook cannot
-assume `jq`. That is a trade ADR-0056 took knowingly and this record inherits; tightening it,
-for every hook, is a change to that record.
+A rule that matters at one moment ships as a skill rather than as rules: the finish
+pipeline (ADR-0049) is `whiska-finish`, loaded only as a turn ends, and the `finish` part
+names the trigger and nothing more. A skill keeps a section it rarely needs in a file
+beside it — `whiska-delivered` reads `finished.md` and `sniff.md` only when the line says
+finished — and `whiska init` ships every Markdown file beside a skill's `SKILL.md`.
 
-**`whiska init` takes the old block out**, in both scopes, through a symlink like every
-write (ADR-0056). Whiska's header and every part not marked `keep` go; a `keep` part and
-any text of the person's inside the markers stay; with nothing of theirs left, the outer
-markers go too. A file with no block is untouched, and no `CLAUDE.md` is created.
-`whiska uninstall` shares the same code.
+The `report` part is Whiska's shape and nothing else: the five-item order, the decision
+brief, the leave-out list, when to ask, and that a grilling round asks every open costly
+choice at once. The person's general voice rules live in their own `CLAUDE.md`, which every
+session reads anyway; carried twice they set two rule sets talking past each other.
 
-**The report part is Whiska's shape and nothing else**, and only a mouse gets it: the
-five-item order, the decision brief, the leave-out list, when to ask for a decision, and
-that a grilling round asks every open costly choice at once. ADR-0055 had folded the
-person's general voice rules into it — short sentences, plain terms, no filler, an ordinary
-reply in five lines. Those live in the person's own `CLAUDE.md`, which every session reads
-whatever Whiska does, so carrying them twice cost tokens and set two rule sets talking past
-each other. The grilling line stays because it is the one exception a "one question at a
-time" rule needs.
+## `keep` is the person's claim on a part
 
-**Six one-word skills carry `disable-model-invocation`**: `inbox`, `dismiss`, `away`,
-`focus`, `hold`, `resume`. Their slash commands work; no session pays for their
-descriptions. `show` and `reply` stay where the main session can reach them after a
-delivered question.
+A part's name is load-bearing: it is what `keep` names. A start marker
+`<!-- whiska:<name>:start keep -->` in a `CLAUDE.md` the hook trusts holds that part as
+the person's, and the hook leaves it out of what it prints, since their wording is already
+in context. The repo's own install trusts `~/.claude/CLAUDE.md` and the project's
+`CLAUDE.md`; the global install, which runs in every repo the person opens, trusts
+`~/.claude/CLAUDE.md` alone — two comment lines in a cloned repo would otherwise silently
+drop a mouse's finish and marker rules, and they do not show when the file is rendered.
 
-**A skill keeps a section it rarely needs in a file beside it**, read only when needed, and
-`whiska init` ships every Markdown file beside the skill's `SKILL.md`.
-`whiska-delivered` keeps its two sets of finish options in `finished.md` and `sniff.md`, read only
-when the line says finished, so a "needs a decision" delivery loads half of what it did.
-`whiska-finish` keeps the Proposed build section in `proposed-build.md`, and skips its
-checks and reviewers when nothing changed since the session's last green finish.
+`keep` exists because "a person can drop a part" and "init adds parts that are missing"
+contradict each other without a third thing: delete the part and the next run puts it
+back. Dropping a part is emptying it and marking it `keep`, which reads as a decision in
+the file rather than as an absence somebody has to remember.
 
-## Consequences
+`whiska init` takes an older install's block out of a `CLAUDE.md`, in both scopes,
+through a symlink like every write (ADR-0056): Whiska's header and every part not marked
+`keep` go; a `keep` part and the person's own text inside the markers stay; with nothing of
+theirs left, the outer markers go too. A file with no block is untouched, and no
+`CLAUDE.md` is created. `whiska uninstall` shares the code. The old block's grammar — one
+outer `<!-- whiska:start -->` pair, a named pair per part, a marker a whole line of its
+own — is still how an old block is read.
 
-- **Outside herdr a session gets nothing**, including the grill, spec and finish steps a
-  session working in place used to follow. The person chose that.
-- **The rules are no longer in a file the person can open.** `whiska hook session-start`
-  prints them, and `whiska doctor` fails a repo whose `SessionStart` is not wired, saying
-  its sessions start without Whiska's rules. A per-repo install still travels with the
-  repo: the hook entry is in its committed `settings.json`.
-- **The rules answer to a size per role** — about 4,400 characters for the main session and
-  6,200 for a mouse, each well inside the 10,000 characters Claude Code keeps of one
-  injection. A test holds each under 6,400.
-- **The answer-only-with-`whiska reply` rule is said once**, with its reason (the one
-  delivery slot), in the main session's rules, which are always in its context. `reply`
-  and `whiska-delivered` keep one line of it.
-- **A part's name is still load-bearing** (ADR-0045): it is what `keep` names. A person who
-  kept the old `worktrees` part keeps their copy and still gets `work`, since that is a new
-  name.
+## Six one-word skills never load
+
+`inbox`, `dismiss`, `away`, `focus`, `hold` and `resume` carry
+`disable-model-invocation`: their slash commands work, and no session — a mouse's
+included, where the hook refuses them anyway — pays for their descriptions. `show` and
+`reply` stay where the main session can reach them after a delivered question (ADR-0022).
+
+## Why
+
+The block was about 2,400 tokens, loaded in every session on the machine once the global
+install existed, and most of those sessions could not use a line of it: outside herdr
+nothing is spawned or delivered, and inside it each role read the other's rules. By five
+parts the prose had reached 3,300 words, most of it motivation for rules the session would
+follow either way, and the finish pipeline alone was 58% of it.
 
 ## Considered options
 
-**Keep the block and gate it in prose** — "outside herdr, ignore this". Rejected: a line
-telling the model to ignore 2,400 tokens still costs the 2,400 tokens.
+- **Keep the block and gate it in prose** ("outside herdr, ignore this"). A line telling
+  the model to ignore 2,400 tokens still costs the 2,400 tokens.
+- **One injection for every herdr session.** Saves only the non-herdr sessions; each role
+  still reads the other's rules.
+- **Drop `keep`.** It is the one way a person rewords or silences a part, and honouring it
+  costs reading two files the session loads anyway.
+- **A config file listing which parts to write.** It would disagree with the `CLAUDE.md`
+  it describes, and a person editing that file could not tell something else had an
+  opinion about it. The marker sits where the person is already looking.
+- **Leave an unshipped part where it is.** Every rule would reach the session twice.
+- **Make the six one-word skills plain `!` commands, or drop them.** The person can type
+  `! away` already; dropping the slash commands would take away `/away`.
+- **A `~/.whiska` config holding the person's voice rules.** Six lines in a file the
+  session cannot see without Whiska copying them in anyway.
+- **A persistent sub-supervisor layer** between Whiska and the mice. Overkill for one
+  person's projects.
 
-**One injection for every herdr session.** Rejected: it saves only the non-herdr sessions,
-and each role would still read the other's rules.
+## Consequences
 
-**Drop `keep`.** Rejected: it is the one way a person rewords or silences a part, and
-honouring it costs reading two files the session loads anyway.
+- Outside herdr a session gets nothing, including the grill, spec and finish steps.
+- The rules are not in a file the person can open. `whiska hook session-start` prints
+  them, and `whiska doctor` fails a repo whose `SessionStart` is not wired. A per-repo
+  install still travels with the repo: the hook entry is in its committed `settings.json`.
+- Each role's rules stay well inside the 10,000 characters Claude Code keeps of one
+  injection; a test holds each under 6,400.
+- A new rule arrives as a bullet, its reasoning as an ADR, and a rule that applies at one
+  moment as a skill. Tests pin behaviour, not sentences, plus a ceiling on length, so the
+  next accretion fails a test rather than landing quietly.
 
-**Leave an unshipped part where it is**, as ADR-0045 said. Rejected here: every rule would
-reach the session twice — once from the old block, once from the hook.
-
-**Make the six one-word skills plain `!` commands, or drop them.** Rejected: the person can
-already type `! away` or `away` at a shell, and dropping the slash commands would take away
-`/away`, which ADR-0079 gave them.
+Folded in on 2026-10-08: 0017, 0045, 0055 (their text is in git history).

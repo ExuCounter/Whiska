@@ -58,7 +58,7 @@ defmodule Whiska.Watch.Transcript do
   transcript.
 
   Silence is the board's signal that a working mouse is stuck in something
-  rather than moving through it (ADR-0051's addendum of 2026-10-02): Claude Code
+  rather than moving through it (ADR-0082): Claude Code
   appends to this file every few seconds while a turn runs, so the file's own
   mtime is when the mouse last did anything.
 

@@ -106,7 +106,7 @@ defmodule Whiska.InstallSpecSkillTest do
     end
   end
 
-  describe "the template keeps the person's sections and shrinks what goes under them (ADR-0076)" do
+  describe "the template keeps the person's sections and shrinks what goes under them (ADR-0063)" do
     test "keeps every section, in order" do
       body = skill("whiska-spec")
 

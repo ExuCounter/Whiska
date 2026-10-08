@@ -231,8 +231,8 @@ mouse either way, just a mode flag:
   *all* edits, not just ones outside the worktree — a sniff mouse should never write
   code at all.
 
-**Model and effort** (ADR-0069, superseding ADR-0019's ranked list; then
-ADR-0073): both belong to the mouse's
+**Model and effort** (ADR-0069, superseding ADR-0069's ranked list; then
+ADR-0069): both belong to the mouse's
 shape, and are chosen apart from the mode. `spawn-worktree` reads the ordered rules in
 `priv/models.json` with `whiska shape --rules`, takes the first rule that fits for each,
 and runs `whiska shape build|sniff [--model <name>] [--effort <level>]` in the new
@@ -344,7 +344,7 @@ a real check beats trusting a skill to remember.
 ## Review before a push — agnostic, no specific tool required
 
 > **Superseded, 2026-09-28.** `checks.yml` was never built and is now decided against:
-> ADR-0014 records why, and ADR-0042 replaces it. Whiska runs no checks of its own. What
+> ADR-0049 records why, and ADR-0049 replaces it. Whiska runs no checks of its own. What
 > answers "is this worktree actually done?" is the repo's own `Stop` hook,
 > `.claude/hooks/review-loop.sh`, which runs at the end of a *turn* rather than at push.
 > The section below is kept as the original reasoning — the ADRs win (see `CLAUDE.md`).
@@ -377,9 +377,9 @@ happens after that (checks, then approval, then the real push) runs asynchronous
 to the side, through the same delivery machinery questions already use — never inside
 the hook itself.
 
-> **Step 1 below is superseded** (ADR-0014, ADR-0042): there is no check step in the push
+> **Step 1 below is superseded** (ADR-0049): there is no check step in the push
 > flow any more, and approval carries the diff alone. Step 2's bounded escalation is what
-> survives, and ADR-0042's review loop borrows its shape.
+> survives, and ADR-0049's review loop borrows its shape.
 
 **What happens in that background work, concretely:**
 1. Checks run (`checks.yml`, in parallel — a file with six checks costs about as long as

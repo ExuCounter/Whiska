@@ -9,7 +9,7 @@
       775 -   X, try Y" — one shot, not an ongoing back-and-forth.
       775 +   X, try Y" — one shot, not an ongoing back-and-forth. *Built for one kin
           +d of stuck
-      776 +   (ADR-0065): a turn that ended without reaching the doorstep. The line r
+      776 +   (ADR-0082): a turn that ended without reaching the doorstep. The line r
           +e-states the
       777 +   situation and decides nothing, rungs 1 and 2 are preconditions of the d
           +etector rather

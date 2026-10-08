@@ -147,7 +147,7 @@ defmodule Whiska.DoorstepTest do
     end
   end
 
-  describe "count_waiting/1 — what the statusline reads when the owl is down (ADR-0027)" do
+  describe "count_waiting/1 — what the statusline reads when the owl is down (ADR-0048)" do
     test "counts uncollected entries only", %{main: main} do
       {:ok, a} = Doorstep.leave(main, entry())
       {:ok, _} = Doorstep.leave(main, entry())

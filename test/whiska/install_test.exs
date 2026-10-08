@@ -33,7 +33,7 @@ defmodule Whiska.InstallTest do
     end
 
     test "names nothing specific to the machine that ran init" do
-      # ADR-0016 checks this file into git so the rules travel with the repo.
+      # ADR-0056 checks this file into git so the rules travel with the repo.
       # An absolute path into one developer's home directory does not travel,
       # and leaks their username into a shared repo besides. Everything
       # machine-specific moved into the shim, which resolves it at run time.

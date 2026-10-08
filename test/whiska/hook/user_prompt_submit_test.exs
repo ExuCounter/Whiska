@@ -211,7 +211,7 @@ defmodule Whiska.Hook.UserPromptSubmitTest do
     assert context(output) =~ "yes"
   end
 
-  describe "in the main session, after a finished line (ADR-0008, note of 2026-10-08)" do
+  describe "in the main session, after a finished line (ADR-0008)" do
     setup %{main: main, worktree: worktree, mouse_id: mouse_id} do
       seed(main, worktree, mouse_id, fn ->
         Storage.set_main_pane("w1:p7")

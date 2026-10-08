@@ -7,7 +7,7 @@ defmodule Whiska.Questions do
   rather than shelling out to the command, so the reading lives here and each
   caller only renders: `render/1` for the listing, `render_full/1` for the same
   thing at length (`whiska questions --full`), and `statusline/1` for the one
-  segment the statusline appends (ADR-0027). A statusline that disagreed with
+  segment the statusline appends (ADR-0048). A statusline that disagreed with
   the listing about what is waiting would be worse than either alone.
 
   Three sources, each asked for what only it knows: the house's open and sent
@@ -27,7 +27,7 @@ defmodule Whiska.Questions do
   alias Whiska.Storage
 
   # An entry sitting uncollected longer than the owl's backstop is evidence the
-  # owl is not collecting. Until the owl answers a socket (ADR-0027), age is the
+  # owl is not collecting. Until the owl answers a socket (ADR-0048), age is the
   # only signal there is; anything younger may just be the normal race between
   # the two Stop hooks (ADR-0036).
   @backstop_s 60
@@ -356,7 +356,7 @@ defmodule Whiska.Questions do
 
   One question holds the delivery slot at a time and the rest wait for it to
   be answered (ADR-0008), so an open question is waiting on that one, not on
-  the person — a finished report included (ADR-0008, note of 2026-10-06). The
+  the person — a finished report included (ADR-0008). The
   one rule the sidebar, `whiska questions` and `inbox` all use, so none of them
   can spell the state apart.
   """
@@ -389,7 +389,7 @@ defmodule Whiska.Questions do
   @doc """
   The questions part of the statusline, with the owl in front when the doorstep
   says it has stopped collecting: detail when there is exactly one thing, a
-  count otherwise (ADR-0027). Empty when nothing is waiting. `Whiska.Statusline`
+  count otherwise (ADR-0048). Empty when nothing is waiting. `Whiska.Statusline`
   composes the whole line around `questions_segment/1`, and derives the owl's
   state from the process table as well as `doorstep_stale`, so its owl segment
   is its own.

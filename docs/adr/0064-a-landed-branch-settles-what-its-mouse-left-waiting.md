@@ -12,7 +12,7 @@ through `whiska reply`, and merges the branch. The worktree comes down — by th
 question was still `sent` when its mouse went, so it cascaded to `orphaned`.
 
 That is the normal, successful path through the system, and it leaves an orphan behind
-every time. The board's orphan count (ADR-0051) therefore only ever goes up, across every
+every time. The board's orphan count (ADR-0082) therefore only ever goes up, across every
 repo, and means nothing. A count that only grows is not a signal.
 
 ## Decision
@@ -24,7 +24,7 @@ says it was dealt with.
 Two new things carry it:
 
 - **`settled`**, a terminal question status. Not waiting, so it leaves the delivery queue
-  and frees the slot exactly as orphaning did (ADR-0057). Not orphaned, so it is counted
+  and frees the slot exactly as orphaning did (ADR-0008). Not orphaned, so it is counted
   on neither of the board's lines and listed by neither half of `whiska questions`.
 - **`landed_at` on the mouse record**, stamped by the owl's sweep the first time it sees
   that branch's work reach the base. ADR-0061's first precondition — `merge-base
@@ -129,7 +129,7 @@ nothing ever answered.** Two real cases remain.
   branch that never landed. `drop-worktree`'s own stated use is taking a worktree down
   *before* its branch lands, so this is not a hypothetical. Nobody answered the question
   and the work it was about is gone.
-- **A record that never stood for a worktree.** ADR-0057's phantom — the ordinary folder
+- **A record that never stood for a worktree.** ADR-0008's phantom — the ordinary folder
   a slashed branch nests under — and any other stale record. There was never a branch to
   land.
 

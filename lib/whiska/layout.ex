@@ -20,7 +20,7 @@ defmodule Whiska.Layout do
   `feat/csv-data-page`.
 
   **A folder under the container that is no checkout of its own is not a worktree**
-  (ADR-0030's note, rewritten 2026-10-02). git answers the question directly, and
+  (ADR-0030). git answers the question directly, and
   the answer does not change as the folder's children come and go, so a session
   sitting in `worktrees/feat` is nobody rather than a mouse called `feat`.
   `unplaced/1` is that same folder read for containment alone: it carries the main

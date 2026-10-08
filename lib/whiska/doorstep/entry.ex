@@ -15,7 +15,7 @@ defmodule Whiska.Doorstep.Entry do
   `spec` is the text of the worktree's spec file when the turn ended, nil when
   there was none. It travels here because the doorstep is in the house and
   outlives the worktree, so the owl can keep a copy of the spec at collection
-  whatever removes the worktree first (ADR-0085).
+  whatever removes the worktree first (ADR-0063).
   """
 
   @enforce_keys [:mouse_id, :branch, :worktree_root, :stamped_at, :text]

@@ -2,22 +2,22 @@ defmodule Whiska.Rules do
   @moduledoc """
   The rules a session starts with, by its role (ADR-0081).
 
-  ADR-0017 puts every piece of judgment in plain-English rules the model reads
+  ADR-0081 puts every piece of judgment in plain-English rules the model reads
   and keeps Whiska dumb. These are those rules, as named parts, each going to
   the role that acts on it: the main session routes work to mice and reads what
   they ask; a mouse grills, builds, finishes and ends each turn on a marker. The
   `SessionStart` hook prints one role's parts (`Whiska.Hook.SessionStart`).
 
-  A part's name is what `keep` claims (ADR-0045): a part the person holds as
+  A part's name is what `keep` claims (ADR-0081): a part the person holds as
   `keep` in a `CLAUDE.md` is already in context in their own words, so it is
   left out here.
 
-  Rules, not prose (ADR-0055): a line is an imperative or a concrete fact — a
+  Rules, not prose (ADR-0081): a line is an imperative or a concrete fact — a
   command, a path, a marker spelling. The reasoning lives in Whiska's ADRs. A
   reason stays inline only where deleting it would change what a session does.
 
   The marker's spelling is interpolated from `Whiska.Question.Marker`, so what a
-  mouse is told to write and what the owl parses cannot drift (ADR-0045).
+  mouse is told to write and what the owl parses cannot drift (ADR-0081).
   """
 
   alias Whiska.Question.Marker

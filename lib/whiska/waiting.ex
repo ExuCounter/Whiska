@@ -137,8 +137,8 @@ defmodule Whiska.Waiting do
   @doc """
   Has this house anything waiting on the person?
 
-  The statusline's own question (ADR-0027's elsewhere segment), asked here so
-  the two can never disagree about what "waiting" means.
+  The tab bar line's own question (ADR-0048), asked here so the two can never
+  disagree about what "waiting" means.
   """
   @spec waiting?(Path.t()) :: boolean()
   def waiting?(main_checkout), do: house(main_checkout) != []
@@ -309,7 +309,7 @@ defmodule Whiska.Waiting do
   first line saying so.
 
   Deliberately one line each rather than a count — this is the list you scan
-  before deciding where to go, and ADR-0027's "a count for many" is about a
+  before deciding where to go, and ADR-0048's "a count for many" is about a
   statusline segment, not about a command whose whole job is the list.
 
   Options: `:away?`, whether the person is away (not read here, since the

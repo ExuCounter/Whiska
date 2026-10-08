@@ -1,6 +1,6 @@
 defmodule Whiska.Owl.GateLogTest do
   @moduledoc """
-  What the owl's log says about a held delivery (ADR-0058). The gate itself
+  What the owl's log says about a held delivery (ADR-0082). The gate itself
   does not change (ADR-0008, ADR-0047); the log only says what it decided, and
   when — the one record of why a question waited.
 

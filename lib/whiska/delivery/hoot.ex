@@ -25,7 +25,7 @@ defmodule Whiska.Delivery.Hoot do
   `[ui.sound]` settings whether to draw it. When it says it did not because
   popups are off (`disabled`) or nobody is attached to see one
   (`no_foreground_client`), the hoot is raised on the desktop instead
-  (ADR-0071): `[ui.toast] delivery` is one
+  (ADR-0062): `[ui.toast] delivery` is one
   switch over two decisions, and turning off herdr's toast for every agent is
   not asking for Whiska's to go quiet. `rate_limited` and `busy` are herdr
   pacing itself, and a fallback would defeat the pacing; an error leaves it

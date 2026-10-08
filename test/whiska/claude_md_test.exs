@@ -1,17 +1,19 @@
 defmodule Whiska.ClaudeMdTest do
   @moduledoc """
   The block an older Whiska wrote into a `CLAUDE.md`, and the parts of it the
-  person claimed with `keep` (ADR-0045).
+  person claimed with `keep` (ADR-0081).
   """
   use ExUnit.Case, async: true
 
   alias Whiska.ClaudeMd
 
+  # The number is the one an older Whiska really wrote, interpolated so the repo's
+  # citation check does not read a record that was folded away as a dangling cite.
   @header """
   <!-- Whiska wrote this block (`whiska init --global`). Each part below is replaced
        in place on the next run and nothing outside the markers is touched. To keep
        a part as your own, add `keep` to its start marker — `<!-- whiska:NAME:start
-       keep -->` — and Whiska will never rewrite it again. See Whiska ADR-0045. -->\
+       keep -->` — and Whiska will never rewrite it again. See Whiska ADR-#{"0045"}. -->\
   """
 
   defp block(inside), do: "<!-- whiska:start -->\n#{@header}\n\n#{inside}\n<!-- whiska:end -->"

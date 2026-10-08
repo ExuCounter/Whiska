@@ -25,7 +25,7 @@ defmodule Whiska.StorageTest do
       on_exit(fn -> Storage.close(handle) end)
 
       assert File.exists?(Storage.database_path(main))
-      # Both tables exist from day one, at their real schema (ADR-0030), so
+      # Both tables exist from day one, at their real schema (ADR-0028), so
       # nothing changes shape when the owl arrives.
       assert [] = Storage.all(Mouse)
       assert [] = Storage.all(Question)
@@ -79,7 +79,7 @@ defmodule Whiska.StorageTest do
       assert %DateTime{} = mouse.created_at
     end
 
-    test "defaults mode to build (ADR-0018)" do
+    test "defaults mode to build (ADR-0069)" do
       assert {:ok, mouse} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
       assert mouse.mode == "build"
     end
@@ -117,7 +117,7 @@ defmodule Whiska.StorageTest do
     end
 
     test "carries its real schema even though v0.0.1 writes nothing into it" do
-      # ADR-0030: v0.0.1's one rule denies rather than asks, so there is no rule
+      # ADR-0011: the hook denies rather than asks, so there is no rule
       # that writes a meaningful row here yet. The shape is still final.
       question =
         Whiska.Repo.insert!(%Question{
@@ -304,7 +304,7 @@ defmodule Whiska.StorageTest do
     end
   end
 
-  describe "set_mode/2 and mode/1 (ADR-0018)" do
+  describe "set_mode/2 and mode/1 (ADR-0069)" do
     setup %{main: main} do
       {:ok, handle} = Storage.open(main, name: nil)
       on_exit(fn -> Storage.close(handle) end)

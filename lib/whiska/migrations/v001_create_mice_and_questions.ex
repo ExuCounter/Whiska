@@ -1,6 +1,6 @@
 defmodule Whiska.Migrations.V001CreateMiceAndQuestions do
   @moduledoc """
-  Both tables, at their final schema, from day one (ADR-0030).
+  Both tables, at their final schema, from day one (ADR-0028).
 
   This lives in `lib/` rather than the conventional `priv/repo/migrations/`
   because an escript has no `priv` directory at runtime — there is no unpacked

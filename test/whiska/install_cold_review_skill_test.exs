@@ -18,7 +18,7 @@ defmodule Whiska.InstallColdReviewSkillTest do
     front
   end
 
-  describe "it ships as a skill that runs as its own read-only subagent (ADR-0083)" do
+  describe "it ships as a skill that runs as its own read-only subagent (ADR-0049)" do
     test "its frontmatter names it, with a quoted description" do
       assert frontmatter() =~ ~r/^name: cold-review$/m
       assert [_] = Regex.run(~r/^description: ".*"$/m, frontmatter())
@@ -40,7 +40,7 @@ defmodule Whiska.InstallColdReviewSkillTest do
       assert front =~ ~r/^argument-hint: "\[base-ref\] \[spec-file\]"$/m
     end
 
-    test "it names no model (ADR-0073)" do
+    test "it names no model (ADR-0069)" do
       refute skill() =~ ~r/\b(opus|sonnet|haiku|fable)\b/i
     end
   end

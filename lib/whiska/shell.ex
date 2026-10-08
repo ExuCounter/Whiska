@@ -6,7 +6,7 @@ defmodule Whiska.Shell do
   ## The governing principle
 
   **Anything this module cannot confidently read is reported as mutating.** A
-  sniff mouse must never write code at all (ADR-0018), so an unrecognised command
+  sniff mouse must never write code at all (ADR-0069), so an unrecognised command
   has to be treated as the dangerous case. That is the opposite balance from the
   worktree rule of ADR-0013, which polices only literal `file_path` arguments
   precisely so it can never produce a false denial — and the difference is

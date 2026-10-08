@@ -1,204 +1,114 @@
-# The global install is the same install rooted at the home, and the repo's copy wins
+# The install is per-repo by default, and the global install is the same install rooted at the home
 
-ADR-0016 made hooks and rules per-project: `whiska init` writes `.claude/` and the block
-in `CLAUDE.md`, they are checked into git, and the rules travel with the repo. That holds
-wherever the repo will take them.
-
-Some repos will not. A person working in a repo they do not own, or one whose owners will
-not carry another tool's hooks, cannot commit any of it — and an uncommitted file is not
-in any worktree git creates, so every mouse spawned there starts with none of the rules.
-The repo where the protocol matters most is the one where it cannot be installed.
-
-So `whiska init --global` writes the same install into `~/.claude` instead.
-
-## It is the same install, not a second one
-
-Every path Whiska writes is the same relative path in both scopes:
+`whiska init` writes the repo's own `.claude/` — the hook shim, the four hook entries in
+`settings.json`, the skills — and it is checked into git, so anyone who clones the repo
+and has Whiska installed gets the same rules. That is the default, and the only
+arrangement in which the rules travel to someone else's machine. `whiska init --global`
+writes the identical relative paths under `~/.claude` instead, for a repo that cannot
+carry a committed `.claude/`: one the person does not own, or whose owners will not take
+another tool's hooks. An uncommitted file is in no worktree git creates, so without the
+global install every mouse spawned there would start with none of the rules.
 
 | | `whiska init` | `whiska init --global` |
 | --- | --- | --- |
-| the block | `CLAUDE.md` | `~/.claude/CLAUDE.md` |
 | the shim | `.claude/hooks/whiska.sh` | `~/.claude/hooks/whiska.sh` |
-| the board | `.claude/hooks/whiska-statusline.sh` | `~/.claude/hooks/whiska-statusline.sh` |
-| the hooks and the statusline | `.claude/settings.json` | `~/.claude/settings.json` |
+| the hooks | `.claude/settings.json` | `~/.claude/settings.json` |
 | the skills | `.claude/skills/` | `~/.claude/skills/` |
 
-A scope is a root, and nothing else. `Whiska.Install` and `Whiska.ClaudeMd` take it as an
-argument and the merge, the `keep` semantics and the idempotency are one implementation
-either way.
-
-Nothing needs to be per-repo for this to work, because nothing in the hooks was ever
-repo-specific. Which worktree a hook is firing in is derived from where the session
-started (ADR-0053) against the `worktrees/<branch>` layout (ADR-0030), and the board file
-is found by walking up from the directory the session is sitting in. A global hook in a
-repo with no house simply finds no mouse and writes nothing. What stays per repo is the
-house under `.git/whiska` — which was never committed anyway — and the optional `## Finish`
-heading, which is the repo's to write because only the repo knows what green means.
-
-Two differences, each forced:
-
-- **The hook command.** `$CLAUDE_PROJECT_DIR` names the repo, so the global copy names
-  `$HOME`.
-- **The `finish` part's two pointers.** The skill file is beside the block, and `## Finish`
-  is always the project's own `CLAUDE.md` — which `~/.claude/CLAUDE.md` is not.
-
-Both scopes ship the same skills, the three worktree ones included: seven when this was
-written, nine since ADR-0076. The global
-install is the only source of them on a machine that has it; see the 2026-10-04 amendment
-below.
+A scope is a root and nothing else: `Whiska.Install` takes it as an argument, and the
+merge and the idempotency are one implementation. Nothing in the hooks is repo-specific —
+which worktree a hook fires in comes from where the session started (ADR-0053) against the
+`worktrees/<branch>` layout — so a global hook in a repo with no house finds no mouse and
+writes nothing. What stays per repo is the house under `.git/whiska`, never committed
+anyway, and the optional `## Finish` heading, which only the repo can write. The hook
+command differs by one thing: `$CLAUDE_PROJECT_DIR` names the repo, so the global copy
+names `$HOME`.
 
 ## The repo's copy wins, and the global one stands down
 
-Claude Code loads both, so a repo carrying its own install has everything twice. One rule
-settles it everywhere: **the per-repo install is in force and the global one stands down.**
+Claude Code merges the hook arrays from both files, so a repo carrying its own install
+would fire every hook twice: two denials for one tool call, two doorstep entries for one
+finished turn, the same question delivered twice. So the global shim exits before
+resolving anything when the repo both **has** `.claude/hooks/whiska.sh` and **wires** it
+in its own `settings.json` or `settings.local.json`. Both halves are required, and that is
+the security of it: a settings file is text the repo ships, so checking only for the
+string would let any cloned repo switch Whiska's containment off inside itself. A repo
+that has the shim and wires it is a repo that ran `whiska init`. The check greps rather
+than parsing, since a hook cannot assume `jq`, and tests `-f` rather than `-r`, because
+`-r` is true of a FIFO and grep on one with no writer waits for ever.
 
-- **Hooks** are the sharp case: Claude Code *merges* the hook arrays, so both would fire —
-  two denials for one tool call, and two entries on the doorstep for one finished turn,
-  which is the same question delivered to the person twice. The global shim therefore
-  exits before it resolves anything when the repo both **has** `.claude/hooks/whiska.sh`
-  and **wires** it in its own `settings.json` or `settings.local.json`. Both halves are
-  required, and that is the security of it: a repo's settings file is text the repo ships,
-  so checking only for the string would let any repo the person clones switch Whiska's
-  containment off inside itself. A repo that has the shim and wires it is a repo that ran
-  `whiska init`. It greps rather than parsing — a hook cannot assume `jq` is installed —
-  and tests `-f` rather than `-r`, because `-r` is true of a FIFO and grep on one with no
-  writer waits for ever, on a hook that fires on every tool call.
+One case it does not catch: a per-repo entry older than the shim (ADR-0035) names the
+binary directly and has no `whiska.sh`, so both hooks fire. `whiska doctor` fails such a
+repo by name with `whiska init` as the fix.
 
-  One case it does not catch: a repo whose per-repo entry predates the shim (ADR-0035) names
-  the binary directly and has no `whiska.sh` at all, so the global copy does not stand down
-  and both hooks fire. `whiska doctor` already fails such a repo by name — "older version of
-  the hook command" — with `whiska init` as the fix, and re-running it is what settles this
-  too. Teaching the bash every command shape Whiska has ever written would put the fragility
-  back where the first half of this check just took it out.
-- **The block** is text, so the global copy carries a `scope` part saying so and a session
-  follows it. Nothing can enforce this and nothing needs to: the two copies say the same
-  thing, and the cost of reading both is tokens, not behaviour. It is a part rather than a
-  sentence in the block's header because the header is written only when the block is
-  created and never re-added to one that exists, so an uninstall that a `keep` part survived
-  would leave the rule out of the block the next install writes. As a part it is replaced
-  every time, and can be claimed with `keep` like any other (ADR-0045).
-- **The statusline** needs no rule. A project `statusLine` replaces the global one rather
-  than merging with it.
-- **The skills** need no rule either. Claude Code already prefers a project skill over a
-  global one of the same name (ADR-0046).
+Skills need no rule: Claude Code prefers a project skill over a global one of the same
+name. So `whiska init` never refuses and never deletes anything; a team that wants the
+rules committed commits them, on a machine that also has the global install.
 
-So `whiska init` never refuses, and never deletes anything. A repo whose team wants the
-rules committed still commits them, on a machine that also has the global install, and a
-teammate without one is unaffected. `whiska init` says the global install is there only
-because it changes what the person might do next.
+The global shim also skips what it could never deny. It runs on most of every session's
+tool calls in every repo on the machine, measured at ~143 ms a call, while `PreToolUse`
+allows outright outside a `worktrees/<branch>/` folder. So for a `pre-tool-use` whose
+`CLAUDE_PROJECT_DIR` is not inside a worktree it exits in ~5 ms. It reads that variable
+because it is fixed for a session's life, and does nothing when it is unset; `Stop` never
+takes this path, since a question lost is worse than a turn slowed. A `session-start`
+outside herdr exits the same way (ADR-0081).
 
-## The global shim skips a tool call it could never deny
+## Whiska ships every skill, the worktree ones included
 
-The per-repo shim runs only where somebody asked for it. The global one runs on most of
-every session's tool calls, in every repo on the machine — measured at ~143 ms a call,
-against ADR-0033's budget of ~124 ms for the hook itself. In a repo with no mouse that
-buys nothing: `PreToolUse` resolves the session's worktree first and allows outright when
-there is none, so outside a `worktrees/<branch>/` folder the answer is structurally always
-allow. So the global shim exits early for a `pre-tool-use` whose `CLAUDE_PROJECT_DIR` is
-not inside a worktree — ~5 ms instead of ~143 ms.
+`spawn-worktree`, `send-to-worktree` and `drop-worktree` are the half of the protocol
+that creates a mouse and takes it down; Whiska is the half that tracks it. The two halves
+have to agree about the worktree layout, the marker's spelling (ADR-0009) and where a
+question is read from, and they cannot while they live in different repos. They wrap
+`herdr`, not `whiska` — there is no `whiska spawn`, by design (ADR-0022) — but the reason
+to ship them is ADR-0022's: a skill of fixed commands, so the model never composes the
+bash. `herdr worktree create` picks which repo to act on from the calling directory, so
+the skill does `cd "$(git rev-parse --show-toplevel)"` first; run from elsewhere it
+silently made the worktree in the wrong place.
 
-Two limits make that safe. It reads `CLAUDE_PROJECT_DIR`, which is fixed for a session's
-whole life, and does nothing when it is unset: the working directory follows every `cd` a
-session runs and is not safe to decide on (ADR-0053). And `Stop` never takes this path at
-all — a question lost is worse than a turn slowed, and `Stop` fires once a turn, where the
-cost does not matter.
-
-## The global statusline keeps the line it displaced
-
-A `statusLine` is one value, not a list. The global install takes it over — without that
-no repo gets a board at all — so the person's own global line would simply be gone. It is
-written to `~/.claude/whiska-base-statusline` instead, and both scripts run it first. That
-is the one new file the global install has that the per-repo one does not.
+Every skill lives in `priv/skills/<name>/SKILL.md`, a build input read at compile time,
+and `whiska init` writes it under whichever root it is given. One source: the person's
+dotfiles once carried their own copy of `spawn-worktree`, which sat 48 lines behind
+Whiska's for weeks, so every session spawned anywhere skipped the shape step. This repo's
+own `.claude/` is not the source, because a repo installed globally has none.
 
 ## Writes go through a symlink, never over it
 
-`~/.claude/CLAUDE.md`, `~/.claude/settings.json` and `~/.claude/skills` are commonly
-symlinks into a dotfiles repo. Replacing a link with a plain file disconnects that repo
-silently: the person keeps editing dotfiles and nothing they write reaches Claude Code
-again, with no error anywhere to say why.
-
-So every write opens the path and truncates it, which follows the link and changes the
-target in place. No temp file and rename, no unlink and recreate. `whiska uninstall` goes
-further and leaves a symlinked file exactly where it is, naming it rather than removing
-it — and `whiska init --global` prints where each change actually landed, because the
-person's next move is to commit it in the repo that owns the link, not here.
+`~/.claude/settings.json` and `~/.claude/skills` are commonly symlinks into a dotfiles
+repo. Replacing a link with a plain file disconnects that repo silently. So every write
+opens the path and truncates it, which follows the link and changes the target in place;
+`whiska init --global` prints where each change landed, since the person's next move is to
+commit it in the repo that owns the link. `whiska uninstall` names a symlinked file and
+leaves it where it is — any segment below the root counts, because `~/.claude/skills` is
+usually one link rather than a link per file.
 
 ## Uninstall
 
-`whiska uninstall`, and `whiska uninstall --global`, are the mirror of `init` and the way
-to hand a repo over to the global install: they take out the block, the hook entries, the
-scripts and the skills, restore the displaced statusline, and touch nothing else. A file
-reached through a symlink is named and left where it is — any segment of the path below
-the scope's root counts, not only its last, because `~/.claude/skills` is commonly one link
-into a dotfiles repo rather than a link per skill file. Where the link points does not
-matter: a dotfiles repo usually lives inside the very home it is linked from, so "resolves
-outside the root" would miss the common case.
+`whiska uninstall`, and `--global`, mirror `init` and are how a repo is handed over to the
+global install: the hook entries, the shim, the skills and an older install's block
+(ADR-0081) go, and nothing else is touched. The house stays: ADR-0007 is about records.
 
-One thing is not restored exactly: a displaced `statusLine` comes back as its `type` and
-`command`, so any other field it carried — a `padding`, a `refreshInterval` of the person's
-own — is gone. The base file holds a bare command because the scripts `cat` it and run it
-without needing `jq`, and keeping a second, richer copy of the same thing beside it is a
-worse trade than the field.
+## Considered options
 
-The house is untouched — ADR-0007 is about records, and uninstalling is about files. A part
-claimed with `keep` is the person's and stays, markers and all (ADR-0045).
+- **Global hooks as the default.** Zero setup per project, but the rules would not travel
+  with a shared repo.
+- **Refuse `init` where the other scope is installed.** Rejected: a team wanting the rules
+  committed should be able to, and a teammate without the global install is unaffected.
+- **A second global copy of the worktree skills, kept in dotfiles.** Two copies drift;
+  one source cannot.
+- **Replace a symlinked file.** The dotfiles repo keeps receiving edits that never reach
+  Claude Code again, with no error to say why.
 
 ## Consequences
 
-ADR-0016's reasoning is narrowed, not reversed. Per-repo is still the default and still
-the only arrangement in which the rules travel to someone else's machine; `--global` is
-for the repos where that is not on offer, and is explicitly the weaker choice. The table
-above is now load-bearing: a new file the installer writes has to be given a home in both
-scopes, or the global install is quietly missing a piece — which is why `whiska doctor`
-reports the global install's four pieces separately rather than as one boolean.
+- Per-repo is the default and `--global` the weaker choice, for repos where committing is
+  not on offer.
+- The table is load-bearing: a new file the installer writes needs a home in both scopes,
+  or the global install is quietly missing a piece. `whiska doctor` reports the global
+  install's pieces separately — the hooks that enforce, deliver and hand a mouse its
+  answer (ADR-0080), `SessionStart`, and the skills.
+- The trust boundary moved with the install. Everything `--global` writes runs in every
+  repo the person opens, including ones they are only reading; the stand-down and the
+  early exit are controls, not conveniences.
+- `Whiska.Install` reads the filesystem, where it was pure values plus one write.
 
-The trust boundary moved with the install, and that is the part to watch. Everything
-`whiska init` writes runs only where somebody asked for it; everything `--global` writes
-runs in every repo the person opens, including ones they are only reading. Two of this
-decision's rules exist solely because of that shift — the stand-down needs the shim as well
-as the string, and `pre-tool-use` skips a call it could never deny — and neither was
-necessary in the per-repo world the same code came from. A check written as a convenience
-becomes a control the moment untrusted input can reach it.
-
-`Whiska.Install` reads the filesystem now. It was pure values plus one write, and
-`global_state/0` and `global_links/0` break that. The alternative was a module whose only
-job is to stat eight paths, which is worse.
-
-## Amendment (2026-10-04): the global install ships the worktree skills too
-
-This record first kept `spawn-worktree`, `send-to-worktree` and `drop-worktree` out of the
-global install:
-
-> ADR-0046 noted that the person's dotfiles already install those three globally; a second
-> global copy would be two files with one name and nothing keeping them in step.
-
-That premise is gone. The person is taking the three out of their dotfiles, which is the
-follow-up ADR-0046 named. It had already cost something: the dotfiles copy of
-`spawn-worktree` sat 48 lines behind Whiska's for weeks, so every session spawned anywhere
-on the machine skipped the shape step and started on the default model with nothing
-recorded. Two copies drift; one source cannot.
-
-So `whiska init --global` writes every skill — seven then, nine since
-ADR-0076 — and the scope makes no
-difference to which skills are written.
-
-The symlink rule above is unchanged, and this is where it bites. Until the person's
-dotfiles stop installing the three, `~/.claude/skills/<name>/SKILL.md` is a link into that
-repo, and a global install writes Whiska's copy back through it. That is correct — the
-alternative is replacing a link the person owns. `whiska init --global` prints where each of
-the three actually landed, marking one reached through a symlink, so the person can see a
-write into dotfiles rather than discover it later. A link left behind after its dotfiles
-file was deleted is written through too, recreating the file at its target, rather than
-failing the install.
-
-## Amendment (2026-10-06): the global install writes a hook, not a block
-
-[ADR-0081](0081-rules-arrive-by-role.md) replaces the table's first row.
-The global install writes no block into `~/.claude/CLAUDE.md`; it wires one more hook,
-`SessionStart`, in `~/.claude/settings.json`, and takes an older install's block out of
-`~/.claude/CLAUDE.md` through the symlink. The `scope` part is gone: the shim's stand-down
-already makes a repo's own install win for this hook as for the others. The global shim
-also exits before starting Whiska for a `session-start` outside herdr, since it runs in every
-session on the machine. `whiska doctor` counts four pieces — the hooks that enforce, deliver and hand a mouse its
-answer (ADR-0080), `SessionStart`, the statusline and the skills — so an install written before `SessionStart` existed still
-reads as enforcing and delivering, and its fix is `whiska init --global`.
+Folded in on 2026-10-08: 0016, 0046 (their text is in git history).

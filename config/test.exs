@@ -15,5 +15,5 @@ config :whiska, :launchctl, &Whiska.Test.NoLaunchctl.run/1
 config :whiska, :systemd, &Whiska.Test.NoSystemctl.run/1
 
 # No notifier, so a hoot herdr refuses never reaches the real desktop
-# (ADR-0071).
+# (ADR-0062).
 config :whiska, :desktop, Whiska.Test.NoDesktop

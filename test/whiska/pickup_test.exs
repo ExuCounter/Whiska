@@ -212,7 +212,7 @@ defmodule Whiska.PickupTest do
     end
   end
 
-  describe "a mouse with an answer it has not taken (ADR-0067's amendment)" do
+  describe "a mouse with an answer it has not taken (ADR-0067)" do
     test "is left to the doorbell: its next turn never began", %{repo: repo} do
       m = mouse(repo, "feat-a")
       q = question(m, at: @before, kind: "needs-decision", status: "sent", text: "which?")

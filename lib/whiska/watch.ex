@@ -172,7 +172,7 @@ defmodule Whiska.Watch do
   `:panes`, herdr's answer in `Whiska.Herdr.list_panes/1` form; `:activity`,
   what a mouse is doing and how long it has been silent,
   `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:held`, why the
-  gate is not delivering (ADR-0058); `:mode`, what the person set aside
+  gate is not delivering (ADR-0082); `:mode`, what the person set aside
   (`Whiska.Delivery.Mode.t/0`, nothing by default); `:picked_up`, when each
   branch the owl picked up was picked up (ADR-0067).
   """

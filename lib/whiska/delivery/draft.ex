@@ -21,7 +21,7 @@ defmodule Whiska.Delivery.Draft do
   The box is what Claude Code draws between two horizontal rules at column 0,
   at the bottom of the screen under everything else, with the prompt marker `❯`
   on the first line inside it. All of that is needed to find it, and the lowest
-  frame that holds a marker is the one (ADR-0068).
+  frame that holds a marker is the one (ADR-0047).
 
   The marker alone is not the box. Claude Code draws the person's own past
   messages with it, at column 0, all the way up the scrollback, and a picker
@@ -48,7 +48,7 @@ defmodule Whiska.Delivery.Draft do
   Faint is a style, not a colour, so a theme change does not move it. Any style
   this does not recognise — a ghost drawn in a grey instead, an escape that is
   not a style — counts as text, and text holds. A wrong reading is a held
-  question, never a line typed into a draft (ADR-0068).
+  question, never a line typed into a draft (ADR-0047).
   """
 
   @marker "❯"
@@ -82,7 +82,7 @@ defmodule Whiska.Delivery.Draft do
   cannot drift apart.
 
   A draft holds (ADR-0047). No box holds, because there is nowhere for the
-  line to land (ADR-0068). An empty box goes, and so does a frame Whiska cannot
+  line to land (ADR-0047). An empty box goes, and so does a frame Whiska cannot
   read, which is ADR-0008's unavailable signal.
   """
   @spec hold(t()) :: {:hold, :typing | :no_box} | :go

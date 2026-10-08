@@ -14,7 +14,7 @@ defmodule Whiska.Rule.SniffTest do
     end
   end
 
-  describe "a sniff mouse never writes code (ADR-0018)" do
+  describe "a sniff mouse never writes code (ADR-0069)" do
     test "every edit tool is denied, wherever it points" do
       # Not just edits outside the worktree — all of them.
       for tool <- ~w(Write Edit MultiEdit NotebookEdit) do

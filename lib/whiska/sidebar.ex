@@ -275,7 +275,7 @@ defmodule Whiska.Sidebar do
   defp gated(%{held: nil}), do: nil
   defp gated(%{held: held}), do: "⏳ gated: #{reason(held)}"
 
-  # ADR-0058's reasons in a sidebar's width; `whiska doctor` keeps the long ones.
+  # ADR-0082's reasons in a sidebar's width; `whiska doctor` keeps the long ones.
   defp reason(:typing), do: "you're typing"
   defp reason(:no_box), do: "no prompt box"
   defp reason(:mid_turn), do: "main is mid-turn"

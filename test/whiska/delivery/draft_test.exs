@@ -6,7 +6,7 @@ defmodule Whiska.Delivery.DraftTest do
   @screens Path.expand("../../support/screens", __DIR__)
 
   # Every `.txt` fixture is `herdr pane read <pane> --source visible --format
-  # text`, captured from a live Claude Code pane on 2026-10-03. Two are a
+  # text`, captured from a live Claude Code pane on 2026-10-03. Three are a
   # captured screen with one edit, and each says in its test what was edited and
   # why no camera could take that picture.
   defp screen(name), do: File.read!(Path.join(@screens, name <> ".txt"))
@@ -53,6 +53,9 @@ defmodule Whiska.Delivery.DraftTest do
       assert Draft.read(screen("main-session-empty-box-under-a-past-message")) == :empty
     end
 
+    # One edit: an ADR number quoted in the scrollback was rewritten when that record
+    # was folded into another, so the repo's citation check still resolves it. Same
+    # width, scrollback only; the frame is the capture's own.
     test "an empty box with herdr's agent list drawn under it" do
       assert Draft.read(screen("empty-box-with-agents-below")) == :empty
     end

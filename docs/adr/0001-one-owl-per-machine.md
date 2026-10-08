@@ -21,9 +21,3 @@ Cross-repo visibility becomes cheap rather than a new subsystem: the owl already
 every open house's state in one place, so "what's open anywhere" is one more query
 against something that already knows the answer, instead of a new process talking to N
 other processes over a new protocol.
-
-## Note
-
-`handoffs/handoff.md` records the superseded position ("one Whiska instance per repo, not
-one shared daemon") as it stood at the time. It is a historical record and has not been
-rewritten; this ADR is the current decision.

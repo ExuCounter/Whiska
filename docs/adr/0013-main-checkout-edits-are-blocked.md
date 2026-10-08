@@ -22,8 +22,7 @@ main-checkout edit is denied, config files included — v0.0.1 implements exactl
 ADR-0030).
 
 **It reaches a session that is no mouse at all, when that session sits under
-`worktrees/`.** A folder there which is no checkout of its own mints no mouse (ADR-0030's
-note, rewritten 2026-10-02) — and losing identity must not mean losing containment, which
+`worktrees/`.** A folder there which is no checkout of its own mints no mouse (ADR-0030) — and losing identity must not mean losing containment, which
 would hand a session Whiska cannot account for the one permission a mouse does not have.
 So the main-checkout rule is applied from such a folder too, with the folder itself
 standing in for the worktree: a write below it is left alone, a write into the main

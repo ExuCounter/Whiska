@@ -1,9 +1,9 @@
 # A mouse's last action is read from its Claude Code transcript, never asked for
 
-The board (ADR-0051) shows what each mouse is doing. herdr answers half of that — `idle`,
+The board (ADR-0082) shows what each mouse is doing. herdr answers half of that — `idle`,
 `working`, `blocked` — and nothing in Whiska has ever answered the other half. ADR-0026
 already leaned on the missing piece, calling it "the last-tool-call excerpt from knowing
-what a mouse is doing", and ADR-0027's addendum recorded the same gap from the other side:
+what a mouse is doing", and the first statusline design recorded the same gap from the other side:
 "the one-mouse excerpt is still unbuilt — nothing captures the last tool call yet".
 
 Nothing captures it because nothing is in the room. The hook opens SQLite and exits

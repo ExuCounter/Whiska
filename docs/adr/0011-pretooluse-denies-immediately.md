@@ -1,27 +1,47 @@
-# PreToolUse always denies immediately; approval runs asynchronously
+# Hard rules are a PreToolUse hook that denies at once
 
-A hook has to answer fast. It cannot stay open while a test suite runs, and it certainly
-cannot stay open while a human decides. So `PreToolUse` never blocks-and-waits: the
-instant a mouse tries to push, the hook denies that exact attempt on the spot with "hold
-on, checking" as the tool's result. The mouse's original attempt is dead, not paused.
+A rule that must hold whatever the model decides is enforced by the `PreToolUse` hook,
+which runs before a tool call and can block it. A line in a session's rules is a
+suggestion, followed only if the mouse chooses to. The split is deliberate: the rules
+carry everything that takes judgment (ADR-0081), and the hook carries the short list that
+must hold regardless — containment in the worktree (ADR-0013), sniff mode, the read-only
+allowlist for shell commands (ADR-0034), the person's own commands and a hold
+(ADR-0079). The same principle is applied wherever it matters: cleanup checks that a
+branch is merged rather than trusting a skill to remember (ADR-0061).
 
-Everything after that — approval, then the real push — runs asynchronously, off to the
-side, through the same delivery machinery questions already use. There is no check step:
-Whiska runs no checks of its own (ADR-0014, superseded), so the approval question carries
-the diff and nothing else.
+The hook never waits. It answers in milliseconds — it cannot stay open while a test suite
+runs, and certainly not while a human decides — so it denies the attempt on the spot, with
+the reason as the tool's result, and anything slow runs asynchronously through the same
+delivery machinery questions use. The mouse's original attempt is dead, not paused.
 
-## Consequences
+## A push is caught by the hook, matched broadly
 
-When you eventually answer yes, **Whiska runs `git push` itself**, directly, in that
-worktree. It has to: the original tool call is long gone, and this must not depend on the
-mouse's pane being free or idle at whatever moment you get around to answering, which
-could be minutes or hours later. Running the push is purely mechanical and needs no
-reasoning, so it does not violate "Whiska stays dumb".
+Push detection goes through the hook, not a git `pre-push` hook. A `pre-push` hook is
+skipped outright by `git push --no-verify`, and Claude Code has open bugs around
+worktrees silently breaking or redirecting `core.hooksPath` (anthropics/claude-code
+#66993, #88747), a landmine for a tool that is all worktrees. It is still worth keeping
+as a cheap second net, since it catches a push that never went through a tool call, which
+the hook by definition cannot see. Detecting a push inside an arbitrary bash string is
+imperfect, so Whiska errs broad: anything push-shaped is matched. A false "are you sure"
+costs nothing; a missed push does.
 
-A push that fails for a real reason — a rejected remote, a hook downstream — comes back
-the same way: a message delivered into the mouse's own pane, the same shape as any other
-failing command it already knows how to react to mid-task. Bounded escalation: two
-failures in a row on the same push attempt turn the next one into a real question to you,
-carrying the failure output. The counter resets on a successful push or once you resolve
-the escalated question. ADR-0042's review loop borrows that shape wholesale, for the same
-reason: a loop with no ceiling is worse than a failure you can see.
+## Designed, not built: push approval
+
+Approval is designed as a question carrying the diff and nothing else, through the
+ordinary delivery path. On a yes, Whiska runs `git push` itself in that worktree, because
+the original tool call is long gone and the push must not depend on the mouse's pane being
+idle whenever the person gets round to answering; running it is mechanical and needs no
+reasoning. A push that fails for a real reason comes back into the mouse's own pane like
+any failing command, with bounded escalation: two failures in a row on the same push turn
+the next into a real question carrying the output. None of this is built; the hook today
+denies a push and the mouse says so in its report.
+
+## Considered options
+
+- **A hook that blocks and waits** for checks or for the person. It would hang the pane
+  for as long as a suite or a human takes.
+- **Git hooks as the enforcement.** Convenience, not enforcement: one flag skips them.
+- **Judgment in the hook** — reading the diff, deciding what counts. The hook has fixed
+  rules; judgment belongs to the model reading the rules.
+
+Folded in on 2026-10-08: 0010, 0012 (their text is in git history).

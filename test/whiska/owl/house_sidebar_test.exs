@@ -408,7 +408,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
                      1_000
     end
 
-    test "says nothing of a hold younger than its fuse (ADR-0058)", %{
+    test "says nothing of a hold younger than its fuse (ADR-0082)", %{
       main: main,
       worktree: worktree
     } do
@@ -432,7 +432,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
       refute_receive {:reported, "w1", _}, 300
     end
 
-    test "says why nothing is delivered once a hold has lasted (ADR-0058)", %{
+    test "says why nothing is delivered once a hold has lasted (ADR-0082)", %{
       main: main,
       worktree: worktree
     } do

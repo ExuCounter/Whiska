@@ -1,7 +1,7 @@
 defmodule Whiska.Spec do
   @moduledoc """
   The spec a mouse writes after grilling and the person approves before any code
-  (ADR-0076): one file at the
+  (ADR-0063): one file at the
   worktree root that is never committed.
 
   Untracked is not enough. The owl takes a landed worktree down only when `git

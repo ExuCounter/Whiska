@@ -163,7 +163,7 @@ defmodule Whiska.E2ETest do
     finish_turn(c, mouse, "Which colour for the badge?\n\u2063\u2063")
 
     # The main checkout's sidebar line says so only once the hold has outlasted
-    # its fuse (ADR-0058), so this is the owl having tried and held, not merely
+    # its fuse (ADR-0082), so this is the owl having tried and held, not merely
     # the owl being slow.
     await(
       fn -> sidebar(c)["main"]["whiska"] == "⏳ gated: you're typing" end,
@@ -413,7 +413,7 @@ defmodule Whiska.E2ETest do
   end
 
   # The hoot falls back to the desktop when herdr shows nothing, as a private
-  # session with nobody attached never does (ADR-0071). This takes the
+  # session with nobody attached never does (ADR-0062). This takes the
   # desktop's place on PATH, so a test run raises nothing on the screen.
   defp fake_notifier(path) do
     File.write!(path, """

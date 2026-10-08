@@ -2,7 +2,7 @@ defmodule Whiska.Install do
   @moduledoc """
   Writing Whiska's hook into a repo's own `.claude/settings.json`.
 
-  ADR-0016 makes hooks per-project rather than global, and the file is checked
+  ADR-0056 makes hooks per-project rather than global, and the file is checked
   into git so the rules travel with the repo: anyone who clones it and has Whiska
   installed gets the same enforcement automatically. Global hooks would mean zero
   setup per project but would not travel, which is the wrong trade for rules that
@@ -36,7 +36,7 @@ defmodule Whiska.Install do
 
   # Every tool that a rule can actually deny, and no others.
   #
-  # `Bash` earns its place: sniff mode denies mutating commands (ADR-0018) and
+  # `Bash` earns its place: sniff mode denies mutating commands (ADR-0069) and
   # containment denies ones reaching into the main checkout (ADR-0013), so a
   # matcher without it would leave both rules silently never firing.
   #
@@ -79,7 +79,7 @@ defmodule Whiska.Install do
   # `whiska hook <name>`.
   #
   # Written by `whiska init` and checked into the repo so the rules travel with
-  # it (ADR-0016). Everything machine-specific is resolved here, when the hook
+  # it (ADR-0056). Everything machine-specific is resolved here, when the hook
   # runs, rather than baked into .claude/settings.json where it would name one
   # developer's home directory and one Erlang version.
   #
@@ -95,8 +95,7 @@ defmodule Whiska.Install do
   # the runtime is looked for (ADR-0080). Shell
   # builtins only: the worktree's `.git` file names its git admin directory,
   # and the answer flag sits there. A main checkout goes on only while a
-  # finished line is out, flagged in its own `.git` (ADR-0008, note of
-  # 2026-10-08). With no project directory to decide on, Whiska decides - an
+  # finished line is out, flagged in its own `.git` (ADR-0008). With no project directory to decide on, Whiska decides - an
   # answer not handed over is worse than a prompt slowed.
   @prompt_fast_path """
   if [ "${1:-}" = "user-prompt-submit" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
@@ -411,7 +410,7 @@ defmodule Whiska.Install do
   # down, always, and what is waiting anywhere on this machine. herdr takes
   # the last line of output, so nothing else may be printed on stdout.
   #
-  # It asks the owl over its socket (ADR-0025) and starts nothing. Its one
+  # It asks the owl over its socket (ADR-0033) and starts nothing. Its one
   # argument, optional, is the key you bound to reach what waits, shown when
   # something does: herdr-status.sh '#{@herdr_status_hint}'.
   #
@@ -421,7 +420,7 @@ defmodule Whiska.Install do
   socket="${WHISKA_HOME:-$HOME/.whiska}/owl.sock"
 
   # A blank line reads as "nothing configured", and the owl's state is the one
-  # thing that must always be shown (ADR-0027 addendum), so every way of
+  # thing that must always be shown (ADR-0048), so every way of
   # getting no answer says which one happened rather than going quiet.
   if ! command -v nc >/dev/null 2>&1; then
     printf '🦉 nc missing'
@@ -667,10 +666,10 @@ defmodule Whiska.Install do
   exec "$whiska_bin" WORD "$@"
   """
 
-  # The three worktree skills (ADR-0046). Unlike the two above, these wrap
+  # The three worktree skills (ADR-0056). Unlike the two above, these wrap
   # `herdr` rather than `whiska` — they are the half of the protocol that
   # creates a mouse and takes it down again, and Whiska ships them because
-  # Whiska is what the protocol is for. ADR-0021 stands: there is still no
+  # Whiska is what the protocol is for. ADR-0022 stands: there is still no
   # `whiska spawn`, and spawning still happens through a conversation.
   #
   # Read from files at compile time rather than written out here. They are long
@@ -678,18 +677,18 @@ defmodule Whiska.Install do
   # committed copy cannot drift.
   @worktree_skills ~w(spawn-worktree send-to-worktree drop-worktree)
 
-  # The finish pipeline (ADR-0055). It binds a mouse the same way its rules
+  # The finish pipeline (ADR-0081). It binds a mouse the same way its rules
   # do, and ships as a skill for the same reason the worktree skills are
   # files: it is long, and a session only needs it at the moment a turn is
   # ending.
   #
-  # `cold-review` is the reviewer finishing always sends (ADR-0083): a skill
+  # `cold-review` is the reviewer finishing always sends (ADR-0049): a skill
   # that forks into its own read-only subagent, so the caller cannot write its
   # brief.
   #
   # The spec binds a mouse at one moment too, after grilling and before it
   # builds. The person's grilling skill ships beside it so it has one copy
-  # (ADR-0076).
+  # (ADR-0063).
   #
   # `whiska-delivered` is the one skill nobody types a slash command for: the
   # owl's delivered line triggers it by its shape — the leading 🐱 and the
@@ -841,7 +840,7 @@ defmodule Whiska.Install do
   Where an older Whiska's review loop lives, relative to the repo root.
 
   Retired (ADR-0049): finishing is the pipeline the `whiska-finish` skill
-  teaches and the `finish` part of `CLAUDE.md` points at (ADR-0055), run by the
+  teaches and the `finish` part of `CLAUDE.md` points at (ADR-0081), run by the
   mouse itself. The path is kept so a `Stop` entry naming it
   is recognised as Whiska's and dropped, and so `whiska doctor` can say a file
   left on disk is no longer run by anything.
@@ -877,7 +876,7 @@ defmodule Whiska.Install do
 
   Whiska ships the script and never edits this file: the config is
   machine-global and the person's, and a per-repo `init` writing into it is
-  exactly the boundary ADR-0016 forbids.
+  exactly the boundary ADR-0056 forbids.
   """
   @spec tab_bar_right_snippet() :: String.t()
   def tab_bar_right_snippet do
@@ -1063,8 +1062,8 @@ defmodule Whiska.Install do
 
   Two kinds, and both are one skill per fixed command rather than bash the model
   composes itself (ADR-0022): the reading skills that wrap `whiska`, and the
-  three worktree skills that wrap `herdr` (ADR-0046). `whiska-finish` and
-  `whiska-spec` are neither: they are steps a mouse's rules point at (ADR-0055).
+  three worktree skills that wrap `herdr` (ADR-0056). `whiska-finish` and
+  `whiska-spec` are neither: they are steps a mouse's rules point at (ADR-0081).
   Nor is `grilling`, the person's own skill, shipped so it has one copy.
   """
   @spec skills() :: [{Path.t(), String.t()}]

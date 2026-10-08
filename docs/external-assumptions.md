@@ -33,7 +33,7 @@ as a direct dependency.
   will run Whiska. Nothing checks herdr's version, even though herdr answers a
   `ping` with it.
 - **macOS is no longer required.** Done 2026-10-05: launchd is macOS's half, and a
-  systemd user unit is Linux's (ADR-0077).
+  systemd user unit is Linux's (ADR-0040).
   The desktop fallback adds `notify-send`, and a missing `launchctl` or `systemctl` reads as
   "not loaded" rather than raising. `mix test` passes in a Linux container. `stat` and the
   paths already had fallbacks.
@@ -129,8 +129,8 @@ outside the boundary:
 | Wire: one JSON line per request, connection closed after; subscriptions stay open | `herdr/socket.ex` only | Every call errors. Loud |
 | CLI: `herdr worktree create/list/remove`, `agent start --kind claude`, `agent prompt`, `workspace close` | the shipped skills in `priv/skills/`. Worktree and pane lookups go through `whiska worktrees` | The model reads the error and improvises. Half-loud |
 | `[ui] tab_bar_right` entry with `type = "command"`, `interval_seconds`, `timeout_seconds` | `install.ex` snippet, `doctor.ex` check | Owl's line disappears from the tab bar. Doctor checks the entry is there, not that herdr still draws it |
-| `[ui.toast]` and `[ui.sound]` | `herdr.ex` docs, `doctor.ex` | Hoot falls back to the desktop (ADR-0071). Fine |
-| herdr's client waiting up to 7 s for a reply | the 10-second staleness rule in the statusline script (ADR-0051) | A slower herdr makes a live owl look stale on the board. Cosmetic |
+| `[ui.toast]` and `[ui.sound]` | `herdr.ex` docs, `doctor.ex` | Hoot falls back to the desktop (ADR-0062). Fine |
+| herdr's client waiting up to 7 s for a reply | the 10-second staleness rule in the statusline script (ADR-0082) | A slower herdr makes a live owl look stale on the board. Cosmetic |
 
 **Version check.** None. herdr's `ping` returns its version and a protocol number, so
 one is cheap (fix 3).
@@ -170,12 +170,12 @@ Every row is someone else's UI or file format, and can change in any release.
 | Transcript first entry carries `cwd` | `session.ex` (ADR-0053) | Falls back to the payload's `cwd`, which follows `cd`. A main session that stepped into a worktree could be read as that mouse. Rare, silent |
 | Transcript subagent shapes: `Agent` tool, `agentId:` text, `origin.kind/handback/from`, `<task-notification>`, `<agent-message>`, `[Subagent hand-back]`, `isSidechain`, `attachment` | `transcript.ex` (ADR-0052) | Launch missed: a progress note delivered early. Hand-back missed: the mouse is held silent up to 30 minutes, then the backstop lets it through. Bounded, silent |
 | Transcript file birth time as session start | `transcript.ex` | Doctor reports "unchecked". Graceful |
-| Prompt box: column-0 `─` rules, `❯` marker followed by a non-breaking space, then padding | `delivery/draft.ex` (ADR-0068) | Rules change: held as "box not on screen" (loud, misleading). Marker changes: delivered into a draft (**silent**, fix 1) |
+| Prompt box: column-0 `─` rules, `❯` marker followed by a non-breaking space, then padding | `delivery/draft.ex` (ADR-0047) | Rules change: held as "box not on screen" (loud, misleading). Marker changes: delivered into a draft (**silent**, fix 1) |
 | Claude Code draws its suggested next prompt and placeholder as faint text (SGR 2), read with herdr's `--format ansi` | `delivery/draft.ex` | Suggestions drawn in another style read as typing, so questions are held as "your prompt box isn't empty". Misleading, and silent until someone asks why nothing arrives |
 | Alternate screen | skills tell the model not to read a pane | Nothing in code depends on it |
 | U+2063 draws nothing in the terminal | `question/marker.ex`, `claude_md.ex` | Three odd glyphs appear in the pane. Visible, harmless. The marker is read from the payload, not the screen |
 | Skills at `.claude/skills/<name>/SKILL.md`; agents at `.claude/agents/` | `install.ex`, the finish skill | Skills not found by the model. Visible |
-| `~/.claude/CLAUDE.md` and project `CLAUDE.md` both loaded | `claude_md.ex` (ADR-0045, ADR-0056) | Rules not read. Silent, but ADR-0009 makes a missing marker deliver, so the person notices |
+| `~/.claude/CLAUDE.md` and project `CLAUDE.md` both loaded | `claude_md.ex` (ADR-0081, ADR-0056) | Rules not read. Silent, but ADR-0009 makes a missing marker deliver, so the person notices |
 | `claude` on `PATH`, `--model` flag | `whiska start`, spawn-worktree skill | Command fails in the pane. Loud |
 
 **The pattern.** Anything the model reads or writes fails visibly, because the person

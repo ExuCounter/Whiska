@@ -1,7 +1,7 @@
 defmodule Whiska.FinishFlag do
   @moduledoc """
   An empty file saying a finished line is out in a house's main session and
-  the person has not written anything since (ADR-0008, note of 2026-10-08).
+  the person has not written anything since (ADR-0008).
 
   It is a hint for the hook shim, never a record: the finished report's `sent`
   status is what holds the slot. The shim reads it with shell builtins alone, so

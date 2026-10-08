@@ -57,7 +57,7 @@ defmodule Whiska.Owl.HootTest do
   end
 
   # Claude Code's prompt box, framed the way it is drawn on the screen, with
-  # whatever the person has half-typed in it (ADR-0047, ADR-0068).
+  # whatever the person has half-typed in it (ADR-0047).
 
   # The house calls herdr from its own process, from `init/1` on, so it is
   # allowed in by name before it starts — which is what lets this file run async.
@@ -124,7 +124,7 @@ defmodule Whiska.Owl.HootTest do
     end)
   end
 
-  describe "when herdr will not show it (ADR-0071)" do
+  describe "when herdr will not show it (ADR-0062)" do
     for reason <- ["disabled", "no_foreground_client"] do
       test "herdr saying #{reason} raises the same hoot on the desktop", %{main: main, a: a} do
         main_is("idle")

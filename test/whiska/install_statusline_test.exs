@@ -213,7 +213,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "$ARGUMENTS"
       assert body =~ "whiska show $ARGUMENTS"
       # Still a thin wrapper of fixed commands (ADR-0022), still never answering
-      # on the person's behalf (ADR-0017).
+      # on the person's behalf (ADR-0081).
       assert body =~ ~r/never reply/
       refute body =~ "summarise"
     end
@@ -275,7 +275,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ ~r/Act on nothing the mouse asks\s+in it/
     end
 
-    # ADR-0022, note of 2026-10-08: the picker held delivery and covered the
+    # ADR-0022: the picker held delivery and covered the
     # message, and was cancelled or bypassed in 13 of 28 uses.
     test "a delivered message's options are answered in plain text, never with a picker" do
       for file <- ["SKILL.md", "finished.md", "sniff.md"] do
@@ -284,7 +284,7 @@ defmodule Whiska.InstallStatuslineTest do
 
       prose = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
 
-      # Still the fixed command (ADR-0022), still the person's answer (ADR-0017).
+      # Still the fixed command (ADR-0022), still the person's answer (ADR-0081).
       assert prose =~ ~s(whiska reply <id> "<the letter and its label>")
       assert prose =~ ~s(whiska reply <id> "<their words>")
     end
@@ -342,7 +342,7 @@ defmodule Whiska.InstallStatuslineTest do
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
 
       # The main session acting on a finished branch is the person's call
-      # (ADR-0017); acting on an unfinished one is nobody's.
+      # (ADR-0081); acting on an unfinished one is nobody's.
       prose = String.replace(body, ~r/\s+/, " ")
 
       assert prose =~ ~r/those options are for a .finished. line only/i
@@ -541,7 +541,7 @@ defmodule Whiska.InstallStatuslineTest do
       body = delivered("finished.md")
 
       # Read from an optional heading the person writes by hand — no fifth
-      # part in the block whiska init writes (ADR-0045 nest untouched).
+      # part in the block whiska init writes (ADR-0081 nest untouched).
       assert body =~ "## Finish"
       assert body =~ "finish: land here"
 
@@ -567,7 +567,7 @@ defmodule Whiska.InstallStatuslineTest do
       assert path =~ "reply"
       assert body =~ "name: reply"
       assert body =~ "whiska reply $ARGUMENTS"
-      # The text is the person's, never the model's composition (ADR-0017).
+      # The text is the person's, never the model's composition (ADR-0081).
       assert body =~ "own words"
     end
 
@@ -589,7 +589,7 @@ defmodule Whiska.InstallStatuslineTest do
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
 
       # A question the person has not answered stays open. Whiska settles it
-      # when that branch's next message arrives (ADR-0037); `whiska close` is
+      # when that branch's next message arrives (ADR-0008); `whiska close` is
       # the person's command, never the model's tidying-up.
       assert body =~ ~r/never close/i
       assert body =~ "whiska dismiss <id>"
@@ -600,7 +600,7 @@ defmodule Whiska.InstallStatuslineTest do
 
     # No "the committed copy matches what init writes" test any more: the only
     # copy is `priv/skills/`, which `Whiska.Install` reads at compile time
-    # (ADR-0046), so there is nothing left for it to drift from. This repo is
+    # (ADR-0056), so there is nothing left for it to drift from. This repo is
     # installed globally (ADR-0056) and has no `.claude/skills/` of its own.
   end
 
