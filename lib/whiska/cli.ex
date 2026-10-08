@@ -21,6 +21,7 @@ defmodule Whiska.CLI do
   alias Whiska.Doctor
   alias Whiska.Doorbell
   alias Whiska.Doctor.Report
+  alias Whiska.Ledger
   alias Whiska.Git
   alias Whiska.Herdr
   alias Whiska.Install
@@ -211,6 +212,14 @@ defmodule Whiska.CLI do
     close <id>           Settle a question by hand, with no answer — for one
                          you dealt with some other way.
 
+    ledger [--json]      Print the agent ledger a finished report ends with,
+                         read from this Claude Code session's transcripts: one
+                         line per agent sent this turn, then the mouse's whole
+                         session — model, new tokens (input, cache writes,
+                         output), cache reads, steps, average per step, tool
+                         uses, seconds. "≥" marks a lower bound. --json prints
+                         the same figures as data. Run inside a session.
+
     mice                 List what is alive in this repo's house: one line per
                          mouse — branch, mode, what its pane is doing, uptime.
 
@@ -380,6 +389,9 @@ defmodule Whiska.CLI do
 
   def run(["close", id], cwd), do: with_question(cwd, id, &close/1)
 
+  def run(["ledger"], _cwd), do: ledger(&Ledger.render/1)
+  def run(["ledger", "--json"], _cwd), do: ledger(&Ledger.json/1)
+
   def run(["mice"], cwd), do: mice(cwd || File.cwd!())
 
   def run(["watch"], cwd), do: watch(cwd || File.cwd!())
@@ -443,6 +455,26 @@ defmodule Whiska.CLI do
   def run(_argv, _cwd) do
     IO.write(:stderr, @usage)
     1
+  end
+
+  defp ledger(format) do
+    with {:session, id} when is_binary(id) and id != "" <-
+           {:session, System.get_env("CLAUDE_CODE_SESSION_ID")},
+         path when is_binary(path) <- Ledger.find(id, ServiceManager.user_home()) do
+      say(format.(Ledger.read(path)))
+    else
+      {:session, _unset} ->
+        IO.puts(
+          :stderr,
+          "whiska: CLAUDE_CODE_SESSION_ID is not set — run this inside Claude Code."
+        )
+
+        1
+
+      nil ->
+        IO.puts(:stderr, "whiska: no transcript for this session under ~/.claude/projects.")
+        1
+    end
   end
 
   defp say(message) do

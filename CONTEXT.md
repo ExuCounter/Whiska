@@ -666,7 +666,8 @@ What a mouse does before it is allowed to say `done`: read the work back against
 brief and the repo's written decisions, run the repo's checks and fix what they catch,
 send reviewers over its own diff (the ones the diff calls for, the cold review always), put every finding in the report, go round once more, commit
 the work on its branch, and only then write the marker, ending its report with an agent
-ledger: one line per agent sent, with its tokens, and one per axis skipped
+ledger: one line per agent sent, with its tokens, one for the mouse's own session, and
+one per axis skipped, printed by `whiska ledger` from the session's transcripts
 (ADR-0083).
 Plain instructions in the `whiska-finish` skill `whiska init` installs, which a mouse's
 `finish` part names as the trigger and nothing more — the steps only matter as a turn

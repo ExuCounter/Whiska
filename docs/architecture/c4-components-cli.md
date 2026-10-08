@@ -1,7 +1,7 @@
 # Component Diagram — the `whiska` CLI
 
 Level 3 for the escript — the hooks, `init`, `mode`, `shape`, `doctor`, the delivery-side commands
-(`start`, `questions`, `reply`, `close`, `mice`, `worktrees`), the machine-wide pair (`waiting`,
+(`start`, `questions`, `reply`, `close`, `mice`, `worktrees`), `ledger`, the machine-wide pair (`waiting`,
 `jump`), `open`, the eight one-word commands (`inbox`, `show`, `reply`, `dismiss`, `focus`, `away`,
 `hold`, `resume`), and the command that boots the owl.
 Every module here exists in `lib/whiska/` with a test beside it in `test/whiska/`. The
@@ -14,7 +14,7 @@ C4Component
   Container_Ext(shim, "whiska.sh", "bash", "Hook shim")
 
   Container_Boundary(cli, "whiska escript") {
-    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / worktrees / waiting / jump / open / owl, the words inbox / show / dismiss / away / focus / hold / resume, and owl install / stop / start / uninstall")
+    Component(main, "Whiska.CLI", "escript entry", "Dispatches hook / init / mode / shape / doctor / start / questions / reply / close / mice / worktrees / ledger / waiting / jump / open / owl, the words inbox / show / dismiss / away / focus / hold / resume, and owl install / stop / start / uninstall")
     Component(mode, "Delivery.Mode", "the person's say", "Away: a file under the whiska home. Focus: this house's. Held: each mouse's. What may be delivered now, and why a question waits")
     Component(heldrule, "Rule.Held", "rule", "A mouse on hold is refused every call the hook sees, and told to end the turn")
     Component(personsrule, "Rule.Persons", "rule", "The person's commands - away, hold, focus, resume, reply, dismiss, close - are not a mouse's to run")
@@ -32,6 +32,7 @@ C4Component
     Component(shapem, "Shape", "pure", "A spawn's mode, model and effort, and the flags to start Claude with; the catch-all from priv/models.json for what the spawn left unnamed")
     Component(specm, "Spec", "file", "Names the spec file and keeps it out of git through the main checkout's info/exclude")
     Component(tx, "Transcript", "reader", "Claude Code's JSONL: where the session started, its tail, whether a subagent is still out, and the model its latest answer came from")
+    Component(ledger, "Ledger", "reader", "The agent ledger a finished report ends with: the model, tokens, steps, tool uses and seconds of the session and each agent it sent, from Claude Code's transcripts")
     Component(mainrule, "Rule.MainCheckout", "rule", "No edits outside the mouse's worktree")
     Component(sniffrule, "Rule.Sniff", "rule", "A sniff mouse, or one nobody shaped, writes nothing at all")
     Component(shell, "Shell", "allowlist", "Is this command mutating? Which paths?")
@@ -78,6 +79,7 @@ C4Component
   Rel(main, specm, "shape and mode: make git ignore the spec the mouse writes after grilling")
   Rel(main, install, "Delegates init; init --global writes the eight words under the whiska home, skipping one another program answers to")
   Rel(main, mode, "away, focus, hold, resume: set and clear them; inbox and show say why a question waits")
+  Rel(main, ledger, "ledger: this session's figures, found by CLAUDE_CODE_SESSION_ID (ADR-0083)")
   Rel(main, claudemd, "init and uninstall: take an old block out of CLAUDE.md")
   Rel(main, sessionstart, "Delegates hook session-start")
   Rel(sessionstart, session, "Mouse or main session?")

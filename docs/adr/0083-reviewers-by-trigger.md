@@ -33,9 +33,22 @@ skipped axis is named in the report with the triggers checked, so a missing revi
 the person can see.
 
 **Every finished report ends with an agent ledger**: one line per agent sent (axis, agent
-type, model asked for, new tokens, tool uses, seconds, findings and what became of them),
-copied from the hand-back usage block, and one line per axis skipped. New tokens are cache
-writes plus input plus output; cache reads are not counted.
+type, model that ran, new tokens, cache reads, steps with the average per step, tool uses,
+seconds, findings and what became of them), a line for the mouse's own session, and one
+line per axis skipped. New tokens are cache writes plus input plus output; cache reads are
+their own figure, kept out of new tokens.
+
+*Amended 2026-10-08.* The figures come from `whiska ledger`, which reads Claude Code's
+transcripts on disk, not from the hand-back usage block. Read from real sessions, the
+hand-back's `subagent_tokens` is the size of the agent's last call, not a sum; the cold
+review (ADR-0084) hands back no usage at all; and the mouse's own session has no hand-back,
+though its cache reads were its largest cost (8.4M in one session, against 164k cache
+writes). Cache reads are therefore shown, apart from new tokens, so a later budget can
+price a line. Steps and the average conversation per step say whether big cache reads came
+from many steps or from one large context. A subagent's mid-run output counts are written
+while its reply streams and are cut short, so such a line is marked "≥" as a lower bound.
+`whiska ledger --json` prints the same figures as data, which is what a per-branch budget
+would sum.
 
 **The scout is gated** (ADR-0075): it runs only when a touched module has no test file, the
 brief names no observable behaviour, or three or more modules change. Otherwise the mouse
