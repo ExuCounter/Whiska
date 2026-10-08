@@ -1,7 +1,7 @@
 defmodule Whiska.SpecArchive do
   @moduledoc """
   A copy of every mouse's spec, kept in the main checkout after its worktree is
-  gone (ADR-next-spec-archive).
+  gone (ADR-0085).
 
   The spec itself lives in the worktree and goes with it (ADR-0076). Its text
   rides on the doorstep entry of the turn that ended with it, and the owl writes

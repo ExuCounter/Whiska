@@ -53,7 +53,7 @@ question, and builds only on the person's ok. A brief that needed no grilling ge
 a task's size never skips it. The person's words are that brief's spec
 (ADR-0076). A copy of every spec sent is kept in `.whiska/specs/` in the main checkout,
 named by date and branch, with a header saying its question and whether the branch
-landed or was dropped (ADR-next-spec-archive).
+landed or was dropped (ADR-0085).
 _Avoid_: plan, design doc, ticket
 
 **Mouse record**:

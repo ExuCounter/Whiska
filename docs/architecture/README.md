@@ -92,7 +92,7 @@ block and into a skill the session loads only as a turn ends (ADR-0055), and
 (ADR-0084), `whiska-spec`, which a mouse runs after grilling to write the spec the person approves,
 kept out of git at the worktree root, beside the person's own `grilling` skill
 (ADR-0076), with a copy of each spec sent kept in the main checkout's `.whiska/specs/`
-(ADR-next-spec-archive). Both used to live in one person's global `~/.claude/CLAUDE.md`, applying to
+(ADR-0085). Both used to live in one person's global `~/.claude/CLAUDE.md`, applying to
 every repo whether Whiska was there or not. Then the rules left `CLAUDE.md` altogether: a
 `SessionStart` hook prints the parts a session's role needs — nothing outside herdr, routing
 and delivery in the main session, the marker, report and finish trigger in a mouse — again

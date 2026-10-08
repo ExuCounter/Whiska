@@ -74,7 +74,7 @@ the line itself.
 
 `git worktree remove` without `--force` deletes ignored files, so the spec goes with the
 worktree. Once the branch lands, the commits hold the outcome. (Amended by
-ADR-next-spec-archive: a copy of every spec is kept in `.whiska/specs/` in the main checkout,
+ADR-0085: a copy of every spec is kept in `.whiska/specs/` in the main checkout,
 taken when it is sent, so it outlives the worktree whether the branch landed or not.)
 
 ## The person sees it before the build
