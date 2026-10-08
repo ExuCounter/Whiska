@@ -58,6 +58,9 @@ starts, owner-only:
 - `waiting` → `{"version":1,"waiting":[…]}`, the rows `whiska waiting --json` prints;
 - `show <id> <main_checkout>` → one question with its whole text; the checkout is needed
   because question ids are numbered per house;
+- `jump` → `{"version":1,"whiskas":[…]}`, the rows `whiska jump --list --json` prints;
+- `questions <main_checkout>` → `{"version":1,"questions":"…"}`, the text `whiska questions`
+  prints there, for a house in the open-houses record only;
 - `line [hint]` → the tab bar's line, plain text;
 - anything else → `{"version":1,"error":"…"}`.
 
@@ -66,7 +69,10 @@ the person's own scripts depend on it. It only ever reads: `show` answers only f
 in the open-houses record whose database is already there, so asking about a path creates
 nothing. It is deliberately weaker than the per-repo socket ADR-0024 designs: it can never
 approve a push or act on a mouse, so owner-only permissions are enough. herdr's tab bar
-asks it (ADR-0048); `whiska waiting`, `whiska jump` and `whiska statusline` still read the
+asks it (ADR-0048), and so does the project picker bound to the jump key, through `jump` and
+`questions`: every `whiska` call boots the VM (about 300 ms), and a picker that opens on one
+feels slow. It falls back to `whiska jump --list` when the owl does not answer. `whiska
+waiting`, `whiska jump` and `whiska statusline` still read the
 houses directly, since they start Erlang either way and that also works while the owl is
 down.
 

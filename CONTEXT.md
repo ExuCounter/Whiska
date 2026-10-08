@@ -497,7 +497,7 @@ _Avoid_: registry, manifest, house list (it lists open houses, not houses)
 
 **Owl socket**:
 The owl's read-only Unix socket, `~/.whiska/owl.sock` (ADR-0033): one request line in —
-`waiting`, `show <id> <main_checkout>`, `line [hint]` — one line out. It is what the
+`waiting`, `show <id> <main_checkout>`, `jump`, `questions <main_checkout>`, `line [hint]` — one line out. It is what the
 person's own scripts and herdr's tab bar ask instead of starting Whiska, its format is
 documented and versioned, and it only ever reads.
 _Avoid_: global socket (its name before it was built, and the hook socket is global too),

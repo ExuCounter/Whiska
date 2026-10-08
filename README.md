@@ -193,6 +193,8 @@ echo waiting | nc -U ~/.whiska/owl.sock | jq -r '.waiting[] | "\(.repo)  \(.bran
 | --- | --- |
 | `waiting` | `{"version":1,"waiting":[…]}` — everything waiting on every repo, oldest first. Each row has the fields `whiska waiting --json` prints: `repo`, `main_checkout`, `branch`, `id` (`null` while still on the doorstep), `kind`, `status`, `pointer`, `age_seconds`, `pane`, `waits`, `held`. |
 | `show <id> <main_checkout>` | `{"version":1,"question":{…}}` — one question: `id`, `repo`, `main_checkout`, `branch`, `kind`, `status`, `pointer`, `text` (the whole message), `asked_at` (ISO 8601). Ids are numbered per repo, so the main checkout is needed; everything after the id is the path, spaces and all. |
+| `jump` | `{"version":1,"whiskas":[…]}` — every whiska `whiska jump` can land on, waiting ones first; the rows `whiska jump --list --json` prints: `repo`, `main_checkout`, `waiting`, `oldest_wait_seconds` (`null` when nothing waits), `summary`, `main_session`. |
+| `questions <main_checkout>` | `{"version":1,"questions":"…"}` — the text `whiska questions` prints in that repo. Only for a repo the owl has open. |
 | `line [hint]` | The tab-bar line, as plain text. A hint is added at the end when something not held is waiting. |
 | anything else | `{"version":1,"error":"…"}` — `unknown request`, `no such house`, `no such question`, `unreadable house`. |
 

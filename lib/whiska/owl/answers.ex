@@ -12,13 +12,17 @@ defmodule Whiska.Owl.Answers do
   | --- | --- |
   | `waiting` | `{"version":1,"waiting":[row, …]}`, the rows `whiska waiting --json` prints |
   | `show <id> <main_checkout>` | `{"version":1,"question":{…}}`, one question with its whole text |
+  | `jump` | `{"version":1,"whiskas":[row, …]}`, the rows `whiska jump --list --json` prints |
+  | `questions <main_checkout>` | `{"version":1,"questions":"…"}`, the text `whiska questions` prints there |
   | `line [hint]` | the tab bar's line, plain text |
   | anything else | `{"version":1,"error":"…"}` |
 
   Question ids are numbered per house, so `show` needs the main checkout as
-  well; everything after the id is that path, spaces and all. It answers only
-  for a house in the open-houses record whose database is already there, so
-  asking about a path never creates one.
+  well; everything after the id is that path, spaces and all. `show` and
+  `questions` answer only for a house in the open-houses record, and `show`
+  only when its database is already there, so asking about a path never
+  creates one. `jump` and `questions` are what the project picker asks, so it
+  starts no escript.
 
   The owl answering `line` is the owl being up, so the line says it is watching
   — unless entries have waited on a doorstep past the backstop, which means it
@@ -29,6 +33,7 @@ defmodule Whiska.Owl.Answers do
 
   alias Whiska.OpenHouses
   alias Whiska.Question.Marker
+  alias Whiska.Questions
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Statusline
@@ -63,6 +68,12 @@ defmodule Whiska.Owl.Answers do
     end
   end
 
+  def answer("jump", opts) do
+    encode(%{"whiskas" => opts |> Waiting.whiskas() |> Waiting.whiskas_json() |> JSON.decode!()})
+  end
+
+  def answer("questions " <> main, opts), do: questions(Path.expand(main), opts)
+
   def answer("line", opts), do: line(nil, opts)
   def answer("line " <> hint, opts), do: line(String.trim(hint), opts)
   def answer(_request, _opts), do: error("unknown request")
@@ -74,10 +85,26 @@ defmodule Whiska.Owl.Answers do
     |> Statusline.render(hint: hint)
   end
 
-  defp show(id, main, opts) do
-    recorded = opts |> Keyword.get_lazy(:open_houses, &OpenHouses.path/0) |> OpenHouses.read()
+  defp recorded?(main, opts) do
+    main in (opts |> Keyword.get_lazy(:open_houses, &OpenHouses.path/0) |> OpenHouses.read())
+  end
 
-    if main in recorded and File.exists?(Storage.database_path(main)) do
+  defp questions(main, opts) do
+    if recorded?(main, opts) do
+      case Questions.summary(main, Keyword.take(opts, [:away_path])) do
+        {:ok, summary} -> encode(%{"questions" => Questions.render(summary)})
+        {:error, _} -> error("unreadable house")
+      end
+    else
+      error("no such house")
+    end
+  catch
+    :error, _ -> error("unreadable house")
+    :exit, _ -> error("unreadable house")
+  end
+
+  defp show(id, main, opts) do
+    if recorded?(main, opts) and File.exists?(Storage.database_path(main)) do
       case read(main, id) do
         %Question{} = q -> encode(%{"question" => question_map(q, main)})
         nil -> error("no such question")

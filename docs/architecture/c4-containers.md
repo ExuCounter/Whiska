@@ -26,7 +26,7 @@ C4Container
     Container(kept, "Kept specs", "directory, .whiska/specs/ in the main checkout", "A copy of every spec sent, one file per spec under a header: its question, the ones it replaced, landed or dropped; git ignores it")
     Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
-    Container(owlsock, "owl.sock", "Unix socket, ~/.whiska/", "Read-only and documented: waiting, show one question, the tab bar line")
+    Container(owlsock, "owl.sock", "Unix socket, ~/.whiska/", "Read-only and documented: waiting, show one question, the jump list, a house's questions, the tab bar line")
     Container(hooksock, "hook.sock", "Unix socket, ~/.whiska/", "Private: the shim asks it first, and the owl runs the hook's own code")
     Container(svc, "Owl's job", "launchd com.whiska.owl, or systemd whiska-owl.service", "Starts the owl at login, restarts a crash; runs the owl.sh wrapper")
   }

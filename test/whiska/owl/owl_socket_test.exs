@@ -164,6 +164,69 @@ defmodule Whiska.Owl.OwlSocketTest do
     end
   end
 
+  describe "jump" do
+    test "lists what whiska jump --list --json lists, wrapped with a version", c do
+      question(c.main, "Two ways.\n\n[worktree-status: needs-decision] which store?")
+
+      assert %{"version" => 1, "whiskas" => [row]} = ask_json(c.sockets, "jump")
+
+      [expected] =
+        [open_houses: c.record, away_path: c.away]
+        |> Waiting.whiskas()
+        |> Waiting.whiskas_json()
+        |> JSON.decode!()
+
+      assert row == expected
+
+      assert Map.keys(row) |> Enum.sort() ==
+               ~w(main_checkout main_session oldest_wait_seconds repo summary waiting)
+    end
+
+    test "is an empty list when no house is recorded", c do
+      File.write!(c.record, "")
+      assert ask_json(c.sockets, "jump") == %{"version" => 1, "whiskas" => []}
+    end
+  end
+
+  describe "questions" do
+    test "gives what whiska questions prints for a recorded house", c do
+      question(c.main, "A question.\n\n[worktree-status: needs-decision] which store?")
+
+      assert %{"version" => 1, "questions" => text} = ask_json(c.sockets, "questions #{c.main}")
+      assert {:ok, summary} = Whiska.Questions.summary(c.main, away_path: c.away)
+      assert text == Whiska.Questions.render(summary)
+      assert text =~ "which store?"
+    end
+
+    test "takes a main checkout with spaces in it", c do
+      spaced = Path.join(c.root, "my repo")
+      File.mkdir_p!(Path.join(spaced, ".git"))
+      File.write!(c.record, c.main <> "\n" <> spaced <> "\n")
+      question(spaced, "A question.")
+
+      assert %{"questions" => text} = ask_json(c.sockets, "questions #{spaced}")
+      assert text =~ "A question."
+    end
+
+    test "answers only for a recorded house, and never creates one", c do
+      other = Path.join(c.root, "other")
+      File.mkdir_p!(Path.join(other, ".git"))
+
+      assert ask_json(c.sockets, "questions #{other}") ==
+               %{"version" => 1, "error" => "no such house"}
+
+      refute File.exists?(Storage.database_path(other))
+    end
+
+    test "says so for a house whose database will not open", c do
+      File.mkdir_p!(Path.dirname(Storage.database_path(c.main)))
+      File.write!(Storage.database_path(c.main), "not a database")
+
+      assert ask_json(c.sockets, "questions #{c.main}") ==
+               %{"version" => 1, "error" => "unreadable house"}
+    end
+  end
+
   describe "line" do
     test "is the tab bar's line, and the owl that answers is watching", c do
       assert ask(c.sockets, "line") == "🦉 watching\n"
