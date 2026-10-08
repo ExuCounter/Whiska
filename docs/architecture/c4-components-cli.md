@@ -41,7 +41,7 @@ C4Component
     Component(claudemd, "ClaudeMd", "pure", "Which parts a CLAUDE.md keeps, and taking an older Whiska's block back out")
     Component(questions, "Questions", "one summary", "What is waiting: open and sent, answers not taken and orphaned apart, the doorstep count")
     Component(gitq, "Git", "git", "What a finished branch holds: its own commits beyond the base, and files not committed; and for where, whether a folder is the main checkout")
-    Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question, per answer not taken and per uncollected doorstep entry, oldest first, each with its mouse pane")
+    Component(waiting, "Waiting", "every house", "What is waiting machine-wide: one entry per question, per answer not taken and per uncollected doorstep entry, oldest first, each with its mouse pane; and every house as a jump target, waiting ones first")
     Component(statusline, "Statusline", "one line", "herdr's tab bar: the owl always, and what is waiting machine-wide")
     Component(watch, "Watch", "the board", "The facts about each mouse of this repo: its question, how its pane stands with herdr, its topic and last action")
     Component(sidebar, "Sidebar", "pure", "Each mouse's sidebar line and the main checkout's, from the board; which workspace each goes under; the herdr rows that colour them")

@@ -166,6 +166,16 @@ defmodule Whiska.CLI do
                          On Linux, bind `whiska jump` to a key in your
                          desktop's keyboard shortcut settings.
 
+    jump --list [--json] Every whiska `jump <repo>` can land on, one line each,
+                         for a script such as an fzf popup: the ones waiting
+                         on you first, longest wait on top, then quiet ones,
+                         then any with no main session recorded. Fields split
+                         by tabs: repo, main checkout, waiting count, oldest
+                         wait in seconds (- when nothing waits), summary.
+                         Held mice's questions are not counted. --json prints
+                         the same fields as an array. `jump <main checkout>`
+                         reaches a house by its path when two share a name.
+
     One word each, for handling questions. `whiska init --global` installs
     them as plain commands under ~/.whiska/bin, and as slash commands in the
     main session. The long names above keep working.
@@ -366,6 +376,8 @@ defmodule Whiska.CLI do
   def run(["waiting", "--json"], _cwd), do: waiting(:json)
 
   def run(["jump"], _cwd), do: jump_to_oldest()
+  def run(["jump", "--list"], _cwd), do: jump_list(&Waiting.render_whiskas/1)
+  def run(["jump", "--list", "--json"], _cwd), do: jump_list(&Waiting.whiskas_json/1)
   def run(["jump", name], _cwd), do: jump_to_name(name)
 
   def run(["open", target], cwd), do: open_mouse(cwd, target)
@@ -1766,6 +1778,13 @@ defmodule Whiska.CLI do
       [] -> say("🦉 Nothing needs you · the owl delivers when something does")
       [oldest | _] -> jump_to_house(oldest.main_checkout)
     end
+  end
+
+  # Printed bare, not through `say/1`: an empty record is an empty list, and a
+  # script reading it wants no trailing blank line.
+  defp jump_list(format) do
+    IO.write(format.(Waiting.whiskas()))
+    0
   end
 
   defp jump_to_name(name) do

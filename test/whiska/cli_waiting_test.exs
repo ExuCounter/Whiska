@@ -235,6 +235,18 @@ defmodule Whiska.CLIWaitingTest do
       assert out =~ "beta"
     end
 
+    test "with a main checkout's path, focuses that house even when another shares its name",
+         %{root: root, socket: socket} do
+      first = house!(Path.join(root, "one"), "api")
+      second = house!(Path.join(root, "two"), "api")
+      seed(first, fn -> started("w1:p1") end)
+      seed(second, fn -> started("w2:p1") end)
+
+      expect(Herdr, :focus, fn ^socket, "w2:p1" -> :ok end)
+
+      capture_io(fn -> assert CLI.run(["jump", second], nil) == 0 end)
+    end
+
     test "with a branch, focuses the main session of the house that mouse works in", %{
       root: root,
       socket: socket

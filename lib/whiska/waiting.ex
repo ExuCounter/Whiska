@@ -144,8 +144,10 @@ defmodule Whiska.Waiting do
   def waiting?(main_checkout), do: house(main_checkout) != []
 
   @doc """
-  Which house a name given to `whiska jump` means: its own repo, or the repo a
-  branch's mouse is working in.
+  Which house a name given to `whiska jump` means: the house at that main
+  checkout when the name is an absolute path — the one name two houses with the
+  same folder name cannot share — else its own repo, or the repo a branch's
+  mouse is working in.
 
   Searched across every recorded house, since a branch name says nothing about
   which project it belongs to. A repo of that name wins — it is the plainer
@@ -158,9 +160,17 @@ defmodule Whiska.Waiting do
     houses = houses(opts)
 
     cond do
-      main = Enum.find(houses, &(Path.basename(&1) == name)) -> {:ok, main}
-      main = Enum.find(houses, &(mouse_on(&1, name) != nil)) -> {:ok, main}
-      true -> {:error, :no_such_target}
+      main = Enum.find(houses, &(Path.type(name) == :absolute and Path.expand(&1) == name)) ->
+        {:ok, main}
+
+      main = Enum.find(houses, &(Path.basename(&1) == name)) ->
+        {:ok, main}
+
+      main = Enum.find(houses, &(mouse_on(&1, name) != nil)) ->
+        {:ok, main}
+
+      true ->
+        {:error, :no_such_target}
     end
   end
 
@@ -171,14 +181,126 @@ defmodule Whiska.Waiting do
   """
   @spec main_session(Path.t()) :: String.t() | nil
   def main_session(main_checkout) do
+    case main_pane(main_checkout) do
+      pane when is_binary(pane) -> pane
+      _none -> nil
+    end
+  end
+
+  defp main_pane(main_checkout) do
     main = Path.expand(main_checkout)
 
     if File.exists?(Storage.database_path(main)) do
       case with_house(main, fn -> Storage.main_pane() end) do
         pane when is_binary(pane) -> pane
+        :unreadable -> :unreadable
         _none -> nil
       end
     end
+  end
+
+  @typedoc """
+  One whiska `whiska jump <repo>` can land on, as `whiska jump --list` prints it.
+  `waiting` counts what the tab bar counts — a held mouse's questions are left
+  out (CONTEXT.md, **Waiting**) — and `oldest` is the entry that has waited
+  longest, or `nil` when nothing does.
+  """
+  @type whiska :: %{
+          repo: String.t(),
+          main_checkout: Path.t(),
+          waiting: non_neg_integer(),
+          oldest: entry() | nil,
+          main_session?: boolean()
+        }
+
+  @doc """
+  Every recorded house as a place to jump to, waiting ones first with the
+  longest wait on top, then quiet ones by name, then the ones with no main
+  session recorded — nowhere to land, so last. A house that will not open is
+  left out, said once on stderr.
+
+  Takes the same options as `list/1`.
+  """
+  @spec whiskas(keyword()) :: [whiska()]
+  def whiskas(opts \\ []) do
+    now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
+    away_path = Keyword.get_lazy(opts, :away_path, &Mode.away_path/0)
+
+    opts
+    |> houses()
+    |> Enum.flat_map(fn main ->
+      case main_pane(main) do
+        :unreadable ->
+          []
+
+        pane ->
+          waiting = main |> house(now: now, away_path: away_path) |> Enum.reject(& &1.held?)
+
+          [
+            %{
+              repo: Path.basename(main),
+              main_checkout: Path.expand(main),
+              waiting: length(waiting),
+              oldest: List.first(waiting),
+              main_session?: pane != nil
+            }
+          ]
+      end
+    end)
+    |> Enum.sort_by(fn w ->
+      case w do
+        %{main_session?: false} -> {2, 0, w.repo}
+        %{oldest: nil} -> {1, 0, w.repo}
+        %{oldest: oldest} -> {0, -oldest.age_s, w.repo}
+      end
+    end)
+  end
+
+  @doc """
+  `whiskas/1` for a script: one line each, fields split by tabs — repo, main
+  checkout, waiting count, oldest wait in seconds (`-` when nothing waits), and
+  a summary. The repo comes first because it is what `whiska jump` takes.
+  Nothing recorded prints nothing.
+  """
+  @spec render_whiskas([whiska()]) :: String.t()
+  def render_whiskas(whiskas) do
+    Enum.map_join(whiskas, fn w ->
+      age = if w.oldest, do: Integer.to_string(w.oldest.age_s), else: "-"
+      Enum.join([w.repo, w.main_checkout, w.waiting, age, summary(w)], "\t") <> "\n"
+    end)
+  end
+
+  @doc """
+  The same whiskas as a JSON array: the line's fields, with `null` for a `-`
+  wait, plus `main_session` as a boolean.
+  """
+  @spec whiskas_json([whiska()]) :: String.t()
+  def whiskas_json(whiskas) do
+    whiskas
+    |> Enum.map(fn w ->
+      %{
+        "repo" => w.repo,
+        "main_checkout" => w.main_checkout,
+        "waiting" => w.waiting,
+        "oldest_wait_seconds" => w.oldest && w.oldest.age_s,
+        "summary" => summary(w),
+        "main_session" => w.main_session?
+      }
+    end)
+    |> JSON.encode!()
+  end
+
+  defp summary(%{main_session?: false}), do: "no main session"
+  defp summary(%{oldest: nil}), do: "quiet"
+
+  # One line of plain text: no tab or newline from the mouse's own words can
+  # break a field, and no escape sequence reaches the person's terminal.
+  defp summary(%{oldest: oldest}) do
+    ref = if oldest.id, do: "##{oldest.id}", else: "doorstep"
+
+    "#{ref} #{what(oldest)}"
+    |> String.replace(~r/[\s\x00-\x1f\x7f]+/, " ")
+    |> String.trim()
   end
 
   defp mouse_on(main, branch) do
