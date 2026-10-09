@@ -22,7 +22,7 @@ sort, first match winning:
 | 1 | `❓ #13 · waiting on you · 14m` — sent, unanswered | the question |
 | 2 | `❓ #12 · waiting on you` — next to go; `❓ #12 · answer not taken` | the question |
 | 3 | `✅ #14 · finished` — a report holding the slot | its closing line |
-| 4 | `⚠ stuck 6m` — blocked, or working and silent two minutes | its last action |
+| 4 | `✖ stuck 6m` — blocked, or working and silent two minutes with no subagent out | its last action |
 | 5 | `⏳ queued behind #12` | the question |
 | 6 | `✅ finished · queued behind #12` | |
 | 7 | `🎯 #16 · waits: focus on <branch>` | |
@@ -43,7 +43,7 @@ last action. The topic is herdr's `terminal_title_stripped`, the short summary C
 keeps of what a session is on, already in the pane list the house asks for. The last action
 is read from the mouse's own transcript, never asked for (ADR-0050), and shown only where
 the topic would mislead: a pane herdr calls blocked, or one working that has written
-nothing for two minutes (Claude Code appends every few seconds while a turn runs; shorter
+nothing for two minutes (Claude Code appends every few seconds while a turn runs, but not while a subagent runs, which keeps its own file, so a mouse waiting on one is working and never stuck; shorter
 would flip on an ordinary test run). Which line is a question is read from the question's
 id, never from the words: a topic beginning `waiting on you · #99` must not forge one.
 A dead mouse (ADR-0026) has no line; what it left is counted on the main checkout's. Every

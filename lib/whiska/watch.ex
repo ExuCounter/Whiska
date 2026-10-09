@@ -257,10 +257,10 @@ defmodule Whiska.Watch do
       row.pane == :one
   end
 
-  defp with_activity(row, pane, %{action: action, silent_for: silent_for}) do
+  defp with_activity(row, pane, %{action: action, silent_for: silent_for} = seen) do
     %{
       row
-      | stuck?: stuck?(row.status, silent_for),
+      | stuck?: stuck?(row.status, silent_for, Map.get(seen, :subagent?, false)),
         silent_for: silent_for,
         topic: topic(pane),
         doing: doing(action)
@@ -343,9 +343,12 @@ defmodule Whiska.Watch do
 
   defp waits(_sent, _context), do: nil
 
-  defp stuck?("blocked", _silent_for), do: true
-  defp stuck?("working", silent_for), do: is_integer(silent_for) and silent_for >= @stuck_after
-  defp stuck?(_quiet, _silent_for), do: false
+  defp stuck?("blocked", _silent_for, _subagent?), do: true
+
+  defp stuck?("working", silent_for, subagent?),
+    do: not subagent? and is_integer(silent_for) and silent_for >= @stuck_after
+
+  defp stuck?(_quiet, _silent_for, _subagent?), do: false
 
   defp doing({:tool, phrase}), do: phrase
   defp doing({:said, sentence}), do: ~s("#{sentence}")

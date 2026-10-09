@@ -75,7 +75,7 @@ feat/quiet-marker
   ❓ #52 · waiting on you · 4m
   sqlite or a plain file?
 fix/doctor-probe
-  ⚠ stuck 6m
+  ✖ stuck 6m
   Bash mix test
 feat/cache-ttl
   ⏳ queued behind #52

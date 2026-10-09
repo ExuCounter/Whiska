@@ -183,7 +183,8 @@ cache-creation tokens of the last assistant message in the transcript, `142K` �
 five-cell bar against the window when the mouse has an auto-compact window, and the plain
 size when it has none. It is read for every live mouse, whatever its line says.
 A mouse is **stuck** when herdr says it is blocked, or it is working and has written
-nothing to its transcript for two minutes. A dead mouse has no row; what it left behind
+nothing to its transcript for two minutes with no subagent out (a subagent writes to its
+own file, so a mouse waiting on one is silent and not stuck). A dead mouse has no row; what it left behind
 unanswered is counted apart as orphaned, never as waiting. **Sidebar lines** are written
 from it, and `whiska watch` prints those. It reports and never acts (ADR-0082).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws), the statusline (a
@@ -192,7 +193,7 @@ surface; the board is drawn on none, only the **sidebar lines** written from it 
 **Sidebar line**:
 What herdr's sidebar shows under one workspace, which the owl reports and herdr draws
 (ADR-0082): under each mouse's workspace, its state — `❓ #13 · waiting on you · 14m`,
-`✅ #14 · finished`, `⚠ stuck 6m`, `⏳ queued behind #12`, `🎯`/`💤` waiting behind a
+`✅ #14 · finished`, `✖ stuck 6m`, `⏳ queued behind #12`, `🎯`/`💤` waiting behind a
 **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `◐ <topic>` — with the question it
 carries wrapped on up to two lines beneath, each ending in the mouse's **context gauge**
 (`❓ #13 · waiting on you · 14m · 142K`; a working mouse's goes first, `◐ 142K · <topic>`;

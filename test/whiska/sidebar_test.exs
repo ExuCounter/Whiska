@@ -71,8 +71,11 @@ defmodule Whiska.SidebarTest do
     action = Keyword.get(opts, :action, fn _mouse -> nil end)
     silent_for = Keyword.get(opts, :silent_for, 0)
     context = Keyword.get(opts, :context)
+    subagent? = Keyword.get(opts, :subagent?, false)
 
-    fn mouse -> %{action: action.(mouse), silent_for: silent_for, context: context} end
+    fn mouse ->
+      %{action: action.(mouse), silent_for: silent_for, context: context, subagent?: subagent?}
+    end
   end
 
   defp lines(mice, opts) do
@@ -341,7 +344,7 @@ defmodule Whiska.SidebarTest do
                action: fn _ -> {:tool, "Bash mix test"} end,
                silent_for: 180,
                picked_up: %{"m-feat-a" => DateTime.add(@now, -300, :second)}
-             ) == "⚠ stuck 3m"
+             ) == "✖ stuck 3m"
     end
 
     test "picked up by the owl, it says so while the turn it started runs" do
@@ -369,7 +372,7 @@ defmodule Whiska.SidebarTest do
                bare_panes: [pane("feat-a", "blocked", title: "Order builder")],
                action: fn _ -> {:tool, "Bash mix test"} end,
                silent_for: 6 * 60
-             ) == %{"whiska" => "⚠ stuck 6m", "whiska_q" => "Bash mix test"}
+             ) == %{"whiska" => "✖ stuck 6m", "whiska_q" => "Bash mix test"}
     end
 
     test "working and silent for two minutes is stuck; a second less is not" do
@@ -378,15 +381,33 @@ defmodule Whiska.SidebarTest do
         action: fn _ -> {:tool, "Bash mix test"} end
       ]
 
-      assert said([mouse("feat-a")], [silent_for: 120] ++ opts) == "⚠ stuck 2m"
+      assert said([mouse("feat-a")], [silent_for: 120] ++ opts) == "✖ stuck 2m"
       assert said([mouse("feat-a")], [silent_for: 119] ++ opts) == "◐ Order builder"
+    end
+
+    test "working and silent while a subagent runs is working, not stuck" do
+      opts = [
+        bare_panes: [pane("feat-a", "working", title: "Order builder")],
+        silent_for: 600,
+        subagent?: true
+      ]
+
+      assert said([mouse("feat-a")], opts) == "◐ Order builder"
+    end
+
+    test "blocked is stuck even with a subagent out" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "blocked")],
+               silent_for: 600,
+               subagent?: true
+             ) == "✖ stuck 10m"
     end
 
     test "blocked with a transcript that says nothing, its topic is what it is stuck in" do
       assert tokens([mouse("feat-a")],
                bare_panes: [pane("feat-a", "blocked", title: "Order builder")],
                silent_for: nil
-             ) == %{"whiska" => "⚠ stuck", "whiska_q" => "Order builder"}
+             ) == %{"whiska" => "✖ stuck", "whiska_q" => "Order builder"}
     end
 
     test "working with no transcript at all is not called stuck" do
@@ -418,7 +439,7 @@ defmodule Whiska.SidebarTest do
                bare_panes: [pane("feat-a", "blocked")],
                silent_for: 6 * 60,
                context: 142_000
-             ) == "⚠ stuck 6m · 142K"
+             ) == "✖ stuck 6m · 142K"
     end
 
     test "an idle mouse with nothing to report still has no line" do

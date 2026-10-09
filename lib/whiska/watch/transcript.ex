@@ -36,7 +36,8 @@ defmodule Whiska.Watch.Transcript do
   @type activity :: %{
           action: action(),
           silent_for: non_neg_integer() | nil,
-          context: non_neg_integer() | nil
+          context: non_neg_integer() | nil,
+          subagent?: boolean()
         }
 
   # What one column of a statusline row has room for.
@@ -77,7 +78,7 @@ defmodule Whiska.Watch.Transcript do
 
     case newest_transcript(project_dir(worktree_root, home)) do
       nil ->
-        %{action: nil, silent_for: nil, context: nil}
+        %{action: nil, silent_for: nil, context: nil, subagent?: false}
 
       {file, mtime} ->
         tail = Transcript.tail(file, @tail_bytes)
@@ -85,7 +86,8 @@ defmodule Whiska.Watch.Transcript do
         %{
           action: last_action(tail, worktree_root),
           silent_for: silent_for(now, mtime),
-          context: Context.tokens(tail)
+          context: Context.tokens(tail),
+          subagent?: subagent_out?(tail)
         }
     end
   end
@@ -101,6 +103,44 @@ defmodule Whiska.Watch.Transcript do
   """
   @spec project_dir(Path.t(), Path.t()) :: Path.t()
   defdelegate project_dir(worktree_root, user_home), to: Transcript
+
+  @doc """
+  Whether a subagent is still working for the mouse: a background one not yet
+  handed back (`Whiska.Transcript.subagents_in_flight?/1`), or an `Agent` call
+  whose result is not written yet. A subagent writes to its own file, so the
+  mouse's transcript is silent for as long as it runs.
+  """
+  @spec subagent_out?(String.t()) :: boolean()
+  def subagent_out?(text) do
+    Transcript.subagents_in_flight?(text) or pending_agent_call?(text)
+  end
+
+  defp pending_agent_call?(text) do
+    text
+    |> String.split("\n")
+    |> Enum.reduce(MapSet.new(), &track_agent_calls/2)
+    |> MapSet.size()
+    |> Kernel.>(0)
+  end
+
+  defp track_agent_calls(line, pending) do
+    case JSON.decode(line) do
+      {:ok, %{"message" => %{"content" => content}}} when is_list(content) ->
+        Enum.reduce(content, pending, &track_block/2)
+
+      _unreadable ->
+        pending
+    end
+  end
+
+  defp track_block(%{"type" => "tool_use", "name" => "Agent", "id" => id}, pending)
+       when is_binary(id),
+       do: MapSet.put(pending, id)
+
+  defp track_block(%{"type" => "tool_result", "tool_use_id" => id}, pending),
+    do: MapSet.delete(pending, id)
+
+  defp track_block(_other, pending), do: pending
 
   @doc """
   The last action in a transcript's text. Pure, and total: anything it cannot

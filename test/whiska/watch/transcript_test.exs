@@ -27,6 +27,44 @@ defmodule Whiska.Watch.TranscriptTest do
     JSON.encode!(%{"type" => "user", "message" => %{"content" => text}})
   end
 
+  defp agent_call(id) do
+    JSON.encode!(%{
+      "type" => "assistant",
+      "message" => %{
+        "content" => [%{"type" => "tool_use", "id" => id, "name" => "Agent", "input" => %{}}]
+      }
+    })
+  end
+
+  defp tool_result(id) do
+    JSON.encode!(%{
+      "type" => "user",
+      "message" => %{
+        "content" => [%{"type" => "tool_result", "tool_use_id" => id, "content" => "done"}]
+      }
+    })
+  end
+
+  describe "subagent_out?/1" do
+    test "an Agent call with no result yet is a subagent still working" do
+      assert Transcript.subagent_out?(Enum.join([said("on it"), agent_call("toolu_a")], "\n"))
+    end
+
+    test "once its result is written the subagent is back" do
+      refute Transcript.subagent_out?(
+               Enum.join([agent_call("toolu_a"), tool_result("toolu_a")], "\n")
+             )
+    end
+
+    test "another tool in flight is not a subagent" do
+      refute Transcript.subagent_out?(tool("Bash", %{"command" => "mix test"}))
+    end
+
+    test "text that is not a transcript is no subagent" do
+      refute Transcript.subagent_out?("not json")
+    end
+  end
+
   describe "last_action/2" do
     test "an edit is the tool and the file, relative to the worktree" do
       lines = [said("on it"), tool("Edit", %{"file_path" => "/repo/worktrees/a/lib/auth.ex"})]
@@ -208,7 +246,16 @@ defmodule Whiska.Watch.TranscriptTest do
 
     test "a mouse with no transcript is not silent, it is unknown", %{tmp: tmp} do
       assert Transcript.activity("/repo/worktrees/gone", user_home: tmp) ==
-               %{action: nil, silent_for: nil, context: nil}
+               %{action: nil, silent_for: nil, context: nil, subagent?: false}
+    end
+
+    test "says a subagent is out when the transcript ends on its call", %{tmp: tmp} do
+      worktree = "/repo/worktrees/feat-a"
+      dir = Transcript.project_dir(worktree, tmp)
+      File.mkdir_p!(dir)
+      File.write!(Path.join(dir, "s.jsonl"), agent_call("toolu_a"))
+
+      assert %{subagent?: true} = Transcript.activity(worktree, user_home: tmp)
     end
 
     test "carries how full the context is, from the last assistant message's usage", %{tmp: tmp} do

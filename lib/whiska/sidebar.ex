@@ -25,7 +25,7 @@ defmodule Whiska.Sidebar do
   # symbol, so every symbol a line can start with has a rule, in Solarized
   # shades the person is free to change.
   @colours [
-    {"❓", "#cb4b16"},
+    {"❓", "#2aa198"},
     {"⚠", "#dc322f"},
     {"✖", "#dc322f"},
     {"?", "#dc322f"},
@@ -209,8 +209,8 @@ defmodule Whiska.Sidebar do
 
   defp asked(id, asked, _now), do: {@next, "❓ ##{id} · waiting on you", asked.pointer}
 
-  defp stuck(nil), do: "⚠ stuck"
-  defp stuck(silent_for), do: "⚠ stuck #{minutes(silent_for)}"
+  defp stuck(nil), do: "✖ stuck"
+  defp stuck(silent_for), do: "✖ stuck #{minutes(silent_for)}"
 
   defp spinner(frame), do: Enum.at(@frames, Integer.mod(frame, length(@frames)))
 
