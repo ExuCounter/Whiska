@@ -20,6 +20,7 @@ defmodule Whiska.Watch.Transcript do
   and the board reads every mouse's every second.
   """
 
+  alias Whiska.Context
   alias Whiska.ServiceManager
   alias Whiska.Transcript
   alias Whiska.Watch.Text
@@ -32,7 +33,11 @@ defmodule Whiska.Watch.Transcript do
   seconds since Claude Code last wrote to the file. `silent_for` is `nil` when
   there is no transcript to be silent in.
   """
-  @type activity :: %{action: action(), silent_for: non_neg_integer() | nil}
+  @type activity :: %{
+          action: action(),
+          silent_for: non_neg_integer() | nil,
+          context: non_neg_integer() | nil
+        }
 
   # What one column of a statusline row has room for.
   @phrase_max 60
@@ -72,12 +77,15 @@ defmodule Whiska.Watch.Transcript do
 
     case newest_transcript(project_dir(worktree_root, home)) do
       nil ->
-        %{action: nil, silent_for: nil}
+        %{action: nil, silent_for: nil, context: nil}
 
       {file, mtime} ->
+        tail = Transcript.tail(file, @tail_bytes)
+
         %{
-          action: file |> Transcript.tail(@tail_bytes) |> last_action(worktree_root),
-          silent_for: silent_for(now, mtime)
+          action: last_action(tail, worktree_root),
+          silent_for: silent_for(now, mtime),
+          context: Context.tokens(tail)
         }
     end
   end

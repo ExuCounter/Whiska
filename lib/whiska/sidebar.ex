@@ -13,6 +13,7 @@ defmodule Whiska.Sidebar do
   the state.
   """
 
+  alias Whiska.Context
   alias Whiska.Mice
   alias Whiska.Watch
 
@@ -133,8 +134,24 @@ defmodule Whiska.Sidebar do
       mouse_id: row.mouse_id,
       branch: row.branch,
       rank: rank,
-      tokens: tokens([said | wrap(carried)])
+      tokens: tokens([gauged(said, rank, row.context) | wrap(carried)])
     }
+  end
+
+  defp gauged(nil, _rank, _context), do: nil
+  defp gauged(said, @lost, _context), do: said
+
+  defp gauged(said, rank, context) do
+    case Context.gauge(context) do
+      nil -> said
+      gauge when rank == @working -> insert_after_symbol(said, gauge)
+      gauge -> "#{said} · #{gauge}"
+    end
+  end
+
+  defp insert_after_symbol(said, gauge) do
+    {symbol, free_text} = String.split_at(said, 1)
+    "#{symbol} #{gauge} ·#{free_text}"
   end
 
   defp tokens(lines) do

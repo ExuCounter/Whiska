@@ -178,6 +178,10 @@ builder for distributors", read from herdr's pane list where Claude Code keeps i
 pane's title. The last action is the tool call it is in the middle of or the last thing it
 said, read from its own Claude Code transcript and never asked for (ADR-0050), and only
 when nothing about a question, a hold or its pane already decides what is said.
+Its **context gauge** is how full the mouse's context is — the input, cache-read and
+cache-creation tokens of the last assistant message in the transcript, `142K` — with a
+five-cell bar against the window when the mouse has an auto-compact window, and the plain
+size when it has none. It is read for every live mouse, whatever its line says.
 A mouse is **stuck** when herdr says it is blocked, or it is working and has written
 nothing to its transcript for two minutes. A dead mouse has no row; what it left behind
 unanswered is counted apart as orphaned, never as waiting. **Sidebar lines** are written
@@ -190,7 +194,9 @@ What herdr's sidebar shows under one workspace, which the owl reports and herdr 
 (ADR-0082): under each mouse's workspace, its state — `🐭 #13 · waiting on you · 14m`,
 `✅ #14 · finished`, `⚠ stuck 6m`, `⏳ queued behind #12`, `🎯`/`💤` waiting behind a
 **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `◐ <topic>` — with the question it
-carries wrapped on up to two lines beneath; under the main checkout's workspace, what is
+carries wrapped on up to two lines beneath, each ending in the mouse's **context gauge**
+(`🐭 #13 · waiting on you · 14m · 142K`; a working mouse's goes first, `◐ 142K · <topic>`;
+a line saying the pane is lost has none); under the main checkout's workspace, what is
 true of the whole repo: no **main session**, delivery **gated**, questions waiting with
 no line of their own, orphans. Every line starts with a symbol only Whiska writes, which
 is how the person's own herdr config colours it; a working mouse's symbol turns once a

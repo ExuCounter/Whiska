@@ -50,6 +50,18 @@ A dead mouse (ADR-0026) has no line; what it left is counted on the main checkou
 free string, a topic or a branch, is stripped to one line with no control characters before
 it reaches herdr.
 
+**The line ends in the mouse's context gauge**, `· 142K`: the input, cache-read and
+cache-creation tokens of the last assistant message in its transcript, read the same way
+as the last action (ADR-0050), for every mouse with a line, since a mouse waiting on the
+person is the one whose length matters. That makes one 64 KB tail read per live mouse
+per tick, where the last action was read only for a working or blocked one; it is read
+from the tail alone, so one very large message can leave a mouse without a gauge for a
+moment. A working mouse's goes before its free text, `◐ 142K · <topic>`, so a long topic
+cannot cut it off. A line that says the pane is lost (`✖ no pane`, `⚠ many panes`,
+`? herdr can't say`) has none, and an idle mouse with nothing to say still has no line. With an auto-compact window the size
+is followed by a five-cell bar (`142K ▰▰▰▱▱`); no mouse has a window yet. `whiska mice`
+shows the same gauge in its own column.
+
 **Only Whiska's symbol starts a line, and it is the colour key.** herdr colours a token by
 rules on its own text (`equals`, `contains`, `starts_with`) and cannot read a second token.
 `contains = "waiting"` turned a working mouse orange when its topic mentioned waiting;

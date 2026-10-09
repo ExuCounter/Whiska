@@ -231,7 +231,8 @@ defmodule Whiska.CLI do
                          the same figures as data. Run inside a session.
 
     mice                 List what is alive in this repo's house: one line per
-                         mouse — branch, mode, what its pane is doing, uptime.
+                         mouse — branch, mode, what its pane is doing, how full
+                         its context is, uptime.
 
     watch                Print the lines herdr's sidebar shows for this repo,
                          worked out now: the main checkout's, then each mouse

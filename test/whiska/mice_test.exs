@@ -174,4 +174,22 @@ defmodule Whiska.MiceTest do
       assert {:ok, [%{branch: "feat-a", status: "?"}]} = Mice.list(main, herdr_socket: nil)
     end
   end
+
+  describe "the context gauge" do
+    test "a row carries how full the mouse's context is, and the listing shows it" do
+      rows = Mice.rows([mouse("ma", "feat-a")], {:ok, []}, @now, fn _mouse -> 142_000 end)
+
+      assert [%{context: "142K"}] = rows
+      assert Mice.render(rows) =~ "142K"
+    end
+
+    test "a mouse with no transcript has a blank gauge, and no column when none has one" do
+      rows = Mice.rows([mouse("ma", "feat-a")], {:ok, []}, @now)
+
+      assert [%{context: ""}] = rows
+
+      assert Mice.render(rows) ==
+               "feat-a  never shaped, reads only  no pane  0s"
+    end
+  end
 end

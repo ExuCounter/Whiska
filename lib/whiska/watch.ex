@@ -81,6 +81,7 @@ defmodule Whiska.Watch do
           silent_for: non_neg_integer() | nil,
           topic: String.t() | nil,
           doing: String.t() | nil,
+          context: non_neg_integer() | nil,
           picked_up_at: DateTime.t() | nil
         }
 
@@ -238,10 +239,14 @@ defmodule Whiska.Watch do
       silent_for: nil,
       topic: nil,
       doing: nil,
+      context: nil,
       picked_up_at: if(question_id, do: nil, else: picked_up[mouse.mouse_id])
     }
 
-    if reads_activity?(base), do: with_activity(base, pane, activity.(mouse)), else: base
+    seen = activity.(mouse)
+    base = %{base | context: Map.get(seen, :context)}
+
+    if reads_activity?(base), do: with_activity(base, pane, seen), else: base
   end
 
   # The transcript is read only for a mouse whose line is about what it is

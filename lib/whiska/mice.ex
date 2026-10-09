@@ -24,17 +24,20 @@ defmodule Whiska.Mice do
   channel to the owl's memory either way.
   """
 
+  alias Whiska.Context
   alias Whiska.Herdr
   alias Whiska.Layout
   alias Whiska.Schema.Mouse
   alias Whiska.Shape
   alias Whiska.Storage
+  alias Whiska.Watch.Transcript
 
   @typedoc "One line of the listing, already rendered as words."
   @type row :: %{
           branch: String.t(),
           mode: String.t(),
           status: String.t(),
+          context: String.t(),
           uptime: String.t(),
           note: String.t()
         }
@@ -54,24 +57,27 @@ defmodule Whiska.Mice do
 
     with {:ok, handle} <- Storage.open(main_checkout) do
       try do
-        {:ok, rows(Storage.alive_mice(), ask_herdr(socket), DateTime.utc_now())}
+        {:ok, rows(Storage.alive_mice(), ask_herdr(socket), DateTime.utc_now(), &read_context/1)}
       after
         Storage.close(handle)
       end
     end
   end
 
+  defp read_context(mouse), do: Transcript.activity(mouse.path).context
+
   defp ask_herdr(nil), do: :no_socket
   defp ask_herdr(socket), do: Herdr.impl().list_panes(socket)
 
   @doc "Turn mouse records and herdr's pane list into rows. Pure."
   @spec rows([Mouse.t()], panes(), DateTime.t()) :: [row()]
-  def rows(mice, panes, now) do
+  def rows(mice, panes, now, context \\ fn _mouse -> nil end) do
     Enum.map(mice, fn mouse ->
       %{
         branch: mouse.branch || mouse.mouse_id,
         mode: mode(mouse),
         status: status(mouse, panes),
+        context: Context.gauge(context.(mouse)) || "",
         uptime: format_uptime(DateTime.diff(now, mouse.created_at)),
         note: note(mouse, now)
       }
@@ -135,7 +141,11 @@ defmodule Whiska.Mice do
   def render([]), do: "No mice alive."
 
   def render(rows) do
-    columns = [:branch, :mode, :status, :uptime, :note]
+    rows = Enum.map(rows, &Map.put_new(&1, :context, ""))
+    gauged? = Enum.any?(rows, &(&1.context != ""))
+
+    columns =
+      [:branch, :mode, :status] ++ if(gauged?, do: [:context], else: []) ++ [:uptime, :note]
 
     widths =
       Map.new(columns, fn c ->

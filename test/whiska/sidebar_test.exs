@@ -70,8 +70,9 @@ defmodule Whiska.SidebarTest do
   defp activity(opts) do
     action = Keyword.get(opts, :action, fn _mouse -> nil end)
     silent_for = Keyword.get(opts, :silent_for, 0)
+    context = Keyword.get(opts, :context)
 
-    fn mouse -> %{action: action.(mouse), silent_for: silent_for} end
+    fn mouse -> %{action: action.(mouse), silent_for: silent_for, context: context} end
   end
 
   defp lines(mice, opts) do
@@ -124,21 +125,6 @@ defmodule Whiska.SidebarTest do
                bare_panes: [pane("feat-a", "working", title: "Order builder")],
                action: fn _ -> {:tool, "Edit lib/auth.ex"} end
              ) == "🐭 #52 · waiting on you"
-    end
-
-    test "a line the question already fills never reads the mouse's transcript" do
-      me = self()
-
-      Watch.board([mouse("feat-a")],
-        questions: [question(52, "feat-a")],
-        panes: {:ok, [pane("feat-a", "working", title: "Order builder")]},
-        activity: fn mouse ->
-          send(me, {:read, mouse.mouse_id})
-          %{action: nil, silent_for: 0}
-        end
-      )
-
-      refute_received {:read, _mouse_id}
     end
 
     test "the question wraps onto two lines of 31, and the rest is cut" do
@@ -407,6 +393,64 @@ defmodule Whiska.SidebarTest do
       assert said([mouse("feat-a")],
                bare_panes: [pane("feat-a", "working", title: "Order builder")],
                silent_for: nil
+             ) == "◐ Order builder"
+    end
+  end
+
+  describe "the context gauge" do
+    test "a working mouse's line says how full it is, before its free text" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "working", title: "Order builder")],
+               context: 142_000
+             ) == "◐ 142K · Order builder"
+    end
+
+    test "a mouse waiting on the person carries it after the state" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "idle")],
+               questions: [question(4, "feat-a")],
+               context: 142_000
+             ) == "🐭 #4 · waiting on you · 142K"
+    end
+
+    test "a stuck mouse carries it after how long it has been silent" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "blocked")],
+               silent_for: 6 * 60,
+               context: 142_000
+             ) == "⚠ stuck 6m · 142K"
+    end
+
+    test "an idle mouse with nothing to report still has no line" do
+      assert tokens([mouse("feat-a")], bare_panes: [pane("feat-a", "idle")], context: 142_000) ==
+               %{}
+    end
+
+    test "a mouse with no pane has no gauge on its line" do
+      assert said([mouse("feat-a")], context: 142_000) == "✖ no pane"
+    end
+
+    test "every live mouse's transcript is read, one with a question too" do
+      me = self()
+
+      board =
+        Watch.board([mouse("feat-a"), mouse("feat-b")],
+          questions: [question(52, "feat-a")],
+          panes: {:ok, [pane("feat-a", "idle"), pane("feat-b", "working")]},
+          activity: fn mouse ->
+            send(me, {:read, mouse.mouse_id})
+            %{action: nil, silent_for: 0, context: 142_000}
+          end
+        )
+
+      assert_received {:read, "m-feat-a"}
+      assert_received {:read, "m-feat-b"}
+      assert Enum.all?(board.rows, &(&1.context == 142_000))
+    end
+
+    test "a transcript that says nothing adds nothing" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "working", title: "Order builder")]
              ) == "◐ Order builder"
     end
   end

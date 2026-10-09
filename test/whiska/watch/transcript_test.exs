@@ -208,7 +208,25 @@ defmodule Whiska.Watch.TranscriptTest do
 
     test "a mouse with no transcript is not silent, it is unknown", %{tmp: tmp} do
       assert Transcript.activity("/repo/worktrees/gone", user_home: tmp) ==
-               %{action: nil, silent_for: nil}
+               %{action: nil, silent_for: nil, context: nil}
+    end
+
+    test "carries how full the context is, from the last assistant message's usage", %{tmp: tmp} do
+      worktree = "/repo/worktrees/feat-a"
+      dir = Transcript.project_dir(worktree, tmp)
+      File.mkdir_p!(dir)
+
+      usage = %{"input_tokens" => 5, "cache_read_input_tokens" => 90_000}
+
+      line =
+        JSON.encode!(%{
+          "type" => "assistant",
+          "message" => %{"usage" => usage, "content" => [%{"type" => "text", "text" => "hi"}]}
+        })
+
+      File.write!(Path.join(dir, "s.jsonl"), line)
+
+      assert %{context: 90_005} = Transcript.activity(worktree, user_home: tmp)
     end
   end
 end
