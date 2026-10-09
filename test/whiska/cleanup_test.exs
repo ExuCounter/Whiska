@@ -327,6 +327,45 @@ defmodule Whiska.CleanupTest do
       assert File.dir?(m.path)
     end
 
+    test "a branch that never moved is not landed — a sniff mouse's worktree stays", %{repo: repo} do
+      m = mouse(repo, "research-a", commit: false)
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-research-a", {:left, :no_work_of_its_own}}] = sweep(repo)
+      assert File.dir?(m.path)
+      assert GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "research-a"
+    end
+
+    test "still stays once the base has moved on past it", %{repo: repo} do
+      m = mouse(repo, "research-a", commit: false)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.git!(repo.checkout, ["push", "origin", "main"])
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-research-a", {:left, :no_work_of_its_own}}] = sweep(repo)
+      assert File.dir?(m.path)
+    end
+
+    test "a branch whose reflog is gone is unknown, and unknown is not permission", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.land(repo, "feat-a")
+      File.rm!(Path.join([repo.checkout, ".git", "logs", "refs", "heads", "feat-a"]))
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :no_reflog}}] = sweep(repo)
+      assert File.dir?(m.path)
+    end
+
+    test "a branch with work fast-forwarded into the base still goes", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.git!(repo.checkout, ["merge", "--ff-only", "feat-a"])
+      GitRepo.git!(repo.checkout, ["push", "origin", "main"])
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      refute File.dir?(m.path)
+    end
+
     test "an uncommitted change stays, and herdr is never asked to force it", %{repo: repo} do
       m = mouse(repo, "feat-a")
       GitRepo.land(repo, "feat-a")

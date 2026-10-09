@@ -216,6 +216,28 @@ defmodule Whiska.Git do
     end
   end
 
+  @doc """
+  Has this branch ever carried a commit of its own?
+
+  A branch still on the commit it was cut at has nothing to land, and its tip
+  is an ancestor of the base all the same (ADR-0061). The branch's own reflog
+  names where it was cut: its oldest entry. A reflog that is empty or gone is
+  `{:error, :no_reflog}`, never a guess either way.
+  """
+  @spec own_work?(Path.t(), branch(), String.t()) :: {:ok, boolean()} | {:error, term()}
+  def own_work?(checkout, branch, head) do
+    case run(checkout, ["reflog", "show", "--format=%H", "refs/heads/" <> branch]) do
+      {out, 0} ->
+        case out |> String.split("\n", trim: true) |> List.last() do
+          nil -> {:error, :no_reflog}
+          cut -> {:ok, String.trim(cut) != head}
+        end
+
+      {out, code} ->
+        {:error, {code, String.trim(out)}}
+    end
+  end
+
   @doc "Is there nothing in this worktree left to save? Untracked files count as something."
   @spec clean?(Path.t()) :: {:ok, boolean()} | {:error, term()}
   def clean?(worktree) do

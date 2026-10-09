@@ -260,6 +260,7 @@ defmodule Whiska.Cleanup do
     with {:ok, base} <- leave_on_error(context.base),
          {:ok, branch} <- leave_on_error(Git.head_branch(path)),
          {:ok, true} <- merged(checkout, path, base, context[:merged]),
+         {:ok, true} <- own_work(checkout, path, branch),
          {:ok, true} <- clean(path),
          {:ok, false} <- unpushed(path, branch) do
       {:ok, branch}
@@ -270,6 +271,18 @@ defmodule Whiska.Cleanup do
     case asked || Git.merged?(checkout, path, base) do
       {:ok, false} -> {:leave, :not_merged}
       other -> leave_on_error(other)
+    end
+  end
+
+  # An ancestor of the base is not yet a landing: a branch that never moved —
+  # a sniff mouse's, or a build mouse that committed nothing — is one too, and
+  # its worktree is the person's to drop (ADR-0061).
+  defp own_work(checkout, path, branch) do
+    with {:ok, head} <- leave_on_error(Git.head(path)) do
+      case Git.own_work?(checkout, branch, head) do
+        {:ok, false} -> {:leave, :no_work_of_its_own}
+        other -> leave_on_error(other)
+      end
     end
   end
 

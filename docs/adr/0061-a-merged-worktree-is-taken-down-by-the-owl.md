@@ -34,6 +34,25 @@ skips them.
 1. **The branch is merged into the base branch.** Mechanically: the worktree's head commit
    is an ancestor of the base. This is the one that makes everything else recoverable, and
    it is a local git question — no network, no forge, no credentials.
+
+   **A branch with no commit of its own is never merged, whatever its ancestry says.** A
+   commit is its own ancestor, so a branch still on the commit it was cut at — a sniff
+   mouse's, whose investigation has nothing to merge, or a build mouse that committed
+   nothing — passes the ancestor test the moment it exists. The owl took such sniff
+   worktrees down minutes after their report, under a person who may still want to talk
+   to them. So the ancestor test is only half of it: the branch's tip must also differ
+   from the commit it was cut at, which the branch's own reflog records. A branch
+   fast-forwarded into the base still passes — it moved before it landed — which is why
+   this asks about the branch's history rather than how the base reached it
+   (ADR-0064's landing stamp asks the latter, and reads a fast-forward as no landing).
+   A reflog that is missing or empty is unknown, and unknown is not permission. Such a
+   worktree stays until the person drops it with `drop-worktree`.
+
+   Two limits, both on the safe side. The test is "the tip moved", not "a commit of its
+   own": a sniff mouse that fast-forwards its own branch (`git pull`) reads as having
+   work. And git trims old reflog entries after 90 days by default, so a branch that
+   committed once, sat idle past that and then landed can read as never moved and stays
+   until dropped by hand.
 2. **The worktree is clean.** `git status --porcelain` says nothing, untracked files
    included. An untracked file is work nobody has saved anywhere.
 
