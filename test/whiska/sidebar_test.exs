@@ -98,14 +98,14 @@ defmodule Whiska.SidebarTest do
       assert tokens([mouse("feat-a")],
                questions: [question(13, "feat-a", sent_at: sent_at)],
                bare_panes: [pane("feat-a", "idle")]
-             ) == %{"whiska" => "🐭 #13 · waiting on you · 14m", "whiska_q" => "which db?"}
+             ) == %{"whiska" => "❓ #13 · waiting on you · 14m", "whiska_q" => "which db?"}
     end
 
     test "next to go and not sent yet, it is waiting on the person without an age" do
       assert tokens([mouse("feat-a")],
                questions: [question(12, "feat-a", status: "open")],
                bare_panes: [pane("feat-a", "idle")]
-             ) == %{"whiska" => "🐭 #12 · waiting on you", "whiska_q" => "which db?"}
+             ) == %{"whiska" => "❓ #12 · waiting on you", "whiska_q" => "which db?"}
     end
 
     test "an age under a minute is still an age, and an hour is spelled like `whiska mice`" do
@@ -115,7 +115,7 @@ defmodule Whiska.SidebarTest do
         assert said([mouse("feat-a")],
                  questions: [question(13, "feat-a", sent_at: sent_at)],
                  bare_panes: [pane("feat-a", "idle")]
-               ) == "🐭 #13 · waiting on you · #{age}"
+               ) == "❓ #13 · waiting on you · #{age}"
       end
     end
 
@@ -124,7 +124,7 @@ defmodule Whiska.SidebarTest do
                questions: [question(52, "feat-a", status: "open")],
                bare_panes: [pane("feat-a", "working", title: "Order builder")],
                action: fn _ -> {:tool, "Edit lib/auth.ex"} end
-             ) == "🐭 #52 · waiting on you"
+             ) == "❓ #52 · waiting on you"
     end
 
     test "the question wraps onto two lines of 31, and the rest is cut" do
@@ -174,7 +174,7 @@ defmodule Whiska.SidebarTest do
                questions: [question(7, "feat-a", status: "answered")],
                bare_panes: [pane("feat-a", "idle")],
                picked_up: %{"m-feat-a" => DateTime.add(@now, -180, :second)}
-             ) == %{"whiska" => "🐭 #7 · answer not taken"}
+             ) == %{"whiska" => "❓ #7 · answer not taken"}
     end
   end
 
@@ -222,7 +222,7 @@ defmodule Whiska.SidebarTest do
           bare_panes: [pane("feat-a", "idle"), pane("feat-b", "idle")]
         )
 
-      assert sent.tokens["whiska"] =~ "🐭 #12 · waiting on you"
+      assert sent.tokens["whiska"] =~ "❓ #12 · waiting on you"
       assert queued.tokens == %{"whiska" => "⏳ queued behind #12", "whiska_q" => "which db?"}
     end
   end
@@ -327,7 +327,7 @@ defmodule Whiska.SidebarTest do
     end
 
     test "a title that reads like a question is still a working mouse's line" do
-      forged = "🐭 #99 · waiting on you"
+      forged = "❓ #99 · waiting on you"
 
       [line] = lines([mouse("feat-a")], bare_panes: [pane("feat-a", "working", title: forged)])
 
@@ -410,7 +410,7 @@ defmodule Whiska.SidebarTest do
                bare_panes: [pane("feat-a", "idle")],
                questions: [question(4, "feat-a")],
                context: 142_000
-             ) == "🐭 #4 · waiting on you · 142K"
+             ) == "❓ #4 · waiting on you · 142K"
     end
 
     test "a stuck mouse carries it after how long it has been silent" do
@@ -606,10 +606,10 @@ defmodule Whiska.SidebarTest do
         )
 
       assert Sidebar.house(board, main_pane?: true, no_workspace: MapSet.new(["m-feat-a"])) ==
-               %{"whiska" => "🐭 2 more: whiska questions"}
+               %{"whiska" => "❓ 2 more: whiska questions"}
 
       assert Sidebar.house(board, main_pane?: true, no_workspace: MapSet.new()) ==
-               %{"whiska" => "🐭 1 more: whiska questions"}
+               %{"whiska" => "❓ 1 more: whiska questions"}
     end
 
     test "names the branches orphans came off, and the names add up" do
@@ -679,7 +679,7 @@ defmodule Whiska.SidebarTest do
       assert tokens == %{
                "whiska" => "✖ no main session: whiska start",
                "whiska_q" => "⏳ gated: main is mid-turn",
-               "whiska_q2" => "🐭 1 more: whiska questions"
+               "whiska_q2" => "❓ 1 more: whiska questions"
              }
     end
   end
@@ -753,7 +753,7 @@ defmodule Whiska.SidebarTest do
                ⏳ gated: you're typing
 
                feat-a
-                 🐭 #12 · waiting on you
+                 ❓ #12 · waiting on you
                  which db?
 
                feat-idle
@@ -779,7 +779,7 @@ defmodule Whiska.SidebarTest do
       rules = Regex.scan(~r/starts_with = "([^"]+)"/u, snippet, capture: :all_but_first)
       assert length(rules) <= 16
 
-      for symbol <- ~w(🐭 ✅ ⚠ ✖ ? ⏳ 🎯 💤 ⏸ ↩ ◐ ◓ ◑ ◒) do
+      for symbol <- ~w(❓ ✅ ⚠ ✖ ? ⏳ 🎯 💤 ⏸ ↩ ◐ ◓ ◑ ◒) do
         assert [symbol] in rules, "no rule for #{symbol}"
       end
     end

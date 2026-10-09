@@ -191,11 +191,11 @@ surface; the board is drawn on none, only the **sidebar lines** written from it 
 
 **Sidebar line**:
 What herdr's sidebar shows under one workspace, which the owl reports and herdr draws
-(ADR-0082): under each mouse's workspace, its state — `🐭 #13 · waiting on you · 14m`,
+(ADR-0082): under each mouse's workspace, its state — `❓ #13 · waiting on you · 14m`,
 `✅ #14 · finished`, `⚠ stuck 6m`, `⏳ queued behind #12`, `🎯`/`💤` waiting behind a
 **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `◐ <topic>` — with the question it
 carries wrapped on up to two lines beneath, each ending in the mouse's **context gauge**
-(`🐭 #13 · waiting on you · 14m · 142K`; a working mouse's goes first, `◐ 142K · <topic>`;
+(`❓ #13 · waiting on you · 14m · 142K`; a working mouse's goes first, `◐ 142K · <topic>`;
 a line saying the pane is lost has none); under the main checkout's workspace, what is
 true of the whole repo: no **main session**, delivery **gated**, questions waiting with
 no line of their own, orphans. Every line starts with a symbol only Whiska writes, which

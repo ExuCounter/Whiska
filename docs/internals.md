@@ -383,7 +383,7 @@ the main checkout's for what is true of the whole repo:
 myrepo
   ⏳ gated: you're typing
 feat/quiet-marker
-  🐭 #52 · waiting on you · 4m
+  ❓ #52 · waiting on you · 4m
   sqlite or a plain file?
 fix/doctor-probe
   ⚠ stuck 6m
@@ -396,7 +396,7 @@ feat/watch-board
 ```
 
 The first line is the state, starting with a symbol; up to two more carry the question,
-wrapped at 31 characters. In the order they sort: `🐭` waiting on you (sent, with how
+wrapped at 31 characters. In the order they sort: `❓` waiting on you (sent, with how
 long; or next to go), `✅` finished, `⚠ stuck` (blocked, or working and silent for two
 minutes, with the tool call it is in), `⏳ queued behind #n`, `🎯`/`💤` waiting behind a
 focus or away, `⏸` held, `↩ picked up`, `◐` working — its spinner turns once a second, so a
@@ -421,7 +421,7 @@ rows = [
   ["state_icon", { token = "workspace", fg = "#586e75", dim = false }],
   ["branch", "git_status"],
   [{ token = "$whiska", fg = "#657b83", dim = false, rules = [
-    { starts_with = "🐭", fg = "#cb4b16" },
+    { starts_with = "❓", fg = "#cb4b16" },
     { starts_with = "⚠", fg = "#dc322f" },
     # … one rule per symbol; `whiska doctor` prints all fourteen
   ] }],

@@ -136,7 +136,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
       q: q
     } do
       held = fake_herdr([main_ws(main), mouse_ws("w2", worktree)])
-      line = "🐭 ##{q.id} · waiting on you"
+      line = "❓ ##{q.id} · waiting on you"
 
       open(main, [])
 
@@ -224,7 +224,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
 
       open(main, [])
 
-      said = "🐭 ##{q.id} · answer not taken"
+      said = "❓ ##{q.id} · answer not taken"
       assert_receive {:reported, "w2", %{"whiska" => ^said}}, 1_000
     end
   end
@@ -362,7 +362,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
           mouse_ws("w5", "/other/worktrees/x")
         ])
 
-      Agent.update(held, &Map.put(&1, "w5", %{"whiska" => "🐭 #4 · waiting on you"}))
+      Agent.update(held, &Map.put(&1, "w5", %{"whiska" => "❓ #4 · waiting on you"}))
 
       open(main, [])
 

@@ -72,7 +72,7 @@ silently. herdr's sidebar shows each one under its mouse's workspace:
 myrepo
   ⏳ gated: you're typing
 feat/quiet-marker
-  🐭 #52 · waiting on you · 4m
+  ❓ #52 · waiting on you · 4m
   sqlite or a plain file?
 fix/doctor-probe
   ⚠ stuck 6m

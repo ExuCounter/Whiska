@@ -25,7 +25,7 @@ defmodule Whiska.Sidebar do
   # symbol, so every symbol a line can start with has a rule, in Solarized
   # shades the person is free to change.
   @colours [
-    {"🐭", "#cb4b16"},
+    {"❓", "#cb4b16"},
     {"⚠", "#dc322f"},
     {"✖", "#dc322f"},
     {"?", "#dc322f"},
@@ -170,7 +170,7 @@ defmodule Whiska.Sidebar do
   defp state(%{held?: true}, _now, _frame), do: {@held, "⏸ held", nil}
 
   defp state(%{not_taken?: true, question_id: id}, _now, _frame),
-    do: {@next, "🐭 ##{id} · answer not taken", nil}
+    do: {@next, "❓ ##{id} · answer not taken", nil}
 
   defp state(%{asked: %{} = asked, question_id: id}, now, _frame), do: asked(id, asked, now)
 
@@ -205,9 +205,9 @@ defmodule Whiska.Sidebar do
     do: {@finished, "✅ ##{id} · finished", asked.pointer}
 
   defp asked(id, %{sent_at: %DateTime{} = at} = asked, now),
-    do: {@sent, "🐭 ##{id} · waiting on you · #{age(at, now)}", asked.pointer}
+    do: {@sent, "❓ ##{id} · waiting on you · #{age(at, now)}", asked.pointer}
 
-  defp asked(id, asked, _now), do: {@next, "🐭 ##{id} · waiting on you", asked.pointer}
+  defp asked(id, asked, _now), do: {@next, "❓ ##{id} · waiting on you", asked.pointer}
 
   defp stuck(nil), do: "⚠ stuck"
   defp stuck(silent_for), do: "⚠ stuck #{minutes(silent_for)}"
@@ -307,7 +307,7 @@ defmodule Whiska.Sidebar do
   defp question?(_row), do: false
 
   defp off_sidebar(0), do: nil
-  defp off_sidebar(n), do: "🐭 #{n} more: whiska questions"
+  defp off_sidebar(n), do: "❓ #{n} more: whiska questions"
 
   defp orphaned(nil), do: nil
   defp orphaned(said), do: "◌ " <> said

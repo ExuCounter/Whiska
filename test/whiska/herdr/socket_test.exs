@@ -496,7 +496,7 @@ defmodule Whiska.Herdr.SocketTest do
         "workspace_id" => "w7",
         "number" => 2,
         "label" => "feat/a",
-        "tokens" => %{"whiska" => "🐭 #3 · waiting on you"},
+        "tokens" => %{"whiska" => "❓ #3 · waiting on you"},
         "worktree" => %{"checkout_path" => "/main/worktrees/feat/a", "is_linked_worktree" => true}
       },
       %{"workspace_id" => "w9", "number" => 3, "label" => "scratch"}
@@ -528,7 +528,7 @@ defmodule Whiska.Herdr.SocketTest do
                  number: 2,
                  path: "/main/worktrees/feat/a",
                  linked?: true,
-                 tokens: %{"whiska" => "🐭 #3 · waiting on you"}
+                 tokens: %{"whiska" => "❓ #3 · waiting on you"}
                },
                %{workspace_id: "w9", number: 3, path: nil, linked?: nil, tokens: %{}}
              ]

@@ -19,8 +19,8 @@ sort, first match winning:
 
 | # | line | carries |
 |---|------|---------|
-| 1 | `🐭 #13 · waiting on you · 14m` — sent, unanswered | the question |
-| 2 | `🐭 #12 · waiting on you` — next to go; `🐭 #12 · answer not taken` | the question |
+| 1 | `❓ #13 · waiting on you · 14m` — sent, unanswered | the question |
+| 2 | `❓ #12 · waiting on you` — next to go; `❓ #12 · answer not taken` | the question |
 | 3 | `✅ #14 · finished` — a report holding the slot | its closing line |
 | 4 | `⚠ stuck 6m` — blocked, or working and silent two minutes | its last action |
 | 5 | `⏳ queued behind #12` | the question |
@@ -35,7 +35,7 @@ sort, first match winning:
 A hold is checked first, then the question, then herdr's view of the pane, then stuck,
 picked up and working. Ages are minutes, then `Whiska.Mice.format_uptime/1` from an hour:
 a line is re-sent whenever its words change, and one ticking in seconds would be sent every
-second. The person picked 🐭 for the lines that wait on them: the line is the mouse's.
+second. The person picked ❓ for the lines that wait on them: a question for the person (the plain `?` is taken by `? herdr can't say`).
 
 **The facts behind the line** are the board, `Whiska.Watch.board/2`, which holds facts and
 no words: the question waiting, how the pane stands with herdr, the mouse's topic and its
@@ -89,7 +89,7 @@ The same three tokens, most urgent first:
   name is still a hold, said as the main session being unreachable; `whiska doctor` keeps
   the long words. The line is as current as the last delivery attempt: a draft deleted
   and walked away from reads as a draft until the next trigger, at worst one backstop.
-- `🐭 n more: whiska questions`, questions no mouse's line can show.
+- `❓ n more: whiska questions`, questions no mouse's line can show.
 - `◌ n orphaned (branches)`, named by branch, since the branch survives on the record
   (ADR-0007) and is what `whiska questions` prints; `#id` when there is none.
 
