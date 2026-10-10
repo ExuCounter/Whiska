@@ -449,7 +449,9 @@ highest effort. Given by the spawn, with `whiska shape`, before Claude starts, s
 mouse's first tool call is already judged by its mode. The spawning session picks the
 model and the effort by the ordered rules in `priv/models.json`; one it leaves unnamed
 is the last rule's. The record also keeps the model the mouse actually ran on, read from
-its transcript. There is no default mode: a mouse **never shaped** may read but not
+its transcript. Shaping also stocks the worktree: the main checkout's `deps`, `_build` or
+`node_modules`, and any path listed in the house's `clone` file, are cloned in
+copy-on-write, never symlinked. There is no default mode: a mouse **never shaped** may read but not
 write until the person runs `whiska mode` in its worktree. That gives a mode to a mouse
 nobody shaped and to no other: a shaped mouse keeps its mode, since its model and effort
 were chosen for that work, and `whiska mode` refuses it, pointing to a proposed build and a

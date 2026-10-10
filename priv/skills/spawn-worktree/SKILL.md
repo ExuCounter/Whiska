@@ -149,7 +149,11 @@ fi
 - It prints only plain words (letters, digits, `-` and `,`). The `case` line refuses
   anything else that reached `$flags` — a shell hook that prints on `cd`, say — so `eval`
   only splits words into arguments, the same in bash and zsh.
-- On stderr it says what it recorded. Keep that line: it goes in the report.
+- On stderr it says what it recorded, and then, on a line starting `whiska:`, what it
+  cloned into the worktree and how long that took, or why it cloned nothing (`deps`,
+  `_build` or `node_modules` from the main checkout, plus the paths the person listed in
+  `.git/whiska/clone`). A failed clone does not stop the start. Keep both lines: they go in
+  the report.
 - **It fails → the command stops before Claude starts. Report the error and
   do not start Claude by hand:** a mouse started without its shape may not write anything
   until the person runs `whiska mode` in its worktree, so it would stall at its first
@@ -208,7 +212,8 @@ only the question id.
 One line: "Created worktree <branch> at worktrees/<branch>, a Claude session is working
 on it there.", then what the line `whiska shape` printed on stderr says, in plain words —
 "it can only look, not change files" for sniff, "it can change files" for build, then the
-model and the effort that line names.
+model and the effort that line names, then the clone line in plain words ("cloned deps,
+_build in 0.35s", or why nothing was).
 Restate that line, not what this skill meant to set, so a shape that went wrong shows up
 here. Say that it will not interrupt them and
 that Whiska delivers its question when it has one. Then stop: the task is the mouse's,

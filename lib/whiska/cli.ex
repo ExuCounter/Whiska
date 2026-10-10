@@ -281,7 +281,11 @@ defmodule Whiska.CLI do
                          Give a fresh mouse its shape, before Claude starts
                          (ADR-0069): record its mode, model and effort, and
                          print the flags to start Claude with, or nothing.
-                         Also makes git ignore the worktree's .whiska-spec.md.
+                         Also makes git ignore the worktree's .whiska-spec.md,
+                         and clones deps, _build and node_modules (plus the
+                         paths in .git/whiska/clone, or nothing for a lone
+                         `off`) from the main checkout copy-on-write, saying
+                         on stderr what it did; that never fails the shape.
                          Fails rather than guess, so a spawn stops before
                          Claude. A model or effort left out is the last rule's
                          in priv/models.json: #{@catch_all}.
@@ -1253,6 +1257,7 @@ defmodule Whiska.CLI do
       {:ok, _} ->
         IO.puts(:stderr, "#{layout.branch_label} is #{Whiska.Shape.describe(shape)}.")
         ignore_spec(layout)
+        clone(layout)
         say(Enum.join(Whiska.Shape.claude_args(shape), " "))
 
       {:error, reason} ->
@@ -1269,6 +1274,12 @@ defmodule Whiska.CLI do
       {:ok, branch} -> branch
       {:error, _} -> nil
     end
+  end
+
+  # Stocking the worktree comes last and can fail nothing: what it did, or why
+  # it did nothing, is one stderr line for the spawn's report.
+  defp clone(layout) do
+    IO.puts(:stderr, "whiska: #{Whiska.Clone.run(layout.main_checkout, layout.worktree_root)}.")
   end
 
   # Shaping, or setting the mode of a mouse nobody shaped, comes before the
