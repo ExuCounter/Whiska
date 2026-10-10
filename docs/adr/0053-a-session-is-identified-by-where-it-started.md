@@ -34,7 +34,7 @@ session speaks for is derived from that first entry, and only from the payload's
 directory when there is no transcript, or none that names a directory.
 
 Neither signal can tell a mouse from a `claude` it started itself: that child starts in
-the same worktree and inherits the same pane. ADR-next-a-nested-session-speaks-for-nobody
+the same worktree and inherits the same pane. ADR-0084
 adds the third signal that does, the process tree.
 
 `Whiska.Session` is where both live. `Layout` is untouched — it still turns *a* directory
