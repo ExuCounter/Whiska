@@ -191,7 +191,13 @@ defmodule Whiska.CLIQuestionsTest do
       {:ok, handle} = Storage.open(repo.checkout)
 
       try do
-        {:ok, _} = Storage.record_mouse(%{mouse_id: "m-#{branch}", path: path, branch: branch})
+        {:ok, _} =
+          Storage.record_mouse(%{
+            mouse_id: "m-#{branch}",
+            path: path,
+            branch: branch,
+            base: opts[:base]
+          })
 
         {:ok, q} =
           Storage.record_question(%{
@@ -218,6 +224,77 @@ defmodule Whiska.CLIQuestionsTest do
 
       assert show_one(repo, q) =~
                ~r/^##{q.id}  feat-a  finished  \(closed, asked [^)]+\)\nOn the branch: 1 commit beyond main · nothing uncommitted\n\nDone\./
+    end
+
+    # The main checkout works on staging, which is ahead of main; a mouse cut
+    # from it that committed nothing has nothing to land.
+    defp on_staging(repo) do
+      GitRepo.git!(repo.checkout, ["checkout", "-b", "staging"])
+      GitRepo.commit!(repo.checkout, "s1.md", "staging work")
+      GitRepo.commit!(repo.checkout, "s2.md", "staging work")
+    end
+
+    test "is counted beyond the branch the worktree was cut from, not main", %{repo: repo} do
+      on_staging(repo)
+      q = finished(repo, "ask-s", commit: false, base: "staging")
+
+      assert show_one(repo, q) =~
+               "On the branch: nothing committed beyond staging · nothing uncommitted"
+    end
+
+    test "whiska shape records the branch the main checkout is on as the base", %{repo: repo} do
+      on_staging(repo)
+      # Where `Layout` looks for a worktree: under the main checkout.
+      path = Path.join(repo.checkout, "worktrees/ask-v")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "ask-v", path])
+
+      capture_io(:stderr, fn ->
+        capture_io(fn -> assert CLI.run(["shape", "build"], path) == 0 end)
+      end)
+
+      {:ok, id} = Whiska.Marker.read_or_mint(path)
+      {:ok, handle} = Storage.open(repo.checkout)
+
+      try do
+        assert Storage.mouse(id).base == "staging"
+      after
+        Storage.close(handle)
+      end
+    end
+
+    test "whiska base prints the recorded base, or the default without one", %{repo: repo} do
+      on_staging(repo)
+      path = Path.join(repo.checkout, "worktrees/ask-w")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "ask-w", path])
+
+      capture_io(:stderr, fn ->
+        capture_io(fn -> assert CLI.run(["shape", "build"], path) == 0 end)
+      end)
+
+      assert capture_io(fn -> assert CLI.run(["base"], path) == 0 end) == "staging\n"
+
+      GitRepo.git!(repo.checkout, ["checkout", "main"])
+      GitRepo.git!(repo.checkout, ["branch", "-D", "staging"])
+
+      stderr = capture_io(:stderr, fn -> assert CLI.run(["base"], path) == 1 end)
+      assert stderr =~ "its base branch staging is gone"
+
+      other = Path.join(repo.checkout, "worktrees/ask-x")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "ask-x", other])
+      assert capture_io(fn -> assert CLI.run(["base"], other) == 0 end) == "main\n"
+    end
+
+    test "a mouse with no recorded base is still counted beyond main", %{repo: repo} do
+      on_staging(repo)
+      q = finished(repo, "ask-t", commit: false)
+
+      assert show_one(repo, q) =~ "On the branch: 2 commits beyond main"
+    end
+
+    test "a recorded base that is gone is unknown, never main", %{repo: repo} do
+      q = finished(repo, "ask-u", commit: false, base: "staging")
+
+      assert show_one(repo, q) =~ "On the branch: unknown — its base branch staging is gone"
     end
 
     test "an untracked file is uncommitted work, and nothing committed is said so",

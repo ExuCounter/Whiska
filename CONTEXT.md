@@ -18,6 +18,14 @@ A running herdr pane + Claude Code session working inside its own isolated git
 worktree, spawned and supervised by a Whiska.
 _Avoid_: worker, crewmate, agent
 
+**Base**:
+The branch a mouse's worktree was cut from: the branch the main checkout was on when
+`whiska shape` ran, kept in the mouse's record. Its commits are measured beyond it, and
+its work has landed when it reaches it (ADR-0061). A mouse with none recorded is read
+against the repo's default branch; a recorded one that is gone is unknown, never the
+default.
+_Avoid_: main, trunk, target
+
 **Brief**:
 What a mouse is given to build — the person's own words, routed in whole by
 `spawn-worktree` or `send-to-worktree`, or a **proposal** the person said yes to, handed

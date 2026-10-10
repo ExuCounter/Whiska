@@ -32,7 +32,8 @@ defmodule Whiska.Storage do
     {8, Whiska.Migrations.V008Effort},
     {9, Whiska.Migrations.V009ShapedAs},
     {10, Whiska.Migrations.V010HoldAndFocus},
-    {11, Whiska.Migrations.V011AnswerTaken}
+    {11, Whiska.Migrations.V011AnswerTaken},
+    {12, Whiska.Migrations.V012Base}
   ]
 
   @modes ~w(build sniff)
@@ -283,14 +284,17 @@ defmodule Whiska.Storage do
   Run by the spawn, in the new worktree, before Claude starts — so the first
   tool call a sniff mouse makes is already judged as sniff. `shaped_at` is what
   tells this mouse apart from one nobody shaped, which may not write.
-  `shaped_as` keeps the mode the model and effort were chosen with.
+  `shaped_as` keeps the mode the model and effort were chosen with, and `base`
+  the branch the worktree was cut from.
   """
-  @spec shape(String.t(), String.t(), String.t() | nil, String.t() | nil) ::
+  @spec shape(String.t(), String.t(), String.t() | nil, String.t() | nil, String.t() | nil) ::
           {:ok, Mouse.t()} | {:error, :invalid_mode | :no_such_mouse | Ecto.Changeset.t()}
-  def shape(_mouse_id, mode, _model, _effort) when mode not in @modes,
+  def shape(mouse_id, mode, model, effort, base \\ nil)
+
+  def shape(_mouse_id, mode, _model, _effort, _base) when mode not in @modes,
     do: {:error, :invalid_mode}
 
-  def shape(mouse_id, mode, model, effort) do
+  def shape(mouse_id, mode, model, effort, base) do
     case Repo.get(Mouse, mouse_id) do
       nil ->
         {:error, :no_such_mouse}
@@ -305,9 +309,17 @@ defmodule Whiska.Storage do
           ran_on: nil,
           shaped_at: now()
         })
+        |> keep_base(base)
         |> Repo.update()
     end
   end
+
+  # The first base recorded stands: a shape run again from a main checkout that
+  # has since moved must not move what the mouse was cut from.
+  defp keep_base(changeset, nil), do: changeset
+
+  defp keep_base(changeset, base),
+    do: Ecto.Changeset.change(changeset, %{base: changeset.data.base || base})
 
   @doc "One mouse, or nil."
   @spec mouse(String.t()) :: Mouse.t() | nil

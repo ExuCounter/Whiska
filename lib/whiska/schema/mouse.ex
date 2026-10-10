@@ -35,6 +35,10 @@ defmodule Whiska.Schema.Mouse do
     # with; nil when no spawn ever shaped it. A mouse flipped before ADR-0074
     # can differ from `mode`, and `whiska mice` says so.
     field(:shaped_as, :string)
+    # The branch the main checkout was on when this mouse was spawned, so the
+    # one its worktree was cut from: what its branch is measured against.
+    # Nil when nobody recorded one, which reads as the default branch.
+    field(:base, :string)
     field(:created_at, :utc_datetime)
     # Set when herdr reports the pane gone (ADR-0026); cleared if a pane comes
     # back on the same worktree. Never a reason to delete the row (ADR-0007).

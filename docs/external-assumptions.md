@@ -206,9 +206,10 @@ version warning's job.
 - **git.** Uses `worktree` (and `worktree remove`, git 2.17+), `branch --format`
   (2.13+), `symbolic-ref`, `rev-parse`, `merge-base --is-ancestor`, `rev-list
   --first-parent`, `status --porcelain`. Every answer is an exit code or a fixed
-  format, never a translated message, so locale does not matter. Assumes the base
-  branch is `origin/HEAD`, else exactly one of `main` or `master`, and answers "do
-  nothing" otherwise. Layout leans on git's `.git` file pointing into
+  format, never a translated message, so locale does not matter. Assumes a
+  mouse's base is the branch the main checkout was on at spawn (recorded by `whiska
+  shape`); with none recorded, `origin/HEAD`, else exactly one of `main` or `master`,
+  and answers "do nothing" otherwise. Layout leans on git's `.git` file pointing into
   `.git/worktrees/`, unchanged for a decade. `mix adr.claim` hard-codes `main`, which
   only matters for this repo. Nothing to loosen.
 - **The `worktrees/<branch>` layout** is Whiska's own convention (ADR-0030), not an

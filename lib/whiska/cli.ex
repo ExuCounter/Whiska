@@ -434,6 +434,8 @@ defmodule Whiska.CLI do
 
   def run(["mode"], cwd), do: with_mouse(cwd, &show_mode/2)
 
+  def run(["base"], cwd), do: with_mouse(cwd, &show_base/2)
+
   def run(["mode", mode], cwd) when mode in ["build", "sniff"],
     do: with_mouse(cwd, &set_mode(&1, &2, mode))
 
@@ -1196,6 +1198,20 @@ defmodule Whiska.CLI do
     end
   end
 
+  # Plain: a skill reads this as the branch to diff against.
+  defp show_base(mouse_id, layout) do
+    recorded = with %Mouse{base: base} <- Storage.mouse(mouse_id), do: base
+
+    case Git.base_of(layout.main_checkout, recorded) do
+      {:ok, base} ->
+        say(base)
+
+      {:error, reason} ->
+        IO.puts(:stderr, "whiska: no base branch to compare with (#{describe(reason)}).")
+        1
+    end
+  end
+
   defp set_mode(mouse_id, layout, mode) do
     case Storage.set_mode(mouse_id, mode) do
       {:ok, _mouse} ->
@@ -1233,7 +1249,7 @@ defmodule Whiska.CLI do
   # so a spawn can split them straight into `claude`'s arguments; what was
   # recorded goes to stderr, for the person.
   defp shape(mouse_id, layout, %{mode: mode, model: model, effort: effort} = shape) do
-    case Storage.shape(mouse_id, mode, model, effort) do
+    case Storage.shape(mouse_id, mode, model, effort, cut_from(layout.main_checkout)) do
       {:ok, _} ->
         IO.puts(:stderr, "#{layout.branch_label} is #{Whiska.Shape.describe(shape)}.")
         ignore_spec(layout)
@@ -1242,6 +1258,16 @@ defmodule Whiska.CLI do
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not shape this mouse (#{inspect(reason)}).")
         1
+    end
+  end
+
+  # The branch the main checkout is on is the one this worktree was just cut
+  # from, which is what the mouse's branch is measured against. A detached
+  # head names none, and the mouse is read against the default branch.
+  defp cut_from(main_checkout) do
+    case Git.head_branch(main_checkout) do
+      {:ok, branch} -> branch
+      {:error, _} -> nil
     end
   end
 
@@ -1902,9 +1928,22 @@ defmodule Whiska.CLI do
     end
   end
 
+  defp recorded_base(branch) do
+    # Every record, a removed one included: the branch outliving its worktree
+    # is what brings us here, and its base is still the one it was cut from.
+    Mouse
+    |> Storage.all()
+    |> Enum.filter(&(&1.branch == branch and &1.base))
+    |> Enum.max_by(& &1.created_at, DateTime, fn -> nil end)
+    |> case do
+      %Mouse{base: base} -> base
+      nil -> nil
+    end
+  end
+
   defp kept(main, branch) do
     commits =
-      case Git.ahead(main, branch) do
+      case Git.ahead(main, branch, recorded_base(branch)) do
         {:ok, 1} -> "1 commit beyond the base"
         {:ok, n} -> "#{n} commits beyond the base"
         {:error, _} -> "an unknown number of commits"
@@ -1953,9 +1992,9 @@ defmodule Whiska.CLI do
   defp on_branch(main, %Question{mouse_id: mouse_id}),
     do: on_branch(main, Storage.mouse(mouse_id))
 
-  defp on_branch(main, %Mouse{path: path, branch: branch})
+  defp on_branch(main, %Mouse{path: path, branch: branch, base: base})
        when is_binary(path) and is_binary(branch),
-       do: Git.on_branch(main, path, branch)
+       do: Git.on_branch(main, path, branch, base)
 
   defp on_branch(_main, _no_worktree), do: {:error, :no_record}
 
@@ -2310,6 +2349,9 @@ defmodule Whiska.CLI do
 
   defp describe({:herdr, %{"code" => code, "message" => message}}), do: "#{code}: #{message}"
   defp describe(reason) when is_binary(reason), do: reason
+
+  defp describe({:base_gone, name}), do: "its base branch #{name} is gone"
+  defp describe(:unsafe_base), do: "its base branch's name is not a plain one"
 
   defp describe({:control_character, name}),
     do: "#{name} holds a control character, which would end a line of the unit"

@@ -43,6 +43,34 @@ defmodule Whiska.Git do
     end
   end
 
+  @doc """
+  The branch one mouse's worktree has to have landed in: the base `whiska shape`
+  recorded when it was spawned, which is the branch the main checkout was on
+  and so the one the worktree was cut from.
+
+  A mouse with no recorded base is read against `base/1`, as before. A recorded
+  base that no longer resolves is `{:error, {:base_gone, name}}` and never a
+  fall back to the default branch: measuring a staging mouse against `main`
+  is the mistake this exists to end (ADR-0061, unknown is never permission).
+  """
+  @spec base_of(Path.t(), branch() | nil) :: {:ok, branch()} | {:error, term()}
+  def base_of(checkout, nil) do
+    with {:ok, name} <- base(checkout), do: plain(name)
+  end
+
+  def base_of(checkout, recorded) do
+    with {:ok, name} <- plain(recorded),
+         {:ok, _ref} <- base_ref(checkout, name) do
+      {:ok, name}
+    else
+      {:error, {:no_base_ref, name}} -> {:error, {:base_gone, name}}
+      {:error, _} = error -> error
+    end
+  end
+
+  # The base is printed for a skill, which builds git commands from it.
+  defp plain(name), do: if(plain_name?(name), do: {:ok, name}, else: {:error, :unsafe_base})
+
   defp local_base(checkout) do
     case git(checkout, ["branch", "--format=%(refname:short)", "--list" | @base_names]) do
       {:ok, out} ->
@@ -145,16 +173,18 @@ defmodule Whiska.Git do
   How many commits a branch carries beyond the base, merges not counted — all
   that is left to say about a mouse's work once its worktree has gone.
   """
-  @spec ahead(Path.t(), branch()) :: {:ok, non_neg_integer()} | {:error, term()}
-  def ahead(checkout, branch) do
-    with {:ok, base} <- base(checkout),
+  @spec ahead(Path.t(), branch(), branch() | nil) ::
+          {:ok, non_neg_integer()} | {:error, term()}
+  def ahead(checkout, branch, recorded_base \\ nil) do
+    with {:ok, base} <- base_of(checkout, recorded_base),
          true <- plain_name?(base) || {:error, :unsafe_base},
+         {:ok, base_ref} <- base_ref(checkout, base),
          {:ok, count} <-
            git(checkout, [
              "rev-list",
              "--count",
              "--no-merges",
-             "refs/heads/#{base}..refs/heads/#{branch}"
+             "#{base_ref}..refs/heads/#{branch}"
            ]),
          {n, ""} <- Integer.parse(count) do
       {:ok, n}
@@ -267,15 +297,16 @@ defmodule Whiska.Git do
   (`:off_branch`), a base whose name is not plain (`:unsafe_base`), or output
   with a warning in it. The finish options take nothing for "nothing to land".
   """
-  @spec on_branch(Path.t(), Path.t(), branch()) ::
+  @spec on_branch(Path.t(), Path.t(), branch(), branch() | nil) ::
           {:ok, %{base: branch(), ahead: non_neg_integer(), uncommitted: [String.t()]}}
           | {:error, term()}
-  def on_branch(checkout, worktree, branch) do
+  def on_branch(checkout, worktree, branch, recorded_base \\ nil) do
     with true <- File.dir?(worktree) || {:error, :no_worktree},
          {:ok, ^branch} <- head_branch(worktree) |> off_branch(),
-         {:ok, base} <- base(checkout),
+         {:ok, base} <- base_of(checkout, recorded_base),
          true <- plain_name?(base) || {:error, :unsafe_base},
-         range = "refs/heads/#{base}..refs/heads/#{branch}",
+         {:ok, base_ref} <- base_ref(checkout, base),
+         range = "#{base_ref}..refs/heads/#{branch}",
          {:ok, count} <- git(checkout, ["rev-list", "--count", "--no-merges", range]),
          {ahead, ""} <- Integer.parse(count),
          {:ok, uncommitted} <- uncommitted(worktree) do

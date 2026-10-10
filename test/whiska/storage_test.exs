@@ -200,6 +200,17 @@ defmodule Whiska.StorageTest do
       assert Storage.mouse("m1").shaped_at
     end
 
+    test "records the branch the worktree was cut from, and a later shape keeps it" do
+      assert {:ok, _} = Storage.shape("m1", "build", nil, nil, "staging")
+      assert Storage.mouse("m1").base == "staging"
+
+      assert {:ok, _} = Storage.shape("m1", "sniff", nil, nil)
+      assert Storage.mouse("m1").base == "staging"
+
+      assert {:ok, _} = Storage.shape("m1", "sniff", nil, nil, "elsewhere")
+      assert Storage.mouse("m1").base == "staging"
+    end
+
     test "refuses a mode that is not build or sniff" do
       assert {:error, :invalid_mode} = Storage.shape("m1", "lurk", nil, nil)
     end

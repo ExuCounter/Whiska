@@ -51,7 +51,6 @@ defmodule Whiska.Cleanup do
   def sweep(%{main_checkout: checkout} = house) do
     local = %{
       checkout: checkout,
-      base: Git.base(checkout),
       questions: Enum.group_by(Storage.all(Question), & &1.mouse_id),
       doorstep: doorstep(checkout)
     }
@@ -81,7 +80,7 @@ defmodule Whiska.Cleanup do
   defp note_landing(%Mouse{landed_at: %DateTime{}} = mouse, _local), do: {mouse, nil}
 
   defp note_landing(mouse, local) do
-    with {:ok, base} <- local.base,
+    with {:ok, base} <- Git.base_of(local.checkout, mouse.base),
          {:ok, head} <- head_of(mouse, local, base),
          {:ok, true} = asked <- Git.ancestor?(local.checkout, head, base) do
       {landed_by_merge(mouse, local, head, base), shareable(mouse, asked)}
@@ -256,8 +255,8 @@ defmodule Whiska.Cleanup do
   defp finished?(questions),
     do: Enum.max_by(questions, &{DateTime.to_unix(&1.asked_at), &1.id}).kind == "done"
 
-  defp landed(%Mouse{path: path}, %{checkout: checkout} = context) do
-    with {:ok, base} <- leave_on_error(context.base),
+  defp landed(%Mouse{path: path, base: recorded}, %{checkout: checkout} = context) do
+    with {:ok, base} <- leave_on_error(Git.base_of(checkout, recorded)),
          {:ok, branch} <- leave_on_error(Git.head_branch(path)),
          {:ok, true} <- merged(checkout, path, base, context[:merged]),
          {:ok, true} <- own_work(checkout, path, branch),

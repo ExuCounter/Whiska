@@ -283,6 +283,7 @@ defmodule Whiska.Questions do
   defp unknown(:no_worktree), do: "its worktree is gone"
   defp unknown(:no_record), do: "Whiska has no record of its worktree"
   defp unknown(:off_branch), do: "its worktree is not on its branch"
+  defp unknown({:base_gone, name}), do: "its base branch #{name} is gone"
   defp unknown(:unsafe_base), do: "its base branch's name is not a plain one"
   defp unknown(:ambiguous_base), do: "there is no one base branch to compare it with"
   defp unknown(_reason), do: "git could not read it"

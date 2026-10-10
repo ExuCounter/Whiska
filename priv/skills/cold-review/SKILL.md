@@ -22,7 +22,10 @@ You do the review yourself. Every command you run reads: git, grep, cat, ls.
 
 - **Base.** `$base`, when given, does not start with `-`, and `git merge-base
   --is-ancestor "$base" HEAD` succeeds.
-  Otherwise the default branch: the local branch `git symbolic-ref --short
+  Otherwise the branch this worktree was cut from, which `whiska base` prints, quoted when
+  used; the base is `git merge-base HEAD "<it>"`. Output starting with `-` is unusable.
+  `whiska base` failing with a message (its base is gone, or not a plain name) → no base
+  found, never the default branch. `whiska` itself not runnable → the default branch: the local branch `git symbolic-ref --short
   refs/remotes/origin/HEAD` names (without `origin/`), else local `main`, else `master`,
   else that remote ref itself; the base is `git merge-base HEAD <it>`. On the default
   branch itself, the base is `HEAD` and the change is the working tree.

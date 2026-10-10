@@ -18,6 +18,7 @@ repo, and means nothing. A count that only grows is not a signal.
 ## Decision
 
 **A question whose mouse's branch landed in the base is `settled`, not `orphaned`.** The
+base is the branch the mouse was cut from (ADR-0061), not always the default branch. The
 merge was the answer. The row is kept, as everything is (ADR-0007), with a status that
 says it was dealt with.
 

@@ -39,6 +39,30 @@ defmodule Whiska.GitTest do
     end
   end
 
+  describe "base_of/2" do
+    test "no recorded base is the default branch", %{repo: repo} do
+      assert {:ok, "main"} = Git.base_of(repo.checkout, nil)
+    end
+
+    test "a recorded base is the base, whatever the default says", %{repo: repo} do
+      GitRepo.git!(repo.checkout, ["branch", "staging"])
+      assert {:ok, "main"} = Git.base(repo.checkout)
+      assert {:ok, "staging"} = Git.base_of(repo.checkout, "staging")
+    end
+
+    test "a base whose name is not plain is refused, recorded or not", %{repo: repo} do
+      assert {:error, :unsafe_base} = Git.base_of(repo.checkout, "x$(cmd)")
+      GitRepo.git!(repo.checkout, ["remote", "remove", "origin"])
+      GitRepo.git!(repo.checkout, ["branch", "-m", "main", "master"])
+      GitRepo.git!(repo.checkout, ["branch", "-m", "master", "x$(cmd)"])
+      assert {:error, _} = Git.base_of(repo.checkout, nil)
+    end
+
+    test "a recorded base that is gone is an error, never main", %{repo: repo} do
+      assert {:error, {:base_gone, "staging"}} = Git.base_of(repo.checkout, "staging")
+    end
+  end
+
   describe "branch_head/2 and reached_by_merge?/3 (ADR-0064)" do
     test "names the commit a branch points at", %{repo: repo} do
       GitRepo.worktree(repo, "feat-a")

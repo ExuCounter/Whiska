@@ -38,7 +38,13 @@ defmodule Whiska.CleanupTest do
     id = "m-#{branch}"
 
     {:ok, _} =
-      Storage.record_mouse(%{mouse_id: id, path: path, branch: branch, pane: opts[:pane]})
+      Storage.record_mouse(%{
+        mouse_id: id,
+        path: path,
+        branch: branch,
+        pane: opts[:pane],
+        base: opts[:base]
+      })
 
     unless opts[:silent] do
       {:ok, _} =
@@ -169,6 +175,21 @@ defmodule Whiska.CleanupTest do
       assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
       assert %{landed_at: %DateTime{}} = Storage.mouse("m-feat-a")
       assert File.dir?(m.path)
+    end
+
+    test "a mouse cut from staging has landed when staging has it, not main", %{repo: repo} do
+      GitRepo.git!(repo.checkout, ["checkout", "-b", "staging"])
+      GitRepo.commit!(repo.checkout, "s1.md", "staging work")
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent", base: "staging")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+      assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+
+      GitRepo.git!(repo.checkout, ["merge", "--no-ff", "-m", "merge feat-a", "feat-a"])
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+      assert %{landed_at: %DateTime{}} = Storage.mouse("m-feat-a")
     end
 
     test "stamps a mouse whose worktree was taken down by hand, from the branch alone",
