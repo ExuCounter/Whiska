@@ -58,7 +58,7 @@ in git history.
 - [0063](0063-a-mouse-asks-every-costly-choice-before-building.md) — A mouse grills every costly choice, writes the spec, and builds on the person's ok
 - [0078](0078-every-task-goes-to-a-worktree.md) — Every task goes to a worktree; only the person saying "work in place" skips it
 - [0069](0069-a-mouse-is-shaped-before-it-starts.md) — A mouse is shaped before it starts: mode, model and effort
-- [next-worktree-clone](next-worktree-clone.md) — A new worktree is stocked by `whiska shape`, copy-on-write, from a list the house keeps
+- [0083](0083-worktree-clone.md) — A new worktree is stocked by `whiska shape`, copy-on-write, from a list the house keeps
 - [0074](0074-a-finished-investigation-hands-off.md) — A finished investigation hands its proposal to a fresh build mouse
 - [0026](0026-dead-mice-and-stuck-mice-are-separate-problems.md) — Dead mice and stuck mice are separate problems needing separate mechanisms
 - [0050](0050-a-mouses-last-action-is-read-from-its-transcript.md) — A mouse's last action is read from its Claude Code transcript, never asked for
