@@ -165,7 +165,7 @@ What it writes, and why each part is the way it is:
 `whiska init` also writes the worktree protocol into the repo's own `CLAUDE.md`
 (ADR-0081) and installs the skills that drive it — `spawn-worktree`, `send-to-worktree`
 and `drop-worktree` (ADR-0056), `whiska-finish`, which holds the finishing pipeline
-the block only points at (ADR-0081), `whiska-spec`, which a mouse runs after grilling, and
+the block only points at (ADR-0081), `whiska-spec`, which a mouse runs before building almost any brief, and
 the person's own `grilling` skill
 (ADR-0063). The block is rules, not prose: an imperative or a
 concrete fact per line, with the reasoning left in these ADRs. It is a nest of named

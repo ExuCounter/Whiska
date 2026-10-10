@@ -1,14 +1,18 @@
 ---
 name: whiska-spec
-description: "Write down what a grilled brief will build, as a spec the person reads and approves before any code. Use after the last grilling round is answered, or on /whiska-spec."
+description: "Write down what a brief will build, as a spec the person reads and approves before any code. Use after the last grilling round is answered, or straight away when there was nothing to ask, or on /whiska-spec."
 ---
 
-Turn the grilling that just finished, and what you read of the code, into a spec, then
-wait for the person's ok before building. The grilling already asked everything:
+Turn the grilling that just finished, if any, and what you read of the code, into a spec,
+then wait for the person's ok before building. The grilling already asked everything:
 synthesize what you know, and ask the person nothing new.
 
-**When:** after the last grilling round is answered, before any code. A brief that needed
-no grilling skips it: the person's own words are its spec. Size never skips it.
+**When:** after the last grilling round is answered, or straight away when there was
+nothing to ask, before any code. Only four briefs skip it, and there the person's own words
+are the spec: a typo, or a comment or doc no program reads; a formatting or lint fix; a
+test-only change; a brief that spells out the exact change. Size never skips it, and
+neither does having nothing to grill. A change that hides, drops or skips anything, or
+touches secrets, access or a security check, is never one of the four.
 
 ## Steps
 
@@ -52,6 +56,13 @@ The problem that the user is facing, from the user's perspective.
 
 The solution to the problem, from the user's perspective.
 
+## What Changes for Users
+
+Every behaviour a user or a calling program sees differently after this build, one line
+each: a response, a message, data shown or stored. Anything hidden, dropped, skipped, or
+turned from an error into silence is one of them. Nothing changes → write "Nothing." The
+section is never left out.
+
 ## User Stories
 
 A numbered list, one story per behaviour the person or their users will notice, ten at
@@ -68,8 +79,9 @@ step: drop it.
 
 ## Implementation Decisions
 
-The costly choices the build rests on, one line each, citing the ADR that governs it.
-Commands, module names, wire formats and docs upkeep are left to the build.
+The choices the build rests on, the costly ones first, then any cheap one that had a real
+alternative, one line each: the one taken, the alternative passed over, and the ADR that
+governs it. Commands, module names, wire formats and docs upkeep are left to the build.
 
 Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
 

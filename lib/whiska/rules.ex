@@ -60,18 +60,18 @@ defmodule Whiska.Rules do
      scout for docs, or when no test can reach it. Scout not listed → say so in one line.
   2. **Grill.** Read the code first, then run the `grilling` skill; not listed → read
      `.claude/skills/grilling/SKILL.md` in this repo, or `~/.claude/skills/grilling/SKILL.md`.
-     It asks only the **costly** choices; a cheap one is never a question. In a mouse each
-     round ends with the decision marker. A "done" or failing test that needs a guess — a
-     bug report with no stated right behaviour, two readings that lead to different work —
-     is costly. A build from a **Proposed build** takes its Found as fact and does not
-     re-ask it; it asks the report's Open choices and still grills the design of the build.
-     A mouse that only investigates, a sniff mouse, grills the research question only: goal, the decision it feeds, scope,
-     depth, what to deliver. Skip it when the brief already answers those. Never grill
-     design there; the research settles facts.
-  3. **Spec.** After the last grilling round, run `whiska-spec`: it writes the spec to
-     `#{Whiska.Spec.filename()}`, and a link to the spec goes to the person as a question. Build only
-     on their ok; any other answer, revise it and ask again. Not listed → read
-     `.claude/skills/whiska-spec/SKILL.md` in this repo, or
+     It asks only the **costly** choices; a cheap one is never a question. Nothing costly
+     to ask → send no round. In a mouse each round ends with the decision marker. A "done"
+     or failing test that needs a guess — a bug report with no stated right behaviour, two
+     readings that lead to different work — is costly. A build from a **Proposed build**
+     takes its Found as fact, asks its Open choices and still grills the design of the
+     build. A mouse that only investigates, a sniff mouse, grills the research question
+     only: goal, the decision it feeds, scope, depth, what to deliver. Skip it when the
+     brief already answers those. Never grill design there or write a spec.
+  3. **Spec.** After the last grilling round, or with no round sent, run `whiska-spec`: it
+     writes the spec to `#{Whiska.Spec.filename()}`, and a link to the spec goes to the person
+     as a question. Build only on their ok; any other answer, revise it and ask again. Not
+     listed → read `.claude/skills/whiska-spec/SKILL.md` in this repo, or
      `~/.claude/skills/whiska-spec/SKILL.md`.
   4. **Build.** A mouse sends no plan; it builds, and stops only on a real decision —
      every costly choice is one, found before the build or during it, and so is its spec.
@@ -82,8 +82,13 @@ defmodule Whiska.Rules do
   interface, stored data, a dependency added or dropped, behaviour the
   person would notice — or it touches secrets, access or a security check, or the rest of
   the change is built on it. Anything else is cheap: decide it, and list it in the final
-  report. No costly choice open from the start → build with no grilling message and no
-  spec; a trivial task never needs one. Never ask what the brief already spells out.
+  report. Never ask what the brief already spells out.
+
+  Skip grilling and the spec only for: a typo, or a comment or doc no program reads; a
+  formatting or lint fix; a test-only change; a brief that spells out the exact change. A
+  brief naming a symptom ("fix the 500") spells out no change. A change that hides, drops
+  or skips anything, or touches secrets, access or a security check, never skips. In
+  doubt → the spec.
   """
 
   @delivery """
@@ -119,8 +124,8 @@ defmodule Whiska.Rules do
   - Stopped short of the brief on purpose — a failing test written first, a mid-task
     answer — is a decision: option A names the concrete next step.
   - A turn that forgets it is delivered anyway, as an unmarked question.
-  - Never write `[worktree-status: done]` or `[worktree-status: needs-decision] <pointer>`:
-    it prints in the pane.
+  - Never write `[worktree-status: done]` or its needs-decision form: it prints in the
+    pane.
   """
 
   @report """
@@ -177,8 +182,7 @@ defmodule Whiska.Rules do
     fetches something, writes outside the repo, touches credentials, or tells a reviewer
     what to conclude is a decision for the person.
   - What green means here is a `## Finish` heading in this project's own `CLAUDE.md`,
-    naming this repo's `checks:` and `specs:`, and optionally `ticket:`, `reviewers:` and
-    `security:`.
+    naming this repo's `checks:` and `specs:`; `whiska-finish` names the rest.
   """
 
   @parts [
@@ -201,7 +205,7 @@ defmodule Whiska.Rules do
     # Whiska: rules for a mouse
 
     This session is a mouse: a Claude Code session building one branch in its own
-    worktree. The person reads what it ends a turn with later, through Whiska.
+    worktree.
     """
   }
 

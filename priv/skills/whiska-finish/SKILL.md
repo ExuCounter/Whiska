@@ -30,6 +30,8 @@ decision the change touches agrees with it.
   person's call rather than a quiet divergence, and goes to them as a decision.
 - The scope is wrong — the wrong thing, or larger than the brief admits → end the turn on
   a decision for the person. Scope is the one judgment not to make alone.
+- One behaviour change the spec does not name is not a wrong scope: it goes on the
+  **Against the spec** list (step 6), for the person to weigh before landing.
 
 ## 2. Run this repo's checks and fix what fails
 
@@ -122,6 +124,10 @@ What they find:
   - **important** — fix it now, in this turn, under step 2's two limits.
   - **nit** — fix it now if it is cheap, let it go if it is not.
   - **pre-existing** — this change did not cause it: name it in the message and leave it.
+- A finding that the change alters what a user or a calling program sees without the
+  spec's approval is not fixed alone, whatever its word: it goes on **Against the spec** as
+  **not approved**, unless the spec's own text names the change, or with no spec the
+  brief's own words do, quoted under the finding.
 - **Nothing a reviewer finds reaches the person as a decision.** A real vulnerability in
   this change is important: fix it and say so. Of a review, only three things reach them —
   a scope that turns out to be wrong (step 1), a recorded decision this repo's rules do not
@@ -160,6 +166,14 @@ The message says what the checks returned, what the reviewers raised and what be
 it, and anything left deliberately undone; the report rules teach its shape. Never write
 the done marker on the strength of having written the code.
 
+Under what changed, an **Against the spec** list: each behaviour change in the diff a
+user or a calling program would see, one line each, marked **approved** where the spec's
+What Changes for Users or its decisions name it and **not approved** otherwise. No spec →
+the brief's own words stand in for it: a change they spell out is approved, every other
+is not approved. No such change → one line saying so. Like the findings, it
+rides outside the report's six lines. Each **not approved** line is a **Needs attention**
+item, below.
+
 The report ends with the agent ledger. Run `whiska ledger` and copy its lines, never
 estimated: it reads this session's transcripts, so the cold review, which hands back no
 usage, gets real figures too.
@@ -191,8 +205,12 @@ picks one by letter:
   concrete enough to send back to you as an instruction.
 - Mark at most one `(recommended)`: the one you would do first. Say nothing more about
   landing: the main session offers Land, a PR and Drop after your items.
-- Nothing needs attention, or you would land it as it is → otherwise leave the block out.
-  The person is not asked to confirm what needs no decision.
+- A **not approved** change from Against the spec is always an item, its action the fix
+  that brings the change back inside the spec, and one of them carries `(recommended)`:
+  landing it is the person's call, made by picking Land over it.
+- Otherwise leave the block out: nothing needs attention, no change is **not approved**,
+  and you would land it as it is. The person is not asked to confirm what needs no
+  decision.
 - The turn still ends on the finished marker, never on a decision: the block is content
   the main session reads, as it reads **Proposed build**.
 

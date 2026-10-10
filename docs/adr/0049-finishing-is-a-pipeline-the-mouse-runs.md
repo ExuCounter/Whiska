@@ -26,9 +26,26 @@ the repo's own `CLAUDE.md`, one `name: value` line each: `checks:`, `specs:`, `t
 5. **Commit the work** on its branch, in the repo's commit style, after the last fix.
    Never push. Never a secret, a local setup, `.whiska-mouse` or `.whiska-spec.md`. A
    repo whose instructions say the person commits keeps that, and the report says so.
-6. **The marker**, under a report that ends with the agent ledger: one line per agent
-   sent, with the figures `whiska ledger` reads from the session's transcripts, one line
-   for the mouse's own session, and one per axis skipped with the triggers it checked.
+6. **The marker**, under a report that holds each behaviour change against the spec and
+   ends with the agent ledger: one line per agent sent, with the figures `whiska ledger`
+   reads from the session's transcripts, one line for the mouse's own session, and one
+   per axis skipped with the triggers it checked.
+
+## Every behaviour change is held against the spec
+
+The report carries an **Against the spec** list: each behaviour change in the diff a user
+or a calling program would see, marked **approved** where the spec's What Changes for
+Users or its decisions name it and **not approved** otherwise (ADR-0063). No spec means
+none is approved. Each not-approved change is a **Needs attention** item and one of them
+is recommended, so the finished options stop recommending Land here (ADR-0074). The cold
+review asks the same question of every hunk on its own, so a change the builder left off
+the list is still found. The turn still ends on finished: the list is what the person
+reads before picking.
+
+In another repo a mouse fixed a 500 by filtering activities out of an API response, wrote
+no spec, and finished; the report said the crash was gone, Land here was recommended, and
+nothing put the dropped activities in front of the person. ADR-0063 now asks for the spec
+that would have named them; this list is the backstop for a change that slips past it.
 
 ## Reviewers are chosen by what the diff does
 
@@ -140,6 +157,10 @@ into the tree. A repo asks for it on `security:`, and pays those costs knowingly
 - **A `claude -p` session for the cold review.** A whole session per review, and the
   ADR-0053 collision.
 - **The no-mistakes review step.** About $55 to $60 and 13 minutes per run.
+- **Land here never recommended**, so the person always reads the diff before picking:
+  a pick on clean work too, when the list already marks what needs one.
+- **A review question of its own**, "ok to land?" before the finished options, like the
+  spec's link: a third round trip per task, and a finished mouse would end on a question.
 - **A fallback correctness reviewer where the skill is missing.** A missing cold review
   is stated, not quietly replaced by a briefed one.
 - **Every confirmed security finding reaching the person.** Turns a rule about whose

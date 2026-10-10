@@ -1,12 +1,14 @@
-# A mouse grills every costly choice, writes the spec, and builds on the person's ok
+# A mouse writes a spec for almost every brief, grills its costly choices first, and builds on the person's ok
 
 A mouse reads the code first, then sends one message listing every choice that has real
 alternatives and is costly to undo, each with the answer it recommends, and waits for the
-person's ok. After the last round it runs `whiska-spec`, which writes the spec to
-`.whiska-spec.md` at the worktree root and sends a link to it as a question; the mouse
-builds only when the person replies "ok", and any other reply revises the file and sends
-the link again. Cheap choices the mouse decides itself and lists in its final report. A copy of
-every spec sent is kept in the main checkout.
+person's ok; with nothing costly to ask it sends no such message. After the last round, or
+straight away, it runs `whiska-spec`, which writes the spec to `.whiska-spec.md` at the
+worktree root and sends a link to it as a question; the mouse builds only when the person
+replies "ok", and any other reply revises the file and sends the link again. Every brief
+gets a spec but four, named by what the change touches. Cheap choices the mouse decides
+itself and lists in its final report. A copy of every spec sent is kept in the main
+checkout.
 
 ## The rule
 
@@ -15,24 +17,49 @@ every spec sent is kept in the main checkout.
 2. Ask the whole frontier in one message: every costly choice whose prerequisites are
    settled, each with a recommended answer. Each round costs the person a full round
    trip, so a round never asks one question at a time. Answers can open another round,
-   and every round ends on the status marker.
-3. Write the spec and send a link to it. The question reads "Review spec here:
-   [<title>](file://…/.whiska-spec.md)" and "ok to build?", with no spec text; the link
+   and every round ends on the status marker. A round with nothing in it is not sent.
+3. Write the spec and send a link to it, whether or not a round went first. The question
+   reads "Review spec here: [<title>](file://…/.whiska-spec.md)" and "ok to build?", with
+   no spec text; the link
    names the worktree's own file, so it works for the review, before the build. The
    person opens the file; `whiska questions <id>` shows the link line as written.
 4. Build to it. A costly choice found mid-build is a real decision and stops the mouse
    the same way; it is never a quiet edit to the spec.
 
-With no costly choice open, a mouse builds without the message and without a spec: the
-person's own words are the spec. A truly trivial task, a typo, a rename, a one-line fix
-with nothing on the costly list, needs no message either. "Trivial" never overrides the
-list: turning off a certificate check can be one line and is still costly. A mouse never
-asks what the brief already spells out. A mouse sends no plan; the oks it waits for are on
-its costly choices and on its spec. The plan binds the main session only (ADR-0081).
+A mouse never asks what the brief already spells out. A mouse sends no plan; the oks it
+waits for are on its costly choices and on its spec. The plan binds the main session only
+(ADR-0081).
 
 A "done" or failing test that needs a guess is itself a costly choice, since building
 the wrong thing is the most expensive thing to undo. Before writing code a mouse names
 "done" and the failing test, and ADR-0075's scout helps pick the test.
+
+## Four briefs skip the spec
+
+Every brief gets a spec except these, and they skip grilling too:
+
+- a typo, or a comment or doc no program reads;
+- a formatting or lint fix;
+- a test-only change, which leaves the code it tests alone;
+- a brief that spells out the exact change: "rename `foo` to `bar`", "set the timeout to
+  30s". There the person's own words are the spec.
+
+The four are judged by what the change touches, never by its size or by whether the mouse
+sees a choice. A brief naming a symptom, "fix the 500", spells out no change. A change
+that hides, drops or skips anything is never one of the four, and doubt means a spec.
+Neither is one that touches secrets, access or a security check, however small: a typo
+in a role name or one address added to an allow-list widens access in a line. A
+mouse with nothing costly to ask goes straight to the spec, whose decisions name each
+choice it made beside the alternative it passed over, so the person overrules it there.
+
+The version before this skipped grilling and the spec whenever no costly choice was open.
+In another repo a mouse fixed a 500 by filtering activities out of an API response: it saw
+one way to fix a crash, so no choice, so no grilling and no spec. The filter dropped
+activities users see, which was the person's call, and with no spec the cold review had
+nothing to hold the behaviour against (ADR-0049). Whether a choice exists was the mouse's
+judgement, and that judgement is what failed; the four are named by what the diff touches
+instead, and the spec's What Changes for Users section makes the mouse write down what
+disappears.
 
 ## Costly is a test, not an adjective
 
@@ -57,11 +84,15 @@ thought of. The dependency test closes that gap.
 ## The spec
 
 `whiska-spec` keeps the person's template headings and asks for one screen, about 500
-words: at most ten stories about the person's users, one line per costly choice citing
-its ADR, and anything beyond the brief as one line under Out of Scope. The first ten real
-specs ran 986 to 3,463 words, were approved unchanged, and held stories whose actor was a
-mouse, docs upkeep and byte-level detail; nobody reads that. The finish pipeline's first
-step reads the work back against the spec, beside the brief (ADR-0049).
+words: at most ten stories about the person's users, one line per choice naming the
+alternative passed over and citing its ADR, and anything beyond the brief as one line
+under Out of Scope. The first ten real specs ran 986 to 3,463 words, were approved
+unchanged, and held stories whose actor was a mouse, docs upkeep and byte-level detail;
+nobody reads that. A What Changes for Users section is never left out: every behaviour a
+user or a calling program sees differently, anything hidden, dropped, skipped or turned
+from an error into silence included, or "Nothing." The finish pipeline's first step reads
+the work back against the spec, beside the brief, and its report holds each behaviour
+change against it (ADR-0049).
 
 The spec is a file git ignores, never committed. Untracked is not enough: the owl takes a
 landed worktree down only when `git status --porcelain` reads clean (ADR-0061). So
@@ -109,8 +140,12 @@ the landing check learns cherry-picks such a spec reads `dropped`. The owl write
 
 ## Considered options
 
-- **Always send the list and wait**, even when it says "nothing to decide": one round
-  trip per task, including every task with nothing to see.
+- **Always send a grilling round**, even one saying "nothing to decide": a second round
+  trip before code on every task, when the spec already carries the choices made. Its
+  other half, a spec on every task, is now the rule.
+- **Nothing skips the spec**: a round trip on every typo.
+- **Keep "no costly choice, no spec" and widen "costly"**: still rests on the mouse
+  spotting the choice, which is what failed.
 - **Leave "costly" to judgment**: every mouse draws the line in a different place.
 - **Ask every choice, cheap ones included**: buries the two that matter under ten that
   do not, and the person stops reading.
@@ -133,8 +168,9 @@ the landing check learns cherry-picks such a spec reads `dropped`. The owl write
 
 ## Consequences
 
-A grilled task costs two round trips before any code, one on the costly choices and one
-on the spec; a brief that needed no grilling costs none. The final report grows by the
+A task with a costly choice costs two round trips before any code, one on the costly
+choices and one on the spec; any other task costs one, the spec, and the four that skip it
+cost none. A crash fix nobody had a choice about now waits on the person. The final report grows by the
 cheap choices made, each a line under what changed, outside the report's size cap. A
 doorstep entry carries an optional `spec` field; an entry without one still decodes. A
 house without a herdr socket leaves every kept spec at `waiting`. `.whiska-mouse` has the

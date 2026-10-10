@@ -96,7 +96,9 @@ defmodule Whiska.RulesTest do
       "a build from a proposal takes its findings as fact and still grills the design":
         ~r/\*\*proposed build\*\*.{0,40}found as fact.{0,120}still grills the design/is,
       "a guessed done is costly": ~r/failing test that needs a guess.{0,120}is costly/is,
-      "the spec follows grilling": ~r/after the last grilling round, run `whiska-spec`/i,
+      "the spec follows grilling, or comes straight when nothing was asked":
+        ~r/after the last grilling round, or with no round sent, run `whiska-spec`/i,
+      "nothing costly to ask sends no round": ~r/nothing costly to ask → send no round/i,
       "a link to the spec is the question":
         ~r/a link to the spec goes to the person as a question/i,
       "build only on their ok": ~r/build only on their ok/i,
@@ -106,7 +108,14 @@ defmodule Whiska.RulesTest do
       "costly is a test, not an adjective":
         ~r/\*\*costly\*\* to undo: something outside the change depends on it/i,
       "cheap choices are decided and listed": ~r/anything else is cheap: decide it, and list it/i,
-      "nothing costly → no grilling": ~r/no costly choice open from the start → build/i,
+      "only four briefs skip grilling and the spec (ADR-0063)":
+        ~r/skip grilling and the spec only for: a typo, or a comment or doc no program reads; a formatting or lint fix; a test-only change; a brief that spells out the exact change\. A brief naming a symptom/is,
+      "a brief naming a symptom spells out no change":
+        ~r/a brief naming a symptom.{0,30}spells out no change/is,
+      "a change that hides or drops anything, or touches security, never skips":
+        ~r/hides, drops or skips anything, or touches secrets, access or a security check, never skips/is,
+      "doubt means the spec": ~r/in doubt → the spec/i,
+      "a sniff mouse writes no spec": ~r/never grill design there or write a spec/i,
       "never ask what the brief spells out": ~r/never ask what the brief already spells out/i
     ],
     {:main, "delivery"} => [
@@ -178,6 +187,15 @@ defmodule Whiska.RulesTest do
         assert body =~ anchor, "#{unquote(part)}: missing the rule that #{rule}"
       end
     end
+  end
+
+  # A mouse that saw one way to fix a crash saw no choice, skipped the spec,
+  # and dropped data users see (ADR-0063).
+  test "having nothing costly to ask never skips the spec" do
+    body = prose_of(:mouse, "work")
+
+    refute body =~ ~r/a trivial task never needs one/i
+    refute body =~ ~r/no costly choice open from the start/i
   end
 
   describe "the facts a session acts on are exact" do

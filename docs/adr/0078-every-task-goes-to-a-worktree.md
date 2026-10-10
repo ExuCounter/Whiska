@@ -20,14 +20,14 @@ Three other size exceptions go with it:
 
 - **The scout** (ADR-0075) is skipped for docs, or when no test can reach the change.
   Never for a tweak.
-- **The spec** (ADR-0063) is written after every grilling round. Never skipped for a
-  tweak or quick fix. A brief that needed no grilling still gets none.
+- **The spec** (ADR-0063) is written for every brief but four, named by what the change
+  touches. Never skipped for a tweak or quick fix, nor for having nothing to grill.
 - **The main session's plan** is given before anything the session does itself, not
   only before "non-trivial" work.
 
-A truly trivial task, with no costly choice in it, is still not grilled (ADR-0063). That
-is not a size exception: it skips questions that have no alternatives, not the worktree.
-A typo still gets a mouse; the mouse just has nothing to ask.
+A typo is one of those four, and skips grilling and the spec (ADR-0063). That is not a
+size exception: the four are named by what the change touches, and none of them skips the
+worktree. A typo still gets a mouse; the mouse just has nothing to ask or approve.
 
 ## Alternatives
 

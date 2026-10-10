@@ -453,6 +453,37 @@ defmodule Whiska.InstallFinishSkillTest do
     end
   end
 
+  describe "the report holds each behaviour change against the spec (ADR-0049)" do
+    test "each change a user or a calling program sees, approved by the spec or not" do
+      body = prose()
+
+      assert body =~ "**Against the spec**"
+      assert body =~ ~r/marked \*\*approved\*\*.{0,120}\*\*not approved\*\* otherwise/i
+      assert body =~ ~r/no spec → the brief's own words stand in for it/i
+    end
+
+    test "a change the spec does not approve is always a needs-attention item, one recommended" do
+      body = prose()
+
+      assert body =~ ~r/each \*\*not approved\*\* line is a \*\*needs attention\*\* item/i
+      assert body =~ ~r/\*\*not approved\*\* change from against the spec is always an item/i
+      assert body =~ ~r/one of them carries `\(recommended\)`/
+
+      assert body =~
+               ~r/otherwise leave the block out: nothing needs attention, no change is \*\*not approved\*\*/i
+    end
+
+    test "a reviewer's unapproved change goes on the list, never fixed alone" do
+      assert prose() =~
+               ~r/without the spec's approval is not fixed alone.{0,40}goes on \*\*against the spec\*\* as \*\*not approved\*\*/is
+    end
+
+    test "one unapproved change is not a wrong scope that ends the turn on a decision" do
+      assert prose() =~
+               ~r/one behaviour change the spec does not name is not a wrong scope/i
+    end
+  end
+
   describe "a finished turn names what needs attention (ADR-0074)" do
     test "a labelled block, one line per item, the mouse's own recommendation marked" do
       body = prose()

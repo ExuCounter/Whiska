@@ -69,6 +69,10 @@ Done when you can name each decision you read and the changed file it bears on.
 Ask every question of every changed hunk:
 
 - Does it do what the spec says — every piece, nothing beyond?
+- What does it change that a user or a calling program sees — a response, a message, data
+  shown or stored, anything hidden, dropped or skipped? Each change belongs in the spec's
+  What Changes for Users or its decisions. One the spec does not approve is a finding;
+  with no spec, every one is.
 - Does it agree with each decision you read? Where the branch rewrote a decision: does
   the record now say what changed and why, and does the code match the new text?
 - Is it right: wrong result, missed case, an error swallowed, state left behind, a race?

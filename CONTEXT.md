@@ -29,10 +29,11 @@ _Avoid_: main, trunk, target
 **Brief**:
 What a mouse is given to build — the person's own words, routed in whole by
 `spawn-worktree` or `send-to-worktree`, or a **proposal** the person said yes to, handed
-over by its question id alone. A brief is **buildable** once no **costly choice** in it is
-left open, "done" and the failing test that proves it included; until then it gets
-grilled, after the mouse has read the code and before it writes any (ADR-0063). A grilled
-brief is buildable once its **spec** has the person's ok.
+over by its question id alone. A brief is **buildable** once its **spec** has the
+person's ok, and before that no **costly choice** in it may be left open, "done" and the
+failing test that proves it included; an open one gets grilled, after the mouse has read
+the code and before it writes any (ADR-0063). One of the four briefs that skip the spec is
+buildable as it stands: its words are its spec.
 _Avoid_: task, ticket
 
 **Grilling**:
@@ -41,8 +42,8 @@ every costly choice still open, each with the answer the mouse recommends, then 
 the person's ok. A round asks the whole frontier — every question whose prerequisites are
 already settled — in one message, because each round costs the person a full round trip.
 A sniff mouse grills only the research question — goal, the decision it feeds, scope,
-depth, what to deliver — and never design. A truly trivial task — a typo, a rename, a one-line fix, with no costly choice in it — is
-never grilled.
+depth, what to deliver — and never design. With nothing costly to ask, no round is sent
+and the mouse goes straight to its spec.
 _Avoid_: interview, clarification
 
 **Costly choice**:
@@ -50,18 +51,24 @@ A choice in a brief that has real alternatives and is costly to undo: something 
 the change depends on it — a file format, a command-line flag or interface, stored data, a
 dependency added or dropped, behaviour the person would notice — or it touches secrets,
 access or a security check, or the rest of the change is built on it. A mouse asks these
-before building. Every other choice is **cheap**: the
-mouse decides it and lists it in its final report (ADR-0063).
+before building. Every other choice is **cheap**: the mouse decides it and lists it in its
+final report, and in the spec beside the alternative it passed over when it had a real
+one (ADR-0063).
 _Avoid_: big decision, one-way door
 
 **Spec**:
-A grilled brief, written down: its problem, user stories, decisions, testing and what is
-out of scope, in `.whiska-spec.md` at the worktree root, which git ignores. The mouse
-writes it with the `whiska-spec` skill after the last grilling round, sends a link to it as
-a question (the person opens the file; the question holds no spec text), and builds only
-on the person's ok. A brief that needed no grilling gets none; a task's size never skips
-it. The person's words are that brief's spec
-(ADR-0063). A copy of every spec sent is kept in `.whiska/specs/` in the main checkout,
+A brief, written down: its problem, what changes for users, user stories, decisions,
+testing and what is out of scope, in `.whiska-spec.md` at the worktree root, which git
+ignores. The mouse writes it with the `whiska-spec` skill after the last grilling round,
+or with no round when nothing costly was open, sends a link to it as a question (the
+person opens the file; the question holds no spec text), and builds only on the person's
+ok. What changes for users is never left out: anything hidden, dropped, skipped or turned
+from an error into silence included, or "Nothing." Every brief gets one but four, named by
+what the change touches: a typo or a comment or doc no program reads, a formatting or lint
+fix, a test-only change, and a brief that spells out the exact change, whose words are its
+spec. A change that hides, drops or skips anything, or touches secrets, access or a
+security check, is never one of the four. A task's size never skips it, and neither does
+having nothing to grill (ADR-0063). A copy of every spec sent is kept in `.whiska/specs/` in the main checkout,
 named by date and branch, with a header saying its question and whether the branch
 landed or was dropped (ADR-0063).
 _Avoid_: plan, design doc, ticket
@@ -187,6 +194,14 @@ finish options, marks only the mouse's recommendation "(Recommended)", and sends
 picked item to the mouse as the person's own words. With no block the finish options
 are the table's, never read from the mouse's prose (ADR-0074).
 _Avoid_: next step, follow-up, to-do, issues
+
+**Against the spec**:
+The list a finished report carries of each behaviour change in the diff a user or a
+calling program would see, each marked **approved** where the spec names it and **not
+approved** otherwise; with no spec, none is approved. Each not-approved change becomes a
+**Needs attention** item, one of them recommended, so the finish options do not recommend
+landing it (ADR-0049).
+_Avoid_: diff summary, changelog
 
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,

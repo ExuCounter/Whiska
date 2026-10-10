@@ -63,6 +63,13 @@ defmodule Whiska.InstallColdReviewSkillTest do
       assert body =~ "`#{Whiska.Spec.filename()}`"
     end
 
+    test "it holds every behaviour change against the spec, and with none every one is a finding" do
+      body = prose()
+
+      assert body =~ ~r/what does it change that a user or a calling program sees/i
+      assert body =~ ~r/one the spec does not approve is a finding; with no spec, every one is/i
+    end
+
     test "no base found ends the review at its header" do
       assert prose() =~ ~r/no base found.{0,80}header/i
     end

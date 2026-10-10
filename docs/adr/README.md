@@ -56,7 +56,7 @@ in git history.
 
 ## Mice
 
-- [0063](0063-a-mouse-asks-every-costly-choice-before-building.md) — A mouse grills every costly choice, writes the spec, and builds on the person's ok
+- [0063](0063-a-mouse-asks-every-costly-choice-before-building.md) — A mouse writes a spec for almost every brief, grills its costly choices first, and builds on the person's ok
 - [0078](0078-every-task-goes-to-a-worktree.md) — Every task goes to a worktree; only the person saying "work in place" skips it
 - [0069](0069-a-mouse-is-shaped-before-it-starts.md) — A mouse is shaped before it starts: mode, model and effort
 - [0083](0083-worktree-clone.md) — A new worktree is stocked by `whiska shape`, copy-on-write, from a list the house keeps

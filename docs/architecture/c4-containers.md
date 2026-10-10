@@ -22,7 +22,7 @@ C4Container
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records and questions, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
     Container(flag, "Answer flag", "empty file, whiska-answer in the worktree's git admin directory", "This worktree's mouse has an answer not yet taken; the shim reads it so a prompt with nothing waiting starts nothing")
-    Container(spec, "Spec", ".whiska-spec.md file", "What a grilled brief will build, at the worktree root; the mouse writes it, git ignores it")
+    Container(spec, "Spec", ".whiska-spec.md file", "What a brief will build, at the worktree root; the mouse writes it, git ignores it")
     Container(kept, "Kept specs", "directory, .whiska/specs/ in the main checkout", "A copy of every spec sent, one file per spec under a header: its question, the ones it replaced, landed or dropped; git ignores it")
     Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(clonelist, "Clone list", "text file, .git/whiska/clone", "Per-repo paths to clone into a new worktree beside the marker defaults, or a lone off; the person writes it")

@@ -35,11 +35,18 @@ defmodule Whiska.InstallSpecSkillTest do
   end
 
   describe "when it runs" do
-    test "a brief that needed no grilling skips it; a tweak or quick fix does not" do
+    test "every brief gets one, nothing to grill included; only the rules' four skip it" do
       body = prose("whiska-spec")
 
       refute body =~ ~r/tweak or quick fix/i
-      assert body =~ ~r/needed no grilling/i
+      refute body =~ ~r/needed no grilling skips it/i
+      assert body =~ ~r/straight away when there was nothing to ask/i
+
+      assert body =~
+               ~r/a typo, or a comment or doc no program reads; a formatting or lint fix; a test-only change; a brief that spells out the exact change\. Size never skips it/i
+
+      assert body =~
+               ~r/hides, drops or skips anything, or touches secrets, access or a security check, is never one of the four/i
     end
 
     test "it asks nothing new: the grilling already did" do
@@ -126,6 +133,7 @@ defmodule Whiska.InstallSpecSkillTest do
       sections = [
         "Problem Statement",
         "Solution",
+        "What Changes for Users",
         "User Stories",
         "Implementation Decisions",
         "Testing Decisions",
@@ -165,10 +173,19 @@ defmodule Whiska.InstallSpecSkillTest do
       refute body =~ ~r/extremely extensive/i
     end
 
-    test "implementation decisions are the costly choices, one line each, citing the ADR" do
+    test "what changes for users is required, what disappears included" do
       body = prose("whiska-spec")
 
-      assert body =~ ~r/costly choices the build rests on, one line each, citing the adr/i
+      assert body =~ ~r/every behaviour a user or a calling program sees differently/i
+      assert body =~ ~r/hidden, dropped, skipped, or turned from an error into silence/i
+      assert body =~ ~r/never left out/i
+    end
+
+    test "implementation decisions name the alternative passed over, citing the ADR" do
+      body = prose("whiska-spec")
+
+      assert body =~ ~r/the alternative passed over/i
+      assert body =~ ~r/the adr that governs it/i
 
       assert body =~
                ~r/docs upkeep are left to the build/i

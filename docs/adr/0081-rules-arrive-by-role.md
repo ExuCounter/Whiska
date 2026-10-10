@@ -36,7 +36,8 @@ A rule that matters at one moment ships as a skill rather than as rules: the fin
 pipeline (ADR-0049) is `whiska-finish`, loaded only as a turn ends, and the `finish` part
 names the trigger and nothing more. The `work` part does the same for grilling and the
 spec: it names `grilling` and `whiska-spec`, and adds only what is a mouse's own — the
-costly-versus-cheap test and the decision marker (ADR-0063). A skill keeps a section it rarely needs in a file
+costly-versus-cheap test, the four briefs that skip the spec, and the decision marker
+(ADR-0063). A skill keeps a section it rarely needs in a file
 beside it — `whiska-delivered` reads `finished.md` and `sniff.md` only when the line says
 finished — and `whiska init` ships every Markdown file beside a skill's `SKILL.md`.
 
