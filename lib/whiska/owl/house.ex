@@ -221,7 +221,7 @@ defmodule Whiska.Owl.House do
     workspaces: nil,
     shown: %{},
     sent_at: %{},
-    needing: nil,
+    sorted_on: nil,
     panes: %{},
     seen: %{},
     last_sweep_at: nil,
@@ -644,33 +644,47 @@ defmodule Whiska.Owl.House do
   defp sent(sent_at, ws, want, _now) when want == %{}, do: Map.delete(sent_at, ws)
   defp sent(sent_at, ws, _want, now), do: Map.put(sent_at, ws, now)
 
-  # The mice re-sort only when one starts or stops needing the person, so rows
-  # do not jump under the cursor and the person's own drag order stands
-  # otherwise; mice that want the same keep the order they are in. The block
-  # lands where its first member sits now.
+  # The mice re-sort only when one starts or stops needing the person, or
+  # starts or stops queueing behind another (ADR-0082), so rows do not jump
+  # under the cursor and the person's own drag order stands otherwise; mice
+  # that want the same keep the order they are in. The block lands where its
+  # first member sits now.
   defp sort(state, lines, placed, workspaces) do
     needing = for line <- lines, Sidebar.needs_you?(line), into: MapSet.new(), do: line.mouse_id
+    queue = for %{under: holder} = line <- lines, holder, into: %{}, do: {line.mouse_id, holder}
 
-    if needing == state.needing do
+    if {needing, queue} == state.sorted_on do
       state
     else
-      reorder(%{state | needing: needing}, lines, placed, workspaces)
+      reorder(%{state | sorted_on: {needing, queue}}, lines, placed, workspaces)
     end
   end
 
   defp reorder(state, lines, placed, workspaces) do
     position = workspaces |> Enum.with_index() |> Map.new(fn {ws, i} -> {ws.workspace_id, i} end)
 
+    # `lines` are in Whiska's order; a mouse the person sorted among its equals
+    # (same state, same mode) keeps the place it has in herdr now, and a queued
+    # mouse stays right under the mouse holding its question.
+    here = Enum.filter(lines, &Map.has_key?(placed, &1.mouse_id))
+    held_here = MapSet.new(here, & &1.mouse_id)
+
+    # A queued mouse whose holder has no workspace here sorts on its own.
+    {queued, leaders} =
+      Enum.split_with(here, &(&1.under && MapSet.member?(held_here, &1.under)))
+
+    leaders = Enum.sort_by(leaders, &{&1.rank, &1.sniff?, position[placed[&1.mouse_id]]})
+
     members =
-      lines
-      |> Enum.filter(&Map.has_key?(placed, &1.mouse_id))
-      |> Enum.map(&{&1.rank, placed[&1.mouse_id]})
-      |> Enum.uniq_by(&elem(&1, 1))
+      leaders
+      |> Enum.flat_map(fn leader ->
+        [leader | Enum.filter(queued, &(&1.under == leader.mouse_id))]
+      end)
+      |> Enum.map(&placed[&1.mouse_id])
+      |> Enum.uniq()
 
-    wanted =
-      members |> Enum.sort_by(fn {rank, ws} -> {rank, position[ws]} end) |> Enum.map(&elem(&1, 1))
-
-    current = members |> Enum.map(&elem(&1, 1)) |> Enum.sort_by(&position[&1])
+    wanted = members
+    current = Enum.sort_by(members, &position[&1])
 
     if wanted == current do
       state

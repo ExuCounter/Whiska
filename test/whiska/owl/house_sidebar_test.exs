@@ -323,6 +323,37 @@ defmodule Whiska.Owl.HouseSidebarTest do
       refute_receive {:moved, _, _}, 200
     end
 
+    test "moves a mouse that starts queueing behind another, though nobody new needs the person",
+         %{main: main, worktree: worktree, worktree_b: worktree_b} do
+      {:ok, handle} = Storage.open(main, name: nil)
+
+      {:ok, held} =
+        Storage.record_question(%{mouse_id: "mb", text: "which db?", kind: "needs-decision"})
+
+      {:ok, _} = Storage.mark_sent(held.id)
+      Storage.close(handle)
+
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [pane(worktree, "working", "w2"), pane(worktree_b, "working", "w3")]}
+      end)
+
+      fake_herdr([main_ws(main), mouse_ws("w2", worktree), mouse_ws("w3", worktree_b)])
+      house = open(main, [])
+
+      # The mouse holding the slot needs the person: it goes first, once.
+      assert_receive {:moved, ["w3", "w2"], nil}, 1_000
+      refute_receive {:moved, _, _}, 200
+
+      # The other mouse queues behind it. The set needing the person is the
+      # same, but the queue changed, so the order is settled again (ADR-0082).
+      in_house(house, fn ->
+        {:ok, _} =
+          Storage.record_question(%{mouse_id: "ma", text: "which ui?", kind: "needs-decision"})
+      end)
+
+      assert_receive {:moved, ["w3", "w2"], nil}, 1_000
+    end
+
     test "leaves the order alone when it is already right", %{
       main: main,
       worktree: worktree,

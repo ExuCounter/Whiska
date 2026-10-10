@@ -48,13 +48,13 @@ defmodule Whiska.Sidebar do
   @stuck 4
   @queued 5
   @finished_queued 6
-  @focus 7
-  @away 8
-  @held 9
-  @picked_up 10
-  @working 11
-  @lost 12
-  @idle 13
+  @picked_up 7
+  @working 8
+  @lost 9
+  @idle 10
+  @focus 11
+  @away 12
+  @held 13
 
   @type tokens :: %{optional(String.t()) => String.t()}
 
@@ -63,6 +63,8 @@ defmodule Whiska.Sidebar do
           mouse_id: String.t(),
           branch: String.t(),
           rank: pos_integer(),
+          sniff?: boolean(),
+          under: String.t() | nil,
           tokens: tokens()
         }
 
@@ -71,8 +73,10 @@ defmodule Whiska.Sidebar do
   def keys, do: @keys
 
   @doc """
-  Each mouse's line, sorted by how much it wants the person; mice that want the
-  same are left in the order they came.
+  Each mouse's line, sorted by how much it wants the person; of mice that want
+  the same, a build mouse comes before a sniff mouse, and the rest are left in
+  the order they came. A mouse queued behind a question sits right under the
+  mouse that holds it, queued mice in question order (ADR-0082).
 
   Options: `:now`, what ages are measured to; `:frame`, the working spinner's
   frame, counted in writes so it moves only when a line is actually sent.
@@ -82,9 +86,48 @@ defmodule Whiska.Sidebar do
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
     frame = Keyword.get(opts, :frame, 0)
 
-    board.rows
+    rows = Enum.sort_by(board.rows, &if(&1.sniff?, do: 1, else: 0))
+
+    rows
     |> Enum.map(&line(&1, now, frame))
     |> Enum.sort_by(& &1.rank)
+    |> under_holders(rows)
+  end
+
+  # A queued mouse leaves its own rank for the spot after the mouse whose
+  # question it waits behind; one whose holder is not on the board stays put.
+  defp under_holders(lines, rows) do
+    # Only a mouse waiting on the person with nothing ahead of it holds a
+    # question others queue behind, and only a mouse still drawn as queued
+    # follows one: a held or away mouse keeps its own state's place.
+    holder =
+      for %{question_id: id, asked: %{behind: nil}} = row <- rows,
+          is_integer(id),
+          into: %{},
+          do: {id, row.mouse_id}
+
+    ranks = Map.new(lines, &{&1.mouse_id, &1.rank})
+
+    queued =
+      for %{asked: %{behind: id}} = row <- rows,
+          Map.has_key?(holder, id),
+          ranks[row.mouse_id] in [@queued, @finished_queued],
+          into: %{} do
+        {row.mouse_id, {holder[id], row.question_id}}
+      end
+
+    following =
+      lines
+      |> Enum.filter(&Map.has_key?(queued, &1.mouse_id))
+      |> Enum.sort_by(&elem(queued[&1.mouse_id], 1))
+      |> Enum.group_by(
+        &elem(queued[&1.mouse_id], 0),
+        &%{&1 | under: elem(queued[&1.mouse_id], 0)}
+      )
+
+    lines
+    |> Enum.reject(&Map.has_key?(queued, &1.mouse_id))
+    |> Enum.flat_map(&[&1 | Map.get(following, &1.mouse_id, [])])
   end
 
   @doc """
@@ -134,6 +177,8 @@ defmodule Whiska.Sidebar do
       mouse_id: row.mouse_id,
       branch: row.branch,
       rank: rank,
+      sniff?: row.sniff?,
+      under: nil,
       tokens: tokens([gauged(said, rank, row.context) | wrap(carried)])
     }
   end

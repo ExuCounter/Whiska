@@ -15,7 +15,7 @@ on herdr 0.9.3.
 Three tokens: `whiska`, the state; `whiska_q` and `whiska_q2`, the question it carries,
 word-wrapped at 31 characters, at most two lines, the second cut with `…`. A mouse with
 nothing to report, idle with nothing waiting, has no line. The states, in the order they
-sort, first match winning:
+sort (which one a mouse is in is decided as the paragraph under the table says):
 
 | # | line | carries |
 |---|------|---------|
@@ -25,12 +25,20 @@ sort, first match winning:
 | 4 | `✖ stuck 6m` — blocked, or working and silent two minutes with no subagent out | its last action |
 | 5 | `⏳ queued behind #12` | the question |
 | 6 | `✅ finished · queued behind #12` | |
-| 7 | `🎯 #16 · waits: focus on <branch>` | |
-| 8 | `💤 #15 · waits: away` | |
-| 9 | `⏸ #17 · held`, `⏸ held` | |
-| 10 | `↩ picked up 2m ago` | |
-| 11 | `◐ <topic, else last action>` | |
-| 12 | `✖ no pane`, `⚠ many panes`, `? herdr can't say` | |
+| 7 | `↩ picked up 2m ago` | |
+| 8 | `◐ <topic, else last action>` | |
+| 9 | `✖ no pane`, `⚠ many panes`, `? herdr can't say` | |
+| 10 | idle, nothing to say: no line | |
+| 11 | `🎯 #16 · waits: focus on <branch>` | |
+| 12 | `💤 #15 · waits: away` | |
+| 13 | `⏸ #17 · held`, `⏸ held` | |
+
+**The order follows the work, not the kind of mouse.** The mice the person set aside (11 to
+13) sit below idle ones. Of mice in the same state a build mouse comes before a sniff mouse,
+so a sniff mouse waiting on the person still sits among those that need them. A mouse queued
+behind a question (5 and 6) sits right under the mouse that holds that question, queued
+mice in question order, whatever the mode of either; one whose holder is not on the board
+keeps its own state's place.
 
 A hold is checked first, then the question, then herdr's view of the pane, then stuck,
 picked up and working. Ages are minutes, then `Whiska.Mice.format_uptime/1` from an hour:
@@ -105,8 +113,10 @@ got shorter clears what it no longer says.
 **A house speaks only for its own workspaces** and never touches another repo's lines.
 
 **The mice re-sort with `workspace.move_block` only when the set needing the person (states
-1 to 3) changes**, and once when the house opens. Mice of one state keep their order, so
-the person's drag order stands. The main checkout's workspace never moves. `move_block` is
+1 to 3) changes, or a mouse starts or stops queueing behind another (states 5 and 6)**, and
+once when the house opens. A mouse the person sets aside, or a new mouse, does not re-sort:
+it lands in place at the next one. Mice of one state and mode keep their order, so the
+person's drag order stands. The main checkout's workspace never moves. `move_block` is
 in herdr's socket API and not its docs; a rename fails sorting with one warning.
 
 **A mouse's workspace** is the one open on its worktree, else one opened on no checkout

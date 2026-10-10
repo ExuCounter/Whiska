@@ -405,7 +405,10 @@ idle mouse with nothing to report has no line. The main checkout's line says whe
 session is recorded, why delivery is gated, how many questions wait with no line of their
 own, and what dead branches left behind (`◌ 2 orphaned (feat-gone, fix-x)`).
 
-The mice re-sort only when one starts or stops needing you — waiting or finished — so rows
+The mice are ordered by what they are doing — those that need you first, a mouse queued
+behind a question right under the mouse holding it, mice you set aside below idle ones, and a
+sniff mouse below a build mouse in the same state. They re-sort only when one starts or stops
+needing you (waiting or finished) or starts or stops queueing, so rows
 do not jump under your cursor, and your own drag order stands otherwise. Each line expires
 thirty seconds after it was last sent, so a dead owl's lines go away rather than lie, and
 the owl sends them all again within two seconds of herdr restarting, which drops them.

@@ -240,7 +240,7 @@ defmodule Whiska.SidebarTest do
     end
 
     test "a question behind a focus names the focused branch" do
-      [%{tokens: tokens}, _focused] =
+      [_working, %{tokens: tokens}] =
         lines([mouse("feat-a"), mouse("feat-b")],
           questions: [question(16, "feat-a", status: "open")],
           bare_panes: [pane("feat-a", "idle"), pane("feat-b", "working")],
@@ -253,7 +253,7 @@ defmodule Whiska.SidebarTest do
     test "the focused branch is made safe before it reaches herdr" do
       focused = %{mouse("feat-b") | branch: "feat\e]0;x\a-b"}
 
-      [%{tokens: tokens}, _focused] =
+      [_working, %{tokens: tokens}] =
         lines([mouse("feat-a"), focused],
           questions: [question(16, "feat-a", status: "open")],
           bare_panes: [pane("feat-a", "idle"), pane("feat-b", "working")],
@@ -534,51 +534,83 @@ defmodule Whiska.SidebarTest do
         )
         |> Enum.map(& &1.branch)
 
+      # The queued and the finished-and-queued follow the mouse holding #1, and
+      # a hold sits below every active mouse (ADR-0082).
       assert order ==
-               ~w(sent stuck queued finished-later held picked working no-pane idle idle-too)
+               ~w(sent queued finished-later stuck picked working no-pane idle idle-too held)
     end
 
-    test "with nothing sent, every open question is next to go, ahead of a stuck mouse" do
-      done = "Done.\n\u2063\u2063\u2063"
-
+    test "a mouse queued behind a question sits right under the mouse that holds it" do
       order =
-        [mouse("stuck"), mouse("next"), mouse("finished")]
+        [mouse("working"), mouse("queued"), mouse("holder"), mouse("other-queued")]
         |> lines(
           questions: [
-            question(3, "finished", status: "open", kind: "done", text: done),
-            question(4, "next", status: "open")
+            question(7, "holder", sent_at: @now),
+            question(9, "other-queued", status: "open"),
+            question(8, "queued", status: "open")
           ],
-          bare_panes: [pane("stuck", "blocked"), pane("next", "idle"), pane("finished", "idle")]
+          bare_panes: for(b <- ~w(working queued holder other-queued), do: pane(b, "working"))
         )
         |> Enum.map(& &1.branch)
 
-      # Nothing holds the slot, so neither waits behind the other: the question
-      # is waiting on the person and the report is finished, both above stuck.
-      assert order == ~w(next finished stuck)
+      assert order == ~w(holder queued other-queued working)
     end
 
-    test "the person is needed by a waiting or finished mouse, and by nobody else" do
-      [sent, queued, finished, working] =
-        lines([mouse("a"), mouse("b"), mouse("c"), mouse("d")],
-          questions: [
-            question(1, "a"),
-            question(2, "b", status: "open", kind: "done", text: "Done.\n\u2063\u2063\u2063"),
-            question(3, "c", status: "open")
-          ],
-          bare_panes: [
-            pane("a", "idle"),
-            pane("b", "idle"),
-            pane("c", "idle"),
-            pane("d", "working")
-          ]
-        )
+    test "a sniff mouse sorts below a build mouse in the same state, and by state otherwise" do
+      sniff = fn branch -> %{mouse(branch) | mode: "sniff"} end
 
-      assert Sidebar.needs_you?(sent)
-      assert finished.branch == "b"
-      refute Sidebar.needs_you?(queued)
-      refute Sidebar.needs_you?(working)
-      # Two questions open and one sent: the finished report is behind the sent one.
-      refute Sidebar.needs_you?(finished)
+      order =
+        [sniff.("research-working"), mouse("build-working"), sniff.("research-asks")]
+        |> lines(
+          questions: [question(1, "research-asks", mouse: sniff.("research-asks"))],
+          bare_panes:
+            for(b <- ~w(research-working build-working research-asks), do: pane(b, "working"))
+        )
+        |> Enum.map(& &1.branch)
+
+      assert order == ~w(research-asks build-working research-working)
+    end
+
+    test "a held, focused or away mouse sits below an idle one" do
+      held = [mouse("held", held_at: @now), mouse("idle")]
+      away = [mouse("away"), mouse("idle")]
+      focus = [mouse("asks"), mouse("target")]
+
+      branches = fn mice, opts -> mice |> lines(opts) |> Enum.map(& &1.branch) end
+      panes = fn mice -> for(m <- mice, do: pane(m.branch, "idle")) end
+
+      assert branches.(held,
+               bare_panes: panes.(held),
+               mode: mode(held: MapSet.new(["m-held"]))
+             ) == ~w(idle held)
+
+      assert branches.(away,
+               questions: [question(1, "away", status: "open")],
+               bare_panes: panes.(away),
+               mode: mode(away?: true)
+             ) == ~w(idle away)
+
+      assert branches.(focus,
+               questions: [question(2, "asks", status: "open")],
+               bare_panes: [pane("asks", "idle"), pane("target", "working")],
+               mode: mode(focus: "m-target")
+             ) == ~w(target asks)
+    end
+
+    test "a held mouse with a question behind the slot stays among the held, not under the holder" do
+      order =
+        [mouse("held", held_at: @now), mouse("holder"), mouse("idle")]
+        |> lines(
+          questions: [
+            question(1, "holder", sent_at: @now),
+            question(2, "held", status: "open")
+          ],
+          bare_panes: for(b <- ~w(held holder idle), do: pane(b, "idle")),
+          mode: mode(held: MapSet.new(["m-held"]))
+        )
+        |> Enum.map(& &1.branch)
+
+      assert order == ~w(holder idle held)
     end
   end
 

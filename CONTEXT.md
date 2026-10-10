@@ -211,7 +211,7 @@ no line of their own, orphans. Every line starts with a symbol only Whiska write
 is how the person's own herdr config colours it; a working mouse's symbol turns once a
 second, so a still one means the owl has stopped. An idle mouse with nothing to say has
 none. A line nobody keeps current goes away by itself, and one herdr has lost is sent
-again. The mice re-sort only when one starts or stops needing the person.
+again. The mice re-sort only when one starts or stops needing the person, or starts or stops queueing behind another.
 _Avoid_: row (the board's; a line is what herdr draws), badge, status (the tab bar's),
 the board (the facts a line is written from)
 
