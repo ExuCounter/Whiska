@@ -102,7 +102,7 @@ defmodule Whiska.Hook.UserPromptSubmitTest do
     worktree: worktree,
     mouse_id: mouse_id
   } do
-    # ADR-next-a-nested-session-speaks-for-nobody: same worktree, same pane,
+    # ADR-0084: same worktree, same pane,
     # but a claude running under the mouse's claude.
     seed(main, worktree, mouse_id, fn ->
       q = ask(mouse_id, "?")

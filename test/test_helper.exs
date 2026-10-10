@@ -19,7 +19,7 @@ ExUnit.after_suite(fn _ -> File.rm_rf!(test_home) end)
 
 # A suite run by a `claude` that itself runs under another `claude` — a
 # `claude -p` running the checks — would read every hook test as nested
-# (ADR-next-a-nested-session-speaks-for-nobody). A test that wants the check
+# (ADR-0084). A test that wants the check
 # passes its own `CLAUDE_PID`.
 System.delete_env("CLAUDE_PID")
 

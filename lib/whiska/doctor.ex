@@ -1165,7 +1165,7 @@ defmodule Whiska.Doctor do
 
   # The one difference worth naming: without CLAUDE_PID the owl cannot tell a
   # claude a mouse starts from the mouse, and files its turns as the mouse's
-  # (ADR-next-a-nested-session-speaks-for-nobody). It fails open, so nothing
+  # (ADR-0084). It fails open, so nothing
   # else would ever say so.
   defp why_stale(contents) do
     if String.contains?(contents, " CLAUDE_PID "),

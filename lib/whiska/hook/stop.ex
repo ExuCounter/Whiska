@@ -14,7 +14,7 @@ defmodule Whiska.Hook.Stop do
 
   A `claude` the mouse started itself — a test run, a `claude -p` — starts in
   the same worktree and runs in the same pane, and leaves nothing either: it is
-  not the mouse (ADR-next-a-nested-session-speaks-for-nobody).
+  not the mouse (ADR-0084).
 
   It writes on every turn that ended. A turn with a subagent still out has not
   ended — Claude Code will wake this session when the subagent reports — and

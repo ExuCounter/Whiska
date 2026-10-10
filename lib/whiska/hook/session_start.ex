@@ -17,7 +17,7 @@ defmodule Whiska.Hook.SessionStart do
   - **Nested**: a `claude` running underneath another one — a test run, a
     `claude -p` a session started. Nothing: it is neither, and rules that tell
     it to end on a marker or spawn worktrees would only mislead it
-    (ADR-next-a-nested-session-speaks-for-nobody).
+    (ADR-0084).
 
   A part the person holds as `keep` is left out: Claude Code loads that
   `CLAUDE.md` itself, so their wording is already in context (ADR-0081). Which

@@ -102,7 +102,7 @@ mouse started and runs in the mouse's pane, so neither the start directory nor t
 tells it apart. The process tree does. It speaks for nobody: nothing it ends a turn with
 reaches the doorstep, it is handed no answer, and it is printed no rules. It is still
 held to the containment rules of the worktree it runs in
-(ADR-next-a-nested-session-speaks-for-nobody).
+(ADR-0084).
 _Avoid_: child session, subsession (a subagent is neither, and is no session of its own)
 
 **Question**:

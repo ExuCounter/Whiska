@@ -132,7 +132,7 @@ defmodule Whiska.Hook.StopTest do
     assert Doorstep.waiting(main) == []
   end
 
-  describe "a claude started inside the mouse (ADR-next-a-nested-session-speaks-for-nobody)" do
+  describe "a claude started inside the mouse (ADR-0084)" do
     alias Whiska.Test.ClaudeTree
 
     test "leaves nothing on the doorstep: it is not the mouse", %{main: main, worktree: worktree} do

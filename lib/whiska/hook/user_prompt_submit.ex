@@ -23,7 +23,7 @@ defmodule Whiska.Hook.UserPromptSubmit do
 
   A `claude` the mouse started itself — a test run, a `claude -p` — prompts in
   the same worktree and the same pane, and is handed nothing: an answer taken
-  there never reaches the mouse (ADR-next-a-nested-session-speaks-for-nobody).
+  there never reaches the mouse (ADR-0084).
 
   In the main session it does one other thing: the person's first prompt
   after a finished line settles that line, freeing the slot it holds

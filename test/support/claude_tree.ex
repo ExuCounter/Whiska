@@ -1,7 +1,7 @@
 defmodule Whiska.Test.ClaudeTree do
   @moduledoc """
   Real processes named `claude`, for the nested-session check
-  (ADR-next-a-nested-session-speaks-for-nobody).
+  (ADR-0084).
 
   Nothing is mocked (ADR-0031): each `claude` is a symlink to a system binary,
   which `ps` reports under the symlink's name. `lone/1` is one `claude`, the way

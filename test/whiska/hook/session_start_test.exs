@@ -65,7 +65,7 @@ defmodule Whiska.Hook.SessionStartTest do
     refute rules =~ "herdr worktree list"
   end
 
-  describe "a claude started inside another (ADR-next-a-nested-session-speaks-for-nobody)" do
+  describe "a claude started inside another (ADR-0084)" do
     test "in a mouse's worktree it is told nothing: it is not the mouse", c do
       pid = Whiska.Test.ClaudeTree.nested(Path.join(c.main, "procs"))
       env = Map.put(herdr(c.home), "CLAUDE_PID", pid)

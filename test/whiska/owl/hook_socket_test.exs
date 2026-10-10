@@ -116,7 +116,7 @@ defmodule Whiska.Owl.HookSocketTest do
     end
   end
 
-  describe "a claude the mouse started itself (ADR-next-a-nested-session-speaks-for-nobody)" do
+  describe "a claude the mouse started itself (ADR-0084)" do
     test "its finished turn is not the mouse's, and the owl leaves nothing", %{
       root: root,
       main: main,

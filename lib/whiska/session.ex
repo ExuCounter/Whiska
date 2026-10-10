@@ -19,7 +19,7 @@ defmodule Whiska.Session do
   A third signal says when a session speaks for nobody at all: a Claude Code
   session running underneath another one — a test script or a `claude -p` the
   mouse started in its own worktree — is nested
-  (ADR-next-a-nested-session-speaks-for-nobody). It starts where the mouse
+  (ADR-0084). It starts where the mouse
   started and runs in the mouse's pane, so neither signal above can tell it
   apart; the process tree can.
 
@@ -116,7 +116,7 @@ defmodule Whiska.Session do
 
   @doc """
   Is this hook firing in a Claude Code session that runs underneath another
-  one (ADR-next-a-nested-session-speaks-for-nobody)?
+  one (ADR-0084)?
 
   `CLAUDE_PID` is the `claude` process that fired the hook. The walk starts at
   its parent, so the hook's own session never counts against itself. Any

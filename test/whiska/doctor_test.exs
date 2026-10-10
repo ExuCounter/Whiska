@@ -397,7 +397,7 @@ defmodule Whiska.DoctorTest do
     end
 
     test "a shim that does not pass CLAUDE_PID says what that lets through" do
-      # Before ADR-next-a-nested-session-speaks-for-nobody the shim sent the
+      # Before ADR-0084 the shim sent the
       # owl no CLAUDE_PID, and a claude a mouse starts reads as the mouse.
       old = String.replace(Install.shim(), " CLAUDE_PID ", " ")
 
