@@ -77,9 +77,12 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
 
 - **Land here** — cherry-pick the branch's own commits onto the current
   branch, oldest first, skipping its merges from the base
-  (`git log --no-merges --reverse <base>..<branch>` lists them); run this
-  repo's tests, and only if they pass, drop the worktree and delete the
-  branch.
+  (`git log --no-merges --reverse <base>..<branch>` lists them), and run
+  this repo's tests. They fail → say what failed and stop: the copies stay
+  on the current branch for the person to fix or revert. Either way, leave
+  the worktree and the branch: the owl removes both, and the pane, once it
+  sees the work in the base and nothing of the mouse's is waiting on the
+  person.
 - **Commit and land** — the main session commits the files the mouse left,
   in its worktree, then lands. Before offering it, find the worktree's path
   with `whiska worktrees` and list its changes in full with

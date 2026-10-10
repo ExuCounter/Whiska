@@ -59,6 +59,27 @@ defmodule Whiska.Test.GitRepo do
     :ok
   end
 
+  @doc """
+  Copy a branch's own commits onto `main`, oldest first, the way Land here
+  does: new commit ids, the same changes. Nothing is pushed.
+  """
+  def cherry_pick(repo, branch) do
+    commits =
+      repo.checkout
+      |> git!(["rev-list", "--reverse", "--no-merges", "main..#{branch}"])
+      |> String.split("\n", trim: true)
+
+    git!(repo.checkout, ["cherry-pick" | commits])
+    :ok
+  end
+
+  @doc "Squash a branch into one new commit on `main`, as a forge's squash merge does."
+  def squash(repo, branch) do
+    git!(repo.checkout, ["merge", "--squash", branch])
+    git!(repo.checkout, ["commit", "-m", "squash #{branch}"])
+    :ok
+  end
+
   @doc "Write a file and commit it."
   def commit!(dir, file, contents) do
     File.write!(Path.join(dir, file), contents)

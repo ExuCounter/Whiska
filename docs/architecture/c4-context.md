@@ -27,7 +27,7 @@ C4Context
   Rel(whiska, herdr, "Opens panes, reads agent status, closes a landed mouse's pane", "herdr CLI")
   Rel(herdr, claude, "Starts and hosts every session")
   Rel(herdr, whiska, "Tab bar asks the owl for its line every five seconds", "nc -U")
-  Rel(whiska, git, "Derives layout from, stores house under .git/, removes a merged worktree")
+  Rel(whiska, git, "Derives layout from, stores house under .git/, removes a landed worktree")
   Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
   Rel(whiska, nc, "Raises a hoot herdr will not show")
 
@@ -42,7 +42,7 @@ C4Context
   it is a name for a herdr pane running Claude Code. This is also the one boundary where
   mocking is allowed in tests (ADR-0031).
 - **git is asked, and now also answered to.** Whether a branch has landed is a local git
-  question, and it is the one that lets the owl take a merged worktree down by itself
+  question, and it is the one that lets the owl take a landed worktree down by itself
   (ADR-0061). No forge, no network, no credentials are involved in it.
 - **The service manager** matters because there is exactly one owl per machine, not one
   process per repo (ADR-0001). `whiska owl install` writes the user LaunchAgent

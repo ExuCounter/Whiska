@@ -139,7 +139,8 @@ _Avoid_: summary, status, update, hand-off
 **Finish**:
 What becomes of a branch once its mouse is done: landed on the current branch by
 cherry-picking its own commits, oldest first, its merges from the base skipped
-(ADR-0079; it was `merge --no-ff`), opened as a
+(ADR-0079; it was `merge --no-ff`) and its worktree left to **cleanup**, which counts
+the copies as landed (ADR-0064), opened as a
 merge request, carried on by its mouse, talked to from the main session (the person's words carried to the mouse), or dropped
 unmerged. The person picks one when a "finished" question is told — lettered options at
 the end of the reply, answered by a letter, an option's word, or their own words; "hold"

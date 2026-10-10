@@ -15,9 +15,12 @@ defmodule Whiska.Git do
   treats any of them as "leave it alone".
 
   The two functions that change something, `remove_worktree/2` and
-  `delete_branch/2`, never force. `git worktree remove` without `--force` and
+  `delete_branch/3`, do not force by default. `git worktree remove` without `--force` and
   `git branch -d` rather than `-D` refuse on exactly what the checks above are
-  meant to have ruled out, which makes them a second, independent opinion.
+  meant to have ruled out, which makes them a second, independent opinion. The
+  one exception is a branch `in_base?/3` has shown landed as copies, which `-d`
+  cannot recognise: it is deleted only while it still points at the commit
+  that was checked.
   """
 
   @base_names ~w(main master)
@@ -247,6 +250,52 @@ defmodule Whiska.Git do
   end
 
   @doc """
+  Is this commit's work already in the base, under whatever commits carry it
+  there now?
+
+  Land here copies a branch's commits onto the base with new ids, a forge's
+  squash folds them into one, and neither leaves the branch an ancestor of the
+  base. A trial merge answers instead: merging the commit into the base would
+  change nothing, so the base's tree is what the merge writes. Nothing is
+  written to any ref or the index.
+
+  Only for a commit with work of its own beyond the base: a branch that never
+  moved merges to nothing too, and that is no landing (ADR-0064). A conflict
+  is `false` — a copy whose conflict was resolved by hand usually reads that
+  way, which leaves its worktree standing. A git too old for `merge-tree
+  --write-tree` (before 2.38) is an error, never a `false` or a `true`.
+  """
+  @spec in_base?(Path.t(), String.t(), branch()) :: {:ok, boolean()} | {:error, term()}
+  def in_base?(checkout, head, base) do
+    with {:ok, base_ref} <- base_ref(checkout, base),
+         {:ok, true} <- merges_to_base?(checkout, head, base_ref) do
+      changes_anything?(checkout, head, base_ref)
+    end
+  end
+
+  defp merges_to_base?(checkout, head, base_ref) do
+    with {:ok, base_tree} <- git(checkout, ["rev-parse", "#{base_ref}^{tree}"]) do
+      case run(checkout, ["merge-tree", "--write-tree", base_ref, head]) do
+        {out, 0} -> {:ok, out |> String.split("\n") |> hd() == base_tree}
+        {_conflicted, 1} -> {:ok, false}
+        {out, code} -> {:error, {code, String.trim(out)}}
+      end
+    end
+  end
+
+  # Measured from where the branch last met the base, so a merge from the base
+  # is not work of its own, and commits that cancel out are none either.
+  defp changes_anything?(checkout, head, base_ref) do
+    with {:ok, fork} <- git(checkout, ["merge-base", base_ref, head]) do
+      case run(checkout, ["diff-tree", "--quiet", fork, head]) do
+        {_, 0} -> {:ok, false}
+        {_, 1} -> {:ok, true}
+        {out, code} -> {:error, {code, String.trim(out)}}
+      end
+    end
+  end
+
+  @doc """
   Has this branch ever carried a commit of its own?
 
   A branch still on the commit it was cut at has nothing to land, and its tip
@@ -354,10 +403,24 @@ defmodule Whiska.Git do
     with {:ok, _} <- git(checkout, ["worktree", "remove", worktree]), do: :ok
   end
 
-  @doc "Delete a branch with `-d`, never `-D`. Git refuses an unmerged one, and so do we."
-  @spec delete_branch(Path.t(), branch()) :: :ok | {:error, term()}
-  def delete_branch(checkout, branch) do
+  @doc """
+  Delete a branch with `-d`. Git refuses an unmerged one, and so do we.
+
+  `{:in_base, head}` is the one exception: a branch landed as copies is never
+  merged by git's measure, so `-d` would refuse what `in_base?/3` has just
+  shown is already in the base. It is deleted only while it still points at
+  `head`, the commit that was checked, so a commit made since keeps it.
+  """
+  @spec delete_branch(Path.t(), branch(), :merged | {:in_base, String.t()}) ::
+          :ok | {:error, term()}
+  def delete_branch(checkout, branch, landing \\ :merged)
+
+  def delete_branch(checkout, branch, :merged) do
     with {:ok, _} <- git(checkout, ["branch", "-d", branch]), do: :ok
+  end
+
+  def delete_branch(checkout, branch, {:in_base, head}) do
+    with {:ok, _} <- git(checkout, ["update-ref", "-d", "refs/heads/" <> branch, head]), do: :ok
   end
 
   @doc "Forget the admin records of worktrees whose folders have gone."

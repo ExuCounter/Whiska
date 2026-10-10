@@ -52,6 +52,16 @@ skips them.
    is an ancestor of the base. This is the one that makes everything else recoverable, and
    it is a local git question — no network, no forge, no credentials.
 
+   **Or its work is in the base under other commits.** Land here copies a branch's
+   commits onto the base with new ids, and a forge's squash folds them into one; neither
+   leaves the head an ancestor. So a head that is not one is put to a trial merge, `git
+   merge-tree --write-tree <base> <head>`: when it merges cleanly to the base's own tree,
+   merging would change nothing and the work is there. Only a branch with at least one
+   commit the base cannot reach is asked, since a branch that never moved merges to
+   nothing too. A copy whose conflict was resolved by hand usually conflicts again here
+   and reads as not landed, which leaves its worktree for the person; a git older than
+   2.38 cannot answer, and unknown is not permission.
+
    **A branch with no commit of its own is never merged, whatever its ancestry says.** A
    commit is its own ancestor, so a branch still on the commit it was cut at — a sniff
    mouse's, whose investigation has nothing to merge, or a build mouse that committed
@@ -85,6 +95,11 @@ skips them.
 3. **Nothing is unpushed.** No commit on the branch is absent from every remote.
    Belt-and-braces behind the merge check, and the one that catches "merged locally into a
    base branch that itself has not been pushed".
+
+   A branch landed as copies is exempt. Its own commits are never pushed — Land here
+   lands locally, which is the point of it — so the check would hold every such worktree
+   forever. Its work is as safe as the base it was copied onto, the same exposure a
+   person takes on by landing locally at all.
 4. **The mouse is quiet** — see below.
 
 **Never force.** `git worktree remove` without `--force`, `git branch -d` and not `-D`,
@@ -96,7 +111,9 @@ it was measured rather than assumed: **`git branch -d` deletes an unmerged branc
 commits are on its upstream.** Git's rule is "these commits exist somewhere else", not
 "this landed in the base". So `-d` protects against losing work outright and is *not* a
 second opinion on condition 1 — condition 1 stands alone, and `-d` stays because there is
-no reason to reach for `-D` once it has passed.
+no reason to reach for `-D` once it has passed. The one `-D` is for a branch landed as copies: `-d`
+reads its commits as unmerged and refuses, though the trial merge has just shown nothing
+on it is missing from the base.
 
 **Unknown is never permission.** A detached head, an unreadable git directory, a base
 branch that cannot be resolved unambiguously, a git command that fails for any reason, a

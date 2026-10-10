@@ -263,6 +263,82 @@ defmodule Whiska.CleanupTest do
     end
   end
 
+  # Land here copies a branch's commits onto the base with new ids and leaves
+  # the worktree for the owl. A trial merge that would change nothing is the
+  # landing, whatever the commits are called now.
+  describe "a branch landed as copies" do
+    test "is stamped landed and taken down, branch and all, never having been pushed",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a", push: false)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.cherry_pick(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      assert %{landed_at: %DateTime{}} = Storage.mouse("m-feat-a")
+      refute File.dir?(m.path)
+      refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-a"
+    end
+
+    test "its finished notice settles rather than orphaning when the pane goes",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a", push: false, status: "sent")
+      [notice] = Storage.all(Whiska.Schema.Question)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.cherry_pick(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+      {:ok, _} = Storage.mark_dead(m.id)
+
+      assert Storage.question(notice.id).status == "settled"
+    end
+
+    test "so is a squashed one", %{repo: repo} do
+      m = mouse(repo, "feat-a", push: false)
+      GitRepo.commit!(m.path, "more.md", "second")
+      GitRepo.squash(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-a"
+    end
+
+    test "a branch that only merged the base in is no landing, and stays", %{repo: repo} do
+      m = mouse(repo, "feat-a", push: false, commit: false)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.git!(m.path, ["merge", "--no-ff", "-m", "merge main", "main"])
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :not_merged}}] = sweep(repo)
+      assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+      assert File.dir?(m.path)
+    end
+
+    test "half of a branch copied over is no landing, and nothing is deleted", %{repo: repo} do
+      m = mouse(repo, "feat-a", push: false)
+      first = String.trim(GitRepo.git!(m.path, ["rev-parse", "HEAD"]))
+      GitRepo.commit!(m.path, "more.md", "second")
+      GitRepo.git!(repo.checkout, ["cherry-pick", first])
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :not_merged}}] = sweep(repo)
+      assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+      assert GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-a"
+    end
+
+    test "is noted from the branch alone once the worktree has gone", %{repo: repo} do
+      m = mouse(repo, "feat-a", push: false, kind: "needs-decision", status: "sent")
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.cherry_pick(repo, "feat-a")
+      GitRepo.git!(repo.checkout, ["worktree", "remove", m.path])
+      herdr(repo, [], [])
+
+      assert [{"m-feat-a", {:left, :gone}}] = sweep(repo)
+      assert %{landed_at: %DateTime{}} = Storage.mouse("m-feat-a")
+    end
+  end
+
   describe "a kept spec" do
     defp kept(repo, m) do
       entry = %Whiska.Doorstep.Entry{

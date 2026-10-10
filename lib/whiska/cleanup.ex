@@ -3,8 +3,9 @@ defmodule Whiska.Cleanup do
   Taking a landed worktree down, pane and all (ADR-0061).
 
   One pass over this house's mice, run from the backstop. A worktree goes only
-  when all four preconditions hold — the branch is merged into the base, the
-  worktree is clean, nothing on it is unpushed, and the mouse is quiet — and
+  when all four preconditions hold — the branch has landed in the base, merged
+  or as copies of its commits, the worktree is clean, nothing on it is
+  unpushed, and the mouse is quiet — and
   the pane goes with it, through the one `worktree.remove` call herdr offers,
   which closes the workspace and removes the worktree together the way the
   `drop-worktree` skill always has.
@@ -73,32 +74,45 @@ defmodule Whiska.Cleanup do
   # vanished worktree alike (ADR-0064): noting that a branch has landed. A
   # mouse holding a question is never torn down, but its branch landing is what
   # settles that question when there is finally nobody left to answer to.
-  # Returns the mouse with git's answer to "is this an ancestor of the base",
-  # which the teardown asks for again a line later: carrying it across is what
-  # keeps one sweep to one such check per standing worktree. A mouse already
-  # stamped is asked nothing at all.
+  # Returns the mouse with git's answer to "how did the base reach this", which
+  # the teardown asks for again a line later: carrying it across is what keeps
+  # one sweep to one such check per standing worktree. A mouse already stamped
+  # is asked nothing at all.
   defp note_landing(%Mouse{landed_at: %DateTime{}} = mouse, _local), do: {mouse, nil}
 
   defp note_landing(mouse, local) do
     with {:ok, base} <- Git.base_of(local.checkout, mouse.base),
          {:ok, head} <- head_of(mouse, local, base),
-         {:ok, true} = asked <- Git.ancestor?(local.checkout, head, base) do
-      {landed_by_merge(mouse, local, head, base), shareable(mouse, asked)}
+         {:ok, how} = asked <- reached(local.checkout, head, base) do
+      {stamp_if_landed(how, mouse, local, head, base), shareable(mouse, asked)}
     else
-      {:ok, false} = asked -> {mouse, shareable(mouse, asked)}
       _ -> {mouse, nil}
     end
   end
 
+  # How the base holds this commit: as an ancestor, as the same work under
+  # other commits — Land here's copies, a squash — or not at all.
+  defp reached(checkout, head, base) do
+    case Git.ancestor?(checkout, head, base) do
+      {:ok, true} -> {:ok, :ancestor}
+      {:ok, false} -> with {:ok, true} <- Git.in_base?(checkout, head, base), do: {:ok, :in_base}
+      error -> error
+    end
+  end
+
   # An ancestor of the base is not yet a landing: a branch cut an hour ago and
-  # never moved is one too. Only work the base reached through a merge settles
-  # anything (ADR-0064).
-  defp landed_by_merge(mouse, local, head, base) do
+  # never moved is one too. Only work the base reached through a merge, or
+  # holds as copies, settles anything (ADR-0064).
+  defp stamp_if_landed(:in_base, mouse, _local, _head, _base), do: stamp_landing(mouse)
+
+  defp stamp_if_landed(:ancestor, mouse, local, head, base) do
     case Git.reached_by_merge?(local.checkout, head, base) do
       {:ok, true} -> stamp_landing(mouse)
       _ -> mouse
     end
   end
+
+  defp stamp_if_landed(false, mouse, _local, _head, _base), do: mouse
 
   defp stamp_landing(mouse) do
     case Storage.mark_landed(mouse.mouse_id) do
@@ -160,8 +174,8 @@ defmodule Whiska.Cleanup do
 
   defp act(_mouse, {:leave, reason}, _context), do: {:left, reason}
 
-  defp act(mouse, {:ok, branch}, context) do
-    case teardown(mouse, branch, context) do
+  defp act(mouse, {:ok, landed}, context) do
+    case teardown(mouse, landed, context) do
       {:ok, plan} -> take_down(mouse, plan, context)
       {:leave, reason} -> {:left, reason}
     end
@@ -172,10 +186,10 @@ defmodule Whiska.Cleanup do
   # a workspace nothing accounts for, or a pane herdr opened no workspace for, is
   # unknown — and the record's own `pane` column is never the authority, since a
   # match that has gone stale would read as "no pane" and close a live session.
-  defp teardown(%Mouse{path: path} = mouse, branch, context) do
+  defp teardown(%Mouse{path: path} = mouse, {branch, landing}, context) do
     statuses = statuses_in(mouse, context)
     workspace_id = Map.get(context.workspaces, Layout.canonical(path))
-    plan = %{path: path, branch: branch, workspace_id: workspace_id}
+    plan = %{path: path, branch: branch, landing: landing, workspace_id: workspace_id}
 
     cond do
       Enum.any?(statuses, &(&1 not in @ready)) -> {:leave, :working}
@@ -222,7 +236,8 @@ defmodule Whiska.Cleanup do
   reason always names the nearest thing standing in the way rather than the
   worst one. Whether its pane is busy is not here: that is herdr's to say.
   """
-  @spec local_verdict(Mouse.t(), map()) :: {:ok, String.t()} | {:leave, term()}
+  @spec local_verdict(Mouse.t(), map()) ::
+          {:ok, {String.t(), :merged | {:in_base, String.t()}}} | {:leave, term()}
   def local_verdict(%Mouse{path: path} = mouse, local) do
     with :ok <- standing(path),
          :ok <- not_held(mouse),
@@ -258,16 +273,32 @@ defmodule Whiska.Cleanup do
   defp landed(%Mouse{path: path, base: recorded}, %{checkout: checkout} = context) do
     with {:ok, base} <- leave_on_error(Git.base_of(checkout, recorded)),
          {:ok, branch} <- leave_on_error(Git.head_branch(path)),
-         {:ok, true} <- merged(checkout, path, base, context[:merged]),
+         {:ok, how} <- merged(checkout, path, base, context[:merged]),
+         {:ok, landing} <- confirmed(checkout, path, base, how),
          {:ok, true} <- own_work(checkout, path, branch),
          {:ok, true} <- clean(path),
-         {:ok, false} <- unpushed(path, branch) do
-      {:ok, branch}
+         {:ok, false} <- unpushed(path, branch, landing) do
+      {:ok, {branch, landing}}
+    end
+  end
+
+  # A branch landed as copies is deleted only while it is still on the commit
+  # found in the base, so that commit is asked about here, not one remembered
+  # from earlier in the sweep.
+  defp confirmed(_checkout, _path, _base, :ancestor), do: {:ok, :merged}
+
+  defp confirmed(checkout, path, base, :in_base) do
+    with {:ok, head} <- leave_on_error(Git.head(path)) do
+      case Git.in_base?(checkout, head, base) do
+        {:ok, true} -> {:ok, {:in_base, head}}
+        {:ok, false} -> {:leave, :not_merged}
+        other -> leave_on_error(other)
+      end
     end
   end
 
   defp merged(checkout, path, base, asked) do
-    case asked || Git.merged?(checkout, path, base) do
+    case asked || with({:ok, head} <- Git.head(path), do: reached(checkout, head, base)) do
       {:ok, false} -> {:leave, :not_merged}
       other -> leave_on_error(other)
     end
@@ -292,7 +323,11 @@ defmodule Whiska.Cleanup do
     end
   end
 
-  defp unpushed(path, branch) do
+  # Work the base holds as copies is as safe as the base is: the branch's own
+  # commits were never going to be pushed once Land here took them.
+  defp unpushed(_path, _branch, {:in_base, _head}), do: {:ok, false}
+
+  defp unpushed(path, branch, :merged) do
     case Git.unpushed?(path, branch) do
       {:ok, true} -> {:leave, :unpushed}
       other -> leave_on_error(other)
@@ -308,7 +343,7 @@ defmodule Whiska.Cleanup do
       Git.prune_worktrees(context.checkout)
       recorded = Storage.mark_removed(mouse.mouse_id)
 
-      case {recorded, Git.delete_branch(context.checkout, plan.branch)} do
+      case {recorded, Git.delete_branch(context.checkout, plan.branch, plan.landing)} do
         {{:ok, _}, :ok} -> :removed
         {{:error, reason}, _} -> {:removed, {:unrecorded, reason}}
         {_, {:error, reason}} -> {:removed, {:branch_kept, reason}}

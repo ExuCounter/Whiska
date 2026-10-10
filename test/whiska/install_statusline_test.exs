@@ -518,6 +518,17 @@ defmodule Whiska.InstallStatuslineTest do
       refute option("Land here") =~ ~r/stay in the worktree/i
     end
 
+    # The owl sees the copies in the base before the branch goes, which is
+    # what settles the finished line rather than orphaning it (ADR-0064).
+    test "Land here leaves the worktree and its branch for the owl to take down" do
+      land = option("Land here")
+
+      assert land =~ ~r/leave the worktree and the branch/i
+      assert land =~ ~r/the owl removes/i
+      refute land =~ ~r/delete the branch|drop the worktree|branch -[dD]/i
+      assert land =~ ~r/fail.{0,80}stop/i
+    end
+
     # Nothing a mouse wrote reaches a command line (ADR-0074).
     test "the main session commits in the mouse's worktree, from a file, after showing every file" do
       commit = option("Commit and land")

@@ -109,6 +109,89 @@ defmodule Whiska.GitTest do
     end
   end
 
+  describe "in_base?/3 — a trial merge that would change nothing" do
+    test "a branch whose commits were copied onto a base that moved on is in it",
+         %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a")
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.cherry_pick(repo, "feat-a")
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:ok, false} = Git.ancestor?(repo.checkout, head, "main")
+      assert {:ok, true} = Git.in_base?(repo.checkout, head, "main")
+    end
+
+    test "so is a squashed one", %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      GitRepo.commit!(path, "more.md", "second")
+      GitRepo.squash(repo, "feat-a")
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:ok, true} = Git.in_base?(repo.checkout, head, "main")
+    end
+
+    test "a branch whose work the base does not have is not", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a")
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:ok, false} = Git.in_base?(repo.checkout, head, "main")
+    end
+
+    test "only part of a branch copied over is not", %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      first = String.trim(GitRepo.git!(path, ["rev-parse", "HEAD"]))
+      GitRepo.commit!(path, "more.md", "second")
+      GitRepo.git!(repo.checkout, ["cherry-pick", first])
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:ok, false} = Git.in_base?(repo.checkout, head, "main")
+    end
+
+    test "a branch with no commits of its own never is, though merging it changes nothing",
+         %{repo: repo} do
+      GitRepo.worktree(repo, "research-a", commit: false)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      {:ok, head} = Git.branch_head(repo.checkout, "research-a")
+
+      assert {:ok, false} = Git.in_base?(repo.checkout, head, "main")
+    end
+
+    test "a branch whose only commit merges the base in is not", %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a", commit: false)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.git!(path, ["merge", "--no-ff", "-m", "merge main", "main"])
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:ok, false} = Git.ancestor?(repo.checkout, head, "main")
+      assert {:ok, false} = Git.in_base?(repo.checkout, head, "main")
+    end
+
+    test "a branch whose commits add up to no change is not", %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      GitRepo.git!(path, ["revert", "--no-edit", "HEAD"])
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:ok, false} = Git.in_base?(repo.checkout, head, "main")
+    end
+
+    test "a branch whose change conflicts with the base is not", %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a", commit: false)
+      GitRepo.commit!(path, "README.md", "branch says this")
+      GitRepo.commit!(repo.checkout, "README.md", "base says that")
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:ok, false} = Git.in_base?(repo.checkout, head, "main")
+    end
+
+    test "a base that resolves to nothing is an error, not a false", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a")
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-a")
+
+      assert {:error, {:no_base_ref, "trunk"}} = Git.in_base?(repo.checkout, head, "trunk")
+    end
+  end
+
   describe "head_branch/1" do
     test "names the branch a worktree is on", %{repo: repo} do
       path = GitRepo.worktree(repo, "feat-a")
@@ -215,6 +298,32 @@ defmodule Whiska.GitTest do
       path = GitRepo.worktree(repo, "feat-b", push: false)
       :ok = Git.remove_worktree(repo.checkout, path)
       assert {:error, _} = Git.delete_branch(repo.checkout, "feat-b")
+      assert GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-b"
+    end
+
+    test "deletes a branch landed as copies only when told it is landed, which -d refuses",
+         %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-b", push: false)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.cherry_pick(repo, "feat-b")
+      :ok = Git.remove_worktree(repo.checkout, path)
+
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-b")
+
+      assert {:error, _} = Git.delete_branch(repo.checkout, "feat-b")
+      assert :ok = Git.delete_branch(repo.checkout, "feat-b", {:in_base, head})
+      refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-b"
+    end
+
+    test "keeps a branch landed as copies that moved since it was checked", %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-b", push: false)
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.cherry_pick(repo, "feat-b")
+      {:ok, checked} = Git.branch_head(repo.checkout, "feat-b")
+      GitRepo.commit!(path, "late.md", "one more")
+      :ok = Git.remove_worktree(repo.checkout, path)
+
+      assert {:error, _} = Git.delete_branch(repo.checkout, "feat-b", {:in_base, checked})
       assert GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-b"
     end
 

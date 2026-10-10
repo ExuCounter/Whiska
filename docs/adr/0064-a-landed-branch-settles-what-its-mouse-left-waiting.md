@@ -49,9 +49,21 @@ there.
 
 A branch fast-forwarded into the base is on the line like any other and reads as no
 landing. That is the conservative answer and it is the honest one: afterwards nothing
-distinguishes a fast-forwarded branch from one that never moved. A squashed or rebased
-branch is not an ancestor of the base at all, so it never reaches this question — the same
-limit ADR-0061's teardown already has.
+distinguishes a fast-forwarded branch from one that never moved.
+
+**Work the base holds as copies is a landing too.** Land here cherry-picks a branch's
+commits onto the base with new ids; a forge squashes them, a person rebases them. None of
+those leaves the branch an ancestor of the base, so a branch that is not one is put to the
+trial merge ADR-0061's teardown uses: merging it into the base would change nothing. Only a
+branch with a commit of its own the base cannot reach is asked, since an untouched branch
+merges to nothing as well. A copy whose conflict was resolved by hand usually conflicts
+again and reads as no landing — the safe side.
+
+That only works while the branch still exists, so **Land here leaves the worktree and its
+branch for the owl** rather than dropping them itself: the sweep sees the copies, stamps
+the landing, and then takes the worktree down under ADR-0061's preconditions. Until it
+did, every Land here deleted the branch in the same breath it landed, and its finished
+line orphaned every time.
 
 For the same reason, the **base branch is never read as a landing**: it is merged into
 itself by construction.
@@ -94,7 +106,8 @@ state.
 ### What it does not reach, and why that is the safe side
 
 **A branch deleted in the same breath as its worktree, before any sweep saw it merged.**
-`drop-worktree` deletes the branch by default, and then nothing is left to ask. Those
+`drop-worktree` deletes the branch by default, and then nothing is left to ask; so does a
+person landing by hand and deleting the branch at once. Those
 questions orphan, as they do today. The window is one sweep interval, the failure is the
 old behaviour rather than a new wrong one, and the person can still `whiska close` by
 hand. Closing it properly would mean recording every branch's head commit continuously,
