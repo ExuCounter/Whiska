@@ -164,6 +164,16 @@ mouse shaped for that work rather than flipping the one shaped for the investiga
 (ADR-0074).
 _Avoid_: plan, recommendation, next steps, hand-off (a word **Report** already rejected)
 
+**Needs attention**:
+The block a finished turn ends its report with when the mouse advises a step on the same
+branch before it lands: one line per item, what needs attention and the action to take,
+at most one marked `(recommended)`. Content, never classification — the turn still ends
+on `done`. The main session turns each item into its own lettered option ahead of the
+finish options, marks only the mouse's recommendation "(Recommended)", and sends a
+picked item to the mouse as the person's own words. With no block the finish options
+are the table's, never read from the mouse's prose (ADR-0074).
+_Avoid_: next step, follow-up, to-do, issues
+
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,
 and the entries still sitting uncollected on its doorstep. A `done` report is waiting

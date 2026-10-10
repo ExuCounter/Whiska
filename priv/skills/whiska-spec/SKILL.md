@@ -32,7 +32,9 @@ no grilling skips it: the person's own words are its spec. Size never skips it.
      `/.whiska-spec.md` belongs in the main checkout's `.git/info/exclude`.
    - In the main checkout, add the line to `.git/info/exclude` yourself.
 5. **Ask.** Send the whole spec to the person as the question, and build only after they
-   say ok. The message is the spec as written, then the pointer "Spec
+   say ok. The message opens with one line,
+   `Spec for the review: [<spec title>](file://<abs path>/.whiska-spec.md)`, a link
+   whose text is the spec's title, `<abs path>` being the absolute path with its leading slash; then the spec as written, then the pointer "Spec
    ready, see above — ok to build?", above the decision marker a mouse's rules describe, in a
    worktree. "ok" → build. Anything else → change the file to match and send the whole
    spec again.

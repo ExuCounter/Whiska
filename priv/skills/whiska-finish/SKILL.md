@@ -176,6 +176,26 @@ usage, gets real figures too.
   from the hand-back instead: its `subagent_tokens` is the size of the last call, not a
   sum.
 
+## When something needs the person's attention before the branch lands
+
+Write a **Needs attention** block in the report, last before the ledger, only when you
+advise a step on this branch before it lands: a fix, a follow-up change, a check the
+person should run. The main session turns each item into a lettered option, so the person
+picks one by letter:
+
+    **Needs attention**
+    - <what needs attention and the action to take> (recommended)
+    - <another item, same shape>
+
+- One line per item: what needs attention and the action to take, in your own words and
+  concrete enough to send back to you as an instruction.
+- Mark at most one `(recommended)`: the one you would do first. Say nothing more about
+  landing: the main session offers Land, a PR and Drop after your items.
+- Nothing needs attention, or you would land it as it is → otherwise leave the block out.
+  The person is not asked to confirm what needs no decision.
+- The turn still ends on the finished marker, never on a decision: the block is content
+  the main session reads, as it reads **Proposed build**.
+
 ## When the work was finding out, and something should change
 
 A turn that investigated, changed nothing, and found something that should change ends its

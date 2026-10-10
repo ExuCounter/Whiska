@@ -52,6 +52,14 @@ just above the lettered options (ADR-0022). No option carries "(Recommended)", w
 The failure guarded against is a system that asks so many small questions the person
 stops reading them.
 
+## A **Needs attention** block works the same way
+
+A finished turn that advises a step on its own branch before landing says so in a
+**Needs attention** block (`whiska-finish` teaches it). The main session reads the label,
+never the prose, and offers each item as a lettered option ahead of the options for the branch line (Land, PR and Drop, or their commit-first forms),
+marking only the mouse's own recommendation "(Recommended)". No block, no items: the
+fixed table stands.
+
 ## The proposal travels inside the message
 
 ADR-0009 classifies a turn by its marker alone, and the doorstep already carries the whole

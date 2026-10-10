@@ -89,6 +89,11 @@ defmodule Whiska.InstallSpecSkillTest do
       assert body =~ ~r/build only after they say ok/i
     end
 
+    test "a link to the spec file leads the question, its text the spec's title" do
+      assert prose("whiska-spec") =~
+               "`Spec for the review: [<spec title>](file://<abs path>/#{Whiska.Spec.filename()})`"
+    end
+
     test "only a worktree session ends the question on a marker" do
       assert prose("whiska-spec") =~ ~r/the decision marker a mouse's rules describe/i
     end

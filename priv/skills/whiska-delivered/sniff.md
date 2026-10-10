@@ -18,7 +18,7 @@ each:
   rather than on a label.
 - **Not now** — send nothing and leave the mouse as it is. Say so in one line.
 
-No "(Recommended)" on any of them, whatever `## Finish` names: the one thing
+A **Needs attention** block is not read here. No "(Recommended)" on any of them, whatever `## Finish` names: the one thing
 asked is whether the proposal is right, and only the person's read of it can
 say. There is no Drop here: nobody has picked it on an investigation, and a branch
 with nothing on it loses nothing by staying.

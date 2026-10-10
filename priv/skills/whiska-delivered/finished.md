@@ -40,6 +40,39 @@ Where Commit and land would be recommended, the commit-first form of that
 choice carries it: a repo whose usual choice is a merge request recommends
 Commit and open a PR.
 
+## What the mouse says needs attention
+
+This section applies only where options are offered: the reply row above has none,
+so it prints no review command and reads no block.
+
+Above the options, print the review command for the branch, `hunk diff <base>
+<branch>`, with the base the branch line names. Print it, never run it: the
+person starts the review themselves.
+
+When the message carries a **Needs attention** block, the options follow it,
+not the table alone. Each item becomes its own lettered option, in the
+mouse's order, showing the item's own line word for word so the person sees exactly
+what a pick sends, and reading only that block, one line per item, before the table's options for
+that branch line (Land here, Open a merge request / PR, Drop it, or their
+commit-first forms), which stay and keep their order. The item the mouse
+marked `(recommended)` carries "(Recommended)". No other option carries
+"(Recommended)", whatever the table or `finish:` says: Land here and Commit
+and land are never "(Recommended)" once the mouse has marked an item. The exception is a Commit and
+land file list that holds a secret or local-setup file: there no option is
+recommended, an item included, as that option says; the exception wins, also over an
+item that restates a commit or a land.
+
+    - **A** — <item the mouse recommended> (Recommended)
+    - **B** — <another item>
+    - **C** — Land here
+    - **D** — Open a merge request / PR
+    - **E** — Drop it
+
+When the person picks an item, send it to the mouse as "Their own words"
+below says. With no **Needs attention** block, use the table above: an item
+is read from the block, never from the mouse's prose, even when it seems to
+recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
+
 ## The options
 
 - **Land here** — cherry-pick the branch's own commits onto the current

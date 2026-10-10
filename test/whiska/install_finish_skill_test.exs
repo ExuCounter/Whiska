@@ -453,6 +453,24 @@ defmodule Whiska.InstallFinishSkillTest do
     end
   end
 
+  describe "a finished turn names what needs attention (ADR-0074)" do
+    test "a labelled block, one line per item, the mouse's own recommendation marked" do
+      body = prose()
+
+      assert body =~ "**Needs attention**"
+      assert body =~ ~r/one line per item.{0,80}what needs attention and the action to take/i
+      assert body =~ ~r/mark at most one `\(recommended\)`/i
+    end
+
+    test "written only when the mouse advises a step on the same branch, and never as a decision" do
+      body = prose()
+
+      assert body =~ ~r/only when you advise a step on this branch before it lands/i
+      assert body =~ ~r/otherwise leave the block out/i
+      assert body =~ ~r/the turn still ends on the finished marker/i
+    end
+  end
+
   describe "an investigation that found work to do proposes it (ADR-0074)" do
     test "the skill sends a turn that only investigated to the file beside it, and only that turn" do
       body = prose()

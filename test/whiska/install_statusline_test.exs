@@ -446,6 +446,64 @@ defmodule Whiska.InstallStatuslineTest do
       assert delivered("finished.md") =~ "finish: land here"
     end
 
+    test "what the mouse says needs attention becomes lettered options, its recommendation marked" do
+      prose = delivered("finished.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~ "**Needs attention**"
+      assert prose =~ ~r/each item .{0,40}its own lettered option, in the mouse's order/i
+      assert prose =~ ~r/the item the mouse marked `\(recommended\)` carries "\(Recommended\)"/i
+
+      assert prose =~
+               ~r/no other option carries "\(Recommended\)", whatever the table or `finish:` says/i
+
+      assert prose =~ ~r/Land here .{0,60}never "\(Recommended\)".{0,40}marked an item/i
+    end
+
+    test "an item the person picks goes to the mouse in their own words" do
+      prose = delivered("finished.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~ ~r/picks an item.{0,80}"Their own words"/i
+    end
+
+    test "no Needs attention block keeps the table, even when the prose seems to recommend a step" do
+      prose = delivered("finished.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~
+               ~r/no \*\*Needs attention\*\* block.{0,80}the table.{0,80}never from the mouse's prose/i
+    end
+
+    test "a ready diff command is printed for the branch and never run" do
+      prose = delivered("finished.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~ "`hunk diff <base> <branch>`"
+      assert prose =~ ~r/print it.{0,40}never run it/i
+    end
+
+    test "a sniff finished line has no Needs attention items and no Recommended" do
+      sniff = delivered("sniff.md")
+
+      assert String.replace(sniff, ~r/\s+/, " ") =~ "A **Needs attention** block is not read here"
+      refute sniff =~ ~r/\*\*[A-Z]\*\* — .*\(Recommended\)/
+    end
+
+    test "the reply row and a secret in the commit list keep their rules over the block" do
+      prose = delivered("finished.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~
+               ~r/the reply row above has none, so it prints no review command and reads no block/
+
+      assert prose =~
+               ~r/secret or local-setup file: there no option is recommended, an item included/
+    end
+
+    test "the example lists the mouse's items before the table's options" do
+      body = delivered("finished.md")
+      at = fn s -> elem(:binary.match(body, s), 0) end
+
+      assert at.("<item the mouse recommended> (Recommended)") < at.("**B** — <another item>")
+      assert at.("**B** — <another item>") < at.("**C** — Land here")
+    end
+
     test "files not committed are offered a commit first, whatever is committed" do
       for state <- [
             "<N> commit(s) beyond <base> · <N> file(s) not committed",
