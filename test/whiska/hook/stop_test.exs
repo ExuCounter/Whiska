@@ -132,6 +132,62 @@ defmodule Whiska.Hook.StopTest do
     assert Doorstep.waiting(main) == []
   end
 
+  describe "a claude started inside the mouse (ADR-next-a-nested-session-speaks-for-nobody)" do
+    alias Whiska.Test.ClaudeTree
+
+    test "leaves nothing on the doorstep: it is not the mouse", %{main: main, worktree: worktree} do
+      pid = ClaudeTree.nested(Path.join(main, "procs"))
+
+      assert :ok =
+               Stop.run(
+                 payload(%{"cwd" => worktree, "last_assistant_message" => "test output"}),
+                 %{"CLAUDE_PID" => pid}
+               )
+
+      assert Doorstep.waiting(main) == []
+    end
+
+    test "the mouse's own claude still leaves its message", %{main: main, worktree: worktree} do
+      pid = ClaudeTree.lone(Path.join(main, "procs"))
+
+      :ok =
+        Stop.run(
+          payload(%{"cwd" => worktree, "last_assistant_message" => "done"}),
+          %{"CLAUDE_PID" => pid}
+        )
+
+      assert [{_, %Entry{text: "done"}}] = Doorstep.waiting(main)
+    end
+
+    test "a claude above the mouse's herdr does not silence the mouse", %{
+      main: main,
+      worktree: worktree
+    } do
+      pid = ClaudeTree.under_herdr(Path.join(main, "procs"))
+
+      :ok =
+        Stop.run(
+          payload(%{"cwd" => worktree, "last_assistant_message" => "done"}),
+          %{"CLAUDE_PID" => pid}
+        )
+
+      assert [{_, %Entry{text: "done"}}] = Doorstep.waiting(main)
+    end
+
+    test "a pid that names no process is the mouse, and is delivered", %{
+      main: main,
+      worktree: worktree
+    } do
+      :ok =
+        Stop.run(
+          payload(%{"cwd" => worktree, "last_assistant_message" => "done"}),
+          %{"CLAUDE_PID" => ClaudeTree.gone()}
+        )
+
+      assert [{_, %Entry{text: "done"}}] = Doorstep.waiting(main)
+    end
+  end
+
   describe "a stop with a subagent still out (ADR-0052)" do
     defp transcript(worktree, lines) do
       path = Path.join(worktree, "transcript.jsonl")

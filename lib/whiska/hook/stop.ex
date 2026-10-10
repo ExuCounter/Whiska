@@ -12,6 +12,10 @@ defmodule Whiska.Hook.Stop do
   recorded as the main session. A stop firing in that pane is the person's own
   session, not a mouse, and nothing is left behind (ADR-0053).
 
+  A `claude` the mouse started itself — a test run, a `claude -p` — starts in
+  the same worktree and runs in the same pane, and leaves nothing either: it is
+  not the mouse (ADR-next-a-nested-session-speaks-for-nobody).
+
   It writes on every turn that ended. A turn with a subagent still out has not
   ended — Claude Code will wake this session when the subagent reports — and
   that one is passed over in silence (ADR-0052).
@@ -52,6 +56,7 @@ defmodule Whiska.Hook.Stop do
          false <- Session.main_session?(layout.main_checkout, env),
          tail = transcript_tail(payload),
          :over <- turn_state(tail),
+         false <- Session.nested?(env),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
          {:ok, _file} <- write(layout, mouse_id, message(payload), Transcript.ran_on(tail)) do
       {:left, layout.main_checkout}

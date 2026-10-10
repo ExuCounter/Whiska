@@ -1158,9 +1158,21 @@ defmodule Whiska.Doctor do
       else:
         Check.fail(
           "shim",
-          "#{shim_path(scope)} differs from what init writes",
+          "#{shim_path(scope)} differs from what init writes" <> why_stale(contents),
           init_fix(scope)
         )
+  end
+
+  # The one difference worth naming: without CLAUDE_PID the owl cannot tell a
+  # claude a mouse starts from the mouse, and files its turns as the mouse's
+  # (ADR-next-a-nested-session-speaks-for-nobody). It fails open, so nothing
+  # else would ever say so.
+  defp why_stale(contents) do
+    if String.contains?(contents, " CLAUDE_PID "),
+      do: "",
+      else:
+        " — it does not pass CLAUDE_PID, so a claude a mouse starts" <>
+          " (a test run, a `claude -p`) reaches you as that mouse"
   end
 
   @doc """

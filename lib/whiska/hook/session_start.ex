@@ -14,6 +14,10 @@ defmodule Whiska.Hook.SessionStart do
     is not in the pane `whiska start` recorded — the reading the `Stop` hook
     already makes (ADR-0053).
   - **The main session**: anything else in herdr.
+  - **Nested**: a `claude` running underneath another one — a test run, a
+    `claude -p` a session started. Nothing: it is neither, and rules that tell
+    it to end on a marker or spawn worktrees would only mislead it
+    (ADR-next-a-nested-session-speaks-for-nobody).
 
   A part the person holds as `keep` is left out: Claude Code loads that
   `CLAUDE.md` itself, so their wording is already in context (ADR-0081). Which
@@ -51,7 +55,8 @@ defmodule Whiska.Hook.SessionStart do
           String.t() | :none
   def output(raw_payload, env, scope \\ :repo) when is_map(env) do
     with "1" <- env["HERDR_ENV"],
-         {:ok, payload} <- decode(raw_payload) do
+         {:ok, payload} <- decode(raw_payload),
+         false <- Session.nested?(env) do
       role = payload |> started_from(env) |> role(env)
 
       payload

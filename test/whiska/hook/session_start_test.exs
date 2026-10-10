@@ -65,6 +65,22 @@ defmodule Whiska.Hook.SessionStartTest do
     refute rules =~ "herdr worktree list"
   end
 
+  describe "a claude started inside another (ADR-next-a-nested-session-speaks-for-nobody)" do
+    test "in a mouse's worktree it is told nothing: it is not the mouse", c do
+      pid = Whiska.Test.ClaudeTree.nested(Path.join(c.main, "procs"))
+      env = Map.put(herdr(c.home), "CLAUDE_PID", pid)
+
+      assert start(c.worktree, env) == ""
+    end
+
+    test "the mouse's own claude still gets the mouse's rules", c do
+      pid = Whiska.Test.ClaudeTree.lone(Path.join(c.main, "procs"))
+      env = Map.put(herdr(c.home), "CLAUDE_PID", pid)
+
+      assert c.worktree |> start(env) |> context() =~ "whiska-finish"
+    end
+  end
+
   test "the main session starts with routing and delivery, and no marker", c do
     rules = c.main |> start(herdr(c.home)) |> context()
 

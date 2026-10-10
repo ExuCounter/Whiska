@@ -116,6 +116,36 @@ defmodule Whiska.Owl.HookSocketTest do
     end
   end
 
+  describe "a claude the mouse started itself (ADR-next-a-nested-session-speaks-for-nobody)" do
+    test "its finished turn is not the mouse's, and the owl leaves nothing", %{
+      root: root,
+      main: main,
+      worktree: worktree,
+      sockets: sockets
+    } do
+      start_owl(sockets)
+      pid = Whiska.Test.ClaudeTree.nested(Path.join(root, "procs"))
+
+      result =
+        shim(
+          root,
+          sockets,
+          "stop",
+          worktree,
+          %{
+            "cwd" => worktree,
+            "hook_event_name" => "Stop",
+            "last_assistant_message" => "[Spec for the review](file:///tmp/x.md)"
+          },
+          :repo,
+          [{"CLAUDE_PID", pid}]
+        )
+
+      assert result.called == [], "the escript ran: #{inspect(result)}"
+      assert Doorstep.waiting(main) == []
+    end
+  end
+
   describe "two repos at once" do
     test "a hook for one house is not thrown off by another house open in the owl's VM", %{
       root: root,
@@ -398,7 +428,7 @@ defmodule Whiska.Owl.HookSocketTest do
 
   # Runs the real shim with a stub Whiska behind it. The stub records being
   # called, so `called` is empty exactly when the owl answered.
-  defp shim(root, sockets, hook, worktree, payload, scope \\ :repo) do
+  defp shim(root, sockets, hook, worktree, payload, scope \\ :repo, extra_env \\ []) do
     n = System.unique_integer([:positive])
     dir = Path.join(root, "shim-#{n}")
     File.mkdir_p!(dir)
@@ -425,15 +455,16 @@ defmodule Whiska.Owl.HookSocketTest do
     for f <- [shim, whiska, escript], do: File.chmod!(f, 0o755)
     File.write!(payload_file, JSON.encode!(payload))
 
-    env = [
-      {"WHISKA_BIN", whiska},
-      {"WHISKA_ESCRIPT", escript},
-      {"WHISKA_HOOK_SOCKET", Path.join(sockets, "hook.sock")},
-      {"CLAUDE_PROJECT_DIR", worktree},
-      {"HERDR_ENV", "1"},
-      {"HERDR_PANE_ID", "w9:p9"},
-      {"HOME", home(root)}
-    ]
+    env =
+      [
+        {"WHISKA_BIN", whiska},
+        {"WHISKA_ESCRIPT", escript},
+        {"WHISKA_HOOK_SOCKET", Path.join(sockets, "hook.sock")},
+        {"CLAUDE_PROJECT_DIR", worktree},
+        {"HERDR_ENV", "1"},
+        {"HERDR_PANE_ID", "w9:p9"},
+        {"HOME", home(root)}
+      ] ++ extra_env
 
     # The oldest bash the shim must run under: macOS ships 3.2 as /bin/bash,
     # and a hook's PATH may find nothing newer.

@@ -137,7 +137,7 @@ defmodule Whiska.Install do
     printf 'hook 1 %s %s' "$1" "$whiska_bytes"
     if [ "$2" = "--global" ]; then printf ' --global'; fi
     printf '\\n'
-    for var in HERDR_ENV HERDR_PANE_ID CLAUDE_PROJECT_DIR HOME PWD; do
+    for var in HERDR_ENV HERDR_PANE_ID CLAUDE_PROJECT_DIR CLAUDE_PID HOME PWD; do
       case "${!var-}" in
         "" | *$'\\n'*) ;;
         *) printf '%s=%s\\n' "$var" "${!var}" ;;

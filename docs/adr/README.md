@@ -23,6 +23,7 @@ in git history.
 
 - [0002](0002-mouse-identity-is-a-marker-file.md) — Mouse identity is an opaque marker file, not the branch name or folder path
 - [0053](0053-a-session-is-identified-by-where-it-started.md) — A session is identified by where it started and which pane it runs in
+- [next-a-nested-session-speaks-for-nobody](next-a-nested-session-speaks-for-nobody.md) — A Claude Code session running under another one speaks for nobody
 - [0030](0030-v0-0-1-is-a-plain-cli-in-its-own-repo.md) — A folder under `worktrees/` that is no checkout of its own is nobody
 
 ## Storage

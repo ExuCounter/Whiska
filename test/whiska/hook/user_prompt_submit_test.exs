@@ -97,6 +97,45 @@ defmodule Whiska.Hook.UserPromptSubmitTest do
     refute AnswerFlag.set?(worktree)
   end
 
+  test "a claude the mouse started itself is handed nothing, and the answer stays waiting", %{
+    main: main,
+    worktree: worktree,
+    mouse_id: mouse_id
+  } do
+    # ADR-next-a-nested-session-speaks-for-nobody: same worktree, same pane,
+    # but a claude running under the mouse's claude.
+    seed(main, worktree, mouse_id, fn ->
+      q = ask(mouse_id, "?")
+      {:ok, _} = Storage.answer(q.id, "yes")
+    end)
+
+    :ok = AnswerFlag.set(worktree)
+    pid = Whiska.Test.ClaudeTree.nested(Path.join(main, "procs"))
+    env = Map.put(System.get_env(), "CLAUDE_PID", pid)
+
+    assert UserPromptSubmit.run(prompt(worktree), env) == :none
+
+    in_house(main, fn -> assert Storage.question(1).taken_at == nil end)
+    assert AnswerFlag.set?(worktree)
+  end
+
+  test "the mouse's own claude is handed its answer", %{
+    main: main,
+    worktree: worktree,
+    mouse_id: mouse_id
+  } do
+    seed(main, worktree, mouse_id, fn ->
+      q = ask(mouse_id, "?")
+      {:ok, _} = Storage.answer(q.id, "yes")
+    end)
+
+    :ok = AnswerFlag.set(worktree)
+    pid = Whiska.Test.ClaudeTree.lone(Path.join(main, "procs"))
+    env = Map.put(System.get_env(), "CLAUDE_PID", pid)
+
+    assert UserPromptSubmit.run(prompt(worktree), env) |> context() =~ "yes"
+  end
+
   test "a second prompt hands nothing over again", %{
     main: main,
     worktree: worktree,
@@ -261,6 +300,16 @@ defmodule Whiska.Hook.UserPromptSubmitTest do
       System.put_env("HERDR_PANE_ID", "w9:p9")
 
       assert UserPromptSubmit.run(said(main, "A")) == :none
+
+      in_house(main, fn -> assert Storage.question(1).status == "sent" end)
+      assert FinishFlag.set?(main)
+    end
+
+    test "a claude the main session started settles nothing", %{main: main} do
+      pid = Whiska.Test.ClaudeTree.nested(Path.join(main, "procs"))
+      env = Map.put(System.get_env(), "CLAUDE_PID", pid)
+
+      assert UserPromptSubmit.run(said(main, "A"), env) == :none
 
       in_house(main, fn -> assert Storage.question(1).status == "sent" end)
       assert FinishFlag.set?(main)

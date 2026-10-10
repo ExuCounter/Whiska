@@ -17,6 +17,12 @@ File.mkdir_p!(whiska_home)
 
 ExUnit.after_suite(fn _ -> File.rm_rf!(test_home) end)
 
+# A suite run by a `claude` that itself runs under another `claude` — a
+# `claude -p` running the checks — would read every hook test as nested
+# (ADR-next-a-nested-session-speaks-for-nobody). A test that wants the check
+# passes its own `CLAUDE_PID`.
+System.delete_env("CLAUDE_PID")
+
 Mox.defmock(Whiska.Herdr.Mock, for: Whiska.Herdr)
 Mox.defmock(Whiska.Desktop.Mock, for: Whiska.Desktop)
 # `live_desktop` draws a real notification; run it with `--include live_desktop`.

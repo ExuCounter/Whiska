@@ -37,7 +37,7 @@ defmodule Whiska.Owl.Hooks do
   alias Whiska.Owl.House
 
   @version "1"
-  @env ~w(HERDR_ENV HERDR_PANE_ID CLAUDE_PROJECT_DIR HOME PWD)
+  @env ~w(HERDR_ENV HERDR_PANE_ID CLAUDE_PROJECT_DIR CLAUDE_PID HOME PWD)
   @timeout 2_000
   @max_payload 16 * 1024 * 1024
 

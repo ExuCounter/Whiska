@@ -21,9 +21,14 @@ defmodule Whiska.Hook.UserPromptSubmit do
   can copy (ADR-0002), and an answer handed to the wrong session is one the
   owl stops ringing for (ADR-0005).
 
+  A `claude` the mouse started itself — a test run, a `claude -p` — prompts in
+  the same worktree and the same pane, and is handed nothing: an answer taken
+  there never reaches the mouse (ADR-next-a-nested-session-speaks-for-nobody).
+
   In the main session it does one other thing: the person's first prompt
   after a finished line settles that line, freeing the slot it holds
-  (ADR-0008).
+  (ADR-0008). A `claude` the main session started is not the person, and
+  settles nothing.
 
   The hook shim exits before this runs unless the worktree's answer flag is
   set (`Whiska.AnswerFlag`), or in a main checkout its finish flag
@@ -70,7 +75,7 @@ defmodule Whiska.Hook.UserPromptSubmit do
   def handover(raw_payload, env) do
     with {:ok, payload} <- decode(raw_payload) do
       case Session.worktree(payload, env) do
-        {:ok, layout} -> mouse(layout, env)
+        {:ok, layout} -> if Session.nested?(env), do: :none, else: mouse(layout, env)
         {:error, :not_a_mouse} -> settle_finished(payload, env)
       end
     else
@@ -98,6 +103,7 @@ defmodule Whiska.Hook.UserPromptSubmit do
     with {:ok, main} <- Session.main_checkout(payload, env),
          true <- FinishFlag.set?(main),
          false <- owl_line?(payload["prompt"]),
+         false <- Session.nested?(env),
          {:ok, true} <- Isolated.run(fn -> Storage.within(main, fn -> settle(env) end) end) do
       FinishFlag.clear(main)
       :none

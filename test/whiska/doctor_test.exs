@@ -395,6 +395,25 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :fail, detail: detail, fix: "whiska init"} = Doctor.shim(old)
       assert detail =~ "differs"
     end
+
+    test "a shim that does not pass CLAUDE_PID says what that lets through" do
+      # Before ADR-next-a-nested-session-speaks-for-nobody the shim sent the
+      # owl no CLAUDE_PID, and a claude a mouse starts reads as the mouse.
+      old = String.replace(Install.shim(), " CLAUDE_PID ", " ")
+
+      assert %Check{status: :fail, detail: detail, fix: "whiska init"} = Doctor.shim(old)
+      assert detail =~ "CLAUDE_PID"
+      assert detail =~ "a claude a mouse starts"
+    end
+
+    test "the global shim says the same, with its own fix" do
+      old = String.replace(Install.shim(:global), " CLAUDE_PID ", " ")
+
+      assert %Check{status: :fail, detail: detail, fix: "whiska init --global"} =
+               Doctor.shim(old, :global)
+
+      assert detail =~ "CLAUDE_PID"
+    end
   end
 
   describe "shim/2 — the scope whose shim is actually in force" do

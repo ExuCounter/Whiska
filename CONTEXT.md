@@ -95,6 +95,16 @@ marker (ADR-0030). It keeps containment all the same, and a write into the main
 checkout from there is denied (ADR-0013).
 _Avoid_: cwd, working directory (both name the thing that moves)
 
+**Nested session**:
+A Claude Code session whose `claude` process runs underneath another `claude`, such as
+a test script or a `claude -p` a mouse starts in its own worktree. It starts where the
+mouse started and runs in the mouse's pane, so neither the start directory nor the pane
+tells it apart. The process tree does. It speaks for nobody: nothing it ends a turn with
+reaches the doorstep, it is handed no answer, and it is printed no rules. It is still
+held to the containment rules of the worktree it runs in
+(ADR-next-a-nested-session-speaks-for-nobody).
+_Avoid_: child session, subsession (a subagent is neither, and is no session of its own)
+
 **Question**:
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an

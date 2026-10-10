@@ -33,6 +33,10 @@ the session's working directory; the first entry predates any `cd`. So the workt
 session speaks for is derived from that first entry, and only from the payload's working
 directory when there is no transcript, or none that names a directory.
 
+Neither signal can tell a mouse from a `claude` it started itself: that child starts in
+the same worktree and inherits the same pane. ADR-next-a-nested-session-speaks-for-nobody
+adds the third signal that does, the process tree.
+
 `Whiska.Session` is where both live. `Layout` is untouched — it still turns *a* directory
 into a worktree (ADR-0030); what changed is which directory it is handed.
 
