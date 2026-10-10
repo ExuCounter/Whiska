@@ -103,7 +103,7 @@ defmodule Whiska.Owl.HouseTest do
         branch: branch || Path.basename(root),
         worktree_root: root,
         stamped_at: stamped_at,
-        text: "Spec ready, see above — ok to build?",
+        text: "ok to build?",
         spec: spec
       })
 

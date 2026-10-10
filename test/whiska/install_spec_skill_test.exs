@@ -82,24 +82,32 @@ defmodule Whiska.InstallSpecSkillTest do
   end
 
   describe "the person sees it before the build" do
-    test "the whole spec goes to them as the question, and the session waits" do
+    test "a link to the spec goes to them as the question, never its text, and the session waits" do
       body = prose("whiska-spec")
 
-      assert body =~ ~r/send the whole spec to the person as the question/i
+      assert body =~ ~r/send a link to the spec to the person as the question/i
+      assert body =~ ~r/never paste the spec/i
+      refute body =~ ~r/send the whole spec/i
       assert body =~ ~r/build only after they say ok/i
     end
 
-    test "a link to the spec file leads the question, its text the spec's title" do
-      assert prose("whiska-spec") =~
-               "`Spec for the review: [<spec title>](file://<abs path>/#{Whiska.Spec.filename()})`"
+    test "the question is a link to the worktree's spec file, then ok to build" do
+      body = prose("whiska-spec")
+
+      assert body =~
+               "`Review spec here: [<spec title>](file://<abs path>/#{Whiska.Spec.filename()})`"
+
+      assert body =~ ~s("ok to build?")
+      refute body =~ "Spec for the review"
     end
 
     test "only a worktree session ends the question on a marker" do
       assert prose("whiska-spec") =~ ~r/the decision marker a mouse's rules describe/i
     end
 
-    test "any other answer revises the file and sends the whole spec again" do
-      assert prose("whiska-spec") =~ ~r/anything else → change the file to match/i
+    test "any other answer revises the file and sends the link again" do
+      assert prose("whiska-spec") =~
+               ~r/anything else → change the file to match.{0,80}send the link again/is
     end
 
     test "the test seams are approved with the spec, not in a round of their own" do

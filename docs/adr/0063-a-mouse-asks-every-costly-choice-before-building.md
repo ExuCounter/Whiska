@@ -3,9 +3,9 @@
 A mouse reads the code first, then sends one message listing every choice that has real
 alternatives and is costly to undo, each with the answer it recommends, and waits for the
 person's ok. After the last round it runs `whiska-spec`, which writes the spec to
-`.whiska-spec.md` at the worktree root and sends the whole spec as a question; the mouse
+`.whiska-spec.md` at the worktree root and sends a link to it as a question; the mouse
 builds only when the person replies "ok", and any other reply revises the file and sends
-it again. Cheap choices the mouse decides itself and lists in its final report. A copy of
+the link again. Cheap choices the mouse decides itself and lists in its final report. A copy of
 every spec sent is kept in the main checkout.
 
 ## The rule
@@ -16,8 +16,10 @@ every spec sent is kept in the main checkout.
    settled, each with a recommended answer. Each round costs the person a full round
    trip, so a round never asks one question at a time. Answers can open another round,
    and every round ends on the status marker.
-3. Write the spec and send it whole. The person reads it cold, through
-   `whiska questions <id>`, so the question carries the entire file.
+3. Write the spec and send a link to it. The question reads "Review spec here:
+   [<title>](file://…/.whiska-spec.md)" and "ok to build?", with no spec text; the link
+   names the worktree's own file, so it works for the review, before the build. The
+   person opens the file; `whiska questions <id>` shows the link line as written.
 4. Build to it. A costly choice found mid-build is a real decision and stops the mouse
    the same way; it is never a quiet edit to the spec.
 
@@ -83,8 +85,9 @@ checkout, one file per spec, named `<date first written>-<branch, with / as ->.m
 second mouse on the same branch name the same day gets `-2`. A header says the repo,
 branch and mouse, the question it was last sent as, the questions earlier revisions were
 sent as (`replaced:`), when it was written, and its status: `waiting`, `landed <date>,
-branch head <commit>` or `dropped <date>`. A revision overwrites its file; each earlier
-revision is still readable whole as its own question.
+branch head <commit>` or `dropped <date>`. A revision overwrites its file, and review
+comments on the earlier text go with it. The question holds only a link, so an earlier
+revision is not readable afterwards; the copy is history, not what the person reviews.
 
 The copy is taken when the spec is sent. The `Stop` hook reads the worktree's spec into
 the doorstep entry beside the message (ADR-0036), and the owl writes the copy when it
@@ -107,8 +110,8 @@ the landing check learns cherry-picks such a spec reads `dropped`. The owl write
 - **Ask every choice, cheap ones included**: buries the two that matter under ten that
   do not, and the person stops reading.
 - **Build straight from the grilling answers**, no spec: costs no round trip, but the
-  person's ok was on choices one at a time, never on the whole. They chose to see the
-  whole spec before any code.
+  person's ok was on choices one at a time, never on the whole. They chose to read the
+  whole spec, through its link, before any code.
 - **Commit the spec on the branch**: durable and reviewed, but teammates see the file in
   every repo Whiska is installed in. **The repo's issue tracker**: setup per repo, and it
   publishes outside the machine. **Only the question**: nothing for finishing to read
@@ -116,8 +119,12 @@ the landing check learns cherry-picks such a spec reads `dropped`. The owl write
 - **Copy the spec at worktree removal**: the sweep, `drop-worktree` and Land here would
   each have to remember, and a worktree removed by hand would still lose it. **The mouse
   copies it**: a mouse never writes to the main checkout.
-- **A folder per branch with one file per revision**: specs are overwritten anyway, and
-  each revision is still a question.
+- **A folder per branch with one file per revision**: specs are overwritten anyway.
+- **Paste the whole spec into the question**: the first version; the person reads the
+  file by its link instead, and the question stays one line.
+- **Link to the kept copy in the main checkout**: it outlives the worktree, but the owl
+  writes it after the question is sent, so the mouse cannot name its file without a new
+  command or a placeholder the owl rewrites. The link is only needed during the review.
 
 ## Consequences
 
@@ -128,5 +135,8 @@ doorstep entry carries an optional `spec` field; an entry without one still deco
 house without a herdr socket leaves every kept spec at `waiting`. `.whiska-mouse` has the
 same untracked-file problem in a repo whose `.gitignore` does not list it, left for a
 change of its own.
+
+The link names the worktree's file, so an answer given after the worktree is gone finds a
+dead link; the text is then in the kept copy, whose `question:` header names the question.
 
 Folded in on 2026-10-08: 0076, 0085 (their text is in git history).

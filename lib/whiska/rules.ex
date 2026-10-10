@@ -64,7 +64,7 @@ defmodule Whiska.Rules do
      decision marker. A "done" or failing test that needs a guess — a bug report with no
      stated right behaviour, two readings that lead to different work — is costly.
   3. **Spec.** After the last grilling round, run `whiska-spec`: it writes the spec to
-     `#{Whiska.Spec.filename()}`, and the whole spec goes to the person as a question. Build only
+     `#{Whiska.Spec.filename()}`, and a link to the spec goes to the person as a question. Build only
      on their ok; any other answer, revise it and ask again. Not listed → read
      `.claude/skills/whiska-spec/SKILL.md` in this repo, or
      `~/.claude/skills/whiska-spec/SKILL.md`.

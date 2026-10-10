@@ -56,9 +56,10 @@ _Avoid_: big decision, one-way door
 **Spec**:
 A grilled brief, written down: its problem, user stories, decisions, testing and what is
 out of scope, in `.whiska-spec.md` at the worktree root, which git ignores. The mouse
-writes it with the `whiska-spec` skill after the last grilling round, sends it whole as a
-question, and builds only on the person's ok. A brief that needed no grilling gets none;
-a task's size never skips it. The person's words are that brief's spec
+writes it with the `whiska-spec` skill after the last grilling round, sends a link to it as
+a question (the person opens the file; the question holds no spec text), and builds only
+on the person's ok. A brief that needed no grilling gets none; a task's size never skips
+it. The person's words are that brief's spec
 (ADR-0063). A copy of every spec sent is kept in `.whiska/specs/` in the main checkout,
 named by date and branch, with a header saying its question and whether the branch
 landed or was dropped (ADR-0063).

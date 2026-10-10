@@ -90,7 +90,8 @@ defmodule Whiska.RulesTest do
       "a round asks the whole frontier": ~r/a round asks the whole frontier in one message/i,
       "a guessed done is costly": ~r/failing test that needs a guess.{0,120}is costly/is,
       "the spec follows grilling": ~r/after the last grilling round, run `whiska-spec`/i,
-      "the whole spec is the question": ~r/the whole spec goes to the person as a question/i,
+      "a link to the spec is the question":
+        ~r/a link to the spec goes to the person as a question/i,
       "build only on their ok": ~r/build only on their ok/i,
       "a mouse sends no plan, but stops on costly choices":
         ~r/a mouse sends no plan; it builds, and stops only on a real decision.{0,80}every costly choice/is,

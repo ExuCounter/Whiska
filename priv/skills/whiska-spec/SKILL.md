@@ -31,13 +31,14 @@ no grilling skips it: the person's own words are its spec. Size never skips it.
      which a worktree session never edits. Say so in one line under the spec: the line
      `/.whiska-spec.md` belongs in the main checkout's `.git/info/exclude`.
    - In the main checkout, add the line to `.git/info/exclude` yourself.
-5. **Ask.** Send the whole spec to the person as the question, and build only after they
-   say ok. The message opens with one line,
-   `Spec for the review: [<spec title>](file://<abs path>/.whiska-spec.md)`, a link
-   whose text is the spec's title, `<abs path>` being the absolute path with its leading slash; then the spec as written, then the pointer "Spec
-   ready, see above — ok to build?", above the decision marker a mouse's rules describe, in a
-   worktree. "ok" → build. Anything else → change the file to match and send the whole
-   spec again.
+5. **Ask.** Send a link to the spec to the person as the question, and build only after
+   they say ok. Never paste the spec into the message; the person opens the link. The
+   message is one line,
+   `Review spec here: [<spec title>](file://<abs path>/.whiska-spec.md)`, a link whose text
+   is the spec's title, `<abs path>` being this worktree's own absolute path with its leading
+   slash; then the pointer "ok to build?", above the decision marker a mouse's rules
+   describe, in a worktree. "ok" → build. Anything else → change the file to match and
+   send the link again.
 6. **Build to it.** While building, the spec is what was agreed. A costly choice it does
    not settle is a new decision for the person, not a quiet edit to the file.
 
