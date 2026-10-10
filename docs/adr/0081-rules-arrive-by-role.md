@@ -34,7 +34,9 @@ the slot reaches for the pane the moment it looks faster.
 
 A rule that matters at one moment ships as a skill rather than as rules: the finish
 pipeline (ADR-0049) is `whiska-finish`, loaded only as a turn ends, and the `finish` part
-names the trigger and nothing more. A skill keeps a section it rarely needs in a file
+names the trigger and nothing more. The `work` part does the same for grilling and the
+spec: it names `grilling` and `whiska-spec`, and adds only what is a mouse's own — the
+costly-versus-cheap test and the decision marker (ADR-0063). A skill keeps a section it rarely needs in a file
 beside it — `whiska-delivered` reads `finished.md` and `sniff.md` only when the line says
 finished — and `whiska init` ships every Markdown file beside a skill's `SKILL.md`.
 
@@ -107,7 +109,7 @@ follow either way, and the finish pipeline alone was 58% of it.
   them, and `whiska doctor` fails a repo whose `SessionStart` is not wired. A per-repo
   install still travels with the repo: the hook entry is in its committed `settings.json`.
 - Each role's rules stay well inside the 10,000 characters Claude Code keeps of one
-  injection; a test holds each under 6,400.
+  injection; a test holds each under 7,000.
 - A new rule arrives as a bullet, its reasoning as an ADR, and a rule that applies at one
   moment as a skill. Tests pin behaviour, not sentences, plus a ceiling on length, so the
   next accretion fails a test rather than landing quietly.

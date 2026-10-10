@@ -199,7 +199,7 @@ only the question id.
   Whiska, so it travels by its id:
 
   ```bash
-  herdr agent prompt <root-pane-id> 'Build the Proposed build in question #<id>. Read it first with: whiska show <id> - its Build line is the brief, the rest is what the investigation found.'
+  herdr agent prompt <root-pane-id> 'Build the Proposed build in question #<id>. Read it first with: whiska show <id> - its Build line is the brief, Found is fact to take as given, Open is what to grill.'
   ```
 - **Report** — one line, in place of step 8's: the branch, then what `whiska shape` said on
   stderr in plain words — "A fresh session is building it on <branch>: it can change

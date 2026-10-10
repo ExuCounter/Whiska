@@ -10,6 +10,7 @@ labels:
     - Found: what the investigation established, in a sentence.
     - Build: the change, as a brief a fresh session can start from cold.
     - Touches: the files, modules or parts of the app it changes.
+    - Open: the costly choices the investigation leaves open, for the build to grill; none → "none".
 
 - End on the finished marker. Never ask whether to build it, and never end on a decision
   for it: the finished options are where it is offered, and a fresh session builds it.

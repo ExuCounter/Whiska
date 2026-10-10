@@ -53,7 +53,7 @@ defmodule Whiska.RulesTest do
   test "each role fits in what one injection carries" do
     for role <- [:main, :mouse] do
       size = role |> Rules.render() |> String.length()
-      assert size <= 6_400, "#{role} grew to #{size} characters"
+      assert size <= 7_000, "#{role} grew to #{size} characters"
     end
   end
 
@@ -85,9 +85,16 @@ defmodule Whiska.RulesTest do
       "the scout is gated on risk (ADR-0075)":
         ~r/no test file.{0,60}no observable behaviour.{0,60}three or more modules.{0,120}scout was skipped/is,
       "no scout is said in a line": ~r/scout not listed → say so in one line/i,
-      "grilling lists every costly choice with a recommendation":
-        ~r/every \*\*costly\*\* choice with real alternatives, each with its recommended answer/,
-      "a round asks the whole frontier": ~r/a round asks the whole frontier in one message/i,
+      "grilling is the `grilling` skill, scoped to costly choices":
+        ~r/run the `grilling` skill.{0,200}only the \*\*costly\*\* choices/is,
+      "a mouse's round ends with the decision marker":
+        ~r/in a mouse each round ends with the decision marker/i,
+      "a sniff mouse grills the research question only":
+        ~r/only investigates, a sniff mouse.{0,20}research question only: goal, the decision it feeds, scope, depth, what to deliver/is,
+      "a sniff mouse skips it when the brief answers, and never grills design":
+        ~r/skip it when the brief already answers those.{0,60}never grill design/is,
+      "a build from a proposal takes its findings as fact and still grills the design":
+        ~r/\*\*proposed build\*\*.{0,40}found as fact.{0,120}still grills the design/is,
       "a guessed done is costly": ~r/failing test that needs a guess.{0,120}is costly/is,
       "the spec follows grilling": ~r/after the last grilling round, run `whiska-spec`/i,
       "a link to the spec is the question":
@@ -188,7 +195,11 @@ defmodule Whiska.RulesTest do
     end
 
     test "the skill files named for a session that does not list them are the ones init writes" do
-      for {part, skill} <- [{"work", "whiska-spec"}, {"finish", "whiska-finish"}] do
+      for {part, skill} <- [
+            {"work", "whiska-spec"},
+            {"work", "grilling"},
+            {"finish", "whiska-finish"}
+          ] do
         {path, _body} = List.keyfind(Install.skills(), ".claude/skills/#{skill}/SKILL.md", 0)
 
         assert body_of(:mouse, part) =~ "`#{path}` in this repo", skill

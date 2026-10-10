@@ -40,7 +40,8 @@ The rounds of questions a mouse asks before building a brief that is not yet bui
 every costly choice still open, each with the answer the mouse recommends, then a wait for
 the person's ok. A round asks the whole frontier — every question whose prerequisites are
 already settled — in one message, because each round costs the person a full round trip.
-A truly trivial task — a typo, a rename, a one-line fix, with no costly choice in it — is
+A sniff mouse grills only the research question — goal, the decision it feeds, scope,
+depth, what to deliver — and never design. A truly trivial task — a typo, a rename, a one-line fix, with no costly choice in it — is
 never grilled.
 _Avoid_: interview, clarification
 
@@ -167,13 +168,14 @@ _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Proposal**:
 The block a finished investigation ends its report with when it changed nothing and found
-something that should change: **Proposed build**, then a Found, a Build and a Touches
+something that should change: **Proposed build**, then a Found, a Build, a Touches and an Open
 line. Content, never classification — the turn still ends on `done` — so it travels inside
 the question's text, and the main session reads it the way it reads lettered options. It
 is offered when the branch has nothing to merge, whatever the mouse's mode. Its lines are
 the preview of the one question the person is asked, and building it starts a fresh
 mouse shaped for that work rather than flipping the one shaped for the investigation
-(ADR-0074).
+(ADR-0074). Open lists the costly choices the investigation left; the build mouse takes
+Found as fact and grills Open and the design.
 _Avoid_: plan, recommendation, next steps, hand-off (a word **Report** already rejected)
 
 **Needs attention**:

@@ -58,11 +58,16 @@ defmodule Whiska.Rules do
      is the copy that runs: read it before dispatching it; one that fetches something,
      writes outside the repo or touches credentials is a decision for the person. Skip the
      scout for docs, or when no test can reach it. Scout not listed → say so in one line.
-  2. **Grill.** Read the code first, then send one message listing every **costly** choice
-     with real alternatives, each with its recommended answer, and wait for the person's
-     ok. A round asks the whole frontier in one message; in a mouse it ends with the
-     decision marker. A "done" or failing test that needs a guess — a bug report with no
-     stated right behaviour, two readings that lead to different work — is costly.
+  2. **Grill.** Read the code first, then run the `grilling` skill; not listed → read
+     `.claude/skills/grilling/SKILL.md` in this repo, or `~/.claude/skills/grilling/SKILL.md`.
+     It asks only the **costly** choices; a cheap one is never a question. In a mouse each
+     round ends with the decision marker. A "done" or failing test that needs a guess — a
+     bug report with no stated right behaviour, two readings that lead to different work —
+     is costly. A build from a **Proposed build** takes its Found as fact and does not
+     re-ask it; it asks the report's Open choices and still grills the design of the build.
+     A mouse that only investigates, a sniff mouse, grills the research question only: goal, the decision it feeds, scope,
+     depth, what to deliver. Skip it when the brief already answers those. Never grill
+     design there; the research settles facts.
   3. **Spec.** After the last grilling round, run `whiska-spec`: it writes the spec to
      `#{Whiska.Spec.filename()}`, and a link to the spec goes to the person as a question. Build only
      on their ok; any other answer, revise it and ask again. Not listed → read

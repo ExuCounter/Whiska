@@ -151,6 +151,7 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       assert prose =~ ~r/ask the person nothing/i
       # Shaped against the proposal, not the request the investigation began from.
       assert prose =~ ~r/judged against the Build and Touches lines/i
+      assert prose =~ ~r/Found is fact to take as given, Open is what to grill/
       # The report travels by its id: it is already in Whiska, whole.
       assert body =~ "whiska show <id>"
       refute body =~ "whiska questions"

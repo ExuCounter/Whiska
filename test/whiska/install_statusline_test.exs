@@ -381,7 +381,9 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "Build what it proposes"
       # The confirmation carries what it confirms: the proposal itself is the
       # block shown just above the options, so the person can say no to it.
-      assert prose =~ ~r/the Found, Build and Touches lines you just showed are what it builds/
+      assert prose =~
+               ~r/the Found, Build, Touches and Open lines you just showed are what it builds/
+
       # Nothing nudges the person past reading it.
       assert prose =~ ~r/no "\(Recommended\)"/i
       # The spawn is the existing skill's job, and it asks nothing more.

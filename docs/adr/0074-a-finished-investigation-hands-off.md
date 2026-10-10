@@ -19,7 +19,7 @@ removes the flip.
 
 ## The rule
 
-- **The proposal.** The block is Found, Build and Touches lines. `whiska-finish` teaches
+- **The proposal.** The block is Found, Build, Touches and Open lines. `whiska-finish` teaches
   it. The rule is phrased by what the turn did, not by its mode, because a sniff mouse
   that never tried to write does not know it is one.
 - **One decision, where one already is.** The finish options in `whiska-delivered`
@@ -46,7 +46,7 @@ removes the flip.
 The flow asks exactly once. The model, the effort and the branch name are derived and
 shown, never asked: each is reversible in a sentence, and being wrong costs money or
 quality, not a wrong feature. The proposal can be wrong, so that one confirmation stays,
-and it carries enough to say no to: the Found, Build and Touches lines are shown verbatim
+and it carries enough to say no to: the Found, Build, Touches and Open lines are shown verbatim
 just above the lettered options (ADR-0022). No option carries "(Recommended)", whatever
 `## Finish` names; only the person's read of the proposal can say whether it is right.
 The failure guarded against is a system that asks so many small questions the person

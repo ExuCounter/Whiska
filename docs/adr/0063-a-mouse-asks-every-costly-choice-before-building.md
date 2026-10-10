@@ -73,9 +73,14 @@ so in one line under the spec. A session working in the main checkout adds the l
 itself.
 
 Whiska ships `whiska-spec` and `grilling` from `priv/skills/`, in both scopes (ADR-0056),
-so each has one copy. The mouse's rules point at `whiska-spec` only: `grilling` walks
-every branch of a design, while this rule asks the costly choices and decides the cheap
-ones, so pointing a mouse at it would undo the rule.
+so each has one copy. The mouse's rules point at both by name, as they do at `whiska-finish`.
+The skill walks the design tree in rounds, each asking the whole frontier with a
+recommended answer; the rules scope it: only the costly choices are asked, and the cheap
+ones are decided and listed in the report. A mouse's round ends with the decision marker.
+A sniff mouse grills the research question only (goal, the decision it feeds, scope,
+depth, what to deliver) and skips that when the brief answers it; it never grills design,
+since the research settles facts. A build started from a **Proposed build** takes its
+Found as fact, asks its Open choices, and still grills the design of the build.
 
 ## Every spec sent is kept
 

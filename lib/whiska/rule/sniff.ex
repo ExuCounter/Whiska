@@ -76,7 +76,7 @@ defmodule Whiska.Rule.Sniff do
 
     If the work needs a change, do not make it and do not ask to switch modes.
     Finish the investigation, and end the report on the finished marker with a
-    **Proposed build** block — Found, Build, Touches — as the `whiska-finish`
+    **Proposed build** block — Found, Build, Touches, Open — as the `whiska-finish`
     skill describes. The person can then hand it to a fresh session shaped for
     the build.
     """

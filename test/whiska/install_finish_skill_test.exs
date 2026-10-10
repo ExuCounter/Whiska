@@ -480,13 +480,18 @@ defmodule Whiska.InstallFinishSkillTest do
       refute skill() =~ "- Touches:"
     end
 
-    test "the proposal is three labelled lines the main session can lift verbatim" do
+    test "the proposal is four labelled lines the main session can lift verbatim" do
       body = proposal()
 
       assert body =~ "**Proposed build**"
       assert body =~ "- Found:"
       assert body =~ "- Build:"
       assert body =~ "- Touches:"
+      assert body =~ "- Open:"
+    end
+
+    test "Open lists the costly choices the investigation leaves for the build to grill" do
+      assert proposal_prose() =~ ~r/Open: the costly choices the investigation leaves open/
     end
 
     test "it ends on the finished marker and never asks to build it itself" do

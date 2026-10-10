@@ -1,7 +1,7 @@
 # A finished investigation with a proposal
 
 Two signs together: the message carries a **Proposed build** block with
-Found, Build and Touches lines, and the branch has nothing to merge — the
+Found, Build, Touches and Open lines, and the branch has nothing to merge — the
 heading `whiska show <id>` printed names it with `(sniff)` after it, a
 mouse that could only look, or the line straight under the heading is
 exactly `On the branch: nothing committed beyond <base> · nothing
@@ -13,7 +13,7 @@ each:
 
     Or write anything else and it goes to <branch>.
 
-- **Build what it proposes** — the Found, Build and Touches lines you just
+- **Build what it proposes** — the Found, Build, Touches and Open lines you just
   showed are what it builds, so the person decides on the proposal itself
   rather than on a label.
 - **Not now** — send nothing and leave the mouse as it is. Say so in one line.
