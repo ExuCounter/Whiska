@@ -136,9 +136,20 @@ defmodule Whiska.Shell do
   # variable that *could* carry a program blocks that work for a case that
   # needs a hostile program or config already on disk. So a value that is a
   # command is judged as one, a value that is a command's own flags is judged as
-  # those flags, and a value that is a path — `HOME`, `XDG_CONFIG_HOME`,
-  # `GIT_CONFIG_GLOBAL`, `PATH`, `RIPGREP_CONFIG_PATH` — is allowed, because
-  # text cannot tell a harmless config from one carrying `diff.external`.
+  # those flags, and a value that is a folder — `HOME`, `XDG_CONFIG_HOME`,
+  # `GIT_DIR`, `PATH` — is allowed, because text cannot tell a harmless config
+  # from one carrying `diff.external`.
+  #
+  # A value that names one config file loads it, and a sniff mouse can write a
+  # file of its own, its write-up. A Markdown heading is a comment line to git,
+  # so the write-up can be a config whose `diff.external` runs anything: when
+  # the caller denies program files, such a value is denied unless it is
+  # `/dev/null` (ADR-0034). A folder needs a file under the name the tool looks
+  # for, which the write-up never has.
+  @config_file_variables ~w(
+    GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM RIPGREP_CONFIG_PATH
+    LESSKEY LESSKEYIN LESSKEY_SYSTEM LESSKEYIN_SYSTEM
+  )
   @command_variables ~w(
     GIT_EXTERNAL_DIFF GIT_SSH GIT_SSH_COMMAND GIT_ASKPASS SSH_ASKPASS GIT_EDITOR
     GIT_SEQUENCE_EDITOR GIT_PROXY_COMMAND EDITOR VISUAL BROWSER
@@ -166,6 +177,16 @@ defmodule Whiska.Shell do
 
   @awk_commands ~w(awk gawk mawk)
 
+  # A program read from a file cannot be judged from the command line, and a
+  # sniff mouse can write one as its write-up (ADR-0034). When the caller
+  # denies program files: `-f`, gawk's `-i`, `-E`, `-l` and `-D` (debugger
+  # commands), mawk's `-W`, gawk's `@include` and `@load` inside the program,
+  # and `sed -f`. BSD sed's `-l` takes no value, so `-lf` reads a file. gawk
+  # reads `@` as a word of its own, skipping blanks and a backslash-newline.
+  @awk_file_flags {"fiElWD", "Fve", ~w(file include exec load debug)}
+  @awk_include ~r/@[\s\\]*(include|load)\b/
+  @sed_file_flags {"f", "e", ~w(file)}
+
   # An `awk` program is a program: it can redirect with `>` or shell out with
   # `system()`. Those live inside a quoted argument, where the mask deliberately
   # hides them from the redirect check, so they are looked for here instead.
@@ -188,17 +209,22 @@ defmodule Whiska.Shell do
   Does this command change anything on disk?
 
   Returns `true` when it does, and also when the command cannot be read with
-  confidence.
+  confidence. With `program_files: :deny`, a command that loads a program or a
+  config from a file counts too.
   """
-  @spec mutating?(String.t()) :: boolean()
-  def mutating?(command) when is_binary(command) do
+  @spec mutating?(String.t(), program_files: :allow | :deny) :: boolean()
+  def mutating?(command, opts \\ []) when is_binary(command) do
+    line_mutates?(command, Keyword.get(opts, :program_files, :allow))
+  end
+
+  defp line_mutates?(command, files) do
     trimmed = String.trim(command)
 
     cond do
       trimmed == "" -> false
       Regex.match?(@substitution, mask(trimmed, :keep_double)) -> true
       Regex.match?(@writing_redirect, mask(trimmed, :mask_double)) -> true
-      true -> trimmed |> segments() |> Enum.any?(&segment_mutates?/1)
+      true -> trimmed |> segments() |> Enum.any?(&segment_mutates?(&1, files))
     end
   end
 
@@ -253,21 +279,21 @@ defmodule Whiska.Shell do
 
   # A subshell's parentheses sit on its first and last segments, glued to a
   # word: `(cd lib` and `git log)` are `cd lib` and `git log`.
-  defp segment_mutates?(segment) do
+  defp segment_mutates?(segment, files) do
     segment
     |> String.trim_leading("(")
     |> String.trim_trailing(")")
     |> judged_words()
-    |> tokens_mutate?()
+    |> tokens_mutate?(files)
   end
 
-  defp tokens_mutate?(tokens) do
+  defp tokens_mutate?(tokens, files) do
     {assignments, command} = Enum.split_while(tokens, &assignment?/1)
 
     cond do
-      Enum.any?(assignments, &variable_runs?/1) -> true
+      Enum.any?(assignments, &variable_runs?(&1, files)) -> true
       assignments != [] and whiska?(command) -> true
-      true -> command_tokens_mutate?(command)
+      true -> command_tokens_mutate?(command, files)
     end
   end
 
@@ -277,7 +303,7 @@ defmodule Whiska.Shell do
   defp whiska?([head | _]), do: Path.basename(head) == "whiska"
   defp whiska?([]), do: false
 
-  defp variable_runs?(assignment) do
+  defp variable_runs?(assignment, files) do
     [name, value] = String.split(assignment, "=", parts: 2)
     name = String.trim_trailing(name, "+")
 
@@ -286,16 +312,16 @@ defmodule Whiska.Shell do
         false
 
       name in @command_variables ->
-        value_runs?(value <> " arg")
+        value_runs?(value <> " arg", files)
 
       String.ends_with?(name, "PAGER") ->
-        value_runs?(value)
+        value_runs?(value, files)
 
       name in @input_filter_variables ->
-        value |> String.trim_leading("|") |> String.trim_leading("-") |> value_runs?()
+        value |> String.trim_leading("|") |> String.trim_leading("-") |> value_runs?(files)
 
       is_map_key(@option_variables, name) ->
-        command_tokens_mutate?([@option_variables[name] | judged_words(value)])
+        command_tokens_mutate?([@option_variables[name] | judged_words(value)], files)
 
       name in @code_variables ->
         true
@@ -310,11 +336,18 @@ defmodule Whiska.Shell do
         true
 
       Regex.match?(~r/^GIT_CONFIG_KEY_\d+$/, name) ->
-        git_config_runs?(value, false)
+        git_config_runs?(value, false, files)
 
       # A lesskey `#env` section can set `LESSOPEN`.
       name == "LESSKEY_CONTENT" ->
         String.contains?(value, "#env")
+
+      name in @config_file_variables ->
+        files == :deny and value != "/dev/null"
+
+      # groff options for `man`: `-U` lets a page, the write-up too, run a command.
+      name == "MANROFFOPT" ->
+        files == :deny
 
       true ->
         false
@@ -323,12 +356,12 @@ defmodule Whiska.Shell do
 
   # The value is a shell line that git or `less` hands to `sh -c`, so it is
   # judged whole, operators and substitutions included.
-  defp value_runs?(command), do: mutating?(command)
+  defp value_runs?(command, files), do: line_mutates?(command, files)
 
   # A `-c` setting runs something when its key names a program and its value is
   # one that writes. `--config-env` gives the value as a variable name, which
   # cannot be judged, so a program key there always counts.
-  defp git_config_runs?(config, value_given?) do
+  defp git_config_runs?(config, value_given?, files) do
     {key, value} =
       case String.split(config, "=", parts: 2) do
         [key, value] -> {String.downcase(key), value}
@@ -340,33 +373,33 @@ defmodule Whiska.Shell do
       not Regex.match?(@git_program_config, key) -> true
       not value_given? -> true
       String.downcase(value) in @git_booleans -> key == "core.fsmonitor" and truthy?(value)
-      key == "diff.external" -> value_runs?(value <> " arg")
-      true -> value_runs?(value)
+      key == "diff.external" -> value_runs?(value <> " arg", files)
+      true -> value_runs?(value, files)
     end
   end
 
   defp truthy?(value), do: String.downcase(value) in ~w(true yes on 1)
 
-  defp command_tokens_mutate?([]), do: false
+  defp command_tokens_mutate?([], _files), do: false
 
-  defp command_tokens_mutate?([head | rest]) do
+  defp command_tokens_mutate?([head | rest], files) do
     case command_name(head) do
       :assignment -> true
-      "env" -> env_mutates?(rest)
-      "command" -> command_mutates?(rest)
-      "arch" -> arch_mutates?(rest)
-      "git" -> git_mutates?(rest)
+      "env" -> env_mutates?(rest, files)
+      "command" -> command_mutates?(rest, files)
+      "arch" -> arch_mutates?(rest, files)
+      "git" -> git_mutates?(rest, files)
       "whiska" -> Enum.reject(rest, &(&1 =~ ~r/^[0-9]*>&[0-9]+$/)) not in @read_only_whiska
-      "sed" -> writing_flag?(rest, {"iI", "efl", ~w(in-place)})
-      "find" -> find_mutates?(rest)
-      "fd" -> fd_mutates?(rest)
+      "sed" -> writing_flag?(rest, {"iI", "efl", ~w(in-place)}) or sed_loads?(rest, files)
+      "find" -> find_mutates?(rest, files)
+      "fd" -> fd_mutates?(rest, files)
       "uniq" -> operand_count(rest, @uniq_values) > 1
       "xxd" -> operand_count(rest, @xxd_values) > 1
       "date" -> date_mutates?(rest)
       "hostname" -> writing_flag?(rest, {"F", "", ~w(file)}) or operands(rest, []) != []
       "xmllint" -> Enum.any?(rest, &(&1 in @xmllint_writing))
       less when less in @less_commands -> less_mutates?(rest)
-      awk when awk in @awk_commands -> awk_mutates?(rest)
+      awk when awk in @awk_commands -> awk_mutates?(rest, files)
       other when is_map_key(@writing_flags, other) -> writing_flag?(rest, @writing_flags[other])
       other -> other not in @read_only
     end
@@ -459,20 +492,23 @@ defmodule Whiska.Shell do
 
   # `arch` alone prints the architecture; followed by a command it runs it. `-e`
   # sets a variable for that command, which is denied rather than judged.
-  defp arch_mutates?([]), do: false
-  defp arch_mutates?(["-e" | _rest]), do: true
-  defp arch_mutates?([flag, _value | rest]) when flag in ["-arch", "-d"], do: arch_mutates?(rest)
-  defp arch_mutates?(["-" <> _ | rest]), do: arch_mutates?(rest)
-  defp arch_mutates?(command), do: tokens_mutate?(command)
+  defp arch_mutates?([], _files), do: false
+  defp arch_mutates?(["-e" | _rest], _files), do: true
 
-  defp fd_mutates?(args) do
+  defp arch_mutates?([flag, _value | rest], files) when flag in ["-arch", "-d"],
+    do: arch_mutates?(rest, files)
+
+  defp arch_mutates?(["-" <> _ | rest], files), do: arch_mutates?(rest, files)
+  defp arch_mutates?(command, files), do: tokens_mutate?(command, files)
+
+  defp fd_mutates?(args, files) do
     case Enum.split_while(args, &(fd_exec(&1) == nil)) do
       {_args, []} ->
         false
 
       {_args, [flag | rest]} ->
         {command, tail} = Enum.split_while(rest, &(&1 not in @fd_exec_terminators))
-        exec_mutates?(fd_exec(flag) ++ command) or fd_mutates?(Enum.drop(tail, 1))
+        exec_mutates?(fd_exec(flag) ++ command, files) or fd_mutates?(Enum.drop(tail, 1), files)
     end
   end
 
@@ -497,29 +533,30 @@ defmodule Whiska.Shell do
   # `git diff`, `core.fsmonitor` for `git status`. Unlike a variable, a config
   # value cannot be judged by itself — `x` is a name for `user.name` and a
   # program for `core.pager` — so the key decides, from a list of safe ones.
-  defp git_mutates?([flag, _value | rest]) when flag in @git_valued_flags,
-    do: git_mutates?(rest)
+  defp git_mutates?([flag, _value | rest], files) when flag in @git_valued_flags,
+    do: git_mutates?(rest, files)
 
-  defp git_mutates?(["-c", config | rest]), do: git_config_mutates?(config, true, rest)
+  defp git_mutates?(["-c", config | rest], files),
+    do: git_config_mutates?(config, true, rest, files)
 
-  defp git_mutates?(["--config-env", config | rest]),
-    do: git_config_mutates?(config, false, rest)
+  defp git_mutates?(["--config-env", config | rest], files),
+    do: git_config_mutates?(config, false, rest, files)
 
-  defp git_mutates?(["--config-env=" <> config | rest]),
-    do: git_config_mutates?(config, false, rest)
+  defp git_mutates?(["--config-env=" <> config | rest], files),
+    do: git_config_mutates?(config, false, rest, files)
 
-  defp git_mutates?([flag | rest]) when is_binary(flag) do
+  defp git_mutates?([flag | rest], files) when is_binary(flag) do
     if String.starts_with?(flag, "-") do
-      git_mutates?(rest)
+      git_mutates?(rest, files)
     else
       git_subcommand_mutates?(flag, rest)
     end
   end
 
-  defp git_mutates?([]), do: true
+  defp git_mutates?([], _files), do: true
 
-  defp git_config_mutates?(config, value_given?, rest),
-    do: git_config_runs?(config, value_given?) or git_mutates?(rest)
+  defp git_config_mutates?(config, value_given?, rest, files),
+    do: git_config_runs?(config, value_given?, files) or git_mutates?(rest, files)
 
   defp git_subcommand_mutates?(subcommand, args) do
     subcommand not in @read_only_git or
@@ -529,46 +566,51 @@ defmodule Whiska.Shell do
          Enum.find(args, &(not String.starts_with?(&1, "-"))) in @git_reflog_writers)
   end
 
-  defp find_mutates?(args) do
-    Enum.any?(args, &(&1 in @find_writing_actions)) or find_exec_mutates?(args)
+  defp find_mutates?(args, files) do
+    Enum.any?(args, &(&1 in @find_writing_actions)) or find_exec_mutates?(args, files)
   end
 
-  defp find_exec_mutates?(args) do
+  defp find_exec_mutates?(args, files) do
     case Enum.drop_while(args, &(&1 not in @find_exec_actions)) do
       [] ->
         false
 
       [_action | rest] ->
         {command, tail} = Enum.split_while(rest, &(&1 not in @find_exec_terminators))
-        exec_mutates?(command) or find_exec_mutates?(Enum.drop(tail, 1))
+        exec_mutates?(command, files) or find_exec_mutates?(Enum.drop(tail, 1), files)
     end
   end
 
-  defp exec_mutates?([]), do: true
-  defp exec_mutates?(command), do: tokens_mutate?(command)
+  defp exec_mutates?([], _files), do: true
+  defp exec_mutates?(command, files), do: tokens_mutate?(command, files)
 
   # `env` alone prints the environment; followed by a command it runs it, and
   # that command is the one to judge (ADR-0069). Its own flags are stepped over
   # where they are plain; one it cannot read — `-S` splits a string into a
   # command line of its own — is assumed to run something.
-  defp env_mutates?([flag | rest])
+  defp env_mutates?([flag | rest], files)
        when flag in ["-i", "-", "--ignore-environment", "-0", "--null"],
-       do: env_mutates?(rest)
+       do: env_mutates?(rest, files)
 
-  defp env_mutates?([flag, _name | rest]) when flag in ["-u", "--unset", "-C", "--chdir"],
-    do: env_mutates?(rest)
+  defp env_mutates?([flag, _name | rest], files)
+       when flag in ["-u", "--unset", "-C", "--chdir"],
+       do: env_mutates?(rest, files)
 
-  defp env_mutates?(["-" <> _ | _rest]), do: true
-  defp env_mutates?(rest), do: tokens_mutate?(rest)
+  defp env_mutates?(["-" <> _ | _rest], _files), do: true
+  defp env_mutates?(rest, files), do: tokens_mutate?(rest, files)
 
   # `command -v` and `-V` only say where a command lives; anything else runs it.
-  defp command_mutates?([flag | _rest]) when flag in ["-v", "-V"], do: false
-  defp command_mutates?(["-p" | rest]), do: command_mutates?(rest)
-  defp command_mutates?(rest), do: tokens_mutate?(rest)
+  defp command_mutates?([flag | _rest], _files) when flag in ["-v", "-V"], do: false
+  defp command_mutates?(["-p" | rest], files), do: command_mutates?(rest, files)
+  defp command_mutates?(rest, files), do: tokens_mutate?(rest, files)
 
-  defp awk_mutates?(args) do
-    Enum.any?(args, fn arg -> Enum.any?(@awk_writes, &Regex.match?(&1, arg)) end)
+  defp awk_mutates?(args, files) do
+    Enum.any?(args, fn arg -> Enum.any?(@awk_writes, &Regex.match?(&1, arg)) end) or
+      (files == :deny and
+         (writing_flag?(args, @awk_file_flags) or Enum.join(args, " ") =~ @awk_include))
   end
+
+  defp sed_loads?(args, files), do: files == :deny and writing_flag?(args, @sed_file_flags)
 
   # Words as the command receives them: quotes and backslashes are taken out
   # wherever they sit, so `"-"o` and `\-o` are the flag `-o`.

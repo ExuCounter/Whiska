@@ -52,6 +52,8 @@ Read it against the branch last shown:
   `whiska reply <id> "<their words>"`. After a finished line: as its file's
   "Their own words" says. Plainly meant for you, not the branch → nothing
   is sent.
+- A review of a write-up → `sniff.md`'s "Comments on the write-up",
+  whichever file the line went to.
 - Two options could fit, or another 🐱 line arrived since → ask one line
   back, naming the branch: "feat-auth: land it, or open a PR?"
 

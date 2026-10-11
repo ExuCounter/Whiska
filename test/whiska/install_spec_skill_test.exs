@@ -229,6 +229,11 @@ defmodule Whiska.InstallSpecSkillTest do
                ~r/\*\*proposed build\*\*.{0,40}found as fact.{0,120}still grills? the design/is
     end
 
+    test "a build from a write-up reads it and the person's comments, and asks nothing they settle" do
+      assert prose("grilling") =~
+               ~r/its write-up.{0,80}the person's comments.{0,80}a choice they settle is not asked again/is
+    end
+
     test "a research-only mouse grills the research question only, never design" do
       body = prose("grilling")
 

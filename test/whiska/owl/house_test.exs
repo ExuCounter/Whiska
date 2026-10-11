@@ -17,6 +17,7 @@ defmodule Whiska.Owl.HouseTest do
   alias Whiska.Owl.House
   alias Whiska.Schema.Question
   alias Whiska.Storage
+  alias Whiska.Writeup
 
   setup :verify_on_exit!
   setup {Whiska.Test.QuietSidebar, :stub_sidebar}
@@ -125,6 +126,17 @@ defmodule Whiska.Owl.HouseTest do
         # A session sitting in a subfolder of its worktree still belongs to it.
         assert Storage.mouse("mb").pane == "w2:p1"
       end)
+    end
+
+    test "hides a write-up from git in every worktree, as it hides the marker", %{main: main} do
+      stub(Herdr, :list_panes, fn @socket -> panes([]) end)
+      stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+      open(main)
+
+      lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
+      assert Whiska.Marker.exclude_line() in lines
+      assert Writeup.exclude_line() in lines
     end
 
     test "subscribes to the global events and to status changes for each mouse pane", %{
@@ -284,6 +296,54 @@ defmodule Whiska.Owl.HouseTest do
       refute File.read!(file) =~ "replaced:"
       assert first.spec_sent
       refute again.spec_sent
+    end
+
+    test "a write-up is kept per question, and is never taken for a spec", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      {:ok, _} =
+        Doorstep.leave(main, %Entry{
+          mouse_id: "ma",
+          branch: "feat-a",
+          worktree_root: a,
+          stamped_at: ~U[2026-10-06 09:00:00Z],
+          text: "Found it.\n⁣⁣⁣",
+          writeup: "# Why it hangs\n\nFound.\n"
+        })
+
+      House.collect(house)
+
+      [q] = in_house(house, fn -> Storage.all(Question) end)
+      assert File.read!(Writeup.kept(main, q.id)) == "# Why it hangs\n\nFound.\n"
+      refute q.spec_sent
+      assert Path.wildcard(Path.join(main, ".whiska/specs/*")) == []
+
+      exclude = File.read!(Path.join(main, ".git/info/exclude"))
+      assert "/.whiska/" in String.split(exclude, "\n")
+    end
+
+    test "a write-up is kept for every question that carried one, finished or not", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      {:ok, _} =
+        Doorstep.leave(main, %Entry{
+          mouse_id: "ma",
+          branch: "feat-a",
+          worktree_root: a,
+          stamped_at: ~U[2026-10-06 09:00:00Z],
+          text: "Which source?\n⁣⁣",
+          writeup: "# Draft\n"
+        })
+
+      House.collect(house)
+
+      [q] = in_house(house, fn -> Storage.all(Question) end)
+      assert q.kind == "needs-decision"
+      assert File.read!(Writeup.kept(main, q.id)) == "# Draft\n"
     end
 
     test "a turn with no spec keeps nothing and ignores nothing", %{

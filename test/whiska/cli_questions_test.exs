@@ -213,6 +213,12 @@ defmodule Whiska.CLIQuestionsTest do
       end
     end
 
+    defp keep_writeup(repo, q, text) do
+      path = Whiska.Writeup.kept(repo.checkout, q.id)
+      File.mkdir_p!(Path.dirname(path))
+      File.write!(path, text)
+    end
+
     defp show(repo, args) do
       capture_io(fn -> assert CLI.run(["show" | args], repo.checkout) == 0 end)
     end
@@ -315,6 +321,40 @@ defmodule Whiska.CLIQuestionsTest do
       assert out =~ "On the branch: 1 commit beyond main"
       refute out =~ "Review diff here"
       refute File.exists?(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md"))
+    end
+
+    test "a kept write-up is linked under the branch line, by its title", %{repo: repo} do
+      q = finished(repo, "ask-w1", commit: false)
+      keep_writeup(repo, q, "# Why the owl hangs\n\nFound.\n")
+
+      assert show_one(repo, q) =~
+               "On the branch: nothing committed beyond main · nothing uncommitted\n" <>
+                 "Review write-up here: [Why the owl hangs](file://#{repo.checkout}/.whiska/writeups/#{q.id}.md)\n\nDone."
+    end
+
+    test "the write-up is linked when read from a mouse's worktree too", %{repo: repo} do
+      q = finished(repo, "ask-w2", commit: false)
+      keep_writeup(repo, q, "No heading here.\n")
+      worktree = Path.join(repo.checkout, "worktrees/reader")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "reader", worktree])
+
+      out = capture_io(fn -> assert CLI.run(["show", to_string(q.id)], worktree) == 0 end)
+
+      assert out =~
+               "\nReview write-up here: [write-up](file://#{repo.checkout}/.whiska/writeups/#{q.id}.md)\n"
+    end
+
+    test "a write-up still links once its worktree is gone", %{repo: repo} do
+      q = finished(repo, "ask-w3", commit: false, gone: true)
+      keep_writeup(repo, q, "# Found [it]\n")
+
+      assert show_one(repo, q) =~
+               ~r/\nOn the branch: unknown[^\n]*\nReview write-up here: \[Found it\]\(file:/
+    end
+
+    test "a finished question with no write-up has no write-up link", %{repo: repo} do
+      q = finished(repo, "ask-w4", commit: false)
+      refute show_one(repo, q) =~ "write-up"
     end
 
     test "nothing committed has no diff to review", %{repo: repo} do

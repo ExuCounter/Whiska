@@ -27,7 +27,9 @@ Two rules, both through Claude Code's `PreToolUse` hook, both denied immediately
   target path, and `Bash` when a command is *both* mutating *and* names a path resolving
   into the main checkout. So `sed -i`, a redirect and `git -C <main> commit` are denied;
   `cat <main>/CONTEXT.md` and `grep -r <main>` are not.
-- **A sniff mouse may not change anything at all**, its own worktree included.
+- **A sniff mouse may not change anything at all**, its own worktree included, but its
+  write-up: `.whiska-writeup.md` at its worktree root, with `Write` or `Edit`, never
+  through a link and never from the shell.
 
 Notes:
 

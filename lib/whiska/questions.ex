@@ -139,8 +139,8 @@ defmodule Whiska.Questions do
   said. Each block is exactly what `whiska questions <id>` prints for that one,
   so the two can never drift apart — given the same `on_branch`.
   """
-  @spec render_full(summary(), on_branch() | nil) :: String.t()
-  def render_full(%{open: open} = summary, on_branch \\ nil) do
+  @spec render_full(summary(), on_branch() | nil, writeup() | nil) :: String.t()
+  def render_full(%{open: open} = summary, on_branch \\ nil, writeup \\ nil) do
     slot = Mode.slot(open, summary.mode)
 
     open_block =
@@ -152,7 +152,15 @@ defmodule Whiska.Questions do
           Enum.map_join(
             open,
             separator(),
-            &full(&1, who(&1.mouse, &1.mouse_id), slot, summary.mode, summary.focus, on_branch)
+            &full(
+              &1,
+              who(&1.mouse, &1.mouse_id),
+              slot,
+              summary.mode,
+              summary.focus,
+              on_branch,
+              writeup
+            )
           )
       end
 
@@ -222,14 +230,25 @@ defmodule Whiska.Questions do
           pos_integer() | nil,
           Mode.t(),
           String.t() | nil,
-          on_branch() | nil
+          on_branch() | nil,
+          writeup() | nil
         ) :: String.t()
-  def full(%Question{} = q, branch, slot, mode \\ Mode.none(), focus \\ nil, on_branch \\ nil) do
+  def full(
+        %Question{} = q,
+        branch,
+        slot,
+        mode \\ Mode.none(),
+        focus \\ nil,
+        on_branch \\ nil,
+        writeup \\ nil
+      ) do
     heading =
       "##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})"
 
+    under = finished_branch(q, on_branch) ++ finished_writeup(q, writeup)
+
     """
-    #{Enum.join([heading | finished_branch(q, on_branch)], "\n")}
+    #{Enum.join([heading | under], "\n")}
 
     #{q.text |> Marker.strip() |> String.trim_trailing()}
     """
@@ -242,6 +261,9 @@ defmodule Whiska.Questions do
   `{:error, :no_record}` when Whiska has no worktree or branch for its mouse.
   """
   @type on_branch :: (Question.t() -> {:ok, map()} | {:error, term()})
+
+  @typedoc "Finds the write-up kept for a question, as its path and title, or nil."
+  @type writeup :: (Question.t() -> {Path.t(), String.t()} | nil)
 
   @named 3
 
@@ -258,6 +280,17 @@ defmodule Whiska.Questions do
   end
 
   defp branch_lines(held), do: [branch_line(held)]
+
+  # Read from Whiska's own copy, so it links wherever the question is read
+  # from, and after its worktree is gone.
+  defp finished_writeup(%Question{kind: "done"} = q, writeup) when is_function(writeup, 1) do
+    case writeup.(q) do
+      {path, title} -> ["Review write-up here: [#{title}](#{Review.file_link(path)})"]
+      nil -> []
+    end
+  end
+
+  defp finished_writeup(_question, _writeup), do: []
 
   defp branch_line({:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}),
     do: "On the branch: #{committed(ahead, base)} · #{uncommitted(uncommitted)}"

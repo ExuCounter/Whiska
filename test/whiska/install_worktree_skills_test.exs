@@ -164,12 +164,30 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     test "puts nothing a mouse wrote on the main session's command line" do
       section = hand_off_section()
 
-      [prompt] = Regex.run(~r/^\s*herdr agent prompt .*$/m, section)
+      [prompt | _] = Regex.run(~r/^\s*herdr agent prompt .*$/m, section)
       filled_in = ~r/<[^>]+>/ |> Regex.scan(prompt) |> List.flatten() |> Enum.uniq()
       assert filled_in == ["<root-pane-id>", "<id>"]
 
       assert section =~ "a-z0-9"
       assert prose(section) =~ ~r/never copied from the proposal/i
+    end
+
+    # The person's review quotes the write-up, which a mouse wrote, so it
+    # travels in a file the way a commit message does, and the prompt names
+    # only the file.
+    test "carries the person's comments on the write-up in a file the prompt names" do
+      section = hand_off_section()
+
+      prompts = Regex.scan(~r/^\s*herdr agent prompt .*$/m, section) |> List.flatten()
+      assert [plain, with_comments] = prompts
+
+      assert plain =~ "write-up"
+
+      filled_in = ~r/<[^>]+>/ |> Regex.scan(with_comments) |> List.flatten() |> Enum.uniq()
+      assert filled_in == ["<root-pane-id>", "<id>", "<comments file>"]
+
+      assert prose(section) =~ ~r/with the file tool, to a file outside both checkouts/
+      assert prose(section) =~ ~r/no character of it goes on one/i
     end
 
     test "chooses the shape before naming the branch" do

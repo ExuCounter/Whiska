@@ -176,7 +176,8 @@ what a **finish** is chosen by (ADR-0074). Under it, when the branch has commits
 writes to `.whiska/reviews/<id>.md` as Markdown, so the person reviews it from a link as
 they review a **spec** — or, when the person's `WHISKA_DIFF_LINK` holds a link pattern,
 that pattern with `{base}` and `{branch}` filled in, pointing at a diff viewer of their own,
-and no file is written (ADR-0085).
+and no file is written (ADR-0085); and when the turn left a **write-up**, its link,
+`Review write-up here:` (ADR-0074).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Proposal**:
@@ -190,6 +191,18 @@ mouse shaped for that work rather than flipping the one shaped for the investiga
 (ADR-0074). Open lists the costly choices the investigation left; the build mouse takes
 Found as fact and grills Open and the design.
 _Avoid_: plan, recommendation, next steps, hand-off (a word **Report** already rejected)
+
+**Write-up**:
+The document a finished investigation writes before its report: what it established, in
+full, then its **proposal**, in `.whiska-writeup.md` at the worktree root, which git
+ignores. With no proposal it is written only when the findings outgrow the report. The
+one file a sniff mouse may write (ADR-0069). Whiska keeps a copy per question in
+`.whiska/writeups/<id>.md`, and `whiska show` links it under the **branch line** as
+`Review write-up here:`, so the person reviews it line by line as they review a
+**spec**. Their comments on it are their own words: built with the proposal, sent to
+the investigating mouse, or not sent (ADR-0074). Never a spec: it is not approved, and
+nothing is built to it but the proposal it carries.
+_Avoid_: findings (a reviewer's word), research doc, report (the message's shape)
 
 **Needs attention**:
 The block a finished turn ends its report with when the mouse advises a step on the same
@@ -512,7 +525,8 @@ push needs approval.
 
 **Sniff mode**:
 A mouse mode for investigation only. Never writes code, never pushes — produces a
-report instead. Says nothing about the model or the effort: those are chosen apart.
+report instead, and a **write-up**, the one file it may write. Says nothing about the
+model or the effort: those are chosen apart.
 _Avoid_: research mode, research mouse (`research/` is the prefix a sniff mouse's branch
 carries, not the mode's name)
 

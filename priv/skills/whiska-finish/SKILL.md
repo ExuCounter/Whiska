@@ -99,8 +99,8 @@ end the turn on a decision for the person: what fails, what was tried, what is l
 ## 5. Commit the work
 
 Commit every change the brief made, on its branch, in this repo's style, after the last
-fix. Delete this turn's scratch files. Whiska's own `.whiska-mouse` and
-`.whiska-spec.md` are never committed, deleted or named. Done when
+fix. Delete this turn's scratch files. Whiska's own `.whiska-mouse`, `.whiska-spec.md`
+and `.whiska-writeup.md` are never committed, deleted or named. Done when
 `git status --porcelain` prints nothing but those and what the second line leaves.
 
 - **Never push.**
@@ -130,5 +130,4 @@ written the code. Beside its six lines:
   `Agents`, as `- ` lines: one per agent sent this turn, then the mouse's whole session.
   It fails → "usage not read"; never the hand-back's `subagent_tokens`.
 
-A turn that investigated, changed nothing and found something to change: read
-`proposed-build.md` beside this file.
+A turn that investigated and changed nothing: read `proposed-build.md` beside this file.

@@ -391,6 +391,35 @@ defmodule Whiska.InstallStatuslineTest do
       assert prose =~ ~r/nothing else is asked/i
     end
 
+    # The person comments on the write-up in their review tool; its Send key
+    # makes the review this session's next message.
+    test "a review of the write-up is offered as a build with it, a note to the mouse, or nothing" do
+      prose = delivered("sniff.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~ "`Review write-up here:`"
+      assert prose =~ ~r/comments on the write-up/i
+      assert prose =~ "**A** — Build what it proposes, with these comments"
+      assert prose =~ "**B** — Send them to <branch>"
+      assert prose =~ "**C** — Not now"
+
+      assert prose =~
+               ~r/"Building what an investigation proposed" with this question's id and the comments/
+
+      # Sent to the investigating mouse, they travel in a file too: the prompt
+      # is fixed text and the file's path.
+      assert prose =~ ~r/with the file tool, to a file outside both checkouts/
+      assert prose =~ ~r/no proposal to build.{0,80}only \*\*B\*\* and \*\*C\*\*/i
+
+      # The line that tells the person where their own words go says it too.
+      assert prose =~
+               ~r/Or write anything else and it goes to <branch>; comments on the write-up are offered first/
+    end
+
+    test "a review of a write-up is read as one, whichever finished line it follows" do
+      core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
+      assert core =~ ~r/a review of a write-up.{0,80}`sniff.md`'s "Comments on the write-up"/i
+    end
+
     test "every other finished line goes to the options for its branch" do
       core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
       sniff = delivered("sniff.md") |> String.replace(~r/\s+/, " ")
@@ -541,10 +570,10 @@ defmodule Whiska.InstallStatuslineTest do
       assert commit =~ "`git -C <worktree> commit -F <file>`"
 
       assert commit =~
-               ~r/Whiska's own `\.whiska-mouse` and `\.whiska-spec\.md` are never committed.{0,40}left out of the list/i
+               ~r/Whiska's own `\.whiska-mouse`, `\.whiska-spec\.md` and `\.whiska-writeup\.md` are never committed.{0,40}left out of the list/i
 
       assert commit =~
-               "run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md'`"
+               "run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md' ':!.whiska-writeup.md'`"
 
       assert commit =~
                ~r/`git -C <worktree> diff --cached --name-only --no-renames`.{0,160}`git -C <worktree> reset`, stop/i

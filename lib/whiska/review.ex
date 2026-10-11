@@ -12,46 +12,14 @@ defmodule Whiska.Review do
   a pattern in `WHISKA_DIFF_LINK`, and then no file is written.
   """
 
-  alias Whiska.Spec
+  alias Whiska.HouseFile
 
   @dir ".whiska/reviews"
-  @exclude_line "/.whiska/"
 
   @spec write(Path.t(), pos_integer(), String.t(), String.t(), pos_integer(), String.t()) ::
           {:ok, Path.t()} | {:error, term()}
-  def write(main_checkout, id, base, branch, ahead, diff) do
-    dir = Path.join(main_checkout, @dir)
-    path = Path.join(dir, "#{id}.md")
-    temp = "#{path}.#{System.unique_integer([:positive])}.tmp"
-
-    with :ok <- Spec.ignore(main_checkout, @exclude_line),
-         :ok <- no_link(main_checkout),
-         :ok <- File.mkdir_p(dir),
-         :ok <- no_link(main_checkout),
-         :ok <- File.write(temp, render(base, branch, ahead, diff), [:exclusive]),
-         :ok <- rename(temp, path) do
-      {:ok, path}
-    end
-  end
-
-  # A link in the folder would carry the write anywhere the person can write,
-  # such as a folder Claude Code reads as instructions. A link at the file
-  # itself is replaced by the rename, never followed.
-  defp no_link(main_checkout) do
-    [".whiska", @dir]
-    |> Enum.find(&match?({:ok, %{type: :symlink}}, File.lstat(Path.join(main_checkout, &1))))
-    |> case do
-      nil -> :ok
-      link -> {:error, {:symlink, link}}
-    end
-  end
-
-  defp rename(temp, path) do
-    with {:error, _} = error <- File.rename(temp, path) do
-      File.rm(temp)
-      error
-    end
-  end
+  def write(main_checkout, id, base, branch, ahead, diff),
+    do: HouseFile.write(main_checkout, @dir, "#{id}.md", render(base, branch, ahead, diff))
 
   @doc """
   The file's text. The diff sits in a fence longer than any run of backticks

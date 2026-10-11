@@ -108,21 +108,22 @@ defmodule Whiska.Hook.Stop do
       stamped_at: DateTime.utc_now(),
       text: message(payload),
       ran_on: ran_on,
-      spec: spec(layout.worktree_root),
+      spec: carried(layout.worktree_root, Whiska.Spec.filename()),
+      writeup: carried(layout.worktree_root, Whiska.Writeup.filename()),
       transcript: transcript_path(payload)
     })
   end
 
-  # The spec as it stands when the turn ends (ADR-0063). Anything but a plain
-  # UTF-8 file of sane size is the same as absent: a pipe would hang the read,
-  # and bytes JSON cannot carry would crash the encoder, and either would cost
-  # the message itself its place on the doorstep.
-  @spec_max_bytes 256 * 1024
+  # The spec, or the write-up, as it stands when the turn ends (ADR-0063).
+  # Anything but a plain UTF-8 file of sane size is the same as absent: a pipe
+  # would hang the read, and bytes JSON cannot carry would crash the encoder,
+  # and either would cost the message itself its place on the doorstep.
+  @carried_max_bytes 256 * 1024
 
-  defp spec(worktree_root) do
-    path = Path.join(worktree_root, Whiska.Spec.filename())
+  defp carried(worktree_root, filename) do
+    path = Path.join(worktree_root, filename)
 
-    with {:ok, %File.Stat{type: :regular, size: size}} when size <= @spec_max_bytes <-
+    with {:ok, %File.Stat{type: :regular, size: size}} when size <= @carried_max_bytes <-
            File.lstat(path),
          {:ok, text} <- File.read(path),
          true <- String.valid?(text) do

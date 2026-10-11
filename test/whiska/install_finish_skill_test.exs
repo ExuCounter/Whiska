@@ -136,7 +136,7 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/done when `git status --porcelain` prints nothing/i
 
       assert body =~
-               "Whiska's own `.whiska-mouse` and `#{Whiska.Spec.filename()}` are never committed, deleted or named"
+               "Whiska's own `.whiska-mouse`, `#{Whiska.Spec.filename()}` and `#{Whiska.Writeup.filename()}` are never committed, deleted or named"
 
       assert body =~ ~r/never push/i
     end
@@ -454,7 +454,7 @@ defmodule Whiska.InstallFinishSkillTest do
       body = prose()
 
       assert body =~ "`proposed-build.md`"
-      assert body =~ ~r/investigated, changed nothing/i
+      assert body =~ ~r/investigated and changed nothing/i
       refute skill() =~ "- Touches:"
     end
 
@@ -466,6 +466,21 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ "- Build:"
       assert body =~ "- Touches:"
       assert body =~ "- Open:"
+    end
+
+    test "a proposal goes in a write-up too, which the person reviews line by line" do
+      body = proposal_prose()
+
+      assert body =~ "`#{Whiska.Writeup.filename()}`"
+
+      assert body =~
+               ~r/before the report.{0,80}what the investigation established.{0,80}the same block/i
+
+      assert body =~ ~r/no proposal.{0,80}only when.{0,40}outgrow the report/i
+      assert body =~ ~r/no link to it.{0,40}`whiska show` adds/i
+      # Every later finished question links it too, so it never goes stale.
+      assert body =~ ~r/every later finished question links it too/i
+      refute body =~ "so it always says what is true now"
     end
 
     test "Open lists the costly choices the investigation leaves for the build to grill" do

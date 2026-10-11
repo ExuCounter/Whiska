@@ -24,6 +24,8 @@ C4Container
     Container(flag, "Answer flag", "empty file, whiska-answer in the worktree's git admin directory", "This worktree's mouse has an answer not yet taken; the shim reads it so a prompt with nothing waiting starts nothing")
     Container(spec, "Spec", ".whiska-spec.md file", "What a brief will build, at the worktree root; the mouse writes it, git ignores it")
     Container(kept, "Kept specs", "directory, .whiska/specs/ in the main checkout", "A copy of every spec sent, one file per spec under a header: its question, the ones it replaced, landed or dropped; git ignores it")
+    Container(writeup, "Write-up", ".whiska-writeup.md file", "What an investigation found and proposes, at the worktree root; the one file a sniff mouse may write, git ignores it")
+    Container(writeups, "Kept write-ups", "directory, .whiska/writeups/ in the main checkout", "A copy of each write-up, one file per question, linked from whiska show; git ignores it")
     Container(reviews, "Diff files", "directory, .whiska/reviews/ in the main checkout", "A finished branch's diff as Markdown, one file per question, linked from whiska show; git ignores it. Not written when the person's WHISKA_DIFF_LINK points the link at a diff viewer of their own")
     Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(clonelist, "Clone list", "text file, .git/whiska/clone", "Per-repo paths to clone into a new worktree beside the marker defaults, or a lone off; the person writes it")
@@ -59,6 +61,7 @@ C4Container
   Rel(cli, marker, "Reads, minting one on first use")
   Rel(cli, db, "shape records a new mouse's mode and model before Claude starts")
   Rel(cli, spec, "shape and mode make git ignore it, through the main checkout's info/exclude")
+  Rel(cli, writeup, "shape and mode make git ignore it, as the spec")
   Rel(cli, doorstep, "Stop hook writes one entry when the owl does not answer")
   Rel(owl, doorstep, "Stop over the hook socket writes the entry; the open house collects it at once")
   Rel(cli, owl, "whiska owl boots it in the foreground")
@@ -69,9 +72,10 @@ C4Container
   Rel(house, herdr, "Subscribes per mouse pane; lists panes to find them")
   Rel(house, doorstep, "Collects on idle, at open, and on a backstop")
   Rel(house, kept, "Keeps the spec a collected entry carried; the sweep marks it landed or dropped")
+  Rel(house, writeups, "Keeps the write-up a collected entry carried, under its question")
   Rel(cli, reviews, "whiska show, from the main checkout, writes a finished branch's diff, unless WHISKA_DIFF_LINK is set")
   Rel(house, backstop, "Marks what the backstop collected; clears it at open")
-  Rel(house, marker, "At open, makes git ignore it and worktrees/, through the main checkout's info/exclude")
+  Rel(house, marker, "At open, makes git ignore it, the write-up and worktrees/, through the main checkout's info/exclude")
   Rel(cli, clonelist, "shape reads it, clones those paths copy-on-write, and excludes each from git")
   Rel(cli, backstop, "doctor reads it: has the last resort been doing the trigger's job")
   Rel(house, db, "Records questions, marks mice dead and removed; reads the next open one")
@@ -116,6 +120,9 @@ The reasoning is in the ADR each line names; this is the map.
   answer, which is in the house database (ADR-0080).
 - **Spec in the worktree, kept specs in the main checkout**: the spec lives and dies with
   its mouse; the copy is the archive (ADR-0063).
+- **Write-up in the worktree, kept write-ups in the main checkout**: the mouse writes and
+  rewrites its own; the copy is per question, so the link the person and the build follow
+  outlives the worktree (ADR-0074).
 - **The owl's job**: the platform's service manager runs the wrapper, restarts a crash only
   (ADR-0040).
 - **One owl, many houses**, each supervised independently (ADR-0001). Delivery lives in the

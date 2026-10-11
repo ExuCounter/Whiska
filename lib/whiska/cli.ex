@@ -288,11 +288,12 @@ defmodule Whiska.CLI do
     mode                 Print this mouse's mode.
     mode build|sniff     Give a mouse nobody shaped its mode. A build mouse
                          makes changes, confined to its own worktree. A sniff
-                         mouse investigates and reports, and may not write
-                         anything at all. Refuses a mouse that has a mode: it
+                         mouse investigates and reports, and writes nothing
+                         but its write-up. Refuses a mouse that has a mode: it
                          keeps it, and a build for what it found goes to a
                          fresh mouse, from its Proposed build. Like shape,
-                         makes git ignore the worktree's .whiska-spec.md.
+                         makes git ignore the worktree's .whiska-spec.md and
+                         .whiska-writeup.md.
 
     shape build|sniff [--model <name>] [--effort <level>]
                          Give a fresh mouse its shape, before Claude starts
@@ -300,11 +301,12 @@ defmodule Whiska.CLI do
                          print the flags to start Claude with, or nothing. A
                          build mouse also gets --autocompact, its model's
                          window from priv/models.json.
-                         Also makes git ignore the worktree's .whiska-spec.md,
-                         and clones deps, _build and node_modules (plus the
-                         paths in .git/whiska/clone, or nothing for a lone
-                         `off`) from the main checkout copy-on-write, saying
-                         on stderr what it did; that never fails the shape.
+                         Also makes git ignore the worktree's .whiska-spec.md
+                         and .whiska-writeup.md, and clones deps, _build and
+                         node_modules (plus the paths in .git/whiska/clone,
+                         or nothing for a lone `off`) from the main checkout
+                         copy-on-write, saying on stderr what it did; that
+                         never fails the shape.
                          Fails rather than guess, so a spawn stops before
                          Claude. A model or effort left out is the last rule's
                          in priv/models.json: #{@catch_all}.
@@ -1360,14 +1362,17 @@ defmodule Whiska.CLI do
   end
 
   # Shaping, or setting the mode of a mouse nobody shaped, comes before the
-  # mouse can write a spec. A failure does not stop either: the mouse says so
-  # under its spec, and until then the owl only leaves the worktree standing.
+  # mouse can write a spec or a write-up. A failure does not stop either: the
+  # mouse says so under its spec, and until then the owl only leaves the
+  # worktree standing.
   defp ignore_spec(layout) do
-    with {:error, reason} <- Whiska.Spec.ignore(layout.main_checkout) do
-      IO.puts(
-        :stderr,
-        "whiska: could not make git ignore #{Whiska.Spec.filename()} (#{inspect(reason)})."
-      )
+    for {name, line} <- [
+          {Whiska.Spec.filename(), Whiska.Spec.exclude_line()},
+          {Whiska.Writeup.filename(), Whiska.Writeup.exclude_line()}
+        ] do
+      with {:error, reason} <- Whiska.Spec.ignore(layout.main_checkout, line) do
+        IO.puts(:stderr, "whiska: could not make git ignore #{name} (#{inspect(reason)}).")
+      end
     end
   end
 
@@ -1740,7 +1745,7 @@ defmodule Whiska.CLI do
   defp render(summary, :listing, _main, _cwd), do: Questions.render(summary)
 
   defp render(summary, :full, main, cwd),
-    do: Questions.render_full(summary, &on_branch(main, &1, reviews?(cwd)))
+    do: Questions.render_full(summary, &on_branch(main, &1, reviews?(cwd)), &writeup(main, &1))
 
   # Not repo-scoped: the line is machine-wide and herdr draws one of them for
   # the whole session (ADR-0048). Always 0 and never noisy — this runs every
@@ -2072,8 +2077,20 @@ defmodule Whiska.CLI do
     focus = if mode.focus, do: Questions.who(Storage.mouse(mode.focus), mode.focus)
     who = Questions.who(Storage.mouse(q.mouse_id), q.mouse_id)
 
-    say(Questions.full(q, who, slot, mode, focus, &on_branch(main, &1, reviews?(cwd))))
+    say(
+      Questions.full(
+        q,
+        who,
+        slot,
+        mode,
+        focus,
+        &on_branch(main, &1, reviews?(cwd)),
+        &writeup(main, &1)
+      )
+    )
   end
+
+  defp writeup(main, %Question{id: id}), do: Whiska.Writeup.find(main, id)
 
   # A question read by id comes without its mouse, and one from the listing
   # with it — the house is already closed by the time the listing renders.

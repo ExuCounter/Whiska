@@ -33,7 +33,8 @@ You do the review yourself. Every command you run reads: git, grep, cat, ls.
 - **The change** is everything from the base to the working tree: `git diff <base>
   --stat`, `git diff <base>`, `git log --format='%h %s%n%b' <base>..HEAD`, and each file
   `git ls-files --others --exclude-standard` lists, read whole. `.whiska-mouse` is
-  bookkeeping and `.whiska-spec.md` is the spec (step 2); neither is part of the change.
+  bookkeeping, `.whiska-spec.md` is the spec (step 2) and `.whiska-writeup.md` an
+  investigation's write-up; none is part of the change.
 
 Done when you can state the base and the commit, file and line counts, and you have read
 every changed hunk with enough code around it to know what calls it and what it calls.

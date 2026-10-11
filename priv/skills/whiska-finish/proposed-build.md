@@ -15,5 +15,20 @@ labels:
 - End on the finished marker. Never ask whether to build it, and never end on a decision
   for it: the finished options are where it is offered, and a fresh session builds it.
 - One proposal: the build to start first. The lines above it need not repeat it.
-- Changed something, or found nothing that should change → no proposal; the report is the
-  answer.
+- Found nothing that should change → no proposal; the report is the answer.
+
+## The write-up
+
+Before the report, write `.whiska-writeup.md` at the worktree root with the file tool:
+what the investigation established, in full, with the evidence, then the same block. It
+is the document the person reviews line by line, and the build reads it with their
+comments. Start it with a `# ` heading naming what was investigated: its link shows that.
+The report stays short, since the detail is in the write-up, and carries the block as
+well, since the finished options read it there.
+
+- It is the one file a sniff mouse may write, and git ignores it, so the branch still
+  has nothing on it. A mouse nobody shaped may not write it: denied, go on without it.
+- Put no link to it in the report: `whiska show` adds one under the branch line.
+- No proposal → write one only when the findings outgrow the report.
+- Every later finished question links it too, so keep it true: a later turn that changes
+  what was found, or what it proposes, rewrites it whole.

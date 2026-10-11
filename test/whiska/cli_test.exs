@@ -100,14 +100,15 @@ defmodule Whiska.CLITest do
 
     # A mouse nobody shaped can write nothing until the person sets its mode, so
     # this is the first moment it could write a spec.
-    test "setting the mode makes git ignore the spec, as shaping does", %{
+    test "setting the mode makes git ignore the spec and the write-up, as shaping does", %{
       main: main,
       worktree: worktree
     } do
-      capture_io(fn -> assert CLI.run(["mode", "build"], worktree) == 0 end)
+      capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)
 
       lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
       assert Whiska.Spec.exclude_line() in lines
+      assert Whiska.Writeup.exclude_line() in lines
     end
 
     test "refuses a shaped mouse and points to a proposed build and a fresh mouse", %{
@@ -204,12 +205,16 @@ defmodule Whiska.CLITest do
       assert stderr =~ "feat-thing is a sniff mouse on m1, max effort."
     end
 
-    test "sets the worktree up so git ignores its spec", %{main: main, worktree: worktree} do
+    test "sets the worktree up so git ignores its spec and its write-up", %{
+      main: main,
+      worktree: worktree
+    } do
       shape_stdout(["build"], worktree)
       shape_stdout(["build"], worktree)
 
       lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
       assert Enum.count(lines, &(&1 == Whiska.Spec.exclude_line())) == 1
+      assert Enum.count(lines, &(&1 == Whiska.Writeup.exclude_line())) == 1
     end
 
     test "a spec git cannot be told to ignore warns, and the spawn still gets its flags", %{

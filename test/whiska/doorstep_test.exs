@@ -67,6 +67,20 @@ defmodule Whiska.DoorstepTest do
     end
   end
 
+  describe "an entry written before the write-up travelled" do
+    test "still reads, with no write-up" do
+      raw =
+        ~s({"mouse_id":"m1","branch":"feat-a","worktree_root":"/w","stamped_at":"2026-10-06T09:00:00Z","text":"hi","spec":null})
+
+      assert {:ok, %Entry{writeup: nil, text: "hi"}} = Entry.decode(raw)
+    end
+
+    test "a write-up survives the round trip" do
+      {:ok, back} = entry(%{writeup: "# Found\n"}) |> Entry.encode() |> Entry.decode()
+      assert back.writeup == "# Found\n"
+    end
+  end
+
   describe "waiting/1" do
     test "is empty when there is no doorstep yet", %{main: main} do
       assert Doorstep.waiting(main) == []

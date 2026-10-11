@@ -61,6 +61,7 @@ defmodule Whiska.InstallColdReviewSkillTest do
       assert body =~ "git ls-files --others --exclude-standard"
       assert body =~ "`.whiska-mouse`"
       assert body =~ "`#{Whiska.Spec.filename()}`"
+      assert body =~ "`#{Whiska.Writeup.filename()}`"
     end
 
     test "it holds every behaviour change against the spec, and with none every one is a finding" do

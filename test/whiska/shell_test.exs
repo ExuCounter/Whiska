@@ -328,6 +328,71 @@ defmodule Whiska.ShellTest do
     end
   end
 
+  # A sniff mouse can write one file, its write-up, and a Markdown heading is a
+  # comment line to git, awk and sed (ADR-0034). Anyone else may already write
+  # any file, so only the sniff rule asks for these.
+  describe "a program or config loaded from a file" do
+    for command <- [
+          "GIT_CONFIG_GLOBAL=.whiska-writeup.md git diff",
+          "GIT_CONFIG_SYSTEM=./c git log -p",
+          "GIT_CONFIG=./c git log",
+          "RIPGREP_CONFIG_PATH=./rc rg foo",
+          "LESSKEYIN=./k less in.txt",
+          "LESSKEY=./k less in.txt",
+          "LESSKEYIN_SYSTEM=./k less in.txt",
+          "LESSKEY_SYSTEM=./k less in.txt",
+          "awk -f prog.awk data.txt",
+          "awk -F, -f prog.awk data.txt",
+          "awk -vx=1 -fprog.awk data.txt",
+          "gawk --file=prog.awk data.txt",
+          "gawk -i lib.awk '{print}' data.txt",
+          "gawk -l ext '{print}' data.txt",
+          "gawk -E prog.awk data.txt",
+          "awk '@include \"prog.awk\"' data.txt",
+          "gawk '@load \"ext\"; {print}' data.txt",
+          "sed -f script.sed f",
+          "sed -nf script.sed f",
+          "sed --file=script.sed f",
+          "sed -lf script.sed f",
+          "gawk '@ include \"prog.awk\"' data.txt",
+          "gawk '@\tload \"ext\"' data.txt",
+          "gawk '@\\\ninclude \"prog.awk\"' data.txt",
+          ~S[PAGER="gawk '@ include \"prog.awk\"'" git log],
+          "gawk --debug=cmds 'BEGIN{}'",
+          "gawk -D 'BEGIN{}'",
+          "MANROFFOPT=-U man -l ./page.1",
+          "env GIT_CONFIG_GLOBAL=./c git log",
+          "PAGER='awk -f prog.awk' git log",
+          "git -c core.pager='sed -f s.sed' log",
+          "find . -exec awk -f prog.awk {} ;"
+        ] do
+      test "#{command} is denied when program files are" do
+        assert Shell.mutating?(unquote(command), program_files: :deny)
+      end
+
+      test "#{command} reads otherwise" do
+        refute Shell.mutating?(unquote(command))
+      end
+    end
+
+    for command <- [
+          "GIT_CONFIG_GLOBAL=/dev/null git log",
+          "RIPGREP_CONFIG_PATH=/dev/null rg foo",
+          "HOME=./h git status",
+          ~S[awk -F, '{print $1}' data.txt],
+          "sed -n -e p f"
+        ] do
+      test "#{command} reads either way" do
+        refute Shell.mutating?(unquote(command), program_files: :deny)
+      end
+    end
+
+    test "a program that writes is denied either way" do
+      assert Shell.mutating?(~S[awk '{print > "out"}' f], program_files: :deny)
+      assert Shell.mutating?("sed -i s/a/b/ f", program_files: :deny)
+    end
+  end
+
   describe "awk, which reads unless its program writes" do
     test "a printing program reads" do
       refute Shell.mutating?(~S[awk '{print $1}' data.txt])
@@ -622,6 +687,10 @@ defmodule Whiska.ShellTest do
           "GIT_TRACE=1 git status",
           "GIT_WORK_TREE=. git status",
           "RIPGREP_CONFIG_PATH=/dev/null rg foo",
+          "LESSKEYIN=/dev/null less in.txt",
+          "GIT_CONFIG=/dev/null git log",
+          ~S[awk -F, '{print $1}' data.txt],
+          "sed -n -e p f",
           "HOME=./h git status",
           "PATH=/usr/bin ls",
           "DYLD_LIBRARY_PATH=/tmp ls",

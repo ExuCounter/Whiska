@@ -463,6 +463,126 @@ defmodule Whiska.Hook.PreToolUseTest do
       assert reason =~ "sniff"
     end
 
+    test "a sniff mouse may write its write-up and nothing beside it", %{
+      main: main,
+      worktree: worktree
+    } do
+      set_mode(main, worktree, "sniff")
+      writeup = Path.join(worktree, ".whiska-writeup.md")
+
+      for tool <- ~w(Write Edit) do
+        assert :allow =
+                 run(%{
+                   "cwd" => worktree,
+                   "tool_name" => tool,
+                   "tool_input" => %{"file_path" => writeup}
+                 })
+      end
+
+      for path <- [
+            Path.join(worktree, "lib/.whiska-writeup.md"),
+            Path.join(worktree, "writeup.md"),
+            Path.join(main, ".whiska-writeup.md")
+          ] do
+        assert {:deny, reason} =
+                 run(%{
+                   "cwd" => worktree,
+                   "tool_name" => "Write",
+                   "tool_input" => %{"file_path" => path}
+                 })
+
+        assert reason =~ "sniff"
+      end
+
+      assert {:deny, _} =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Bash",
+                 "tool_input" => %{"command" => "echo x > .whiska-writeup.md"}
+               })
+
+      assert {:deny, _} =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "NotebookEdit",
+                 "tool_input" => %{"notebook_path" => writeup}
+               })
+    end
+
+    test "a write-up cannot then be run as a program or a config", %{
+      main: main,
+      worktree: worktree
+    } do
+      set_mode(main, worktree, "sniff")
+
+      for command <- [
+            "GIT_CONFIG_GLOBAL=.whiska-writeup.md git diff",
+            "awk -f .whiska-writeup.md README.md",
+            "sed -f .whiska-writeup.md README.md",
+            "RIPGREP_CONFIG_PATH=.whiska-writeup.md rg foo",
+            "env GIT_CONFIG_GLOBAL=.whiska-writeup.md git diff",
+            "PAGER='awk -f .whiska-writeup.md' git log",
+            "find . -name x -exec sed -f .whiska-writeup.md {} ;"
+          ] do
+        assert {:deny, _} =
+                 run(%{
+                   "cwd" => worktree,
+                   "tool_name" => "Bash",
+                   "tool_input" => %{"command" => command}
+                 }),
+               command
+      end
+    end
+
+    test "a build mouse may still load a program or a config from a file to read the main checkout",
+         %{main: main, worktree: worktree} do
+      set_mode(main, worktree, "build")
+
+      for command <- [
+            "GIT_CONFIG_GLOBAL=#{worktree}/g git -C #{main} log",
+            "awk -f prog.awk #{main}/README.md",
+            "sed -f script.sed #{main}/README.md"
+          ] do
+        assert :allow =
+                 run(%{
+                   "cwd" => worktree,
+                   "tool_name" => "Bash",
+                   "tool_input" => %{"command" => command}
+                 }),
+               command
+      end
+    end
+
+    test "a write-up that is a link is not written through", %{main: main, worktree: worktree} do
+      set_mode(main, worktree, "sniff")
+      writeup = Path.join(worktree, ".whiska-writeup.md")
+      File.ln_s!(Path.join(worktree, "lib/x.ex"), writeup)
+
+      assert {:deny, _} =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => writeup}
+               })
+    end
+
+    test "a mouse nobody shaped may not write a write-up either", %{
+      main: main,
+      worktree: worktree
+    } do
+      run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
+
+      assert {:deny, reason} =
+               run(%{
+                 "cwd" => worktree,
+                 "tool_name" => "Write",
+                 "tool_input" => %{"file_path" => Path.join(worktree, ".whiska-writeup.md")}
+               })
+
+      assert reason =~ "never given a shape"
+      assert main
+    end
+
     test "a sniff mouse may still read and run read-only commands", %{
       main: main,
       worktree: worktree

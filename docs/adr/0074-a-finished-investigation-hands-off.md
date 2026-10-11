@@ -1,9 +1,11 @@
 # A finished investigation hands its proposal to a fresh build mouse
 
 A turn that investigated, changed nothing, and found something that should change ends
-its report with a **Proposed build** block and on the done marker. The person is offered
-Build what it proposes or Not now, and on yes the main session spawns a fresh mouse
-shaped for that build. A mouse's mode is never flipped in place: `whiska mode` gives a
+its report with a **Proposed build** block and on the done marker, and writes its
+findings and the same block to a **write-up** the person reviews line by line. The
+person is offered Build what it proposes or Not now, and on yes the main session spawns
+a fresh mouse shaped for that build, carrying the person's comments on the write-up
+when they gave some. A mouse's mode is never flipped in place: `whiska mode` gives a
 mode only to a mouse nobody shaped and refuses a shaped one.
 
 ## Why a hand-off, not a flip
@@ -74,12 +76,48 @@ The options read those, not the mouse's word about itself. The whole branch line
 matched, not a phrase in it: a file named "nothing committed beyond main" must not route
 a branch with commits away from Land here.
 
-The new mouse is given the question id and nothing else; it reads the whole report with
-`whiska questions <id>`, and the report stays in the house (ADR-0007). No character a
-mouse wrote goes on the main session's command line: the prompt carries only the id, and
-the branch is a name the main session makes out of `a-z0-9`, `-` and `/`, never copied
-from the proposal. Pasting the Build line into a quoted prompt left one missed escape
-between a mouse's text and the person's shell.
+The new mouse is given the question id, and the path of a file holding the person's
+comments on the write-up when they gave some; it reads the whole report with
+`whiska show <id>`, and the report stays in the house (ADR-0007). No character a mouse
+wrote goes on the main session's command line: the prompt carries only the id and a path
+the main session chose, and the branch is a name it makes out of `a-z0-9`, `-` and `/`,
+never copied from the proposal. Pasting the Build line into a quoted prompt left one
+missed escape between a mouse's text and the person's shell.
+
+## The write-up
+
+A chat message carrying a proposal can only be answered in chat. A spec is reviewed line
+by line in the person's review tool, from a link (ADR-0063), and they wanted the same for
+an investigation, with what they commented reaching the build.
+
+- **The mouse writes it.** Before its report, the turn writes `.whiska-writeup.md` at its
+  worktree root: what it established, in full, then the same Proposed build block. The
+  block stays in the message too, since the options read it there. With no proposal it
+  writes one only when the findings outgrow the report. `whiska-finish` teaches it,
+  phrased by what the turn did, like the proposal. It is the one file a sniff mouse may
+  write (ADR-0069). Git ignores it through the main checkout's exclude file, which
+  `whiska shape` and `whiska mode` write as they do for the spec (ADR-0063), and the owl
+  writes on opening the house, so the branch still has nothing on it.
+- **Whiska keeps it per question.** The `Stop` hook carries it on the doorstep entry
+  beside the spec, with the same limits, and the owl writes it to
+  `.whiska/writeups/<question id>.md` at collection. It is not a spec: it never marks the
+  question `spec_sent`, so the spec figures (ADR-0086) count only specs.
+- **`whiska show` links it** under the branch line of a finished question, as
+  `Review write-up here:`, by its first heading, as it links the diff (ADR-0085). The link
+  is Whiska's, not the mouse's: the mouse cannot know its question id. It names the kept
+  copy, so it works from a mouse's worktree too, and after the investigation's worktree
+  is gone.
+- **Comments are the person's words, carried in a file.** The review tool's Send makes
+  the review the main session's next message. Read against the question last shown, it
+  is offered three ways: build what it proposes with these comments, send them to the
+  investigating mouse, or not now; with no proposal to build, or a branch with something
+  on it, only the last two. The
+  review quotes the write-up, which a mouse wrote, so the main session writes it with
+  the file tool to a file outside both checkouts, as it writes a commit message, and the
+  prompt names that file. On the build, the fresh mouse's one prompt is the fixed line
+  plus that path; sent to the investigating mouse, a fixed line plus that path asks it
+  to recheck and rewrite its write-up, and it finishes again. Nothing multi-line is
+  typed into a pane, where a newline can send half (ADR-0080).
 
 ## Considered options
 
@@ -90,6 +128,17 @@ between a mouse's text and the person's shell.
 - **Offer the build only when the heading says `(sniff)`.** Every task goes to a mouse
   (ADR-0078), so a build mouse is often the one asked to investigate, and its proposal
   sat behind Land here for a branch with nothing on it. The branch line settles it.
+- **Comments go only to the investigating mouse,** which rewrites its write-up, and the
+  build starts from the id alone. Keeps the prompt to the id, at one more round on the
+  model chosen for the investigation, when the person often meant the build.
+- **Whiska stores the comments on the question,** with a command for the main session to
+  record them, and the build reads them by id. A new interface and stored field for text
+  the person already handed the main session.
+- **Type the comments into the prompt, joined into one line and quoted** as the person's
+  own words are. Simpler, but the review quotes the mouse's text, so its safety rested
+  on the main session escaping hostile text perfectly every time.
+- **Link the worktree's own file,** as the spec does. It dies with the worktree, and the
+  build may start after the person drops it.
 
 ## Consequences
 
@@ -108,3 +157,8 @@ between a mouse's text and the person's shell.
   holds the context. They ask for the build, and a fresh mouse reads the proposal.
 - A repo with older skills offers no build option until `whiska init`, or `whiska init
   --global`, is re-run.
+- A doorstep entry carries an optional `writeup` field; one without it still decodes.
+  `.whiska/writeups/` holds one file per question that carried a write-up, and nothing
+  removes it, like `.whiska/reviews/`.
+- The owl also writes the write-up's exclude line when it opens a house, as it does the
+  marker's (ADR-0002), so a worktree shaped before this hides its write-up too.

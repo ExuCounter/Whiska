@@ -33,7 +33,7 @@ whiska shape --rules
 It prints JSON. Choose from it, against the request:
 
 - **Mode** — `modes` says what the request has to be, for build and for sniff. A sniff
-  mouse may not write anything; Whiska enforces that, not this choice. Unclear → ask the
+  mouse may write only its write-up; Whiska enforces that, not this choice. Unclear → ask the
   person which. A request that reads as investigation is never build by default.
 - **Model** and **effort** — `model.choose` and `effort.choose` are ordered lists. Walk
   each from the top and take the first rule whose `when` fits the request; the last rule
@@ -182,12 +182,15 @@ task: skip this step.
 ## Building what an investigation proposed
 
 The `whiska-delivered` skill sends you here with a question id when the person picked
-"Build what it proposes" on a finished investigation's report. That pick was their yes to
-the proposal, and everything else comes from it: ask the person nothing.
+"Build what it proposes" on a finished investigation's report, and with the file holding
+their comments on its write-up when they gave some. That pick was their yes to the
+proposal, and everything else comes from it: ask the person nothing.
 
 A mouse wrote the proposal, and this session's shell runs whatever reaches a command line.
 So no character of it goes on one: the branch is a name you make, and the task carries
-only the question id.
+only the question id and, with comments, the path of their file. The comments quote the
+write-up, so they were written with the file tool, to a file outside both checkouts, and
+never typed.
 
 - **Shape** — chosen as in step 2, but judged against the Build and Touches lines, not
   against the request the investigation began from: the work is described now, and the
@@ -200,7 +203,13 @@ only the question id.
   Whiska, so it travels by its id:
 
   ```bash
-  herdr agent prompt <root-pane-id> 'Build the Proposed build in question #<id>. Read it first with: whiska show <id> - its Build line is the brief, Found is fact to take as given, Open is what to grill.'
+  herdr agent prompt <root-pane-id> 'Build the Proposed build in question #<id>. Read it first with: whiska show <id> - its Build line is the brief, Found is fact to take as given, Open is what to grill. Read the write-up it links, when it links one.'
+  ```
+
+  With comments, the same line names their file:
+
+  ```bash
+  herdr agent prompt <root-pane-id> 'Build the Proposed build in question #<id>. Read it first with: whiska show <id> - its Build line is the brief, Found is fact to take as given, Open is what to grill. Read the write-up it links, then the comments the person left on it, in their own words, in <comments file>.'
   ```
 - **Report** — one line, in place of step 8's: the branch, then what `whiska shape` said on
   stderr in plain words — "A fresh session is building it on <branch>: it can change

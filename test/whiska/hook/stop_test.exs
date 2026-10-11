@@ -66,6 +66,26 @@ defmodule Whiska.Hook.StopTest do
     assert [{_, %Entry{spec: "# Spec\n\nBuild it.\n"}}] = Doorstep.waiting(main)
   end
 
+  test "carries the worktree's write-up beside its spec", %{main: main, worktree: worktree} do
+    File.write!(Path.join(worktree, ".whiska-writeup.md"), "# Why it hangs\n\nFound.\n")
+
+    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "done"}))
+
+    assert [{_, %Entry{spec: nil, writeup: "# Why it hangs\n\nFound.\n"}}] =
+             Doorstep.waiting(main)
+  end
+
+  test "a write-up that is a pipe is left out rather than read forever", %{
+    main: main,
+    worktree: worktree
+  } do
+    {_, 0} = System.cmd("mkfifo", [Path.join(worktree, ".whiska-writeup.md")])
+
+    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "done"}))
+
+    assert [{_, %Entry{writeup: nil, text: "done"}}] = Doorstep.waiting(main)
+  end
+
   test "a spec JSON cannot carry is left out, and the message still arrives", %{
     main: main,
     worktree: worktree

@@ -8,9 +8,11 @@ defmodule Whiska.Rule.Sniff do
   the worktree. A mouse nobody shaped is held to the same rule until the person
   chooses a mode (ADR-0069).
 
-  That "all" is the whole point, and it is why this rule needs no `Whiska.Layout`:
-  where the edit points is irrelevant. The only questions are what mode the mouse
-  is in and whether the tool changes anything.
+  That "all" is the whole point: where the edit points is irrelevant, bar one
+  file. A sniff mouse may write its write-up, the document a finished
+  investigation leaves for the person to review (ADR-0074), with `Write` or
+  `Edit`, and only at its own worktree root, never through a link. A mouse
+  nobody shaped gets no such exception: it is told to stop and ask.
 
   For `Bash`, "changes anything" is `Whiska.Shell`'s judgment, which errs towards
   mutating whenever it cannot read a command confidently. A sniff mouse denied a
@@ -19,14 +21,18 @@ defmodule Whiska.Rule.Sniff do
   """
 
   alias Whiska.Shell
+  alias Whiska.Writeup
 
   @edit_tools ~w(Write Edit MultiEdit NotebookEdit)
 
   @type decision :: :allow | {:deny, String.t()}
 
-  @doc "Decide one tool call for a mouse in `mode`."
-  @spec decide(String.t(), map(), String.t()) :: decision()
-  def decide(tool_name, tool_input, mode)
+  @doc """
+  Decide one tool call for a mouse in `mode`, whose worktree is at
+  `worktree_root`; with none, no write-up is recognised.
+  """
+  @spec decide(String.t(), map(), String.t(), Path.t() | nil) :: decision()
+  def decide(tool_name, tool_input, mode, worktree_root \\ nil)
 
   # A mouse nobody shaped is held to sniff until somebody chooses (ADR-0069):
   # a skipped spawn step is far more often a sniff mouse with write access than
@@ -34,23 +40,30 @@ defmodule Whiska.Rule.Sniff do
   @read_only ~w(sniff unshaped)
 
   # Every other mode — build today — is somebody else's rule.
-  def decide(_tool_name, _tool_input, mode) when mode not in @read_only, do: :allow
+  def decide(_tool_name, _tool_input, mode, _root) when mode not in @read_only, do: :allow
 
-  def decide(tool_name, _tool_input, mode) when tool_name in @edit_tools do
+  def decide(tool_name, %{"file_path" => path}, "sniff", root)
+      when tool_name in ~w(Write Edit) and is_binary(path) and is_binary(root) do
+    if Writeup.target?(path, root),
+      do: :allow,
+      else: {:deny, reason("sniff", "#{tool_name} writes to disk")}
+  end
+
+  def decide(tool_name, _tool_input, mode, _root) when tool_name in @edit_tools do
     {:deny, reason(mode, "#{tool_name} writes to disk")}
   end
 
-  def decide("Bash", tool_input, mode) do
+  def decide("Bash", tool_input, mode, _root) do
     command = Map.get(tool_input, "command", "")
 
-    if Shell.mutating?(command) do
+    if Shell.mutating?(command, program_files: :deny) do
       {:deny, reason(mode, "this command can change files on disk")}
     else
       :allow
     end
   end
 
-  def decide(_tool_name, _tool_input, _mode), do: :allow
+  def decide(_tool_name, _tool_input, _mode, _root), do: :allow
 
   defp reason("unshaped", what) do
     """
@@ -72,13 +85,14 @@ defmodule Whiska.Rule.Sniff do
     A sniff mouse investigates and reports — it never writes code, anywhere,
     including inside its own worktree (ADR-0069). Reading tools are unaffected:
     Read, Grep and Glob all work, as do read-only shell commands like
-    `git log`, `git diff` and `grep`.
+    `git log`, `git diff` and `grep`. The one file it may write, with Write or
+    Edit, is its write-up: `#{Writeup.filename()}` at the worktree root.
 
     If the work needs a change, do not make it and do not ask to switch modes.
-    Finish the investigation, and end the report on the finished marker with a
-    **Proposed build** block — Found, Build, Touches, Open — as the `whiska-finish`
-    skill describes. The person can then hand it to a fresh session shaped for
-    the build.
+    Finish the investigation: write the write-up, and end the report on the
+    finished marker with a **Proposed build** block — Found, Build, Touches,
+    Open — as the `whiska-finish` skill describes. The person can then hand it
+    to a fresh session shaped for the build.
     """
     |> String.trim()
   end
