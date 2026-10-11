@@ -1,6 +1,7 @@
 ---
 name: whiska-finish
-description: "Finish a mouse's turn: read the work back, run this repo's checks, send reviewers over the change, commit it, then write the done marker. Use before ending a turn on the finished marker, or on /whiska-finish. A turn ending on a decision for the person skips it."
+user-invocable: false
+description: "Finish a mouse's turn: read the work back, run this repo's checks, send reviewers over the change, commit it, then write the done marker. Use before ending a turn on the finished marker. A turn ending on a decision for the person skips it."
 ---
 
 # whiska-finish

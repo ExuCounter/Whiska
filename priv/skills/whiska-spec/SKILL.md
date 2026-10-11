@@ -1,6 +1,7 @@
 ---
 name: whiska-spec
-description: "Write down what a brief will build, as a spec the person reads and approves before any code. Use after the last grilling round is answered, or straight away when there was nothing to ask, or on /whiska-spec."
+user-invocable: false
+description: "Write down what a brief will build, as a spec the person reads and approves before any code. Use after the last grilling round is answered, or straight away when there was nothing to ask."
 ---
 
 Turn the grilling that just finished, if any, and what you read of the code, into a spec,

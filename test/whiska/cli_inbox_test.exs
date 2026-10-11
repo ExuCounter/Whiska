@@ -111,7 +111,36 @@ defmodule Whiska.CLIInboxTest do
   end
 
   describe "inbox" do
-    test "is `whiska waiting`, from anywhere", %{main: main, root: root} do
+    test "lists only this repo's rows, from a worktree too", %{
+      main: main,
+      worktree: worktree,
+      root: root
+    } do
+      other = house!(root, "otherrepo")
+      seed(main, fn -> ask("ma", "[worktree-status: needs-decision] pick one") end)
+      seed(other, fn -> ask("ma", "[worktree-status: needs-decision] elsewhere?") end)
+
+      for cwd <- [main, worktree] do
+        {0, out, _} = run(["inbox"], cwd)
+        assert out =~ "pick one"
+        refute out =~ "elsewhere?"
+      end
+    end
+
+    test "--all lists every repo, as text and as json", %{main: main, root: root} do
+      other = house!(root, "otherrepo")
+      seed(main, fn -> ask("ma", "[worktree-status: needs-decision] pick one") end)
+      seed(other, fn -> ask("ma", "[worktree-status: needs-decision] elsewhere?") end)
+
+      {0, out, _} = run(["inbox", "--all"], main)
+      assert out =~ "pick one"
+      assert out =~ "elsewhere?"
+
+      {0, json, _} = run(["inbox", "--all", "--json"], main)
+      assert {:ok, [_, _]} = JSON.decode(json)
+    end
+
+    test "outside any repo lists every repo, like --all", %{main: main, root: root} do
       seed(main, fn -> ask("ma", "[worktree-status: needs-decision] pick one") end)
       elsewhere = Path.join(root, "not-a-repo")
       File.mkdir_p!(elsewhere)

@@ -179,10 +179,12 @@ defmodule Whiska.CLI do
     them as plain commands under ~/.whiska/bin, and as slash commands in the
     main session. The long names above keep working.
 
-    inbox [--json]       What is waiting on you anywhere, oldest first — the
-                         rows `waiting` prints, with why each is not being
+    inbox [--all] [--json]
+                         What is waiting on you in this repo, oldest first —
+                         the rows `waiting` prints, with why each is not being
                          delivered (held, away, focus: <branch>, queued
                          behind #<id>) and a first line when you are away.
+                         `--all`, or outside any repo, lists every repo.
     show [<id>]          This repo's open questions in full, or one by id.
     reply <id> <text>    Answer it; no quotes needed around the text.
     dismiss <id>         Close it without answering (`close`).
@@ -397,8 +399,11 @@ defmodule Whiska.CLI do
 
   def run(["open", target], cwd), do: open_mouse(cwd, target)
 
-  def run(["inbox"], _cwd), do: inbox(:text)
-  def run(["inbox", "--json"], _cwd), do: inbox(:json)
+  def run(["inbox"], cwd), do: inbox(:text, :here, cwd)
+  def run(["inbox", "--json"], cwd), do: inbox(:json, :here, cwd)
+  def run(["inbox", "--all"], cwd), do: inbox(:text, :all, cwd)
+  def run(["inbox", "--all", "--json"], cwd), do: inbox(:json, :all, cwd)
+  def run(["inbox", "--json", "--all"], cwd), do: inbox(:json, :all, cwd)
   def run(["show"], cwd), do: questions(cwd || File.cwd!(), :full)
   def run(["show", id], cwd), do: with_question(cwd, id, &show_question(&1, cwd))
   def run(["dismiss", id], cwd), do: with_question(cwd, id, &close/1)
@@ -2053,8 +2058,23 @@ defmodule Whiska.CLI do
 
   # -- away, focus, hold and resume (ADR-0079)
 
-  defp inbox(:json), do: say(Waiting.json(Waiting.list()))
-  defp inbox(:text), do: say(Waiting.render(Waiting.list(), away?: Mode.away?()))
+  defp inbox(shape, scope, cwd) do
+    entries = inbox_entries(scope, cwd)
+
+    case shape do
+      :json -> say(Waiting.json(entries))
+      :text -> say(Waiting.render(entries, away?: Mode.away?()))
+    end
+  end
+
+  defp inbox_entries(:here, cwd) do
+    case main_checkout(cwd || File.cwd!()) do
+      {:ok, main} -> Waiting.house(main)
+      :error -> Waiting.list()
+    end
+  end
+
+  defp inbox_entries(:all, _cwd), do: Waiting.list()
 
   defp away do
     was_away = Mode.away?()

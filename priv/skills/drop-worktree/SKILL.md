@@ -1,5 +1,6 @@
 ---
 name: drop-worktree
+user-invocable: false
 description: "Take a worktree down: its git worktree, herdr workspace and branch, together. Use when the person asks to drop, delete, close, remove, or clean up a worktree. Requires HERDR_ENV=1."
 ---
 

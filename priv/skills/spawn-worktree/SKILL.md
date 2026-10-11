@@ -1,5 +1,6 @@
 ---
 name: spawn-worktree
+user-invocable: false
 description: "Spawn a new git worktree under worktrees/<branch> as a herdr workspace and start a mouse — a Claude Code session — inside it, without switching the person's view. Use when the person asks to start a new task in a worktree, spawn a worktree, or fork off into a fresh workspace. Requires HERDR_ENV=1 and a git repo."
 ---
 

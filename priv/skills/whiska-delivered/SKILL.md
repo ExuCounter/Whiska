@@ -1,5 +1,6 @@
 ---
 name: whiska-delivered
+user-invocable: false
 description: "Read the question behind a line Whiska's owl typed into this session. Use when a user turn is one line starting with 🐱 and carrying a number after #, such as '🐱 feat-auth needs a decision · #12' or '🐱 feat-auth finished · #12'. Nobody types a slash command for this; the line itself is the trigger."
 ---
 

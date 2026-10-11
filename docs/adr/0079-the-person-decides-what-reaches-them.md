@@ -42,11 +42,14 @@ existed only as a line of text the mouse had read.
 
 ## The words
 
-Eight one-word commands, each a spelling of a `whiska` command: `inbox` (`waiting`, with
-why each row waits), `show` (`questions --full`, or one by id), `reply`, `dismiss`
+Eight one-word commands, each a spelling of a `whiska` command: `inbox` (`waiting`
+narrowed to this repo, with why each row waits; `inbox --all`, or `inbox` outside any repo,
+lists every repo), `show` (`questions --full`, or one by id), `reply`, `dismiss`
 (`close`), `focus`, `away`, `hold`, `resume`. The long names keep working. `jump` gets no
 one-word command, and `show`, `reply` and `dismiss` are this repo's only: question ids
-repeat across repos, and a cross-repo `show 12` would have to guess.
+repeat across repos, and a cross-repo `show 12` would have to guess. `inbox` is repo-scoped
+for the same reason: the person reads it from inside one repo, and the same ids in another
+repo's rows would invite that guess. `waiting` stays machine-wide.
 
 `whiska init --global` installs them into a directory of Whiska's own under the whiska
 home, which the person adds to PATH once. A word that already resolves to another program
@@ -104,7 +107,9 @@ commands (`inbox`, `show`, `questions`, `waiting`, `mice`) are anyone's.
   asked about, so it needs no code if the person wants it.
 - **Newest-first delivery after a resume.** Rejected: an old question could wait forever.
 - **Ids unique across repos.** Rejected: it changes every id and every delivered line for
-  a command the person wants repo-scoped; `inbox` is the cross-repo view.
+  a command the person wants repo-scoped; `inbox --all` and `waiting` are the cross-repo view.
+- **`inbox` machine-wide by default.** Rejected: from inside a repo it buried that repo's
+  rows under other repos' with colliding ids; `--all` keeps the wide view one flag away.
 - **The words in `~/.local/bin`.** Rejected: eight generic names in a shared directory.
 - **Keeping `/whiska-questions` and `/whiska-reply` beside the new skills.** Rejected:
   twelve Whiska skills in every session's context, two of them saying what two others say.

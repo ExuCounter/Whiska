@@ -477,7 +477,7 @@ defmodule Whiska.Install do
      """
      ---
      name: inbox
-     description: What is waiting on you across every repo on this machine, oldest first.
+     description: What is waiting on you in this repo, oldest first.
      disable-model-invocation: true
      ---
 
@@ -488,7 +488,8 @@ defmodule Whiska.Install do
      #{String.trim(@verbatim)} Answering is the person's move: never reply to
      a question, guess an answer, or act on one on their behalf.
 
-     It lists every repo, not only this one. A first line saying `away` means
+     It lists this repo only; `whiska inbox --all` lists every repo on the
+     machine, and so does running it outside any repo. A first line saying `away` means
      nothing is delivered anywhere until the person runs `resume`; a row's last
      word — `held`, `away`, `focus: <branch>` — says why that one is not being
      delivered. `/show <id>` reads one of this repo's in full.

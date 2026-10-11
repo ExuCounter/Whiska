@@ -19,8 +19,8 @@ The person's eight one-word commands — `inbox`, `show`, `reply`, `dismiss`, `f
 skipped where another program already answers to the word, and ship as the same eight
 slash commands (ADR-0079). Six of them are only ever the person's to type and never load
 into a session's context (ADR-0081); `show` and `reply` stay where the main session can
-reach them. `/inbox` wraps `whiska waiting`, a machine-wide command with no right repo to
-run in: it runs only when the person types it, which is the person asking.
+reach them. `/inbox` wraps `whiska inbox`, which lists the repo it is run in (ADR-0079);
+`whiska waiting` is the machine-wide reading. It runs only when the person types it, which is the person asking.
 
 `whiska-delivered` is installed beside them but nobody types it: the owl's delivered line
 carries no command, so the skill's description names the line's shape and Claude Code

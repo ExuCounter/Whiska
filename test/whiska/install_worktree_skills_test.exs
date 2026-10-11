@@ -367,6 +367,17 @@ defmodule Whiska.InstallWorktreeSkillsTest do
     end
   end
 
+  describe "skills only Whiska's own sessions run stay out of the / menu" do
+    test "each carries user-invocable: false, and grilling does not" do
+      for name <- ~w(spawn-worktree send-to-worktree drop-worktree whiska-finish whiska-spec
+                     cold-review whiska-delivered) do
+        assert skill(name) =~ ~r/\A---\n(?:(?!---\n).*\n)*?user-invocable: false\n/, name
+      end
+
+      refute skill("grilling") =~ "user-invocable"
+    end
+  end
+
   describe "the long skills are build inputs under priv/ (ADR-0056)" do
     @committed_skills @worktree_skills ++ ~w(whiska-finish)
 

@@ -1,6 +1,7 @@
 ---
 name: cold-review
-description: "Cold review of a branch: a reviewer that never saw the build checks the diff against the approved spec and the decisions the repo recorded before it. Use when asked for a cold or independent review, at finish from whiska-finish, or on /cold-review."
+user-invocable: false
+description: "Cold review of a branch: a reviewer that never saw the build checks the diff against the approved spec and the decisions the repo recorded before it. Use when asked for a cold or independent review, or at finish from whiska-finish."
 context: fork
 agent: Explore
 background: false

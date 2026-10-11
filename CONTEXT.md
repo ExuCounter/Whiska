@@ -398,8 +398,9 @@ _Avoid_: admin command, privileged command (there is no privilege, only whose de
 is), main-session command (the person may run one from any terminal)
 
 **Inbox**:
-The person's list of everything waiting on them across every repo on the machine —
-`inbox`, the same reading as `whiska waiting` (see **Waiting**) — with a last column
+The person's list of everything waiting on them in this repo —
+`inbox`, `whiska waiting` narrowed to one repo (see **Waiting**); `inbox --all`, or `inbox`
+outside any repo, reads every repo on the machine — with a last column
 saying why a row is not being delivered (`held`, `away`, `focus: <branch>`, `queued
 behind #n` for one waiting on the question that is out, or `not taken` for an answer its
 mouse has not **taken**) and a first

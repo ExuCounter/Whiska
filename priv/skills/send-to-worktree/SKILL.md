@@ -1,5 +1,6 @@
 ---
 name: send-to-worktree
+user-invocable: false
 description: "Route a follow-up idea into the Claude session already building its branch in a worktree, without blocking or switching the person's view. Use when the person gives a new idea, refinement, or sub-task for a branch a worktree is already building, rather than a separate piece of work."
 ---
 
