@@ -495,8 +495,8 @@ defmodule Whiska.Waiting do
   end
 
   @doc """
-  The same entries as JSON — an array of objects, for a Raycast script or
-  anything else that would rather not parse columns. An empty list is `[]`.
+  The same entries as JSON — an array of objects, for a script that would
+  rather not parse columns. An empty list is `[]`.
   """
   @spec json([entry()]) :: String.t()
   def json(entries), do: JSON.encode!(Enum.map(entries, &row_map/1))

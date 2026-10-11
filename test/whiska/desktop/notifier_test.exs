@@ -1,7 +1,7 @@
 defmodule Whiska.Desktop.NotifierTest do
   @moduledoc """
   The desktop notifier Whiska raises a hoot with when herdr will not show it
-  (ADR-0062): terminal-notifier or osascript on macOS, notify-send on Linux.
+  (ADR-0062): osascript on macOS, notify-send on Linux.
 
   A branch name and a pointer line are somebody else's text — anything in the
   repo can write the doorstep file they come from — and here they reach a
@@ -49,16 +49,7 @@ defmodule Whiska.Desktop.NotifierTest do
   defp received(out), do: out |> File.read!() |> String.split(<<0>>, trim: true)
 
   describe "command/2 — the program and its arguments, never a shell string" do
-    test "terminal-notifier gets the title and the text as arguments of their own" do
-      title = "🐱 whiska · #{@nasty} needs a decision"
-
-      assert {"/bin/tn", args} =
-               Notifier.command(hoot(title: title), only("terminal-notifier", "/bin/tn"))
-
-      assert args == ["-title", title, "-message", "#12", "-sound", "Ping"]
-    end
-
-    test "osascript is the fallback, and its script never holds the text" do
+    test "osascript's script is fixed text, and never holds the text" do
       title = "🐱 whiska · #{@nasty} needs a decision"
       body = ~s(#12 · "#{@nasty}")
 
@@ -74,13 +65,13 @@ defmodule Whiska.Desktop.NotifierTest do
       assert "on run argv" in script
     end
 
-    test "terminal-notifier wins when both are there" do
+    test "osascript raises it even where terminal-notifier is installed" do
       find = fn
-        "terminal-notifier" -> "/bin/tn"
+        "terminal-notifier" -> "/opt/homebrew/bin/terminal-notifier"
         "osascript" -> "/usr/bin/osascript"
       end
 
-      assert {"/bin/tn", _} = Notifier.command(hoot(), find)
+      assert {"/usr/bin/osascript", _} = Notifier.command(hoot(), find)
     end
 
     test "notify-send is the Linux notifier, with the title and text after a --" do
@@ -120,7 +111,7 @@ defmodule Whiska.Desktop.NotifierTest do
                ~s(#12 · &lt;a href="https://evil.example"&gt;Approve&lt;/a&gt; &amp; &lt;b&gt;now&lt;/b&gt;)
     end
 
-    test "the macOS notifiers win where they are there" do
+    test "osascript wins where it is there" do
       find = fn
         "osascript" -> "/usr/bin/osascript"
         "notify-send" -> "/usr/bin/notify-send"
@@ -135,24 +126,11 @@ defmodule Whiska.Desktop.NotifierTest do
     end
 
     test "a finished branch takes the other sound, and :none takes no sound at all" do
-      assert {_, args} = Notifier.command(hoot(sound: :done), only("terminal-notifier", "/t"))
-      assert ["-sound", "Glass"] == Enum.take(args, -2)
-
-      assert {_, args} = Notifier.command(hoot(sound: :none), only("terminal-notifier", "/t"))
-      refute "-sound" in args
+      assert {_, args} = Notifier.command(hoot(sound: :done), only("osascript", "/o"))
+      assert List.last(args) == "Glass"
 
       assert {_, args} = Notifier.command(hoot(sound: :none), only("osascript", "/o"))
       assert List.last(args) == ""
-    end
-
-    test "a title gets the same defusing as the text, and leading whitespace does not hide one" do
-      for start <- [" (a, b)", "\n<array/>", "\t{a = b;}", "-execute"] do
-        {_, args} =
-          Notifier.command(hoot(title: start, body: start), only("terminal-notifier", "/t"))
-
-        assert Enum.at(args, 1) == "\u200B" <> start
-        assert Enum.at(args, 3) == "\u200B" <> start
-      end
     end
 
     test "osascript's data follows a --, so a title of -e is never more script" do
@@ -161,45 +139,13 @@ defmodule Whiska.Desktop.NotifierTest do
       assert ["--", "-e", "#12", "Ping"] == Enum.take(args, -4)
     end
 
-    test "text that terminal-notifier would read as an option or a plist is defused" do
-      for start <- ["-remove ALL", "(a, b)", "{a = b;}", "<data>"] do
-        {_, args} = Notifier.command(hoot(body: start), only("terminal-notifier", "/t"))
-        message = Enum.at(args, 3)
-
-        assert message == "​" <> start
-      end
-    end
-
     test "a NUL byte, which no argument can carry, is dropped rather than crashing" do
-      {_, args} = Notifier.command(hoot(body: "a\0b"), only("terminal-notifier", "/t"))
-      assert Enum.at(args, 3) == "ab"
-    end
-
-    test "an empty text is never sent empty: terminal-notifier would wait on stdin" do
-      {_, args} = Notifier.command(hoot(body: ""), only("terminal-notifier", "/t"))
-      assert Enum.at(args, 3) != ""
+      {_, args} = Notifier.command(hoot(body: "a\0b"), only("osascript", "/o"))
+      assert Enum.at(args, -2) == "ab"
     end
   end
 
   describe "notify/2 — through a real process" do
-    test "a branch with quotes, backticks and a semicolon reaches terminal-notifier intact", %{
-      dir: dir
-    } do
-      {path, out} = recorder(dir, "terminal-notifier")
-      title = "🐱 whiska · #{@nasty} needs a decision"
-      body = ~s(#12 · "#{@nasty}")
-
-      assert {:ok, "terminal-notifier"} =
-               Notifier.notify(hoot(title: title, body: body),
-                 find: only("terminal-notifier", path)
-               )
-
-      assert received(out) == ["-title", title, "-message", body, "-sound", "Ping"]
-      # Nothing ran: no shell ever saw the text, so `rm`, `whoami` and `id` are
-      # just characters in an argument.
-      refute File.exists?(Path.join(dir, "pwned"))
-    end
-
     test "the same branch reaches osascript intact, after the fixed script", %{dir: dir} do
       {path, out} = recorder(dir, "osascript")
       title = "🐱 whiska · #{@nasty} needs a decision"
@@ -208,6 +154,9 @@ defmodule Whiska.Desktop.NotifierTest do
                Notifier.notify(hoot(title: title), find: only("osascript", path))
 
       assert Enum.take(received(out), -3) == [title, "#12", "Ping"]
+      # Nothing ran: no shell ever saw the text, so `rm`, `whoami` and `id` are
+      # just characters in an argument.
+      refute File.exists?(Path.join(dir, "pwned"))
     end
 
     test "the same branch reaches notify-send intact", %{dir: dir} do
@@ -269,36 +218,27 @@ defmodule Whiska.Desktop.NotifierTest do
       end
     end
 
-    test "a notifier outside the owl's PATH is still found where Homebrew puts it", %{dir: dir} do
-      path = Path.join(dir, "terminal-notifier")
-      File.write!(path, "#!/bin/sh\n")
-      File.chmod!(path, 0o755)
-
-      assert Notifier.locate("terminal-notifier", [Path.join(dir, "missing"), dir]) == path
-      assert Notifier.locate("osascript-not-here", [dir]) == nil
-    end
-
     test "no notifier is an answer, not a crash" do
       assert Notifier.notify(hoot(), find: fn _ -> nil end) == {:error, :no_notifier}
     end
 
     test "a notifier that fails says how, and does not raise", %{dir: dir} do
-      path = Path.join(dir, "terminal-notifier")
+      path = Path.join(dir, "osascript")
       File.write!(path, "#!/bin/sh\necho broken >&2\nexit 3\n")
       File.chmod!(path, 0o755)
 
-      assert {:error, {"terminal-notifier", {:exit, 3}}} =
-               Notifier.notify(hoot(), find: only("terminal-notifier", path))
+      assert {:error, {"osascript", {:exit, 3}}} =
+               Notifier.notify(hoot(), find: only("osascript", path))
     end
 
     test "a notifier that hangs is given up on and killed, not left running", %{dir: dir} do
-      path = Path.join(dir, "terminal-notifier")
+      path = Path.join(dir, "osascript")
       seconds = "30.#{System.unique_integer([:positive])}"
       File.write!(path, "#!/bin/sh\nexec sleep #{seconds}\n")
       File.chmod!(path, 0o755)
 
-      assert {:error, {"terminal-notifier", :timeout}} =
-               Notifier.notify(hoot(), find: only("terminal-notifier", path), timeout_ms: 300)
+      assert {:error, {"osascript", :timeout}} =
+               Notifier.notify(hoot(), find: only("osascript", path), timeout_ms: 300)
 
       assert {_, 1} = System.cmd("pgrep", ["-f", "sleep #{seconds}"])
     end
@@ -325,11 +265,11 @@ defmodule Whiska.Desktop.NotifierTest do
       spawn(fn ->
         send(
           parent,
-          {:answer, Notifier.notify(hoot(), find: only("terminal-notifier", "/nope/tn"))}
+          {:answer, Notifier.notify(hoot(), find: only("osascript", "/nope/osascript"))}
         )
       end)
 
-      assert_receive {:answer, {:error, {"tn", _}}}, 2_000
+      assert_receive {:answer, {:error, {"osascript", _}}}, 2_000
     end
   end
 

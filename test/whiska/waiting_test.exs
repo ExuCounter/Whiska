@@ -536,7 +536,7 @@ defmodule Whiska.WaitingTest do
     end
   end
 
-  describe "json/1 — what a Raycast script reads" do
+  describe "json/1 — what a script reads" do
     test "an array of objects, with an age in seconds and a null id for a doorstep entry" do
       json =
         Waiting.json([

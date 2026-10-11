@@ -21,8 +21,8 @@ are told apart without looking.
 the same boundary and fake as every other herdr call (ADR-0031).
 
 **Raised on the desktop when herdr answers `disabled` or `no_foreground_client`.** On macOS
-`terminal-notifier` when installed, else `osascript`; on Linux `notify-send`, with the
-freedesktop sounds `message-new-instant` and `complete`. `rate_limited` and `busy` do not
+`osascript`; on Linux `notify-send`, with the freedesktop sounds `message-new-instant` and
+`complete`. Both ship with the desktop, so a hoot needs nothing installed. `rate_limited` and `busy` do not
 fall back: that is herdr pacing itself. An error does not: herdr may have drawn the hoot
 before it. A reason herdr adds later does not, until decided here; the doctor names it.
 The reason the fallback exists: `[ui.toast] delivery` is one switch over two decisions,
@@ -34,7 +34,8 @@ the one notification Whiska raises for them.
 **No setting, either way.** herdr's switch is the person's machine-wide preference about
 their attention, and a per-repo switch would only ever disagree with it. A switch for the
 fallback would be a second way back to the silence the fallback removes. The lever for
-quiet is the OS's own per-app notification settings for the notifier.
+quiet is the OS's own per-app notification settings for the notifier; macOS files
+osascript's under Script Editor.
 
 **A hoot never costs a delivery.** The question is recorded `sent` first; an error, a
 timeout, a raise, a non-zero exit, a notifier that hangs (killed after five seconds): all
@@ -44,11 +45,8 @@ swallowed. Delivery is the job and the hoot is a courtesy.
 doorstep file anything in the repo can write. The notifier runs with an argument list and
 no shell; `osascript` runs a fixed script reading title and body from `argv` after a `--`
 (it keeps reading options after its last `-e`, so a title of `-e` would otherwise compile
-as script); `notify-send`'s arguments follow a `--` too. A NUL byte is dropped. A leading
-`-`, `(`, `{`, `<` or quote gets a zero-width space in front of it, since terminal-notifier
-would read it as an option or a property list. The title is flattened to one line and cut.
-A notifier off launchd's bare PATH is looked for in `/opt/homebrew/bin` and
-`/usr/local/bin`. The desktop sits behind `Whiska.Desktop`, so the suite runs against a
+as script); `notify-send`'s arguments follow a `--` too. A NUL byte is dropped. The title is flattened
+to one line and cut. The desktop sits behind `Whiska.Desktop`, so the suite runs against a
 stand-in; one test tagged `live_desktop` reaches the real one when asked.
 
 **`whiska doctor` probes rather than reads.** It sends a hoot down the same function and
@@ -67,8 +65,8 @@ appears the doctor points at the desktop's own settings or a missing notificatio
 - The pointer line surfaces on the notification centre, lock screen and screen share
   included; the person's "show previews" setting is the lever. A hoot that said only "a
   question arrived" would cost the thing it is for, acting without opening anything.
-- A machine with none of the three notifiers, a server or a container, raises nothing,
-  and the doctor says so in words.
+- A machine with neither notifier, a server or a container, raises nothing, and the
+  doctor says so in words.
 - The generic `Stop`-hook notification in the person's dotfiles, which fired after every
   main-session turn, has nothing left to do.
 
@@ -80,5 +78,10 @@ appears the doctor points at the desktop's own settings or a missing notificatio
 - **`hoot: true` in a repo's config.** A second switch disagreeing with herdr's.
 - **Desktop notifiers only, never herdr.** A second notification style for everyone, and
   one more program to install, where herdr's own works for most.
+- **`terminal-notifier` first on macOS, when installed.** Built, then dropped on
+  2026-10-11: a Homebrew add-on doing what `osascript` already does, picked only on the
+  machines that happen to have it, and needing a Homebrew-folder search and its own
+  argument guards. What it gave, notification settings of its own apart from Script
+  Editor's, is not worth a dependency on one machine's setup.
 
 Folded in on 2026-10-08: 0071 (its text is in git history).

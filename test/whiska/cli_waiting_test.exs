@@ -66,8 +66,8 @@ defmodule Whiska.CLIWaitingTest do
       Storage.record_mouse(%{mouse_id: id, path: "/w/#{branch}", branch: branch, pane: pane})
   end
 
-  # A shell with no HERDR_SOCKET_PATH in it — a Raycast hotkey runs a script
-  # command with no shell environment at all — and herdr's socket sitting where
+  # A shell with no HERDR_SOCKET_PATH in it — a hotkey runs its command with
+  # no shell environment at all — and herdr's socket sitting where
   # herdr always puts it (ADR-0040).
   defp no_variable_but_a_socket(root) do
     home = Path.join(root, "home")

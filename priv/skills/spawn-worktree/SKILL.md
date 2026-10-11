@@ -93,8 +93,8 @@ herdr worktree create \
 
 - `--path worktrees/<branch-name>` is fixed: Whiska derives a mouse's worktree root and its
   main checkout from exactly this layout (`Whiska.Layout`). Changing it means changing
-  Whiska. `/worktrees/` is excluded globally via `core.excludesFile`, so it needs no
-  per-repo `.gitignore` entry.
+  Whiska. The owl adds `/worktrees/` to the main checkout's `.git/info/exclude` when it
+  opens the house, so it needs no `.gitignore` entry.
 - `--no-focus` leaves the person's current view untouched.
 - Leave `--base` off and herdr starts from the current HEAD. A hardcoded `origin/HEAD` or
   `main` fails with `invalid reference` in the many repos without it. Add `--base <ref>`

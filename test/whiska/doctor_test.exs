@@ -250,12 +250,12 @@ defmodule Whiska.DoctorTest do
     end
 
     test "herdr's popups off but the desktop showed it is ok, and names the notifier" do
-      check = Doctor.hoot({:ok, {:not_shown, "disabled"}}, {:ok, "terminal-notifier"})
+      check = Doctor.hoot({:ok, {:not_shown, "disabled"}}, {:ok, "osascript"})
 
       assert %Check{status: :ok} = check
       assert check.detail =~ "disabled"
-      assert check.detail =~ "terminal-notifier"
-      assert check.detail =~ "macOS"
+      assert check.detail =~ "osascript"
+      assert check.detail =~ "macOS has notifications off for Script Editor"
     end
 
     test "raised by notify-send, it points at the desktop's own settings, not macOS's" do
@@ -279,7 +279,7 @@ defmodule Whiska.DoctorTest do
 
       assert %Check{status: :warn} = check
       assert check.detail =~ "disabled"
-      assert check.detail =~ "terminal-notifier"
+      refute check.detail =~ "terminal-notifier"
       assert check.detail =~ "osascript"
       assert check.detail =~ "notify-send"
       assert check.detail =~ "silent"
@@ -1276,14 +1276,14 @@ defmodule Whiska.DoctorTest do
 
       stub(Whiska.Desktop.Mock, :notify, fn notification ->
         send(test, {:desktop, notification})
-        {:ok, "terminal-notifier"}
+        {:ok, "osascript"}
       end)
 
       report = Doctor.run(main, env: env, owl_pids: fn -> [] end, desktop: Whiska.Desktop.Mock)
 
       assert_received {:desktop, %{title: "🐱 whiska doctor"}}
       assert %Check{status: :ok, detail: detail} = find(report.checks, "hoot")
-      assert detail =~ "terminal-notifier"
+      assert detail =~ "osascript"
     end
 
     test "a repo init took the statusline out of says it is gone", %{main: main, env: env} do

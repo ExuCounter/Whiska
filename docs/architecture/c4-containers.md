@@ -10,7 +10,7 @@ C4Container
 
   Person(person, "The person", "Answers one question at a time")
   System_Ext(herdr, "herdr", "Panes, sessions, agent status")
-  System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
+  System_Ext(nc, "Desktop notifications", "osascript on macOS, notify-send on Linux")
 
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; asks the owl first, else resolves the runtime at fire time; fails open, with a visible hook error in a worktree. The global copy stands down where the repo has its own")
@@ -71,6 +71,7 @@ C4Container
   Rel(house, kept, "Keeps the spec a collected entry carried; the sweep marks it landed or dropped")
   Rel(cli, reviews, "whiska show, from the main checkout, writes a finished branch's diff")
   Rel(house, backstop, "Marks what the backstop collected; clears it at open")
+  Rel(house, marker, "At open, makes git ignore it and worktrees/, through the main checkout's info/exclude")
   Rel(cli, clonelist, "shape reads it, clones those paths copy-on-write, and excludes each from git")
   Rel(cli, backstop, "doctor reads it: has the last resort been doing the trigger's job")
   Rel(house, db, "Records questions, marks mice dead and removed; reads the next open one")

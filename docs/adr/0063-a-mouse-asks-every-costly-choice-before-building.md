@@ -173,9 +173,9 @@ choices and one on the spec; any other task costs one, the spec, and the four th
 cost none. A crash fix nobody had a choice about now waits on the person. The final report grows by the
 cheap choices made, each a line under what changed, outside the report's size cap. A
 doorstep entry carries an optional `spec` field; an entry without one still decodes. A
-house without a herdr socket leaves every kept spec at `waiting`. `.whiska-mouse` has the
-same untracked-file problem in a repo whose `.gitignore` does not list it, left for a
-change of its own.
+house without a herdr socket leaves every kept spec at `waiting`. `.whiska-mouse` had the
+same untracked-file problem, and is hidden the same way, by the owl when it opens the
+house (ADR-0002).
 
 The link names the worktree's file, so an answer given after the worktree is gone finds a
 dead link; the text is then in the kept copy, whose `question:` header names the question.

@@ -85,6 +85,38 @@ defmodule Whiska.Owl.HouseCleanupTest do
     Storage.close(handle)
   end
 
+  test "a landed worktree holding its mouse marker is taken down, with no gitignore to hide it",
+       %{repo: repo, path: path} do
+    {:ok, _} = Whiska.Marker.read_or_mint(path)
+    GitRepo.land(repo, "feat-a")
+    stub(Herdr, :list_panes, fn @socket -> {:ok, []} end)
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> {:ok, spawn(fn -> :ok end)} end)
+
+    stub(Herdr, :worktrees, fn @socket, _checkout ->
+      {:ok, [%{path: path, branch: "feat-a", workspace_id: nil}]}
+    end)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, backstop_ms: 20, board_ms: 60_000)
+      until_gone(path, 500)
+      House.sync(house)
+    end)
+
+    refute File.dir?(path)
+  end
+
+  test "opening a house hides the worktrees folder from the main checkout", %{repo: repo} do
+    File.mkdir_p!(Path.join([repo.checkout, "worktrees", "feat-b"]))
+    File.write!(Path.join([repo.checkout, "worktrees", "feat-b", "notes.md"]), "x")
+    stub(Herdr, :list_panes, fn @socket -> {:ok, []} end)
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> {:ok, spawn(fn -> :ok end)} end)
+    stub(Herdr, :worktrees, fn @socket, _checkout -> {:ok, []} end)
+
+    capture_io(:stderr, fn -> open(repo, backstop_ms: 60_000, board_ms: 60_000) end)
+
+    assert GitRepo.git!(repo.checkout, ["status", "--porcelain"]) == ""
+  end
+
   test "a worktree still being worked in is left exactly where it is", %{repo: repo, path: path} do
     stub(Herdr, :list_panes, fn @socket -> {:ok, []} end)
     stub(Herdr, :subscribe, fn @socket, _subs, _listener -> {:ok, spawn(fn -> :ok end)} end)

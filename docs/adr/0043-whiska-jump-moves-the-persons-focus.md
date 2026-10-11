@@ -42,10 +42,11 @@ much worse thing than one that can type a line.
   types into; it is not where a jump goes.
 - `Whiska.Herdr` gains `focus/2` and `open_worktree/2`, faked at the same boundary
   (ADR-0031).
-- The hotkey runs without a shell environment (a Raycast script command running
-  `open -a kitty && whiska jump`), so `HERDR_SOCKET_PATH` is unset there as it is for the
+- The hotkey runs without a shell environment (a hotkey tool running
+  `open -a <terminal> && whiska jump`), so `HERDR_SOCKET_PATH` is unset there as it is for the
   supervised owl; `Whiska.Herdr.socket/1` falls back to herdr's default socket.
-- The Raycast script is not shipped; its five lines are in `whiska --help` under `jump`.
+- No hotkey script is shipped; `whiska --help` under `jump` shows the one command to
+  bind, for whichever terminal and hotkey tool the person uses.
 - Neither the tab bar nor a statusline can make this a click: Claude Code strips links
   from a statusline and herdr's tab bar has no click action.
 

@@ -52,7 +52,7 @@ defmodule Whiska.E2ETest do
     File.mkdir_p!(bin)
     File.ln_s!(@fake_claude, Path.join(bin, "claude"))
     File.ln_s!(@binary, Path.join(bin, "whiska"))
-    fake_notifier(Path.join(bin, "terminal-notifier"))
+    for notifier <- ["osascript", "notify-send"], do: fake_notifier(Path.join(bin, notifier))
     no_service_manager(Path.join(bin, "launchctl"))
     no_service_manager(Path.join(bin, "systemctl"))
 

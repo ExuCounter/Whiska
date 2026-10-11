@@ -350,6 +350,8 @@ defmodule Whiska.Owl.House do
     # finds here; with nothing here it prints only the person's own line.
     File.rm_rf(Path.join(Whiska.OpenHouses.home(), "board"))
 
+    hide_own_files(state)
+
     # Delivery is attempted at open, not only after a collection: reconciling
     # may just have freed ADR-0008's slot by marking a mouse dead that died
     # while the owl was down, and the question behind it should not wait for
@@ -1297,6 +1299,17 @@ defmodule Whiska.Owl.House do
     error ->
       warn(state, "no usage for question #{question.id} (#{Exception.message(error)})")
       :ok
+  end
+
+  # Every worktree's marker and the folder the worktrees sit in, hidden from
+  # git through the exclude file every worktree reads. A gitignore of the
+  # person's may hide them on one machine; nothing else would, and a worktree
+  # whose marker shows as a change is never taken down (ADR-0061).
+  defp hide_own_files(state) do
+    for line <- [Whiska.Marker.exclude_line(), Layout.exclude_line()],
+        {:error, reason} <- [Whiska.Spec.ignore(state.main_checkout, line)] do
+      warn(state, "could not hide #{line} from git (#{inspect(reason)})")
+    end
   end
 
   # -- delivery (ADR-0008) -----------------------------------------------------

@@ -1,9 +1,8 @@
 defmodule Whiska.Desktop.Notifier do
   @moduledoc """
-  Raises a notification with the first notifier this machine has (ADR-0062):
-  `terminal-notifier`, then `osascript` on macOS, then `notify-send` on Linux.
-  None — a machine with no desktop — is `{:error, :no_notifier}`, never a
-  crash.
+  Raises a notification with the notifier the desktop ships (ADR-0062):
+  `osascript` on macOS, `notify-send` on Linux. None — a machine with no
+  desktop — is `{:error, :no_notifier}`, never a crash.
 
   The text is somebody else's: a branch name and a pointer line arrive from a
   doorstep file anything in the repo can write. So the program is run directly
@@ -12,19 +11,11 @@ defmodule Whiska.Desktop.Notifier do
   osascript keeps reading options after its last `-e` — a title of `-e` would
   otherwise be more script. notify-send's title and body follow a `--` too,
   which ends its option parsing, and its body has `&`, `<` and `>` escaped,
-  since a notification server may render it as markup. Two things a single argument still carries
-  are defused: a NUL byte, which no argument can hold, is dropped; and a
-  leading `-`, `(`, `{`, `<` or quote, after any whitespace, which
-  terminal-notifier's argument parsing would read as an option or a property
-  list, gets a zero-width space in front of it.
-
-  The owl runs under a service manager whose PATH has no Homebrew in it, so a
-  program not on PATH is also looked for where Homebrew installs one.
+  since a notification server may render it as markup. A NUL byte, which no
+  argument can hold, is dropped.
   """
 
   @behaviour Whiska.Desktop
-
-  import Bitwise
 
   # A notifier that does not come back is given up on: the owl's house runs
   # this inline, and a hoot is never worth holding delivery for.
@@ -35,15 +26,13 @@ defmodule Whiska.Desktop.Notifier do
   # The freedesktop sound theme's names for the same two events.
   @freedesktop_sounds %{request: "message-new-instant", done: "complete", none: ""}
 
-  @homebrew ["/opt/homebrew/bin", "/usr/local/bin"]
-
   @doc """
   Options: `:find` (how a program is looked up, `System.find_executable/1` by
   default), `:timeout_ms`.
   """
   @impl true
   def notify(notification, opts \\ []) do
-    find = Keyword.get(opts, :find, &find/1)
+    find = Keyword.get(opts, :find, &System.find_executable/1)
     timeout = Keyword.get(opts, :timeout_ms, @default_timeout_ms)
 
     case command(notification, find) do
@@ -59,11 +48,6 @@ defmodule Whiska.Desktop.Notifier do
     sound = Map.fetch!(@sounds, event)
 
     cond do
-      path = find.("terminal-notifier") ->
-        {path,
-         ["-title", defuse(title), "-message", defuse(body)] ++
-           if(sound == "", do: [], else: ["-sound", sound])}
-
       path = find.("osascript") ->
         {path, osascript_args(display(), clean(title), clean(body), sound)}
 
@@ -96,22 +80,6 @@ defmodule Whiska.Desktop.Notifier do
   def osascript_args(action, title, body, sound),
     do: ["-e", "on run argv", "-e", action, "-e", "end run", "--", title, body, sound]
 
-  @doc false
-  def locate(name, dirs) do
-    dirs
-    |> Enum.map(&Path.join(&1, name))
-    |> Enum.find(&executable?/1)
-  end
-
-  defp find(name), do: System.find_executable(name) || locate(name, @homebrew)
-
-  defp executable?(path) do
-    match?(
-      {:ok, %File.Stat{type: :regular, mode: mode}} when (mode &&& 0o111) != 0,
-      File.stat(path)
-    )
-  end
-
   defp display do
     "if item 3 of argv is \"\" then\n" <>
       "display notification (item 2 of argv) with title (item 1 of argv)\n" <>
@@ -122,13 +90,6 @@ defmodule Whiska.Desktop.Notifier do
   end
 
   defp clean(text), do: String.replace(text, <<0>>, "")
-
-  defp defuse(text) do
-    case clean(text) do
-      "" -> "\u200B"
-      t -> if String.trim_leading(t) =~ ~r/\A[-({<"']/, do: "\u200B" <> t, else: t
-    end
-  end
 
   # A port rather than `System.cmd`, for its OS pid: a notifier that has not
   # come back by the deadline is killed, not left running behind the owl. The

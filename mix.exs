@@ -36,8 +36,11 @@ defmodule Whiska.MixProject do
 
   defp deps do
     [
+      {:ecto, "~> 3.14"},
       {:ecto_sql, "~> 3.12"},
       {:ecto_sqlite3, "~> 0.17"},
+      # Called directly: storage opens it, and the escript bundles its NIF.
+      {:exqlite, "~> 0.41"},
       # The herdr boundary is the one place mocking is allowed (ADR-0031).
       {:mox, "~> 1.2", only: :test}
     ]

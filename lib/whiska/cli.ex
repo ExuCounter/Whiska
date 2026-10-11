@@ -156,17 +156,14 @@ defmodule Whiska.CLI do
                          default socket (~/.config/herdr/herdr.sock) when it is
                          not — a hotkey runs with no shell environment at all.
 
-                         For a global hotkey on macOS, save this as a Raycast
-                         script command and bind it:
+                         For a global hotkey, bind a key in your hotkey tool
+                         or your desktop's keyboard settings to a command that
+                         brings your terminal forward and jumps; on macOS:
 
-                           #!/bin/bash
-                           # @raycast.schemaVersion 1
-                           # @raycast.title Jump to what needs me
-                           # @raycast.mode silent
-                           open -a kitty && whiska jump
+                           open -a <your terminal> && whiska jump
 
-                         On Linux, bind `whiska jump` to a key in your
-                         desktop's keyboard shortcut settings.
+                         The hotkey's PATH must reach `whiska`; give its full
+                         path if it does not.
 
     jump --list [--json] Every whiska `jump <repo>` can land on, one line each,
                          for a script such as an fzf popup: the ones waiting
@@ -1828,7 +1825,7 @@ defmodule Whiska.CLI do
   # answers from. The mouse's pane is the mouse's workplace.
   #
   # Nothing waiting is a normal answer, not a failure — the hotkey is pressed
-  # on spec, and exiting 1 would make a Raycast script look broken. So is a
+  # on spec, and exiting 1 would make a hotkey script look broken. So is a
   # house with no main session recorded: something to run `whiska start` in,
   # not something that failed.
   defp jump_to_oldest do

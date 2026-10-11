@@ -969,8 +969,8 @@ defmodule Whiska.Doctor do
     do:
       Check.warn(
         "hoot",
-        "herdr did not show it (#{reason}), and there is no terminal-notifier, osascript " <>
-          "or notify-send to raise it instead, so a delivered question is silent",
+        "herdr did not show it (#{reason}), and there is no osascript or notify-send " <>
+          "to raise it instead, so a delivered question is silent",
         hoot_fix(reason)
       )
 
@@ -1027,6 +1027,8 @@ defmodule Whiska.Doctor do
   defp notifications_off("notify-send"),
     do: "the desktop has notifications off, or no notification server is running"
 
+  # macOS files osascript's notifications under the app that runs AppleScript.
+  defp notifications_off("osascript"), do: "macOS has notifications off for Script Editor"
   defp notifications_off(notifier), do: "macOS has notifications off for #{notifier}"
 
   # Only popups switched off are fixed in herdr's config; nobody attached, or

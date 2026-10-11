@@ -10,6 +10,9 @@ Requires macOS or Linux, git, Elixir ~> 1.19 on OTP 28 to build, and
 [herdr](https://herdr.dev), the terminal multiplexer Whiska reads pane status from and
 types into. On Linux, systemd keeps the owl running and `notify-send` (libnotify) shows its
 notifications; without systemd — most containers — the owl runs in a pane instead.
+`nc` with Unix-socket support (`nc -U`) draws the owl's line on herdr's tab bar and keeps
+each hook fast. macOS ships one; on Linux install `netcat-openbsd`, since GNU netcat has
+no Unix sockets.
 
 ```bash
 brew install herdr              # or, on Linux: curl -fsSL https://herdr.dev/install.sh | sh

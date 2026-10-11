@@ -115,7 +115,7 @@ defmodule Whiska.Owl.HootTest do
     end)
   end
 
-  defp expect_desktop(answer \\ {:ok, "terminal-notifier"}) do
+  defp expect_desktop(answer \\ {:ok, "osascript"}) do
     test = self()
 
     stub(Desktop, :notify, fn notification ->

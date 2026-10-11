@@ -19,7 +19,7 @@ C4Context
   System_Ext(herdr, "herdr", "Terminal multiplexer - owns panes, starts Claude, reports agent status")
   System_Ext(git, "git worktrees", "One worktree per mouse, laid out under the main checkout")
   System_Ext(launchd, "Service manager", "launchd on macOS, systemd on Linux - keeps the one owl per machine running")
-  System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
+  System_Ext(nc, "Desktop notifications", "osascript on macOS, notify-send on Linux")
 
   Rel(person, claude, "Types into the main session")
   Rel(claude, whiska, "Sends hook events; the shim hands them to the owl over its socket", "JSON on stdin, nc -U")

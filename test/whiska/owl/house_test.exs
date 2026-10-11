@@ -295,7 +295,7 @@ defmodule Whiska.Owl.HouseTest do
       House.collect(house)
 
       refute File.exists?(Path.join(main, ".whiska"))
-      refute File.exists?(Path.join(main, ".git/info/exclude"))
+      refute File.read!(Path.join(main, ".git/info/exclude")) =~ "/.whiska/"
     end
 
     test "a spec that cannot be kept still lets its question be collected", %{

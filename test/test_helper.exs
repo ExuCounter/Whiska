@@ -23,6 +23,24 @@ ExUnit.after_suite(fn _ -> File.rm_rf!(test_home) end)
 # passes its own `CLAUDE_PID`.
 System.delete_env("CLAUDE_PID")
 
+# Whiska's own git calls inherit this environment, so a test cannot pass on the
+# person's git config, hooks or global ignore file and fail on any other
+# machine. git reads `~/.config/git/ignore` with no config naming it, so the
+# ignore file is pointed at nothing too; with no config there is no identity,
+# so every commit gets one.
+for {name, value} <- [
+      {"GIT_CONFIG_GLOBAL", "/dev/null"},
+      {"GIT_CONFIG_SYSTEM", "/dev/null"},
+      {"GIT_CONFIG_COUNT", "1"},
+      {"GIT_CONFIG_KEY_0", "core.excludesFile"},
+      {"GIT_CONFIG_VALUE_0", "/dev/null"},
+      {"GIT_AUTHOR_NAME", "Test"},
+      {"GIT_AUTHOR_EMAIL", "test@example.com"},
+      {"GIT_COMMITTER_NAME", "Test"},
+      {"GIT_COMMITTER_EMAIL", "test@example.com"}
+    ],
+    do: System.put_env(name, value)
+
 Mox.defmock(Whiska.Herdr.Mock, for: Whiska.Herdr)
 Mox.defmock(Whiska.Desktop.Mock, for: Whiska.Desktop)
 # `live_desktop` draws a real notification; run it with `--include live_desktop`.

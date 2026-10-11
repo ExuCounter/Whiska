@@ -44,6 +44,10 @@ defmodule Whiska.Layout do
           branch_label: String.t()
         }
 
+  @doc "The exclude pattern that hides the container from the main checkout's `git status`."
+  @spec exclude_line() :: String.t()
+  def exclude_line, do: "/" <> @container <> "/"
+
   @doc """
   Resolve the layout for a working directory.
 

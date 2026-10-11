@@ -4,9 +4,9 @@ An audit of everything Whiska relies on outside its own code, done 2026-10-04 ag
 `2f7619b` and brought up to date with main later the same day, herdr 0.8.2 and Claude Code 2.1.285 on macOS arm64. It changes nothing; it
 says where each assumption lives, how it breaks, and what loosening it would cost.
 
-The Hex packages are out of scope. They were audited separately: three direct deps,
-eleven in the lock, JSON from Elixir 1.19's own module, and `exqlite` should be declared
-as a direct dependency.
+The Hex packages are out of scope. They were audited separately: eleven in the lock,
+five declared (`ecto` and `exqlite` among them, since Whiska calls both directly), and
+JSON from Elixir 1.19's own module.
 
 - [The short answer](#the-short-answer)
 - [Cheap ways to fail loudly](#cheap-ways-to-fail-loudly)
@@ -39,8 +39,11 @@ as a direct dependency.
   paths already had fallbacks.
 - **git, the shell and SQLite are fine.** git is used through exit codes and fixed
   `--format` output, so it is locale-safe. The shell is bash with no GNU-only flags
-  except one `sort -V`. SQLite is built from source by `exqlite`, so the only cost is
-  that the escript must be built on the platform it runs on.
+  except one `sort -V`. SQLite comes inside `exqlite`'s NIF, downloaded prebuilt for this
+  platform from exqlite's GitHub releases at build time, against checksums the package
+  pins. Where that download fails or no build matches, it is compiled from source, which
+  needs a C compiler and `make`. Either way the escript must be built on the platform it
+  runs on.
 
 ## Cheap ways to fail loudly
 
@@ -194,12 +197,12 @@ version warning's job.
 | --- | --- | --- | --- |
 | launchd: plist in `~/Library/LaunchAgents`, `launchctl bootstrap/bootout/kickstart/kill/print`, `gui/<uid>` domain, regex over `launchctl print` text | `launch_agent.ex` | macOS only, by design. On Linux `systemd_unit.ex` does the same job through `systemctl --user`, and a missing program of either kind is "not loaded" | Done |
 | `launchctl print` text format (`pid = N`, `last exit code = N`) | `launch_agent.ex` | macOS-only, and undocumented by Apple | A changed format reads as "loaded, not running". Doctor would mislead. Low risk |
-| `terminal-notifier`, then `osascript`, then `notify-send` | `desktop/notifier.ex` | Yes. None of the three is `{:error, :no_notifier}`, which the doctor reports | Done |
-| Homebrew paths `/opt/homebrew/bin`, `/usr/local/bin` | notifier, shim, doctor | Last-resort lookups after `PATH`. Harmless elsewhere | Nothing needed |
+| `osascript`, then `notify-send` | `desktop/notifier.ex` | Yes. Neither is `{:error, :no_notifier}`, which the doctor reports | Done |
+| Homebrew paths `/opt/homebrew/bin`, `/usr/local/bin` | shim, doctor | Last-resort lookups for `escript` after `PATH`. Harmless elsewhere | Nothing needed |
 | `stat -f %B` / `-f %m` | `transcript.ex`, statusline script | Yes: both try BSD then GNU, and check the answer | Done |
 | `sort -V` | shim, asdf lookup | GNU and recent macOS. Old macOS fails the step and falls through | Nothing needed |
 | `pgrep -f`, `ps -o etime=`, `id -u`, `kill -9` | `owl.ex`, `launch_agent.ex`, notifier | Yes | Done |
-| Escript with the SQLite NIF baked in | `bundled_nif.ex` | The binary carries one platform's `sqlite3_nif.so`. Built from source per machine, so fine. Cannot ship one binary for every platform | Per-platform builds, or ADR-0033's native hook. Only matters for distribution |
+| Escript with the SQLite NIF baked in | `bundled_nif.ex` | The binary carries one platform's `sqlite3_nif.so`, fetched or compiled when the escript is built, so fine. Cannot ship one binary for every platform | Per-platform builds, or ADR-0033's native hook. Only matters for distribution |
 
 ## Everything else
 
@@ -222,8 +225,8 @@ version warning's job.
   `PATH`, through `asdf`, under `~/.asdf`, or at the Homebrew paths. It does not look
   in `mise`'s shims or a Nix profile. A hook with neither on `PATH` fails open, which
   since fix 2 at least says so. Adding `~/.local/share/mise/shims`: five minutes.
-- **SQLite.** `exqlite` compiles its own SQLite, so the system's version does not
-  matter. WAL mode and a 5-second busy timeout are set in `storage.ex`. WAL needs a
+- **SQLite.** `exqlite` brings its own SQLite, prebuilt or compiled, so the system's
+  version does not matter. WAL mode and a 5-second busy timeout are set in `storage.ex`. WAL needs a
   local filesystem; a home directory on NFS would break locking. Unlikely here.
 - **Desktop.** Nothing assumes a GUI apart from the hoot, which already falls back.
 

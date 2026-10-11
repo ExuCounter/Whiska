@@ -16,6 +16,9 @@ defmodule Whiska.CLIShapeCloneTest do
     root = Path.join(System.tmp_dir!(), "whiska-clone-#{System.unique_integer([:positive])}")
     on_exit(fn -> File.rm_rf!(root) end)
     repo = GitRepo.create(root)
+    # The marker `whiska shape` mints is hidden by the owl when it opens the
+    # house, which these tests do not run.
+    :ok = Whiska.Spec.ignore(repo.checkout, Whiska.Marker.exclude_line())
     {:ok, main: repo.checkout}
   end
 

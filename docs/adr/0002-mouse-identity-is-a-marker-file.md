@@ -10,6 +10,7 @@ already proves with `.herdr-worktree-meta` for pane tracking.
 ## Consequences
 
 The file is written once, by a script, never by the model; hooks only read it, which is
-no more complex than reading a branch name and involves no parsing. It is gitignored,
-like the existing meta file. Branch and path become mutable labels on a mouse record
+no more complex than reading a branch name and involves no parsing. Git ignores it
+through the main checkout's `.git/info/exclude`, which the owl writes when it opens the
+house, so no committed file and no gitignore of the person's is needed. Branch and path become mutable labels on a mouse record
 rather than its identity, so renaming or moving a worktree is a no-op for tracking.
