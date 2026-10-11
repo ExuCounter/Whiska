@@ -642,6 +642,19 @@ as a backstop. Collection reads and marks; it never deletes and never touches th
 _Avoid_: sweep (it implies tidying up, which is precisely what this must not do), poll,
 drain, scan
 
+**Usage**:
+What one turn cost, as the owl records it at **collection**: one row for the mouse's own
+turn, from the prompt that started it to the stop, and one per agent it sent — model,
+effort, tokens by kind, steps, tool uses, seconds, API errors. Read from the transcript
+the doorstep entry names, cut off at the entry's stamp, never from what the mouse said, so
+a sniff mouse's turn is recorded like any other. Kept per question. A later entry for
+the same turn marks the earlier rows replaced, and the rows not replaced add up.
+`whiska metrics` reads it, weighing tokens into **cost units** (input + 1.25 × cache
+writes + 0.1 × cache reads + 5 × output, the ratio every Claude model is priced at), since
+Whiska keeps no prices (ADR-next-usage-is-recorded-at-collection).
+_Avoid_: ledger (the lines a finished report ends with, whose mouse line covers the whole
+session), price or dollars (none is stored)
+
 **Backstop**:
 The slow timer that collects a house's doorstep when nothing else has. It is a last
 resort, never a working trigger: anything it finds is something the owl should already

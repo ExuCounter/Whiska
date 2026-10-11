@@ -138,6 +138,15 @@ defmodule Whiska.StorageDeliveryTest do
       assert {:ok, %Question{status: "answered"}} = Storage.answer(q.id, "go")
     end
 
+    test "an answer is stamped with when it was given" do
+      q = ask("m1")
+      before = DateTime.utc_now() |> DateTime.truncate(:second)
+      {:ok, _} = Storage.answer(q.id, "go")
+      answered_at = Storage.question(q.id).answered_at
+      assert DateTime.compare(answered_at, before) != :lt
+      assert DateTime.compare(answered_at, DateTime.utc_now()) != :gt
+    end
+
     test "refuses a question that is closed, orphaned, answered or missing" do
       q = ask("m1")
       {:ok, _} = Storage.answer(q.id, "once")

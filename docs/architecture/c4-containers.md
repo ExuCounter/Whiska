@@ -19,7 +19,7 @@ C4Container
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
     Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection, delivery to the main session")
     Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, renamed .collected once read")
-    ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records and questions, one per repo")
+    ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records, questions and each collected turn's usage, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
     Container(flag, "Answer flag", "empty file, whiska-answer in the worktree's git admin directory", "This worktree's mouse has an answer not yet taken; the shim reads it so a prompt with nothing waiting starts nothing")
     Container(spec, "Spec", ".whiska-spec.md file", "What a brief will build, at the worktree root; the mouse writes it, git ignores it")
@@ -74,6 +74,8 @@ C4Container
   Rel(cli, clonelist, "shape reads it, clones those paths copy-on-write, and excludes each from git")
   Rel(cli, backstop, "doctor reads it: has the last resort been doing the trigger's job")
   Rel(house, db, "Records questions, marks mice dead and removed; reads the next open one")
+  Rel(house, db, "Records each collected turn's usage, read from the transcript its entry names")
+  Rel(cli, db, "metrics reads usage, waits and spec timing")
   Rel(house, herdr, "Removes a landed worktree and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
   Rel(house, herdr, "Rings a mouse's doorbell again, at most three times, while its answer is not taken")
@@ -100,7 +102,9 @@ The reasoning is in the ADR each line names; this is the map.
 - **Open-houses record**: the one machine-level file; which houses the owl has open, not
   which exist (ADR-0039, ADR-0003).
 - **House database under the main checkout's `.git/`**: every worktree shares it, so a
-  repo's mice are one house; SQLite, not flat files (ADR-0028).
+  repo's mice are one house; SQLite, not flat files (ADR-0028). Each turn's usage is
+  stored there at collection, keyed by its question
+  (ADR-next-usage-is-recorded-at-collection).
 - **Doorstep, a directory in the house**: every question enters through it, whoever writes
   the entry; a dead owl loses nothing; collected entries are renamed, never deleted, and an
   ordinary `drop-worktree` cannot erase a pending question (ADR-0036, ADR-0007).

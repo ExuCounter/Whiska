@@ -33,6 +33,7 @@ in git history.
 - [0007](0007-nothing-is-ever-deleted.md) — Records are kept: questions and mice are never deleted
 - [0061](0061-a-merged-worktree-is-taken-down-by-the-owl.md) — A merged worktree is taken down by the owl, pane and all
 - [0064](0064-a-landed-branch-settles-what-its-mouse-left-waiting.md) — A landed branch settles what its mouse left waiting
+- [next-usage-is-recorded-at-collection](next-usage-is-recorded-at-collection.md) — Usage is recorded at collection, read from the transcript the entry names
 
 ## Questions and delivery
 

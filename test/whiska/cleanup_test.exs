@@ -350,7 +350,7 @@ defmodule Whiska.CleanupTest do
         spec: "# Spec\n"
       }
 
-      :ok = Whiska.SpecArchive.keep(repo.checkout, entry, %Whiska.Schema.Question{id: 7})
+      :kept = Whiska.SpecArchive.keep(repo.checkout, entry, %Whiska.Schema.Question{id: 7})
       [file] = Path.wildcard(Path.join(Whiska.SpecArchive.dir(repo.checkout), "*.md"))
       file
     end

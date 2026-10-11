@@ -126,7 +126,16 @@ defmodule Whiska.DoorstepTest do
         })
       )
 
-      assert [{_, %Entry{text: "x", ran_on: nil}}] = Doorstep.waiting(main)
+      assert [{_, %Entry{text: "x", ran_on: nil, transcript: nil}}] = Doorstep.waiting(main)
+    end
+  end
+
+  describe "the transcript a turn wrote" do
+    test "travels with the entry", %{main: main} do
+      {:ok, _} = Doorstep.leave(main, entry(%{transcript: "/home/u/.claude/projects/p/s.jsonl"}))
+
+      assert [{_, %Entry{transcript: "/home/u/.claude/projects/p/s.jsonl"}}] =
+               Doorstep.waiting(main)
     end
   end
 

@@ -289,7 +289,7 @@ defmodule Whiska.Hook.StopTest do
           })
         )
 
-      assert [{_, %Entry{ran_on: "claude-a-5"}}] = Doorstep.waiting(main)
+      assert [{_, %Entry{ran_on: "claude-a-5", transcript: ^path}}] = Doorstep.waiting(main)
     end
 
     test "a transcript that is missing or unreadable still leaves the entry", %{

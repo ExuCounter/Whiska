@@ -269,6 +269,55 @@ defmodule Whiska.LedgerTest do
     assert Ledger.render(Ledger.read(ctx.session)) =~ "mouse (whole session)"
   end
 
+  test "the effort a call ran at is printed beside its model", ctx do
+    write_jsonl(ctx.session, [
+      call("m1", "2026-10-08T08:00:05.000Z", usage(1, 2, 3, 4), [tool("t1")], "end_turn")
+      |> Enum.map(&Map.put(&1, "effort", "xhigh"))
+    ])
+
+    assert Ledger.render(Ledger.read(ctx.session)) =~
+             "mouse (whole session) · claude-opus-5-5 · xhigh · new 7 ·"
+  end
+
+  test "an agent whose transcript was last written before the turn began is not read", ctx do
+    write_jsonl(ctx.session, [prompt("2026-10-08T09:00:00.000Z", "human", "go")])
+    path = Path.join(ctx.subagents, "agent-stale.jsonl")
+
+    write_jsonl(path, [
+      call("s1", "2026-10-08T09:00:30.000Z", usage(1, 2, 3, 4), [tool("t1")], "end_turn")
+    ])
+
+    File.touch!(path, ~U[2026-10-08 08:59:00Z] |> DateTime.to_unix())
+
+    assert %{agents: []} = Ledger.read(ctx.session)
+  end
+
+  test "a transcript past the size cap is not readable, so the owl reads nothing from it", ctx do
+    {:ok, fd} = :file.open(String.to_charlist(ctx.session), [:write, :raw])
+    {:ok, _} = :file.position(fd, 300 * 1024 * 1024)
+    :ok = :file.write(fd, "\n")
+    :ok = :file.close(fd)
+
+    refute Ledger.readable?(ctx.session)
+    refute Ledger.readable?(Path.join(ctx.root, "missing.jsonl"))
+
+    write_jsonl(ctx.session, [prompt("2026-10-08T09:00:00.000Z", "human", "go")])
+    assert Ledger.readable?(ctx.session)
+  end
+
+  test "model and effort another session wrote reach the line with no control characters",
+       ctx do
+    write_jsonl(ctx.session, [
+      call("m1", "2026-10-08T08:00:05.000Z", usage(1, 2, 3, 4), [tool("t1")], "end_turn")
+      |> Enum.map(&Map.put(&1, "effort", "x\e]52;c;AAAA\ahigh"))
+      |> Enum.map(&put_in(&1, ["message", "model"], "claude\nfake line"))
+    ])
+
+    line = Ledger.render(Ledger.read(ctx.session))
+    refute line =~ ~r/[\x{0}-\x{1f}]/u
+    assert line =~ "claude fake line"
+  end
+
   test "a session with no subagents folder has only the mouse line", ctx do
     File.rm_rf!(Path.join(ctx.root, "s1"))
     write_jsonl(ctx.session, [prompt("2026-10-08T08:00:00.000Z", "human", "hi")])

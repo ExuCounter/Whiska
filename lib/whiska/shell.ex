@@ -54,6 +54,11 @@ defmodule Whiska.Shell do
     ps id groups nproc arch sleep expr tty locale
   )
 
+  # Of `whiska`, only the ledger: it reads the session's transcripts and writes
+  # nothing. Every command that opens the house can migrate it, and the rest
+  # change something (ADR-0069).
+  @read_only_whiska [["ledger"], ["ledger", "--json"]]
+
   # `git` is read-only or not depending on its subcommand, and only these are
   # unambiguously read-only. Everything else — including `branch`, `tag`,
   # `stash`, `config`, `remote` and `worktree`, each of which has mutating
@@ -88,7 +93,8 @@ defmodule Whiska.Shell do
     "tree" => {"oR", "", []},
     "rg" => {"", "", ~w(pre hostname-bin)},
     "ag" => {"", "", ~w(pager)},
-    "man" => {"PHC", "EeLMmpRrSsT", ~w(pager html config-file)}
+    "man" => {"PHC", "EeLMmpRrSsT", ~w(pager html config-file)},
+    "printf" => {"v", "", []}
   }
 
   # `less` without a terminal copies its input like `cat` and writes no log,
@@ -139,7 +145,12 @@ defmodule Whiska.Shell do
   )
   @input_filter_variables ~w(LESSOPEN LESSCLOSE)
   @option_variables %{"LESS" => "less", "MANOPT" => "man"}
-  @code_variables ~w(DYLD_INSERT_LIBRARIES LD_PRELOAD LD_AUDIT)
+  # The Erlang VM `whiska` runs on reads code from the first three and the
+  # emulator to run from the fourth; the crash dump is a file it writes.
+  @code_variables ~w(
+    DYLD_INSERT_LIBRARIES LD_PRELOAD LD_AUDIT
+    ERL_AFLAGS ERL_FLAGS ERL_ZFLAGS ESCRIPT_EMULATOR ERL_CRASH_DUMP
+  )
 
   # `git -c` keys whose value cannot name a program or a file to load. Any other
   # key is denied: `core.pager`, `diff.external`, `pager.<command>`,
@@ -253,15 +264,22 @@ defmodule Whiska.Shell do
   defp tokens_mutate?(tokens) do
     {assignments, command} = Enum.split_while(tokens, &assignment?/1)
 
-    if Enum.any?(assignments, &variable_runs?/1) do
-      true
-    else
-      command_tokens_mutate?(command)
+    cond do
+      Enum.any?(assignments, &variable_runs?/1) -> true
+      assignments != [] and whiska?(command) -> true
+      true -> command_tokens_mutate?(command)
     end
   end
 
+  # `whiska` runs on the Erlang VM, which takes code and even another emulator
+  # from its environment (`ERL_AFLAGS='-eval …'`, `ESCRIPT_EMULATOR`). The
+  # ledger needs no variable set, so none may be.
+  defp whiska?([head | _]), do: Path.basename(head) == "whiska"
+  defp whiska?([]), do: false
+
   defp variable_runs?(assignment) do
     [name, value] = String.split(assignment, "=", parts: 2)
+    name = String.trim_trailing(name, "+")
 
     cond do
       value == "" ->
@@ -332,11 +350,13 @@ defmodule Whiska.Shell do
   defp command_tokens_mutate?([]), do: false
 
   defp command_tokens_mutate?([head | rest]) do
-    case Path.basename(head) do
+    case command_name(head) do
+      :assignment -> true
       "env" -> env_mutates?(rest)
       "command" -> command_mutates?(rest)
       "arch" -> arch_mutates?(rest)
       "git" -> git_mutates?(rest)
+      "whiska" -> Enum.reject(rest, &(&1 =~ ~r/^[0-9]*>&[0-9]+$/)) not in @read_only_whiska
       "sed" -> writing_flag?(rest, {"iI", "efl", ~w(in-place)})
       "find" -> find_mutates?(rest)
       "fd" -> fd_mutates?(rest)
@@ -350,6 +370,12 @@ defmodule Whiska.Shell do
       other when is_map_key(@writing_flags, other) -> writing_flag?(rest, @writing_flags[other])
       other -> other not in @read_only
     end
+  end
+
+  # A word with `=` in it is an assignment the shell reads some other way —
+  # `NAME[1]=…` — however its tail is spelled, and never a command's name.
+  defp command_name(word) do
+    if String.contains?(word, "="), do: :assignment, else: Path.basename(word)
   end
 
   defp writing_flag?(args, {letters, value_letters, names}) do
@@ -554,7 +580,7 @@ defmodule Whiska.Shell do
     end)
   end
 
-  defp assignment?(token), do: Regex.match?(~r/^[A-Za-z_][A-Za-z0-9_]*=/, token)
+  defp assignment?(token), do: Regex.match?(~r/^[A-Za-z_][A-Za-z0-9_]*\+?=/, token)
 
   # Split on whitespace, but keep quoted runs together so a path with a space in
   # it survives as one token.

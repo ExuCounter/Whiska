@@ -20,6 +20,7 @@ defmodule Whiska.Storage do
   alias Whiska.Schema.House
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
+  alias Whiska.Schema.Usage
 
   @migrations [
     {1, Whiska.Migrations.V001CreateMiceAndQuestions},
@@ -33,7 +34,8 @@ defmodule Whiska.Storage do
     {9, Whiska.Migrations.V009ShapedAs},
     {10, Whiska.Migrations.V010HoldAndFocus},
     {11, Whiska.Migrations.V011AnswerTaken},
-    {12, Whiska.Migrations.V012Base}
+    {12, Whiska.Migrations.V012Base},
+    {13, Whiska.Migrations.V013Usage}
   ]
 
   @modes ~w(build sniff)
@@ -883,12 +885,14 @@ defmodule Whiska.Storage do
 
   @doc """
   Answer a question by id (ADR-0005). Open or sent only: an answer to anything
-  already settled has nowhere to land.
+  already settled has nowhere to land. The person's answer is stamped
+  `answered_at`; a line Whiska types on its own passes `stamp: false`.
   """
-  @spec answer(integer(), String.t()) ::
+  @spec answer(integer(), String.t(), keyword()) ::
           {:ok, Question.t()} | {:error, :no_such_question | :not_answerable | Ecto.Changeset.t()}
-  def answer(id, text) do
-    settle(id, %{status: "answered", answer: text})
+  def answer(id, text, opts \\ []) do
+    stamp = if Keyword.get(opts, :stamp, true), do: %{answered_at: now()}, else: %{}
+    settle(id, Map.merge(%{status: "answered", answer: text}, stamp))
   end
 
   @doc """
@@ -1021,6 +1025,78 @@ defmodule Whiska.Storage do
 
     {:ok, n}
   end
+
+  @doc "Mark a question as the one whose turn left a new or revised spec."
+  @spec mark_spec_sent(integer()) :: {:ok, Question.t()} | {:error, term()}
+  def mark_spec_sent(id), do: stamp_question(id, spec_sent: true)
+
+  # -- usage (ADR-next-usage-is-recorded-at-collection) ----------
+
+  @doc """
+  Record a turn's usage against its question: one row per agent the ledger
+  holds, then the mouse's own. Rows an earlier entry left for the same turn are
+  marked replaced, in the same transaction.
+  """
+  @spec record_usage(integer(), Whiska.Ledger.t()) :: {:ok, non_neg_integer()}
+  def record_usage(question_id, %{mouse: mouse, agents: agents} = ledger) do
+    turn = %{transcript: ledger[:session], turn_started_at: ledger[:turn_started_at]}
+
+    rows =
+      Enum.map(agents, &usage_row(question_id, "agent", &1, turn)) ++
+        [usage_row(question_id, "mouse", mouse, turn)]
+
+    Repo.transaction(fn ->
+      replace_turn(turn)
+      {n, _} = Repo.insert_all(Usage, rows)
+      n
+    end)
+  end
+
+  defp replace_turn(%{transcript: transcript, turn_started_at: started})
+       when is_binary(transcript) and is_binary(started) do
+    Repo.update_all(
+      from(u in Usage,
+        where: u.transcript == ^transcript and u.turn_started_at == ^started and not u.replaced
+      ),
+      set: [replaced: true]
+    )
+  end
+
+  defp replace_turn(_unknown_turn), do: :ok
+
+  defp usage_row(question_id, scope, line, turn) do
+    %{
+      question_id: question_id,
+      transcript: turn.transcript,
+      turn_started_at: turn.turn_started_at,
+      scope: scope,
+      label: if(scope == "agent", do: line.label),
+      type: line.type,
+      model: joined(line.models),
+      effort: joined(line.efforts),
+      input: line.input,
+      cache_writes: line.cache_writes,
+      cache_reads: line.cache_reads,
+      output: line.output,
+      steps: line.steps,
+      tool_uses: line.tool_uses,
+      seconds: line.seconds,
+      floor: line.floor,
+      api_errors: line.api_errors
+    }
+  end
+
+  defp joined([]), do: nil
+  defp joined(words), do: Enum.join(words, "+")
+
+  @doc "Every usage row, in the order recorded."
+  @spec usage() :: [Usage.t()]
+  def usage, do: Repo.all(from(u in Usage, order_by: u.id))
+
+  @doc "A question's usage rows, in the order they were recorded."
+  @spec usage(integer()) :: [Usage.t()]
+  def usage(question_id),
+    do: Repo.all(from(u in Usage, where: u.question_id == ^question_id, order_by: u.id))
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 

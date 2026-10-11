@@ -147,6 +147,61 @@ defmodule Whiska.ShellTest do
     end
   end
 
+  describe "whiska" do
+    test "reading the ledger is read-only, so a sniff mouse can end its report with it" do
+      refute Shell.mutating?("whiska ledger")
+      refute Shell.mutating?("whiska ledger --json")
+      refute Shell.mutating?("~/.whiska/bin/whiska ledger")
+      refute Shell.mutating?("env whiska ledger")
+    end
+
+    test "every other whiska command counts as a write" do
+      assert Shell.mutating?("whiska")
+      assert Shell.mutating?("whiska questions")
+      assert Shell.mutating?("whiska metrics")
+      assert Shell.mutating?("whiska mode build")
+      assert Shell.mutating?("whiska ledger --json extra")
+      assert Shell.mutating?("whiska ledger > out.txt")
+    end
+
+    # The Erlang VM it runs on takes code from its environment, and another
+    # emulator: `ERL_AFLAGS='-eval …' whiska ledger` ran it, before main.
+    test "no variable may be set for it, directly or through env" do
+      assert Shell.mutating?("ERL_AFLAGS='-eval os:cmd(x)' whiska ledger")
+      assert Shell.mutating?("env ERL_AFLAGS='-eval x' whiska ledger")
+      assert Shell.mutating?("ESCRIPT_EMULATOR=echo whiska ledger")
+      assert Shell.mutating?("FOO=1 whiska ledger --json")
+      assert Shell.mutating?("env -i FOO=1 whiska ledger")
+    end
+
+    # Each one reached a dummy escript's VM in zsh and bash on 2026-10-11.
+    test "the VM's code variables count as code however they reach it" do
+      assert Shell.mutating?("ERL_AFLAGS='-eval x' env whiska ledger")
+      assert Shell.mutating?("ERL_AFLAGS='-eval x' command whiska ledger")
+      assert Shell.mutating?(~S{ERL_AFLAGS='-eval x' find . -maxdepth 0 -exec whiska ledger \;})
+      assert Shell.mutating?("ERL_AFLAGS=x arch -arm64 /usr/local/bin/whiska ledger")
+      assert Shell.mutating?("env ERL_AFLAGS='-eval x' env whiska ledger")
+      assert Shell.mutating?("ERL_AFLAGS=x GIT_EXTERNAL_DIFF='whiska ledger;true' git diff")
+      assert Shell.mutating?("ERL_AFLAGS='-eval x'; whiska ledger")
+      assert Shell.mutating?("ERL_FLAGS='-eval x' && whiska ledger")
+      assert Shell.mutating?("ERL_ZFLAGS='-eval x'\nwhiska ledger")
+      assert Shell.mutating?("ESCRIPT_EMULATOR=echo; whiska ledger")
+    end
+
+    test "printf -v and NAME+= set a variable too" do
+      assert Shell.mutating?("printf -v ERL_AFLAGS '%s' '-eval x'; whiska ledger")
+      assert Shell.mutating?("printf -v 'a[$(touch pwn)]' 1")
+      assert Shell.mutating?("ERL_AFLAGS+='-eval x '/env whiska ledger")
+      assert Shell.mutating?("GIT_EXTERNAL_DIFF+='touch pwn;true '/env git diff")
+      assert Shell.mutating?("ERL_AFLAGS[1]='-eval x '/env whiska ledger")
+      refute Shell.mutating?("printf '%s\\n' x")
+    end
+
+    test "joining its error output to its standard output is still a read" do
+      refute Shell.mutating?("whiska ledger 2>&1")
+    end
+  end
+
   describe "env and command run the command after them (ADR-0069)" do
     # Both are on the read-only list for what they do alone — print the
     # environment, say where a command lives. Followed by a command, they run

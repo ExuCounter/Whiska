@@ -27,6 +27,7 @@ defmodule Whiska.CLI do
   alias Whiska.Install
   alias Whiska.Layout
   alias Whiska.Marker
+  alias Whiska.Metrics
   alias Whiska.OpenHouses
   alias Whiska.Questions
   alias Whiska.Review
@@ -226,10 +227,21 @@ defmodule Whiska.CLI do
     ledger [--json]      Print the agent ledger a finished report ends with,
                          read from this Claude Code session's transcripts: one
                          line per agent sent this turn, then the mouse's whole
-                         session — model, new tokens (input, cache writes,
-                         output), cache reads, steps, average per step, tool
-                         uses, seconds. "≥" marks a lower bound. --json prints
-                         the same figures as data. Run inside a session.
+                         session — model, effort, new tokens (input, cache
+                         writes, output), cache reads, steps, average per
+                         step, tool uses, seconds. "≥" marks a lower bound.
+                         --json prints the same figures as data. Run inside a
+                         session; a sniff mouse may run it too.
+
+    metrics [--json]     What this repo's house says about cost and waiting,
+                         in four views: cost by shape (mode, model and effort
+                         a mouse's turns ran on), waits (asked, delivered,
+                         answered, taken), spec timing, and agent cost by
+                         reviewer axis. Tokens only, weighed into cost units
+                         (input + 1.25 × cache writes + 0.1 × cache reads +
+                         5 × output). Usage is recorded by the owl for each
+                         turn it collects; --json prints the same views as
+                         data.
 
     mice                 List what is alive in this repo's house: one line per
                          mouse — branch, mode, what its pane is doing, how full
@@ -409,6 +421,11 @@ defmodule Whiska.CLI do
 
   def run(["ledger"], _cwd), do: ledger(&Ledger.render/1)
   def run(["ledger", "--json"], _cwd), do: ledger(&Ledger.json/1)
+
+  def run(["metrics"], cwd), do: with_house(cwd, fn -> say(Metrics.render(Metrics.read())) end)
+
+  def run(["metrics", "--json"], cwd),
+    do: with_house(cwd, fn -> say(Metrics.json(Metrics.read())) end)
 
   def run(["mice"], cwd), do: mice(cwd || File.cwd!())
 
@@ -2228,7 +2245,7 @@ defmodule Whiska.CLI do
       # answered, so the owl never rings for it as though the person had
       # (ADR-0080).
       if stop.status in ["open", "sent"] do
-        Storage.answer(stop.id, Mode.resume_line())
+        Storage.answer(stop.id, Mode.resume_line(), stamp: false)
         Storage.take([stop.id], now)
       end
 

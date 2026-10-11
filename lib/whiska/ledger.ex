@@ -25,10 +25,17 @@ defmodule Whiska.Ledger do
     A line with any such call is a lower bound, and says so.
   - **Seconds** run from the transcript's first timestamp to its last.
 
+  - **Effort** is read off each assistant entry, and **API errors** are the
+    entries Claude Code marks `isApiErrorMessage`: a turn that died counts one.
+
   Agent lines cover the agents sent since the turn began — the last prompt with
   `origin.kind` `"human"`, which is also how a delivered answer arrives. The
   mouse line covers this session's whole main thread; a mouse picked up into a
   new session counts only the current one.
+
+  `turn/2` is the same reading for one turn as it stood when it ended: the mouse
+  line covers only that turn, so the owl can store turns that add up
+  (ADR-next-usage-is-recorded-at-collection).
   """
 
   @skill_marker ~r/\ABase directory for this skill: (\S+)/
@@ -37,6 +44,7 @@ defmodule Whiska.Ledger do
           label: String.t(),
           type: String.t() | nil,
           models: [String.t()],
+          efforts: [String.t()],
           input: non_neg_integer(),
           cache_writes: non_neg_integer(),
           cache_reads: non_neg_integer(),
@@ -47,6 +55,7 @@ defmodule Whiska.Ledger do
           tool_uses: non_neg_integer(),
           seconds: non_neg_integer() | nil,
           floor: boolean(),
+          api_errors: non_neg_integer(),
           started_at: String.t() | nil
         }
 
@@ -81,17 +90,57 @@ defmodule Whiska.Ledger do
         |> Enum.reject(&(&1["isSidechain"] == true))
         |> tally()
         |> Map.put(:label, "mouse (whole session)"),
-      agents: agents(Path.rootname(session) |> Path.join("subagents"), turn)
+      agents: agents(subagents(session), turn, nil)
     }
   end
 
-  defp agents(dir, turn) do
+  @doc """
+  The turn of `session` that had ended by `until`: what was written after it —
+  the next turn, read by a late collection — is left out. The mouse line covers
+  this turn alone, from the prompt that started it; agent lines are the agents
+  it sent.
+  """
+  @spec turn(Path.t(), DateTime.t()) :: t
+  def turn(session, %DateTime{} = until) do
+    entries = session |> entries() |> Enum.filter(&by?(&1, until))
+    turn = turn_started_at(entries)
+
+    %{
+      session: session,
+      turn_started_at: turn,
+      mouse:
+        entries
+        |> Enum.reject(&(&1["isSidechain"] == true))
+        |> Enum.filter(&(turn == nil or &1["timestamp"] >= turn))
+        |> tally()
+        |> Map.put(:label, "mouse (this turn)"),
+      agents: agents(subagents(session), turn, until)
+    }
+  end
+
+  defp subagents(session), do: session |> Path.rootname() |> Path.join("subagents")
+
+  # Timestamped at or before `until`. An entry with no time cannot be placed,
+  # and none that carries usage lacks one.
+  defp by?(%{"timestamp" => at}, until) when is_binary(at) do
+    case DateTime.from_iso8601(at) do
+      {:ok, t, _} -> DateTime.compare(t, until) != :gt
+      _unreadable -> false
+    end
+  end
+
+  defp by?(_untimed, _until), do: false
+
+  defp agents(dir, turn, until) do
     case File.ls(dir) do
       {:ok, names} ->
         names
         |> Enum.filter(&String.ends_with?(&1, ".jsonl"))
-        |> Enum.map(&agent(Path.join(dir, &1)))
+        |> Enum.map(&Path.join(dir, &1))
+        |> Enum.reject(&written_before?(&1, turn))
+        |> Enum.map(&agent(&1, until))
         |> Enum.filter(&(turn == nil or (&1.started_at != nil and &1.started_at >= turn)))
+        |> Enum.reject(&(until != nil and &1.started_at == nil))
         |> Enum.sort_by(& &1.started_at)
 
       {:error, _none} ->
@@ -99,8 +148,23 @@ defmodule Whiska.Ledger do
     end
   end
 
-  defp agent(path) do
+  # The folder keeps every agent the session ever sent. One whose file was
+  # last written before the turn began cannot have started in it, and is not
+  # read at all.
+  defp written_before?(_path, nil), do: false
+
+  defp written_before?(path, turn) do
+    with {:ok, started, _} <- DateTime.from_iso8601(turn),
+         {:ok, %File.Stat{mtime: mtime}} <- File.stat(path, time: :posix) do
+      mtime < DateTime.to_unix(started)
+    else
+      _unknown -> false
+    end
+  end
+
+  defp agent(path, until) do
     entries = entries(path)
+    entries = if until, do: Enum.filter(entries, &by?(&1, until)), else: entries
     meta = meta(Path.rootname(path) <> ".meta.json")
 
     entries
@@ -145,11 +209,11 @@ defmodule Whiska.Ledger do
   defp tally(entries) do
     calls =
       for(
-        %{"type" => "assistant", "message" => %{"usage" => %{}} = message} <- entries,
+        %{"type" => "assistant", "message" => %{"usage" => %{}} = message} = entry <- entries,
         message["model"] != "<synthetic>",
-        do: message
+        do: entry
       )
-      |> Enum.group_by(& &1["id"])
+      |> Enum.group_by(& &1["message"]["id"])
       |> Map.values()
       |> Enum.map(&call/1)
 
@@ -167,6 +231,7 @@ defmodule Whiska.Ledger do
     %{
       type: nil,
       models: calls |> Enum.map(& &1.model) |> Enum.reject(&is_nil/1) |> Enum.uniq(),
+      efforts: calls |> Enum.map(& &1.effort) |> Enum.reject(&is_nil/1) |> Enum.uniq(),
       input: input,
       cache_writes: writes,
       cache_reads: reads,
@@ -177,17 +242,20 @@ defmodule Whiska.Ledger do
       tool_uses: length(tools),
       seconds: seconds(times),
       floor: Enum.any?(calls, &(not &1.stopped)),
+      api_errors: Enum.count(entries, &(&1["isApiErrorMessage"] == true)),
       started_at: Enum.min(times, fn -> nil end)
     }
   end
 
   # The entries of one call repeat its usage; the last written holds the most
   # output, and any entry with a stop reason means the count is final.
-  defp call(messages) do
+  defp call(entries) do
+    messages = Enum.map(entries, & &1["message"])
     usage = messages |> Enum.map(& &1["usage"]) |> Enum.max_by(&count(&1, "output_tokens"))
 
     %{
-      model: messages |> Enum.map(& &1["model"]) |> Enum.find(&is_binary/1),
+      model: messages |> Enum.map(& &1["model"]) |> Enum.find(&is_binary/1) |> plain(),
+      effort: entries |> Enum.map(& &1["effort"]) |> Enum.find(&is_binary/1) |> plain(),
       input: count(usage, "input_tokens"),
       writes: count(usage, "cache_creation_input_tokens"),
       reads: count(usage, "cache_read_input_tokens"),
@@ -222,25 +290,57 @@ defmodule Whiska.Ledger do
   end
 
   # A line that will not parse — a half-written last one included — is skipped.
+  # Each entry keeps only what a line is counted from: tool results and the
+  # text of every reply are most of a transcript's size, and none of its count.
   defp entries(path) do
     case read_regular(path) do
       {:ok, raw} ->
         for line <- String.split(raw, "\n"),
             line != "",
             {:ok, %{} = entry} <- [JSON.decode(line)],
-            do: entry
+            do: slim(entry)
 
       {:error, _gone} ->
         []
     end
   end
 
-  # A pipe or device named like a transcript would hang the read or never end.
-  defp read_regular(path) do
-    case File.stat(path) do
-      {:ok, %File.Stat{type: :regular}} -> File.read(path)
-      _not_a_file -> {:error, :not_a_file}
+  @kept ~w(type timestamp isSidechain origin isApiErrorMessage effort)
+
+  defp slim(entry) do
+    case entry["message"] do
+      %{} = message -> entry |> Map.take(@kept) |> Map.put("message", slim_message(message))
+      _no_message -> Map.take(entry, @kept)
     end
+  end
+
+  defp slim_message(message) do
+    message
+    |> Map.take(~w(id model usage stop_reason))
+    |> Map.put("content", tool_uses(message["content"]))
+  end
+
+  defp tool_uses(blocks) when is_list(blocks),
+    do:
+      for(%{"type" => "tool_use", "id" => id} <- blocks, do: %{"type" => "tool_use", "id" => id})
+
+  defp tool_uses(text) when is_binary(text), do: text
+  defp tool_uses(_other), do: nil
+
+  # Ten times the largest transcript seen on 2026-10-11.
+  @max_bytes 256 * 1024 * 1024
+
+  @doc """
+  Whether `path` is a transcript this module reads: a plain file under the
+  size cap. A pipe or device named like one would hang the read or never end.
+  """
+  @spec readable?(Path.t()) :: boolean()
+  def readable?(path) do
+    match?({:ok, %File.Stat{type: :regular, size: size}} when size <= @max_bytes, File.stat(path))
+  end
+
+  defp read_regular(path) do
+    if readable?(path), do: File.read(path), else: {:error, :not_readable}
   end
 
   @doc "The ledger as lines for a finished report: the agents, then the mouse."
@@ -253,6 +353,7 @@ defmodule Whiska.Ledger do
       line.label,
       line.type,
       models(line.models),
+      efforts(line.efforts),
       "new " <> if(line.floor, do: "≥", else: "") <> short(line.new_tokens),
       "reads " <> short(line.cache_reads),
       "#{line.steps} #{plural(line.steps, "step")}",
@@ -266,6 +367,9 @@ defmodule Whiska.Ledger do
 
   defp models([]), do: "model unknown"
   defp models(models), do: Enum.join(models, "+")
+
+  defp efforts([]), do: nil
+  defp efforts(efforts), do: Enum.join(efforts, "+")
 
   defp plural(1, word), do: word
   defp plural(_n, word), do: word <> "s"

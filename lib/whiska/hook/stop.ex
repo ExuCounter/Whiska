@@ -58,7 +58,7 @@ defmodule Whiska.Hook.Stop do
          :over <- turn_state(tail),
          false <- Session.nested?(env),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
-         {:ok, _file} <- write(layout, mouse_id, message(payload), Transcript.ran_on(tail)) do
+         {:ok, _file} <- write(layout, mouse_id, payload, Transcript.ran_on(tail)) do
       {:left, layout.main_checkout}
     else
       :in_flight ->
@@ -87,20 +87,29 @@ defmodule Whiska.Hook.Stop do
     if Transcript.subagents_in_flight?(tail), do: :in_flight, else: :over
   end
 
-  defp transcript_tail(%{"transcript_path" => path}) when is_binary(path),
-    do: Transcript.tail(path)
+  defp transcript_tail(payload) do
+    case transcript_path(payload) do
+      nil -> ""
+      path -> Transcript.tail(path)
+    end
+  end
 
-  defp transcript_tail(_no_transcript), do: ""
+  defp transcript_path(%{"transcript_path" => path}) when is_binary(path), do: path
+  defp transcript_path(_no_transcript), do: nil
 
-  defp write(layout, mouse_id, text, ran_on) do
+  # The transcript's path travels so the owl can read the turn's usage at
+  # collection (ADR-next-usage-is-recorded-at-collection); the hook reads only
+  # its tail, as before.
+  defp write(layout, mouse_id, payload, ran_on) do
     Doorstep.leave(layout.main_checkout, %Entry{
       mouse_id: mouse_id,
       branch: layout.branch_label,
       worktree_root: layout.worktree_root,
       stamped_at: DateTime.utc_now(),
-      text: text,
+      text: message(payload),
       ran_on: ran_on,
-      spec: spec(layout.worktree_root)
+      spec: spec(layout.worktree_root),
+      transcript: transcript_path(payload)
     })
   end
 

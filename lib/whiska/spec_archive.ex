@@ -30,18 +30,19 @@ defmodule Whiska.SpecArchive do
   def dir(main_checkout), do: Path.join(main_checkout, @dir)
 
   @doc """
-  Keep the spec an entry carried, as asked in `question`. An entry with no spec,
-  or with the spec already kept, writes nothing.
+  Keep the spec an entry carried, as asked in `question`: `:kept` when it was
+  new or revised. An entry with no spec, or with the spec already kept, writes
+  nothing and is `:unchanged`.
   """
-  @spec keep(Path.t(), Entry.t(), Question.t()) :: :ok | {:error, term()}
-  def keep(_main_checkout, %Entry{spec: nil}, _question), do: :ok
+  @spec keep(Path.t(), Entry.t(), Question.t()) :: :kept | :unchanged | {:error, term()}
+  def keep(_main_checkout, %Entry{spec: nil}, _question), do: :unchanged
 
   def keep(main_checkout, %Entry{} = entry, %Question{id: id}) do
     with :ok <- Spec.ignore(main_checkout, @exclude_line),
          :ok <- File.mkdir_p(dir(main_checkout)) do
       case find(main_checkout, names(main_checkout), entry.mouse_id, entry.branch) do
         {_file, %{body: body}} when body == entry.spec ->
-          :ok
+          :unchanged
 
         {file, saved} ->
           replaced = Enum.reject([saved.header["replaced"], saved.header["question"]], &blank?/1)
@@ -52,7 +53,7 @@ defmodule Whiska.SpecArchive do
             |> Map.put("replaced", Enum.join(replaced, ", "))
             |> Map.put("written", stamp(entry.stamped_at))
 
-          File.write(file, render(header, entry.spec))
+          write(file, render(header, entry.spec))
 
         nil ->
           header = %{
@@ -64,9 +65,13 @@ defmodule Whiska.SpecArchive do
             "status" => "waiting"
           }
 
-          File.write(new_file(main_checkout, entry), render(header, entry.spec))
+          write(new_file(main_checkout, entry), render(header, entry.spec))
       end
     end
+  end
+
+  defp write(file, text) do
+    with :ok <- File.write(file, text), do: :kept
   end
 
   @doc """

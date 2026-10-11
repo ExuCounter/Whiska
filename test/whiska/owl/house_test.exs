@@ -262,6 +262,7 @@ defmodule Whiska.Owl.HouseTest do
       assert saved =~ "question: #{second.id}\n"
       assert saved =~ "replaced: #{first.id}\n"
       assert saved =~ "status: waiting\n"
+      assert first.spec_sent and second.spec_sent
 
       exclude = File.read!(Path.join(main, ".git/info/exclude"))
       assert exclude |> String.split("\n") |> Enum.count(&(&1 == "/.whiska/")) == 1
@@ -277,10 +278,12 @@ defmodule Whiska.Owl.HouseTest do
       leave_spec(main, "ma", a, ~U[2026-10-06 10:00:00Z], "# Spec\n")
       House.collect(house)
 
-      [first, _done] = in_house(house, fn -> Enum.sort_by(Storage.all(Question), & &1.id) end)
+      [first, again] = in_house(house, fn -> Enum.sort_by(Storage.all(Question), & &1.id) end)
       [file] = Path.wildcard(Path.join(main, ".whiska/specs/*.md"))
       assert File.read!(file) =~ "question: #{first.id}\n"
       refute File.read!(file) =~ "replaced:"
+      assert first.spec_sent
+      refute again.spec_sent
     end
 
     test "a turn with no spec keeps nothing and ignores nothing", %{
@@ -595,6 +598,207 @@ defmodule Whiska.Owl.HouseTest do
       House.sync(house)
 
       assert retry_timer(house) == nil
+    end
+  end
+
+  # The owl reads each turn's usage from the transcript the entry names, at
+  # collection (ADR-next-usage-is-recorded-at-collection). The shapes are the
+  # ledger's own: one entry per content block repeating its message's usage,
+  # and the effort on every assistant entry.
+  describe "usage at collection" do
+    setup %{main: main, a: a} do
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+      transcript = Path.join([main, "..", "projects", "wt", "s1.jsonl"]) |> Path.expand()
+      File.mkdir_p!(Path.join(Path.rootname(transcript), "subagents"))
+      {:ok, house: open(main), transcript: transcript}
+    end
+
+    defp usage(i, cw, cr, o),
+      do: %{
+        "input_tokens" => i,
+        "cache_creation_input_tokens" => cw,
+        "cache_read_input_tokens" => cr,
+        "output_tokens" => o
+      }
+
+    defp call(id, at, usage, blocks, stop \\ "end_turn") do
+      for block <- blocks do
+        %{
+          "type" => "assistant",
+          "timestamp" => at,
+          "effort" => "xhigh",
+          "message" => %{
+            "id" => id,
+            "model" => "claude-opus-5-5",
+            "stop_reason" => stop,
+            "usage" => usage,
+            "content" => [block]
+          }
+        }
+      end
+    end
+
+    defp prompt(at),
+      do: [%{"type" => "user", "timestamp" => at, "origin" => %{"kind" => "human"}}]
+
+    defp api_error(at),
+      do: [
+        %{
+          "type" => "assistant",
+          "timestamp" => at,
+          "isApiErrorMessage" => true,
+          "message" => %{"id" => "e1", "model" => "<synthetic>", "usage" => usage(0, 0, 0, 0)}
+        }
+      ]
+
+    defp text, do: %{"type" => "text", "text" => "…"}
+    defp tool(id), do: %{"type" => "tool_use", "id" => id, "name" => "Bash", "input" => %{}}
+
+    defp write_jsonl(path, entries) do
+      File.write!(path, entries |> List.flatten() |> Enum.map_join("\n", &JSON.encode!/1))
+    end
+
+    defp agent(transcript, name, meta, entries) do
+      dir = Path.join(Path.rootname(transcript), "subagents")
+      write_jsonl(Path.join(dir, name <> ".jsonl"), entries)
+      File.write!(Path.join(dir, name <> ".meta.json"), JSON.encode!(meta))
+    end
+
+    defp leave_turn(main, root, stamped_at, transcript) do
+      {:ok, file} =
+        Doorstep.leave(main, %Entry{
+          mouse_id: "ma",
+          branch: Path.basename(root),
+          worktree_root: root,
+          stamped_at: stamped_at,
+          text: "[worktree-status: needs-decision] which one?",
+          transcript: transcript
+        })
+
+      file
+    end
+
+    test "a collected entry naming its transcript leaves this turn's rows, cut at its stamp", %{
+      main: main,
+      a: a,
+      house: house,
+      transcript: transcript
+    } do
+      write_jsonl(transcript, [
+        prompt("2026-10-11T09:00:00.000Z"),
+        call("m1", "2026-10-11T09:00:05.000Z", usage(10, 100, 1000, 50), [text()]),
+        # This turn: from the prompt that started it to the stop.
+        prompt("2026-10-11T09:10:00.000Z"),
+        call("m2", "2026-10-11T09:10:05.000Z", usage(5, 200, 3000, 40), [tool("t1"), text()]),
+        api_error("2026-10-11T09:11:00.000Z"),
+        call("m3", "2026-10-11T09:12:00.000Z", usage(1, 10, 3200, 20), [text()]),
+        # The next turn, written before a late collection reads the file.
+        prompt("2026-10-11T09:30:00.000Z"),
+        call("m4", "2026-10-11T09:30:05.000Z", usage(999, 999, 999, 999), [text()])
+      ])
+
+      agent(transcript, "agent-old", %{"agentType" => "Explore", "description" => "Earlier"}, [
+        call("o1", "2026-10-11T09:01:00.000Z", usage(9, 9, 9, 9), [text()])
+      ])
+
+      agent(
+        transcript,
+        "agent-a1",
+        %{"agentType" => "general-purpose", "description" => "Security review"},
+        [
+          call("a1", "2026-10-11T09:10:30.000Z", usage(3, 300, 600, 30), [text()]),
+          call("a2", "2026-10-11T09:11:30.000Z", usage(0, 0, 700, 5), [text()]),
+          call("a3", "2026-10-11T09:20:00.000Z", usage(999, 999, 999, 999), [text()])
+        ]
+      )
+
+      agent(transcript, "agent-next", %{"agentType" => "Explore", "description" => "Next"}, [
+        call("n1", "2026-10-11T09:30:30.000Z", usage(9, 9, 9, 9), [text()])
+      ])
+
+      leave_turn(main, a, ~U[2026-10-11 09:15:00Z], transcript)
+      House.collect(house)
+
+      in_house(house, fn ->
+        [question] = Storage.all(Question)
+        rows = Storage.usage(question.id)
+
+        assert [agent] = Enum.filter(rows, &(&1.scope == "agent"))
+        assert [mouse] = Enum.filter(rows, &(&1.scope == "mouse"))
+
+        assert %{
+                 label: "Security review",
+                 type: "general-purpose",
+                 model: "claude-opus-5-5",
+                 effort: "xhigh",
+                 input: 3,
+                 cache_writes: 300,
+                 cache_reads: 1300,
+                 output: 35,
+                 steps: 2,
+                 seconds: 60,
+                 floor: false,
+                 api_errors: 0
+               } = agent
+
+        assert %{
+                 model: "claude-opus-5-5",
+                 effort: "xhigh",
+                 input: 6,
+                 cache_writes: 210,
+                 cache_reads: 6200,
+                 output: 60,
+                 steps: 2,
+                 tool_uses: 1,
+                 seconds: 120,
+                 floor: false,
+                 api_errors: 1
+               } = mouse
+      end)
+    end
+
+    # The escript writes a second entry for a turn the owl already wrote
+    # (ADR-0036), and a session woken by a background task stops again with no
+    # prompt in between. Both name the same turn.
+    test "a second entry for the same turn replaces the first's rows, so rows still add up", %{
+      main: main,
+      a: a,
+      house: house,
+      transcript: transcript
+    } do
+      write_jsonl(transcript, [
+        prompt("2026-10-11T09:10:00.000Z"),
+        call("m1", "2026-10-11T09:10:05.000Z", usage(5, 0, 0, 0), [text()]),
+        call("m2", "2026-10-11T09:12:00.000Z", usage(7, 0, 0, 0), [text()])
+      ])
+
+      leave_turn(main, a, ~U[2026-10-11 09:11:00Z], transcript)
+      House.collect(house)
+      leave_turn(main, a, ~U[2026-10-11 09:13:00Z], transcript)
+      House.collect(house)
+
+      in_house(house, fn ->
+        [first, second] = Enum.sort_by(Storage.all(Question), & &1.id)
+
+        assert [%{replaced: true, input: 5}] = Storage.usage(first.id)
+        assert [%{replaced: false, input: 12, steps: 2}] = Storage.usage(second.id)
+      end)
+    end
+
+    test "an entry naming no transcript, or one that is not there, is collected with no rows",
+         %{main: main, a: a, house: house, transcript: transcript} do
+      leave_turn(main, a, ~U[2026-10-11 09:15:00Z], nil)
+      leave_turn(main, a, ~U[2026-10-11 09:16:00Z], transcript)
+      House.collect(house)
+
+      assert Doorstep.waiting(main) == []
+
+      in_house(house, fn ->
+        questions = Storage.all(Question)
+        assert length(questions) == 2
+        assert Enum.flat_map(questions, &Storage.usage(&1.id)) == []
+      end)
     end
   end
 

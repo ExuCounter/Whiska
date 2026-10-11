@@ -251,7 +251,7 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/run `whiska ledger` and copy its lines/i
 
       assert body =~
-               ~r/agent type, the model that ran, new tokens, cache reads, steps with the average per step, tool uses, seconds/
+               ~r/agent type, the model that ran and its effort, new tokens, cache reads, steps with the average per step, tool uses, seconds/
     end
 
     test "new tokens are cache writes plus input plus output; cache reads stand apart" do

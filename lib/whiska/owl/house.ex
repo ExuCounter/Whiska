@@ -149,6 +149,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.FinishFlag
   alias Whiska.Herdr
   alias Whiska.Layout
+  alias Whiska.Ledger
   alias Whiska.Pickup
   alias Whiska.Question.Marker
   alias Whiska.Schema.Mouse
@@ -1248,6 +1249,7 @@ defmodule Whiska.Owl.House do
            }),
          {:ok, _} <- Storage.supersede_earlier(question),
          :ok <- keep_spec(state, entry, question),
+         :ok <- record_usage(state, entry, question),
          {:ok, _} <- Doorstep.mark_collected(file) do
       true
     else
@@ -1262,11 +1264,39 @@ defmodule Whiska.Owl.House do
   # The question is already recorded, so a copy that cannot be written is said
   # and passed over: holding the entry back would record the question twice.
   defp keep_spec(state, entry, question) do
-    with {:error, reason} <- SpecArchive.keep(state.main_checkout, entry, question) do
-      warn(state, "could not keep the spec of question #{question.id} (#{inspect(reason)})")
+    case SpecArchive.keep(state.main_checkout, entry, question) do
+      :kept ->
+        Storage.mark_spec_sent(question.id)
+
+      :unchanged ->
+        :ok
+
+      {:error, reason} ->
+        warn(state, "could not keep the spec of question #{question.id} (#{inspect(reason)})")
     end
 
     :ok
+  end
+
+  # The same holds for its usage (ADR-next-usage-is-recorded-at-collection). The
+  # turn is read as it stood at the entry's stamp, so a collection that comes
+  # late never counts the turn the mouse started after it.
+  defp record_usage(_state, %{transcript: nil}, _question), do: :ok
+
+  defp record_usage(state, entry, question) do
+    path = entry.transcript
+
+    if Path.type(path) == :absolute and Path.extname(path) == ".jsonl" and Ledger.readable?(path) do
+      Storage.record_usage(question.id, Ledger.turn(path, entry.stamped_at))
+    else
+      warn(state, "no usage for question #{question.id}: no transcript at #{inspect(path)}")
+    end
+
+    :ok
+  rescue
+    error ->
+      warn(state, "no usage for question #{question.id} (#{Exception.message(error)})")
+      :ok
   end
 
   # -- delivery (ADR-0008) -----------------------------------------------------

@@ -16,10 +16,24 @@ defmodule Whiska.Doorstep.Entry do
   there was none. It travels here because the doorstep is in the house and
   outlives the worktree, so the owl can keep a copy of the spec at collection
   whatever removes the worktree first (ADR-0063).
+
+  `transcript` is the path of the session's Claude Code transcript, from the
+  `Stop` payload, nil when the payload named none and on an entry written before
+  it travelled. The owl reads the turn's usage from it at collection
+  (ADR-next-usage-is-recorded-at-collection).
   """
 
   @enforce_keys [:mouse_id, :branch, :worktree_root, :stamped_at, :text]
-  defstruct [:mouse_id, :branch, :worktree_root, :stamped_at, :text, ran_on: nil, spec: nil]
+  defstruct [
+    :mouse_id,
+    :branch,
+    :worktree_root,
+    :stamped_at,
+    :text,
+    ran_on: nil,
+    spec: nil,
+    transcript: nil
+  ]
 
   @type t :: %__MODULE__{
           mouse_id: String.t(),
@@ -28,7 +42,8 @@ defmodule Whiska.Doorstep.Entry do
           stamped_at: DateTime.t(),
           text: String.t(),
           ran_on: String.t() | nil,
-          spec: String.t() | nil
+          spec: String.t() | nil,
+          transcript: Path.t() | nil
         }
 
   @doc "The on-disk form: plain JSON, one object."
@@ -41,7 +56,8 @@ defmodule Whiska.Doorstep.Entry do
       "stamped_at" => DateTime.to_iso8601(entry.stamped_at),
       "text" => entry.text,
       "ran_on" => entry.ran_on,
-      "spec" => entry.spec
+      "spec" => entry.spec,
+      "transcript" => entry.transcript
     })
   end
 
@@ -67,7 +83,8 @@ defmodule Whiska.Doorstep.Entry do
          stamped_at: stamped_at,
          text: text,
          ran_on: if(is_binary(fields["ran_on"]), do: fields["ran_on"]),
-         spec: if(is_binary(fields["spec"]), do: fields["spec"])
+         spec: if(is_binary(fields["spec"]), do: fields["spec"]),
+         transcript: if(is_binary(fields["transcript"]), do: fields["transcript"])
        }}
     else
       _ -> :error

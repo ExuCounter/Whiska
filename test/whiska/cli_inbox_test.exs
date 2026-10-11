@@ -334,8 +334,11 @@ defmodule Whiska.CLIInboxTest do
         assert %{held_at: nil, worked_at: %DateTime{}} = Storage.mouse("ma")
         # The line answers the stop, so it is never delivered as a decision —
         # and it went straight into the pane, so there is nothing for the owl
-        # to ring for.
-        assert %{status: "answered", taken_at: %DateTime{}} = Storage.question(1)
+        # to ring for. Whiska typed it, not the person, so it is no answer of
+        # theirs to time.
+        assert %{status: "answered", taken_at: %DateTime{}, answered_at: nil} =
+                 Storage.question(1)
+
         assert Storage.chased() == []
       end)
     end

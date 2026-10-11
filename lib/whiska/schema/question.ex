@@ -43,6 +43,8 @@ defmodule Whiska.Schema.Question do
     field(:rung_at, :utc_datetime)
     field(:rings, :integer, default: 0)
     field(:stale_at, :utc_datetime)
+    field(:answered_at, :utc_datetime)
+    field(:spec_sent, :boolean, default: false)
   end
 
   @doc "The statuses a question moves through."
