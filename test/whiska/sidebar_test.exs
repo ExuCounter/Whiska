@@ -189,14 +189,6 @@ defmodule Whiska.SidebarTest do
                questions: [question(14, "feat-a", kind: "done", text: text)],
                bare_panes: [pane("feat-a", "idle")]
              ) == %{"whiska" => "✅ #14 · finished", "whiska_q" => "All 31 tests pass."}
-
-      [line] =
-        lines([mouse("feat-a")],
-          questions: [question(14, "feat-a", kind: "done", text: text)],
-          bare_panes: [pane("feat-a", "idle")]
-        )
-
-      assert Sidebar.needs_you?(line)
     end
 
     test "behind another question, it says so and nothing more" do
@@ -335,7 +327,6 @@ defmodule Whiska.SidebarTest do
       [line] = lines([mouse("feat-a")], bare_panes: [pane("feat-a", "working", title: forged)])
 
       assert String.starts_with?(line.tokens["whiska"], "◐ ")
-      refute Sidebar.needs_you?(line)
     end
 
     test "picked up by the owl and then stuck, it says it is stuck" do

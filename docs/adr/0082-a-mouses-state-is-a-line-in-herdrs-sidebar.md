@@ -112,10 +112,11 @@ got shorter clears what it no longer says.
 **A house speaks only for its own workspaces** and never touches another repo's lines.
 
 **The mice re-sort with `workspace.move_block` only when a mouse changes state (its
-number in the table), or starts or stops queueing behind another (states 5 and 6)**, and
+row in the table; the three lost-pane lines are one row), or starts or stops queueing behind another (states 5 and 6)**, and
 once when the house opens. The spinner turning is not a change of state. A held mouse used
 to stay where it was until a question moved the rows, which left it between working ones;
-now it drops at once. Mice of one state and mode keep their order, so the
+now it drops at once. A new mouse, or one that goes, does not re-sort: it lands in place at
+the next one. Mice of one state and mode keep their order, so the
 person's drag order stands. The main checkout's workspace never moves. `move_block` is
 in herdr's socket API and not its docs; a rename fails sorting with one warning.
 

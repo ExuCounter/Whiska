@@ -174,10 +174,6 @@ defmodule Whiska.Sidebar do
   @spec rank(line()) :: pos_integer()
   def rank(%{rank: rank}), do: rank
 
-  @doc "Whether this mouse is waiting on the person or has finished for them."
-  @spec needs_you?(line()) :: boolean()
-  def needs_you?(%{rank: rank}), do: rank <= @finished
-
   defp line(row, now, frame) do
     {rank, said, carried} = state(row, now, frame)
 

@@ -377,6 +377,22 @@ defmodule Whiska.Owl.HouseSidebarTest do
       assert_receive {:moved, ["w3", "w2"], nil}, 1_000
     end
 
+    test "moves a mouse that is held below the working one, with nobody needing the person",
+         %{main: main, worktree: worktree, worktree_b: worktree_b} do
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [pane(worktree, "working", "w2"), pane(worktree_b, "working", "w3")]}
+      end)
+
+      fake_herdr([main_ws(main), mouse_ws("w2", worktree), mouse_ws("w3", worktree_b)])
+      house = open(main, [])
+
+      refute_receive {:moved, _, _}, 150
+
+      in_house(house, fn -> {:ok, _} = Storage.hold("ma") end)
+
+      assert_receive {:moved, ["w3", "w2"], nil}, 1_000
+    end
+
     test "leaves the order alone when it is already right", %{
       main: main,
       worktree: worktree,

@@ -652,12 +652,18 @@ defmodule Whiska.Owl.House do
   defp sort(state, lines, placed, workspaces) do
     ranks = Map.new(lines, &{&1.mouse_id, Sidebar.rank(&1)})
     queue = for %{under: holder} = line <- lines, holder, into: %{}, do: {line.mouse_id, holder}
+    previous = state.sorted_on
+    state = %{state | sorted_on: {ranks, queue}}
 
-    if {ranks, queue} == state.sorted_on do
-      state
-    else
-      reorder(%{state | sorted_on: {ranks, queue}}, lines, placed, workspaces)
-    end
+    if resort?(previous, ranks, queue), do: reorder(state, lines, placed, workspaces), else: state
+  end
+
+  # A mouse that appears or goes is not a change of state: it lands in place
+  # at the next re-sort (ADR-0082).
+  defp resort?(nil, _ranks, _queue), do: true
+
+  defp resort?({before, queued}, ranks, queue) do
+    queued != queue or Enum.any?(ranks, fn {id, rank} -> Map.get(before, id, rank) != rank end)
   end
 
   defp reorder(state, lines, placed, workspaces) do
