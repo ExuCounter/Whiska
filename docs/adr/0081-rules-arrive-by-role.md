@@ -14,6 +14,13 @@ for the rest.
 | Main session | in herdr, and not a mouse | `worktrees` (routing), `work`, `delivery`, `writing` |
 | Mouse | started in a `worktrees/<branch>` worktree, not in the recorded main pane (ADR-0053) | `work`, `marker`, `report`, `writing`, `finish` |
 
+A mouse whose `SessionStart` carries `source` `compact` gets one more line after its
+rules, fixed text and nothing parsed: "You were just compacted. Before continuing, read
+.whiska-spec.md if it exists, run git status, and run whiska questions to see what was
+asked and answered." The main session, and a mouse that starts, resumes or clears, get
+no such line. The compaction summary is Claude Code's and can lose what the mouse was
+told; these commands read the spec, the work and the questions back from disk.
+
 `work` is the order every piece of work goes in — done, grill, spec, build — and what
 counts as costly; both roles need it, since the main session follows it when the person
 says to work in place. `writing` is how every session writes to the person, and both

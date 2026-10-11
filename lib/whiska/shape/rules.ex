@@ -59,9 +59,10 @@ defmodule Whiska.Shape.Rules do
   defp check(rules) do
     with :ok <- keys(rules, "the file", ~w(modes model effort)),
          :ok <- modes(rules["modes"]),
-         :ok <- keys(rules["model"], ~s("model"), ~w(choose fallback)),
+         :ok <- keys(rules["model"], ~s("model"), ~w(choose fallback autocompact)),
          :ok <- choose(rules["model"]["choose"], "model.choose"),
          :ok <- fallback(rules["model"]["fallback"]),
+         :ok <- autocompact(rules["model"]["autocompact"]),
          :ok <- keys(rules["effort"], ~s("effort"), ~w(choose)) do
       choose(rules["effort"]["choose"], "effort.choose")
     end
@@ -152,4 +153,26 @@ defmodule Whiska.Shape.Rules do
 
   defp fallback(other),
     do: {:error, "model.fallback must be a list of plain words, not #{inspect(other)}"}
+
+  @window_range 100_000..1_000_000
+
+  defp autocompact(%{"default" => _} = windows) do
+    Enum.find_value(windows, :ok, fn {model, window} ->
+      cond do
+        not plain_word?(model) ->
+          {:error, "model.autocompact names #{inspect(model)}, which is not one plain word"}
+
+        not (is_integer(window) and window in @window_range) ->
+          {:error,
+           "model.autocompact.#{model} must be a whole number of tokens from 100000 to 1000000, not #{inspect(window)}"}
+
+        true ->
+          nil
+      end
+    end)
+  end
+
+  defp autocompact(%{}), do: {:error, ~s(model.autocompact is missing "default")}
+
+  defp autocompact(_other), do: {:error, "model.autocompact must be a JSON object"}
 end

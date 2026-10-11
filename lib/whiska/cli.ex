@@ -297,7 +297,9 @@ defmodule Whiska.CLI do
     shape build|sniff [--model <name>] [--effort <level>]
                          Give a fresh mouse its shape, before Claude starts
                          (ADR-0069): record its mode, model and effort, and
-                         print the flags to start Claude with, or nothing.
+                         print the flags to start Claude with, or nothing. A
+                         build mouse also gets --autocompact, its model's
+                         window from priv/models.json.
                          Also makes git ignore the worktree's .whiska-spec.md,
                          and clones deps, _build and node_modules (plus the
                          paths in .git/whiska/clone, or nothing for a lone
@@ -307,8 +309,8 @@ defmodule Whiska.CLI do
                          Claude. A model or effort left out is the last rule's
                          in priv/models.json: #{@catch_all}.
     shape --rules        Print priv/models.json as this build carries it: the
-                         modes, and the ordered rules a spawn chooses a model
-                         and an effort by.
+                         modes, the ordered rules a spawn chooses a model and
+                         an effort by, and the auto-compact window per model.
 
     --version            Print the version.
   """

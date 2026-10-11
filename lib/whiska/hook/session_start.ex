@@ -63,11 +63,17 @@ defmodule Whiska.Hook.SessionStart do
       |> claude_mds(env, scope)
       |> Enum.flat_map(&kept_in/1)
       |> then(&Rules.render(role, &1))
+      |> with_compaction(role, payload["source"])
       |> encode()
     else
       _ -> :none
     end
   end
+
+  @compacted "You were just compacted. Before continuing, read .whiska-spec.md if it exists, run git status, and run whiska questions to see what was asked and answered."
+
+  defp with_compaction(rules, :mouse, "compact"), do: rules <> "\n\n" <> @compacted
+  defp with_compaction(rules, _role, _source), do: rules
 
   # A session with no transcript to read yet — one just cleared — is placed by
   # its working directory, which follows every `cd`. `CLAUDE_PROJECT_DIR` is

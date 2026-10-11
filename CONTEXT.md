@@ -493,7 +493,8 @@ each chosen on its own — a hard investigation is sniff on the heaviest model a
 highest effort. Given by the spawn, with `whiska shape`, before Claude starts, so the
 mouse's first tool call is already judged by its mode. The spawning session picks the
 model and the effort by the ordered rules in `priv/models.json`; one it leaves unnamed
-is the last rule's. The record also keeps the model the mouse actually ran on, read from
+is the last rule's. A build mouse also starts with an auto-compact window for its model,
+from the same file; a sniff mouse keeps Claude Code's own. The record also keeps the model the mouse actually ran on, read from
 its transcript. Shaping also stocks the worktree: the main checkout's `deps`, `_build` or
 `node_modules`, and any path listed in the house's `clone` file, are cloned in
 copy-on-write, never symlinked. There is no default mode: a mouse **never shaped** may read but not

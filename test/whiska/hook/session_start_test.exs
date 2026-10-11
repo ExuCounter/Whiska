@@ -122,6 +122,40 @@ defmodule Whiska.Hook.SessionStartTest do
     assert context(output) =~ Marker.render(:done)
   end
 
+  describe "the compaction line" do
+    @line "You were just compacted. Before continuing, read .whiska-spec.md if it exists, run git status, and run whiska questions to see what was asked and answered."
+
+    defp start_from(cwd, source, env) do
+      payload =
+        JSON.encode!(%{"cwd" => cwd, "hook_event_name" => "SessionStart", "source" => source})
+
+      capture_io(payload, fn -> assert CLI.session_start(env) == 0 end)
+    end
+
+    test "a compacted mouse is told to re-read its spec, git status and questions", c do
+      rules = c.worktree |> start_from("compact", herdr(c.home)) |> context()
+
+      assert rules =~ @line
+      assert rules =~ Marker.render(:done)
+    end
+
+    test "a mouse that starts, resumes or is cleared is not told it was compacted", c do
+      for source <- ~w(startup resume clear) do
+        refute c.worktree |> start_from(source, herdr(c.home)) |> context() =~ "just compacted"
+      end
+
+      refute c.worktree |> start(herdr(c.home)) |> context() =~ "just compacted"
+    end
+
+    test "the main session is not told it was compacted", c do
+      refute c.main |> start_from("compact", herdr(c.home)) |> context() =~ "just compacted"
+    end
+
+    test "outside herdr a compaction prints nothing", c do
+      assert start_from(c.worktree, "compact", %{"HOME" => c.home}) == ""
+    end
+  end
+
   test "the project directory Claude Code names is where a project's keep is read", c do
     File.write!(Path.join(c.worktree, "CLAUDE.md"), """
     <!-- whiska:finish:start keep -->

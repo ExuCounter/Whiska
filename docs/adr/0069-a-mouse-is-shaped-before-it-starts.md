@@ -80,6 +80,24 @@ skips the chosen model. Whiska cannot walk a list itself: `herdr agent start` su
 soon as Claude's prompt is ready, before any request is made, so a quota error arrives
 after the spawn has already succeeded.
 
+## A build mouse gets an auto-compact window
+
+`model.autocompact` in `priv/models.json` maps a model word to a window in tokens, with a
+`default` that every model not named gets: `{"default": 300000, "haiku": 100000}`.
+`whiska shape build` appends `--autocompact <tokens>` for the chosen model; `whiska shape
+sniff` appends nothing, so a sniff mouse keeps Claude Code's own default. The build
+refuses a file with no `default` or a value outside 100000 to 1000000, the range Claude
+Code accepts. Claude Code compacts at about 967K by default. The person chose 300K for the
+1M models and 100K for haiku, a window that is the lowest Claude Code allows. These are
+the person's judgment: Anthropic publishes no per-model quality curve, so no source backs
+the numbers.
+
+The flag is fixed at launch, so a mouse that falls back keeps the window of the model it
+started on. The fallback chain is opus then sonnet and both take the default, so the
+fallback never changes the window today. The map names a model only to give it a window
+of its own; which models exist is still Claude Code's to say, and a model the map does
+not name still gets the default.
+
 The record keeps the model and effort the spawn asked for, and `ran_on`: the full model
 id the mouse's latest turn ran on. The `Stop` hook reads it from `message.model` on the
 session's own latest assistant entry, skipping a subagent's entries and the `<synthetic>`
@@ -97,7 +115,11 @@ included.
 - **A model tied to the mode.** The mode says what the mouse may do, not how hard the
   work is.
 - **A list of model names in Whiska.** Claude Code owns which models exist; the list is
-  stale the day one is added or retired.
+  stale the day one is added or retired. The `autocompact` map is not this list: it
+  needs no entry for a model, and the `default` covers every one it does not name.
+- **Setting the window in the person's `settings.json` with `modelSettings`.** It follows
+  a fallback to another model, but needs Claude Code 2.1.288 or later, reaches the main
+  session and subagents too, and keeps the numbers outside Whiska.
 - **A `may_write` field beside the modes.** The file does not decide what sniff may do,
   so a field saying it did would be a lie.
 - **Whiska matching a `when` to the request by keyword.** A worse version of what the

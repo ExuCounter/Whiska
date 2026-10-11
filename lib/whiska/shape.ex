@@ -30,6 +30,7 @@ defmodule Whiska.Shape do
   @model Rules.catch_all(@rules["model"]["choose"])
   @effort Rules.catch_all(@rules["effort"]["choose"])
   @fallback @rules["model"]["fallback"]
+  @windows @rules["model"]["autocompact"]
 
   @usage "expected whiska shape <build|sniff> [--model <name>] [--effort <level>], " <>
            "or whiska shape --rules."
@@ -73,16 +74,28 @@ defmodule Whiska.Shape do
   @doc """
   The flags to start Claude with. Unnamed parts are left out, and the fallback
   chain skips the chosen model: retrying the model that just failed is no
-  fallback.
+  fallback. A build mouse also gets the auto-compact window `windows` holds for
+  its model, else the default's; a sniff mouse gets none.
   """
-  @spec claude_args(t(), [String.t()]) :: [String.t()]
-  def claude_args(%{model: model, effort: effort}, fallback \\ @fallback) do
+  @spec claude_args(t(), [String.t()], %{String.t() => pos_integer()}) :: [String.t()]
+  def claude_args(shape, fallback \\ @fallback, windows \\ @windows) do
+    %{model: model, effort: effort} = shape
     fallback = fallback |> Enum.reject(&(&1 == model)) |> Enum.uniq()
 
     flag("--model", model) ++
       flag("--effort", effort) ++
-      flag("--fallback-model", if(fallback != [], do: Enum.join(fallback, ",")))
+      flag("--fallback-model", if(fallback != [], do: Enum.join(fallback, ","))) ++
+      flag("--autocompact", window(shape, windows))
   end
+
+  defp window(%{mode: "build", model: model}, windows) do
+    case Map.get(windows, model) || Map.get(windows, "default") do
+      nil -> nil
+      tokens -> Integer.to_string(tokens)
+    end
+  end
+
+  defp window(_shape, _windows), do: nil
 
   defp flag(_name, nil), do: []
   defp flag(name, value), do: [name, value]

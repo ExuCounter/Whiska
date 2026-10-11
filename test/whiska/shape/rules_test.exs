@@ -68,6 +68,27 @@ defmodule Whiska.Shape.RulesTest do
       assert refused(dir, Map.delete(@shipped, "effort")) =~ ~s(missing "effort")
     end
 
+    test "has no auto-compact windows, or none for the default", %{dir: dir} do
+      assert refused(dir, update_in(@shipped, ["model"], &Map.delete(&1, "autocompact"))) =~
+               ~s(missing "autocompact")
+
+      assert refused(dir, put(@shipped, ["model", "autocompact"], %{"haiku" => 100_000})) =~
+               ~s(model.autocompact is missing "default")
+    end
+
+    test "has an auto-compact window Claude Code would refuse", %{dir: dir} do
+      for bad <- [99_999, 1_000_001, 200.5, "200000", nil] do
+        message = refused(dir, put(@shipped, ["model", "autocompact", "default"], bad))
+        assert message =~ "model.autocompact.default"
+        assert message =~ "100000 to 1000000"
+      end
+    end
+
+    test "names a window for something that is not one plain word", %{dir: dir} do
+      message = refused(dir, put(@shipped, ["model", "autocompact", "Two Words"], 150_000))
+      assert message =~ "one plain word"
+    end
+
     test "describes a mode the hook does not enforce, or not both", %{dir: dir} do
       assert refused(dir, put(@shipped, ["modes", "review"], "a third kind")) =~
                "exactly build and sniff"

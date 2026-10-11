@@ -12,6 +12,7 @@ defmodule Whiska.ShapeTest do
   @model @rules["model"]["choose"] |> List.last() |> Map.fetch!("use")
   @effort @rules["effort"]["choose"] |> List.last() |> Map.fetch!("use")
   @fallback @rules["model"]["fallback"]
+  @window @rules["model"]["autocompact"]
 
   @models (Enum.map(@rules["model"]["choose"], & &1["use"]) ++ @fallback)
           |> Enum.reject(&is_nil/1)
@@ -76,24 +77,24 @@ defmodule Whiska.ShapeTest do
 
     test "falls back past the chosen model, never onto it" do
       # Retrying the model that just failed is no fallback at all.
-      assert Shape.claude_args(shape("build", "m1", "low"), ["m1", "m2"]) ==
+      assert Shape.claude_args(shape("build", "m1", "low"), ["m1", "m2"], %{}) ==
                ~w(--model m1 --effort low --fallback-model m2)
 
-      assert Shape.claude_args(shape("build", "m1", "low"), ["m1"]) ==
+      assert Shape.claude_args(shape("build", "m1", "low"), ["m1"], %{}) ==
                ~w(--model m1 --effort low)
     end
 
     test "is empty when there is nothing to name" do
-      assert Shape.claude_args(shape("build", nil, nil), []) == []
+      assert Shape.claude_args(shape("build", nil, nil), [], %{}) == []
     end
 
     test "leaves out only what is not named" do
-      assert Shape.claude_args(shape("build", nil, "medium"), ["m1"]) ==
+      assert Shape.claude_args(shape("build", nil, "medium"), ["m1"], %{}) ==
                ~w(--effort medium --fallback-model m1)
     end
 
     test "uses the fallback chain from priv/models.json by default" do
-      args = Shape.claude_args(shape("build", "not-in-the-chain", nil))
+      args = Shape.claude_args(shape("sniff", "not-in-the-chain", nil))
 
       assert args == [
                "--model",
@@ -101,6 +102,37 @@ defmodule Whiska.ShapeTest do
                "--fallback-model",
                Enum.join(@fallback, ",")
              ]
+    end
+
+    test "a build mouse gets its model's auto-compact window, else the default's" do
+      windows = %{"m1" => 123_000, "default" => 200_000}
+
+      assert Shape.claude_args(shape("build", "m1", nil), [], windows) ==
+               ~w(--model m1 --autocompact 123000)
+
+      assert Shape.claude_args(shape("build", "m2", nil), [], windows) ==
+               ~w(--model m2 --autocompact 200000)
+
+      assert Shape.claude_args(shape("build", nil, nil), [], windows) ==
+               ~w(--autocompact 200000)
+    end
+
+    test "a sniff mouse gets no window, so it keeps Claude Code's default" do
+      windows = %{"default" => 200_000}
+
+      refute "--autocompact" in Shape.claude_args(shape("sniff", "m1", nil), [], windows)
+      refute "--autocompact" in Shape.claude_args(shape("sniff", "m1", nil))
+    end
+
+    test "priv/models.json gives build mice 300000 and haiku 100000" do
+      assert @window["default"] == 300_000
+      assert @window["haiku"] == 100_000
+
+      assert Shape.claude_args(shape("build", "haiku", nil), []) ==
+               ~w(--model haiku --autocompact 100000)
+
+      assert Shape.claude_args(shape("build", "opus", nil), []) ==
+               ~w(--model opus --autocompact 300000)
     end
 
     test "is only ever plain words, so splitting it in any shell is safe" do
