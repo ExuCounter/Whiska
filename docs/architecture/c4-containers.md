@@ -104,7 +104,7 @@ The reasoning is in the ADR each line names; this is the map.
 - **House database under the main checkout's `.git/`**: every worktree shares it, so a
   repo's mice are one house; SQLite, not flat files (ADR-0028). Each turn's usage is
   stored there at collection, keyed by its question
-  (ADR-next-usage-is-recorded-at-collection).
+  (ADR-0086).
 - **Doorstep, a directory in the house**: every question enters through it, whoever writes
   the entry; a dead owl loses nothing; collected entries are renamed, never deleted, and an
   ordinary `drop-worktree` cannot erase a pending question (ADR-0036, ADR-0007).

@@ -602,7 +602,7 @@ defmodule Whiska.Owl.HouseTest do
   end
 
   # The owl reads each turn's usage from the transcript the entry names, at
-  # collection (ADR-next-usage-is-recorded-at-collection). The shapes are the
+  # collection (ADR-0086). The shapes are the
   # ledger's own: one entry per content block repeating its message's usage,
   # and the effort on every assistant entry.
   describe "usage at collection" do

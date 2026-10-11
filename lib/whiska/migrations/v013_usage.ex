@@ -1,7 +1,7 @@
 defmodule Whiska.Migrations.V013Usage do
   @moduledoc """
   What each turn cost, and two stamps the metrics read
-  (ADR-next-usage-is-recorded-at-collection).
+  (ADR-0086).
 
   `usage` holds one row per ledger line of a collected turn, keyed by its
   question: the mouse's own row for that turn, and one per agent it sent.

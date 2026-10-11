@@ -2,7 +2,7 @@ defmodule Whiska.Schema.Usage do
   @moduledoc """
   What one turn cost, one ledger line of it: the mouse's own row for the turn,
   or one agent it sent. Recorded by the owl at collection, from the transcript
-  the doorstep entry names (ADR-next-usage-is-recorded-at-collection), and kept
+  the doorstep entry names (ADR-0086), and kept
   like every other record (ADR-0007).
 
   `transcript` and `turn_started_at` name the turn, as the transcript wrote its

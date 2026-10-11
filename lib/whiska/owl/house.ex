@@ -1278,7 +1278,7 @@ defmodule Whiska.Owl.House do
     :ok
   end
 
-  # The same holds for its usage (ADR-next-usage-is-recorded-at-collection). The
+  # The same holds for its usage (ADR-0086). The
   # turn is read as it stood at the entry's stamp, so a collection that comes
   # late never counts the turn the mouse started after it.
   defp record_usage(_state, %{transcript: nil}, _question), do: :ok

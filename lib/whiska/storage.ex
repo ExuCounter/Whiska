@@ -1030,7 +1030,7 @@ defmodule Whiska.Storage do
   @spec mark_spec_sent(integer()) :: {:ok, Question.t()} | {:error, term()}
   def mark_spec_sent(id), do: stamp_question(id, spec_sent: true)
 
-  # -- usage (ADR-next-usage-is-recorded-at-collection) ----------
+  # -- usage (ADR-0086) ----------
 
   @doc """
   Record a turn's usage against its question: one row per agent the ledger

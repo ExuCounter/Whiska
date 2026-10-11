@@ -20,7 +20,7 @@ defmodule Whiska.Doorstep.Entry do
   `transcript` is the path of the session's Claude Code transcript, from the
   `Stop` payload, nil when the payload named none and on an entry written before
   it travelled. The owl reads the turn's usage from it at collection
-  (ADR-next-usage-is-recorded-at-collection).
+  (ADR-0086).
   """
 
   @enforce_keys [:mouse_id, :branch, :worktree_root, :stamped_at, :text]

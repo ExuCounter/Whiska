@@ -98,7 +98,7 @@ defmodule Whiska.Hook.Stop do
   defp transcript_path(_no_transcript), do: nil
 
   # The transcript's path travels so the owl can read the turn's usage at
-  # collection (ADR-next-usage-is-recorded-at-collection); the hook reads only
+  # collection (ADR-0086); the hook reads only
   # its tail, as before.
   defp write(layout, mouse_id, payload, ran_on) do
     Doorstep.leave(layout.main_checkout, %Entry{

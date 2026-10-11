@@ -651,7 +651,7 @@ a sniff mouse's turn is recorded like any other. Kept per question. A later entr
 the same turn marks the earlier rows replaced, and the rows not replaced add up.
 `whiska metrics` reads it, weighing tokens into **cost units** (input + 1.25 × cache
 writes + 0.1 × cache reads + 5 × output, the ratio every Claude model is priced at), since
-Whiska keeps no prices (ADR-next-usage-is-recorded-at-collection).
+Whiska keeps no prices (ADR-0086).
 _Avoid_: ledger (the lines a finished report ends with, whose mouse line covers the whole
 session), price or dollars (none is stored)
 

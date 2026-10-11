@@ -27,7 +27,7 @@ vocabulary leaks into this project's language.
 A mouse with no `shaped_at` is held to sniff's rules: every edit tool and every shell
 command `Whiska.Shell` cannot read as harmless is denied, with a reason that says it was
 never given a shape and to ask the person. It cannot shape itself: of `whiska`, only
-`whiska ledger` is on the read-only list (ADR-next-usage-is-recorded-at-collection), and
+`whiska ledger` is on the read-only list (ADR-0086), and
 `env` and `command` are judged by the command they run, so `env whiska mode build` is
 caught too. The person runs `whiska mode build|sniff` in its
 worktree, which stamps `shaped_at`. `whiska mode` gives a mode only to a mouse nobody

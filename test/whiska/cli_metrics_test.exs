@@ -1,7 +1,7 @@
 defmodule Whiska.CLIMetricsTest do
   @moduledoc """
   `whiska metrics`: four views read from the house — cost by shape, waits,
-  spec timing and reviewer cost (ADR-next-usage-is-recorded-at-collection).
+  spec timing and reviewer cost (ADR-0086).
   """
   # Serial: the command opens the house under the one VM-wide name `Whiska.Repo`.
   use ExUnit.Case, async: false

@@ -35,7 +35,7 @@ defmodule Whiska.Ledger do
 
   `turn/2` is the same reading for one turn as it stood when it ended: the mouse
   line covers only that turn, so the owl can store turns that add up
-  (ADR-next-usage-is-recorded-at-collection).
+  (ADR-0086).
   """
 
   @skill_marker ~r/\ABase directory for this skill: (\S+)/

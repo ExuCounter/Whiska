@@ -2,7 +2,7 @@ defmodule Whiska.Metrics do
   @moduledoc """
   What one house says about cost and waiting, for `whiska metrics`: four views
   read from its records, never from transcripts
-  (ADR-next-usage-is-recorded-at-collection).
+  (ADR-0086).
 
   - **Cost by shape**: per mouse, the sum of its own turns' usage, then medians
     over the mice of each mode, model and effort. The model and effort are the
