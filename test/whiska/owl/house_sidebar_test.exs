@@ -3,7 +3,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
   The house keeps each mouse's line in herdr's sidebar
   (ADR-0082): it reports the line
   on the mouse's workspace, sends it again whenever herdr no longer holds it,
-  and re-sorts the mice only when one starts or stops needing the person.
+  and re-sorts the mice only when one changes state.
 
   herdr is a fake that remembers what it was told, the way the real server
   does until it restarts, so a restart is the fake forgetting.
@@ -354,6 +354,29 @@ defmodule Whiska.Owl.HouseSidebarTest do
       assert_receive {:moved, ["w3", "w2"], nil}, 1_000
     end
 
+    test "moves a working mouse above one that has gone idle, with nobody needing the person",
+         %{main: main, worktree: worktree, worktree_b: worktree_b} do
+      status = :counters.new(1, [])
+
+      stub(Herdr, :list_panes, fn @socket ->
+        a = if :counters.get(status, 1) == 0, do: "working", else: "idle"
+        b = if :counters.get(status, 1) == 0, do: "idle", else: "working"
+        {:ok, [pane(worktree, a, "w2"), pane(worktree_b, b, "w3")]}
+      end)
+
+      fake_herdr([main_ws(main), mouse_ws("w2", worktree), mouse_ws("w3", worktree_b)])
+      open(main, [])
+
+      # feat-a works and feat-b is idle: the idle one sits second already
+      # after the first sort, which moves nothing.
+      refute_receive {:moved, _, _}, 150
+
+      :counters.put(status, 1, 1)
+
+      # They swap: the one that now works goes above the one that is idle.
+      assert_receive {:moved, ["w3", "w2"], nil}, 1_000
+    end
+
     test "leaves the order alone when it is already right", %{
       main: main,
       worktree: worktree,
@@ -402,8 +425,8 @@ defmodule Whiska.Owl.HouseSidebarTest do
     end
   end
 
-  describe "a mouse that stops having anything to say" do
-    test "has its line cleared, not left to expire", %{main: main, worktree: worktree} do
+  describe "a mouse that stops working" do
+    test "has its line turned to idle, not left to expire", %{main: main, worktree: worktree} do
       status = :counters.new(1, [])
 
       stub(Herdr, :list_panes, fn @socket ->
@@ -419,8 +442,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
 
       :counters.put(status, 1, 1)
 
-      assert_receive {:reported, "w2", %{"whiska" => nil, "whiska_q" => nil, "whiska_q2" => nil}},
-                     1_000
+      assert_receive {:reported, "w2", %{"whiska" => "○ idle", "whiska_q" => nil}}, 1_000
     end
   end
 

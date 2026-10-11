@@ -354,15 +354,16 @@ defmodule Whiska.SidebarTest do
              ) == "↩ picked up 2m ago"
     end
 
-    test "idle with nothing to report, it has no line at all" do
+    test "idle with nothing to report, it says so" do
       assert tokens([mouse("feat-a")],
                bare_panes: [pane("feat-a", "idle", title: "Order builder")],
                action: fn _ -> {:said, "31 tests pass."} end
-             ) == %{}
+             ) == %{"whiska" => "○ idle"}
     end
 
     test "herdr's done is idle too" do
-      assert tokens([mouse("feat-a")], bare_panes: [pane("feat-a", "done")]) == %{}
+      assert tokens([mouse("feat-a")], bare_panes: [pane("feat-a", "done")]) ==
+               %{"whiska" => "○ idle"}
     end
   end
 
@@ -442,9 +443,9 @@ defmodule Whiska.SidebarTest do
              ) == "✖ stuck 6m · 142K"
     end
 
-    test "an idle mouse with nothing to report still has no line" do
-      assert tokens([mouse("feat-a")], bare_panes: [pane("feat-a", "idle")], context: 142_000) ==
-               %{}
+    test "an idle mouse carries it after saying idle" do
+      assert said([mouse("feat-a")], bare_panes: [pane("feat-a", "idle")], context: 142_000) ==
+               "○ idle · 142K"
     end
 
     test "a mouse with no pane has no gauge on its line" do
@@ -810,6 +811,7 @@ defmodule Whiska.SidebarTest do
                  which db?
 
                feat-idle
+                 ○ idle
                """
                |> String.trim_trailing()
     end

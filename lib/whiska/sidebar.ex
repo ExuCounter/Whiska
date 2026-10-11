@@ -32,6 +32,7 @@ defmodule Whiska.Sidebar do
     {"✅", "#859900"},
     {"⏳", "#b58900"},
     {"🎯", "#6c71c4"},
+    {"○", "#93a1a1"},
     {"💤", "#6c71c4"},
     {"⏸", "#6c71c4"},
     {"↩", "#268bd2"},
@@ -166,6 +167,13 @@ defmodule Whiska.Sidebar do
   defp pane_workspace(nil, _checkout_less), do: nil
   defp pane_workspace(ws, checkout_less), do: if(MapSet.member?(checkout_less, ws), do: ws)
 
+  @doc """
+  Where this mouse's state sorts: lines with the same rank want the person the
+  same, so the house re-sorts when a mouse's rank changes (ADR-0082).
+  """
+  @spec rank(line()) :: pos_integer()
+  def rank(%{rank: rank}), do: rank
+
   @doc "Whether this mouse is waiting on the person or has finished for them."
   @spec needs_you?(line()) :: boolean()
   def needs_you?(%{rank: rank}), do: rank <= @finished
@@ -183,7 +191,6 @@ defmodule Whiska.Sidebar do
     }
   end
 
-  defp gauged(nil, _rank, _context), do: nil
   defp gauged(said, @lost, _context), do: said
 
   defp gauged(said, rank, context) do
@@ -233,7 +240,7 @@ defmodule Whiska.Sidebar do
   defp state(%{status: "working"} = row, _now, frame),
     do: {@working, "#{spinner(frame)} #{row.topic || row.doing || "working"}", nil}
 
-  defp state(_idle, _now, _frame), do: {@idle, nil, nil}
+  defp state(_idle, _now, _frame), do: {@idle, "○ idle", nil}
 
   defp asked(id, %{waits: :away}, _now), do: {@away, "💤 ##{id} · waits: away", nil}
 

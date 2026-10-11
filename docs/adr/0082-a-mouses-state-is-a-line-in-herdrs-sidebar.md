@@ -13,8 +13,7 @@ on herdr 0.9.3.
 ## A mouse's line
 
 Three tokens: `whiska`, the state; `whiska_q` and `whiska_q2`, the question it carries,
-word-wrapped at 31 characters, at most two lines, the second cut with `…`. A mouse with
-nothing to report, idle with nothing waiting, has no line. The states, in the order they
+word-wrapped at 31 characters, at most two lines, the second cut with `…`. The states, in the order they
 sort (which one a mouse is in is decided as the paragraph under the table says):
 
 | # | line | carries |
@@ -28,7 +27,7 @@ sort (which one a mouse is in is decided as the paragraph under the table says):
 | 7 | `↩ picked up 2m ago` | |
 | 8 | `◐ <topic, else last action>` | |
 | 9 | `✖ no pane`, `⚠ many panes`, `? herdr can't say` | |
-| 10 | idle, nothing to say: no line | |
+| 10 | `○ idle` | |
 | 11 | `🎯 #16 · waits: focus on <branch>` | |
 | 12 | `💤 #15 · waits: away` | |
 | 13 | `⏸ #17 · held`, `⏸ held` | |
@@ -66,7 +65,7 @@ per tick, where the last action was read only for a working or blocked one; it i
 from the tail alone, so one very large message can leave a mouse without a gauge for a
 moment. A working mouse's goes before its free text, `◐ 142K · <topic>`, so a long topic
 cannot cut it off. A line that says the pane is lost (`✖ no pane`, `⚠ many panes`,
-`? herdr can't say`) has none, and an idle mouse with nothing to say still has no line. With an auto-compact window the size
+`? herdr can't say`) has none. With an auto-compact window the size
 is followed by a five-cell bar (`142K ▰▰▰▱▱`); no mouse has a window yet. `whiska mice`
 shows the same gauge in its own column.
 
@@ -75,7 +74,7 @@ rules on its own text (`equals`, `contains`, `starts_with`) and cannot read a se
 `contains = "waiting"` turned a working mouse orange when its topic mentioned waiting;
 `starts_with` on the symbol cannot be tripped, because free text only ever follows it.
 Colour lives in the person's config, never in Whiska (ADR-0048); `whiska doctor` prints the
-rows (`Whiska.Sidebar.snippet/0`, fourteen rules within herdr's sixteen) and checks herdr
+rows (`Whiska.Sidebar.snippet/0`, fifteen rules within herdr's sixteen) and checks herdr
 is 0.9 or newer. A working mouse's symbol turns ◐ ◓ ◑ ◒, one step per write: a still
 spinner means the owl has stopped, and thirty seconds later the line expires.
 
@@ -112,10 +111,11 @@ got shorter clears what it no longer says.
 
 **A house speaks only for its own workspaces** and never touches another repo's lines.
 
-**The mice re-sort with `workspace.move_block` only when the set needing the person (states
-1 to 3) changes, or a mouse starts or stops queueing behind another (states 5 and 6)**, and
-once when the house opens. A mouse the person sets aside, or a new mouse, does not re-sort:
-it lands in place at the next one. Mice of one state and mode keep their order, so the
+**The mice re-sort with `workspace.move_block` only when a mouse changes state (its
+number in the table), or starts or stops queueing behind another (states 5 and 6)**, and
+once when the house opens. The spinner turning is not a change of state. A held mouse used
+to stay where it was until a question moved the rows, which left it between working ones;
+now it drops at once. Mice of one state and mode keep their order, so the
 person's drag order stands. The main checkout's workspace never moves. `move_block` is
 in herdr's socket API and not its docs; a rename fails sorting with one warning.
 
@@ -154,8 +154,12 @@ deleted. `whiska doctor` names any leftover as a warning with the init that remo
 - **A desktop notification for a gated queue.** The gate exists not to interrupt.
 - **Deliver anyway after a timeout.** Typing into somebody's draft is what the gate
   prevents.
-- **Re-sort on every change.** Rows would jump under the cursor every two seconds.
+- **Re-sort on every tick.** Rows would jump under the cursor every two seconds.
+- **Re-sort only when a question moves** (the first version of this ADR). A mouse that
+  was held, went idle or lost its pane stayed among the wrong rows until one did.
 - **Say "not the main session" at session start.** Read once, when least relevant, and
   scrolled away by the time the person is waiting.
+
+Changed on 2026-10-11: an idle mouse says `○ idle`, and the mice re-sort on any change of state.
 
 Folded in on 2026-10-08: 0051, 0058, 0059, 0065 (their text is in git history).

@@ -132,8 +132,8 @@ defmodule Whiska.Owl.House do
   herdr is showing every time it asks herdr for its panes and sends whatever
   differs — which is how a line lost to a herdr restart comes back — and sends
   every line again before its TTL runs out, so a line nobody is keeping current
-  expires. The mice are re-sorted only when the set of them that needs the
-  person changes, so rows do not move under the cursor otherwise.
+  expires. The mice are re-sorted only when one changes state, so rows do
+  not move under the cursor otherwise.
   """
 
   use GenServer
@@ -644,19 +644,19 @@ defmodule Whiska.Owl.House do
   defp sent(sent_at, ws, want, _now) when want == %{}, do: Map.delete(sent_at, ws)
   defp sent(sent_at, ws, _want, now), do: Map.put(sent_at, ws, now)
 
-  # The mice re-sort only when one starts or stops needing the person, or
-  # starts or stops queueing behind another (ADR-0082), so rows do not jump
-  # under the cursor and the person's own drag order stands otherwise; mice
-  # that want the same keep the order they are in. The block lands where its
-  # first member sits now.
+  # The mice re-sort only when one changes state, or starts or stops queueing
+  # behind another (ADR-0082): a state changes far less often than a tick, and
+  # the spinner is not one, so rows do not jump under the cursor and the
+  # person's own drag order stands otherwise; mice that want the same keep the
+  # order they are in. The block lands where its first member sits now.
   defp sort(state, lines, placed, workspaces) do
-    needing = for line <- lines, Sidebar.needs_you?(line), into: MapSet.new(), do: line.mouse_id
+    ranks = Map.new(lines, &{&1.mouse_id, Sidebar.rank(&1)})
     queue = for %{under: holder} = line <- lines, holder, into: %{}, do: {line.mouse_id, holder}
 
-    if {needing, queue} == state.sorted_on do
+    if {ranks, queue} == state.sorted_on do
       state
     else
-      reorder(%{state | sorted_on: {needing, queue}}, lines, placed, workspaces)
+      reorder(%{state | sorted_on: {ranks, queue}}, lines, placed, workspaces)
     end
   end
 
