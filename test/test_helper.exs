@@ -23,6 +23,10 @@ ExUnit.after_suite(fn _ -> File.rm_rf!(test_home) end)
 # passes its own `CLAUDE_PID`.
 System.delete_env("CLAUDE_PID")
 
+# The person's own diff link pattern would turn every diff file test into one
+# about their viewer. A test that wants a pattern sets its own.
+System.delete_env("WHISKA_DIFF_LINK")
+
 # Whiska's own git calls inherit this environment, so a test cannot pass on the
 # person's git config, hooks or global ignore file and fail on any other
 # machine. git reads `~/.config/git/ignore` with no config naming it, so the

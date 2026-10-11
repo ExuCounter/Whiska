@@ -173,7 +173,9 @@ not committed, or `unknown`. Whiska's record of the branch, never the mouse's wo
 what a **finish** is chosen by (ADR-0074). Under it, when the branch has commits, the
 **diff link**: `Review diff here:`, a link to the branch's diff, which `whiska show`
 writes to `.whiska/reviews/<id>.md` as Markdown, so the person reviews it from a link as
-they review a **spec** (ADR-0085).
+they review a **spec** — or, when the person's `WHISKA_DIFF_LINK` holds a link pattern,
+that pattern with `{base}` and `{branch}` filled in, pointing at a diff viewer of their own,
+and no file is written (ADR-0085).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Proposal**:

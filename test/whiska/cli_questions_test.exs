@@ -239,6 +239,72 @@ defmodule Whiska.CLIQuestionsTest do
       assert File.read!(Path.join(repo.checkout, ".git/info/exclude")) =~ "/.whiska/"
     end
 
+    # The person's own diff viewer, named only in their environment (ADR-0085).
+    defp with_diff_link(pattern, fun) do
+      previous = System.get_env("WHISKA_DIFF_LINK")
+      System.put_env("WHISKA_DIFF_LINK", pattern)
+
+      try do
+        fun.()
+      after
+        if previous,
+          do: System.put_env("WHISKA_DIFF_LINK", previous),
+          else: System.delete_env("WHISKA_DIFF_LINK")
+      end
+    end
+
+    test "WHISKA_DIFF_LINK points the link at the person's viewer, and no file is written",
+         %{repo: repo} do
+      q = finished(repo, "feat-d")
+
+      out = with_diff_link("hunk-review://{base}..{branch}", fn -> show_one(repo, q) end)
+
+      assert out =~ "\nReview diff here: [1 commit against main](hunk-review://main..feat-d)\n"
+      refute File.exists?(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md"))
+    end
+
+    test "a base the main checkout holds only from origin reaches the pattern as git names it",
+         %{repo: repo} do
+      GitRepo.git!(repo.checkout, ["checkout", "-b", "staging"])
+      GitRepo.commit!(repo.checkout, "s1.md", "staging work")
+      GitRepo.git!(repo.checkout, ["push", "-u", "origin", "staging"])
+      GitRepo.git!(repo.checkout, ["checkout", "main"])
+      GitRepo.git!(repo.checkout, ["branch", "-D", "staging"])
+      q = finished(repo, "feat-o", base: "staging")
+
+      out = with_diff_link("hunk-review://{base}..{branch}", fn -> show_one(repo, q) end)
+
+      assert out =~ "[1 commit against staging](hunk-review://origin/staging..feat-o)\n"
+    end
+
+    test "a branch name that would break the link reaches the pattern encoded", %{repo: repo} do
+      q = finished(repo, "feat/a(b)")
+
+      out = with_diff_link("hunk-review://{base}..{branch}", fn -> show_one(repo, q) end)
+
+      assert out =~ "(hunk-review://main..feat/a%28b%29)\n"
+    end
+
+    test "an empty WHISKA_DIFF_LINK, or one that could break the link, keeps the file link",
+         %{repo: repo} do
+      q = finished(repo, "feat-e")
+      file_link = "(file://#{repo.checkout}/.whiska/reviews/#{q.id}.md)\n"
+
+      for pattern <- [
+            "",
+            "hunk-review//{base}..{branch}",
+            "hunk-review://{base} {branch}",
+            "hunk-review://{base}..{branch})",
+            "hunk-review://{base}..{branch}\n",
+            "hunk-review://{base}..{branch}\\",
+            "hunk-review://{base}..{branch}\u202E",
+            "hunk-review://{base}..{branch}\u009B"
+          ] do
+        assert with_diff_link(pattern, fn -> show_one(repo, q) end) =~ file_link,
+               "pattern #{inspect(pattern)}"
+      end
+    end
+
     test "read from a mouse's worktree, it writes nothing into the main checkout", %{repo: repo} do
       q = finished(repo, "feat-m")
       worktree = Path.join(repo.checkout, "worktrees/reader")

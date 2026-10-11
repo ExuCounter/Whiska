@@ -238,7 +238,7 @@ defmodule Whiska.Questions do
 
   @typedoc """
   Reads what a question's branch holds, as `Whiska.Git.on_branch/3` answers,
-  with `:review` the path of its diff file when one was written;
+  with `:review` the diff link's target when there is one;
   `{:error, :no_record}` when Whiska has no worktree or branch for its mouse.
   """
   @type on_branch :: (Question.t() -> {:ok, map()} | {:error, term()})
@@ -253,11 +253,8 @@ defmodule Whiska.Questions do
 
   defp finished_branch(_question, _on_branch), do: []
 
-  defp branch_lines({:ok, %{review: path, ahead: ahead, base: base}} = held) do
-    [
-      branch_line(held),
-      "Review diff here: [#{Review.commits(ahead)} against #{base}](file://#{URI.encode(path, &(URI.char_unreserved?(&1) or &1 == ?/))})"
-    ]
+  defp branch_lines({:ok, %{review: link, ahead: ahead, base: base}} = held) do
+    [branch_line(held), "Review diff here: [#{Review.commits(ahead)} against #{base}](#{link})"]
   end
 
   defp branch_lines(held), do: [branch_line(held)]

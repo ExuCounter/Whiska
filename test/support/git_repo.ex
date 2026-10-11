@@ -47,7 +47,8 @@ defmodule Whiska.Test.GitRepo do
   def worktree(repo, branch, opts \\ []) do
     path = Path.join([repo.root, "worktrees", branch])
     git!(repo.checkout, ["worktree", "add", "-b", branch, path])
-    if Keyword.get(opts, :commit, true), do: commit!(path, "#{branch}.md", "work")
+    file = String.replace(branch, "/", "-") <> ".md"
+    if Keyword.get(opts, :commit, true), do: commit!(path, file, "work")
     if Keyword.get(opts, :push, true), do: git!(path, ["push", "-u", "origin", branch])
     path
   end

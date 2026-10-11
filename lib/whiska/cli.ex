@@ -2032,7 +2032,7 @@ defmodule Whiska.CLI do
        when is_binary(path) and is_binary(branch) do
     with {:ok, held} <- Git.on_branch(main, path, branch, base) do
       if reviews?,
-        do: {:ok, Map.merge(held, review(main, id, branch, base, held.ahead))},
+        do: {:ok, Map.merge(held, review(main, id, branch, base, held))},
         else: {:ok, held}
     end
   end
@@ -2043,14 +2043,22 @@ defmodule Whiska.CLI do
   # writes to the main checkout (ADR-0063).
   defp reviews?(cwd), do: match?({:ok, _main}, Git.main_checkout(cwd))
 
-  # The branch line stands without the diff link when the file cannot be
-  # written.
-  defp review(_main, _id, _branch, _base, 0), do: %{}
+  # A diff viewer the person names in WHISKA_DIFF_LINK takes the link, and
+  # no file is written (ADR-0085). The branch line stands without the diff
+  # link when the file cannot be written.
+  defp review(_main, _id, _branch, _base, %{ahead: 0}), do: %{}
 
-  defp review(main, id, branch, base, ahead) do
+  defp review(main, id, branch, base, held) do
+    case Review.link(System.get_env("WHISKA_DIFF_LINK"), held.base_ref, branch) do
+      {:ok, link} -> %{review: link}
+      :error -> review_file(main, id, branch, base, held.ahead)
+    end
+  end
+
+  defp review_file(main, id, branch, base, ahead) do
     with {:ok, %{base: base_name, diff: diff}} <- Git.branch_diff(main, branch, base),
          {:ok, path} <- Review.write(main, id, base_name, branch, ahead, diff) do
-      %{review: path}
+      %{review: Review.file_link(path)}
     else
       _ -> %{}
     end

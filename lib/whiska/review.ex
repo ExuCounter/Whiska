@@ -7,6 +7,9 @@ defmodule Whiska.Review do
   One file per question, `.whiska/reviews/<id>.md`, rewritten each time the
   question is shown. It sits beside the kept specs and is ignored the same way,
   through `.git/info/exclude`, so no committed file changes.
+
+  A person with a diff viewer of their own points the link at it instead, with
+  a pattern in `WHISKA_DIFF_LINK`, and then no file is written.
   """
 
   alias Whiska.Spec
@@ -69,6 +72,32 @@ defmodule Whiska.Review do
     #{fence}
     """
   end
+
+  @doc """
+  The diff link a `WHISKA_DIFF_LINK` pattern makes, its `{base}` and
+  `{branch}` filled in. Whiska names no viewer: the person's pattern does
+  (ADR-0085). `:error` when there is no pattern, or one that could break the
+  link — it must start with a scheme and hold no space, parenthesis,
+  backslash, or control or format character — and the file link stands then.
+  """
+  @spec link(String.t() | nil, String.t(), String.t()) :: {:ok, String.t()} | :error
+  def link(pattern, base, branch) when is_binary(pattern) do
+    if Regex.match?(~r/\A[A-Za-z][A-Za-z0-9+.-]*:[^\s()\\\p{C}]*\z/u, pattern) do
+      values = %{"{base}" => base, "{branch}" => branch}
+      {:ok, String.replace(pattern, Map.keys(values), &encode(values[&1]))}
+    else
+      :error
+    end
+  end
+
+  def link(nil, _base, _branch), do: :error
+
+  @spec file_link(Path.t()) :: String.t()
+  def file_link(path), do: "file://" <> encode(path)
+
+  # Whatever a branch is named, it reaches the link as one piece that cannot
+  # close the Markdown link or start a new one.
+  defp encode(text), do: URI.encode(text, &(URI.char_unreserved?(&1) or &1 == ?/))
 
   @spec commits(pos_integer()) :: String.t()
   def commits(1), do: "1 commit"

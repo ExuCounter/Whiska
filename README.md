@@ -221,6 +221,12 @@ under `WHISKA_HOME` when that is set, and only your own user can open it.
   [Details](docs/internals.md#the-claudemd-block).
 - **`WHISKA_BIN` and `WHISKA_ESCRIPT`** — override how the hook shim finds the binary and
   the Erlang runtime.
+- **`WHISKA_DIFF_LINK`** — point a finished branch's `Review diff here:` link at a
+  diff viewer of your own instead of the Markdown diff file. It holds a link pattern your
+  terminal opens there, with `{base}` and `{branch}` filled in:
+  `export WHISKA_DIFF_LINK='hunk-review://{base}..{branch}'`. Set, no diff file is
+  written; a pattern without a scheme, or with a space, parenthesis, backslash or control
+  character in it, is ignored.
 - **What the rules actually cover** — a build mouse cannot write into the main checkout or
   the worktrees under it; a sniff mouse cannot write at all. **Neither is a sandbox**: a
   path elsewhere on the machine is allowed, reads are never policed, and only

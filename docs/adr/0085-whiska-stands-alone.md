@@ -10,9 +10,11 @@ name; wording that slips past those patterns is the cold review's to catch.
 
 Opting in goes through text the person or the repo already owns: the person's own
 `CLAUDE.md`, a reviewer named there included, and a repo's `.claude/agents/*-reviewer.md`
-and its `reviewers:` line under `## Finish` (ADR-0049). A forge's command-line tool, `gh`
-or `glab`, runs only when the person picks "Open a merge request / PR", and its absence is
-said plainly.
+and its `reviewers:` line under `## Finish` (ADR-0049). What Whiska itself prints, which no
+`CLAUDE.md` line can change, is opted into through the person's environment instead: so
+far only `WHISKA_DIFF_LINK`, the diff link's pattern (below). A forge's command-line tool,
+`gh` or `glab`, runs only when the person picks "Open a merge request / PR", and its
+absence is said plainly.
 
 ## What went
 
@@ -33,7 +35,12 @@ said plainly.
   worktree it writes nothing, since a mouse never writes to the main checkout. The file is
   Markdown, so it opens in whatever the person's links open in. No diff program, text
   conversion or submodule diff that git's config names runs, and the write never follows a
-  link. A person who wants hunk asks for it in their own `CLAUDE.md`.
+  link. A person who wants hunk, or any diff viewer of their own, sets `WHISKA_DIFF_LINK` to a
+  link pattern their terminal opens in it, such as `hunk-review://{base}..{branch}`: the
+  diff link is that pattern with the base and branch filled in, percent-encoded so no
+  branch name can break the link, and no file is written. A pattern that does not start
+  with a scheme, or holds a space, a parenthesis, a backslash, or a control or format
+  character, is ignored and the file link stands. Whiska still names no viewer; the person's pattern does.
 
 One older call stays, named so this record is not read as already true everywhere: the
 owl's desktop notification uses `terminal-notifier` when it is installed (ADR-0062).
@@ -52,7 +59,13 @@ the person's side.
   fallback is a line each session reads, for a tool most never have.
 - **A `.whiska.json` for global and per-repo settings,** naming the outside tools to call.
   Not ruled out: how opting in should look beyond `CLAUDE.md` is an open question for its
-  own research. ADR-0081 turned down a `~/.whiska` config for voice rules alone.
+  own research. ADR-0081 turned down a `~/.whiska` config for voice rules alone. The diff
+  link's one setting did not wait for it: an environment variable holding a link pattern
+  is how tools usually answer "open this where I like" (`EDITOR`, `BROWSER`, and in Elixir
+  `PLUG_EDITOR`), and a settings file can come later with the variable still overriding it.
+- **The diff link's pattern in git's config,** `whiska.diffLink`, global with a per-repo
+  override. Turned down as more to set up than one line in the shell's profile, for a
+  setting that is the person's and never the repo's.
 - **A tests axis on a prompt Whiska writes.** One more agent on every turn that touches a
   test, where the cold review already asks what each hunk promises that no test asserts.
 - **A plain `git diff` command in place of the link.** A command has to be typed; a link
@@ -62,9 +75,17 @@ the person's side.
 
 - No mouse scouts before a build, and finishing has four axes.
 - Showing a finished question with commits from the main checkout writes its diff file,
-  rewritten on each show. Nothing removes the folder: it holds one file per question
-  shown, and a secret a branch once committed stays in its file after the branch is
-  dropped.
+  rewritten on each show, unless `WHISKA_DIFF_LINK` names a viewer. Nothing removes the
+  folder: it holds one file per question shown, and a secret a branch once committed stays
+  in its file after the branch is dropped.
+- `WHISKA_DIFF_LINK` is read by the process that runs `whiska show`, so a Claude Code
+  session started before the person set it keeps printing the file link until it is
+  restarted. Whether a link with the person's scheme reaches them clickable is up to
+  Claude Code and their terminal, not Whiska.
 - A rule or shipped skill that names an outside tool fails a test.
+
+Changed on 2026-10-11: the diff link can point at the person's own diff viewer through
+`WHISKA_DIFF_LINK`; until then a person who wanted hunk could only ask for it in their own
+`CLAUDE.md`.
 
 Folded in on 2026-10-11: 0075 (its text is in git history).

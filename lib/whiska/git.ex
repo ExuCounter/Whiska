@@ -345,9 +345,18 @@ defmodule Whiska.Git do
   worktree that is not there (`:no_worktree`), one moved off `branch`
   (`:off_branch`), a base whose name is not plain (`:unsafe_base`), or output
   with a warning in it. The finish options take nothing for "nothing to land".
+
+  `base_ref` is the base as git names it in this checkout: `origin/<base>`
+  when no local branch of that name is there.
   """
   @spec on_branch(Path.t(), Path.t(), branch(), branch() | nil) ::
-          {:ok, %{base: branch(), ahead: non_neg_integer(), uncommitted: [String.t()]}}
+          {:ok,
+           %{
+             base: branch(),
+             base_ref: String.t(),
+             ahead: non_neg_integer(),
+             uncommitted: [String.t()]
+           }}
           | {:error, term()}
   def on_branch(checkout, worktree, branch, recorded_base \\ nil) do
     with true <- File.dir?(worktree) || {:error, :no_worktree},
@@ -359,7 +368,13 @@ defmodule Whiska.Git do
          {:ok, count} <- git(checkout, ["rev-list", "--count", "--no-merges", range]),
          {ahead, ""} <- Integer.parse(count),
          {:ok, uncommitted} <- uncommitted(worktree) do
-      {:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}
+      {:ok,
+       %{
+         base: base,
+         base_ref: short_ref(base_ref),
+         ahead: ahead,
+         uncommitted: uncommitted
+       }}
     else
       {:ok, _other_branch} -> {:error, :off_branch}
       {:error, _} = error -> error
@@ -391,6 +406,9 @@ defmodule Whiska.Git do
       {:error, _} = error -> error
     end
   end
+
+  defp short_ref("refs/heads/" <> name), do: name
+  defp short_ref("refs/remotes/" <> name), do: name
 
   defp off_branch({:error, :detached}), do: {:error, :off_branch}
   defp off_branch(head), do: head
