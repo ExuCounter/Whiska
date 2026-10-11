@@ -653,8 +653,8 @@ the same turn marks the earlier rows replaced, and the rows not replaced add up.
 `whiska metrics` reads it, weighing tokens into **cost units** (input + 1.25 × cache
 writes + 0.1 × cache reads + 5 × output, the ratio every Claude model is priced at), since
 Whiska keeps no prices (ADR-0086).
-_Avoid_: ledger (the lines a finished report ends with, whose mouse line covers the whole
-session), price or dollars (none is stored)
+_Avoid_: ledger (the lines `whiska ledger` prints from inside a session, whose mouse line
+covers the whole session), price or dollars (none is stored)
 
 **Backstop**:
 The slow timer that collects a house's doorstep when nothing else has. It is a last
@@ -735,11 +735,10 @@ _Avoid_: summary, title, subject, preview
 **Finishing**:
 What a mouse does before it is allowed to say `done`: read the work back against the
 brief and the repo's written decisions, run the repo's checks and fix what they catch,
-send reviewers over its own diff (the ones the diff calls for, the cold review always), put every finding in the report, go round once more, commit
-the work on its branch, and only then write the marker, ending its report with an agent
-ledger: one line per agent sent, with its tokens, one for the mouse's own session, and
-one per axis skipped, printed by `whiska ledger` from the session's transcripts
-(ADR-0049).
+send reviewers over its own diff (the ones the diff calls for, the cold review always),
+fix what they find, go round once more, commit the work on its branch, and only then
+write the marker, under a report that counts the findings fixed and gives one line to
+each finding left unfixed (ADR-0049).
 Plain instructions in the `whiska-finish` skill `whiska init` installs, which a mouse's
 `finish` part names as the trigger and nothing more — the steps only matter as a turn
 ends, so they stay out of context until then (ADR-0081). Nothing changed since the
@@ -771,20 +770,21 @@ The reviewer finishing always sends: the `cold-review` skill, which forks into i
 read-only subagent and writes its own brief, so the mouse that built the change cannot
 shape it. It finds the change and the spec itself, reads the repo's decisions as they stood
 at the base, and treats anything the builder wrote as a claim. It runs in the foreground
-and its findings go into the report whole. Where the skill is missing, no other reviewer
+and its findings are handled like any reviewer's. Where the skill is missing, no other reviewer
 takes its place and the report says it did not run
 (ADR-0049).
 _Avoid_: correctness reviewer (what it replaced), second opinion
 
 **Disputed**:
 The mark on a finding the mouse tried to disprove and did, with the code that disproves it.
-The finding stays in the report beside it for the person to weigh; nothing a reviewer says
-is deleted (ADR-0049).
+A disputed finding gets its line in the report, with that code, for the person to weigh;
+nothing a reviewer says is deleted (ADR-0049).
 
 **Important / nit / pre-existing**:
 The three words a reviewer's finding gets once it has survived being disproved, and the
-word is what happens to it: fix it now; fix it if it is cheap; name it in the message and
-leave it alone. Taken from the band names Anthropic's own reviewer already scores with,
+word is what happens to it: fix it now; fix it if it is cheap; leave it alone. A fixed
+finding is only counted in the report; one left unfixed, of any word or subject, gets a
+line. Taken from the band names Anthropic's own reviewer already scores with,
 rather than spelled a fourth way here (ADR-0049). None of the three reaches the person as
 a decision: what a review can lead to is a wrong scope, a recorded decision the repo's
 rules do not say how to change, or a second round still red, and all three were already

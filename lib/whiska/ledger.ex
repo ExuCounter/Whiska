@@ -1,7 +1,7 @@
 defmodule Whiska.Ledger do
   @moduledoc """
-  The agent ledger every finished report ends with (ADR-0049), read from Claude
-  Code's own transcripts rather than from what a hand-back says.
+  The agent ledger: what a session and the agents it sent spent, read from
+  Claude Code's own transcripts rather than from what a hand-back says.
 
   Read from real sessions on 2026-10-08, the hand-back is the wrong source
   three ways. Its `subagent_tokens` is the size of the agent's last model call,
@@ -343,7 +343,7 @@ defmodule Whiska.Ledger do
     if readable?(path), do: File.read(path), else: {:error, :not_readable}
   end
 
-  @doc "The ledger as lines for a finished report: the agents, then the mouse."
+  @doc "The ledger as lines: the agents, then the mouse."
   @spec render(t) :: String.t()
   def render(%{agents: agents, mouse: mouse}),
     do: Enum.map_join(agents ++ [mouse], "\n", &render_line/1)

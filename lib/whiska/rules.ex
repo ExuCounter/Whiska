@@ -118,8 +118,8 @@ defmodule Whiska.Rules do
 
   The person reads the whole final message later, from another terminal. It is a report,
   not a log: a finished one fits in six lines plus a line per cheap choice made without
-  asking; longer only when they ask for detail, for a spec sent for their ok or findings,
-  which go whole, and for a decision's brief.
+  asking and a line per finding left unfixed; longer only when they ask for detail, for a
+  spec sent for their ok, and for a decision's brief.
 
   In this order, skipping what has nothing to say:
 
@@ -133,10 +133,11 @@ defmodule Whiska.Rules do
     step needs a review, approval, merge or design pick. The body carries every option;
     the marker line is only the pointer, stripped before they read it.
 
-  Leave out the mechanics of a review, never what it turned up, and lessons, which go in
-  the repo's docs. Outcomes stay: a pre-existing problem left alone, a reviewer this repo
-  asked for that was not there, a security finding and what became of it. A finished
-  report ends with the agent ledger `whiska-finish` describes.
+  Leave out the mechanics of a review and its token figures, and lessons, which go in the
+  repo's docs. Of what a review turned up, a finished report keeps a count of what was
+  fixed and one line per finding left unfixed, as `whiska-finish` describes. Outcomes
+  stay: a pre-existing problem left alone, a reviewer this repo asked for that was not
+  there.
   """
 
   @writing """

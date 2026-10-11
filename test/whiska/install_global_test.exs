@@ -141,7 +141,9 @@ defmodule Whiska.InstallGlobalTest do
       assert Enum.sort(beside) == [
                ".claude/skills/whiska-delivered/finished.md",
                ".claude/skills/whiska-delivered/sniff.md",
-               ".claude/skills/whiska-finish/proposed-build.md"
+               ".claude/skills/whiska-finish/needs-attention.md",
+               ".claude/skills/whiska-finish/proposed-build.md",
+               ".claude/skills/whiska-finish/repo-reviewers.md"
              ]
     end
   end

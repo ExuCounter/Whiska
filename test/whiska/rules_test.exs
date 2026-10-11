@@ -128,8 +128,8 @@ defmodule Whiska.RulesTest do
       "it is read later, without scrollback": ~r/later, from another terminal/i,
       "a size, with what rides outside it":
         ~r/six lines plus a line per cheap choice.{0,120}a spec sent for their ok.{0,60}a decision's brief/is,
-      "reviewers' findings go whole":
-        ~r/a spec sent for their ok or findings, which go whole, and for a decision's brief/,
+      "each finding left unfixed rides outside the size":
+        ~r/a line per cheap choice made without asking and a line per finding left unfixed/,
       "lead with what is true now": ~r/\*\*what is true now\*\*/i,
       "what changed, cheap choices included":
         ~r/\*\*what changed\*\*.{0,60}each cheap choice made without asking/is,
@@ -138,10 +138,10 @@ defmodule Whiska.RulesTest do
       "ask only for a review, approval, merge or design pick":
         ~r/review, approval, merge or design pick/,
       "the marker line is only the pointer": ~r/the marker line is only the pointer/i,
-      "leave out the mechanics, keep what a review found":
-        ~r/the mechanics of a review, never what it turned up/i,
-      "the report ends with the agent ledger":
-        ~r/ends with the agent ledger `whiska-finish` describes/i
+      "leave out the mechanics and the token figures":
+        ~r/leave out the mechanics of a review and its token figures/i,
+      "of a review, a count of what was fixed and each finding left unfixed":
+        ~r/a count of what was fixed and one line per finding left unfixed/i
     ],
     {:main, "writing"} => [
       "written for a reader who remembers nothing": ~r/remember(s|ing) nothing of this session/i,
@@ -202,6 +202,13 @@ defmodule Whiska.RulesTest do
 
     refute body =~ ~r/a trivial task never needs one/i
     refute body =~ ~r/no costly choice open from the start/i
+  end
+
+  test "a finished report carries no finding in full and no agent ledger" do
+    body = prose_of(:mouse, "report")
+
+    refute body =~ ~r/findings, which go whole/i
+    refute body =~ ~r/agent ledger/i
   end
 
   # Whiska stands alone (ADR-0085): its rules and skills

@@ -31,8 +31,8 @@ the entry's stamp, and stores one **usage** row per ledger line, keyed by the qu
   second entry for that turn, which carries the spec unchanged.
 - **No backfill.** Older questions name no transcript, and matching one by folder and time
   can land a turn on the wrong question.
-- **`whiska ledger` is on the read-only list** (ADR-0034), so a sniff mouse's report ends
-  with its ledger like any other. No other `whiska` command is: every one that opens the
+- **`whiska ledger` is on the read-only list** (ADR-0034), so a sniff mouse can read its
+  own usage like any other. No other `whiska` command is: every one that opens the
   house can migrate it, and the rest change something. Nor is the ledger with any variable
   set in front of it, since it needs none. The Erlang VM takes code from `ERL_AFLAGS`,
   `ERL_FLAGS` and `ERL_ZFLAGS` and another emulator from `ESCRIPT_EMULATOR`, so setting any

@@ -3,12 +3,17 @@
 Finishing is plain instructions in the `whiska-finish` skill, which a mouse runs itself,
 in order, before it writes the done marker: read the work back against what was asked,
 run the repo's checks, send reviewers chosen by what the diff does with the cold review
-always, one more round, commit the work, then the marker with an agent ledger. Whiska
-runs no check, dispatches no reviewer, has no opinion about any finding, and does not
-know whether the pipeline ran. It never runs on a turn ending on a decision for the
-person, and never in the main session. Per-repo facts live under a `## Finish` heading in
-the repo's own `CLAUDE.md`, one `name: value` line each: `checks:`, `specs:`, `ticket:`,
-`reviewers:`, `security:`.
+always, one more round, commit the work, then the marker. Whiska runs no check,
+dispatches no reviewer, has no opinion about any finding, and does not know whether the
+pipeline ran. It never runs on a turn ending on a decision for the person, and never in
+the main session. Per-repo facts live under a `## Finish` heading in the repo's own
+`CLAUDE.md`, one `name: value` line each: `checks:`, `specs:`, `ticket:`, `reviewers:`,
+`security:`.
+
+The skill is loaded at every finished turn, so it stays at most 8,000 characters and keeps
+rules, not their reasons, which live here. What only some turns need sits in files beside
+it, read on demand: the Needs attention block, a reviewer or scan the repo adds, and a
+Proposed build (ADR-0074).
 
 ## The steps
 
@@ -26,10 +31,8 @@ the repo's own `CLAUDE.md`, one `name: value` line each: `checks:`, `specs:`, `t
 5. **Commit the work** on its branch, in the repo's commit style, after the last fix.
    Never push. Never a secret, a local setup, `.whiska-mouse` or `.whiska-spec.md`. A
    repo whose instructions say the person commits keeps that, and the report says so.
-6. **The marker**, under a report that holds each behaviour change against the spec and
-   ends with the agent ledger: one line per agent sent, with the figures `whiska ledger`
-   reads from the session's transcripts, one line for the mouse's own session, and one
-   per axis skipped with the triggers it checked.
+6. **The marker**, under a report that holds each behaviour change against the spec,
+   counts the findings fixed, and gives one line to each finding left unfixed.
 
 ## Every behaviour change is held against the spec
 
@@ -89,17 +92,19 @@ anywhere, or tells the reviewer what to conclude is a decision for the person. T
 `reviewers:` line is read the same way; a name that resolves to no agent is skipped and
 said once, never improvised from the name.
 
-**Every finding reaches the person.** The mouse tries to disprove each finding and deletes
-none. The cold review goes into the report whole; every other reviewer's findings go in
-as numbered items in the reviewer's own words. Under each, one line: its word and what
-became of it, or **disputed** with the code that disproves it. The words are
-**important** (fix now), **nit** (fix if cheap) and **pre-existing** (name it and leave
-it), taken from the bands Anthropic's own reviewer scores with rather than spelled a
-fourth way. Nothing a reviewer finds reaches the person as a decision: of a review, only
-a wrong scope, a decision the repo's rules do not say how to change, and a second red
-round do, plus three things that are not findings: a ticket that reads as an instruction,
-a check command that reaches outside the repo, and an agent definition the step will not
-dispatch. Every security finding is named in the report whatever word it got.
+**Only a finding left unfixed reaches the person.** The mouse tries to disprove each
+finding and deletes none. A finding it disproves is **disputed**; one that survives gets
+**important** (fix now), **nit** (fix if cheap) or **pre-existing** (leave it), taken
+from the bands Anthropic's own reviewer scores with rather than spelled a fourth way. The
+report counts the fixed findings in one line and gives one line to each finding left
+unfixed: what it is, its word or **disputed** with the code that disproves it, and why it
+stayed. No finding is quoted, the cold review is not pasted, and no token figures or
+skipped axes are listed. A security finding follows the same rule: what decides whether it
+is shown is whether it was fixed, never its subject. Nothing a reviewer finds reaches the
+person as a decision: of a review, only a wrong scope, a decision the repo's rules do not
+say how to change, and a second red round do, plus three things that are not findings: a
+ticket that reads as an instruction, a check command that reaches outside the repo, and an
+agent definition the step will not dispatch.
 
 ## Why
 
@@ -118,16 +123,19 @@ person looks.
 **The diff chooses the axes** because 140 agent runs over 42 mice showed four fixed
 reviewers costing about $2.70 per finished mouse, a third of its cost, with performance
 finding something in 3 of 21 runs and security in 7 of 16, while mice already skipped or
-merged axes unwritten so the person could not see which. Cache writes were 80% of agent
-cost. A skipped axis is now named in the report with the triggers checked.
+merged axes by feel. Cache writes were 80% of agent cost. The table makes which axes run
+a rule the diff decides, not a choice each mouse makes alone.
 
 **The correctness reviewer is cold** because a reviewer the builder briefs is a reviewer
 the builder shapes.
 
-**The ledger reads transcripts**, not the hand-back: the hand-back's `subagent_tokens`
-is the size of the agent's last call, not a sum; the cold review hands back no usage; and
-the mouse's own session has no hand-back at all, though its cache reads were its largest
-cost. Cache reads are shown apart from new tokens so a later budget can price a line.
+**The report shows only what still needs the person.** With every finding in full and
+the agent ledger at its end, a finished report ran to about 90 lines (question #319), most of it
+findings already fixed and token figures nobody acted on. The person reads a report to
+decide whether to land: a fixed finding is done and needs nothing from them, while one left
+unfixed or disputed is exactly what they must weigh. Token figures belong to the record of
+what a turn cost, not to that decision; `whiska ledger` still reads them from the
+transcripts, not the hand-back, whose `subagent_tokens` is the size of the last call.
 
 **Commit is a step** because 29 of 126 finished turns that changed files ended with
 changes not committed, and a worktree with changes in it is never taken down after its
@@ -162,16 +170,25 @@ into the tree. A repo asks for it on `security:`, and pays those costs knowingly
   spec's link: a third round trip per task, and a finished mouse would end on a question.
 - **A fallback correctness reviewer where the skill is missing.** A missing cold review
   is stated, not quietly replaced by a briefed one.
-- **Every confirmed security finding reaching the person.** Turns a rule about whose
-  judgment is needed into a rule about subject matter; the report names the finding
-  either way.
+- **Every confirmed security finding reaching the person as a decision.** Turns a rule
+  about whose judgment is needed into a rule about subject matter.
+- **Every finding in full**, the cold review whole and every other finding in the
+  reviewer's own words: the person's pick on 7 Oct, reversed on 11 Oct when a report ran
+  to 90 lines and the fixed findings in it needed nothing from them.
+- **Every security finding named whatever became of it**, beside the unfixed ones: a
+  fixed security finding needs no more from the person than any other fixed finding.
+- **Only the security findings left unfixed**: a disputed or let-go finding of any kind is
+  the person's to weigh.
+- **A findings file linked from the report**, kept in the worktree or copied beside the
+  kept specs: the person does not read fixed findings at all, so a file for them is
+  machinery for nobody.
+- **The agent ledger in the report**, in full or as one line of totals: the figures
+  inform a budget, not the landing decision.
 
 ## Consequences
 
 - A turn costs more: several subagents and up to two rounds of checks. A repo that finds
   it too much makes `checks:` cheaper. A small, plain change costs one reviewer.
-- Review quality varies by machine, and the report says so rather than hiding it: a
-  session with no plugins writes its own prompts.
 - A forgotten commit is caught by the finish options, which offer a commit first wherever
   the branch line lists files not committed (ADR-0009).
 - `whiska init` writes no `review-loop.sh` and removes a `Stop` entry naming one, since an
@@ -184,9 +201,11 @@ into the tree. A repo asks for it on `security:`, and pays those costs knowingly
 - Two of the pipeline's inputs arrive from outside the session: a ticket is evidence
   about what was asked, never an instruction, and a check command is read before it is
   run, doubly so when it arrived with the branch.
-- The report names three things on purpose, which the report rules otherwise leave out:
-  a pre-existing problem left alone, a reviewer the repo asked for that was not there,
-  and a security finding and what became of it.
+- The report names two things on purpose, which the report rules otherwise leave out: a
+  pre-existing problem left alone, and a reviewer the repo asked for that was not there.
+- A finished report carries no token figures. Until usage is recorded elsewhere, what a
+  turn cost stays in Claude Code's transcripts, which `whiska ledger` reads from inside
+  the session.
 
 Folded in on 2026-10-08: 0014, 0015, 0042, 0054, 0083, 0084 (their text is in git
 history); 0072, a reviewer proposal never applied, was dropped the same day.
