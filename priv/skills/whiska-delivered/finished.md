@@ -43,11 +43,11 @@ Commit and open a PR.
 ## What the mouse says needs attention
 
 This section applies only where options are offered: the reply row above has none,
-so it prints no review command and reads no block.
+so it reads no block.
 
-Above the options, print the review command for the branch, `hunk diff <base>
-<branch>`, with the base the branch line names. Print it, never run it: the
-person starts the review themselves.
+The `Review diff here:` line under the branch line is the link to the branch's
+diff that `whiska show` printed; it is already in what you showed. Print no
+other review command and open no viewer: the person reviews from that link.
 
 When the message carries a **Needs attention** block, the options follow it,
 not the table alone. Each item becomes its own lettered option, in the

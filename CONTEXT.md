@@ -135,13 +135,13 @@ _Avoid_: report (as the table/record name — the word now names how a message r
 see **Report**), event (as the table/record name)
 
 **Report**:
-The shape a mouse's final message takes — one line of what is true now, where it lives,
+The shape a mouse's final message takes — one line of what is true now,
 what changed with each cheap choice made without asking, what was verified rather than
 assumed, one thing worth knowing, then
-either nothing waiting or the one decision: a plain brief of the terms, the problem and
-why there is a choice, then its options and a recommendation. It
+either nothing waiting or the one decision. It
 names how a message reads, never the record it becomes: once collected the same message
-is a **question**. A mouse's `report` part teaches it. `done` report is the older,
+is a **question**. A mouse's `report` part teaches it; how any session writes, the
+plain words, the recap and the numbered questions included, is the `writing` part. `done` report is the older,
 narrower use of the word — a question whose marker said `done` — and both stay.
 _Avoid_: summary, status, update, hand-off
 
@@ -170,7 +170,10 @@ branch
 The line `whiska show` prints straight under a finished question's heading: what its
 branch holds as git says when it is shown — its own commits beyond the base, its files
 not committed, or `unknown`. Whiska's record of the branch, never the mouse's word, and
-what a **finish** is chosen by (ADR-0074).
+what a **finish** is chosen by (ADR-0074). Under it, when the branch has commits, the
+**diff link**: `Review diff here:`, a link to the branch's diff, which `whiska show`
+writes to `.whiska/reviews/<id>.md` as Markdown, so the person reviews it from a link as
+they review a **spec** (ADR-next-whiska-stands-alone).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Proposal**:
@@ -651,8 +654,8 @@ be on; being on this one is the symptom)
 **Rules** (a session's):
 The worktree protocol, in Whiska's words, as one session starts with it: the `SessionStart`
 hook prints the **parts** its role needs and nothing else (ADR-0081).
-Outside herdr, none. The main session gets `worktrees` (routing work to mice), `work` and
-`delivery`; a mouse gets `work`, `marker`, `report` and `finish`. Said again after
+Outside herdr, none. The main session gets `worktrees` (routing work to mice), `work`,
+`delivery` and `writing`; a mouse gets `work`, `marker`, `report`, `writing` and `finish`. Said again after
 `/compact`, `/clear` and a resume. Rules, not prose: an imperative or a concrete fact per
 line, with the reasoning left in Whiska's own ADRs (ADR-0081). A part the person holds as
 `keep` is left out, since their own wording is already in context — in `~/.claude/CLAUDE.md`
@@ -689,7 +692,7 @@ _Avoid_: override, shadow, disable, precedence
 
 **Part**:
 One named piece of a session's **rules** — `worktrees`, `work`, `delivery`, `marker`,
-`report` and `finish` — each going to one role or both. The name is what `keep` claims: a
+`report`, `writing` and `finish` — each going to one role or both. The name is what `keep` claims: a
 part whose start marker in a `CLAUDE.md` says `keep` is the person's, left out of what the
 hook prints and left in place when an old **block** is taken out (ADR-0081). `scope` was a part of the global block only and is gone.
 _Avoid_: block (the whole thing), fragment, chunk
@@ -740,16 +743,14 @@ thing, and it runs after a push rather than at the end of a turn), CI, ralph loo
 **Reviewer**:
 One subagent sent over the change in finishing's third step, on one **axis**, chosen by what
 the diff does: the **cold review** always; security when a trigger fires; performance on a hot path;
-frontend when a person can see the change; tests when the change touches a test file; and a
-small diff gets the cold review alone (ADR-0049). A repo can add axes, on its `reviewers:`
-line, and never remove one. The tests axis is
-wio's `wio-test-reviewer` or nothing: where wio is not installed the message says so in one
-line (ADR-0075). A reviewer **reports and never edits**, which is what
+frontend when a person can see the change; and a small diff gets the cold review alone
+(ADR-0049). A repo can add axes, with its `.claude/agents/*-reviewer.md` and its
+`reviewers:` line, and never remove one. A reviewer **reports and never edits**, which is what
 separates it from an agent that merely reads code well: one that changes code, or whose own
 description says not to dispatch it directly, is not a reviewer however good it is.
-Whiska writes none of them. Wherever the session already lists an agent built for an axis
-that one is sent, and where it lists none the mouse writes the prompt — the ordinary case,
-not a degraded one (ADR-0049).
+Whiska ships no agent: the mouse writes each axis's prompt for Claude Code's own
+`general-purpose` agent, and nothing else installed on the machine is reached for
+(ADR-next-whiska-stands-alone).
 _Avoid_: critic, auditor, linter, checker (a check is step 2 and a different thing), gate
 
 **Cold review**:

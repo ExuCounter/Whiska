@@ -32,7 +32,7 @@ waits for are on its costly choices and on its spec. The plan binds the main ses
 
 A "done" or failing test that needs a guess is itself a costly choice, since building
 the wrong thing is the most expensive thing to undo. Before writing code a mouse names
-"done" and the failing test, and ADR-0075's scout helps pick the test.
+"done" and the failing test, and picks that test itself (ADR-next-whiska-stands-alone).
 
 ## Four briefs skip the spec
 

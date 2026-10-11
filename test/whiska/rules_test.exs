@@ -13,20 +13,21 @@ defmodule Whiska.RulesTest do
   alias Whiska.Rules
 
   describe "which parts each role starts with" do
-    test "the main session: routing, the work order and delivery" do
-      assert names(:main) == ~w(worktrees work delivery)
+    test "the main session: routing, the work order, delivery and writing" do
+      assert names(:main) == ~w(worktrees work delivery writing)
     end
 
-    test "a mouse: the work order, the marker, the report and the finish trigger" do
-      assert names(:mouse) == ~w(work marker report finish)
+    test "a mouse: the work order, the marker, the report, writing and the finish trigger" do
+      assert names(:mouse) == ~w(work marker report writing finish)
     end
 
     test "every part reaches at least one role" do
       assert Enum.sort(Rules.names()) == Enum.sort(Enum.uniq(names(:main) ++ names(:mouse)))
     end
 
-    test "the work order is the same text for both roles" do
+    test "the work order and the writing rules are the same text for both roles" do
       assert body_of(:main, "work") == body_of(:mouse, "work")
+      assert body_of(:main, "writing") == body_of(:mouse, "writing")
     end
 
     test "a part named as kept is left out, and every other part is still there" do
@@ -77,24 +78,10 @@ defmodule Whiska.RulesTest do
       "the steps bind working in place too":
         ~r/or in the main session when the person said to work in place/i,
       "done names its failing test": ~r/name the failing test that proves it/i,
-      "the test comes from the scout (ADR-0075)": ~r/`wio-candidate-scout` ranks riskiest/,
-      "a repo's scout is read first, and one that reaches out is the person's":
-        ~r/wio-candidate-scout\.md` in this repo.{0,80}read it before dispatching.{0,140}decision for the person/is,
-      "docs or untestable change skips the scout":
-        ~r/skip the scout for docs, or when no test can reach it/i,
-      "the scout is gated on risk (ADR-0075)":
-        ~r/no test file.{0,60}no observable behaviour.{0,60}three or more modules.{0,120}scout was skipped/is,
-      "no scout is said in a line": ~r/scout not listed → say so in one line/i,
       "grilling is the `grilling` skill, scoped to costly choices":
         ~r/run the `grilling` skill.{0,200}only the \*\*costly\*\* choices/is,
       "a mouse's round ends with the decision marker":
         ~r/in a mouse each round ends with the decision marker/i,
-      "a sniff mouse grills the research question only":
-        ~r/only investigates, a sniff mouse.{0,20}research question only: goal, the decision it feeds, scope, depth, what to deliver/is,
-      "a sniff mouse skips it when the brief answers, and never grills design":
-        ~r/skip it when the brief already answers those.{0,60}never grill design/is,
-      "a build from a proposal takes its findings as fact and still grills the design":
-        ~r/\*\*proposed build\*\*.{0,40}found as fact.{0,120}still grills the design/is,
       "a guessed done is costly": ~r/failing test that needs a guess.{0,120}is costly/is,
       "the spec follows grilling, or comes straight when nothing was asked":
         ~r/after the last grilling round, or with no round sent, run `whiska-spec`/i,
@@ -104,7 +91,6 @@ defmodule Whiska.RulesTest do
       "build only on their ok": ~r/build only on their ok/i,
       "a mouse sends no plan, but stops on costly choices":
         ~r/a mouse sends no plan; it builds, and stops only on a real decision.{0,80}every costly choice/is,
-      "a frontend change is previewed": ~r/preview a frontend change before building it/i,
       "costly is a test, not an adjective":
         ~r/\*\*costly\*\* to undo: something outside the change depends on it/i,
       "cheap choices are decided and listed": ~r/anything else is cheap: decide it, and list it/i,
@@ -115,13 +101,13 @@ defmodule Whiska.RulesTest do
       "a change that hides or drops anything, or touches security, never skips":
         ~r/hides, drops or skips anything, or touches secrets, access or a security check, never skips/is,
       "doubt means the spec": ~r/in doubt → the spec/i,
-      "a sniff mouse writes no spec": ~r/never grill design there or write a spec/i,
+      "a sniff mouse writes no spec": ~r/a sniff mouse writes no spec/i,
       "never ask what the brief spells out": ~r/never ask what the brief already spells out/i
     ],
     {:main, "delivery"} => [
       "read with whiska show": ~r/`whiska show <id>`/,
       "answer with whiska reply": ~r/`whiska reply <id>`/,
-      "the doctor says what delivery lacks": ~r/`whiska doctor` says which is missing/,
+      "nothing arriving sends you to the doctor": ~r/nothing arrives → `whiska doctor`/i,
       "never read a mouse's pane": ~r/never its pane.{0,80}alternate screen/is,
       "answer only with reply, and why (ADR-0008)":
         ~r/only with `whiska reply <id>`.{0,40}never `herdr agent prompt`.{0,160}frees the one delivery slot/is,
@@ -131,7 +117,6 @@ defmodule Whiska.RulesTest do
     {:mouse, "marker"} => [
       "the marker is the last line": ~r/last line, alone/i,
       "a decision's pointer goes on the line above": ~r/pointer on the line above/i,
-      "a forgotten marker is still delivered": ~r/delivered anyway, as an unmarked question/i,
       # A finished line is offered a finish — land, PR, drop — so it says the
       # brief is done, not that the turn ended.
       "finished means the brief is done": ~r/finished — the brief is done/i,
@@ -152,15 +137,38 @@ defmodule Whiska.RulesTest do
       "one thing worth knowing": ~r/\*\*one thing worth knowing\*\*/i,
       "ask only for a review, approval, merge or design pick":
         ~r/review, approval, merge or design pick/,
-      "a decision opens with a plain brief":
-        ~r/each term the choice turns on.*the problem in one sentence.*why there is a choice at all/is,
       "the marker line is only the pointer": ~r/the marker line is only the pointer/i,
       "leave out the mechanics, keep what a review found":
         ~r/the mechanics of a review, never what it turned up/i,
       "the report ends with the agent ledger":
-        ~r/ends with the agent ledger `whiska-finish` describes/i,
-      "a grilling round asks everything at once":
-        ~r/a grilling round asks every open costly choice in one message/i
+        ~r/ends with the agent ledger `whiska-finish` describes/i
+    ],
+    {:main, "writing"} => [
+      "written for a reader who remembers nothing": ~r/remember(s|ing) nothing of this session/i,
+      "short sentences, common words": ~r/short sentences and common words/i,
+      "the smallest message that does the job": ~r/smallest message that does the job/i,
+      "the first line is the recap": ~r/the first line is the recap/i,
+      "define each term the first time": ~r/define each term the first time/i,
+      "one name per thing, and no callbacks": ~r/one name per thing.{0,80}no callbacks/is,
+      "the problem first, in one plain sentence, before and after":
+        ~r/the problem first, in one plain sentence.{0,80}before and after/is,
+      "a concrete example over the mechanism": ~r/a concrete example/i,
+      "no code names, paths, hashes or tool output unless asked":
+        ~r/no code names, file paths, commit hashes or tool output unless/i,
+      "a guess is marked as one": ~r/marked as a guess/i,
+      "problem and risk apart, worst case concrete":
+        ~r/\*\*problem\*\* and \*\*risk\*\*.{0,80}worst case/is,
+      "a decision: terms, problem, why a choice, options, one recommendation":
+        ~r/each term it turns on.{0,80}why there is a choice.{0,80}options.{0,60}one recommendation/is,
+      "end on one next step or nothing waiting, never both":
+        ~r/nothing is waiting on you.{0,40}never both/is,
+      "several numbered questions, each standing alone, then a reply line":
+        ~r/say how many and number them.{0,200}recommended letter.{0,80}reply line/is,
+      "a reply stays short and detail goes in a document":
+        ~r/under about 15 lines.{0,100}in a document/is,
+      "text for other people has no AI tells": ~r/no AI tells/i,
+      "the main session anchors the work; a mouse leaves it to Whiska":
+        ~r/names? the project, branch and PR.{0,40}a mouse does not/is
     ],
     {:mouse, "finish"} => [
       "run whiska-finish before the done marker":
@@ -173,9 +181,7 @@ defmodule Whiska.RulesTest do
       "outside text is read before it runs":
         ~r/text from outside this session.{0,40}read each before running or dispatching it/is,
       "the branch under review is doubly suspect":
-        ~r/doubly so when it arrived with the branch under review/i,
-      "green is the project's own Finish heading":
-        ~r/`## Finish` heading in this project's own `CLAUDE.md`/
+        ~r/doubly so when it arrived with the branch under review/i
     ]
   }
 
@@ -198,6 +204,39 @@ defmodule Whiska.RulesTest do
     refute body =~ ~r/no costly choice open from the start/i
   end
 
+  # Whiska stands alone (ADR-next-whiska-stands-alone): its rules and skills
+  # call only what it ships, git, herdr and Claude Code's own agents.
+  describe "Whiska calls nothing it does not ship" do
+    test "every skill the rules and the shipped skills name is one Whiska ships" do
+      ours = for {path, _} <- Install.skills(), do: path |> Path.dirname() |> Path.basename()
+
+      for {where, text} <- shipped_text(),
+          [_, name] <- Regex.scan(~r/`([a-z0-9-]+)` skill/, text) do
+        assert name in ours, "#{where} names the #{name} skill, which Whiska does not ship"
+      end
+    end
+
+    test "every agent they name by type is one Claude Code ships" do
+      for {where, text} <- shipped_text(),
+          [_, name] <- Regex.scan(~r/`([A-Za-z0-9-]+)` agent/, text) do
+        assert name in ~w(Explore Plan general-purpose), "#{where} names the #{name} agent"
+      end
+    end
+
+    test "an agent a skill runs as is one Claude Code ships" do
+      for {where, text} <- shipped_text(), [_, agent] <- Regex.scan(~r/^agent: (\S+)$/m, text) do
+        assert agent in ~w(Explore Plan general-purpose), "#{where} runs as #{agent}"
+      end
+    end
+
+    test "no outside tool is named, and no installed agent is reached for" do
+      for {where, text} <- shipped_text() do
+        refute text =~ ~r/\bwio\b|frontend-preview|hunk diff|hunk-review/, where
+        refute text =~ ~r/agent types this session lists/i, where
+      end
+    end
+  end
+
   describe "the facts a session acts on are exact" do
     test "the marker is the one the owl parses, in words and as written" do
       body = body_of(:mouse, "marker")
@@ -213,16 +252,17 @@ defmodule Whiska.RulesTest do
     end
 
     test "the skill files named for a session that does not list them are the ones init writes" do
-      for {part, skill} <- [
-            {"work", "whiska-spec"},
-            {"work", "grilling"},
-            {"finish", "whiska-finish"}
-          ] do
-        {path, _body} = List.keyfind(Install.skills(), ".claude/skills/#{skill}/SKILL.md", 0)
-
-        assert body_of(:mouse, part) =~ "`#{path}` in this repo", skill
-        assert body_of(:mouse, part) =~ "`~/#{path}`", skill
+      for skill <- ["whiska-spec", "grilling"] do
+        assert List.keyfind(Install.skills(), ".claude/skills/#{skill}/SKILL.md", 0), skill
+        assert body_of(:mouse, "work") =~ "`#{skill}`", skill
       end
+
+      assert prose_of(:mouse, "work") =~
+               "read `.claude/skills/<name>/SKILL.md` in this repo, or `~/.claude/skills/<name>/SKILL.md`"
+
+      {path, _body} = List.keyfind(Install.skills(), ".claude/skills/whiska-finish/SKILL.md", 0)
+      assert body_of(:mouse, "finish") =~ "`#{path}` in this repo"
+      assert body_of(:mouse, "finish") =~ "`~/#{path}`"
     end
 
     test "delivery names the command the person types, not the long one it replaced" do
@@ -231,6 +271,11 @@ defmodule Whiska.RulesTest do
   end
 
   defp names(role), do: role |> Rules.parts() |> Enum.map(& &1.name)
+
+  defp shipped_text do
+    [{"the main session's rules", Rules.render(:main)}, {"a mouse's rules", Rules.render(:mouse)}] ++
+      Install.skills()
+  end
 
   defp body_of(role, name), do: Enum.find(Rules.parts(role), &(&1.name == name)).body
 

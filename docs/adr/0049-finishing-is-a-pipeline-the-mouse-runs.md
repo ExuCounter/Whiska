@@ -58,13 +58,12 @@ the change needs. The skill carries this table and the hook text mirrors it:
 | security | added code runs something built from text; decides allow, deny or permissions; reads outside input; emits text a person or program will run; changes agent instructions, hooks or scripts; touches secrets or auth |
 | performance | only on a hot path: the repo's `CLAUDE.md` names one, or the diff touches a timer, scheduler, middleware, handler or a loop that grows with scale; otherwise its questions are in the cold review |
 | frontend | the change touches something a person sees |
-| tests | the change adds, edits or deletes a test file (ADR-0075) |
 
 A small diff, under 40 changed lines in at most two files with no security trigger, gets
-the cold review alone, beside tests and frontend. Doubt fires a trigger. A repo only adds
+the cold review alone, beside frontend. Doubt fires a trigger. A repo only adds
 axes, through its `CLAUDE.md` prose, its `.claude/agents/*-reviewer.md` and its
 `reviewers:` line; none removes one. A `security:` scan replaces the security reviewer
-only when a trigger fires. Performance and the scout run on the model `whiska shape
+only when a trigger fires. Performance runs on the model `whiska shape
 --rules` picks for a clear task of known shape, passed as the Agent call's `model`; the
 skill names no model, since model names live in `priv/models.json` alone (ADR-0069).
 
@@ -77,13 +76,13 @@ foreground, after the trigger reviewers go to the background: the stop hook coun
 for the mouse (ADR-0053). Not installed, no substitute: the report says in one line that
 the cold review did not run.
 
-**The roster is whatever the session already has.** A reviewer is taken from the agent
-types the session lists wherever one is plainly built for the axis, so Whiska benefits
-when those agents improve and pays nothing to keep any. Two tests disqualify one: it
-changes code rather than reporting on it, or its own description says not to dispatch it
-directly. Nothing listed for an axis is the ordinary case: the mouse writes the prompt,
-except for tests, where `wio-test-reviewer` runs or its absence is said in one line
-(ADR-0075). An agent definition is read before it is dispatched, the file under
+**The roster is Whiska's own prompts and the repo's own agents.** The mouse writes each
+axis's prompt for Claude Code's `general-purpose` agent, the cold review aside, and a
+repo's `.claude/agents/*-reviewer.md` and `reviewers:` line add axes. Nothing else
+installed on the machine is reached for, however well it seems to fit
+(ADR-next-whiska-stands-alone). Two tests disqualify a repo's agent: it changes code
+rather than reporting on it, or its own description says not to dispatch it directly. An
+agent definition is read before it is dispatched, the file under
 `.claude/agents/` and not the session's listing of it: a branch can ship one, and an agent
 runs a loop and can bend the verdict. One that reaches for credentials, sends anything
 anywhere, or tells the reviewer what to conclude is a decision for the person. The

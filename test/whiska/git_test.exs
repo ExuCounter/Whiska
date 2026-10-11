@@ -334,4 +334,67 @@ defmodule Whiska.GitTest do
       assert :ok = Git.delete_branch(repo.checkout, "feat-a")
     end
   end
+
+  # The branch is a mouse's work, and the diff is read for the person to review.
+  describe "branch_diff/3" do
+    defp tripwire(repo) do
+      ran = Path.join(repo.root, "ran")
+      script = Path.join(repo.root, "differ.sh")
+      File.write!(script, "#!/bin/sh\ntouch #{ran}\n")
+      File.chmod!(script, 0o755)
+      {script, ran}
+    end
+
+    test "is the branch's change from where it left the base", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-d", push: false)
+
+      assert {:ok, %{base: "main", diff: diff}} = Git.branch_diff(repo.checkout, "feat-d")
+      assert diff =~ "+++ b/feat-d.md"
+      assert diff =~ "+work"
+    end
+
+    test "runs no diff program or text conversion that git's config names", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-e", push: false)
+      {script, ran} = tripwire(repo)
+      GitRepo.git!(repo.checkout, ["config", "diff.external", script])
+      GitRepo.git!(repo.checkout, ["config", "diff.conv.textconv", script])
+      File.write!(Path.join(repo.checkout, ".git/info/attributes"), "* diff=conv\n")
+
+      assert {:ok, %{diff: diff}} = Git.branch_diff(repo.checkout, "feat-e")
+      assert diff =~ "+work"
+      refute File.exists?(ran)
+    end
+
+    test "runs none inside a submodule the branch moved either", %{repo: repo} do
+      sub = Path.join(repo.root, "sub")
+      File.mkdir_p!(sub)
+      GitRepo.git!(sub, ["init", "-b", "main"])
+      GitRepo.commit!(sub, "s.md", "one")
+
+      GitRepo.git!(repo.checkout, [
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        sub,
+        "sub"
+      ])
+
+      GitRepo.git!(repo.checkout, ["commit", "-m", "add sub"])
+
+      GitRepo.git!(repo.checkout, ["checkout", "-b", "feat-s"])
+      GitRepo.commit!(Path.join(repo.checkout, "sub"), "s.md", "two")
+      GitRepo.git!(repo.checkout, ["add", "sub"])
+      GitRepo.git!(repo.checkout, ["commit", "-m", "move sub"])
+      GitRepo.git!(repo.checkout, ["checkout", "main"])
+
+      {script, ran} = tripwire(repo)
+      GitRepo.git!(repo.checkout, ["config", "diff.submodule", "diff"])
+      GitRepo.git!(Path.join(repo.checkout, "sub"), ["config", "diff.external", script])
+
+      assert {:ok, %{diff: diff}} = Git.branch_diff(repo.checkout, "feat-s")
+      assert diff =~ "sub"
+      refute File.exists?(ran)
+    end
+  end
 end

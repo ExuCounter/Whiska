@@ -4,7 +4,7 @@ Every task goes to a mouse, whatever its size. The one way to skip the spawn is 
 person saying to work in place. A session's own read that a task is a tweak or a quick
 fix is not that, and neither is a ticket that calls the task small. Outside a herdr
 session nothing changes: the work happens in the current checkout. This follows
-ADR-0063 and ADR-0075 and removes the size exception each once carried.
+ADR-0063 and removes the size exception it once carried.
 
 ## Why
 
@@ -16,10 +16,8 @@ main checkout, on an unrelated branch, with no plan and no ok.
 
 ## The rule
 
-Three other size exceptions go with it:
+Two other size exceptions go with it:
 
-- **The scout** (ADR-0075) is skipped for docs, or when no test can reach the change.
-  Never for a tweak.
 - **The spec** (ADR-0063) is written for every brief but four, named by what the change
   touches. Never skipped for a tweak or quick fix, nor for having nothing to grill.
 - **The main session's plan** is given before anything the session does itself, not

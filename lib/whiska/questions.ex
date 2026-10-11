@@ -22,6 +22,7 @@ defmodule Whiska.Questions do
   alias Whiska.Delivery.Mode
   alias Whiska.Doorstep
   alias Whiska.Question.Marker
+  alias Whiska.Review
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -236,7 +237,8 @@ defmodule Whiska.Questions do
   end
 
   @typedoc """
-  Reads what a question's branch holds, as `Whiska.Git.on_branch/3` answers;
+  Reads what a question's branch holds, as `Whiska.Git.on_branch/3` answers,
+  with `:review` the path of its diff file when one was written;
   `{:error, :no_record}` when Whiska has no worktree or branch for its mouse.
   """
   @type on_branch :: (Question.t() -> {:ok, map()} | {:error, term()})
@@ -247,9 +249,18 @@ defmodule Whiska.Questions do
   # branch holds — on the line straight under the heading, which the mouse's
   # own text, after the blank line, can never occupy.
   defp finished_branch(%Question{kind: "done"} = q, on_branch) when is_function(on_branch, 1),
-    do: [branch_line(on_branch.(q))]
+    do: branch_lines(on_branch.(q))
 
   defp finished_branch(_question, _on_branch), do: []
+
+  defp branch_lines({:ok, %{review: path, ahead: ahead, base: base}} = held) do
+    [
+      branch_line(held),
+      "Review diff here: [#{Review.commits(ahead)} against #{base}](file://#{URI.encode(path, &(URI.char_unreserved?(&1) or &1 == ?/))})"
+    ]
+  end
+
+  defp branch_lines(held), do: [branch_line(held)]
 
   defp branch_line({:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}),
     do: "On the branch: #{committed(ahead, base)} · #{uncommitted(uncommitted)}"

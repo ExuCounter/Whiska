@@ -223,7 +223,39 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "feat-a")
 
       assert show_one(repo, q) =~
-               ~r/^##{q.id}  feat-a  finished  \(closed, asked [^)]+\)\nOn the branch: 1 commit beyond main · nothing uncommitted\n\nDone\./
+               ~r/^##{q.id}  feat-a  finished  \(closed, asked [^)]+\)\nOn the branch: 1 commit beyond main · nothing uncommitted\nReview diff here: .*\n\nDone\./
+    end
+
+    test "its diff is a file beside the kept specs, linked under the branch line", %{repo: repo} do
+      q = finished(repo, "feat-d")
+      review = Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md")
+
+      assert show_one(repo, q) =~
+               "\nReview diff here: [1 commit against main](file://#{repo.checkout}/.whiska/reviews/#{q.id}.md)\n"
+
+      text = File.read!(review)
+      assert text =~ "git diff main...feat-d"
+      assert text =~ ~r/^```diff\n.*^\+/ms
+      assert File.read!(Path.join(repo.checkout, ".git/info/exclude")) =~ "/.whiska/"
+    end
+
+    test "read from a mouse's worktree, it writes nothing into the main checkout", %{repo: repo} do
+      q = finished(repo, "feat-m")
+      worktree = Path.join(repo.checkout, "worktrees/reader")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "reader", worktree])
+
+      out = capture_io(fn -> assert CLI.run(["show", to_string(q.id)], worktree) == 0 end)
+
+      assert out =~ "On the branch: 1 commit beyond main"
+      refute out =~ "Review diff here"
+      refute File.exists?(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md"))
+    end
+
+    test "nothing committed has no diff to review", %{repo: repo} do
+      q = finished(repo, "ask-n", commit: false)
+
+      refute show_one(repo, q) =~ "Review diff here"
+      refute File.exists?(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md"))
     end
 
     # The main checkout works on staging, which is ahead of main; a mouse cut

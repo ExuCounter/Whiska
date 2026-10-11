@@ -367,6 +367,31 @@ defmodule Whiska.Git do
     end
   end
 
+  @doc """
+  What a finished branch would land, as `git diff <base>...<branch>` prints it:
+  from where it left the base to its tip, the base read as `on_branch/4` reads
+  it. No external diff program or text conversion runs, whatever git's config
+  names, and no diff is started inside a submodule, where those flags would not
+  reach. Git's warnings stay out of the diff.
+  """
+  @spec branch_diff(Path.t(), branch(), branch() | nil) ::
+          {:ok, %{base: branch(), diff: String.t()}} | {:error, term()}
+  def branch_diff(checkout, branch, recorded_base \\ nil) do
+    args = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--submodule=short"]
+
+    with {:ok, base} <- base_of(checkout, recorded_base),
+         true <- plain_name?(base) || {:error, :unsafe_base},
+         {:ok, base_ref} <- base_ref(checkout, base),
+         range = "#{base_ref}...refs/heads/#{branch}",
+         {diff, 0} <-
+           System.cmd("git", args ++ [range, "--"], cd: checkout, stderr_to_stdout: false) do
+      {:ok, %{base: base, diff: diff}}
+    else
+      {out, code} when is_integer(code) -> {:error, {code, String.trim(out)}}
+      {:error, _} = error -> error
+    end
+  end
+
   defp off_branch({:error, :detached}), do: {:error, :off_branch}
   defp off_branch(head), do: head
 

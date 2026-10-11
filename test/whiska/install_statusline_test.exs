@@ -474,11 +474,11 @@ defmodule Whiska.InstallStatuslineTest do
                ~r/no \*\*Needs attention\*\* block.{0,80}the table.{0,80}never from the mouse's prose/i
     end
 
-    test "a ready diff command is printed for the branch and never run" do
+    test "the diff is reviewed from the link whiska show prints, and no viewer is named" do
       prose = delivered("finished.md") |> String.replace(~r/\s+/, " ")
 
-      assert prose =~ "`hunk diff <base> <branch>`"
-      assert prose =~ ~r/print it.{0,40}never run it/i
+      assert prose =~ ~r/`Review diff here:` line.{0,80}`whiska show` printed/i
+      refute prose =~ "hunk"
     end
 
     test "a sniff finished line has no Needs attention items and no Recommended" do
@@ -492,7 +492,7 @@ defmodule Whiska.InstallStatuslineTest do
       prose = delivered("finished.md") |> String.replace(~r/\s+/, " ")
 
       assert prose =~
-               ~r/the reply row above has none, so it prints no review command and reads no block/
+               ~r/the reply row above has none, so it reads no block/
 
       assert prose =~
                ~r/secret or local-setup file: there no option is recommended, an item included/

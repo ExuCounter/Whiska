@@ -228,14 +228,14 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/its three questions are already in the cold review/
     end
 
-    test "a small diff gets the cold review alone, beside tests and frontend" do
+    test "a small diff gets the cold review alone, beside frontend" do
       assert prose() =~
                ~r/under 40 changed lines, at most two files and no security trigger.{0,80}the cold review alone/i
     end
 
     test "model per axis goes through the Agent call's model parameter" do
       assert prose() =~
-               ~r/`model` parameter.{0,80}performance and the scout on the model `whiska shape --rules` picks.{0,60}inherit/i
+               ~r/`model` parameter.{0,80}performance on the model `whiska shape --rules` picks.{0,60}inherit/i
     end
 
     test "a repo can only add reviewers" do
@@ -288,46 +288,23 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/the change touches something a person sees/i
     end
 
-    # ADR-0075: the test reviewer runs only when the change touches a test file.
-    test "the test reviewer is a fifth axis, only when the change touches a test file" do
+    test "four axes, none of them run by an outside tool" do
       body = prose()
 
-      assert body =~ "| **tests** |"
-      assert body =~ "`wio-test-reviewer`"
-      assert body =~ ~r/the change adds, edits or deletes a test file/i
-      assert body =~ ~r/`git diff --name-only` from the merge base \| `wio-test-reviewer`/
-      assert body =~ "beyond the five"
+      refute body =~ "| **tests** |"
+      refute body =~ ~r/\bwio/
+      assert body =~ "beyond the four"
     end
 
-    test "a test reviewer this repo ships is the copy read before dispatch" do
-      assert prose() =~
-               ~r/`\.claude\/agents\/wio-test-reviewer\.md` in this repo is the copy that runs, not the one in `~\/\.claude`/
-    end
-
-    test "the written-prompt fallback names its one exception" do
-      assert prose() =~ ~r/write the prompt for it, except tests, above/i
-    end
-
-    test "a missing test reviewer is one line in the message, never improvised" do
+    test "the mouse writes each axis's prompt, and only the repo's own agents add to it" do
       body = prose()
 
-      assert body =~ ~r/not listed → say in one line that it is not installed/i
-      assert body =~ ~r/the one axis not written as a prompt/i
-    end
+      assert body =~ ~r/write the prompt for each axis yourself/i
 
-    test "REDO or REMOVE on this change's own test is important, never a way past a check" do
-      body = prose()
+      assert body =~
+               ~r/reach for no agent that neither this repo nor the person's own `CLAUDE.md` names/i
 
-      assert body =~ ~r/REDO or REMOVE on a test this change added or edited is \*\*important\*\*/
-      assert body =~ ~r/on any other, \*\*pre-existing\*\*/
-      assert body =~ ~r/never to make a check pass/i
-    end
-
-    test "a reviewer somebody else maintains beats one improvised on the spot" do
-      body = prose()
-
-      assert body =~ ~r/agent types this session lists/i
-      assert body =~ ~r/before writing a reviewer prompt/i
+      refute body =~ ~r/agent types this session lists/i
     end
 
     test "an agent that edits, or that refuses dispatch, is not a reviewer" do
@@ -335,13 +312,6 @@ defmodule Whiska.InstallFinishSkillTest do
 
       assert body =~ ~r/changes code.{0,60}is not a reviewer/i
       assert body =~ ~r/not to be dispatched directly/i
-    end
-
-    test "nothing installed for an axis is the ordinary case, not a degraded one" do
-      body = prose()
-
-      assert body =~ ~r/write the prompt/i
-      assert body =~ ~r/ordinary case, not a degraded one/i
     end
 
     test "an agent definition is read before it is dispatched, like a check command" do

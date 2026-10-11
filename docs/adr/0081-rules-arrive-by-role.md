@@ -11,12 +11,13 @@ for the rest.
 | Role | How it is read | Parts |
 | --- | --- | --- |
 | Outside herdr | `HERDR_ENV` is not `1` | none |
-| Main session | in herdr, and not a mouse | `worktrees` (routing), `work`, `delivery` |
-| Mouse | started in a `worktrees/<branch>` worktree, not in the recorded main pane (ADR-0053) | `work`, `marker`, `report`, `finish` |
+| Main session | in herdr, and not a mouse | `worktrees` (routing), `work`, `delivery`, `writing` |
+| Mouse | started in a `worktrees/<branch>` worktree, not in the recorded main pane (ADR-0053) | `work`, `marker`, `report`, `writing`, `finish` |
 
 `work` is the order every piece of work goes in — done, grill, spec, build — and what
 counts as costly; both roles need it, since the main session follows it when the person
-says to work in place. Claude Code runs the hook on startup, resume, `/clear` and
+says to work in place. `writing` is how every session writes to the person, and both
+roles get it too. Claude Code runs the hook on startup, resume, `/clear` and
 compaction, so a compacted session is told its rules again. A session with no transcript
 yet is placed by `CLAUDE_PROJECT_DIR`, never by its working directory, which follows every
 `cd` (ADR-0053). The global shim exits before starting Whiska when `HERDR_ENV` is unset,
@@ -37,14 +38,23 @@ pipeline (ADR-0049) is `whiska-finish`, loaded only as a turn ends, and the `fin
 names the trigger and nothing more. The `work` part does the same for grilling and the
 spec: it names `grilling` and `whiska-spec`, and adds only what is a mouse's own — the
 costly-versus-cheap test, the four briefs that skip the spec, and the decision marker
-(ADR-0063). A skill keeps a section it rarely needs in a file
+(ADR-0063). How to grill a build from a Proposed build, and what a sniff mouse grills, are
+in the `grilling` skill, the moment they matter. A skill keeps a section it rarely needs in a file
 beside it — `whiska-delivered` reads `finished.md` and `sniff.md` only when the line says
 finished — and `whiska init` ships every Markdown file beside a skill's `SKILL.md`.
 
-The `report` part is Whiska's shape and nothing else: the five-item order, the decision
-brief, the leave-out list, when to ask, and that a grilling round asks every open costly
-choice at once. The person's general voice rules live in their own `CLAUDE.md`, which every
-session reads anyway; carried twice they set two rule sets talking past each other.
+The `report` part is the shape of a mouse's final message: the five-item order, its size,
+the leave-out list and when to ask. The `writing` part is how any session writes to the
+person: the recap line, a term defined the first time, the problem first in one plain
+sentence, problem and risk labelled, the decision brief, numbered questions each with a
+recommended letter, a reply under about fifteen lines. Its rules come from the person's
+own replies across 416 sessions. The top complaints were a term never defined (about 60),
+the problem never said in one plain line (about 50) and no clear next step (about 22);
+length mattered only past about 40 lines, where confused replies doubled. Those rules
+used to live in the person's own `CLAUDE.md`, where they could not speak to Whiska's
+shapes, and the two disagreed: one question at a time there, every costly choice in one
+round here. Numbered questions settle it, since that is what the person answered fastest.
+A person who wants their own wording marks the part `keep`.
 
 ## `keep` is the person's claim on a part
 
@@ -98,6 +108,9 @@ follow either way, and the finish pipeline alone was 58% of it.
 - **Leave an unshipped part where it is.** Every rule would reach the session twice.
 - **Make the six one-word skills plain `!` commands, or drop them.** The person can type
   `! away` already; dropping the slash commands would take away `/away`.
+- **Leave the voice rules in the person's `CLAUDE.md`.** A session outside herdr keeps
+  them, but they cannot speak to Whiska's shapes, and every other Whiska user's sessions
+  would write however Claude writes by default.
 - **A `~/.whiska` config holding the person's voice rules.** Six lines in a file the
   session cannot see without Whiska copying them in anyway.
 - **A persistent sub-supervisor layer** between Whiska and the mice. Overkill for one
@@ -105,7 +118,8 @@ follow either way, and the finish pipeline alone was 58% of it.
 
 ## Consequences
 
-- Outside herdr a session gets nothing, including the grill, spec and finish steps.
+- Outside herdr a session gets nothing, including the grill, spec and finish steps and
+  the writing rules.
 - The rules are not in a file the person can open. `whiska hook session-start` prints
   them, and `whiska doctor` fails a repo whose `SessionStart` is not wired. A per-repo
   install still travels with the repo: the hook entry is in its committed `settings.json`.

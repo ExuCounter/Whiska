@@ -29,6 +29,7 @@ defmodule Whiska.CLI do
   alias Whiska.Marker
   alias Whiska.OpenHouses
   alias Whiska.Questions
+  alias Whiska.Review
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.ServiceManager
@@ -1649,7 +1650,7 @@ defmodule Whiska.CLI do
       {:ok, main} ->
         case Questions.summary(main) do
           {:ok, summary} ->
-            say(render(summary, shape, main))
+            say(render(summary, shape, main, cwd))
 
           {:error, reason} ->
             fail("whiska: could not open this repo's house (#{inspect(reason)}).")
@@ -1660,8 +1661,10 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp render(summary, :listing, _main), do: Questions.render(summary)
-  defp render(summary, :full, main), do: Questions.render_full(summary, &on_branch(main, &1))
+  defp render(summary, :listing, _main, _cwd), do: Questions.render(summary)
+
+  defp render(summary, :full, main, cwd),
+    do: Questions.render_full(summary, &on_branch(main, &1, reviews?(cwd)))
 
   # Not repo-scoped: the line is machine-wide and herdr draws one of them for
   # the whole session (ADR-0048). Always 0 and never noisy — this runs every
@@ -1986,28 +1989,53 @@ defmodule Whiska.CLI do
   # block of `whiska questions --full` cannot drift apart. This question was
   # loaded by id, without its mouse, so the mouse is looked up here.
   defp show_question(%Question{} = q, cwd) do
-    {:ok, main} = main_checkout(cwd || File.cwd!())
+    cwd = cwd || File.cwd!()
+    {:ok, main} = main_checkout(cwd)
     mode = Mode.read()
     slot = Mode.slot(Storage.questions(), mode)
     focus = if mode.focus, do: Questions.who(Storage.mouse(mode.focus), mode.focus)
     who = Questions.who(Storage.mouse(q.mouse_id), q.mouse_id)
 
-    say(Questions.full(q, who, slot, mode, focus, &on_branch(main, &1)))
+    say(Questions.full(q, who, slot, mode, focus, &on_branch(main, &1, reviews?(cwd))))
   end
 
   # A question read by id comes without its mouse, and one from the listing
   # with it — the house is already closed by the time the listing renders.
-  defp on_branch(main, %Question{mouse: %Mouse{} = mouse}), do: on_branch(main, mouse)
-  defp on_branch(_main, %Question{mouse: nil}), do: {:error, :no_record}
+  defp on_branch(main, %Question{mouse: %Mouse{} = mouse} = q, reviews?),
+    do: held(main, q.id, mouse, reviews?)
 
-  defp on_branch(main, %Question{mouse_id: mouse_id}),
-    do: on_branch(main, Storage.mouse(mouse_id))
+  defp on_branch(_main, %Question{mouse: nil}, _reviews?), do: {:error, :no_record}
 
-  defp on_branch(main, %Mouse{path: path, branch: branch, base: base})
-       when is_binary(path) and is_binary(branch),
-       do: Git.on_branch(main, path, branch, base)
+  defp on_branch(main, %Question{id: id, mouse_id: mouse_id}, reviews?),
+    do: held(main, id, Storage.mouse(mouse_id), reviews?)
 
-  defp on_branch(_main, _no_worktree), do: {:error, :no_record}
+  defp held(main, id, %Mouse{path: path, branch: branch, base: base}, reviews?)
+       when is_binary(path) and is_binary(branch) do
+    with {:ok, held} <- Git.on_branch(main, path, branch, base) do
+      if reviews?,
+        do: {:ok, Map.merge(held, review(main, id, branch, base, held.ahead))},
+        else: {:ok, held}
+    end
+  end
+
+  defp held(_main, _id, _no_worktree, _reviews?), do: {:error, :no_record}
+
+  # Only a read from the main checkout writes the diff file: a mouse never
+  # writes to the main checkout (ADR-0063).
+  defp reviews?(cwd), do: match?({:ok, _main}, Git.main_checkout(cwd))
+
+  # The branch line stands without the diff link when the file cannot be
+  # written.
+  defp review(_main, _id, _branch, _base, 0), do: %{}
+
+  defp review(main, id, branch, base, ahead) do
+    with {:ok, %{base: base_name, diff: diff}} <- Git.branch_diff(main, branch, base),
+         {:ok, path} <- Review.write(main, id, base_name, branch, ahead, diff) do
+      %{review: path}
+    else
+      _ -> %{}
+    end
+  end
 
   # -- away, focus, hold and resume (ADR-0079)
 

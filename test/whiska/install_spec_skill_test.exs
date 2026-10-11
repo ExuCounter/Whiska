@@ -220,6 +220,22 @@ defmodule Whiska.InstallSpecSkillTest do
       assert body =~ ~r/wait for the user's answers before the next round/i
     end
 
+    # Moved out of a session's rules, since they matter only while grilling
+    # (ADR-0081).
+    test "a build from a research hand-off takes its findings as fact and still grills the design" do
+      assert prose("grilling") =~
+               ~r/\*\*proposed build\*\*.{0,40}found as fact.{0,120}still grills? the design/is
+    end
+
+    test "a research-only mouse grills the research question only, never design" do
+      body = prose("grilling")
+
+      assert body =~
+               ~r/only investigates.{0,40}research question only: goal, the decision it feeds, scope, depth, what to deliver/is
+
+      assert body =~ ~r/skip it when the brief already answers those.{0,60}never grill design/is
+    end
+
     test "facts are looked up, decisions are put to the person" do
       body = prose("grilling")
 

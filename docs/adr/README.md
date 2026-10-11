@@ -3,8 +3,8 @@
 One file per decision, numbered in sequence. A record not yet merged is `next-<slug>.md`
 and gets its number from `mix adr.claim` just before its branch merges. `CONTEXT.md` at
 the repo root is the glossary; these record *why* things are the way they are. A number
-missing from the sequence was folded into a surviving record on 2026-10-08, which names
-it on its last line, or was dropped outright that day (0004, 0029, 0072); the old text is
+missing from the sequence was folded into a surviving record, which names it and the date
+on its last line, or was dropped outright that day (0004, 0029, 0072); the old text is
 in git history.
 
 ## Shape of the system
@@ -18,6 +18,7 @@ in git history.
 - [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
 - [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The install is per-repo by default, and the global install is the same install rooted at the home
 - [0081](0081-rules-arrive-by-role.md) — A session's rules arrive at session start, by its role, as rules not prose
+- [next-whiska-stands-alone](next-whiska-stands-alone.md) — Whiska stands alone: it builds on Claude Code, herdr and git, and calls nothing else on the machine
 
 ## Identity
 
@@ -52,7 +53,6 @@ in git history.
 - [0013](0013-main-checkout-edits-are-blocked.md) — Edits in the main checkout are blocked, including anything the main session spawns
 - [0034](0034-shell-commands-are-judged-by-a-read-only-allowlist.md) — Shell commands are judged by a read-only allowlist, not a mutating denylist
 - [0049](0049-finishing-is-a-pipeline-the-mouse-runs.md) — Finishing is a pipeline the mouse runs, not a hook that blocks it
-- [0075](0075-tests-are-scouted-then-reviewed.md) — A mouse's test is scouted before the code and reviewed at finish, when there is a test to touch
 
 ## Mice
 
