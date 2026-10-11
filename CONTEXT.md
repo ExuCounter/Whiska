@@ -252,7 +252,7 @@ true of the whole repo: no **main session**, delivery **gated**, questions waiti
 no line of their own, orphans. Every line starts with a symbol only Whiska writes, which
 is how the person's own herdr config colours it; a working mouse's symbol turns once a
 second, so a still one means the owl has stopped. A line nobody keeps current goes away by itself, and one herdr has lost is sent
-again. The mice re-sort only when one changes state, or starts or stops queueing behind another.
+again. The mice re-sort only when one changes state, starts or stops queueing behind another, or appears in any state but idle.
 _Avoid_: row (the board's; a line is what herdr draws), badge, status (the tab bar's),
 the board (the facts a line is written from)
 

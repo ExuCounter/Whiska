@@ -167,6 +167,10 @@ defmodule Whiska.Sidebar do
   defp pane_workspace(nil, _checkout_less), do: nil
   defp pane_workspace(ws, checkout_less), do: if(MapSet.member?(checkout_less, ws), do: ws)
 
+  @doc "The rank of `○ idle`, the state a new mouse may take without a re-sort."
+  @spec idle_rank() :: pos_integer()
+  def idle_rank, do: @idle
+
   @doc """
   Where this mouse's state sorts: lines with the same rank want the person the
   same, so the house re-sorts when a mouse's rank changes (ADR-0082).

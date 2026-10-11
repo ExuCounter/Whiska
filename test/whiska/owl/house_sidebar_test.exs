@@ -417,6 +417,68 @@ defmodule Whiska.Owl.HouseSidebarTest do
     end
   end
 
+  describe "a mouse that appears" do
+    setup %{main: main, worktree: worktree} do
+      worktree_c = Path.join([main, "worktrees", "feat-c"])
+      File.mkdir_p!(worktree_c)
+
+      stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+
+      stub(Herdr, :pane, fn @socket, "w1:p2" ->
+        {:ok, %{pane_id: "w1:p2", cwd: main, agent: "claude", agent_status: "working"}}
+      end)
+
+      {:ok, handle} = Storage.open(main, name: nil)
+      :ok = Storage.set_main_pane("w1:p2")
+      {:ok, _} = Storage.hold("ma")
+      Storage.close(handle)
+
+      {:ok, worktree_c: worktree_c, worktree: worktree}
+    end
+
+    test "that is already working goes above a held mouse (ADR-0082)", %{
+      main: main,
+      worktree: worktree,
+      worktree_c: worktree_c
+    } do
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [pane(worktree, "idle", "w2"), pane(worktree_c, "working", "w3")]}
+      end)
+
+      fake_herdr([main_ws(main), mouse_ws("w2", worktree), mouse_ws("w3", worktree_c)])
+      house = open(main, [])
+
+      # Only the held mouse is on the board, so there is nothing to move.
+      refute_receive {:moved, _, _}, 150
+
+      in_house(house, fn ->
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "mc", path: worktree_c, branch: "feat-c"})
+      end)
+
+      assert_receive {:moved, ["w3", "w2"], nil}, 1_000
+    end
+
+    test "that is idle does not re-sort (ADR-0082)", %{
+      main: main,
+      worktree: worktree,
+      worktree_c: worktree_c
+    } do
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [pane(worktree, "idle", "w2"), pane(worktree_c, "idle", "w3")]}
+      end)
+
+      fake_herdr([main_ws(main), mouse_ws("w2", worktree), mouse_ws("w3", worktree_c)])
+      house = open(main, [])
+      refute_receive {:moved, _, _}, 150
+
+      in_house(house, fn ->
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "mc", path: worktree_c, branch: "feat-c"})
+      end)
+
+      refute_receive {:moved, _, _}, 300
+    end
+  end
+
   describe "another repo" do
     test "keeps its lines: a house speaks only for its own workspaces", %{
       main: main,

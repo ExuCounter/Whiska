@@ -115,8 +115,9 @@ got shorter clears what it no longer says.
 row in the table; the three lost-pane lines are one row), or starts or stops queueing behind another (states 5 and 6)**, and
 once when the house opens. The spinner turning is not a change of state. A held mouse used
 to stay where it was until a question moved the rows, which left it between working ones;
-now it drops at once. A new mouse, or one that goes, does not re-sort: it lands in place at
-the next one. Mice of one state and mode keep their order, so the
+now it drops at once. A new mouse that is not idle re-sorts at once, since one first seen
+already working would otherwise sit under held mice until another mouse changed state; a new
+idle mouse, or one that goes, does not: it lands in place at the next re-sort. Mice of one state and mode keep their order, so the
 person's drag order stands. The main checkout's workspace never moves. `move_block` is
 in herdr's socket API and not its docs; a rename fails sorting with one warning.
 
@@ -161,6 +162,6 @@ deleted. `whiska doctor` names any leftover as a warning with the init that remo
 - **Say "not the main session" at session start.** Read once, when least relevant, and
   scrolled away by the time the person is waiting.
 
-Changed on 2026-10-11: an idle mouse says `○ idle`, and the mice re-sort on any change of state.
+Changed on 2026-10-11: an idle mouse says `○ idle`, and the mice re-sort on any change of state, and when a new mouse appears in any state but idle.
 
 Folded in on 2026-10-08: 0051, 0058, 0059, 0065 (their text is in git history).

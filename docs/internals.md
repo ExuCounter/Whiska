@@ -407,8 +407,8 @@ own, and what dead branches left behind (`◌ 2 orphaned (feat-gone, fix-x)`).
 
 The mice are ordered by what they are doing — those that need you first, a mouse queued
 behind a question right under the mouse holding it, mice you set aside below idle ones, and a
-sniff mouse below a build mouse in the same state. They re-sort only when one changes state or starts or stops
-queueing, so rows
+sniff mouse below a build mouse in the same state. They re-sort only when one changes state, starts or stops
+queueing, or appears in any state but idle, so rows
 do not jump under your cursor, and your own drag order stands otherwise. Each line expires
 thirty seconds after it was last sent, so a dead owl's lines go away rather than lie, and
 the owl sends them all again within two seconds of herdr restarting, which drops them.

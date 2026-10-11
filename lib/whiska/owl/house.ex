@@ -132,8 +132,8 @@ defmodule Whiska.Owl.House do
   herdr is showing every time it asks herdr for its panes and sends whatever
   differs — which is how a line lost to a herdr restart comes back — and sends
   every line again before its TTL runs out, so a line nobody is keeping current
-  expires. The mice are re-sorted only when one changes state, so rows do
-  not move under the cursor otherwise.
+  expires. The mice are re-sorted only when one changes state or a new one
+  appears busy, so rows do not move under the cursor otherwise.
   """
 
   use GenServer
@@ -647,8 +647,8 @@ defmodule Whiska.Owl.House do
   defp sent(sent_at, ws, want, _now) when want == %{}, do: Map.delete(sent_at, ws)
   defp sent(sent_at, ws, _want, now), do: Map.put(sent_at, ws, now)
 
-  # The mice re-sort only when one changes state, or starts or stops queueing
-  # behind another (ADR-0082): a state changes far less often than a tick, and
+  # The mice re-sort only when one changes state, starts or stops queueing
+  # behind another, or appears in a state but idle (ADR-0082): a state changes far less often than a tick, and
   # the spinner is not one, so rows do not jump under the cursor and the
   # person's own drag order stands otherwise; mice that want the same keep the
   # order they are in. The block lands where its first member sits now.
@@ -661,12 +661,20 @@ defmodule Whiska.Owl.House do
     if resort?(previous, ranks, queue), do: reorder(state, lines, placed, workspaces), else: state
   end
 
-  # A mouse that appears or goes is not a change of state: it lands in place
-  # at the next re-sort (ADR-0082).
+  # A mouse that goes is not a change of state, and nor is an idle one that
+  # appears: both land in place at the next re-sort. One that appears in any
+  # other state re-sorts at once, since it may already be working and would
+  # otherwise sit under held mice (ADR-0082).
   defp resort?(nil, _ranks, _queue), do: true
 
   defp resort?({before, queued}, ranks, queue) do
-    queued != queue or Enum.any?(ranks, fn {id, rank} -> Map.get(before, id, rank) != rank end)
+    queued != queue or
+      Enum.any?(ranks, fn {id, rank} ->
+        case before do
+          %{^id => was} -> was != rank
+          _ -> rank != Sidebar.idle_rank()
+        end
+      end)
   end
 
   defp reorder(state, lines, placed, workspaces) do
