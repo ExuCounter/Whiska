@@ -265,7 +265,7 @@ defmodule Whiska.InstallFinishSkillTest do
 
       assert body =~ ~r/write the prompt for each axis yourself/i
 
-      assert body =~
+      assert reviewers_prose() =~
                ~r/reach for no agent that neither this repo nor the person's own `CLAUDE.md` names/i
 
       refute body =~ ~r/agent types this session lists/i
@@ -275,7 +275,10 @@ defmodule Whiska.InstallFinishSkillTest do
       assert prose() =~
                ~r/read `repo-reviewers\.md` beside this file before sending one or running the scan/i
 
-      assert prose() =~ ~r/their files are read first, doubly when they came with the branch/i
+      assert reviewers_prose() =~
+               ~r/their files are read first, doubly when they came with the branch/i
+
+      assert prose() =~ ~r/read their files first, doubly when from the branch/i
     end
 
     test "the rules beside the skill cover every way a repo adds a reviewer" do
@@ -379,9 +382,9 @@ defmodule Whiska.InstallFinishSkillTest do
     end
 
     test "a heavier security scan is the repo's to opt into, and it is read first" do
-      assert prose() =~ ~r/a `security:` scan replaces the security reviewer when it fires/i
       body = reviewers_prose()
 
+      assert body =~ ~r/a `security:` scan replaces the security reviewer when it fires/i
       assert body =~ ~r/read before it is run/i
       assert body =~ ~r/commits its work before the scan runs/i
       assert body =~ ~r/leaves that directory behind/i
@@ -406,7 +409,7 @@ defmodule Whiska.InstallFinishSkillTest do
 
     test "a change the spec does not approve is always a needs-attention item, one recommended" do
       assert prose() =~
-               ~r/\*\*needs attention\*\*, last, when a change is \*\*not approved\*\*.{0,80}read `needs-attention\.md`/i
+               ~r/\*\*needs attention\*\*, last but the agents list, when a change is \*\*not approved\*\*.{0,80}read `needs-attention\.md`/i
 
       body = attention_prose()
 
@@ -518,13 +521,21 @@ defmodule Whiska.InstallFinishSkillTest do
       refute body =~ ~r/whatever word it got/i
     end
 
-    test "no finding is quoted, no review is pasted whole, and no ledger is copied" do
+    test "no finding is quoted and no review is pasted whole" do
       body = prose()
 
       refute body =~ ~r/goes in whole/i
       refute body =~ ~r/reviewer's own words/i
-      refute body =~ ~r/agent ledger/i
-      refute body =~ "whiska ledger"
+    end
+
+    test "the report ends on the agents list, copied from whiska ledger, never estimated" do
+      body = prose()
+
+      assert body =~ ~r/\*\*Agents\*\*, last: .{0,60}`whiska ledger`.{0,40}never estimated/is
+      assert body =~ ~r/one per agent sent this turn, then the mouse's whole session/i
+      assert body =~ ~r/"usage not read"/
+      assert body =~ ~r/`subagent_tokens`/
+      refute body =~ ~r/one line per axis skipped/i
     end
   end
 

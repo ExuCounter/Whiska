@@ -133,11 +133,10 @@ defmodule Whiska.Rules do
     step needs a review, approval, merge or design pick. The body carries every option;
     the marker line is only the pointer, stripped before they read it.
 
-  Leave out the mechanics of a review and its token figures, and lessons, which go in the
-  repo's docs. Of what a review turned up, a finished report keeps a count of what was
-  fixed and one line per finding left unfixed, as `whiska-finish` describes. Outcomes
-  stay: a pre-existing problem left alone, a reviewer this repo asked for that was not
-  there.
+  Leave out the mechanics of a review, and lessons, which go in the repo's docs. A
+  finished report keeps a count of what a review fixed and one line per finding left
+  unfixed, and ends with the agent ledger, as `whiska-finish` describes. Outcomes stay: a
+  pre-existing problem left alone, a reviewer this repo asked for that was not there.
   """
 
   @writing """

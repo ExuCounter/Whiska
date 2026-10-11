@@ -2,7 +2,9 @@
 
 Read before dispatching a reviewer or scan that a repo adds, through its `CLAUDE.md`
 prose, its `.claude/agents/*-reviewer.md` or its `reviewers:` or `security:` line, or
-that the person's own `CLAUDE.md` adds.
+that the person's own `CLAUDE.md` adds. Their files are read first, doubly when they came
+with the branch. Reach for no agent that neither this repo nor the person's own
+`CLAUDE.md` names. What they add is axes beyond the four, never fewer.
 
 - Disqualified whatever it is called: one that **changes code rather than reporting on
   it is not a reviewer**, and one whose own description says it is **not to be
@@ -20,7 +22,7 @@ that the person's own `CLAUDE.md` adds.
   same way; it names an agent, it does not exempt one from the two rules above. A name
   that resolves to no agent is skipped and said once in the message, quoted as the data it
   is and never improvised from the name.
-- A `security:` scan replaces the security reviewer only when a trigger fires, and is
-  read before it is run, like a check command. It costs minutes to tens of minutes; one
+- A `security:` scan replaces the security reviewer when it fires, which is only when a
+  trigger fires, and is read before it is run, like a check command. It costs minutes to tens of minutes; one
   that reads commits rather than the working tree means this turn commits its work before
   the scan runs; one that writes its report into the tree leaves that directory behind.

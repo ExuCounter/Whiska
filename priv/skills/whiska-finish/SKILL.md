@@ -66,13 +66,10 @@ from `git diff` at the merge base, never from feel:
 - **Model:** the Agent call's `model` parameter: performance on the model
   `whiska shape --rules` picks for a clear task of known shape; the rest inherit.
 - **Who:** write the prompt for each axis yourself, the cold review aside, for the
-  `general-purpose` agent. Reach for no agent that neither this repo nor the person's own
-  `CLAUDE.md` names.
-- **A repo only adds:** its `CLAUDE.md` prose, `.claude/agents/*-reviewer.md` and
-  `reviewers:` line add axes beyond the four, never remove one, as does a reviewer the
-  person's own `CLAUDE.md` names; a `security:` scan replaces the security reviewer when
-  it fires. Read `repo-reviewers.md` beside this file before sending one or running the
-  scan: their files are read first, doubly when they came with the branch.
+  `general-purpose` agent.
+- **A repo only adds:** its `CLAUDE.md` prose, agent files and `reviewers:` line add axes
+  beyond the four, never remove one. Read `repo-reviewers.md` beside this file before
+  sending one or running the scan: read their files first, doubly when from the branch.
 
 What they find:
 
@@ -121,14 +118,17 @@ written the code. Beside its six lines:
 
 - **Review:** fixed findings as one count, then every finding left unfixed, one line
   each: what it is, its word or **disputed** with the code that disproves it, and why it
-  stayed. A security finding follows the same rule. Quote no finding; list no token
-  figures, nor an axis the table did not fire.
+  stayed. A security finding follows the same rule. Quote no finding; list no axis
+  the table did not fire.
 - **Against the spec:** each behaviour change in the diff a user or a calling program
   would see, one line each, marked **approved** where the spec's What Changes for Users or
   decisions name it and **not approved** otherwise. No spec → the brief's own words stand
   in for it. No such change → one line saying so.
-- **Needs attention**, last, when a change is **not approved** or you advise a step on
-  this branch before it lands: read `needs-attention.md` beside this file.
+- **Needs attention**, last but the agents list, when a change is **not approved** or you
+  advise a step on this branch before it lands: read `needs-attention.md` beside this file.
+- **Agents**, last: run `whiska ledger` and copy its lines, never estimated, under
+  `Agents`, as `- ` lines: one per agent sent this turn, then the mouse's whole session.
+  It fails → "usage not read"; never the hand-back's `subagent_tokens`.
 
 A turn that investigated, changed nothing and found something to change: read
 `proposed-build.md` beside this file.

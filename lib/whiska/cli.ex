@@ -223,14 +223,14 @@ defmodule Whiska.CLI do
     close <id>           Settle a question by hand, with no answer — for one
                          you dealt with some other way.
 
-    ledger [--json]      Print the agent ledger, read from this Claude Code
-                         session's transcripts: one line per agent sent this
-                         turn, then the mouse's whole session — model, effort,
-                         new tokens (input, cache writes, output), cache
-                         reads, steps, average per step, tool uses, seconds.
-                         "≥" marks a lower bound. --json prints the same
-                         figures as data. Run inside a session; a sniff mouse
-                         may run it too.
+    ledger [--json]      Print the agent ledger a finished report ends with,
+                         read from this Claude Code session's transcripts: one
+                         line per agent sent this turn, then the mouse's whole
+                         session — model, effort, new tokens (input, cache
+                         writes, output), cache reads, steps, average per
+                         step, tool uses, seconds. "≥" marks a lower bound.
+                         --json prints the same figures as data. Run inside a
+                         session; a sniff mouse may run it too.
 
     metrics [--json]     What this repo's house says about cost and waiting,
                          in four views: cost by shape (mode, model and effort

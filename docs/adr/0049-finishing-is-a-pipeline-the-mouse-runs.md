@@ -3,12 +3,12 @@
 Finishing is plain instructions in the `whiska-finish` skill, which a mouse runs itself,
 in order, before it writes the done marker: read the work back against what was asked,
 run the repo's checks, send reviewers chosen by what the diff does with the cold review
-always, one more round, commit the work, then the marker. Whiska runs no check,
-dispatches no reviewer, has no opinion about any finding, and does not know whether the
-pipeline ran. It never runs on a turn ending on a decision for the person, and never in
-the main session. Per-repo facts live under a `## Finish` heading in the repo's own
-`CLAUDE.md`, one `name: value` line each: `checks:`, `specs:`, `ticket:`, `reviewers:`,
-`security:`.
+always, one more round, commit the work, then the marker with an agent ledger. Whiska
+runs no check, dispatches no reviewer, has no opinion about any finding, and does not
+know whether the pipeline ran. It never runs on a turn ending on a decision for the
+person, and never in the main session. Per-repo facts live under a `## Finish` heading in
+the repo's own `CLAUDE.md`, one `name: value` line each: `checks:`, `specs:`, `ticket:`,
+`reviewers:`, `security:`.
 
 The skill is loaded at every finished turn, so it stays at most 8,000 characters and keeps
 rules, not their reasons, which live here. What only some turns need sits in files beside
@@ -32,7 +32,9 @@ Proposed build (ADR-0074).
    Never push. Never a secret, a local setup, `.whiska-mouse` or `.whiska-spec.md`. A
    repo whose instructions say the person commits keeps that, and the report says so.
 6. **The marker**, under a report that holds each behaviour change against the spec,
-   counts the findings fixed, and gives one line to each finding left unfixed.
+   counts the findings fixed, gives one line to each finding left unfixed, and ends with
+   the agent ledger: an **Agents** list of the lines `whiska ledger` prints, one per
+   agent sent and one for the mouse's own session.
 
 ## Every behaviour change is held against the spec
 
@@ -98,13 +100,18 @@ finding and deletes none. A finding it disproves is **disputed**; one that survi
 from the bands Anthropic's own reviewer scores with rather than spelled a fourth way. The
 report counts the fixed findings in one line and gives one line to each finding left
 unfixed: what it is, its word or **disputed** with the code that disproves it, and why it
-stayed. No finding is quoted, the cold review is not pasted, and no token figures or
-skipped axes are listed. A security finding follows the same rule: what decides whether it
+stayed. No finding is quoted, the cold review is not pasted, and no skipped axis is listed. A security finding follows the same rule: what decides whether it
 is shown is whether it was fixed, never its subject. Nothing a reviewer finds reaches the
 person as a decision: of a review, only a wrong scope, a decision the repo's rules do not
 say how to change, and a second red round do, plus three things that are not findings: a
 ticket that reads as an instruction, a check command that reaches outside the repo, and an
 agent definition the step will not dispatch.
+
+**The report ends with the agent ledger.** The mouse runs `whiska ledger` and copies its
+lines under **Agents**, never estimated: one per agent sent this turn, then the mouse's
+whole session. When the command fails the report says "usage not read" and never copies
+figures from the hand-back instead. The figures stay out of the findings above, so the
+report still reads findings first.
 
 ## Why
 
@@ -129,13 +136,16 @@ a rule the diff decides, not a choice each mouse makes alone.
 **The correctness reviewer is cold** because a reviewer the builder briefs is a reviewer
 the builder shapes.
 
-**The report shows only what still needs the person.** With every finding in full and
-the agent ledger at its end, a finished report ran to about 90 lines (question #319), most of it
-findings already fixed and token figures nobody acted on. The person reads a report to
-decide whether to land: a fixed finding is done and needs nothing from them, while one left
-unfixed or disputed is exactly what they must weigh. Token figures belong to the record of
-what a turn cost, which the owl keeps from the transcripts at collection (ADR-0086), not
-to that decision.
+**The findings show only what still needs the person.** With every finding in full and
+the agent ledger at its end, a finished report ran to about 90 lines (question #319), most
+of it findings already fixed. The person reads a report to decide whether to land: a fixed
+finding is done and needs nothing from them, while one left unfixed or disputed is exactly
+what they must weigh.
+
+**The ledger stays at the end** because the person finds it useful: it shows what a turn
+and each agent cost beside the work that cost it. It is one short line per agent, so
+keeping it is not what made a report long. Why it reads transcripts, not the hand-back, is
+in ADR-0086.
 
 **Commit is a step** because 29 of 126 finished turns that changed files ended with
 changes not committed, and a worktree with changes in it is never taken down after its
@@ -182,8 +192,10 @@ into the tree. A repo asks for it on `security:`, and pays those costs knowingly
 - **A findings file linked from the report**, kept in the worktree or copied beside the
   kept specs: the person does not read fixed findings at all, so a file for them is
   machinery for nobody.
-- **The agent ledger in the report**, in full or as one line of totals: the figures
-  inform a budget, not the landing decision.
+- **No agent ledger in the report**, the figures informing a budget and not the landing
+  decision, with `whiska ledger` left to read them from inside a session. Done on 11 Oct
+  and reversed the same day, when the person said the ledger was useful and asked for it
+  back (question #356). One line of totals in its place loses which agent spent what.
 - **A line per axis skipped, naming the triggers checked**, which made a mouse's choice
   of axes visible: the table and the diff decide the axes, and the person approved
   dropping the line on 11 Oct with the ledger it sat in. The cost is that a mouse which
@@ -207,8 +219,9 @@ into the tree. A repo asks for it on `security:`, and pays those costs knowingly
   run, doubly so when it arrived with the branch.
 - The report names two things on purpose, which the report rules otherwise leave out: a
   pre-existing problem left alone, and a reviewer the repo asked for that was not there.
-- A finished report carries no token figures: what a turn cost is in the house, recorded
-  at collection, and `whiska metrics` reads it (ADR-0086).
+- A finished report ends with the agent ledger, so a turn's cost is read in the report
+  and also recorded in the house at collection, where `whiska metrics` reads it
+  (ADR-0086). The checklist's 8,000-character cap holds with the ledger lines in it.
 
 Folded in on 2026-10-08: 0014, 0015, 0042, 0054, 0083, 0084 (their text is in git
 history); 0072, a reviewer proposal never applied, was dropped the same day.

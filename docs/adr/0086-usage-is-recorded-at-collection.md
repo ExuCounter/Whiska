@@ -2,8 +2,8 @@
 
 **The owl records what each turn cost when it collects that turn's doorstep entry.** The
 `Stop` hook puts the session's transcript path on the entry, beside `ran_on` and the spec
-(ADR-0036). At collection the owl reads that turn with the ledger, cut off at the entry's
-stamp, and stores one **usage** row per ledger line, keyed by the question.
+(ADR-0036). At collection the owl reads that turn with the ledger (ADR-0049), cut off at
+the entry's stamp, and stores one **usage** row per ledger line, keyed by the question.
 
 - **The ledger reads transcripts, not the hand-back.** The hand-back's `subagent_tokens`
   is the size of the agent's last call, not a sum; the cold review hands back no usage;
@@ -37,8 +37,8 @@ stamp, and stores one **usage** row per ledger line, keyed by the question.
   second entry for that turn, which carries the spec unchanged.
 - **No backfill.** Older questions name no transcript, and matching one by folder and time
   can land a turn on the wrong question.
-- **`whiska ledger` is on the read-only list** (ADR-0034), so a sniff mouse can read its
-  own usage like any other. No other `whiska` command is: every one that opens the
+- **`whiska ledger` is on the read-only list** (ADR-0034), so a sniff mouse's report ends
+  with its ledger like any other. No other `whiska` command is: every one that opens the
   house can migrate it, and the rest change something. Nor is the ledger with any variable
   set in front of it, since it needs none. The Erlang VM takes code from `ERL_AFLAGS`,
   `ERL_FLAGS` and `ERL_ZFLAGS` and another emulator from `ESCRIPT_EMULATOR`, so setting any

@@ -1,6 +1,6 @@
 # Needs attention
 
-Last in the report, only when you advise a step on this branch before it lands: a fix, a
+Last in the report before the Agents list, only when you advise a step on this branch before it lands: a fix, a
 follow-up change, a check the person should run. The main session turns each item into a
 lettered option, so the person picks one by letter:
 

@@ -138,10 +138,10 @@ defmodule Whiska.RulesTest do
       "ask only for a review, approval, merge or design pick":
         ~r/review, approval, merge or design pick/,
       "the marker line is only the pointer": ~r/the marker line is only the pointer/i,
-      "leave out the mechanics and the token figures":
-        ~r/leave out the mechanics of a review and its token figures/i,
+      "leave out the mechanics of a review": ~r/leave out the mechanics of a review/i,
       "of a review, a count of what was fixed and each finding left unfixed":
-        ~r/a count of what was fixed and one line per finding left unfixed/i
+        ~r/a count of what a review fixed and one line per finding left unfixed/i,
+      "a finished report ends with the agent ledger": ~r/ends with the agent ledger/i
     ],
     {:main, "writing"} => [
       "written for a reader who remembers nothing": ~r/remember(s|ing) nothing of this session/i,
@@ -204,11 +204,11 @@ defmodule Whiska.RulesTest do
     refute body =~ ~r/no costly choice open from the start/i
   end
 
-  test "a finished report carries no finding in full and no agent ledger" do
+  test "a finished report carries no finding in full and ends with the agent ledger" do
     body = prose_of(:mouse, "report")
 
     refute body =~ ~r/findings, which go whole/i
-    refute body =~ ~r/agent ledger/i
+    assert body =~ ~r/ends with the agent ledger, as `whiska-finish` describes/i
   end
 
   # Whiska stands alone (ADR-0085): its rules and skills

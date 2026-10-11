@@ -653,8 +653,8 @@ the same turn marks the earlier rows replaced, and the rows not replaced add up.
 `whiska metrics` reads it, weighing tokens into **cost units** (input + 1.25 × cache
 writes + 0.1 × cache reads + 5 × output, the ratio every Claude model is priced at), since
 Whiska keeps no prices (ADR-0086).
-_Avoid_: ledger (the lines `whiska ledger` prints from inside a session, whose mouse line
-covers the whole session), price or dollars (none is stored)
+_Avoid_: ledger (the lines a finished report ends with, whose mouse line covers the whole
+session), price or dollars (none is stored)
 
 **Backstop**:
 The slow timer that collects a house's doorstep when nothing else has. It is a last
@@ -737,8 +737,10 @@ What a mouse does before it is allowed to say `done`: read the work back against
 brief and the repo's written decisions, run the repo's checks and fix what they catch,
 send reviewers over its own diff (the ones the diff calls for, the cold review always),
 fix what they find, go round once more, commit the work on its branch, and only then
-write the marker, under a report that counts the findings fixed and gives one line to
-each finding left unfixed (ADR-0049).
+write the marker, under a report that counts the findings fixed, gives one line to each
+finding left unfixed, and ends with an agent ledger: one line per agent sent, with its
+tokens, then one for the mouse's own session, printed by `whiska ledger` from the
+session's transcripts (ADR-0049).
 Plain instructions in the `whiska-finish` skill `whiska init` installs, which a mouse's
 `finish` part names as the trigger and nothing more — the steps only matter as a turn
 ends, so they stay out of context until then (ADR-0081). Nothing changed since the
