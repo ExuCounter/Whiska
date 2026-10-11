@@ -50,6 +50,7 @@ build and needs neither. `priv/models.json` holds ordered rules for each axis:
 "model": {
   "choose": [
     { "when": "a long, open-ended run — …", "use": "fable" },
+    { "when": "a small, fully spelled-out change — …", "use": "haiku" },
     { "when": "the task is clear and its shape is already known — …", "use": "sonnet" },
     { "when": "anything else", "use": "opus" }
   ],

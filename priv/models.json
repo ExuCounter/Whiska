@@ -6,6 +6,7 @@
   "model": {
     "choose": [
       { "when": "a long, open-ended run — weighing a design across the whole system, or tracing one symptom through several parts at once", "use": "fable" },
+      { "when": "a small, fully spelled-out change — a rename, a one-line fix, a config value, a doc edit — where nothing needs judging", "use": "haiku" },
       { "when": "the task is clear and its shape is already known — a described change, a test to add, a document to write", "use": "sonnet" },
       { "when": "anything else", "use": "opus" }
     ],
