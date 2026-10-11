@@ -15,7 +15,7 @@ defmodule Whiska.Ledger do
   - **A step is one model call.** Claude Code writes one entry per content
     block, each repeating the message's usage, so calls are counted once per
     message id.
-  - **New tokens** are input plus cache writes plus output (ADR-0049). Cache
+  - **New tokens** are input plus cache writes plus output (ADR-0086). Cache
     reads are their own figure, so a line can be priced later.
   - **Average per step** is the conversation each call carried: input plus
     cache writes plus cache reads. It says whether big cache reads came from

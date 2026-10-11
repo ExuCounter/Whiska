@@ -2,8 +2,14 @@
 
 **The owl records what each turn cost when it collects that turn's doorstep entry.** The
 `Stop` hook puts the session's transcript path on the entry, beside `ran_on` and the spec
-(ADR-0036). At collection the owl reads that turn with the ledger (ADR-0049), cut off at
-the entry's stamp, and stores one **usage** row per ledger line, keyed by the question.
+(ADR-0036). At collection the owl reads that turn with the ledger, cut off at the entry's
+stamp, and stores one **usage** row per ledger line, keyed by the question.
+
+- **The ledger reads transcripts, not the hand-back.** The hand-back's `subagent_tokens`
+  is the size of the agent's last call, not a sum; the cold review hands back no usage;
+  and the mouse's own session has none at all, though its cache reads are its largest
+  cost. New tokens are input plus cache writes plus output; cache reads are their own
+  figure, so a row can be priced later.
 
 - **A row covers one turn.** The mouse's row runs from the prompt that started the turn —
   the last one with `origin.kind` `"human"`, which is also how an answer handed over or a

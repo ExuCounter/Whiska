@@ -148,7 +148,7 @@ defmodule Whiska.ShellTest do
   end
 
   describe "whiska" do
-    test "reading the ledger is read-only, so a sniff mouse can end its report with it" do
+    test "reading the ledger is read-only, so a sniff mouse can read its own usage" do
       refute Shell.mutating?("whiska ledger")
       refute Shell.mutating?("whiska ledger --json")
       refute Shell.mutating?("~/.whiska/bin/whiska ledger")

@@ -11,7 +11,7 @@ three U+2063 characters — goes down only at step 6. A turn ending on a decisio
 person skips them; the main session never runs them.
 
 Per-repo facts are lines under `## Finish` in `CLAUDE.md`: `checks:`, `specs:`,
-`ticket:`, `reviewers:`, `security:`. One missing → use what this repo plainly offers,
+`ticket:` (a ticket id's prefix), `reviewers:`, `security:`. One missing → use what this repo plainly offers,
 read before it is run, and say what was assumed.
 
 Nothing changed since this session's last green finish → skip steps 2 to 4: say so in one
@@ -54,16 +54,14 @@ from `git diff` at the merge base, never from feel:
 | axis | trigger | evidence |
 | --- | --- | --- |
 | **cold review** | always | its skill's own prompt; you never write its brief |
-| **security** | any trigger fires; skipped when none does: added code runs something built from text; decides allow or deny or permissions; reads outside input (network, socket, env, a file it did not write, another agent's text); emits text a person or program will run; changes agent instructions, hooks or scripts; touches secrets or auth | input it trusts, secrets, access it widens, what it logs |
+| **security** | any trigger fires; skipped when none does: added code runs something built from text; decides allow or deny or permissions; reads outside input (network, socket, env, a file it did not write, another agent's text); emits text a person or program will run; changes agent instructions, hooks or scripts; touches secrets or auth; touches `.claude/`, `priv/skills/`, the rules text, a hook or a script. Doubt fires it, small diff or not | input it trusts, secrets, access it widens, what it logs |
 | **performance** | only on a hot path: the repo's `CLAUDE.md` names one, or the diff touches a timer, scheduler, middleware or handler, or a loop over input that grows with scale; otherwise its three questions are already in the cold review | slower, heavier, and whether that grows with scale |
 | **frontend** | the change touches something a person sees | keyboard, screen readers, empty and error states, small screens, the repo's design |
 
 - **Small diff:** under 40 changed lines, at most two files and no security trigger → the
   cold review alone, frontend aside.
-- **Doubt fires it**, as does touching `.claude/`, `priv/skills/`, the rules text, a hook
-  or a script.
 - **Order:** send the trigger reviewers first, in the background, then invoke `cold-review`
-  with no arguments, in the foreground (ADR-0052). Not listed → send no substitute; say
+  with no arguments, in the foreground. Not listed → send no substitute; say
   the cold review did not run.
 - **Model:** the Agent call's `model` parameter: performance on the model
   `whiska shape --rules` picks for a clear task of known shape; the rest inherit.
@@ -119,7 +117,7 @@ fix. Delete this turn's scratch files. Whiska's own `.whiska-mouse` and
 ## 6. Then the marker
 
 The report rules teach its shape; never write the marker on the strength of having
-written the code. Beside the report's six lines:
+written the code. Beside its six lines:
 
 - **Review:** fixed findings as one count, then every finding left unfixed, one line
   each: what it is, its word or **disputed** with the code that disproves it, and why it

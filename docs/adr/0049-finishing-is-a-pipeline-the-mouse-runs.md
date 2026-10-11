@@ -134,8 +134,8 @@ the agent ledger at its end, a finished report ran to about 90 lines (question #
 findings already fixed and token figures nobody acted on. The person reads a report to
 decide whether to land: a fixed finding is done and needs nothing from them, while one left
 unfixed or disputed is exactly what they must weigh. Token figures belong to the record of
-what a turn cost, not to that decision; `whiska ledger` still reads them from the
-transcripts, not the hand-back, whose `subagent_tokens` is the size of the last call.
+what a turn cost, which the owl keeps from the transcripts at collection (ADR-0086), not
+to that decision.
 
 **Commit is a step** because 29 of 126 finished turns that changed files ended with
 changes not committed, and a worktree with changes in it is never taken down after its
@@ -184,6 +184,10 @@ into the tree. A repo asks for it on `security:`, and pays those costs knowingly
   machinery for nobody.
 - **The agent ledger in the report**, in full or as one line of totals: the figures
   inform a budget, not the landing decision.
+- **A line per axis skipped, naming the triggers checked**, which made a mouse's choice
+  of axes visible: the table and the diff decide the axes, and the person approved
+  dropping the line on 11 Oct with the ledger it sat in. The cost is that a mouse which
+  wrongly skips security leaves no trace in the report.
 
 ## Consequences
 
@@ -203,9 +207,8 @@ into the tree. A repo asks for it on `security:`, and pays those costs knowingly
   run, doubly so when it arrived with the branch.
 - The report names two things on purpose, which the report rules otherwise leave out: a
   pre-existing problem left alone, and a reviewer the repo asked for that was not there.
-- A finished report carries no token figures. Until usage is recorded elsewhere, what a
-  turn cost stays in Claude Code's transcripts, which `whiska ledger` reads from inside
-  the session.
+- A finished report carries no token figures: what a turn cost is in the house, recorded
+  at collection, and `whiska metrics` reads it (ADR-0086).
 
 Folded in on 2026-10-08: 0014, 0015, 0042, 0054, 0083, 0084 (their text is in git
 history); 0072, a reviewer proposal never applied, was dropped the same day.

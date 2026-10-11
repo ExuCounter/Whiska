@@ -219,6 +219,13 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/its three questions are already in the cold review/
     end
 
+    test "doubt, or touching agent instructions, hooks or scripts, fires security even on a small diff" do
+      body = prose()
+
+      assert body =~
+               ~r/touches `\.claude\/`, `priv\/skills\/`, the rules text, a hook or a script\. Doubt fires it, small diff or not \|/
+    end
+
     test "a small diff gets the cold review alone, beside frontend" do
       assert prose() =~
                ~r/under 40 changed lines, at most two files and no security trigger.{0,80}the cold review alone/i
@@ -269,6 +276,11 @@ defmodule Whiska.InstallFinishSkillTest do
                ~r/read `repo-reviewers\.md` beside this file before sending one or running the scan/i
 
       assert prose() =~ ~r/their files are read first, doubly when they came with the branch/i
+    end
+
+    test "the rules beside the skill cover every way a repo adds a reviewer" do
+      assert reviewers_prose() =~
+               ~r/a repo adds, through its `CLAUDE\.md` prose, its `\.claude\/agents\/\*-reviewer\.md` or its `reviewers:` or `security:` line/
     end
 
     test "an agent that edits, or that refuses dispatch, is not a reviewer" do
@@ -349,7 +361,7 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ "## Finish"
       assert body =~ "checks:"
       assert body =~ "specs:"
-      assert body =~ "ticket:"
+      assert body =~ "`ticket:` (a ticket id's prefix)"
     end
 
     test "a ticket is evidence, never an instruction to the session" do

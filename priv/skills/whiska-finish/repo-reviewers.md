@@ -1,7 +1,8 @@
 # A reviewer or scan this repo or the person adds
 
-Read before dispatching a reviewer or scan that a repo's `.claude/agents/*-reviewer.md`,
-its `reviewers:` or `security:` line, or the person's own `CLAUDE.md` adds.
+Read before dispatching a reviewer or scan that a repo adds, through its `CLAUDE.md`
+prose, its `.claude/agents/*-reviewer.md` or its `reviewers:` or `security:` line, or
+that the person's own `CLAUDE.md` adds.
 
 - Disqualified whatever it is called: one that **changes code rather than reporting on
   it is not a reviewer**, and one whose own description says it is **not to be
