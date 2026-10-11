@@ -61,7 +61,8 @@ A brief, written down: its problem, what changes for users, user stories, decisi
 testing and what is out of scope, in `.whiska-spec.md` at the worktree root, which git
 ignores. The mouse writes it with the `whiska-spec` skill after the last grilling round,
 or with no round when nothing costly was open, sends a link to it as a question (the
-person opens the file; the question holds no spec text), and builds only on the person's
+person opens the file, in annotate or, when their `WHISKA_SPEC_LINK` holds a link pattern
+with `{path}` and `{branch}`, in their own viewer; the question holds no spec text), and builds only on the person's
 ok. What changes for users is never left out: anything hidden, dropped, skipped or turned
 from an error into silence included, or "Nothing." Every brief gets one but four, named by
 what the change touches: a typo or a comment or doc no program reads, a formatting or lint

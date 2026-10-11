@@ -19,9 +19,10 @@ checkout.
    trip, so a round never asks one question at a time. Answers can open another round,
    and every round ends on the status marker. A round with nothing in it is not sent.
 3. Write the spec and send a link to it, whether or not a round went first. The question
-   reads "Review spec here: [<title>](file://…/.whiska-spec.md)" and "ok to build?", with
-   no spec text; the link
-   names the worktree's own file, so it works for the review, before the build. The
+   reads "Review spec here: [<title>](<link>)" and "ok to build?", with no spec text; the
+   line comes from `whiska spec-link`, and the link names the worktree's own
+   `.whiska-spec.md` as `file://…/.whiska-spec.md`, so it works for the review, before the
+   build, or the viewer the person's `WHISKA_SPEC_LINK` names (ADR-0085). The
    person opens the file; `whiska questions <id>` shows the link line as written.
 4. Build to it. A costly choice found mid-build is a real decision and stops the mouse
    the same way; it is never a quiet edit to the spec.

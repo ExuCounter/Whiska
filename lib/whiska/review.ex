@@ -81,16 +81,27 @@ defmodule Whiska.Review do
   backslash, or control or format character — and the file link stands then.
   """
   @spec link(String.t() | nil, String.t(), String.t()) :: {:ok, String.t()} | :error
-  def link(pattern, base, branch) when is_binary(pattern) do
+  def link(pattern, base, branch),
+    do: fill(pattern, %{"{base}" => base, "{branch}" => branch})
+
+  @doc """
+  The spec link a `WHISKA_SPEC_LINK` pattern makes, its `{path}` (the spec
+  file's absolute path) and `{branch}` filled in, under the same rules as the
+  diff link's pattern (ADR-0085). `:error` and the file link stand otherwise.
+  """
+  @spec spec_link(String.t() | nil, Path.t(), String.t()) :: {:ok, String.t()} | :error
+  def spec_link(pattern, path, branch),
+    do: fill(pattern, %{"{path}" => path, "{branch}" => branch})
+
+  defp fill(pattern, values) when is_binary(pattern) do
     if Regex.match?(~r/\A[A-Za-z][A-Za-z0-9+.-]*:[^\s()\\\p{C}]*\z/u, pattern) do
-      values = %{"{base}" => base, "{branch}" => branch}
       {:ok, String.replace(pattern, Map.keys(values), &encode(values[&1]))}
     else
       :error
     end
   end
 
-  def link(nil, _base, _branch), do: :error
+  defp fill(nil, _values), do: :error
 
   @spec file_link(Path.t()) :: String.t()
   def file_link(path), do: "file://" <> encode(path)

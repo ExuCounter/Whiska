@@ -98,11 +98,13 @@ defmodule Whiska.InstallSpecSkillTest do
       assert body =~ ~r/build only after they say ok/i
     end
 
-    test "the question is a link to the worktree's spec file, then ok to build" do
+    test "the question is the line `whiska spec-link` prints, then ok to build" do
       body = prose("whiska-spec")
 
-      assert body =~
-               "`Review spec here: [<spec title>](file://<abs path>/#{Whiska.Spec.filename()})`"
+      assert body =~ "`whiska spec-link '<spec title>'`"
+      assert body =~ ~S(each `'` in it written `'\''`)
+      assert body =~ "`Review spec here: [<spec title>](<link>)`"
+      assert body =~ Whiska.Spec.filename()
 
       assert body =~ ~s("ok to build?")
       refute body =~ "Spec for the review"

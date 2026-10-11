@@ -280,6 +280,11 @@ defmodule Whiska.CLI do
                          four are null. Read one with
                          jq -r '.main_workspace // empty'.
 
+    spec-link <title>    Print the line a mouse sends with its spec: "Review spec
+                         here:" and a link to this worktree's .whiska-spec.md,
+                         or to the viewer a WHISKA_SPEC_LINK pattern names,
+                         its {path} and {branch} filled in.
+
     mode                 Print this mouse's mode.
     mode build|sniff     Give a mouse nobody shaped its mode. A build mouse
                          makes changes, confined to its own worktree. A sniff
@@ -459,6 +464,8 @@ defmodule Whiska.CLI do
   def run(["mode"], cwd), do: with_mouse(cwd, &show_mode/2)
 
   def run(["base"], cwd), do: with_mouse(cwd, &show_base/2)
+
+  def run(["spec-link", title], cwd), do: spec_link(cwd, title)
 
   def run(["mode", mode], cwd) when mode in ["build", "sniff"],
     do: with_mouse(cwd, &set_mode(&1, &2, mode))
@@ -1235,6 +1242,54 @@ defmodule Whiska.CLI do
         1
     end
   end
+
+  # The spec's review link, as the mouse sends it with its spec. A viewer the
+  # person names in WHISKA_SPEC_LINK takes it; otherwise the file link annotate
+  # opens (ADR-0085). From the main checkout the spec sits at its root.
+  defp spec_link(cwd, title) do
+    title =
+      title
+      |> String.replace(~r/[\s\p{C}]+/u, " ")
+      |> String.trim()
+      |> String.replace(~r/([\[\]\\])/, "\\\\\\1")
+
+    with true <- title != "" || {:error, :no_title},
+         {:ok, root, branch} <- spec_place(cwd || File.cwd!()) do
+      spec = Path.join(root, Whiska.Spec.filename())
+
+      link =
+        case Review.spec_link(System.get_env("WHISKA_SPEC_LINK"), spec, branch) do
+          {:ok, link} -> link
+          :error -> Review.file_link(spec)
+        end
+
+      say("Review spec here: [#{title}](#{link})")
+    else
+      {:error, :no_title} ->
+        IO.puts(:stderr, "whiska: spec-link needs the spec's title.")
+        1
+
+      _ ->
+        IO.puts(:stderr, "whiska: not inside a worktree or a main checkout.")
+        1
+    end
+  end
+
+  defp spec_place(cwd) do
+    case Layout.resolve(cwd) do
+      {:ok, layout} ->
+        {:ok, layout.worktree_root, layout.branch_label}
+
+      _ ->
+        with {:ok, main} <- Git.main_checkout(cwd) do
+          {:ok, main,
+           with({:ok, branch} <- Git.head_branch(main), do: branch) |> branch_or_empty()}
+        end
+    end
+  end
+
+  defp branch_or_empty(branch) when is_binary(branch), do: branch
+  defp branch_or_empty(_), do: ""
 
   defp set_mode(mouse_id, layout, mode) do
     case Storage.set_mode(mouse_id, mode) do

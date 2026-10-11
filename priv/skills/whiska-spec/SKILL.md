@@ -38,11 +38,13 @@ touches secrets, access or a security check, is never one of the four.
    - In the main checkout, add the line to `.git/info/exclude` yourself.
 5. **Ask.** Send a link to the spec to the person as the question, and build only after
    they say ok. Never paste the spec into the message; the person opens the link. The
-   message is one line,
-   `Review spec here: [<spec title>](file://<abs path>/.whiska-spec.md)`, a link whose text
-   is the spec's title, `<abs path>` being this worktree's own absolute path with its leading
-   slash; then the pointer "ok to build?", above the decision marker a mouse's rules
-   describe, in a worktree. "ok" → build. Anything else → change the file to match and
+   message is one line, `Review spec here: [<spec title>](<link>)`, a link whose text is
+   the spec's title. Never type the line yourself: run `whiska spec-link '<spec title>'`
+   from the worktree, the title in single quotes with each `'` in it written `'\''`, and
+   send what it prints. It links this worktree's own
+   `.whiska-spec.md`, or the viewer the person's own setting names. Then the pointer "ok to
+   build?", above the decision marker a mouse's rules describe, in a worktree. "ok" →
+   build. Anything else → change the file to match and
    send the link again.
 6. **Build to it.** While building, the spec is what was agreed. A costly choice it does
    not settle is a new decision for the person, not a quiet edit to the file.

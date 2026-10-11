@@ -12,7 +12,8 @@ Opting in goes through text the person or the repo already owns: the person's ow
 `CLAUDE.md`, a reviewer named there included, and a repo's `.claude/agents/*-reviewer.md`
 and its `reviewers:` line under `## Finish` (ADR-0049). What Whiska itself prints, which no
 `CLAUDE.md` line can change, is opted into through the person's environment instead: so
-far only `WHISKA_DIFF_LINK`, the diff link's pattern (below). A forge's command-line tool,
+far only `WHISKA_DIFF_LINK` and `WHISKA_SPEC_LINK`, the diff link's and the spec link's
+patterns (below). A forge's command-line tool,
 `gh` or `glab`, runs only when the person picks "Open a merge request / PR", and its
 absence is said plainly.
 
@@ -41,6 +42,13 @@ absence is said plainly.
   branch name can break the link, and no file is written. A pattern that does not start
   with a scheme, or holds a space, a parenthesis, a backslash, or a control or format
   character, is ignored and the file link stands. Whiska still names no viewer; the person's pattern does.
+- **The spec link has its own variable, `WHISKA_SPEC_LINK`,** with `{path}` (the spec
+  file's absolute path) and `{branch}` filled in, percent-encoded, under the same rules
+  and fallback. Two variables rather than one because the diff needs a base and a branch
+  and the spec a file path, so no one pattern serves both. A mouse sends the spec link as
+  its question, so Whiska builds the line instead of the mouse typing it: `whiska
+  spec-link "<title>"` prints it, and the `whiska-spec` skill has the mouse send that
+  output (ADR-0063).
 
 One older call stays, named so this record is not read as already true everywhere: the
 owl's desktop notification uses `terminal-notifier` when it is installed (ADR-0062).
@@ -81,11 +89,14 @@ the person's side.
 - `WHISKA_DIFF_LINK` is read by the process that runs `whiska show`, so a Claude Code
   session started before the person set it keeps printing the file link until it is
   restarted. Whether a link with the person's scheme reaches them clickable is up to
-  Claude Code and their terminal, not Whiska.
+  Claude Code and their terminal, not Whiska. `WHISKA_SPEC_LINK` is read the same way, by
+  the process that runs `whiska spec-link`.
 - A rule or shipped skill that names an outside tool fails a test.
 
 Changed on 2026-10-11: the diff link can point at the person's own diff viewer through
 `WHISKA_DIFF_LINK`; until then a person who wanted hunk could only ask for it in their own
 `CLAUDE.md`.
+
+Changed on 2026-10-11: the spec link can do the same through `WHISKA_SPEC_LINK`.
 
 Folded in on 2026-10-11: 0075 (its text is in git history).

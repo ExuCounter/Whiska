@@ -619,4 +619,77 @@ defmodule Whiska.CLIQuestionsTest do
       assert after_owl(out) == " · 🐱 myrepo\n"
     end
   end
+
+  # The spec's review link, which a mouse sends as its question (ADR-0063);
+  # the person's own viewer is named only in their environment (ADR-0085).
+  describe "whiska spec-link — the line a mouse sends with its spec" do
+    setup do
+      root = Path.join(System.tmp_dir!(), "whiska-speclink-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(root)
+      on_exit(fn -> File.rm_rf!(root) end)
+      repo = GitRepo.create(root)
+      path = Path.join(repo.checkout, "worktrees/feat/spec-w")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "feat/spec-w", path])
+      {:ok, repo: repo, path: path}
+    end
+
+    defp spec_link(path, pattern, title \\ "My spec") do
+      previous = System.get_env("WHISKA_SPEC_LINK")
+      if pattern, do: System.put_env("WHISKA_SPEC_LINK", pattern)
+
+      try do
+        capture_io(fn -> assert CLI.run(["spec-link", title], path) == 0 end)
+      after
+        if previous,
+          do: System.put_env("WHISKA_SPEC_LINK", previous),
+          else: System.delete_env("WHISKA_SPEC_LINK")
+      end
+    end
+
+    test "WHISKA_SPEC_LINK points the link at the person's viewer", %{path: path} do
+      out = spec_link(path, "myviewer://open?file={path}&branch={branch}")
+
+      file = URI.encode(path <> "/.whiska-spec.md", &(URI.char_unreserved?(&1) or &1 == ?/))
+
+      assert out ==
+               "Review spec here: [My spec](myviewer://open?file=#{file}&branch=feat/spec-w)\n"
+    end
+
+    test "with none set, it is the file link annotate opens", %{path: path} do
+      assert spec_link(path, nil) ==
+               "Review spec here: [My spec](file://#{path}/.whiska-spec.md)\n"
+    end
+
+    test "a pattern that could break the link keeps the file link", %{path: path} do
+      for pattern <- ["", "myviewer//{path}", "myviewer://{path} x", "myviewer://{path})"] do
+        assert spec_link(path, pattern) =~ "(file://#{path}/.whiska-spec.md)\n",
+               "pattern #{inspect(pattern)}"
+      end
+    end
+
+    test "a branch name that would break the link reaches the pattern encoded", %{repo: repo} do
+      odd = Path.join(repo.checkout, "worktrees/feat/a(b)")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "feat/a(b)", odd])
+
+      assert spec_link(odd, "myviewer://x?b={branch}") =~ "(myviewer://x?b=feat/a%28b%29)\n"
+    end
+
+    test "from the main checkout it links that checkout's spec, and registers no mouse",
+         %{repo: repo} do
+      assert spec_link(repo.checkout, nil) =~
+               ~r{\AReview spec here: \[My spec\]\(file://.+/repo/\.whiska-spec\.md\)\n\z}
+
+      refute File.exists?(Path.join(repo.checkout, ".whiska-mouse"))
+    end
+
+    test "an empty title is refused, not printed as an empty link", %{path: path} do
+      stderr = capture_io(:stderr, fn -> assert CLI.run(["spec-link", "  "], path) == 1 end)
+
+      assert stderr =~ "needs the spec's title"
+    end
+
+    test "a title with brackets cannot close the link early", %{path: path} do
+      assert spec_link(path, nil, "a [b] c") =~ "[a \\[b\\] c](file://"
+    end
+  end
 end

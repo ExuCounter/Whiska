@@ -227,6 +227,12 @@ under `WHISKA_HOME` when that is set, and only your own user can open it.
   `export WHISKA_DIFF_LINK='hunk-review://{base}..{branch}'`. Set, no diff file is
   written; a pattern without a scheme, or with a space, parenthesis, backslash or control
   character in it, is ignored.
+- **`WHISKA_SPEC_LINK`** — the same for the `Review spec here:` link a mouse sends with its
+  spec, instead of the file link that opens in annotate. The pattern gets `{path}`, the
+  spec file's absolute path, and `{branch}`:
+  `export WHISKA_SPEC_LINK='myviewer://open?file={path}'`. The same patterns are ignored.
+  Set it in your own shell profile, never from a repo's env file: a pattern decides what
+  clicking the link opens.
 - **What the rules actually cover** — a build mouse cannot write into the main checkout or
   the worktrees under it; a sniff mouse cannot write at all. **Neither is a sandbox**: a
   path elsewhere on the machine is allowed, reads are never policed, and only
