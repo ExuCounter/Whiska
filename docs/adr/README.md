@@ -18,7 +18,7 @@ in git history.
 - [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
 - [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The install is per-repo by default, and the global install is the same install rooted at the home
 - [0081](0081-rules-arrive-by-role.md) — A session's rules arrive at session start, by its role, as rules not prose
-- [next-whiska-stands-alone](next-whiska-stands-alone.md) — Whiska stands alone: it builds on Claude Code, herdr and git, and calls nothing else on the machine
+- [0085](0085-whiska-stands-alone.md) — Whiska stands alone: it builds on Claude Code, herdr and git, and calls nothing else on the machine
 
 ## Identity
 

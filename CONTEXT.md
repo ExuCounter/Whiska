@@ -173,7 +173,7 @@ not committed, or `unknown`. Whiska's record of the branch, never the mouse's wo
 what a **finish** is chosen by (ADR-0074). Under it, when the branch has commits, the
 **diff link**: `Review diff here:`, a link to the branch's diff, which `whiska show`
 writes to `.whiska/reviews/<id>.md` as Markdown, so the person reviews it from a link as
-they review a **spec** (ADR-next-whiska-stands-alone).
+they review a **spec** (ADR-0085).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Proposal**:
@@ -750,7 +750,7 @@ separates it from an agent that merely reads code well: one that changes code, o
 description says not to dispatch it directly, is not a reviewer however good it is.
 Whiska ships no agent: the mouse writes each axis's prompt for Claude Code's own
 `general-purpose` agent, and nothing else installed on the machine is reached for
-(ADR-next-whiska-stands-alone).
+(ADR-0085).
 _Avoid_: critic, auditor, linter, checker (a check is step 2 and a different thing), gate
 
 **Cold review**:

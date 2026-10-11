@@ -204,7 +204,7 @@ defmodule Whiska.RulesTest do
     refute body =~ ~r/no costly choice open from the start/i
   end
 
-  # Whiska stands alone (ADR-next-whiska-stands-alone): its rules and skills
+  # Whiska stands alone (ADR-0085): its rules and skills
   # call only what it ships, git, herdr and Claude Code's own agents.
   describe "Whiska calls nothing it does not ship" do
     test "every skill the rules and the shipped skills name is one Whiska ships" do

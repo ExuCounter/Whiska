@@ -80,7 +80,7 @@ the cold review did not run.
 axis's prompt for Claude Code's `general-purpose` agent, the cold review aside, and a
 repo's `.claude/agents/*-reviewer.md` and `reviewers:` line add axes. Nothing else
 installed on the machine is reached for, however well it seems to fit
-(ADR-next-whiska-stands-alone). Two tests disqualify a repo's agent: it changes code
+(ADR-0085). Two tests disqualify a repo's agent: it changes code
 rather than reporting on it, or its own description says not to dispatch it directly. An
 agent definition is read before it is dispatched, the file under
 `.claude/agents/` and not the session's listing of it: a branch can ship one, and an agent

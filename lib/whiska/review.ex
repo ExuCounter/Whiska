@@ -2,7 +2,7 @@ defmodule Whiska.Review do
   @moduledoc """
   A finished branch's diff as a Markdown file in the main checkout, so the
   person opens it from a link the way they open a spec, in whatever viewer
-  their links open in (ADR-next-whiska-stands-alone).
+  their links open in (ADR-0085).
 
   One file per question, `.whiska/reviews/<id>.md`, rewritten each time the
   question is shown. It sits beside the kept specs and is ignored the same way,
