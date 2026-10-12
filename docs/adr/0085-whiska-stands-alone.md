@@ -40,7 +40,9 @@ absence is said plainly. The cases so far:
   `general-purpose` agent, the cold review aside, and the repo's own agents add axes.
 - **`hunk diff`**, printed above a finished branch's options. In its place `whiska show`
   writes the branch's diff, `git diff <base>...<branch>`, to
-  `.whiska/reviews/<id>.md`, ignored like the kept specs (ADR-0063), and prints a link to
+  `.whiska/reviews/<branch>-<hash>.md`, one file per branch (the name made safe for a
+  file, and a short hash of the whole name, so `feat/x` and `feat-x` keep a file each),
+  ignored like the kept specs (ADR-0063), and prints a link to
   it under the branch line, as a spec goes to the person as a link. It writes the file
   wherever it runs, a mouse's worktree included: the main session's shell can stand in a
   worktree, and a read that wrote nothing from there dropped the link without a word. The
@@ -96,7 +98,7 @@ the person's side.
 - No mouse scouts before a build, and finishing has four axes.
 - Showing a finished question with commits writes its diff file, from wherever it runs,
   rewritten on each show, unless `WHISKA_DIFF_LINK` names a viewer. Nothing removes the
-  folder: it holds one file per question shown, and a secret a branch once committed stays
+  folder: it holds one file per branch shown, and a secret a branch once committed stays
   in its file after the branch is dropped.
 - `WHISKA_DIFF_LINK` is read by the process that runs `whiska show`, so a Claude Code
   session started before the person set it keeps printing the file link until it is
@@ -118,5 +120,8 @@ Changed on 2026-10-12: the forge tool runs for a list of cases the person asked 
 only "Open a merge request / PR": handling a merge request's review joined it, and an
 opened one is assigned to the signed-in account. Before, a mouse asked to handle review
 skipped automated reviewers' comments and asked whether to reply.
+
+Changed on 2026-10-12: the diff file is one per branch, not one per question, so an
+earlier question's link opens the branch's diff as it stands, not the diff as it was.
 
 Folded in on 2026-10-11: 0075 (its text is in git history).

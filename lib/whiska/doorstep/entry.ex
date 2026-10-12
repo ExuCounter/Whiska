@@ -16,8 +16,8 @@ defmodule Whiska.Doorstep.Entry do
   there was none. It travels here because the doorstep is in the house and
   outlives the worktree, so the owl can keep a copy of the spec at collection
   whatever removes the worktree first (ADR-0063). `research` is the worktree's
-  research document the same way, kept per question (ADR-0074), and `plan` its
-  build plan, kept beside the spec (ADR-0063).
+  research document and `plan` its build plan the same way, each kept beside
+  the spec (ADR-0063).
 
   `transcript` is the path of the session's Claude Code transcript, from the
   `Stop` payload, nil when the payload named none and on an entry written before

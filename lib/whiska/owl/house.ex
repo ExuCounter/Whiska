@@ -1300,7 +1300,7 @@ defmodule Whiska.Owl.House do
 
   # Like the spec, a research document that cannot be kept is said and passed over.
   defp keep_research(state, entry, question) do
-    with {:error, reason} <- Research.keep(state.main_checkout, entry, question.id) do
+    with {:error, reason} <- SpecArchive.keep_research(state.main_checkout, entry, question) do
       warn(
         state,
         "could not keep the research document of question #{question.id} (#{inspect(reason)})"

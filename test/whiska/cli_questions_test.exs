@@ -213,10 +213,41 @@ defmodule Whiska.CLIQuestionsTest do
       end
     end
 
+    # Kept the way the owl keeps it at collection: one file per branch.
     defp keep_research(repo, q, text) do
-      path = Whiska.Research.kept(repo.checkout, q.id)
-      File.mkdir_p!(Path.dirname(path))
-      File.write!(path, text)
+      entry = %Entry{
+        mouse_id: q.mouse_id,
+        branch: String.replace_prefix(q.mouse_id, "m-", ""),
+        worktree_root: repo.checkout,
+        stamped_at: ~U[2026-10-06 09:00:00Z],
+        text: "",
+        research: text
+      }
+
+      :kept = Whiska.SpecArchive.keep_research(repo.checkout, entry, q)
+    end
+
+    defp review_file(repo, branch), do: Whiska.Review.file(repo.checkout, branch)
+
+    defp research_file(repo, branch),
+      do: "file://#{repo.checkout}/.whiska/specs/2026-10-06-#{branch}.research.md"
+
+    defp ask_again(repo, branch) do
+      {:ok, handle} = Storage.open(repo.checkout)
+
+      try do
+        {:ok, q} =
+          Storage.record_question(%{
+            mouse_id: "m-#{branch}",
+            text: "Done again.\n⁣⁣⁣",
+            kind: "done",
+            status: "closed"
+          })
+
+        q
+      after
+        Storage.close(handle)
+      end
     end
 
     defp show(repo, args) do
@@ -234,10 +265,10 @@ defmodule Whiska.CLIQuestionsTest do
 
     test "its diff is a file beside the kept specs, linked under the branch line", %{repo: repo} do
       q = finished(repo, "feat-d")
-      review = Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md")
+      review = review_file(repo, "feat-d")
 
       assert show_one(repo, q) =~
-               "\nReview diff here: [1 commit against main](file://#{repo.checkout}/.whiska/reviews/#{q.id}.md)\n"
+               "\nReview diff here: [1 commit against main](file://#{review})\n"
 
       text = File.read!(review)
       assert text =~ "git diff main...feat-d"
@@ -266,7 +297,7 @@ defmodule Whiska.CLIQuestionsTest do
       out = with_diff_link("hunk-review://{base}..{branch}", fn -> show_one(repo, q) end)
 
       assert out =~ "\nReview diff here: [1 commit against main](hunk-review://main..feat-d)\n"
-      refute File.exists?(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md"))
+      refute File.exists?(review_file(repo, "feat-d"))
     end
 
     test "a base the main checkout holds only from origin reaches the pattern as git names it",
@@ -294,7 +325,7 @@ defmodule Whiska.CLIQuestionsTest do
     test "an empty WHISKA_DIFF_LINK, or one that could break the link, keeps the file link",
          %{repo: repo} do
       q = finished(repo, "feat-e")
-      file_link = "(file://#{repo.checkout}/.whiska/reviews/#{q.id}.md)\n"
+      file_link = "(file://#{review_file(repo, "feat-e")})\n"
 
       for pattern <- [
             "",
@@ -320,9 +351,9 @@ defmodule Whiska.CLIQuestionsTest do
       out = capture_io(fn -> assert CLI.run(["show", to_string(q.id)], worktree) == 0 end)
 
       assert out =~
-               "\nReview diff here: [1 commit against main](file://#{repo.checkout}/.whiska/reviews/#{q.id}.md)\n"
+               "\nReview diff here: [1 commit against main](file://#{review_file(repo, "feat-w")})\n"
 
-      assert File.read!(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md")) =~
+      assert File.read!(review_file(repo, "feat-w")) =~
                "git diff main...feat-w"
     end
 
@@ -332,7 +363,7 @@ defmodule Whiska.CLIQuestionsTest do
 
       assert show_one(repo, q) =~
                "On the branch: nothing committed beyond main · nothing uncommitted\n" <>
-                 "Review research here: [Why the owl hangs](file://#{repo.checkout}/.whiska/research/#{q.id}.md)\n\nDone."
+                 "Review research here: [Why the owl hangs](#{research_file(repo, "ask-w1")})\n\nDone."
     end
 
     test "the research document is linked when read from a mouse's worktree too", %{repo: repo} do
@@ -344,7 +375,7 @@ defmodule Whiska.CLIQuestionsTest do
       out = capture_io(fn -> assert CLI.run(["show", to_string(q.id)], worktree) == 0 end)
 
       assert out =~
-               "\nReview research here: [research](file://#{repo.checkout}/.whiska/research/#{q.id}.md)\n"
+               "\nReview research here: [research](#{research_file(repo, "ask-w2")})\n"
     end
 
     test "a research document still links once its worktree is gone", %{repo: repo} do
@@ -366,7 +397,41 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "ask-n", commit: false)
 
       refute show_one(repo, q) =~ "Review diff here"
-      refute File.exists?(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md"))
+      refute File.exists?(review_file(repo, "ask-n"))
+    end
+
+    test "an earlier question links the same diff file as the latest, rewritten from the branch",
+         %{repo: repo} do
+      first = finished(repo, "feat-r")
+      second = ask_again(repo, "feat-r")
+      link = "(file://#{review_file(repo, "feat-r")})\n"
+
+      assert show_one(repo, second) =~ link
+      assert show_one(repo, first) =~ link
+      assert [_one] = Path.wildcard(Path.join(repo.checkout, ".whiska/reviews/*"))
+    end
+
+    test "an earlier question links the branch's one research document, holding the latest round",
+         %{repo: repo} do
+      first = finished(repo, "ask-r", commit: false)
+      keep_research(repo, first, "# Draft\n")
+      second = ask_again(repo, "ask-r")
+      keep_research(repo, second, "# Final\n")
+
+      for q <- [first, second] do
+        assert show_one(repo, q) =~
+                 "\nReview research here: [Final](#{research_file(repo, "ask-r")})\n"
+      end
+    end
+
+    test "a question from before research was kept per branch still links its own copy",
+         %{repo: repo} do
+      q = finished(repo, "ask-old", commit: false)
+      old = Path.join(repo.checkout, ".whiska/research/#{q.id}.md")
+      File.mkdir_p!(Path.dirname(old))
+      File.write!(old, "# Older\n")
+
+      assert show_one(repo, q) =~ "\nReview research here: [Older](file://#{old})\n"
     end
 
     # The main checkout works on staging, which is ahead of main; a mouse cut

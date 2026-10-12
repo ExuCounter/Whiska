@@ -2131,44 +2131,43 @@ defmodule Whiska.CLI do
     )
   end
 
-  defp research(main, %Question{id: id}), do: Whiska.Research.find(main, id)
+  defp research(main, %Question{} = q), do: Whiska.Research.find(main, q, mouse_of(q))
+
+  defp mouse_of(%Question{mouse: %Mouse{} = mouse}), do: mouse
+  defp mouse_of(%Question{mouse: nil}), do: nil
+  defp mouse_of(%Question{mouse_id: mouse_id}), do: Storage.mouse(mouse_id)
 
   # A question read by id comes without its mouse, and one from the listing
   # with it — the house is already closed by the time the listing renders.
-  defp on_branch(main, %Question{mouse: %Mouse{} = mouse} = q), do: held(main, q.id, mouse)
-
-  defp on_branch(_main, %Question{mouse: nil}), do: {:error, :no_record}
-
-  defp on_branch(main, %Question{id: id, mouse_id: mouse_id}),
-    do: held(main, id, Storage.mouse(mouse_id))
+  defp on_branch(main, %Question{} = q), do: held(main, mouse_of(q))
 
   # The diff file is written wherever the show runs: a main session whose
   # shell sits in a mouse's worktree reads a finished branch too, and the
   # file is Whiska's own, ignored like the kept specs (ADR-0085).
-  defp held(main, id, %Mouse{path: path, branch: branch, base: base})
+  defp held(main, %Mouse{path: path, branch: branch, base: base})
        when is_binary(path) and is_binary(branch) do
     with {:ok, held} <- Git.on_branch(main, path, branch, base) do
-      {:ok, Map.merge(held, review(main, id, branch, base, held))}
+      {:ok, Map.merge(held, review(main, branch, base, held))}
     end
   end
 
-  defp held(_main, _id, _no_worktree), do: {:error, :no_record}
+  defp held(_main, _no_worktree), do: {:error, :no_record}
 
   # A diff viewer the person names in WHISKA_DIFF_LINK takes the link, and
   # no file is written (ADR-0085). The branch line stands without the diff
   # link when the file cannot be written.
-  defp review(_main, _id, _branch, _base, %{ahead: 0}), do: %{}
+  defp review(_main, _branch, _base, %{ahead: 0}), do: %{}
 
-  defp review(main, id, branch, base, held) do
+  defp review(main, branch, base, held) do
     case Review.link(System.get_env("WHISKA_DIFF_LINK"), held.base_ref, branch) do
       {:ok, link} -> %{review: link}
-      :error -> review_file(main, id, branch, base, held.ahead)
+      :error -> review_file(main, branch, base, held.ahead)
     end
   end
 
-  defp review_file(main, id, branch, base, ahead) do
+  defp review_file(main, branch, base, ahead) do
     with {:ok, %{base: base_name, diff: diff}} <- Git.branch_diff(main, branch, base),
-         {:ok, path} <- Review.write(main, id, base_name, branch, ahead, diff) do
+         {:ok, path} <- Review.write(main, base_name, branch, ahead, diff) do
       %{review: Review.file_link(path)}
     else
       _ -> %{}

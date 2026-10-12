@@ -191,7 +191,8 @@ branch holds as git says when it is shown — its own commits beyond the base, i
 not committed, or `unknown`. Whiska's record of the branch, never the mouse's word, and
 what a **finish** is chosen by (ADR-0074). Under it, when the branch has commits, the
 **diff link**: `Review diff here:`, a link to the branch's diff, which `whiska show`
-writes to `.whiska/reviews/<id>.md` as Markdown, so the person reviews it from a link as
+writes to one file per branch in `.whiska/reviews/`, named for the branch with a short hash of
+its name, as Markdown, so the person reviews it from a link as
 they review a **spec** — or, when the person's `WHISKA_DIFF_LINK` holds a link pattern,
 that pattern with `{base}` and `{branch}` filled in, pointing at a diff viewer of their own,
 and no file is written (ADR-0085); and when the turn left a **research document**, its link,
@@ -225,8 +226,9 @@ on by the kind of work.
   **branch line** as `Review research here:`, and the person's comments on it are their
   own words: built with the proposal, sent to the investigating mouse, or not sent
   (ADR-0074).
-Whiska keeps a copy per question in `.whiska/research/<id>.md`. First named the write-up,
-for investigations alone.
+Whiska keeps one copy per branch beside the kept **spec**, overwritten each round, so
+every question's link opens the latest. First named the write-up, for investigations
+alone.
 _Avoid_: findings (a reviewer's word), write-up, report (the message's shape)
 
 **Needs attention**:

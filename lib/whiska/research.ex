@@ -7,13 +7,15 @@ defmodule Whiska.Research do
   It is the one file a sniff mouse may write (ADR-0069), and like the spec it
   is never committed: git ignores it through the main checkout's
   `.git/info/exclude` (ADR-0063). Its text rides on the turn's doorstep entry,
-  and the owl keeps it per question in `.whiska/research/<id>.md`, which
-  `whiska show` links.
+  and the owl keeps it once per branch beside the kept spec, overwritten each
+  round, so every question's link opens the latest (`Whiska.SpecArchive`).
+  A question kept before that has its own copy in `.whiska/research/<id>.md`.
   """
 
-  alias Whiska.Doorstep.Entry
-  alias Whiska.HouseFile
   alias Whiska.Layout
+  alias Whiska.Schema.Mouse
+  alias Whiska.Schema.Question
+  alias Whiska.SpecArchive
 
   @filename ".whiska-research.md"
   @dir ".whiska/research"
@@ -40,18 +42,15 @@ defmodule Whiska.Research do
       not match?({:ok, %File.Stat{type: :symlink}}, File.lstat(path))
   end
 
-  @doc "Where the research document `question_id` carried is kept, whether or not it was."
-  @spec kept(Path.t(), pos_integer()) :: Path.t()
-  def kept(main_checkout, question_id),
-    do: Path.join([main_checkout, @dir, "#{question_id}.md"])
-
   @doc """
-  The research document kept for `question_id`, as its path and the title its link
-  shows: its first heading, else "research". Nil when none was kept.
+  The research document kept for the branch `question` was asked from, as its
+  path and the title its link shows: its first heading, else "research". Nil
+  when none was kept.
   """
-  @spec find(Path.t(), pos_integer()) :: {Path.t(), String.t()} | nil
-  def find(main_checkout, question_id) do
-    path = kept(main_checkout, question_id)
+  @spec find(Path.t(), Question.t(), Mouse.t() | nil) :: {Path.t(), String.t()} | nil
+  def find(main_checkout, %Question{id: id}, mouse) do
+    path =
+      kept(main_checkout, mouse) || Path.join([main_checkout, @dir, "#{id}.md"])
 
     with {:ok, %File.Stat{type: :regular}} <- File.lstat(path),
          {:ok, head} <- head(path) do
@@ -60,6 +59,11 @@ defmodule Whiska.Research do
       _ -> nil
     end
   end
+
+  defp kept(main_checkout, %Mouse{mouse_id: mouse_id, branch: branch}) when is_binary(branch),
+    do: SpecArchive.research(main_checkout, mouse_id, branch)
+
+  defp kept(_main_checkout, _mouse), do: nil
 
   # The title is near the top; a whole research document need not be read for it.
   @head_bytes 4096
@@ -93,14 +97,5 @@ defmodule Whiska.Research do
     else
       _ -> "research"
     end
-  end
-
-  @doc "Keep the research document an entry carried, under the question it was recorded as."
-  @spec keep(Path.t(), Entry.t(), pos_integer()) :: :ok | :none | {:error, term()}
-  def keep(_main_checkout, %Entry{research: nil}, _question_id), do: :none
-
-  def keep(main_checkout, %Entry{research: text}, question_id) do
-    with {:ok, _path} <- HouseFile.write(main_checkout, @dir, "#{question_id}.md", text),
-         do: :ok
   end
 end

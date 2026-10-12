@@ -346,11 +346,8 @@ defmodule Whiska.Owl.HouseTest do
       assert Whiska.BuildPlan.exclude_line() in lines
     end
 
-    test "a research document is kept per question, and is never taken for a spec", %{
-      main: main,
-      a: a,
-      house: house
-    } do
+    test "a research document is kept once per branch, beside its spec, and never taken for one",
+         %{main: main, a: a, house: house} do
       {:ok, _} =
         Doorstep.leave(main, %Entry{
           mouse_id: "ma",
@@ -364,34 +361,48 @@ defmodule Whiska.Owl.HouseTest do
       House.collect(house)
 
       [q] = in_house(house, fn -> Storage.all(Question) end)
-      assert File.read!(Research.kept(main, q.id)) == "# Why it hangs\n\nFound.\n"
+      text = File.read!(Path.join(main, ".whiska/specs/2026-10-06-feat-a.research.md"))
+      assert text =~ "question: #{q.id}\n"
+      assert text =~ "status: waiting\n"
+      assert String.ends_with?(text, "\n\n# Why it hangs\n\nFound.\n")
       refute q.spec_sent
-      assert Path.wildcard(Path.join(main, ".whiska/specs/*")) == []
+      refute File.exists?(Path.join(main, ".whiska/research"))
 
       exclude = File.read!(Path.join(main, ".git/info/exclude"))
       assert "/.whiska/" in String.split(exclude, "\n")
     end
 
-    test "a research document is kept for every question that carried one, finished or not", %{
-      main: main,
-      a: a,
-      house: house
-    } do
-      {:ok, _} =
-        Doorstep.leave(main, %Entry{
-          mouse_id: "ma",
-          branch: "feat-a",
-          worktree_root: a,
-          stamped_at: ~U[2026-10-06 09:00:00Z],
-          text: "Which source?\n⁣⁣",
-          research: "# Draft\n"
-        })
+    test "a later round overwrites the one research document, so every link opens the latest",
+         %{main: main, a: a, house: house} do
+      for {text, research, at} <- [
+            {"Which source?\n⁣⁣", "# Draft\n", ~U[2026-10-06 09:00:00Z]},
+            {"Found it.\n⁣⁣⁣", "# Final\n", ~U[2026-10-07 09:00:00Z]}
+          ] do
+        {:ok, _} =
+          Doorstep.leave(main, %Entry{
+            mouse_id: "ma",
+            branch: "feat-a",
+            worktree_root: a,
+            stamped_at: at,
+            text: text,
+            research: research
+          })
 
-      House.collect(house)
+        House.collect(house)
+      end
 
-      [q] = in_house(house, fn -> Storage.all(Question) end)
-      assert q.kind == "needs-decision"
-      assert File.read!(Research.kept(main, q.id)) == "# Draft\n"
+      [first, second] = in_house(house, fn -> Storage.all(Question) end) |> Enum.sort_by(& &1.id)
+      assert [file] = Path.wildcard(Path.join(main, ".whiska/specs/*.md"))
+      assert Path.basename(file) == "2026-10-06-feat-a.research.md"
+      text = File.read!(file)
+      assert String.ends_with?(text, "# Final\n")
+      assert text =~ "question: #{second.id}\n"
+      assert text =~ "replaced: #{first.id}\n"
+
+      for q <- [first, second] do
+        assert {^file, "Final"} =
+                 in_house(house, fn -> Research.find(main, q, Storage.mouse(q.mouse_id)) end)
+      end
     end
 
     test "a turn with no spec keeps nothing and ignores nothing", %{

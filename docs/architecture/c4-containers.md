@@ -24,10 +24,9 @@ C4Container
     Container(flag, "Answer flag", "empty file, whiska-answer in the worktree's git admin directory", "This worktree's mouse has an answer not yet taken; the shim reads it so a prompt with nothing waiting starts nothing")
     Container(spec, "Spec", ".whiska-spec.md file", "What a brief will build, at the worktree root; the mouse writes it, git ignores it")
     Container(plan, "Build plan", ".whiska-plan.md file", "How a change will be built, beside its spec or a bug's research document; the cold review never reads it, git ignores it")
-    Container(kept, "Kept specs", "directory, .whiska/specs/ in the main checkout", "A copy of every spec and build plan sent, one file each under a header: its question, the ones it replaced, landed or dropped; git ignores it")
+    Container(kept, "Kept specs", "directory, .whiska/specs/ in the main checkout", "One copy per branch of its spec, build plan and research document, each under a header: its question, the ones it replaced, landed or dropped; overwritten each round, the research copy linked from whiska show; git ignores it")
     Container(research, "Research document", ".whiska-research.md file", "What a bug's fix rests on, or what an investigation found and proposes, at the worktree root; the one file a sniff mouse may write, git ignores it")
-    Container(keptresearch, "Kept research documents", "directory, .whiska/research/ in the main checkout", "A copy of each research document, one file per question, linked from whiska show; git ignores it")
-    Container(reviews, "Diff files", "directory, .whiska/reviews/ in the main checkout", "A finished branch's diff as Markdown, one file per question, linked from whiska show; git ignores it. Not written when the person's WHISKA_DIFF_LINK points the link at a diff viewer of their own")
+    Container(reviews, "Diff files", "directory, .whiska/reviews/ in the main checkout", "A finished branch's diff as Markdown, one file per branch, rewritten on each show, linked from whiska show; git ignores it. Not written when the person's WHISKA_DIFF_LINK points the link at a diff viewer of their own")
     Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(clonelist, "Clone list", "text file, .git/whiska/clone", "Per-repo paths to clone into a new worktree beside the marker defaults, or a lone off; the person writes it")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
@@ -73,8 +72,7 @@ C4Container
   Rel(owl, record, "Adds a house when opened, removes it when shut")
   Rel(house, herdr, "Subscribes per mouse pane; lists panes to find them")
   Rel(house, doorstep, "Collects on idle, at open, and on a backstop")
-  Rel(house, kept, "Keeps the spec and build plan a collected entry carried; the sweep marks them landed or dropped")
-  Rel(house, keptresearch, "Keeps the research document a collected entry carried, under its question")
+  Rel(house, kept, "Keeps the spec, build plan and research document a collected entry carried; the sweep marks them landed or dropped")
   Rel(cli, reviews, "whiska show writes a finished branch's diff, unless WHISKA_DIFF_LINK is set")
   Rel(house, backstop, "Marks what the backstop collected; clears it at open")
   Rel(house, marker, "At open, makes git ignore it, the research document, the build plan and worktrees/, through the main checkout's info/exclude")
@@ -123,9 +121,10 @@ The reasoning is in the ADR each line names; this is the map.
 - **Spec and build plan in the worktree, kept copies in the main checkout**: both live and
   die with their mouse; the copies, side by side, are the archive (ADR-0063). The build
   plan is a separate file so the cold review can be kept from it (ADR-0049).
-- **Research document in the worktree, kept research documents in the main checkout**: the
-  mouse writes and rewrites its own; the copy is per question, so the link the person and
-  the build follow outlives the worktree (ADR-0074).
+- **Research document in the worktree, its kept copy beside the kept spec**: the mouse
+  writes and rewrites its own; the copy is one per branch, overwritten each round, so the
+  link the person and the build follow opens the latest and outlives the worktree
+  (ADR-0074).
 - **The owl's job**: the platform's service manager runs the wrapper, restarts a crash only
   (ADR-0040).
 - **One owl, many houses**, each supervised independently (ADR-0001). Delivery lives in the

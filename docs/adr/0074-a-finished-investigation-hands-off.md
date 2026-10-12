@@ -103,15 +103,18 @@ after, cause and fix options, which a bug fix is approved from before any code
   write (ADR-0069). Git ignores it through the main checkout's exclude file, which
   `whiska shape` and `whiska mode` write as they do for the spec (ADR-0063), and the owl
   writes on opening the house, so the branch still has nothing on it.
-- **Whiska keeps it per question.** The `Stop` hook carries it on the doorstep entry
-  beside the spec, with the same limits, and the owl writes it to
-  `.whiska/research/<question id>.md` at collection. It is not a spec: it never marks the
+- **Whiska keeps it once per branch.** The `Stop` hook carries it on the doorstep entry
+  beside the spec, with the same limits, and the owl writes it at collection beside the
+  kept spec, as ADR-0063 keeps a spec: one file per branch, overwritten each round. It is
+  not a spec: it never marks the
   question `spec_sent`, so the spec figures (ADR-0086) count only specs.
 - **`whiska show` links it** under the branch line of a finished question, as
   `Review research here:`, by its first heading, as it links the diff (ADR-0085). The link
   is Whiska's, not the mouse's: the mouse cannot know its question id. It names the kept
   copy, so it works from a mouse's worktree too, and after the investigation's worktree
-  is gone.
+  is gone. Every question from the branch names the same copy, so a link read from an
+  earlier round opens the latest text, and comments land on it. A question kept before
+  this has its own copy in `.whiska/research/<id>.md`, and links that.
 - **Comments are the person's words, carried in a file.** The review tool's Send makes
   the review the main session's next message. Read against the question last shown, it
   is offered three ways: build what it proposes with these comments, send them to the
@@ -163,7 +166,10 @@ after, cause and fix options, which a bug fix is approved from before any code
 - A repo with older skills offers no build option until `whiska init`, or `whiska init
   --global`, is re-run.
 - A doorstep entry carries an optional `research` field; one without it still decodes.
-  `.whiska/research/` holds one file per question that carried a research document, and nothing
-  removes it, like `.whiska/reviews/`.
+  The kept copy holds only the latest round; an earlier one is gone once overwritten, as
+  an earlier spec is (ADR-0063).
 - The owl also writes the research document's exclude line when it opens a house, as it does the
   marker's (ADR-0002), so a worktree shaped before this hides its research document too.
+
+Changed on 2026-10-12: the research document is kept once per branch beside the kept spec,
+not per question, so an earlier question's link opens the latest round (ADR-0063).

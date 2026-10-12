@@ -429,6 +429,39 @@ defmodule Whiska.CleanupTest do
       assert File.read!(plan) =~ "# Build plan\n"
     end
 
+    test "a bug's research document sits beside its build plan and says landed with it",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+
+      entry = %Whiska.Doorstep.Entry{
+        mouse_id: m.id,
+        branch: m.branch,
+        worktree_root: m.path,
+        stamped_at: ~U[2026-10-06 09:00:00Z],
+        text: "ok to build?",
+        research: "# A bug\n",
+        plan: "# Build plan\n"
+      }
+
+      question = %Whiska.Schema.Question{id: 7}
+      :kept = Whiska.SpecArchive.keep_research(repo.checkout, entry, question)
+      :kept = Whiska.SpecArchive.keep_plan(repo.checkout, entry, question)
+      dir = Whiska.SpecArchive.dir(repo.checkout)
+
+      assert File.ls!(dir) |> Enum.sort() == [
+               "2026-10-06-feat-a.plan.md",
+               "2026-10-06-feat-a.research.md"
+             ]
+
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      research = File.read!(Path.join(dir, "2026-10-06-feat-a.research.md"))
+      assert research =~ ~r/status: landed \d{4}-\d{2}-\d{2}, branch head \w{7}\n/
+      assert research =~ "# A bug\n"
+    end
+
     test "a bug's build plan, kept with no spec, never pairs with a later mouse's spec",
          %{repo: repo} do
       keep = fn id, fields ->

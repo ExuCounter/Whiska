@@ -172,7 +172,7 @@ depth, what to deliver) and skips that when the brief answers it; it never grill
 since the research settles facts. A build started from a **Proposed build** takes its
 Found as fact, asks its Open choices, and still grills the design of the build.
 
-## Every spec and build plan sent is kept
+## Every spec, build plan and research document sent is kept
 
 `git worktree remove` deletes ignored files, and a dropped branch has no commits to hold
 the outcome. So every spec a mouse sends is kept in `.whiska/specs/` in the main
@@ -187,8 +187,11 @@ revision is not readable afterwards; the copy is history, not what the person re
 A build plan is kept the same way beside its spec, as `<the spec's file name>.plan.md`,
 with the same header and the same landed or dropped status; with no spec, as for a bug, it
 takes the date and branch name itself. Only a new or revised spec marks its question as a
-spec sent. A research document is kept per question in `.whiska/research/<id>.md`, as
-ADR-0074 keeps an investigation's.
+spec sent. A research document is kept the same way, as `<the same name>.research.md`,
+with the same header and status; it never marks its question as a spec sent. A new file
+of any of the three takes the name of one already kept for its mouse, so they sit side by
+side. The research copy is what `whiska show` links (ADR-0074), so one file per branch,
+overwritten each round, is what makes an earlier question's link open the latest text.
 
 The copy is taken when the spec is sent. The `Stop` hook reads the worktree's spec, research
 document and build plan into the doorstep entry beside the message (ADR-0036), and the owl writes the copy when it
@@ -265,5 +268,10 @@ The link names the worktree's file, so an answer given after the worktree is gon
 dead link; the text is then in the kept copy, whose `question:` header names the question.
 
 Changed on 2026-10-12: a build plan beside the spec, and a research document for a bug.
+
+Changed on 2026-10-12: the research document is kept beside the spec, one file per
+branch, not one per question in `.whiska/research/`: the person opened an earlier
+question's link, commented, and found their comments on a copy a later round had already
+replaced. Earlier rounds are not kept, as for specs.
 
 Folded in on 2026-10-08: 0076, 0085 (their text is in git history).
