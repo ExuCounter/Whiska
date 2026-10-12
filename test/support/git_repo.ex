@@ -81,6 +81,29 @@ defmodule Whiska.Test.GitRepo do
     :ok
   end
 
+  @doc """
+  Merge a pushed branch into the remote's `main` the way a forge merges a merge
+  request: from a clone of its own, so the main checkout's `main` and
+  `origin/main` stay where they were until something fetches. `squash: true`
+  folds the branch into one commit.
+  """
+  def merge_on_forge(repo, branch, opts \\ []) do
+    forge = Path.join(repo.root, "forge")
+    unless File.dir?(forge), do: git!(repo.root, ["clone", "--quiet", repo.remote, forge])
+    git!(forge, ["fetch", "--quiet", "origin"])
+    git!(forge, ["reset", "--quiet", "--hard", "origin/main"])
+
+    if Keyword.get(opts, :squash, false) do
+      git!(forge, ["merge", "--squash", "origin/#{branch}"])
+      git!(forge, ["commit", "-m", "squash #{branch}"])
+    else
+      git!(forge, ["merge", "--no-ff", "-m", "merge #{branch}", "origin/#{branch}"])
+    end
+
+    git!(forge, ["push", "--quiet", "origin", "main"])
+    :ok
+  end
+
   @doc "Write a file and commit it."
   def commit!(dir, file, contents) do
     File.write!(Path.join(dir, file), contents)

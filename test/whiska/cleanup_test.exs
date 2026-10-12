@@ -13,6 +13,7 @@ defmodule Whiska.CleanupTest do
 
   alias Whiska.Cleanup
   alias Whiska.Doorstep
+  alias Whiska.Git
   alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.Storage
   alias Whiska.Test.GitRepo
@@ -336,6 +337,48 @@ defmodule Whiska.CleanupTest do
 
       assert [{"m-feat-a", {:left, :gone}}] = sweep(repo)
       assert %{landed_at: %DateTime{}} = Storage.mouse("m-feat-a")
+    end
+  end
+
+  describe "a branch merged on the forge" do
+    test "stays while only the forge has it, and goes once the base is fetched",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.merge_on_forge(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :not_merged}}] = sweep(repo)
+      assert %{landed_at: nil} = Storage.mouse("m-feat-a")
+
+      :ok = Git.fetch_base(repo.checkout, "main")
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      assert %{landed_at: %DateTime{}} = Storage.mouse("m-feat-a")
+      refute File.dir?(m.path)
+      refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-a"
+    end
+
+    test "squashed, goes the same way, branch and all", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.commit!(m.path, "more.md", "second")
+      GitRepo.git!(m.path, ["push", "--quiet", "origin", "feat-a"])
+      GitRepo.merge_on_forge(repo, "feat-a", squash: true)
+      :ok = Git.fetch_base(repo.checkout, "main")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-a"
+    end
+
+    test "with a commit made since the merge, stays", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.merge_on_forge(repo, "feat-a")
+      :ok = Git.fetch_base(repo.checkout, "main")
+      GitRepo.commit!(m.path, "late.md", "one more")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :not_merged}}] = sweep(repo)
+      assert File.dir?(m.path)
     end
   end
 

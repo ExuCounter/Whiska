@@ -7,7 +7,9 @@ defmodule Whiska.Git do
   remote are questions git answers on this machine, with no network, no forge
   and no credentials. They are the four preconditions that make taking a
   worktree down safe, so each one is asked separately and each one can answer
-  "I do not know".
+  "I do not know". The one call that reaches a remote is `fetch_base/3`, which
+  refreshes the copy of the base those questions also read, and can never
+  prompt.
 
   **Unknown is never permission.** Every function returns `{:error, reason}`
   rather than a guess when git will not say — a detached head, an unreadable
@@ -18,15 +20,20 @@ defmodule Whiska.Git do
   `delete_branch/3`, do not force by default. `git worktree remove` without `--force` and
   `git branch -d` rather than `-D` refuse on exactly what the checks above are
   meant to have ruled out, which makes them a second, independent opinion. The
-  one exception is a branch `in_base?/3` has shown landed as copies, which `-d`
-  cannot recognise: it is deleted only while it still points at the commit
-  that was checked.
+  one exception is a landing `-d` cannot recognise — copies `in_base?/3` has
+  found, or work only the fetched copy of the base holds: that branch is
+  deleted only while it still points at the commit that was checked.
   """
 
   @base_names ~w(main master)
 
+  @batch_ssh "ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=2"
+
   @typedoc "A branch name, with no `refs/` prefix and no remote in front of it."
   @type branch :: String.t()
+
+  @typedoc "A base branch by name, or one place it is read, as `landing_refs/2` tags it."
+  @type base :: branch() | {:local | :fetched, String.t()}
 
   @doc """
   The base branch's name — what a worktree's branch has to have landed in.
@@ -204,9 +211,9 @@ defmodule Whiska.Git do
   that carries nothing: a commit is its own ancestor. `reached_by_merge?/3` is
   what tells the two apart.
   """
-  @spec ancestor?(Path.t(), String.t(), branch()) :: {:ok, boolean()} | {:error, term()}
+  @spec ancestor?(Path.t(), String.t(), base()) :: {:ok, boolean()} | {:error, term()}
   def ancestor?(checkout, head, base) do
-    with {:ok, base_ref} <- base_ref(checkout, base) do
+    with {:ok, base_ref} <- resolve(checkout, base) do
       case run(checkout, ["merge-base", "--is-ancestor", head, base_ref]) do
         {_, 0} -> {:ok, true}
         {_, 1} -> {:ok, false}
@@ -224,6 +231,191 @@ defmodule Whiska.Git do
     end
   end
 
+  defp resolve(_checkout, {where, ref}) when where in [:local, :fetched], do: {:ok, ref}
+  defp resolve(checkout, base), do: base_ref(checkout, base)
+
+  @doc """
+  Every place a landing in the base is read: the base as `on_branch/4` reads
+  it, then the copy of it last fetched from its remote, when that holds
+  something else. The fetched copy is what sees a merge request merged on the
+  forge before anyone pulls.
+
+  Each comes tagged, and `ancestor?/3`, `in_base?/3` and `reached_by_merge?/3`
+  take it in place of a branch name.
+  """
+  @spec landing_refs(Path.t(), branch()) ::
+          {:ok, [{:local | :fetched, String.t()}]} | {:error, term()}
+  def landing_refs(checkout, base) do
+    with {:ok, local} <- base_ref(checkout, base) do
+      {:ok, [{:local, local} | fetched(checkout, base, local)]}
+    end
+  end
+
+  defp fetched(checkout, base, local) do
+    with {:ok, %{ref: ref}} when ref != local <- upstream(checkout, base),
+         {:ok, out} <- git(checkout, ["rev-parse", local, ref]),
+         [one, other] when one != other <- String.split(out, "\n") do
+      [{:fetched, ref}]
+    else
+      _ -> []
+    end
+  end
+
+  # The remote branch the base tracks, else `origin`'s branch of the same name.
+  # A tracked one that is not a plain name on a remote is unknown, never
+  # `origin`'s. `for-each-ref` also lists the branches named under the base,
+  # so only the base's own line is read.
+  defp upstream(checkout, base) do
+    own = "refs/heads/#{base}"
+    format = "%(refname)%09%(upstream:remotename)%09%(upstream:remoteref)%09%(upstream)"
+
+    with {:ok, out} <- git(checkout, ["for-each-ref", "--format=" <> format, own]) do
+      out
+      |> String.split("\n", trim: true)
+      |> Enum.map(&String.split(&1, "\t"))
+      |> Enum.find(&match?([^own | _], &1))
+      |> case do
+        nil ->
+          origin(checkout, base)
+
+        [^own] ->
+          origin(checkout, base)
+
+        [^own, "", "", ""] ->
+          origin(checkout, base)
+
+        [^own, remote, "refs/heads/" <> name, "refs/remotes/" <> _ = ref] ->
+          tracked(remote, name, ref)
+
+        _other ->
+          {:error, :unusable_upstream}
+      end
+    end
+  end
+
+  defp tracked(remote, name, ref) do
+    if plain_name?(remote) and plain_name?(name),
+      do: {:ok, %{remote: remote, source: "refs/heads/" <> name, ref: ref}},
+      else: {:error, :unusable_upstream}
+  end
+
+  defp origin(checkout, base) do
+    case git(checkout, ["remote", "get-url", "origin"]) do
+      {:ok, _url} ->
+        {:ok,
+         %{remote: "origin", source: "refs/heads/#{base}", ref: "refs/remotes/origin/#{base}"}}
+
+      {:error, _} ->
+        {:error, :no_remote}
+    end
+  end
+
+  @doc """
+  Fetch the base, and only the base, into its remote-tracking branch, the one
+  `landing_refs/2` reads. Nothing else in the checkout moves: no local branch,
+  no tag, no submodule, no `FETCH_HEAD`.
+
+  It can never stop to ask: a remote that wants a password or a passphrase
+  fails, and no password program runs. An ssh command the person set is
+  theirs and stays. A transfer that stalls gives up by itself; one still
+  running at `timeout` is killed, with the programs it started, and is
+  `{:error, :timeout}`.
+  """
+  @spec fetch_base(Path.t(), branch(), timeout()) :: :ok | {:error, term()}
+  def fetch_base(checkout, base, timeout \\ 60_000) do
+    with true <- plain_name?(base) || {:error, :unsafe_base},
+         {:ok, %{remote: remote, source: source, ref: ref}} <- upstream(checkout, base) do
+      args =
+        ~w(-c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30) ++
+          ~w(fetch --quiet --no-tags --no-recurse-submodules --no-write-fetch-head --no-auto-maintenance) ++
+          [remote, "+#{source}:#{ref}"]
+
+      unattended(checkout, args, timeout)
+    end
+  end
+
+  # A port rather than `System.cmd`, for its OS pid.
+  defp unattended(checkout, args, timeout) do
+    case System.find_executable("git") do
+      git when is_binary(git) and is_binary(checkout) ->
+        if File.dir?(checkout),
+          do: unattended(git, checkout, args, timeout),
+          else: {:error, :no_checkout}
+
+      _ ->
+        {:error, :no_git}
+    end
+  end
+
+  defp unattended(git, checkout, args, timeout) do
+    port =
+      Port.open({:spawn_executable, git}, [
+        :binary,
+        :exit_status,
+        :stderr_to_stdout,
+        args: args,
+        cd: checkout,
+        env: unattended_env(checkout)
+      ])
+
+    case await(port, System.monotonic_time(:millisecond) + timeout, "") do
+      {:exit, 0, _out} ->
+        :ok
+
+      {:exit, code, out} ->
+        {:error, {code, String.trim(out)}}
+
+      :timeout ->
+        with {:os_pid, os_pid} <- Port.info(port, :os_pid), do: kill(os_pid)
+        await(port, System.monotonic_time(:millisecond) + 1_000, "")
+        {:error, :timeout}
+    end
+  end
+
+  # Git is stopped first, so it starts nothing more, and its own children —
+  # ssh, a remote helper — go before it: once it is gone they would belong
+  # to nobody this could name.
+  defp kill(os_pid) do
+    pid = Integer.to_string(os_pid)
+    signal("kill", ["-STOP", pid])
+    signal("pkill", ["-9", "-P", pid])
+    signal("kill", ["-9", pid])
+  end
+
+  defp signal(program, args) do
+    with path when is_binary(path) <- System.find_executable(program),
+         do: System.cmd(path, args, stderr_to_stdout: true)
+  end
+
+  defp await(port, deadline, out) do
+    receive do
+      {^port, {:data, data}} -> await(port, deadline, out <> data)
+      {^port, {:exit_status, code}} -> {:exit, code, out}
+    after
+      max(deadline - System.monotonic_time(:millisecond), 0) -> :timeout
+    end
+  end
+
+  # Git asks a password program before the terminal, and a port drops a
+  # variable set to nothing, so the program named is one that always fails.
+  defp unattended_env(checkout) do
+    prompts = [
+      {~c"GIT_TERMINAL_PROMPT", ~c"0"},
+      {~c"GIT_ASKPASS", String.to_charlist(System.find_executable("false") || "/usr/bin/false")},
+      {~c"GCM_INTERACTIVE", ~c"never"},
+      {~c"SSH_ASKPASS_REQUIRE", ~c"never"}
+    ]
+
+    if own_ssh?(checkout),
+      do: prompts,
+      else: [{~c"GIT_SSH_COMMAND", String.to_charlist(@batch_ssh)} | prompts]
+  end
+
+  defp own_ssh?(checkout) do
+    System.get_env("GIT_SSH_COMMAND") != nil or System.get_env("GIT_SSH") != nil or
+      match?({:ok, _}, git(checkout, ["config", "--get", "core.sshCommand"]))
+  end
+
   @doc """
   Did the base reach this commit through a merge, rather than simply walking
   past it?
@@ -239,9 +431,9 @@ defmodule Whiska.Git do
   landing: the conservative answer, since nothing distinguishes it afterwards
   from a branch that never moved.
   """
-  @spec reached_by_merge?(Path.t(), String.t(), branch()) :: {:ok, boolean()} | {:error, term()}
+  @spec reached_by_merge?(Path.t(), String.t(), base()) :: {:ok, boolean()} | {:error, term()}
   def reached_by_merge?(checkout, head, base) do
-    with {:ok, base_ref} <- base_ref(checkout, base),
+    with {:ok, base_ref} <- resolve(checkout, base),
          {:ok, steps} <-
            git(checkout, ["rev-list", "--first-parent", "--count", "#{head}..#{base_ref}"]),
          {:ok, reached} <- git(checkout, ["rev-parse", "#{base_ref}~#{steps}"]) do
@@ -265,9 +457,9 @@ defmodule Whiska.Git do
   way, which leaves its worktree standing. A git too old for `merge-tree
   --write-tree` (before 2.38) is an error, never a `false` or a `true`.
   """
-  @spec in_base?(Path.t(), String.t(), branch()) :: {:ok, boolean()} | {:error, term()}
+  @spec in_base?(Path.t(), String.t(), base()) :: {:ok, boolean()} | {:error, term()}
   def in_base?(checkout, head, base) do
-    with {:ok, base_ref} <- base_ref(checkout, base),
+    with {:ok, base_ref} <- resolve(checkout, base),
          {:ok, true} <- merges_to_base?(checkout, head, base_ref) do
       changes_anything?(checkout, head, base_ref)
     end
@@ -470,9 +662,11 @@ defmodule Whiska.Git do
   Delete a branch with `-d`. Git refuses an unmerged one, and so do we.
 
   `{:in_base, head}` is the one exception: a branch landed as copies is never
-  merged by git's measure, so `-d` would refuse what `in_base?/3` has just
+  merged by git's measure, and one only the fetched copy of the base holds is
+  not merged into anything `-d` reads, so `-d` would refuse what has just been
   shown is already in the base. It is deleted only while it still points at
-  `head`, the commit that was checked, so a commit made since keeps it.
+  `head`, the commit that was checked, so a commit made since keeps it, and its
+  branch settings go with it, as `-d` takes them.
   """
   @spec delete_branch(Path.t(), branch(), :merged | {:in_base, String.t()}) ::
           :ok | {:error, term()}
@@ -483,7 +677,10 @@ defmodule Whiska.Git do
   end
 
   def delete_branch(checkout, branch, {:in_base, head}) do
-    with {:ok, _} <- git(checkout, ["update-ref", "-d", "refs/heads/" <> branch, head]), do: :ok
+    with {:ok, _} <- git(checkout, ["update-ref", "-d", "refs/heads/" <> branch, head]) do
+      git(checkout, ["config", "--remove-section", "branch." <> branch])
+      :ok
+    end
   end
 
   @doc "Forget the admin records of worktrees whose folders have gone."
@@ -499,9 +696,11 @@ defmodule Whiska.Git do
     end
   end
 
+  # A partial clone fetches a missing object the moment a command needs one;
+  # here that is an error, so a question never reaches the network.
   defp run(dir, args) do
     if File.dir?(dir) do
-      System.cmd("git", args, cd: dir, stderr_to_stdout: true)
+      System.cmd("git", args, cd: dir, stderr_to_stdout: true, env: [{"GIT_NO_LAZY_FETCH", "1"}])
     else
       {"no such directory: #{dir}", 128}
     end

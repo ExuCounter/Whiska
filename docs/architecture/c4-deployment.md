@@ -1,7 +1,9 @@
 # Deployment — one machine
 
-Everything runs on the person's own laptop as one OS user. There is no server and no
-network hop; every endpoint is a Unix socket or a file.
+Everything runs on the person's own laptop as one OS user. There is no server, and the
+one network hop is git's own: the owl fetches a base branch from its remote while a merge
+request waits (ADR-next-an-opened-merge-request-is-remembered). Every endpoint Whiska
+serves is a Unix socket or a file.
 
 ```mermaid
 C4Deployment

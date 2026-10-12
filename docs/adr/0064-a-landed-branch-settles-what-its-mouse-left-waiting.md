@@ -167,9 +167,12 @@ reading.
   asked about for as long as its branch exists. At a handful of worktrees it is a fifth of
   a second per sweep; it grows with the house's lifetime record count rather than with
   anything in flight, and the cheap fix if it ever bites is to stamp such a record. One
-  sweep asks one standing worktree the ancestor question once: the teardown reads the
-  answer this step already got. The two commands behind the merge question are paid once
-  per mouse, on the sweep that stamps it.
+  sweep asks one standing worktree the ancestor question once for each place the base is
+  read: the teardown reads the answer this step already got. The two commands behind the
+  merge question are paid once per mouse, on the sweep that stamps it. While the base's
+  fetched copy holds commits the base here lacks, it is a second place, and a branch the
+  base here does not hold is asked about there too
+  (ADR-next-an-opened-merge-request-is-remembered).
 - **Nothing here deletes anything** and nothing here takes a worktree down. ADR-0061's
   four preconditions are untouched, and so is the rule that a question the person has not
   answered holds its mouse's worktree in place.

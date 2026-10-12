@@ -33,6 +33,7 @@ in git history.
 - [0007](0007-nothing-is-ever-deleted.md) — Records are kept: questions and mice are never deleted
 - [0061](0061-a-merged-worktree-is-taken-down-by-the-owl.md) — A merged worktree is taken down by the owl, pane and all
 - [0064](0064-a-landed-branch-settles-what-its-mouse-left-waiting.md) — A landed branch settles what its mouse left waiting
+- [next-an-opened-merge-request-is-remembered](next-an-opened-merge-request-is-remembered.md) — An opened merge request is remembered, and its base is fetched until it lands
 - [0086](0086-usage-is-recorded-at-collection.md) — Usage is recorded at collection, read from the transcript the entry names
 
 ## Questions and delivery
@@ -83,4 +84,4 @@ in git history.
 ## Proposed, not built
 
 - [0024](0024-endpoint-identity-is-two-layers.md) — Endpoint identity is two layers, with an honest limit; one mouse per worktree is enforced through it
-- [0060](0060-watching-a-branch-is-the-owls-one-networked-job.md) — Watching a branch is the owl's one networked job, and it only ever reads
+- [0060](0060-watching-a-branch-is-the-owls-one-networked-job.md) — Watching a branch is the owl's one networked job, and it only ever reads; its merge, seen through a fetch of the base, is built

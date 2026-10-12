@@ -21,7 +21,9 @@ _Avoid_: worker, crewmate, agent
 **Base**:
 The branch a mouse's worktree was cut from: the branch the main checkout was on when
 `whiska shape` ran, kept in the mouse's record. Its commits are measured beyond it, and
-its work has landed when it reaches it (ADR-0061). A mouse with none recorded is read
+its work has landed when it reaches it (ADR-0061) — here, or in the **fetched base**, the
+copy of it last fetched from its remote, where a **merge request** merged on the forge
+shows before anyone pulls. A mouse with none recorded is read
 against the repo's default branch; a recorded one that is gone is unknown, never the
 default.
 _Avoid_: main, trunk, target
@@ -169,7 +171,8 @@ What becomes of a branch once its mouse is done: landed on the current branch by
 cherry-picking its own commits, oldest first, its merges from the base skipped
 (ADR-0079; it was `merge --no-ff`) and its worktree left to **cleanup**, which counts
 the copies as landed (ADR-0064), opened as a
-merge request, carried on by its mouse, talked to from the main session (the person's words carried to the mouse), or dropped
+**merge request**, which is recorded, so its later finished lines offer a push to it and
+never a landing beside it, carried on by its mouse, talked to from the main session (the person's words carried to the mouse), or dropped
 unmerged. The person picks one when a "finished" question is told — lettered options at
 the end of the reply, answered by a letter, an option's word, or their own words; "hold"
 sets the branch aside as **held** (ADR-0022) — from what fits the
@@ -188,8 +191,10 @@ branch
 **Branch line**:
 The line `whiska show` prints straight under a finished question's heading: what its
 branch holds as git says when it is shown — its own commits beyond the base, its files
-not committed, or `unknown`. Whiska's record of the branch, never the mouse's word, and
-what a **finish** is chosen by (ADR-0074). Under it, when the branch has commits, the
+not committed, or `unknown`; for a branch with a recorded **merge request**, `merge
+request opened`, its commits no remote has yet, and its files not committed, with a
+`Merge request:` line and its link under it. Whiska's record of the branch, never the
+mouse's word, and what a **finish** is chosen by (ADR-0074). Under it, when the branch has commits, the
 **diff link**: `Review diff here:`, a link to the branch's diff, which `whiska show`
 writes to one file per branch in `.whiska/reviews/`, named for the branch with a short hash of
 its name, as Markdown, so the person reviews it from a link as
@@ -198,6 +203,16 @@ that pattern with `{base}` and `{branch}` filled in, pointing at a diff viewer o
 and no file is written (ADR-0085); and when the turn left a **research document**, its link,
 `Review research here:` (ADR-0074).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
+
+**Merge request**:
+A branch's request, on its forge, to merge into the base. Whiska knows of one only when
+it was opened from the **finish** option, which records its link on the mouse
+(`whiska merge-request`): from then on the branch's finished lines offer a push to it,
+and while it waits the owl fetches the base, so its merge on the forge reaches the
+**fetched base** and **cleanup** takes the worktree down. One opened elsewhere, or closed
+on the forge, is not seen (ADR-next-an-opened-merge-request-is-remembered).
+_Avoid_: PR, pull request (GitHub's words; both forges are meant), review (what happens
+on it)
 
 **Proposal**:
 The block a finished investigation ends its report with when it changed nothing and found
@@ -658,7 +673,8 @@ subagent that is out)
 Taking a landed worktree down: the worktree removed, the mouse's pane closed with it, the
 branch deleted, and the mouse record stamped removed — unattended, by the owl, on its
 backstop (ADR-0061). It happens only to a **quiet** mouse whose branch has landed: the
-branch merged into the base and moved off the commit it was cut at (a sniff mouse's
+branch merged into the base, here or in the **fetched base**, and moved off the commit it
+was cut at (a sniff mouse's
 worktree stays: it has nothing to merge), the worktree clean, nothing on it unpushed.
 Nothing is ever
 forced, and anything that cannot be established leaves the worktree exactly where it is.

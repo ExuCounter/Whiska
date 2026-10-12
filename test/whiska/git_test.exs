@@ -192,6 +192,172 @@ defmodule Whiska.GitTest do
     end
   end
 
+  describe "fetch_base/3 and landing_refs/2" do
+    test "a merge on the forge reaches the fetched base after a fetch, never the local one",
+         %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      {:ok, head} = Git.head(path)
+      local = GitRepo.git!(repo.checkout, ["rev-parse", "main"])
+      GitRepo.merge_on_forge(repo, "feat-a")
+
+      assert {:ok, [{:local, "refs/heads/main"}]} = Git.landing_refs(repo.checkout, "main")
+      assert :ok = Git.fetch_base(repo.checkout, "main")
+
+      assert {:ok,
+              [{:local, "refs/heads/main"}, {:fetched, "refs/remotes/origin/main"} = fetched]} =
+               Git.landing_refs(repo.checkout, "main")
+
+      assert {:ok, true} = Git.ancestor?(repo.checkout, head, fetched)
+      assert {:ok, true} = Git.reached_by_merge?(repo.checkout, head, fetched)
+      assert {:ok, false} = Git.ancestor?(repo.checkout, head, "main")
+      assert GitRepo.git!(repo.checkout, ["rev-parse", "main"]) == local
+    end
+
+    test "a squash on the forge is in the fetched base", %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      GitRepo.commit!(path, "more.md", "second")
+      GitRepo.git!(path, ["push", "--quiet", "origin", "feat-a"])
+      {:ok, head} = Git.head(path)
+      GitRepo.merge_on_forge(repo, "feat-a", squash: true)
+      :ok = Git.fetch_base(repo.checkout, "main")
+
+      {:ok, [_local, fetched]} = Git.landing_refs(repo.checkout, "main")
+      assert {:ok, false} = Git.ancestor?(repo.checkout, head, fetched)
+      assert {:ok, true} = Git.in_base?(repo.checkout, head, fetched)
+    end
+
+    test "fetches from the remote the base tracks", %{repo: repo} do
+      GitRepo.git!(repo.checkout, ["remote", "add", "upstream", repo.remote])
+      GitRepo.git!(repo.checkout, ["fetch", "--quiet", "upstream"])
+      GitRepo.git!(repo.checkout, ["branch", "--set-upstream-to=upstream/main", "main"])
+      before = GitRepo.git!(repo.checkout, ["rev-parse", "origin/main"])
+      GitRepo.worktree(repo, "feat-a")
+      GitRepo.merge_on_forge(repo, "feat-a")
+
+      assert :ok = Git.fetch_base(repo.checkout, "main")
+
+      assert {:ok, [_local, {:fetched, "refs/remotes/upstream/main"}]} =
+               Git.landing_refs(repo.checkout, "main")
+
+      assert GitRepo.git!(repo.checkout, ["rev-parse", "origin/main"]) == before
+    end
+
+    test "a base with no remote has nothing to fetch, and is read where it is", %{repo: repo} do
+      GitRepo.git!(repo.checkout, ["remote", "remove", "origin"])
+
+      assert {:error, :no_remote} = Git.fetch_base(repo.checkout, "main")
+      assert {:ok, [{:local, "refs/heads/main"}]} = Git.landing_refs(repo.checkout, "main")
+    end
+
+    test "a remote that cannot be reached is an error, and the fetched base stays put",
+         %{repo: repo} do
+      before = GitRepo.git!(repo.checkout, ["rev-parse", "origin/main"])
+      GitRepo.git!(repo.checkout, ["remote", "set-url", "origin", Path.join(repo.root, "gone")])
+
+      assert {:error, _} = Git.fetch_base(repo.checkout, "main")
+      assert GitRepo.git!(repo.checkout, ["rev-parse", "origin/main"]) == before
+    end
+
+    test "a fetch that outlives its deadline is killed with what it started, and the person's ssh command is used",
+         %{repo: repo} do
+      ssh = Path.join(repo.root, "slow-ssh")
+      File.write!(ssh, "#!/bin/sh\nexec sleep 7.317\n")
+      File.chmod!(ssh, 0o755)
+      GitRepo.git!(repo.checkout, ["config", "core.sshCommand", ssh])
+      GitRepo.git!(repo.checkout, ["remote", "set-url", "origin", "ssh://example.invalid/r.git"])
+
+      {micros, result} = :timer.tc(fn -> Git.fetch_base(repo.checkout, "main", 300) end)
+
+      assert result == {:error, :timeout}
+      assert micros < 3_000_000
+      assert {_none, 1} = System.cmd("pgrep", ["-f", "7.317"])
+    end
+
+    test "a remote that asks for a password fails, and no password program is run",
+         %{repo: repo} do
+      asked = Path.join(repo.root, "asked")
+      askpass = Path.join(repo.root, "askpass")
+      File.write!(askpass, "#!/bin/sh\ntouch '#{asked}'\necho secret\n")
+      File.chmod!(askpass, 0o755)
+      GitRepo.git!(repo.checkout, ["config", "core.askPass", askpass])
+      GitRepo.git!(repo.checkout, ["config", "credential.helper", ""])
+      url = "http://127.0.0.1:#{asks_for_a_password()}/r.git"
+      GitRepo.git!(repo.checkout, ["remote", "set-url", "origin", url])
+
+      assert {:error, _} = Git.fetch_base(repo.checkout, "main", 10_000)
+      refute File.exists?(asked)
+    end
+
+    test "the base's upstream is its own, never a branch named under it", %{repo: repo} do
+      GitRepo.git!(repo.checkout, ["checkout", "--quiet", "-b", "hotfix"])
+      GitRepo.commit!(repo.checkout, "fix.md", "fix")
+      GitRepo.git!(repo.checkout, ["push", "--quiet", "origin", "hotfix"])
+      GitRepo.git!(repo.checkout, ["branch", "-D", "main"])
+      GitRepo.git!(repo.checkout, ["branch", "--track", "main/x", "origin/hotfix"])
+
+      assert {:ok, [{:local, "refs/remotes/origin/main"}]} =
+               Git.landing_refs(repo.checkout, "main")
+    end
+
+    test "a base tracking something that is no remote's branch has no fetched copy",
+         %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a")
+      GitRepo.merge_on_forge(repo, "feat-a")
+      GitRepo.git!(repo.checkout, ["fetch", "--quiet", "origin"])
+      GitRepo.git!(repo.checkout, ["branch", "--set-upstream-to=feat-a", "main"])
+
+      assert {:ok, [{:local, "refs/heads/main"}]} = Git.landing_refs(repo.checkout, "main")
+      assert {:error, _} = Git.fetch_base(repo.checkout, "main")
+    end
+
+    test "a landing check never fetches what a partial clone left out", %{repo: repo} do
+      GitRepo.git!(repo.remote, ["config", "uploadpack.allowFilter", "true"])
+      GitRepo.git!(repo.remote, ["config", "uploadpack.allowAnySHA1InWant", "true"])
+      partial = Path.join(repo.root, "partial")
+      remote = "file://" <> repo.remote
+      GitRepo.git!(repo.root, ["clone", "--quiet", "--filter=blob:none", remote, partial])
+      GitRepo.git!(partial, ["checkout", "--quiet", "-b", "feat-a"])
+      GitRepo.commit!(partial, "README.md", "hello\nfrom the branch\n")
+      GitRepo.commit!(repo.checkout, "README.md", "hello\nfrom main\n")
+      GitRepo.git!(repo.checkout, ["push", "--quiet", "origin", "main"])
+      :ok = Git.fetch_base(partial, "main")
+      {:ok, head} = Git.head(partial)
+      {:ok, [_local, fetched]} = Git.landing_refs(partial, "main")
+      missing = ["rev-list", "--objects", "--missing=print", "refs/remotes/origin/main"]
+      left_out = GitRepo.git!(partial, missing)
+      assert left_out =~ "?"
+
+      refute match?({:ok, true}, Git.in_base?(partial, head, fetched))
+      assert GitRepo.git!(partial, missing) == left_out
+    end
+  end
+
+  defp asks_for_a_password do
+    {:ok, listen} =
+      :gen_tcp.listen(0, [:binary, active: false, reuseaddr: true, ip: {127, 0, 0, 1}])
+
+    {:ok, port} = :inet.port(listen)
+    server = spawn(fn -> unauthorized(listen) end)
+    :ok = :gen_tcp.controlling_process(listen, server)
+    on_exit(fn -> Process.exit(server, :kill) end)
+    port
+  end
+
+  defp unauthorized(listen) do
+    with {:ok, socket} <- :gen_tcp.accept(listen) do
+      _ = :gen_tcp.recv(socket, 0, 2_000)
+
+      :gen_tcp.send(
+        socket,
+        "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"r\"\r\n" <>
+          "Content-Length: 0\r\nConnection: close\r\n\r\n"
+      )
+
+      :gen_tcp.close(socket)
+      unauthorized(listen)
+    end
+  end
+
   describe "head_branch/1" do
     test "names the branch a worktree is on", %{repo: repo} do
       path = GitRepo.worktree(repo, "feat-a")
@@ -313,6 +479,18 @@ defmodule Whiska.GitTest do
       assert {:error, _} = Git.delete_branch(repo.checkout, "feat-b")
       assert :ok = Git.delete_branch(repo.checkout, "feat-b", {:in_base, head})
       refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-b"
+    end
+
+    test "a branch deleted as landed takes its upstream setting with it, as -d does",
+         %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-b")
+      GitRepo.merge_on_forge(repo, "feat-b", squash: true)
+      :ok = Git.fetch_base(repo.checkout, "main")
+      :ok = Git.remove_worktree(repo.checkout, path)
+      {:ok, head} = Git.branch_head(repo.checkout, "feat-b")
+
+      assert :ok = Git.delete_branch(repo.checkout, "feat-b", {:in_base, head})
+      refute GitRepo.git!(repo.checkout, ["config", "--list"]) =~ "branch.feat-b."
     end
 
     test "keeps a branch landed as copies that moved since it was checked", %{repo: repo} do

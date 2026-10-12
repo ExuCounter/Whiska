@@ -736,8 +736,8 @@ defmodule Whiska.Storage do
 
   @doc """
   Record the merge request the person opened for a mouse's branch. A second
-  one replaces the first, link and time: a PR opened again after one was
-  closed is the one the branch now waits on.
+  one replaces the first, link and time: a merge request opened again after
+  one was closed is the one the branch now waits on.
   """
   @spec record_merge_request(String.t(), String.t()) ::
           {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}

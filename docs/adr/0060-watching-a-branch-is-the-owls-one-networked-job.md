@@ -4,7 +4,11 @@ status: proposed
 
 # Watching a branch is the owl's one networked job, and it only ever reads
 
-Nothing here is built. It is recorded so it is not redesigned from scratch. An earlier
+One slice is built: the merge, seen through git rather than the forge
+([ADR-next-an-opened-merge-request-is-remembered](next-an-opened-merge-request-is-remembered.md)).
+While a merge request Whiska opened waits, the owl fetches its base branch, and cleanup
+reads a landing from that fetched copy. The rest is not built. It is recorded so it is not
+redesigned from scratch. An earlier
 draft worked the same idea out for GitHub alone, through `gh`, with Whiska running
 `gh pr merge` itself; two things in it did not survive contact: the forge is not always
 GitHub, and Whiska reads but never writes.
@@ -26,10 +30,10 @@ What they share is one question — which branch does this mouse own — and not
 
 | | Cleanup after a merge | Watching checks |
 |---|---|---|
-| Who is asked | local git, in the worktree | a forge, over the network |
-| Credentials | none | a read-only forge token |
-| Answer | deterministic, always available | three-valued, often unavailable |
-| Failure | there is none to speak of | rate limit, outage, expired token |
+| Who is asked | git: the base here, or its copy last fetched | a forge, over the network |
+| Credentials | none of Whiska's; a fetch uses git's own and never prompts | a read-only forge token |
+| Answer | deterministic; the fetched copy only as fresh as its last fetch | three-valued, often unavailable |
+| Failure | a fetch that fails leaves the last answer standing | rate limit, outage, expired token |
 | Wants the mouse | gone — it ends the mouse's life | alive — it has work to send it |
 | Blocked on | nothing: built (ADR-0061) | ADR-0044 (what Whiska may type into) |
 
@@ -40,9 +44,9 @@ want both.
 
 They do chain: a green build is what makes a branch mergeable, a merge is what makes
 cleanup legal, so built together they run watch → merge → cleanup. A chain of two
-features is not one feature. Cleanup ships first and alone, because it is offline,
+features is not one feature. Cleanup ships first and alone, because it needs no forge, is
 deterministic and useful on its own; watching is a second thing that happens to end where
-cleanup begins. Building them as one makes the offline half inherit the networked half's
+cleanup begins. Building them as one makes the forge-free half inherit the networked half's
 failure modes — a worktree that cannot be taken down because a forge is rate-limiting
 would be an absurdity.
 
@@ -134,9 +138,11 @@ The three real costs are below, in the order they bite.
 
 ### Cost 1: the owl gains a dependency it has never had
 
-The owl touches its own files, herdr's socket, and the process table. It makes no outbound
-connection to anything. That is the change, and everything here exists to keep it from
-spreading.
+The owl touches its own files, herdr's socket, the process table, and one git remote: the
+built slice's fetch of a base branch, through git, with git's own credentials and no
+prompt. It makes no connection to a forge. That is the change, and everything here exists
+to keep it from spreading. The fetch already follows the first two rules below, with a
+60 s deadline.
 
 - **Every forge call is a short-lived `Task` under the house, never the house's own
   process**, with a hard timeout (10 s) and the result delivered as a message. A forge
@@ -243,7 +249,8 @@ sleeping laptop, are the whole reason the feature exists.
 - **A branch with an open watch is not cleaned up.** A build still running is a reason to
   leave a worktree standing.
 - **A merge ends every watch on that branch**, with no further forge call: merged is a
-  local git fact, and the offline answer wins whenever both are available.
+  git fact, read from the base here or its fetched copy, and git's answer wins whenever
+  both are available.
 - Cleanup is the owl's and unattended (ADR-0061); a watch that ends merged simply hands
   the branch to it.
 

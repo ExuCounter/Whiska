@@ -59,8 +59,8 @@ defmodule Whiska.Schema.Mouse do
     # clears it (ADR-0079).
     field(:held_at, :utc_datetime)
     # When the person's "Open a merge request / PR" succeeded, and the link it
-    # printed: a finished line then offers what fits an open PR, and the owl
-    # fetches the base so a merge on the forge is seen here.
+    # printed: a finished line then offers what fits an open merge request, and
+    # the owl fetches the base so a merge on the forge is seen here.
     field(:merge_request_at, :utc_datetime)
     field(:merge_request_url, :string)
   end

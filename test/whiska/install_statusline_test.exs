@@ -639,10 +639,10 @@ defmodule Whiska.InstallStatuslineTest do
       assert prose =~ ~r/a merge request's rows.{0,60}`finish:`.{0,40}never/i
     end
 
-    test "pushing to the merge request is a plain push from the mouse's worktree" do
+    test "pushing to the merge request pushes the worktree's head to its branch on origin" do
       push = option("Push to the merge request")
 
-      assert push =~ "`git -C <worktree> push`"
+      assert push =~ "`git -C <worktree> push origin HEAD`"
       refute push =~ ~r/--force|push -f|\+HEAD/
       assert push =~ "never forced"
       assert push =~ ~r/refuses.{0,120}stop and say why in its own words/i

@@ -135,6 +135,14 @@ defmodule Whiska.Owl.House do
   every line again before its TTL runs out, so a line nobody is keeping current
   expires. The mice are re-sorted only when one changes state or a new one
   appears busy, so rows do not move under the cursor otherwise.
+
+  ## Fetching the base (ADR-next-an-opened-merge-request-is-remembered)
+
+  While a mouse's merge request waits, the backstop fetches its base every
+  `fetch_ms` (5 min), so a merge on the forge reaches the fetched copy cleanup
+  reads. The fetch runs in a task, one at a time, never in the house's own
+  process; a failure waits twice as long before the next, up to `fetch_max_ms`
+  (an hour), and is said in the log once until a fetch works again.
   """
 
   use GenServer
@@ -148,6 +156,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Doorbell
   alias Whiska.Doorstep
   alias Whiska.FinishFlag
+  alias Whiska.Git
   alias Whiska.Herdr
   alias Whiska.Layout
   alias Whiska.Ledger
@@ -195,6 +204,9 @@ defmodule Whiska.Owl.House do
   # (ADR-0080). Checked on the backstop, so the
   # real spacing is this to this plus one backstop.
   @default_ring_ms 90_000
+  @default_fetch_ms 300_000
+  @default_fetch_max_ms 3_600_000
+  @default_fetch_timeout_ms 60_000
 
   defstruct [
     :main_checkout,
@@ -214,7 +226,14 @@ defmodule Whiska.Owl.House do
     :settle_ms,
     :max_gap_ms,
     :ring_ms,
+    :fetch_ms,
+    :fetch_max_ms,
+    :fetch_timeout_ms,
     :away_path,
+    fetching: nil,
+    fetch_due_at: nil,
+    fetch_wait_ms: nil,
+    fetch_failing: false,
     last_mode: nil,
     held_since: nil,
     held_reason: nil,
@@ -258,7 +277,10 @@ defmodule Whiska.Owl.House do
   `:settle_ms` (how long a mouse's pane must have been quiet before a died turn
   is picked up), `:max_gap_ms` (how long a gap between backstops means the owl
   was not watching, so its pane memory is thrown away), `:ring_ms` (how long
-  after a doorbell an answer not taken is rung again), `:desktop` (where a hoot
+  after a doorbell an answer not taken is rung again), `:fetch_ms` (how often
+  the base is fetched while a merge request waits), `:fetch_max_ms` (the
+  longest wait a failing fetch backs off to), `:fetch_timeout_ms` (when a fetch
+  still running is killed), `:desktop` (where a hoot
   herdr will not show is raised, `Whiska.Desktop.impl/0` by default),
   `:away_path` (the file that says the person is away, the real one by
   default), `:name`.
@@ -331,6 +353,9 @@ defmodule Whiska.Owl.House do
           settle_ms: Keyword.get(opts, :settle_ms, @default_settle_ms),
           max_gap_ms: Keyword.get(opts, :max_gap_ms, backstop_ms(opts) * 3),
           ring_ms: Keyword.get(opts, :ring_ms, @default_ring_ms),
+          fetch_ms: Keyword.get(opts, :fetch_ms, @default_fetch_ms),
+          fetch_max_ms: Keyword.get(opts, :fetch_max_ms, @default_fetch_max_ms),
+          fetch_timeout_ms: Keyword.get(opts, :fetch_timeout_ms, @default_fetch_timeout_ms),
           away_path: Keyword.get_lazy(opts, :away_path, &Mode.away_path/0),
           main_pane: Storage.main_pane()
         }
@@ -426,11 +451,21 @@ defmodule Whiska.Owl.House do
       |> collect_on_backstop()
       |> deliver()
       |> clean_up()
+      |> fetch_base()
       |> ring()
       |> pick_up()
 
     Process.send_after(self(), :backstop, state.backstop_ms)
     {:noreply, state}
+  end
+
+  def handle_info({ref, results}, %{fetching: %Task{ref: ref}} = state) do
+    Process.demonitor(ref, [:flush])
+    {:noreply, fetched(%{state | fetching: nil}, results)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, reason}, %{fetching: %Task{ref: ref}} = state) do
+    {:noreply, fetched(%{state | fetching: nil}, [{"the base", {:error, {:crashed, reason}}}])}
   end
 
   def handle_info(:board, state) do
@@ -981,6 +1016,74 @@ defmodule Whiska.Owl.House do
     end)
 
     state
+  end
+
+  # A merge request is merged on the forge, where nothing tells the owl, so its
+  # base is fetched on the backstop for cleanup to read
+  # (ADR-next-an-opened-merge-request-is-remembered). Git runs in a task: a
+  # network call never holds the house (ADR-0060).
+  defp fetch_base(%{fetching: %Task{}} = state), do: state
+
+  # The wait and the failure already said belong to the merge requests that
+  # were waiting: once none is, the next one starts afresh.
+  defp fetch_base(state) do
+    case merge_requests_waiting() do
+      [] ->
+        %{state | fetch_due_at: nil, fetch_wait_ms: nil, fetch_failing: false}
+
+      recorded ->
+        if is_nil(state.fetch_due_at) or System.monotonic_time(:millisecond) >= state.fetch_due_at,
+          do: start_fetch(state, recorded),
+          else: state
+    end
+  end
+
+  defp start_fetch(state, recorded) do
+    checkout = state.main_checkout
+    timeout = state.fetch_timeout_ms
+    %{state | fetching: Task.async(fn -> fetch_bases(checkout, recorded, timeout) end)}
+  end
+
+  # The recorded base of each mouse whose merge request has not landed yet.
+  defp merge_requests_waiting do
+    for %Mouse{merge_request_at: %DateTime{}, landed_at: nil, removed_at: nil} = mouse <-
+          Storage.current_mice(),
+        is_binary(mouse.path) and File.dir?(mouse.path),
+        uniq: true,
+        do: mouse.base
+  end
+
+  defp fetch_bases(checkout, recorded, timeout) do
+    recorded
+    |> Enum.map(&Git.base_of(checkout, &1))
+    |> Enum.flat_map(fn
+      {:ok, base} -> [base]
+      {:error, _} -> []
+    end)
+    |> Enum.uniq()
+    |> Enum.map(&{&1, Git.fetch_base(checkout, &1, timeout)})
+  end
+
+  defp fetched(state, results) do
+    due = System.monotonic_time(:millisecond)
+
+    case Enum.find(results, &match?({_base, {:error, _}}, &1)) do
+      nil ->
+        %{state | fetch_due_at: due + state.fetch_ms, fetch_wait_ms: nil, fetch_failing: false}
+
+      {base, {:error, reason}} ->
+        wait = min(2 * (state.fetch_wait_ms || state.fetch_ms), state.fetch_max_ms)
+
+        unless state.fetch_failing do
+          warn(
+            state,
+            "fetching #{base} failed (#{inspect(reason)}) — a merge request merged on the " <>
+              "forge goes unseen until #{base} is pulled; trying again less often"
+          )
+        end
+
+        %{state | fetch_due_at: due + wait, fetch_wait_ms: wait, fetch_failing: true}
+    end
   end
 
   # Ringing again for an answer not taken, on the same backstop as cleanup: a

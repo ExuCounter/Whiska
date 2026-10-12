@@ -67,6 +67,13 @@ its body, since the branch's own session had the context to write it (ADR-0060).
 the main session doing work on a branch, which the rules allow because the person picked
 it, and the guard is that the options appear for a finished line and nothing else.
 
+A merge request opened that way is recorded on the mouse by the skill's fixed
+`whiska merge-request <id> <url>`, the link the forge's tool printed. That branch's later
+finished lines are a merge request's: push to it, with a commit first where files are not
+committed, and none once everything is pushed. Land here, open and drop are never offered
+beside an open merge request, whatever `finish:` says
+([ADR-next-an-opened-merge-request-is-remembered](next-an-opened-merge-request-is-remembered.md)).
+
 A repo names its usual choice with a line like `finish: land here` under a `## Finish`
 heading in its own `CLAUDE.md`, and that option is recommended instead. It is a heading
 the person writes, not a part of the rules: which ending a person prefers is not

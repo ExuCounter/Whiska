@@ -4,7 +4,8 @@ defmodule Whiska.Cleanup do
 
   One pass over this house's mice, run from the backstop. A worktree goes only
   when all four preconditions hold — the branch has landed in the base, merged
-  or as copies of its commits, the worktree is clean, nothing on it is
+  or as copies of its commits, in the base here or in its copy last fetched
+  from the remote, the worktree is clean, nothing on it is
   unpushed, and the mouse is quiet — and
   the pane goes with it, through the one `worktree.remove` call herdr offers,
   which closes the workspace and removes the worktree together the way the
@@ -50,16 +51,16 @@ defmodule Whiska.Cleanup do
   @spec sweep(%{main_checkout: Path.t(), herdr: module(), socket: Path.t() | nil}) ::
           [{String.t(), outcome()}]
   def sweep(%{main_checkout: checkout} = house) do
+    standing = Storage.current_mice() |> Enum.reject(& &1.removed_at)
+
     local = %{
       checkout: checkout,
       questions: Enum.group_by(Storage.all(Question), & &1.mouse_id),
-      doorstep: doorstep(checkout)
+      doorstep: doorstep(checkout),
+      bases: bases(checkout, standing)
     }
 
-    noted =
-      Storage.current_mice()
-      |> Enum.reject(& &1.removed_at)
-      |> Enum.map(&note_landing(&1, local))
+    noted = Enum.map(standing, &note_landing(&1, local))
 
     settle_specs(checkout, Enum.map(noted, &elem(&1, 0)))
 
@@ -81,38 +82,72 @@ defmodule Whiska.Cleanup do
   defp note_landing(%Mouse{landed_at: %DateTime{}} = mouse, _local), do: {mouse, nil}
 
   defp note_landing(mouse, local) do
-    with {:ok, base} <- Git.base_of(local.checkout, mouse.base),
+    with {:ok, {base, places}} <- base(mouse, local),
          {:ok, head} <- head_of(mouse, local, base),
-         {:ok, how} = asked <- reached(local.checkout, head, base) do
-      {stamp_if_landed(how, mouse, local, head, base), shareable(mouse, asked)}
+         {:ok, how} = asked <- reached(local.checkout, head, places) do
+      {stamp_if_landed(how, mouse, local, head), shareable(mouse, asked)}
     else
       _ -> {mouse, nil}
     end
   end
 
-  # How the base holds this commit: as an ancestor, as the same work under
-  # other commits — Land here's copies, a squash — or not at all.
-  defp reached(checkout, head, base) do
-    case Git.ancestor?(checkout, head, base) do
-      {:ok, true} -> {:ok, :ancestor}
-      {:ok, false} -> with {:ok, true} <- Git.in_base?(checkout, head, base), do: {:ok, :in_base}
-      error -> error
+  # Each recorded base is named, and the places it is read found, once a
+  # sweep: every mouse cut from the same branch shares the answer.
+  defp bases(checkout, mice) do
+    mice
+    |> Enum.map(& &1.base)
+    |> Enum.uniq()
+    |> Map.new(&{&1, base_and_places(checkout, &1)})
+  end
+
+  defp base_and_places(checkout, recorded) do
+    with {:ok, base} <- Git.base_of(checkout, recorded),
+         {:ok, places} <- Git.landing_refs(checkout, base),
+         do: {:ok, {base, places}}
+  end
+
+  defp base(%Mouse{base: recorded}, local) do
+    Map.get_lazy(local[:bases] || %{}, recorded, fn ->
+      base_and_places(local.checkout, recorded)
+    end)
+  end
+
+  # How the base holds this commit, and where: as an ancestor, as the same
+  # work under other commits — Land here's copies, a squash — or not at all.
+  # The base here first, then its copy last fetched, where a merge request
+  # merged on the forge shows before anyone pulls.
+  defp reached(_checkout, _head, []), do: {:ok, false}
+
+  defp reached(checkout, head, [where | rest]) do
+    case Git.ancestor?(checkout, head, where) do
+      {:ok, true} ->
+        {:ok, {:ancestor, where}}
+
+      {:ok, false} ->
+        case Git.in_base?(checkout, head, where) do
+          {:ok, true} -> {:ok, {:in_base, where}}
+          {:ok, false} -> reached(checkout, head, rest)
+          error -> error
+        end
+
+      error ->
+        error
     end
   end
 
   # An ancestor of the base is not yet a landing: a branch cut an hour ago and
   # never moved is one too. Only work the base reached through a merge, or
   # holds as copies, settles anything (ADR-0064).
-  defp stamp_if_landed(:in_base, mouse, _local, _head, _base), do: stamp_landing(mouse)
+  defp stamp_if_landed({:in_base, _where}, mouse, _local, _head), do: stamp_landing(mouse)
 
-  defp stamp_if_landed(:ancestor, mouse, local, head, base) do
-    case Git.reached_by_merge?(local.checkout, head, base) do
+  defp stamp_if_landed({:ancestor, where}, mouse, local, head) do
+    case Git.reached_by_merge?(local.checkout, head, where) do
       {:ok, true} -> stamp_landing(mouse)
       _ -> mouse
     end
   end
 
-  defp stamp_if_landed(false, mouse, _local, _head, _base), do: mouse
+  defp stamp_if_landed(false, mouse, _local, _head), do: mouse
 
   defp stamp_landing(mouse) do
     case Storage.mark_landed(mouse.mouse_id) do
@@ -270,11 +305,11 @@ defmodule Whiska.Cleanup do
   defp finished?(questions),
     do: Enum.max_by(questions, &{DateTime.to_unix(&1.asked_at), &1.id}).kind == "done"
 
-  defp landed(%Mouse{path: path, base: recorded}, %{checkout: checkout} = context) do
-    with {:ok, base} <- leave_on_error(Git.base_of(checkout, recorded)),
+  defp landed(%Mouse{path: path} = mouse, %{checkout: checkout} = context) do
+    with {:ok, {_base, places}} <- leave_on_error(base(mouse, context)),
          {:ok, branch} <- leave_on_error(Git.head_branch(path)),
-         {:ok, how} <- merged(checkout, path, base, context[:merged]),
-         {:ok, landing} <- confirmed(checkout, path, base, how),
+         {:ok, how} <- merged(checkout, path, places, context[:merged]),
+         {:ok, landing} <- confirmed(checkout, path, how),
          {:ok, true} <- own_work(checkout, path, branch),
          {:ok, true} <- clean(path),
          {:ok, false} <- unpushed(path, branch, landing) do
@@ -282,14 +317,14 @@ defmodule Whiska.Cleanup do
     end
   end
 
-  # A branch landed as copies is deleted only while it is still on the commit
-  # found in the base, so that commit is asked about here, not one remembered
-  # from earlier in the sweep.
-  defp confirmed(_checkout, _path, _base, :ancestor), do: {:ok, :merged}
+  # A branch landed as copies, or held only by the fetched base, is deleted
+  # only while it is still on the commit found there, so that commit is asked
+  # about here, not one remembered from earlier in the sweep.
+  defp confirmed(_checkout, _path, {:ancestor, {:local, _ref}}), do: {:ok, :merged}
 
-  defp confirmed(checkout, path, base, :in_base) do
+  defp confirmed(checkout, path, {how, where}) do
     with {:ok, head} <- leave_on_error(Git.head(path)) do
-      case Git.in_base?(checkout, head, base) do
+      case still(how, checkout, head, where) do
         {:ok, true} -> {:ok, {:in_base, head}}
         {:ok, false} -> {:leave, :not_merged}
         other -> leave_on_error(other)
@@ -297,8 +332,11 @@ defmodule Whiska.Cleanup do
     end
   end
 
-  defp merged(checkout, path, base, asked) do
-    case asked || with({:ok, head} <- Git.head(path), do: reached(checkout, head, base)) do
+  defp still(:ancestor, checkout, head, where), do: Git.ancestor?(checkout, head, where)
+  defp still(:in_base, checkout, head, where), do: Git.in_base?(checkout, head, where)
+
+  defp merged(checkout, path, places, asked) do
+    case asked || with({:ok, head} <- Git.head(path), do: reached(checkout, head, places)) do
       {:ok, false} -> {:leave, :not_merged}
       other -> leave_on_error(other)
     end

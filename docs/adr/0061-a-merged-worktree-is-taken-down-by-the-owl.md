@@ -50,7 +50,14 @@ skips them.
 
 1. **The branch is merged into the base branch.** Mechanically: the worktree's head commit
    is an ancestor of the base. This is the one that makes everything else recoverable, and
-   it is a local git question — no network, no forge, no credentials.
+   it is a local git question — no forge, no credentials.
+
+   **The base is read in two places**: the branch here, then its copy last fetched from
+   the remote it tracks (`origin/main`), where a merge request merged on the forge shows
+   before anyone pulls. Every check below is asked of each, the base here first. The owl
+   refreshes that copy with a fetch of the base alone while a merge request waits
+   ([ADR-next-an-opened-merge-request-is-remembered](next-an-opened-merge-request-is-remembered.md));
+   a fetch the person ran counts the same.
 
    **Or its work is in the base under other commits.** Land here copies a branch's
    commits onto the base with new ids, and a forge's squash folds them into one; neither
@@ -99,7 +106,8 @@ skips them.
    A branch landed as copies is exempt. Its own commits are never pushed — Land here
    lands locally, which is the point of it — so the check would hold every such worktree
    forever. Its work is as safe as the base it was copied onto, the same exposure a
-   person takes on by landing locally at all.
+   person takes on by landing locally at all. So is a branch found only in the fetched
+   base: the remote already holds its work.
 4. **The mouse is quiet** — see below.
 
 **Never force.** `git worktree remove` without `--force`, `git branch -d` and not `-D`,
@@ -111,9 +119,12 @@ it was measured rather than assumed: **`git branch -d` deletes an unmerged branc
 commits are on its upstream.** Git's rule is "these commits exist somewhere else", not
 "this landed in the base". So `-d` protects against losing work outright and is *not* a
 second opinion on condition 1 — condition 1 stands alone, and `-d` stays because there is
-no reason to reach for `-D` once it has passed. The one `-D` is for a branch landed as copies: `-d`
-reads its commits as unmerged and refuses, though the trial merge has just shown nothing
-on it is missing from the base.
+no reason to reach for `-D` once it has passed. The one exception is a landing `-d` cannot
+see: a branch landed as copies, whose commits it reads as unmerged though the trial merge
+has just shown nothing on it is missing from the base, and a branch only the fetched base
+holds, which `-d` measures against the base here. Such a branch is deleted with
+`update-ref -d` only while it still points at the commit that was checked, and its branch
+settings go with it, as `-d` takes them.
 
 **Unknown is never permission.** A detached head, an unreadable git directory, a base
 branch that cannot be resolved unambiguously, a git command that fails for any reason, a
@@ -221,7 +232,9 @@ record. Anything able to write that file already runs as the person.
   holds — a removed mouse is permanently inert, not gone. It is already dead by then, so
   nothing on the board or in `whiska mice` changes.
 - **Cleanup rides the house's existing 60 s backstop.** It is local git and one herdr call
-  for a handful of dead branches; it needs no timer of its own and no event.
+  for a handful of dead branches; it needs no timer of its own and no event. While a merge
+  request waits, the same backstop starts the base's fetch every 5 minutes, in a task of
+  its own.
 - **`whiska cleanup` as a command is not built.** ADR-0007 named it, the spec lists it, and
   it was always the human trigger this ADR removes. If it comes back it is a *now, not in a
   minute* convenience, not the only way in.
@@ -229,9 +242,11 @@ record. Anything able to write that file already runs as the person.
   preconditions refuse, and the person's own way to take down a worktree early.
 - **This is the first thing in Whiska that deletes anything.** ADR-0007's title is no longer
   true as written, which is why it is superseded here rather than quietly amended.
-- **Nothing here touches a forge.** Merged is answered by local git. The networked half of
-  following a branch after its last message is ADR-0060, which is proposed, separate, and
-  chains onto this one rather than being part of it.
+- **Nothing here asks a forge.** Merged is answered by git, from the base here or its copy
+  last fetched; the one network call is git's fetch of the base while a merge request
+  waits. The rest of following a branch after its last message — a closed request, its
+  checks — is ADR-0060, which is proposed, separate, and chains onto this one rather than
+  being part of it.
 
 ## Considered options
 

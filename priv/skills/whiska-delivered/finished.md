@@ -137,10 +137,10 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
 - **Commit and open a PR** — commit as Commit and land does, file
   list included, then exactly as Open a merge request / PR.
 - **Push to the merge request** — push the branch's new commits to the
-  merge request already open for it: `git -C <worktree> push`, which
-  pushes to the upstream the merge request was opened from. A push is never
-  forced. Git refuses — a rebased branch, commits on the merge request this
-  branch lacks, no upstream → stop and say why in its own words.
+  merge request already open for it: `git -C <worktree> push origin HEAD`,
+  to the branch of the same name the merge request was opened from. A push
+  is never forced. Git refuses — a rebased branch, commits on the merge
+  request this branch lacks → stop and say why in its own words.
 - **Commit and push to the merge request** — commit as Commit and land
   does, file list included, then exactly as Push to the merge request.
 - **Drop it** — throw the work away. First confirm in prose, in one line

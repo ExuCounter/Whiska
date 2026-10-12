@@ -12,6 +12,7 @@ C4Container
   System_Ext(herdr, "herdr", "Panes, sessions, agent status")
   System_Ext(claude, "Claude Code", "The main session and the mice, in herdr's panes")
   System_Ext(nc, "Desktop notifications", "osascript on macOS, notify-send on Linux")
+  System_Ext(remote, "Git remote", "The forge's copy of the repo, where a merge request is merged")
 
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; asks the owl first, else resolves the runtime at fire time; fails open, with a visible hook error in a worktree. The global copy stands down where the repo has its own")
@@ -85,7 +86,9 @@ C4Container
   Rel(house, db, "Records questions, marks mice dead and removed; reads the next open one")
   Rel(house, db, "Records each collected turn's usage, read from the transcript its entry names")
   Rel(cli, db, "metrics reads usage, waits and spec timing")
-  Rel(house, herdr, "Removes a landed worktree and closes its pane together")
+  Rel(cli, db, "merge-request records the link the forge's tool printed for a finished branch")
+  Rel(house, remote, "Fetches the base alone every 5 minutes while a merge request waits, in a task, never prompting", "git fetch")
+  Rel(house, herdr, "Removes a landed worktree, here or in the fetched base, and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
   Rel(house, herdr, "Rings a mouse's doorbell again, at most three times, while its answer is not taken")
   Rel(house, herdr, "Types a pickup line into a mouse's pane, once, when its turn died")
@@ -136,6 +139,9 @@ The reasoning is in the ADR each line names; this is the map.
 - **One owl, many houses**, each supervised independently (ADR-0001). Delivery lives in the
   house, and nothing types across houses (ADR-0008, ADR-0044).
 - **herdr is the one boundary with a fake behind it** (ADR-0031).
+- **The git remote is the one thing off the machine the owl reaches**, through git alone,
+  for the base branch alone, and only while a merge request waits; no forge is asked
+  (ADR-next-an-opened-merge-request-is-remembered, ADR-0060).
 
 ## Designed only
 

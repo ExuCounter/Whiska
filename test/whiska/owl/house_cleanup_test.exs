@@ -54,6 +54,20 @@ defmodule Whiska.Owl.HouseCleanupTest do
     end
   end
 
+  defp until_fetch(house, reached, tries \\ 1000) do
+    cond do
+      reached.(:sys.get_state(house)) ->
+        :ok
+
+      tries > 0 ->
+        Process.sleep(10)
+        until_fetch(house, reached, tries - 1)
+
+      true ->
+        flunk("the house's fetch never got there")
+    end
+  end
+
   defp open(repo, opts) do
     opts = Keyword.merge([main_checkout: repo.checkout, herdr_socket: @socket], opts)
     pid = start_house(opts)
@@ -115,6 +129,93 @@ defmodule Whiska.Owl.HouseCleanupTest do
     capture_io(:stderr, fn -> open(repo, backstop_ms: 60_000, board_ms: 60_000) end)
 
     assert GitRepo.git!(repo.checkout, ["status", "--porcelain"]) == ""
+  end
+
+  defp record_merge_request(repo) do
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    {:ok, _} = Storage.record_merge_request("ma", "https://github.com/o/r/pull/1")
+    Storage.close(handle)
+  end
+
+  defp quiet_herdr(path) do
+    stub(Herdr, :list_panes, fn @socket -> {:ok, []} end)
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> {:ok, spawn(fn -> :ok end)} end)
+
+    stub(Herdr, :worktrees, fn @socket, _checkout ->
+      {:ok, [%{path: path, branch: "feat-a", workspace_id: nil}]}
+    end)
+  end
+
+  test "a merge request merged on the forge is fetched, and its worktree taken down",
+       %{repo: repo, path: path} do
+    record_merge_request(repo)
+    GitRepo.merge_on_forge(repo, "feat-a")
+    local = GitRepo.git!(repo.checkout, ["rev-parse", "main"])
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, backstop_ms: 20, board_ms: 60_000)
+      until_gone(path, 500)
+      House.sync(house)
+    end)
+
+    refute File.dir?(path)
+    assert GitRepo.git!(repo.checkout, ["rev-parse", "main"]) == local
+  end
+
+  test "with no merge request waiting, the base is never fetched", %{repo: repo, path: path} do
+    GitRepo.merge_on_forge(repo, "feat-a")
+    fetched = GitRepo.git!(repo.checkout, ["rev-parse", "origin/main"])
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, backstop_ms: 20, board_ms: 60_000)
+      Process.sleep(200)
+      House.sync(house)
+    end)
+
+    assert File.dir?(path)
+    assert GitRepo.git!(repo.checkout, ["rev-parse", "origin/main"]) == fetched
+  end
+
+  test "a fetch that keeps failing is said once", %{repo: repo, path: path} do
+    record_merge_request(repo)
+    GitRepo.git!(repo.checkout, ["remote", "set-url", "origin", Path.join(repo.root, "gone")])
+    quiet_herdr(path)
+
+    log =
+      capture_io(:stderr, fn ->
+        house = open(repo, backstop_ms: 20, board_ms: 60_000, fetch_ms: 10)
+        until_fetch(house, &((&1.fetch_wait_ms || 0) >= 80))
+      end)
+
+    assert [_once] = Regex.scan(~r/fetching main/, log)
+    assert File.dir?(path)
+  end
+
+  test "a fetch failing for a later merge request is said again",
+       %{repo: repo, path: path} do
+    record_merge_request(repo)
+    GitRepo.git!(repo.checkout, ["remote", "set-url", "origin", Path.join(repo.root, "gone")])
+    later = GitRepo.worktree(repo, "feat-b", push: false)
+    quiet_herdr(path)
+
+    log =
+      capture_io(:stderr, fn ->
+        house = open(repo, backstop_ms: 20, board_ms: 60_000, fetch_ms: 200, fetch_max_ms: 60_000)
+        until_fetch(house, & &1.fetch_failing)
+
+        {:ok, handle} = Storage.open(repo.checkout, name: nil)
+        {:ok, _} = Storage.mark_removed("ma")
+        until_fetch(house, &(not &1.fetch_failing))
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: later, branch: "feat-b"})
+        {:ok, _} = Storage.record_merge_request("mb", "https://github.com/o/r/pull/2")
+        Storage.close(handle)
+
+        until_fetch(house, & &1.fetch_failing)
+      end)
+
+    assert [_first, _again] = Regex.scan(~r/fetching main/, log)
   end
 
   test "a worktree still being worked in is left exactly where it is", %{repo: repo, path: path} do
