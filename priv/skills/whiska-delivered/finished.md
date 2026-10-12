@@ -108,8 +108,7 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
   or `glab`, whichever this repo's host wants, assigned to the account that
   tool is signed in as: `gh pr create --assignee @me`, or
   `glab mr create --assignee <username>` with the username `glab api user`
-  prints. The author is always that account; name it beside the link, so a
-  tool signed in as someone else is seen at once. The body is the message you
+  prints. The body is the message you
   just showed: the branch's own session wrote it, with context you lack, so
   carry it over rather than composing a summary from the diff. Neither
   tool installed or signed in → say plainly what is missing and stop,
