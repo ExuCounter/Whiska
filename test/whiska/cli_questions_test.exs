@@ -213,8 +213,8 @@ defmodule Whiska.CLIQuestionsTest do
       end
     end
 
-    defp keep_writeup(repo, q, text) do
-      path = Whiska.Writeup.kept(repo.checkout, q.id)
+    defp keep_research(repo, q, text) do
+      path = Whiska.Research.kept(repo.checkout, q.id)
       File.mkdir_p!(Path.dirname(path))
       File.write!(path, text)
     end
@@ -323,38 +323,40 @@ defmodule Whiska.CLIQuestionsTest do
       refute File.exists?(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md"))
     end
 
-    test "a kept write-up is linked under the branch line, by its title", %{repo: repo} do
+    test "a kept research document is linked under the branch line, by its title", %{repo: repo} do
       q = finished(repo, "ask-w1", commit: false)
-      keep_writeup(repo, q, "# Why the owl hangs\n\nFound.\n")
+      keep_research(repo, q, "# Why the owl hangs\n\nFound.\n")
 
       assert show_one(repo, q) =~
                "On the branch: nothing committed beyond main · nothing uncommitted\n" <>
-                 "Review write-up here: [Why the owl hangs](file://#{repo.checkout}/.whiska/writeups/#{q.id}.md)\n\nDone."
+                 "Review research here: [Why the owl hangs](file://#{repo.checkout}/.whiska/research/#{q.id}.md)\n\nDone."
     end
 
-    test "the write-up is linked when read from a mouse's worktree too", %{repo: repo} do
+    test "the research document is linked when read from a mouse's worktree too", %{repo: repo} do
       q = finished(repo, "ask-w2", commit: false)
-      keep_writeup(repo, q, "No heading here.\n")
+      keep_research(repo, q, "No heading here.\n")
       worktree = Path.join(repo.checkout, "worktrees/reader")
       GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "reader", worktree])
 
       out = capture_io(fn -> assert CLI.run(["show", to_string(q.id)], worktree) == 0 end)
 
       assert out =~
-               "\nReview write-up here: [write-up](file://#{repo.checkout}/.whiska/writeups/#{q.id}.md)\n"
+               "\nReview research here: [research](file://#{repo.checkout}/.whiska/research/#{q.id}.md)\n"
     end
 
-    test "a write-up still links once its worktree is gone", %{repo: repo} do
+    test "a research document still links once its worktree is gone", %{repo: repo} do
       q = finished(repo, "ask-w3", commit: false, gone: true)
-      keep_writeup(repo, q, "# Found [it]\n")
+      keep_research(repo, q, "# Found [it]\n")
 
       assert show_one(repo, q) =~
-               ~r/\nOn the branch: unknown[^\n]*\nReview write-up here: \[Found it\]\(file:/
+               ~r/\nOn the branch: unknown[^\n]*\nReview research here: \[Found it\]\(file:/
     end
 
-    test "a finished question with no write-up has no write-up link", %{repo: repo} do
+    test "a finished question with no research document has no research document link", %{
+      repo: repo
+    } do
       q = finished(repo, "ask-w4", commit: false)
-      refute show_one(repo, q) =~ "write-up"
+      refute show_one(repo, q) =~ "research"
     end
 
     test "nothing committed has no diff to review", %{repo: repo} do
@@ -730,6 +732,51 @@ defmodule Whiska.CLIQuestionsTest do
 
     test "a title with brackets cannot close the link early", %{path: path} do
       assert spec_link(path, nil, "a [b] c") =~ "[a \\[b\\] c](file://"
+    end
+
+    test "with a build plan beside the spec, it links both, the spec first", %{path: path} do
+      File.write!(Path.join(path, ".whiska-spec.md"), "# My spec\n")
+      File.write!(Path.join(path, ".whiska-plan.md"), "# Build plan\n")
+
+      assert spec_link(path, nil) ==
+               "Review spec here: [My spec](file://#{path}/.whiska-spec.md)\n" <>
+                 "Review build plan here: [My spec](file://#{path}/.whiska-plan.md)\n"
+    end
+
+    test "a bug's research document comes first, then its build plan", %{path: path} do
+      File.write!(Path.join(path, ".whiska-research.md"), "# A bug\n")
+      File.write!(Path.join(path, ".whiska-plan.md"), "# Build plan\n")
+
+      assert spec_link(path, nil) ==
+               "Review research here: [My spec](file://#{path}/.whiska-research.md)\n" <>
+                 "Review build plan here: [My spec](file://#{path}/.whiska-plan.md)\n"
+    end
+
+    test "a research document alone is linked alone", %{path: path} do
+      File.write!(Path.join(path, ".whiska-research.md"), "# A bug\n")
+
+      assert spec_link(path, nil) ==
+               "Review research here: [My spec](file://#{path}/.whiska-research.md)\n"
+    end
+
+    test "a document that is a link is not offered for review", %{path: path} do
+      File.write!(Path.join(path, ".whiska-spec.md"), "# My spec\n")
+      File.ln_s!(Path.join(path, "README.md"), Path.join(path, ".whiska-plan.md"))
+
+      assert spec_link(path, nil) ==
+               "Review spec here: [My spec](file://#{path}/.whiska-spec.md)\n"
+    end
+
+    test "WHISKA_SPEC_LINK takes every document's path", %{path: path} do
+      File.write!(Path.join(path, ".whiska-spec.md"), "# My spec\n")
+      File.write!(Path.join(path, ".whiska-plan.md"), "# Build plan\n")
+
+      out = spec_link(path, "myviewer://open?file={path}")
+      encoded = &URI.encode(path <> "/" <> &1, fn c -> URI.char_unreserved?(c) or c == ?/ end)
+
+      assert out ==
+               "Review spec here: [My spec](myviewer://open?file=#{encoded.(".whiska-spec.md")})\n" <>
+                 "Review build plan here: [My spec](myviewer://open?file=#{encoded.(".whiska-plan.md")})\n"
     end
   end
 end

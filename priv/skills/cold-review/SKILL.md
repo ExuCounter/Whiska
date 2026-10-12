@@ -33,8 +33,10 @@ You do the review yourself. Every command you run reads: git, grep, cat, ls.
 - **The change** is everything from the base to the working tree: `git diff <base>
   --stat`, `git diff <base>`, `git log --format='%h %s%n%b' <base>..HEAD`, and each file
   `git ls-files --others --exclude-standard` lists, read whole. `.whiska-mouse` is
-  bookkeeping, `.whiska-spec.md` is the spec (step 2) and `.whiska-writeup.md` an
-  investigation's write-up; none is part of the change.
+  bookkeeping, and `.whiska-spec.md` and `.whiska-research.md` are what it should do
+  (step 2); none is part of the change. `.whiska-plan.md` is the builder's build plan:
+  never read it, nor any `.plan.md` kept beside a spec. You hold the change against what
+  the person wanted, not against how the builder chose to build it.
 
 Done when you can state the base and the commit, file and line counts, and you have read
 every changed hunk with enough code around it to know what calls it and what it calls.
@@ -48,7 +50,10 @@ The first that exists:
    not a symlink.
 2. `.whiska-spec.md` at the repo root, a regular file: a spec the person approved before
    the build. It is untracked, so it comes from the working tree.
-3. None: say so in the header, and review against the decisions and the code alone.
+3. `.whiska-research.md` at the repo root, a regular file: for a bug, its before and
+   after, its cause and the option Picked, which the person approved before the fix. The
+   fix does what the after says and nothing beyond it.
+4. None: say so in the header, and review against the decisions and the code alone.
 
 ## 3. Find the decisions, as they stood at the base
 
@@ -73,8 +78,8 @@ Ask every question of every changed hunk:
 - Does it do what the spec says — every piece, nothing beyond?
 - What does it change that a user or a calling program sees — a response, a message, data
   shown or stored, anything hidden, dropped or skipped? Each change belongs in the spec's
-  What Changes for Users or its decisions. One the spec does not approve is a finding;
-  with no spec, every one is.
+  What Changes for Users or its decisions, or for a bug the research document's after and
+  the option picked. One neither approves is a finding; with neither, every one is.
 - Does it agree with each decision you read? Where the branch rewrote a decision: does
   the record now say what changed and why, and does the code match the new text?
 - Is it right: wrong result, missed case, an error swallowed, state left behind, a race?

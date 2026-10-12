@@ -61,14 +61,35 @@ defmodule Whiska.InstallColdReviewSkillTest do
       assert body =~ "git ls-files --others --exclude-standard"
       assert body =~ "`.whiska-mouse`"
       assert body =~ "`#{Whiska.Spec.filename()}`"
-      assert body =~ "`#{Whiska.Writeup.filename()}`"
+      assert body =~ "`#{Whiska.Research.filename()}`"
     end
 
     test "it holds every behaviour change against the spec, and with none every one is a finding" do
       body = prose()
 
       assert body =~ ~r/what does it change that a user or a calling program sees/i
-      assert body =~ ~r/one the spec does not approve is a finding; with no spec, every one is/i
+
+      assert body =~
+               ~r/or for a bug the research document's after and the option picked\. One neither approves is a finding; with neither, every one is/i
+    end
+
+    # The person approves a build plan before the build, but the review holds
+    # the diff against what they wanted, never against how the builder chose to
+    # build it (ADR-0049).
+    test "it never reads the build plan, here or kept" do
+      body = prose()
+
+      assert body =~ "`#{Whiska.BuildPlan.filename()}`"
+      assert body =~ ~r/never read it, nor any `\.plan\.md` kept beside a spec/i
+    end
+
+    test "a bug fix is held against its research document's before and after and the option picked" do
+      body = prose()
+
+      assert body =~
+               ~r/`#{Regex.escape(Whiska.Research.filename())}` at the repo root.{0,80}a bug/is
+
+      assert body =~ ~r/before and after.{0,40}picked/is
     end
 
     test "no base found ends the review at its header" do

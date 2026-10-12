@@ -391,13 +391,13 @@ defmodule Whiska.InstallStatuslineTest do
       assert prose =~ ~r/nothing else is asked/i
     end
 
-    # The person comments on the write-up in their review tool; its Send key
+    # The person comments on the research document in their review tool; its Send key
     # makes the review this session's next message.
-    test "a review of the write-up is offered as a build with it, a note to the mouse, or nothing" do
+    test "a review of the research document is offered as a build with it, a note to the mouse, or nothing" do
       prose = delivered("sniff.md") |> String.replace(~r/\s+/, " ")
 
-      assert prose =~ "`Review write-up here:`"
-      assert prose =~ ~r/comments on the write-up/i
+      assert prose =~ "`Review research here:`"
+      assert prose =~ ~r/comments on the research document/i
       assert prose =~ "**A** — Build what it proposes, with these comments"
       assert prose =~ "**B** — Send them to <branch>"
       assert prose =~ "**C** — Not now"
@@ -412,12 +412,22 @@ defmodule Whiska.InstallStatuslineTest do
 
       # The line that tells the person where their own words go says it too.
       assert prose =~
-               ~r/Or write anything else and it goes to <branch>; comments on the write-up are offered first/
+               ~r/Or write anything else and it goes to <branch>; comments on the research document are offered first/
     end
 
-    test "a review of a write-up is read as one, whichever finished line it follows" do
+    # A bug's research document goes out on a decision, and comments on it
+    # are the person's answer to that decision (ADR-0063).
+    test "a review of a bug's research document, on a decision, is their answer" do
       core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
-      assert core =~ ~r/a review of a write-up.{0,80}`sniff.md`'s "Comments on the write-up"/i
+      assert core =~ ~r/a review of a research document on any finished line → `sniff.md`'s/i
+      assert core =~ ~r/their own words\. To a decision: `whiska reply <id> "<their words>"`/
+    end
+
+    test "a review of a research document is read as one, whichever finished line it follows" do
+      core = delivered("SKILL.md") |> String.replace(~r/\s+/, " ")
+
+      assert core =~
+               ~r/a review of a research document.{0,80}`sniff.md`'s "Comments on the research document"/i
     end
 
     test "every other finished line goes to the options for its branch" do
@@ -570,10 +580,10 @@ defmodule Whiska.InstallStatuslineTest do
       assert commit =~ "`git -C <worktree> commit -F <file>`"
 
       assert commit =~
-               ~r/Whiska's own `\.whiska-mouse`, `\.whiska-spec\.md` and `\.whiska-writeup\.md` are never committed.{0,40}left out of the list/i
+               ~r/Whiska's own `\.whiska-mouse`, `\.whiska-spec\.md`, `\.whiska-research\.md` and `\.whiska-plan\.md` are never committed.{0,40}left out of the list/i
 
       assert commit =~
-               "run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md' ':!.whiska-writeup.md'`"
+               "run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md' ':!.whiska-research.md' ':!.whiska-plan.md'`"
 
       assert commit =~
                ~r/`git -C <worktree> diff --cached --name-only --no-renames`.{0,160}`git -C <worktree> reset`, stop/i

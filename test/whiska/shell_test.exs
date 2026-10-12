@@ -328,12 +328,12 @@ defmodule Whiska.ShellTest do
     end
   end
 
-  # A sniff mouse can write one file, its write-up, and a Markdown heading is a
+  # A sniff mouse can write one file, its research document, and a Markdown heading is a
   # comment line to git, awk and sed (ADR-0034). Anyone else may already write
   # any file, so only the sniff rule asks for these.
   describe "a program or config loaded from a file" do
     for command <- [
-          "GIT_CONFIG_GLOBAL=.whiska-writeup.md git diff",
+          "GIT_CONFIG_GLOBAL=.whiska-research.md git diff",
           "GIT_CONFIG_SYSTEM=./c git log -p",
           "GIT_CONFIG=./c git log",
           "RIPGREP_CONFIG_PATH=./rc rg foo",

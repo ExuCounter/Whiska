@@ -98,16 +98,22 @@ defmodule Whiska.InstallSpecSkillTest do
       assert body =~ ~r/build only after they say ok/i
     end
 
-    test "the question is the line `whiska spec-link` prints, then ok to build" do
+    test "the question is the lines `whiska spec-link` prints, spec and build plan, then ok to build" do
       body = prose("whiska-spec")
 
       assert body =~ "`whiska spec-link '<spec title>'`"
       assert body =~ ~S(each `'` in it written `'\''`)
       assert body =~ "`Review spec here: [<spec title>](<link>)`"
+      assert body =~ "`Review build plan here: [<spec title>](<link>)`"
       assert body =~ Whiska.Spec.filename()
 
       assert body =~ ~s("ok to build?")
       refute body =~ "Spec for the review"
+    end
+
+    test "the build plan is written with `whiska-plan` before the question" do
+      assert prose("whiska-spec") =~
+               ~r/run `whiska-plan`.{0,200}\*\*Ask\.\*\*/is
     end
 
     test "only a worktree session ends the question on a marker" do
@@ -117,10 +123,6 @@ defmodule Whiska.InstallSpecSkillTest do
     test "any other answer revises the file and sends the link again" do
       assert prose("whiska-spec") =~
                ~r/anything else → change the file to match.{0,80}send the link again/is
-    end
-
-    test "the test seams are approved with the spec, not in a round of their own" do
-      assert prose("whiska-spec") =~ ~r/ok on the spec is their ok on the seams/i
     end
 
     test "a costly choice the spec does not settle is a new decision, not a quiet edit" do
@@ -137,14 +139,25 @@ defmodule Whiska.InstallSpecSkillTest do
         "Solution",
         "What Changes for Users",
         "User Stories",
-        "Implementation Decisions",
-        "Testing Decisions",
+        "Decisions",
         "Out of Scope",
         "Further Notes"
       ]
 
       at = Enum.map(sections, &index_of(body, "## #{&1}"))
       assert at == Enum.sort(at)
+    end
+
+    # The cold review holds the diff against the spec and must not see how the
+    # builder chose to build it (ADR-0049).
+    test "how it is built goes to the build plan, never the spec" do
+      body = skill("whiska-spec")
+
+      refute body =~ "## Implementation Decisions"
+      refute body =~ "## Testing Decisions"
+
+      assert String.replace(body, ~r/\s+/, " ") =~
+               ~r/test seams, the first failing test, where the code lives, internal interfaces and the rejected approach go to the build plan/i
     end
 
     test "the spec fits on one screen; longer means the brief holds more than one build" do
@@ -183,19 +196,12 @@ defmodule Whiska.InstallSpecSkillTest do
       assert body =~ ~r/never left out/i
     end
 
-    test "implementation decisions name the alternative passed over, citing the ADR" do
+    test "decisions name the alternative passed over, citing the ADR" do
       body = prose("whiska-spec")
 
       assert body =~ ~r/the alternative passed over/i
       assert body =~ ~r/the adr that governs it/i
-
-      assert body =~
-               ~r/docs upkeep are left to the build/i
-    end
-
-    test "testing decisions name the seam, the first failing test and prior art" do
-      assert prose("whiska-spec") =~
-               ~r/the seam, the first failing test, and prior art in one line/i
+      assert body =~ ~r/a user or a calling program sees/i
     end
 
     test "further notes hold only what changes the ok; a grilling answer appears once" do
@@ -229,9 +235,9 @@ defmodule Whiska.InstallSpecSkillTest do
                ~r/\*\*proposed build\*\*.{0,40}found as fact.{0,120}still grills? the design/is
     end
 
-    test "a build from a write-up reads it and the person's comments, and asks nothing they settle" do
+    test "a build from a research document reads it and the person's comments, and asks nothing they settle" do
       assert prose("grilling") =~
-               ~r/its write-up.{0,80}the person's comments.{0,80}a choice they settle is not asked again/is
+               ~r/its research document.{0,80}the person's comments.{0,80}a choice they settle is not asked again/is
     end
 
     test "a research-only mouse grills the research question only, never design" do

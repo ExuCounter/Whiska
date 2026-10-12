@@ -19,8 +19,9 @@ line, then steps 5 and 6.
 
 ## 1. Read the work back against what was asked
 
-The brief, its spec in `.whiska-spec.md` when there is one, the ticket it names, and the
-glossary and decisions `specs:` points at, or where they plainly live. Done when the
+The brief, its spec in `.whiska-spec.md` when there is one (a bug's:
+`.whiska-research.md`), the ticket it names, and the glossary and decisions `specs:`
+points at, or where they plainly live. Done when the
 change holds every piece asked for and agrees with every decision it touches.
 
 - It contradicts a decision, or a piece is missing → fix it now.
@@ -99,8 +100,8 @@ end the turn on a decision for the person: what fails, what was tried, what is l
 ## 5. Commit the work
 
 Commit every change the brief made, on its branch, in this repo's style, after the last
-fix. Delete this turn's scratch files. Whiska's own `.whiska-mouse`, `.whiska-spec.md`
-and `.whiska-writeup.md` are never committed, deleted or named. Done when
+fix. Delete this turn's scratch files. Whiska's own `.whiska-mouse` and `.whiska-*.md`
+files are never committed, deleted or named. Done when
 `git status --porcelain` prints nothing but those and what the second line leaves.
 
 - **Never push.**
@@ -121,9 +122,9 @@ written the code. Beside its six lines:
   stayed. A security finding follows the same rule. Quote no finding; list no axis
   the table did not fire.
 - **Against the spec:** each behaviour change in the diff a user or a calling program
-  would see, one line each, marked **approved** where the spec's What Changes for Users or
-  decisions name it and **not approved** otherwise. No spec → the brief's own words stand
-  in for it. No such change → one line saying so.
+  would see, one line each, marked **approved** where the spec names it and **not
+  approved** otherwise. No spec → a bug's research document stands in, else the brief's
+  own words. No such change → one line saying so.
 - **Needs attention**, last but the agents list, when a change is **not approved** or you
   advise a step on this branch before it lands: read `needs-attention.md` beside this file.
 - **Agents**, last: run `whiska ledger` and copy its lines, never estimated, under

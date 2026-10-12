@@ -17,7 +17,7 @@ defmodule Whiska.Owl.HouseTest do
   alias Whiska.Owl.House
   alias Whiska.Schema.Question
   alias Whiska.Storage
-  alias Whiska.Writeup
+  alias Whiska.Research
 
   setup :verify_on_exit!
   setup {Whiska.Test.QuietSidebar, :stub_sidebar}
@@ -128,7 +128,9 @@ defmodule Whiska.Owl.HouseTest do
       end)
     end
 
-    test "hides a write-up from git in every worktree, as it hides the marker", %{main: main} do
+    test "hides a research document from git in every worktree, as it hides the marker", %{
+      main: main
+    } do
       stub(Herdr, :list_panes, fn @socket -> panes([]) end)
       stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
 
@@ -136,7 +138,7 @@ defmodule Whiska.Owl.HouseTest do
 
       lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
       assert Whiska.Marker.exclude_line() in lines
-      assert Writeup.exclude_line() in lines
+      assert Research.exclude_line() in lines
     end
 
     test "subscribes to the global events and to status changes for each mouse pane", %{
@@ -298,7 +300,53 @@ defmodule Whiska.Owl.HouseTest do
       refute again.spec_sent
     end
 
-    test "a write-up is kept per question, and is never taken for a spec", %{
+    test "a build plan is kept beside its spec, and alone never counts as a spec sent", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      leave_plan = fn stamped_at, plan ->
+        {:ok, _} =
+          Doorstep.leave(main, %Entry{
+            mouse_id: "ma",
+            branch: "feat-a",
+            worktree_root: a,
+            stamped_at: stamped_at,
+            text: "ok to build?\n⁣⁣",
+            spec: "# Spec\n",
+            plan: plan
+          })
+
+        House.collect(house)
+      end
+
+      leave_plan.(~U[2026-10-06 09:00:00Z], "# Build plan\n\nfirst\n")
+      leave_plan.(~U[2026-10-06 10:00:00Z], "# Build plan\n\nsecond\n")
+
+      [first, second] = in_house(house, fn -> Enum.sort_by(Storage.all(Question), & &1.id) end)
+
+      names = Enum.map(Path.wildcard(Path.join(main, ".whiska/specs/*.md")), &Path.basename/1)
+      assert Enum.sort(names) == ["2026-10-06-feat-a.md", "2026-10-06-feat-a.plan.md"]
+
+      plan = File.read!(Path.join(main, ".whiska/specs/2026-10-06-feat-a.plan.md"))
+      assert plan =~ "second"
+      assert plan =~ "question: #{second.id}\n"
+      assert plan =~ "replaced: #{first.id}\n"
+      assert plan =~ "status: waiting\n"
+      assert File.read!(Path.join(main, ".whiska/specs/2026-10-06-feat-a.md")) =~ "# Spec\n"
+
+      assert first.spec_sent
+      refute second.spec_sent
+    end
+
+    test "hides a build plan from git when it opens, as it hides the research document", %{
+      main: main
+    } do
+      lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
+      assert Whiska.BuildPlan.exclude_line() in lines
+    end
+
+    test "a research document is kept per question, and is never taken for a spec", %{
       main: main,
       a: a,
       house: house
@@ -310,13 +358,13 @@ defmodule Whiska.Owl.HouseTest do
           worktree_root: a,
           stamped_at: ~U[2026-10-06 09:00:00Z],
           text: "Found it.\n⁣⁣⁣",
-          writeup: "# Why it hangs\n\nFound.\n"
+          research: "# Why it hangs\n\nFound.\n"
         })
 
       House.collect(house)
 
       [q] = in_house(house, fn -> Storage.all(Question) end)
-      assert File.read!(Writeup.kept(main, q.id)) == "# Why it hangs\n\nFound.\n"
+      assert File.read!(Research.kept(main, q.id)) == "# Why it hangs\n\nFound.\n"
       refute q.spec_sent
       assert Path.wildcard(Path.join(main, ".whiska/specs/*")) == []
 
@@ -324,7 +372,7 @@ defmodule Whiska.Owl.HouseTest do
       assert "/.whiska/" in String.split(exclude, "\n")
     end
 
-    test "a write-up is kept for every question that carried one, finished or not", %{
+    test "a research document is kept for every question that carried one, finished or not", %{
       main: main,
       a: a,
       house: house
@@ -336,14 +384,14 @@ defmodule Whiska.Owl.HouseTest do
           worktree_root: a,
           stamped_at: ~U[2026-10-06 09:00:00Z],
           text: "Which source?\n⁣⁣",
-          writeup: "# Draft\n"
+          research: "# Draft\n"
         })
 
       House.collect(house)
 
       [q] = in_house(house, fn -> Storage.all(Question) end)
       assert q.kind == "needs-decision"
-      assert File.read!(Writeup.kept(main, q.id)) == "# Draft\n"
+      assert File.read!(Research.kept(main, q.id)) == "# Draft\n"
     end
 
     test "a turn with no spec keeps nothing and ignores nothing", %{

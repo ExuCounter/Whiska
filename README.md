@@ -112,7 +112,7 @@ question waits on the **doorstep** until the owl collects it —
   [Details](docs/internals.md#each-mouses-line-in-herdrs-sidebar)
 - **Mice stay out of each other's files** — a build mouse is denied writes into the main
   checkout and the worktrees beside it; a sniff mouse is denied them everywhere but its
-  write-up, the document you review its findings in. Not a sandbox — see below.
+  research document, the document you review its findings in. Not a sandbox — see below.
   [Details](docs/internals.md#what-is-enforced)
 - **The owl comes back by itself** — launchd on macOS, or systemd on Linux, restarts it after
   a crash and at login, and it reopens exactly the houses it had. [Details](docs/internals.md#keeping-the-owl-awake)
@@ -153,7 +153,7 @@ whiska doctor                   check this repo end to end; exits 1 on any failu
 whiska statusline               the tab-bar line
 whiska mode [build|sniff]       this mouse's mode; build|sniff gives one to a mouse nobody
                                 shaped, and refuses on one that has it. sniff writes only
-                                its write-up
+                                its research document
 whiska init [--global]          install into this repo's .claude/, or into ~/.claude
 whiska uninstall [--global]     take it back out; the house is untouched
 whiska start [--force]          record this herdr pane as the repo's main session, and
@@ -228,14 +228,15 @@ under `WHISKA_HOME` when that is set, and only your own user can open it.
   `export WHISKA_DIFF_LINK='hunk-review://{base}..{branch}'`. Set, no diff file is
   written; a pattern without a scheme, or with a space, parenthesis, backslash or control
   character in it, is ignored.
-- **`WHISKA_SPEC_LINK`** — the same for the `Review spec here:` link a mouse sends with its
-  spec, instead of the file link that opens in annotate. The pattern gets `{path}`, the
-  spec file's absolute path, and `{branch}`:
+- **`WHISKA_SPEC_LINK`** — the same for the `Review spec here:`, `Review build plan here:`
+  and `Review research here:` links a mouse sends for your ok, instead of the file links
+  that open in annotate. The pattern gets `{path}`, each file's absolute path, and
+  `{branch}`:
   `export WHISKA_SPEC_LINK='myviewer://open?file={path}'`. The same patterns are ignored.
   Set it in your own shell profile, never from a repo's env file: a pattern decides what
   clicking the link opens.
 - **What the rules actually cover** — a build mouse cannot write into the main checkout or
-  the worktrees under it; a sniff mouse can write only its write-up. **Neither is a sandbox**: a
+  the worktrees under it; a sniff mouse can write only its research document. **Neither is a sandbox**: a
   path elsewhere on the machine is allowed, reads are never policed, and only
   `Write`/`Edit`/`MultiEdit`/`NotebookEdit`/`Bash` go through the hook.
   [Details](docs/internals.md#what-is-enforced).

@@ -70,7 +70,7 @@ defmodule Whiska.Hook.SessionStart do
     end
   end
 
-  @compacted "You were just compacted. Before continuing, read .whiska-spec.md if it exists, run git status, and run whiska questions to see what was asked and answered."
+  @compacted "You were just compacted. Before continuing, read .whiska-spec.md, .whiska-research.md and .whiska-plan.md where they exist, run git status, and run whiska questions to see what was asked and answered."
 
   defp with_compaction(rules, :mouse, "compact"), do: rules <> "\n\n" <> @compacted
   defp with_compaction(rules, _role, _source), do: rules

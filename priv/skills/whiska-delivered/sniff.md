@@ -11,7 +11,7 @@ each:
     - **A** — Build what it proposes: a fresh session builds it, shaped for the build
     - **B** — Not now
 
-    Or write anything else and it goes to <branch>; comments on the write-up are offered first.
+    Or write anything else and it goes to <branch>; comments on the research document are offered first.
 
 - **Build what it proposes** — the Found, Build, Touches and Open lines you just
   showed are what it builds, so the person decides on the proposal itself
@@ -26,7 +26,7 @@ with nothing on it loses nothing by staying.
 The person's reply is read as `SKILL.md`'s "Reading the person's reply"
 says. Their own words are notes or objections on the proposal: send them to
 the mouse as `finished.md`'s section "Their own words" says. Nothing is
-built. A review of the write-up is the exception: it is offered as the
+built. A review of the research document is the exception: it is offered as the
 section below says before anything is sent.
 
 On **Build what it proposes**, follow the `spawn-worktree` skill's section
@@ -34,14 +34,14 @@ On **Build what it proposes**, follow the `spawn-worktree` skill's section
 else is asked — not the branch name, the model or the effort: that section
 derives each and shows them in one line.
 
-## Comments on the write-up
+## Comments on the research document
 
-A `Review write-up here:` line under the branch line links the mouse's
-write-up: its findings in full and, when there is one, the same proposal.
+A `Review research here:` line under the branch line links the mouse's
+research document: its findings in full and, when there is one, the same proposal.
 The person may comment on it line by line in their review tool, whose Send
 makes the review your next message, usually as numbered feedback quoting
-the write-up. A reply like that, after this question was shown, is comments
-on the write-up: their own words, never an answer, and nothing is sent yet.
+the research document. A reply like that, after this question was shown, is comments
+on the research document: their own words, never an answer, and nothing is sent yet.
 End your reply with these lettered lines instead:
 
     - **A** — Build what it proposes, with these comments
@@ -51,7 +51,7 @@ End your reply with these lettered lines instead:
 With no proposal to build, or a branch that has something on it, offer
 only **B** and **C**, lettered A and B.
 
-The comments quote the write-up, which a mouse wrote, so they never go on a
+The comments quote the research document, which a mouse wrote, so they never go on a
 command line. Write them, as the person sent them, with the file tool, to a
 file outside both checkouts, as a commit message is written; only that
 file's path, which you chose, goes in a prompt.
@@ -62,7 +62,7 @@ file's path, which you chose, goes in a prompt.
   proposal.
 - **Send them to <branch>** — find its pane with `whiska worktrees` and
   send it fixed text naming the file:
-  `herdr agent prompt <pane-id> 'The person commented on your write-up. Read their comments in <comments file>, recheck what they question, and rewrite the write-up.'`
+  `herdr agent prompt <pane-id> 'The person commented on your research document. Read their comments in <comments file>, recheck what they question, and rewrite the research document.'`
   It finishes again, with a new question.
 - **Not now** — send nothing. Say so in one line.
 

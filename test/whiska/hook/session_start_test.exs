@@ -123,7 +123,7 @@ defmodule Whiska.Hook.SessionStartTest do
   end
 
   describe "the compaction line" do
-    @line "You were just compacted. Before continuing, read .whiska-spec.md if it exists, run git status, and run whiska questions to see what was asked and answered."
+    @line "You were just compacted. Before continuing, read .whiska-spec.md, .whiska-research.md and .whiska-plan.md where they exist, run git status, and run whiska questions to see what was asked and answered."
 
     defp start_from(cwd, source, env) do
       payload =
@@ -132,7 +132,8 @@ defmodule Whiska.Hook.SessionStartTest do
       capture_io(payload, fn -> assert CLI.session_start(env) == 0 end)
     end
 
-    test "a compacted mouse is told to re-read its spec, git status and questions", c do
+    test "a compacted mouse is told to re-read its spec, research document, build plan, git status and questions",
+         c do
       rules = c.worktree |> start_from("compact", herdr(c.home)) |> context()
 
       assert rules =~ @line

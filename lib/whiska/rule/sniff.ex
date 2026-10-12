@@ -9,7 +9,7 @@ defmodule Whiska.Rule.Sniff do
   chooses a mode (ADR-0069).
 
   That "all" is the whole point: where the edit points is irrelevant, bar one
-  file. A sniff mouse may write its write-up, the document a finished
+  file. A sniff mouse may write its research document, the document a finished
   investigation leaves for the person to review (ADR-0074), with `Write` or
   `Edit`, and only at its own worktree root, never through a link. A mouse
   nobody shaped gets no such exception: it is told to stop and ask.
@@ -21,7 +21,7 @@ defmodule Whiska.Rule.Sniff do
   """
 
   alias Whiska.Shell
-  alias Whiska.Writeup
+  alias Whiska.Research
 
   @edit_tools ~w(Write Edit MultiEdit NotebookEdit)
 
@@ -29,7 +29,7 @@ defmodule Whiska.Rule.Sniff do
 
   @doc """
   Decide one tool call for a mouse in `mode`, whose worktree is at
-  `worktree_root`; with none, no write-up is recognised.
+  `worktree_root`; with none, no research document is recognised.
   """
   @spec decide(String.t(), map(), String.t(), Path.t() | nil) :: decision()
   def decide(tool_name, tool_input, mode, worktree_root \\ nil)
@@ -44,7 +44,7 @@ defmodule Whiska.Rule.Sniff do
 
   def decide(tool_name, %{"file_path" => path}, "sniff", root)
       when tool_name in ~w(Write Edit) and is_binary(path) and is_binary(root) do
-    if Writeup.target?(path, root),
+    if Research.target?(path, root),
       do: :allow,
       else: {:deny, reason("sniff", "#{tool_name} writes to disk")}
   end
@@ -86,10 +86,10 @@ defmodule Whiska.Rule.Sniff do
     including inside its own worktree (ADR-0069). Reading tools are unaffected:
     Read, Grep and Glob all work, as do read-only shell commands like
     `git log`, `git diff` and `grep`. The one file it may write, with Write or
-    Edit, is its write-up: `#{Writeup.filename()}` at the worktree root.
+    Edit, is its research document: `#{Research.filename()}` at the worktree root.
 
     If the work needs a change, do not make it and do not ask to switch modes.
-    Finish the investigation: write the write-up, and end the report on the
+    Finish the investigation: write the research document, and end the report on the
     finished marker with a **Proposed build** block — Found, Build, Touches,
     Open — as the `whiska-finish` skill describes. The person can then hand it
     to a fresh session shaped for the build.

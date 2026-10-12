@@ -28,7 +28,7 @@ Two rules, both through Claude Code's `PreToolUse` hook, both denied immediately
   into the main checkout. So `sed -i`, a redirect and `git -C <main> commit` are denied;
   `cat <main>/CONTEXT.md` and `grep -r <main>` are not.
 - **A sniff mouse may not change anything at all**, its own worktree included, but its
-  write-up: `.whiska-writeup.md` at its worktree root, with `Write` or `Edit`, never
+  research document: `.whiska-research.md` at its worktree root, with `Write` or `Edit`, never
   through a link and never from the shell.
 
 Notes:
@@ -167,9 +167,9 @@ What it writes, and why each part is the way it is:
 `whiska init` also writes the worktree protocol into the repo's own `CLAUDE.md`
 (ADR-0081) and installs the skills that drive it — `spawn-worktree`, `send-to-worktree`
 and `drop-worktree` (ADR-0056), `whiska-finish`, which holds the finishing pipeline
-the block only points at (ADR-0081), `whiska-spec`, which a mouse runs before building almost any brief, and
-the person's own `grilling` skill
-(ADR-0063). The block is rules, not prose: an imperative or a
+the block only points at (ADR-0081), `whiska-spec` and `whiska-plan`, which a mouse runs
+before building almost any brief, `whiska-research`, which it runs for a bug and at the
+end of an investigation, and the person's own `grilling` skill (ADR-0063). The block is rules, not prose: an imperative or a
 concrete fact per line, with the reasoning left in these ADRs. It is a nest of named
 markers, one pair per part:
 

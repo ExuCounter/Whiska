@@ -16,13 +16,14 @@ for the rest.
 
 A mouse whose `SessionStart` carries `source` `compact` gets one more line after its
 rules, fixed text and nothing parsed: "You were just compacted. Before continuing, read
-.whiska-spec.md if it exists, run git status, and run whiska questions to see what was
-asked and answered." The main session, and a mouse that starts, resumes or clears, get
-no such line. The compaction summary is Claude Code's and can lose what the mouse was
-told; these commands read the spec, the work and the questions back from disk.
+.whiska-spec.md, .whiska-research.md and .whiska-plan.md where they exist, run git status,
+and run whiska questions to see what was asked and answered." The main session, and a
+mouse that starts, resumes or clears, get no such line. The compaction summary is Claude
+Code's and can lose what the mouse was told; these commands read the spec, research
+document and build plan, the work and the questions back from disk.
 
-`work` is the order every piece of work goes in — done, grill, spec, build — and what
-counts as costly; both roles need it, since the main session follows it when the person
+`work` is the order every piece of work goes in — done, grill, spec and build plan,
+build, or for a bug its research document — and what counts as costly; both roles need it, since the main session follows it when the person
 says to work in place. `writing` is how every session writes to the person, and both
 roles get it too. Claude Code runs the hook on startup, resume, `/clear` and
 compaction, so a compacted session is told its rules again. A session with no transcript

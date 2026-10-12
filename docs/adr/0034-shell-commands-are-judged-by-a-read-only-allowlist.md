@@ -71,7 +71,7 @@ redirects with `>`, calls `system()`, or pipes its output, all of which sit insi
 quoted argument where the mask deliberately hides them from the redirect check. A
 program read from a file cannot be judged at all, so a read-only mouse is denied
 `awk -f` (and gawk's `-i`, `-E`, `-l`, `-D`, `@include` and `@load`, mawk's `-W`)
-and `sed -f`: a sniff mouse can write a file, its write-up (ADR-0069), and a Markdown
+and `sed -f`: a sniff mouse can write a file, its research document (ADR-0069), and a Markdown
 heading is a comment line to awk and sed. The main-checkout rule (ADR-0013) still
 allows them, since a build mouse can write and run any program in its own worktree
 already, so denying them there would stop nothing.
@@ -101,15 +101,15 @@ Code loaded into the process (`DYLD_INSERT_LIBRARIES`, `LD_PRELOAD`), a trace fi
 config file — `GIT_CONFIG_GLOBAL`, `GIT_CONFIG_SYSTEM`, `GIT_CONFIG`,
 `RIPGREP_CONFIG_PATH`, `LESSKEY`, `LESSKEYIN` and their `_SYSTEM` forms — unless it is
 `/dev/null`, and `MANROFFOPT`, whose `-U` lets a page run a command: a sniff mouse can
-write a file, its write-up (ADR-0069), and a Markdown heading is a comment line to git,
-so the write-up can be a config whose `diff.external` runs anything. The main-checkout
+write a file, its research document (ADR-0069), and a Markdown heading is a comment line to git,
+so the research document can be a config whose `diff.external` runs anything. The main-checkout
 rule allows such a value, as it allows `awk -f`. A folder — `HOME`,
 `XDG_CONFIG_HOME`, `GIT_DIR`, `PATH` — is allowed, and so is any variable not named
 here. The reason is who pays: `PAGER=cat git log` and `GIT_CONFIG_GLOBAL=/dev/null` are
 how ordinary investigation keeps git quiet and isolated, so denying them blocks every
 mouse, every day. The case a folder guards against needs a hostile config already on
 disk under the name the tool looks for, which a sniff mouse cannot write itself: its
-write-up has its own name. That gap is accepted on purpose: `HOME=./h git status` with
+research document has its own name. That gap is accepted on purpose: `HOME=./h git status` with
 a crafted `.gitconfig` in `./h` still runs that config's `core.fsmonitor`.
 
 Where it is unclear, it leans toward denying: a long flag counts at any prefix of a

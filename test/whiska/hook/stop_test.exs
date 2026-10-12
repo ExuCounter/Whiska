@@ -66,24 +66,37 @@ defmodule Whiska.Hook.StopTest do
     assert [{_, %Entry{spec: "# Spec\n\nBuild it.\n"}}] = Doorstep.waiting(main)
   end
 
-  test "carries the worktree's write-up beside its spec", %{main: main, worktree: worktree} do
-    File.write!(Path.join(worktree, ".whiska-writeup.md"), "# Why it hangs\n\nFound.\n")
-
-    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "done"}))
-
-    assert [{_, %Entry{spec: nil, writeup: "# Why it hangs\n\nFound.\n"}}] =
-             Doorstep.waiting(main)
-  end
-
-  test "a write-up that is a pipe is left out rather than read forever", %{
+  test "carries the worktree's research document beside its spec", %{
     main: main,
     worktree: worktree
   } do
-    {_, 0} = System.cmd("mkfifo", [Path.join(worktree, ".whiska-writeup.md")])
+    File.write!(Path.join(worktree, ".whiska-research.md"), "# Why it hangs\n\nFound.\n")
 
     :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "done"}))
 
-    assert [{_, %Entry{writeup: nil, text: "done"}}] = Doorstep.waiting(main)
+    assert [{_, %Entry{spec: nil, research: "# Why it hangs\n\nFound.\n"}}] =
+             Doorstep.waiting(main)
+  end
+
+  test "carries the worktree's build plan beside its spec", %{main: main, worktree: worktree} do
+    File.write!(Path.join(worktree, ".whiska-spec.md"), "# Spec\n")
+    File.write!(Path.join(worktree, ".whiska-plan.md"), "# Build plan\n\nOne module.\n")
+
+    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "ok to build?"}))
+
+    assert [{_, %Entry{spec: "# Spec\n", plan: "# Build plan\n\nOne module.\n"}}] =
+             Doorstep.waiting(main)
+  end
+
+  test "a research document that is a pipe is left out rather than read forever", %{
+    main: main,
+    worktree: worktree
+  } do
+    {_, 0} = System.cmd("mkfifo", [Path.join(worktree, ".whiska-research.md")])
+
+    :ok = Stop.run(payload(%{"cwd" => worktree, "last_assistant_message" => "done"}))
+
+    assert [{_, %Entry{research: nil, text: "done"}}] = Doorstep.waiting(main)
   end
 
   test "a spec JSON cannot carry is left out, and the message still arrives", %{

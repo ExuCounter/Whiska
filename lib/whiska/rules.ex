@@ -56,14 +56,17 @@ defmodule Whiska.Rules do
   2. **Grill.** Read the code first, then run the `grilling` skill. It asks only the
      **costly** choices; a cheap one is never a question. Nothing costly to ask → send no
      round. In a mouse each round ends with the decision marker. A "done" or failing test
-     that needs a guess — a bug report with no stated right behaviour, two readings that
-     lead to different work — is costly.
-  3. **Spec.** After the last grilling round, or with no round sent, run `whiska-spec`: it
-     writes the spec to `#{Whiska.Spec.filename()}`, and a link to the spec goes to the person
-     as a question. Build only on their ok; any other answer, revise it and ask again. A
-     sniff mouse writes no spec.
-  4. **Build.** A mouse sends no plan; it builds, and stops only on a real decision —
-     every costly choice is one, found before the build or during it, and so is its spec.
+     that needs a guess — two readings that lead to different work — is costly.
+  3. **Spec.** After the last grilling round, or with no round sent, `whiska-spec` and
+     `whiska-plan` write `#{Whiska.Spec.filename()}` and `#{Whiska.BuildPlan.filename()}`, both
+     linked in one question. Build only on their ok; else revise and ask again. A sniff
+     mouse writes no spec.
+  4. **Build.** To both; stop only on a real decision: every costly choice, a costly change
+     to the build plan too.
+
+  **A bug** skips steps 2 and 3 for `whiska-research`: a failing test first, then
+  `#{Whiska.Research.filename()}`, the build plan with it or after a pick. A fix changing
+  more is a feature.
 
   **Costly** to undo: something outside the change depends on it — a file format, an
   interface, stored data, a dependency added or dropped, behaviour the
@@ -71,7 +74,7 @@ defmodule Whiska.Rules do
   the change is built on it. Anything else is cheap: decide it, and list it in the final
   report. Never ask what the brief already spells out.
 
-  Skip grilling and the spec only for: a typo, or a comment or doc no program reads; a
+  Skip all of this only for: a typo, or a comment or doc no program reads; a
   formatting or lint fix; a test-only change; a brief that spells out the exact change. A
   brief naming a symptom ("fix the 500") spells out no change. A change that hides, drops
   or skips anything, or touches secrets, access or a security check, never skips. In

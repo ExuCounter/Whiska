@@ -159,7 +159,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Storage
   alias Whiska.Sidebar
   alias Whiska.Watch
-  alias Whiska.Writeup
+  alias Whiska.Research
 
   @global_subscriptions [
     %{type: "pane.closed"},
@@ -1261,7 +1261,7 @@ defmodule Whiska.Owl.House do
            }),
          {:ok, _} <- Storage.supersede_earlier(question),
          :ok <- keep_spec(state, entry, question),
-         :ok <- keep_writeup(state, entry, question),
+         :ok <- keep_research(state, entry, question),
          :ok <- record_usage(state, entry, question),
          {:ok, _} <- Doorstep.mark_collected(file) do
       true
@@ -1288,13 +1288,23 @@ defmodule Whiska.Owl.House do
         warn(state, "could not keep the spec of question #{question.id} (#{inspect(reason)})")
     end
 
+    with {:error, reason} <- SpecArchive.keep_plan(state.main_checkout, entry, question) do
+      warn(
+        state,
+        "could not keep the build plan of question #{question.id} (#{inspect(reason)})"
+      )
+    end
+
     :ok
   end
 
-  # Like the spec, a write-up that cannot be kept is said and passed over.
-  defp keep_writeup(state, entry, question) do
-    with {:error, reason} <- Writeup.keep(state.main_checkout, entry, question.id) do
-      warn(state, "could not keep the write-up of question #{question.id} (#{inspect(reason)})")
+  # Like the spec, a research document that cannot be kept is said and passed over.
+  defp keep_research(state, entry, question) do
+    with {:error, reason} <- Research.keep(state.main_checkout, entry, question.id) do
+      warn(
+        state,
+        "could not keep the research document of question #{question.id} (#{inspect(reason)})"
+      )
     end
 
     :ok
@@ -1321,14 +1331,20 @@ defmodule Whiska.Owl.House do
       :ok
   end
 
-  # Every worktree's marker and write-up and the folder the worktrees sit in,
-  # hidden from git through the exclude file every worktree reads. A gitignore
-  # of the person's may hide them on one machine; nothing else would, and a
-  # worktree whose marker shows as a change is never taken down (ADR-0061).
-  # A write-up that showed would also read as a change on the branch line, and
-  # the investigation's proposal would go unoffered (ADR-0074).
+  # Every worktree's marker, research document and build plan, and the folder
+  # the worktrees sit in, hidden from git through the exclude file every
+  # worktree reads. A gitignore of the person's may hide them on one machine;
+  # nothing else would, and a worktree whose marker shows as a change is never
+  # taken down (ADR-0061). A research document that showed would also read as a
+  # change on the branch line, and the investigation's proposal would go
+  # unoffered (ADR-0074).
   defp hide_own_files(state) do
-    for line <- [Whiska.Marker.exclude_line(), Writeup.exclude_line(), Layout.exclude_line()],
+    for line <- [
+          Whiska.Marker.exclude_line(),
+          Research.exclude_line(),
+          Whiska.BuildPlan.exclude_line(),
+          Layout.exclude_line()
+        ],
         {:error, reason} <- [Whiska.Spec.ignore(state.main_checkout, line)] do
       warn(state, "could not hide #{line} from git (#{inspect(reason)})")
     end

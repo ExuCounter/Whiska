@@ -89,12 +89,12 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
   `git -C <worktree> status --porcelain --untracked-files=all`, not the
   branch line's first few names: under the option's line, list every file
   that will be committed, so the person can spot a scratch file before it
-  lands. Whiska's own `.whiska-mouse`, `.whiska-spec.md` and
-  `.whiska-writeup.md` are never committed, and are left out of the list. A
+  lands. Whiska's own `.whiska-mouse`, `.whiska-spec.md`, `.whiska-research.md` and
+  `.whiska-plan.md` are never committed, and are left out of the list. A
   file that looks like a secret or local setup — a `.env`, a key, a
   `.claude/` folder `spawn-worktree` copied in — is marked in the list, and no option is recommended, whatever
   the table or `finish:` says: committing it is the person's call. On the pick,
-  run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md' ':!.whiska-writeup.md'`,
+  run `git -C <worktree> add -A -- . ':!.whiska-mouse' ':!.whiska-spec.md' ':!.whiska-research.md' ':!.whiska-plan.md'`,
   then list what is staged with
   `git -C <worktree> diff --cached --name-only --no-renames` and compare its
   paths with the list's; a path in one and not the other →

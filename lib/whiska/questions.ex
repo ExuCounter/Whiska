@@ -139,8 +139,8 @@ defmodule Whiska.Questions do
   said. Each block is exactly what `whiska questions <id>` prints for that one,
   so the two can never drift apart — given the same `on_branch`.
   """
-  @spec render_full(summary(), on_branch() | nil, writeup() | nil) :: String.t()
-  def render_full(%{open: open} = summary, on_branch \\ nil, writeup \\ nil) do
+  @spec render_full(summary(), on_branch() | nil, research() | nil) :: String.t()
+  def render_full(%{open: open} = summary, on_branch \\ nil, research \\ nil) do
     slot = Mode.slot(open, summary.mode)
 
     open_block =
@@ -159,7 +159,7 @@ defmodule Whiska.Questions do
               summary.mode,
               summary.focus,
               on_branch,
-              writeup
+              research
             )
           )
       end
@@ -231,7 +231,7 @@ defmodule Whiska.Questions do
           Mode.t(),
           String.t() | nil,
           on_branch() | nil,
-          writeup() | nil
+          research() | nil
         ) :: String.t()
   def full(
         %Question{} = q,
@@ -240,12 +240,12 @@ defmodule Whiska.Questions do
         mode \\ Mode.none(),
         focus \\ nil,
         on_branch \\ nil,
-        writeup \\ nil
+        research \\ nil
       ) do
     heading =
       "##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})"
 
-    under = finished_branch(q, on_branch) ++ finished_writeup(q, writeup)
+    under = finished_branch(q, on_branch) ++ finished_research(q, research)
 
     """
     #{Enum.join([heading | under], "\n")}
@@ -262,8 +262,8 @@ defmodule Whiska.Questions do
   """
   @type on_branch :: (Question.t() -> {:ok, map()} | {:error, term()})
 
-  @typedoc "Finds the write-up kept for a question, as its path and title, or nil."
-  @type writeup :: (Question.t() -> {Path.t(), String.t()} | nil)
+  @typedoc "Finds the research document kept for a question, as its path and title, or nil."
+  @type research :: (Question.t() -> {Path.t(), String.t()} | nil)
 
   @named 3
 
@@ -283,14 +283,14 @@ defmodule Whiska.Questions do
 
   # Read from Whiska's own copy, so it links wherever the question is read
   # from, and after its worktree is gone.
-  defp finished_writeup(%Question{kind: "done"} = q, writeup) when is_function(writeup, 1) do
-    case writeup.(q) do
-      {path, title} -> ["Review write-up here: [#{title}](#{Review.file_link(path)})"]
+  defp finished_research(%Question{kind: "done"} = q, research) when is_function(research, 1) do
+    case research.(q) do
+      {path, title} -> ["Review research here: [#{title}](#{Review.file_link(path)})"]
       nil -> []
     end
   end
 
-  defp finished_writeup(_question, _writeup), do: []
+  defp finished_research(_question, _research), do: []
 
   defp branch_line({:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}),
     do: "On the branch: #{committed(ahead, base)} · #{uncommitted(uncommitted)}"

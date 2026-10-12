@@ -84,18 +84,26 @@ defmodule Whiska.RulesTest do
         ~r/in a mouse each round ends with the decision marker/i,
       "a guessed done is costly": ~r/failing test that needs a guess.{0,120}is costly/is,
       "the spec follows grilling, or comes straight when nothing was asked":
-        ~r/after the last grilling round, or with no round sent, run `whiska-spec`/i,
+        ~r/after the last grilling round, or with no round sent, `whiska-spec`/i,
       "nothing costly to ask sends no round": ~r/nothing costly to ask → send no round/i,
-      "a link to the spec is the question":
-        ~r/a link to the spec goes to the person as a question/i,
+      "links to the spec and the build plan are one question":
+        ~r/`whiska-plan`.{0,120}both\s+linked in one question/is,
       "build only on their ok": ~r/build only on their ok/i,
-      "a mouse sends no plan, but stops on costly choices":
-        ~r/a mouse sends no plan; it builds, and stops only on a real decision.{0,80}every costly choice/is,
+      "it builds to both, and a costly change to the build plan stops it":
+        ~r/to both; stop only on a real decision.{0,80}every costly choice.{0,80}a\s+costly change to the build plan/is,
+      "a bug takes the research document, not grilling and the spec":
+        ~r/\*\*a bug\*\* skips steps 2 and 3 for `whiska-research`/i,
+      "a bug is reproduced by a failing test before anything is written":
+        ~r/a failing test first, then\s+`\.whiska-research\.md`/,
+      "a bug's build plan goes with it, or after the person's pick":
+        ~r/the build plan with it or after a pick/i,
+      "a fix that changes more than the bug is a feature":
+        ~r/a fix changing\s+more is a feature/i,
       "costly is a test, not an adjective":
         ~r/\*\*costly\*\* to undo: something outside the change depends on it/i,
       "cheap choices are decided and listed": ~r/anything else is cheap: decide it, and list it/i,
-      "only four briefs skip grilling and the spec (ADR-0063)":
-        ~r/skip grilling and the spec only for: a typo, or a comment or doc no program reads; a formatting or lint fix; a test-only change; a brief that spells out the exact change\. A brief naming a symptom/is,
+      "only four briefs skip grilling, the spec and the research document (ADR-0063)":
+        ~r/skip all of this only for: a typo, or a comment or doc no program reads; a formatting or lint fix; a test-only change; a brief that spells out the exact change\. A brief naming a symptom/is,
       "a brief naming a symptom spells out no change":
         ~r/a brief naming a symptom.{0,30}spells out no change/is,
       "a change that hides or drops anything, or touches security, never skips":
@@ -254,12 +262,18 @@ defmodule Whiska.RulesTest do
       end
     end
 
-    test "the spec file is the one Whiska keeps out of git" do
-      assert body_of(:mouse, "work") =~ "`#{Whiska.Spec.filename()}`"
+    test "the files the work is written down in are the ones Whiska keeps out of git" do
+      for file <- [
+            Whiska.Spec.filename(),
+            Whiska.BuildPlan.filename(),
+            Whiska.Research.filename()
+          ] do
+        assert body_of(:mouse, "work") =~ "`#{file}`", file
+      end
     end
 
     test "the skill files named for a session that does not list them are the ones init writes" do
-      for skill <- ["whiska-spec", "grilling"] do
+      for skill <- ["whiska-spec", "whiska-plan", "whiska-research", "grilling"] do
         assert List.keyfind(Install.skills(), ".claude/skills/#{skill}/SKILL.md", 0), skill
         assert body_of(:mouse, "work") =~ "`#{skill}`", skill
       end

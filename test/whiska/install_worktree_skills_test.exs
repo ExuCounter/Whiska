@@ -172,16 +172,16 @@ defmodule Whiska.InstallWorktreeSkillsTest do
       assert prose(section) =~ ~r/never copied from the proposal/i
     end
 
-    # The person's review quotes the write-up, which a mouse wrote, so it
+    # The person's review quotes the research document, which a mouse wrote, so it
     # travels in a file the way a commit message does, and the prompt names
     # only the file.
-    test "carries the person's comments on the write-up in a file the prompt names" do
+    test "carries the person's comments on the research document in a file the prompt names" do
       section = hand_off_section()
 
       prompts = Regex.scan(~r/^\s*herdr agent prompt .*$/m, section) |> List.flatten()
       assert [plain, with_comments] = prompts
 
-      assert plain =~ "write-up"
+      assert plain =~ "research"
 
       filled_in = ~r/<[^>]+>/ |> Regex.scan(with_comments) |> List.flatten() |> Enum.uniq()
       assert filled_in == ["<root-pane-id>", "<id>", "<comments file>"]

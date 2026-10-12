@@ -280,20 +280,25 @@ defmodule Whiska.CLI do
                          four are null. Read one with
                          jq -r '.main_workspace // empty'.
 
-    spec-link <title>    Print the line a mouse sends with its spec: "Review spec
-                         here:" and a link to this worktree's .whiska-spec.md,
-                         or to the viewer a WHISKA_SPEC_LINK pattern names,
-                         its {path} and {branch} filled in.
+    spec-link <title>    Print the lines a mouse sends for its ok: "Review
+                         research here:", "Review spec here:" and "Review
+                         build plan here:", each with a link to this
+                         worktree's .whiska-research.md, .whiska-spec.md or
+                         .whiska-plan.md, for each file written (the spec's
+                         line when none is), or to the viewer a
+                         WHISKA_SPEC_LINK pattern names, its {path} and
+                         {branch} filled in.
 
     mode                 Print this mouse's mode.
     mode build|sniff     Give a mouse nobody shaped its mode. A build mouse
                          makes changes, confined to its own worktree. A sniff
                          mouse investigates and reports, and writes nothing
-                         but its write-up. Refuses a mouse that has a mode: it
-                         keeps it, and a build for what it found goes to a
-                         fresh mouse, from its Proposed build. Like shape,
-                         makes git ignore the worktree's .whiska-spec.md and
-                         .whiska-writeup.md.
+                         but its research document. Refuses a mouse that has
+                         a mode: it keeps it, and a build for what it found
+                         goes to a fresh mouse, from its Proposed build. Like
+                         shape, makes git ignore the worktree's
+                         .whiska-spec.md, .whiska-research.md and
+                         .whiska-plan.md.
 
     shape build|sniff [--model <name>] [--effort <level>]
                          Give a fresh mouse its shape, before Claude starts
@@ -301,12 +306,12 @@ defmodule Whiska.CLI do
                          print the flags to start Claude with, or nothing. A
                          build mouse also gets --autocompact, its model's
                          window from priv/models.json.
-                         Also makes git ignore the worktree's .whiska-spec.md
-                         and .whiska-writeup.md, and clones deps, _build and
-                         node_modules (plus the paths in .git/whiska/clone,
-                         or nothing for a lone `off`) from the main checkout
-                         copy-on-write, saying on stderr what it did; that
-                         never fails the shape.
+                         Also makes git ignore the worktree's .whiska-spec.md,
+                         .whiska-research.md and .whiska-plan.md, and clones
+                         deps, _build and node_modules (plus the paths in
+                         .git/whiska/clone, or nothing for a lone `off`) from
+                         the main checkout copy-on-write, saying on stderr
+                         what it did; that never fails the shape.
                          Fails rather than guess, so a spawn stops before
                          Claude. A model or effort left out is the last rule's
                          in priv/models.json: #{@catch_all}.
@@ -765,7 +770,8 @@ defmodule Whiska.CLI do
       {"~/" <> Install.shim_path(), "the hook shim every hook calls"},
       {"~/.claude/settings.json", "the four hooks"},
       {"~/.claude/skills/", "inbox, show, reply, dismiss, focus, away, hold, resume,"},
-      {"", "whiska-delivered, whiska-finish, cold-review, whiska-spec, grilling,"},
+      {"", "whiska-delivered, whiska-finish, cold-review, whiska-spec,"},
+      {"", "whiska-plan, whiska-research, grilling,"},
       {"", "spawn-worktree, send-to-worktree, drop-worktree"}
     ]
     |> Enum.map_join("\n", fn {path, what} ->
@@ -1247,9 +1253,11 @@ defmodule Whiska.CLI do
     end
   end
 
-  # The spec's review link, as the mouse sends it with its spec. A viewer the
-  # person names in WHISKA_SPEC_LINK takes it; otherwise the file link annotate
-  # opens (ADR-0085). From the main checkout the spec sits at its root.
+  # The review links a mouse sends for its ok: a line for each document it
+  # wrote, the research document, the spec and the build plan in that order
+  # (ADR-0063). A viewer the person names in WHISKA_SPEC_LINK takes each;
+  # otherwise the file link annotate opens (ADR-0085). From the main checkout
+  # the documents sit at its root.
   defp spec_link(cwd, title) do
     title =
       title
@@ -1259,15 +1267,20 @@ defmodule Whiska.CLI do
 
     with true <- title != "" || {:error, :no_title},
          {:ok, root, branch} <- spec_place(cwd || File.cwd!()) do
-      spec = Path.join(root, Whiska.Spec.filename())
+      pattern = System.get_env("WHISKA_SPEC_LINK")
 
-      link =
-        case Review.spec_link(System.get_env("WHISKA_SPEC_LINK"), spec, branch) do
-          {:ok, link} -> link
-          :error -> Review.file_link(spec)
-        end
+      root
+      |> review_documents()
+      |> Enum.map_join("\n", fn {label, path} ->
+        link =
+          case Review.spec_link(pattern, path, branch) do
+            {:ok, link} -> link
+            :error -> Review.file_link(path)
+          end
 
-      say("Review spec here: [#{title}](#{link})")
+        "Review #{label} here: [#{title}](#{link})"
+      end)
+      |> say()
     else
       {:error, :no_title} ->
         IO.puts(:stderr, "whiska: spec-link needs the spec's title.")
@@ -1277,6 +1290,23 @@ defmodule Whiska.CLI do
         IO.puts(:stderr, "whiska: not inside a worktree or a main checkout.")
         1
     end
+  end
+
+  # With none written yet, the spec's line stands, as it always has. A link
+  # at a document's name is passed over, as the Stop hook passes it over: the
+  # person would review its target, and the copy Whiska keeps would not match.
+  defp review_documents(root) do
+    written =
+      for {label, name} <- [
+            {"research", Whiska.Research.filename()},
+            {"spec", Whiska.Spec.filename()},
+            {"build plan", Whiska.BuildPlan.filename()}
+          ],
+          path = Path.join(root, name),
+          match?({:ok, %File.Stat{type: :regular}}, File.lstat(path)),
+          do: {label, path}
+
+    if written == [], do: [{"spec", Path.join(root, Whiska.Spec.filename())}], else: written
   end
 
   defp spec_place(cwd) do
@@ -1362,13 +1392,14 @@ defmodule Whiska.CLI do
   end
 
   # Shaping, or setting the mode of a mouse nobody shaped, comes before the
-  # mouse can write a spec or a write-up. A failure does not stop either: the
+  # mouse can write a spec or a research document. A failure does not stop either: the
   # mouse says so under its spec, and until then the owl only leaves the
   # worktree standing.
   defp ignore_spec(layout) do
     for {name, line} <- [
           {Whiska.Spec.filename(), Whiska.Spec.exclude_line()},
-          {Whiska.Writeup.filename(), Whiska.Writeup.exclude_line()}
+          {Whiska.Research.filename(), Whiska.Research.exclude_line()},
+          {Whiska.BuildPlan.filename(), Whiska.BuildPlan.exclude_line()}
         ] do
       with {:error, reason} <- Whiska.Spec.ignore(layout.main_checkout, line) do
         IO.puts(:stderr, "whiska: could not make git ignore #{name} (#{inspect(reason)}).")
@@ -1745,7 +1776,7 @@ defmodule Whiska.CLI do
   defp render(summary, :listing, _main, _cwd), do: Questions.render(summary)
 
   defp render(summary, :full, main, cwd),
-    do: Questions.render_full(summary, &on_branch(main, &1, reviews?(cwd)), &writeup(main, &1))
+    do: Questions.render_full(summary, &on_branch(main, &1, reviews?(cwd)), &research(main, &1))
 
   # Not repo-scoped: the line is machine-wide and herdr draws one of them for
   # the whole session (ADR-0048). Always 0 and never noisy — this runs every
@@ -2085,12 +2116,12 @@ defmodule Whiska.CLI do
         mode,
         focus,
         &on_branch(main, &1, reviews?(cwd)),
-        &writeup(main, &1)
+        &research(main, &1)
       )
     )
   end
 
-  defp writeup(main, %Question{id: id}), do: Whiska.Writeup.find(main, id)
+  defp research(main, %Question{id: id}), do: Whiska.Research.find(main, id)
 
   # A question read by id comes without its mouse, and one from the listing
   # with it — the house is already closed by the time the listing renders.

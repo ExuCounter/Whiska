@@ -688,7 +688,8 @@ defmodule Whiska.Install do
   # brief.
   #
   # The spec binds a mouse at one moment too, after grilling and before it
-  # builds. The person's grilling skill ships beside it so it has one copy
+  # builds, and so do the build plan beside it and a bug's research document.
+  # The person's grilling skill ships beside them so it has one copy
   # (ADR-0063).
   #
   # `whiska-delivered` is the one skill nobody types a slash command for: the
@@ -698,7 +699,8 @@ defmodule Whiska.Install do
   # off before every example. Its two files of finish options ship beside it and are
   # read only when the line says finished.
   @committed_skills @worktree_skills ++
-                      ~w(whiska-delivered whiska-finish cold-review grilling whiska-spec)
+                      ~w(whiska-delivered whiska-finish cold-review grilling whiska-spec whiska-plan
+                         whiska-research)
 
   # The source is `priv/skills/`, not this repo's own `.claude/skills/`. They
   # are build inputs, and a repo installed globally (ADR-0056) has no committed
@@ -1063,8 +1065,9 @@ defmodule Whiska.Install do
 
   Two kinds, and both are one skill per fixed command rather than bash the model
   composes itself (ADR-0022): the reading skills that wrap `whiska`, and the
-  three worktree skills that wrap `herdr` (ADR-0056). `whiska-finish` and
-  `whiska-spec` are neither: they are steps a mouse's rules point at (ADR-0081).
+  three worktree skills that wrap `herdr` (ADR-0056). `whiska-finish`,
+  `whiska-spec`, `whiska-plan` and `whiska-research` are neither: they are steps a
+  mouse's rules point at (ADR-0081).
   Nor is `grilling`, the person's own skill, shipped so it has one copy.
   """
   @spec skills() :: [{Path.t(), String.t()}]

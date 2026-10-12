@@ -67,17 +67,31 @@ defmodule Whiska.DoorstepTest do
     end
   end
 
-  describe "an entry written before the write-up travelled" do
-    test "still reads, with no write-up" do
+  describe "an entry written before the research document travelled" do
+    test "still reads, with no research document" do
       raw =
         ~s({"mouse_id":"m1","branch":"feat-a","worktree_root":"/w","stamped_at":"2026-10-06T09:00:00Z","text":"hi","spec":null})
 
-      assert {:ok, %Entry{writeup: nil, text: "hi"}} = Entry.decode(raw)
+      assert {:ok, %Entry{research: nil, text: "hi"}} = Entry.decode(raw)
     end
 
-    test "a write-up survives the round trip" do
-      {:ok, back} = entry(%{writeup: "# Found\n"}) |> Entry.encode() |> Entry.decode()
-      assert back.writeup == "# Found\n"
+    test "a research document survives the round trip" do
+      {:ok, back} = entry(%{research: "# Found\n"}) |> Entry.encode() |> Entry.decode()
+      assert back.research == "# Found\n"
+    end
+  end
+
+  describe "an entry written before the build plan travelled" do
+    test "still reads, with no build plan" do
+      raw =
+        ~s({"mouse_id":"m1","branch":"feat-a","worktree_root":"/w","stamped_at":"2026-10-06T09:00:00Z","text":"hi","spec":"# Spec"})
+
+      assert {:ok, %Entry{plan: nil, spec: "# Spec"}} = Entry.decode(raw)
+    end
+
+    test "a build plan survives the round trip" do
+      {:ok, back} = entry(%{plan: "# Build plan\n"}) |> Entry.encode() |> Entry.decode()
+      assert back.plan == "# Build plan\n"
     end
   end
 

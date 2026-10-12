@@ -136,7 +136,15 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ ~r/done when `git status --porcelain` prints nothing/i
 
       assert body =~
-               "Whiska's own `.whiska-mouse`, `#{Whiska.Spec.filename()}` and `#{Whiska.Writeup.filename()}` are never committed, deleted or named"
+               "Whiska's own `.whiska-mouse` and `.whiska-*.md` files are never committed, deleted or named"
+
+      for file <- [
+            Whiska.Spec.filename(),
+            Whiska.Research.filename(),
+            Whiska.BuildPlan.filename()
+          ] do
+        assert file =~ ~r/\A\.whiska-[a-z]+\.md\z/, "#{file} is not one of the .whiska-*.md files"
+      end
 
       assert body =~ ~r/never push/i
     end
@@ -404,7 +412,9 @@ defmodule Whiska.InstallFinishSkillTest do
 
       assert body =~ "**Against the spec**"
       assert body =~ ~r/marked \*\*approved\*\*.{0,120}\*\*not approved\*\* otherwise/i
-      assert body =~ ~r/no spec → the brief's own words stand in for it/i
+
+      assert body =~
+               ~r/no spec → a bug's research document stands in, else the brief's own words/i
     end
 
     test "a change the spec does not approve is always a needs-attention item, one recommended" do
@@ -468,10 +478,10 @@ defmodule Whiska.InstallFinishSkillTest do
       assert body =~ "- Open:"
     end
 
-    test "a proposal goes in a write-up too, which the person reviews line by line" do
+    test "a proposal goes in a research document too, which the person reviews line by line" do
       body = proposal_prose()
 
-      assert body =~ "`#{Whiska.Writeup.filename()}`"
+      assert body =~ "`#{Whiska.Research.filename()}`"
 
       assert body =~
                ~r/before the report.{0,80}what the investigation established.{0,80}the same block/i

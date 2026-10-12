@@ -29,11 +29,12 @@ _Avoid_: main, trunk, target
 **Brief**:
 What a mouse is given to build — the person's own words, routed in whole by
 `spawn-worktree` or `send-to-worktree`, or a **proposal** the person said yes to, handed
-over by its question id alone. A brief is **buildable** once its **spec** has the
-person's ok, and before that no **costly choice** in it may be left open, "done" and the
-failing test that proves it included; an open one gets grilled, after the mouse has read
-the code and before it writes any (ADR-0063). One of the four briefs that skip the spec is
-buildable as it stands: its words are its spec.
+over by its question id alone. A brief is **buildable** once its **spec** and **build
+plan** have the person's ok, or for a bug its **research document** and build plan, and
+before that no **costly choice** in it may be left open, "done" and the failing test that
+proves it included; an open one gets grilled, after the mouse has read the code and
+before it writes any (ADR-0063). One of the four briefs that skip the spec is buildable as
+it stands: its words are its spec.
 _Avoid_: task, ticket
 
 **Grilling**:
@@ -43,7 +44,8 @@ the person's ok. A round asks the whole frontier — every question whose prereq
 already settled — in one message, because each round costs the person a full round trip.
 A sniff mouse grills only the research question — goal, the decision it feeds, scope,
 depth, what to deliver — and never design. With nothing costly to ask, no round is sent
-and the mouse goes straight to its spec.
+and the mouse goes straight to its spec. A bug gets no round: the fix options in its
+**research document** are its questions.
 _Avoid_: interview, clarification
 
 **Costly choice**:
@@ -57,15 +59,16 @@ one (ADR-0063).
 _Avoid_: big decision, one-way door
 
 **Spec**:
-A brief, written down: its problem, what changes for users, user stories, decisions,
-testing and what is out of scope, in `.whiska-spec.md` at the worktree root, which git
-ignores. The mouse writes it with the `whiska-spec` skill after the last grilling round,
-or with no round when nothing costly was open, sends a link to it as a question (the
-person opens the file, in annotate or, when their `WHISKA_SPEC_LINK` holds a link pattern
-with `{path}` and `{branch}`, in their own viewer; the question holds no spec text), and builds only on the person's
-ok. What changes for users is never left out: anything hidden, dropped, skipped or turned
-from an error into silence included, or "Nothing." Every brief gets one but four, named by
-what the change touches: a typo or a comment or doc no program reads, a formatting or lint
+A brief, written down: its problem, what changes for users, user stories, the decisions a
+user or a calling program sees, and what is out of scope, in `.whiska-spec.md` at the
+worktree root, which git ignores. How it is built is in its **build plan**, never here.
+The mouse writes it with the `whiska-spec` skill after the last grilling round, or with no
+round when nothing costly was open, sends a link to it with its build plan's as one
+question (the person opens the files, in annotate or, when their `WHISKA_SPEC_LINK` holds
+a link pattern with `{path}` and `{branch}`, in their own viewer; the question holds no
+spec text), and builds only on the person's ok. What changes for users is never left out: anything hidden, dropped, skipped or turned
+from an error into silence included, or "Nothing." Every brief gets one but a bug, which
+gets a **research document**, and four named by what the change touches: a typo or a comment or doc no program reads, a formatting or lint
 fix, a test-only change, and a brief that spells out the exact change, whose words are its
 spec. A change that hides, drops or skips anything, or touches secrets, access or a
 security check, is never one of the four. A task's size never skips it, and neither does
@@ -73,6 +76,21 @@ having nothing to grill (ADR-0063). A copy of every spec sent is kept in `.whisk
 named by date and branch, with a header saying its question and whether the branch
 landed or was dropped (ADR-0063).
 _Avoid_: plan, design doc, ticket
+
+**Build plan**:
+How a change will be built, as a senior engineer would put it before starting: where it
+lives in the system, the interfaces, file formats and stored data it adds or changes, how
+it will be tested, and the approach turned down and why. The shape of the change, never a
+step-by-step plan: text, with code only for interfaces, data shapes and output the user
+sees, and a diagram only when data moves across three or more parts; a few lines for a
+small change, one screen at most. In `.whiska-plan.md` at the worktree root, which git
+ignores, written with `whiska-plan` beside every spec, or for a bug beside its research
+document or after the person's pick, and approved with it. The cold review never reads it
+(ADR-0049), so the diff is judged against what the person wanted, not against the plan;
+neither the spec nor the research document names it. A costly change to it mid-build is
+a decision for the person. Kept beside its spec in `.whiska/specs/` (ADR-0063). Not the
+main session's 2–4 line plan before work it does in place.
+_Avoid_: plan (bare), design, design doc, implementation plan
 
 **Mouse record**:
 Whiska's own persisted row tracking a mouse — its pane, worktree path, branch label,
@@ -176,8 +194,8 @@ what a **finish** is chosen by (ADR-0074). Under it, when the branch has commits
 writes to `.whiska/reviews/<id>.md` as Markdown, so the person reviews it from a link as
 they review a **spec** — or, when the person's `WHISKA_DIFF_LINK` holds a link pattern,
 that pattern with `{base}` and `{branch}` filled in, pointing at a diff viewer of their own,
-and no file is written (ADR-0085); and when the turn left a **write-up**, its link,
-`Review write-up here:` (ADR-0074).
+and no file is written (ADR-0085); and when the turn left a **research document**, its link,
+`Review research here:` (ADR-0074).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Proposal**:
@@ -192,17 +210,24 @@ mouse shaped for that work rather than flipping the one shaped for the investiga
 Found as fact and grills Open and the design.
 _Avoid_: plan, recommendation, next steps, hand-off (a word **Report** already rejected)
 
-**Write-up**:
-The document a finished investigation writes before its report: what it established, in
-full, then its **proposal**, in `.whiska-writeup.md` at the worktree root, which git
-ignores. With no proposal it is written only when the findings outgrow the report. The
-one file a sniff mouse may write (ADR-0069). Whiska keeps a copy per question in
-`.whiska/writeups/<id>.md`, and `whiska show` links it under the **branch line** as
-`Review write-up here:`, so the person reviews it line by line as they review a
-**spec**. Their comments on it are their own words: built with the proposal, sent to
-the investigating mouse, or not sent (ADR-0074). Never a spec: it is not approved, and
-nothing is built to it but the proposal it carries.
-_Avoid_: findings (a reviewer's word), research doc, report (the message's shape)
+**Research document**:
+What a piece of work found out before anything is built, in `.whiska-research.md` at the
+worktree root, which git ignores: one template, `whiska-research`'s, its sections switched
+on by the kind of work.
+- **A bug's**: written after a failing test reproduces it — before and after, the root
+  cause, what else the fix affects, and fix options with a recommendation only when there
+  is a real choice. It stands in for the spec: the person oks it or picks an option, the
+  pick is written into it, its **build plan** follows, and the cold review holds the fix
+  against it (ADR-0063).
+- **An investigation's**: written before its report — what it established, in full, then
+  its **proposal**. With no proposal it is written only when the findings outgrow the
+  report. The one file a sniff mouse may write (ADR-0069). `whiska show` links it under the
+  **branch line** as `Review research here:`, and the person's comments on it are their
+  own words: built with the proposal, sent to the investigating mouse, or not sent
+  (ADR-0074).
+Whiska keeps a copy per question in `.whiska/research/<id>.md`. First named the write-up,
+for investigations alone.
+_Avoid_: findings (a reviewer's word), write-up, report (the message's shape)
 
 **Needs attention**:
 The block a finished turn ends its report with when the mouse advises a step on the same
@@ -217,7 +242,8 @@ _Avoid_: next step, follow-up, to-do, issues
 **Against the spec**:
 The list a finished report carries of each behaviour change in the diff a user or a
 calling program would see, each marked **approved** where the spec names it and **not
-approved** otherwise; with no spec, none is approved. Each not-approved change becomes a
+approved** otherwise; for a bug its **research document** stands in, and with neither,
+none is approved. Each not-approved change becomes a
 **Needs attention** item, one of them recommended, so the finish options do not recommend
 landing it (ADR-0049).
 _Avoid_: diff summary, changelog
@@ -528,8 +554,8 @@ push needs approval.
 
 **Sniff mode**:
 A mouse mode for investigation only. Never writes code, never pushes — produces a
-report instead, and a **write-up**, the one file it may write. Says nothing about the
-model or the effort: those are chosen apart.
+report instead, and a **research document**, the one file it may write. Says nothing
+about the model or the effort: those are chosen apart.
 _Avoid_: research mode, research mouse (`research/` is the prefix a sniff mouse's branch
 carries, not the mode's name)
 

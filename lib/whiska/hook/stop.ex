@@ -109,15 +109,17 @@ defmodule Whiska.Hook.Stop do
       text: message(payload),
       ran_on: ran_on,
       spec: carried(layout.worktree_root, Whiska.Spec.filename()),
-      writeup: carried(layout.worktree_root, Whiska.Writeup.filename()),
+      research: carried(layout.worktree_root, Whiska.Research.filename()),
+      plan: carried(layout.worktree_root, Whiska.BuildPlan.filename()),
       transcript: transcript_path(payload)
     })
   end
 
-  # The spec, or the write-up, as it stands when the turn ends (ADR-0063).
-  # Anything but a plain UTF-8 file of sane size is the same as absent: a pipe
-  # would hang the read, and bytes JSON cannot carry would crash the encoder,
-  # and either would cost the message itself its place on the doorstep.
+  # The spec, research document or build plan as it stands when the turn ends
+  # (ADR-0063). Anything but a plain UTF-8 file of sane size is the same as
+  # absent: a pipe would hang the read, and bytes JSON cannot carry would crash
+  # the encoder, and either would cost the message itself its place on the
+  # doorstep.
   @carried_max_bytes 256 * 1024
 
   defp carried(worktree_root, filename) do

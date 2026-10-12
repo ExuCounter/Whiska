@@ -17,8 +17,8 @@ Proposed build (ADR-0074).
 
 ## The steps
 
-1. **Read the work back**: the brief, its spec, the ticket it names, the repo's specs,
-   glossary and recorded decisions. A contradiction or a missing piece is fixed now. A
+1. **Read the work back**: the brief, its spec or a bug's research document, the ticket
+   it names, the repo's specs, glossary and recorded decisions. A contradiction or a missing piece is fixed now. A
    decision that is itself out of date is changed in the same piece of work where the
    repo's rules say how; where they do not, it is the person's call. A wrong scope ends
    the turn on a decision.
@@ -40,7 +40,8 @@ Proposed build (ADR-0074).
 
 The report carries an **Against the spec** list: each behaviour change in the diff a user
 or a calling program would see, marked **approved** where the spec's What Changes for
-Users or its decisions name it and **not approved** otherwise (ADR-0063). No spec means
+Users or its decisions name it and **not approved** otherwise (ADR-0063). For a bug the
+research document stands in: its before and after and the option picked. With neither,
 none is approved. Each not-approved change is a **Needs attention** item and one of them
 is recommended, so the finished options stop recommending Land here (ADR-0074). The cold
 review asks the same question of every hunk on its own, so a change the builder left off
@@ -74,7 +75,11 @@ skill names no model, since model names live in `priv/models.json` alone (ADR-00
 
 **The reviewer that always runs is cold.** The `cold-review` skill forks into its own
 read-only subagent, writes its own brief, finds the change itself, reads the decisions as
-they stood at the base, and treats anything the builder wrote as a claim. It runs in the
+they stood at the base, and treats anything the builder wrote as a claim. It holds the
+change against the spec, or a bug's research document, and never reads the build plan
+(ADR-0063), though the person approved it: the build plan is how the builder chose to
+build, and a reviewer handed it judges the diff against the builder's intent, which is
+the brief a cold review exists not to be given. It runs in the
 foreground, after the trigger reviewers go to the background: the stop hook counts only
 `Agent` launches (ADR-0052), so a background skill would be invisible to it. It is not a
 `claude -p` session, which from a worktree would carry the mouse's pane id and be taken
@@ -222,6 +227,9 @@ into the tree. A repo asks for it on `security:`, and pays those costs knowingly
 - A finished report ends with the agent ledger, so a turn's cost is read in the report
   and also recorded in the house at collection, where `whiska metrics` reads it
   (ADR-0086). The checklist's 8,000-character cap holds with the ledger lines in it.
+
+Changed on 2026-10-12: the cold review reads a bug's research document and never the
+build plan (ADR-0063).
 
 Folded in on 2026-10-08: 0014, 0015, 0042, 0054, 0083, 0084 (their text is in git
 history); 0072, a reviewer proposal never applied, was dropped the same day.

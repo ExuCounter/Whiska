@@ -58,7 +58,7 @@ defmodule Whiska.Rule.SniffTest do
 
     test "the reason names the one file a sniff mouse may write" do
       {:deny, reason} = Sniff.decide("Write", %{"file_path" => "lib/x.ex"}, "sniff")
-      assert reason =~ "`.whiska-writeup.md` at the worktree root"
+      assert reason =~ "`.whiska-research.md` at the worktree root"
     end
   end
 end

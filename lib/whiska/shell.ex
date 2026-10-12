@@ -141,11 +141,11 @@ defmodule Whiska.Shell do
   # from one carrying `diff.external`.
   #
   # A value that names one config file loads it, and a sniff mouse can write a
-  # file of its own, its write-up. A Markdown heading is a comment line to git,
-  # so the write-up can be a config whose `diff.external` runs anything: when
+  # file of its own, its research document. A Markdown heading is a comment line to git,
+  # so the research document can be a config whose `diff.external` runs anything: when
   # the caller denies program files, such a value is denied unless it is
   # `/dev/null` (ADR-0034). A folder needs a file under the name the tool looks
-  # for, which the write-up never has.
+  # for, which the research document never has.
   @config_file_variables ~w(
     GIT_CONFIG GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM RIPGREP_CONFIG_PATH
     LESSKEY LESSKEYIN LESSKEY_SYSTEM LESSKEYIN_SYSTEM
@@ -178,7 +178,7 @@ defmodule Whiska.Shell do
   @awk_commands ~w(awk gawk mawk)
 
   # A program read from a file cannot be judged from the command line, and a
-  # sniff mouse can write one as its write-up (ADR-0034). When the caller
+  # sniff mouse can write one as its research document (ADR-0034). When the caller
   # denies program files: `-f`, gawk's `-i`, `-E`, `-l` and `-D` (debugger
   # commands), mawk's `-W`, gawk's `@include` and `@load` inside the program,
   # and `sed -f`. BSD sed's `-l` takes no value, so `-lf` reads a file. gawk
@@ -345,7 +345,7 @@ defmodule Whiska.Shell do
       name in @config_file_variables ->
         files == :deny and value != "/dev/null"
 
-      # groff options for `man`: `-U` lets a page, the write-up too, run a command.
+      # groff options for `man`: `-U` lets a page, the research document too, run a command.
       name == "MANROFFOPT" ->
         files == :deny
 

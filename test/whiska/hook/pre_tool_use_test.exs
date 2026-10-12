@@ -463,26 +463,26 @@ defmodule Whiska.Hook.PreToolUseTest do
       assert reason =~ "sniff"
     end
 
-    test "a sniff mouse may write its write-up and nothing beside it", %{
+    test "a sniff mouse may write its research document and nothing beside it", %{
       main: main,
       worktree: worktree
     } do
       set_mode(main, worktree, "sniff")
-      writeup = Path.join(worktree, ".whiska-writeup.md")
+      research = Path.join(worktree, ".whiska-research.md")
 
       for tool <- ~w(Write Edit) do
         assert :allow =
                  run(%{
                    "cwd" => worktree,
                    "tool_name" => tool,
-                   "tool_input" => %{"file_path" => writeup}
+                   "tool_input" => %{"file_path" => research}
                  })
       end
 
       for path <- [
-            Path.join(worktree, "lib/.whiska-writeup.md"),
-            Path.join(worktree, "writeup.md"),
-            Path.join(main, ".whiska-writeup.md")
+            Path.join(worktree, "lib/.whiska-research.md"),
+            Path.join(worktree, "research.md"),
+            Path.join(main, ".whiska-research.md")
           ] do
         assert {:deny, reason} =
                  run(%{
@@ -498,31 +498,31 @@ defmodule Whiska.Hook.PreToolUseTest do
                run(%{
                  "cwd" => worktree,
                  "tool_name" => "Bash",
-                 "tool_input" => %{"command" => "echo x > .whiska-writeup.md"}
+                 "tool_input" => %{"command" => "echo x > .whiska-research.md"}
                })
 
       assert {:deny, _} =
                run(%{
                  "cwd" => worktree,
                  "tool_name" => "NotebookEdit",
-                 "tool_input" => %{"notebook_path" => writeup}
+                 "tool_input" => %{"notebook_path" => research}
                })
     end
 
-    test "a write-up cannot then be run as a program or a config", %{
+    test "a research document cannot then be run as a program or a config", %{
       main: main,
       worktree: worktree
     } do
       set_mode(main, worktree, "sniff")
 
       for command <- [
-            "GIT_CONFIG_GLOBAL=.whiska-writeup.md git diff",
-            "awk -f .whiska-writeup.md README.md",
-            "sed -f .whiska-writeup.md README.md",
-            "RIPGREP_CONFIG_PATH=.whiska-writeup.md rg foo",
-            "env GIT_CONFIG_GLOBAL=.whiska-writeup.md git diff",
-            "PAGER='awk -f .whiska-writeup.md' git log",
-            "find . -name x -exec sed -f .whiska-writeup.md {} ;"
+            "GIT_CONFIG_GLOBAL=.whiska-research.md git diff",
+            "awk -f .whiska-research.md README.md",
+            "sed -f .whiska-research.md README.md",
+            "RIPGREP_CONFIG_PATH=.whiska-research.md rg foo",
+            "env GIT_CONFIG_GLOBAL=.whiska-research.md git diff",
+            "PAGER='awk -f .whiska-research.md' git log",
+            "find . -name x -exec sed -f .whiska-research.md {} ;"
           ] do
         assert {:deny, _} =
                  run(%{
@@ -553,20 +553,23 @@ defmodule Whiska.Hook.PreToolUseTest do
       end
     end
 
-    test "a write-up that is a link is not written through", %{main: main, worktree: worktree} do
+    test "a research document that is a link is not written through", %{
+      main: main,
+      worktree: worktree
+    } do
       set_mode(main, worktree, "sniff")
-      writeup = Path.join(worktree, ".whiska-writeup.md")
-      File.ln_s!(Path.join(worktree, "lib/x.ex"), writeup)
+      research = Path.join(worktree, ".whiska-research.md")
+      File.ln_s!(Path.join(worktree, "lib/x.ex"), research)
 
       assert {:deny, _} =
                run(%{
                  "cwd" => worktree,
                  "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => writeup}
+                 "tool_input" => %{"file_path" => research}
                })
     end
 
-    test "a mouse nobody shaped may not write a write-up either", %{
+    test "a mouse nobody shaped may not write a research document either", %{
       main: main,
       worktree: worktree
     } do
@@ -576,7 +579,7 @@ defmodule Whiska.Hook.PreToolUseTest do
                run(%{
                  "cwd" => worktree,
                  "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(worktree, ".whiska-writeup.md")}
+                 "tool_input" => %{"file_path" => Path.join(worktree, ".whiska-research.md")}
                })
 
       assert reason =~ "never given a shape"

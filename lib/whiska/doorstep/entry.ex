@@ -15,8 +15,9 @@ defmodule Whiska.Doorstep.Entry do
   `spec` is the text of the worktree's spec file when the turn ended, nil when
   there was none. It travels here because the doorstep is in the house and
   outlives the worktree, so the owl can keep a copy of the spec at collection
-  whatever removes the worktree first (ADR-0063). `writeup` is the worktree's
-  write-up the same way, kept per question (ADR-0074).
+  whatever removes the worktree first (ADR-0063). `research` is the worktree's
+  research document the same way, kept per question (ADR-0074), and `plan` its
+  build plan, kept beside the spec (ADR-0063).
 
   `transcript` is the path of the session's Claude Code transcript, from the
   `Stop` payload, nil when the payload named none and on an entry written before
@@ -33,7 +34,8 @@ defmodule Whiska.Doorstep.Entry do
     :text,
     ran_on: nil,
     spec: nil,
-    writeup: nil,
+    research: nil,
+    plan: nil,
     transcript: nil
   ]
 
@@ -45,7 +47,8 @@ defmodule Whiska.Doorstep.Entry do
           text: String.t(),
           ran_on: String.t() | nil,
           spec: String.t() | nil,
-          writeup: String.t() | nil,
+          research: String.t() | nil,
+          plan: String.t() | nil,
           transcript: Path.t() | nil
         }
 
@@ -60,7 +63,8 @@ defmodule Whiska.Doorstep.Entry do
       "text" => entry.text,
       "ran_on" => entry.ran_on,
       "spec" => entry.spec,
-      "writeup" => entry.writeup,
+      "research" => entry.research,
+      "plan" => entry.plan,
       "transcript" => entry.transcript
     })
   end
@@ -88,7 +92,8 @@ defmodule Whiska.Doorstep.Entry do
          text: text,
          ran_on: if(is_binary(fields["ran_on"]), do: fields["ran_on"]),
          spec: if(is_binary(fields["spec"]), do: fields["spec"]),
-         writeup: if(is_binary(fields["writeup"]), do: fields["writeup"]),
+         research: if(is_binary(fields["research"]), do: fields["research"]),
+         plan: if(is_binary(fields["plan"]), do: fields["plan"]),
          transcript: if(is_binary(fields["transcript"]), do: fields["transcript"])
        }}
     else

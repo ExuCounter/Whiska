@@ -404,6 +404,71 @@ defmodule Whiska.CleanupTest do
       assert File.read!(file) =~ ~r/status: landed \d{4}-\d{2}-\d{2}, branch head #{head}\n/
     end
 
+    test "its build plan says landed beside it", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+
+      entry = %Whiska.Doorstep.Entry{
+        mouse_id: m.id,
+        branch: m.branch,
+        worktree_root: m.path,
+        stamped_at: ~U[2026-10-06 09:00:00Z],
+        text: "ok to build?",
+        spec: "# Spec\n",
+        plan: "# Build plan\n"
+      }
+
+      question = %Whiska.Schema.Question{id: 7}
+      :kept = Whiska.SpecArchive.keep(repo.checkout, entry, question)
+      :kept = Whiska.SpecArchive.keep_plan(repo.checkout, entry, question)
+      [plan] = Path.wildcard(Path.join(Whiska.SpecArchive.dir(repo.checkout), "*.plan.md"))
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      assert File.read!(plan) =~ ~r/status: landed \d{4}-\d{2}-\d{2}, branch head \w{7}\n/
+      assert File.read!(plan) =~ "# Build plan\n"
+    end
+
+    test "a bug's build plan, kept with no spec, never pairs with a later mouse's spec",
+         %{repo: repo} do
+      keep = fn id, fields ->
+        entry =
+          struct(
+            %Whiska.Doorstep.Entry{
+              mouse_id: id,
+              branch: "feat/a",
+              worktree_root: "/w/#{id}",
+              stamped_at: ~U[2026-10-06 09:00:00Z],
+              text: "ok to build?"
+            },
+            fields
+          )
+
+        question = %Whiska.Schema.Question{id: 7}
+        Whiska.SpecArchive.keep(repo.checkout, entry, question)
+        Whiska.SpecArchive.keep_plan(repo.checkout, entry, question)
+      end
+
+      keep.("m-bug", plan: "# Bug plan\n")
+      keep.("m-feature", spec: "# Spec\n", plan: "# Feature plan\n")
+
+      names =
+        repo.checkout
+        |> Whiska.SpecArchive.dir()
+        |> File.ls!()
+        |> Enum.sort()
+
+      assert names == [
+               "2026-10-06-feat-a-2.md",
+               "2026-10-06-feat-a-2.plan.md",
+               "2026-10-06-feat-a.plan.md"
+             ]
+
+      dir = Whiska.SpecArchive.dir(repo.checkout)
+      assert File.read!(Path.join(dir, "2026-10-06-feat-a.plan.md")) =~ "# Bug plan"
+      assert File.read!(Path.join(dir, "2026-10-06-feat-a-2.plan.md")) =~ "# Feature plan"
+    end
+
     test "says waiting while the worktree stands unlanded", %{repo: repo} do
       m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
       file = kept(repo, m)

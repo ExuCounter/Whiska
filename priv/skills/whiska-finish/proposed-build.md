@@ -17,14 +17,15 @@ labels:
 - One proposal: the build to start first. The lines above it need not repeat it.
 - Found nothing that should change → no proposal; the report is the answer.
 
-## The write-up
+## The research document
 
-Before the report, write `.whiska-writeup.md` at the worktree root with the file tool:
-what the investigation established, in full, with the evidence, then the same block. It
-is the document the person reviews line by line, and the build reads it with their
-comments. Start it with a `# ` heading naming what was investigated: its link shows that.
-The report stays short, since the detail is in the write-up, and carries the block as
-well, since the finished options read it there.
+Before the report, write what the investigation established, in full, with the evidence,
+then the same block under Proposed build, to `.whiska-research.md` at the worktree root
+with the file tool: the `whiska-research` skill's template, its investigation sections. It
+is the document the person reviews line by line, and the build reads it with
+their comments. Start it with a `# ` heading naming what was investigated: its link shows
+that. The report stays short, since the detail is in the research document, and carries
+the block as well, since the finished options read it there.
 
 - It is the one file a sniff mouse may write, and git ignores it, so the branch still
   has nothing on it. A mouse nobody shaped may not write it: denied, go on without it.
