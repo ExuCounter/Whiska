@@ -30,8 +30,9 @@ keeps the ordinary options.
 it. Not pushed counts the branch's commits that no remote and no base holds. The options
 are Push to the merge request, Commit and push to the merge request where files are not
 committed, and none once everything is pushed. Land here, Open and Drop are not offered,
-whatever `finish:` says (ADR-0022). A request closed on the forge is invisible here, so
-`drop-worktree` stays the way out.
+whatever `finish:` says (ADR-0022). Once the branch is seen landed, its lines are an
+ordinary branch's again: new commits on it land, or go into a request of their own. A
+request closed on the forge is invisible here, so `drop-worktree` stays the way out.
 
 **While a request waits, the owl fetches its base.** Every 5 minutes on the house's
 backstop, in a task of its own with a 60 s deadline, the base branch alone is fetched into

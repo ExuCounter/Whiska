@@ -30,7 +30,7 @@ _Avoid_: main, trunk, target
 The copy of a **base** last fetched from its remote: where a **merge request** merged on
 the forge shows before anyone pulls. Work it holds has landed as surely as work the base
 here holds. The owl fetches it while a merge request waits, and a fetch the person runs
-moves it too; it is only as fresh as its last fetch, and it never moves the base here
+moves it too; it is only as fresh as its last fetch, and it never moves the local base branch
 (ADR-next-an-opened-merge-request-is-remembered).
 _Avoid_: remote base, upstream (git's word for what a branch pushes to and pulls from)
 
@@ -213,7 +213,7 @@ _Avoid_: model-and-branch line (the statusline's), branch status, status line
 **Merge request**:
 A branch's request, on its forge, to merge into the base. Whiska knows of one only when
 it was opened from the **finish** option, which records its link on the mouse
-(`whiska merge-request`): from then on the branch's finished lines offer a push to it,
+(`whiska merge-request`): until it lands the branch's finished lines offer a push to it,
 and while it waits the owl fetches the base, so its merge on the forge reaches the
 **fetched base** and **cleanup** takes the worktree down. One opened elsewhere, or closed
 on the forge, is not seen (ADR-next-an-opened-merge-request-is-remembered).

@@ -713,6 +713,19 @@ defmodule Whiska.CLIQuestionsTest do
       assert show_one(repo, q) =~ "merge request opened · 1 commit not pushed ·"
     end
 
+    test "a merge request already merged reads as any branch, so new commits can land",
+         %{repo: repo} do
+      q = finished(repo, "feat-s", merge_request: @pr)
+      {:ok, handle} = Storage.open(repo.checkout)
+      {:ok, _} = Storage.mark_landed("m-feat-s")
+      Storage.close(handle)
+
+      shown = show_one(repo, q)
+
+      assert shown =~ "\nOn the branch: 1 commit beyond main · nothing uncommitted\n"
+      refute shown =~ "Merge request:"
+    end
+
     test "commits not pushed are counted, merges included", %{repo: repo} do
       q = finished(repo, "feat-r", merge_request: @pr, push: true)
       path = Path.join([repo.root, "worktrees", "feat-r"])

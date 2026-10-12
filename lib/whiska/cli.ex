@@ -2166,6 +2166,7 @@ defmodule Whiska.CLI do
   defp held(_main, _no_worktree), do: {:error, :no_record}
 
   defp merge_request(_main, held, %Mouse{merge_request_url: nil}), do: {:ok, held}
+  defp merge_request(_main, held, %Mouse{landed_at: %DateTime{}}), do: {:ok, held}
 
   defp merge_request(main, held, %Mouse{merge_request_url: url} = mouse) do
     with {:ok, n} <- Git.not_pushed(main, mouse.branch, mouse.base),
