@@ -772,7 +772,7 @@ defmodule Whiska.CLI do
       {"~/.claude/settings.json", "the four hooks"},
       {"~/.claude/skills/", "inbox, show, reply, dismiss, focus, away, hold, resume,"},
       {"", "whiska-delivered, whiska-finish, cold-review, whiska-spec,"},
-      {"", "whiska-plan, whiska-research, grilling,"},
+      {"", "whiska-plan, whiska-research, whiska-review-replies, grilling,"},
       {"", "spawn-worktree, send-to-worktree, drop-worktree"}
     ]
     |> Enum.map_join("\n", fn {path, what} ->

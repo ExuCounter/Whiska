@@ -14,8 +14,17 @@ and its `reviewers:` line under `## Finish` (ADR-0049). What Whiska itself print
 `CLAUDE.md` line can change, is opted into through the person's environment instead: so
 far only `WHISKA_DIFF_LINK` and `WHISKA_SPEC_LINK`, the diff link's and the spec link's
 patterns (below). A forge's command-line tool,
-`gh` or `glab`, runs only when the person picks "Open a merge request / PR", and its
-absence is said plainly.
+`gh` or `glab`, runs only for something the person asked of a merge request, and its
+absence is said plainly. The cases so far:
+
+- **Opening one:** the person picks "Open a merge request / PR". It is assigned to the
+  account the tool is signed in as, the account that is also its author.
+- **Handling its review:** the person asks a mouse to handle the review on its merge
+  request (the `whiska-review-replies` skill). The mouse reads every open thread, fixes
+  or disputes each, pushes, replies on the thread and resolves a bot's, all under the
+  person's account and without asking along the way. A person's thread is answered but
+  never resolved, and a disagreement with a person goes to the person before anything is
+  posted: resolving their thread, and pushing back on them, are the person's to do.
 
 ## What went
 
@@ -104,5 +113,10 @@ Changed on 2026-10-11: the spec link can do the same through `WHISKA_SPEC_LINK`.
 
 Changed on 2026-10-12: the spec link pattern serves the build plan and a bug's research
 document too (ADR-0063).
+
+Changed on 2026-10-12: the forge tool runs for a list of cases the person asked for, not
+only "Open a merge request / PR": handling a merge request's review joined it, and an
+opened one is assigned to the signed-in account. Before, a mouse asked to handle review
+skipped automated reviewers' comments and asked whether to reply.
 
 Folded in on 2026-10-11: 0075 (its text is in git history).

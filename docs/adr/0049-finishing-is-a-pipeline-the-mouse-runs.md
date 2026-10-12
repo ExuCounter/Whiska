@@ -29,7 +29,9 @@ Proposed build (ADR-0074).
 4. **Round two, then stop.** A fix goes back to step 2. Still red after the second round,
    the turn ends on a decision naming what fails.
 5. **Commit the work** on its branch, in the repo's commit style, after the last fix.
-   Never push. Never a secret, a local setup, `.whiska-mouse` or `.whiska-spec.md`. A
+   Never push: finishing ends at a commit. A push is something the person asks for, such
+   as handling a merge request's review (ADR-0085), and the skill that does it pushes
+   after finishing commits. Never a secret, a local setup, `.whiska-mouse` or `.whiska-spec.md`. A
    repo whose instructions say the person commits keeps that, and the report says so.
 6. **The marker**, under a report that holds each behaviour change against the spec,
    counts the findings fixed, gives one line to each finding left unfixed, and ends with
@@ -227,6 +229,9 @@ into the tree. A repo asks for it on `security:`, and pays those costs knowingly
 - A finished report ends with the agent ledger, so a turn's cost is read in the report
   and also recorded in the house at collection, where `whiska metrics` reads it
   (ADR-0086). The checklist's 8,000-character cap holds with the ledger lines in it.
+
+Changed on 2026-10-12: "never push" binds finishing, not a push the person asked for;
+`whiska-review-replies` pushes after finishing commits (ADR-0085).
 
 Changed on 2026-10-12: the cold review reads a bug's research document and never the
 build plan (ADR-0063).

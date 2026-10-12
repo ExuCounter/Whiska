@@ -169,7 +169,8 @@ What it writes, and why each part is the way it is:
 and `drop-worktree` (ADR-0056), `whiska-finish`, which holds the finishing pipeline
 the block only points at (ADR-0081), `whiska-spec` and `whiska-plan`, which a mouse runs
 before building almost any brief, `whiska-research`, which it runs for a bug and at the
-end of an investigation, and the person's own `grilling` skill (ADR-0063). The block is rules, not prose: an imperative or a
+end of an investigation, `whiska-review-replies`, which handles a merge request's review
+when the person asks (ADR-0085), and the person's own `grilling` skill (ADR-0063). The block is rules, not prose: an imperative or a
 concrete fact per line, with the reasoning left in these ADRs. It is a nest of named
 markers, one pair per part:
 

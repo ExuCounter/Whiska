@@ -698,9 +698,13 @@ defmodule Whiska.Install do
   # since unquoted a space followed by `#` starts a comment and cut the listing
   # off before every example. Its two files of finish options ship beside it and are
   # read only when the line says finished.
+  #
+  # `whiska-review-replies` has no line in a mouse's rules, which are at their size
+  # cap: its description is what a mouse asked to handle a merge request's review
+  # loads it by (ADR-0085).
   @committed_skills @worktree_skills ++
                       ~w(whiska-delivered whiska-finish cold-review grilling whiska-spec whiska-plan
-                         whiska-research)
+                         whiska-research whiska-review-replies)
 
   # The source is `priv/skills/`, not this repo's own `.claude/skills/`. They
   # are build inputs, and a repo installed globally (ADR-0056) has no committed
@@ -1067,7 +1071,8 @@ defmodule Whiska.Install do
   composes itself (ADR-0022): the reading skills that wrap `whiska`, and the
   three worktree skills that wrap `herdr` (ADR-0056). `whiska-finish`,
   `whiska-spec`, `whiska-plan` and `whiska-research` are neither: they are steps a
-  mouse's rules point at (ADR-0081).
+  mouse's rules point at (ADR-0081). Nor is `whiska-review-replies`, a step a mouse
+  loads by its description when the person asks it to handle a merge request's review.
   Nor is `grilling`, the person's own skill, shipped so it has one copy.
   """
   @spec skills() :: [{Path.t(), String.t()}]
