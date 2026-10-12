@@ -463,7 +463,19 @@ defmodule Whiska.InstallStatuslineTest do
           {:ok, %{base: "main", ahead: ahead, uncommitted: files}}
         end
 
-      for branch <- branches ++ [{:error, :no_worktree}, {:error, :ambiguous_base}] do
+      opened =
+        for not_pushed <- [0, 1, 2], files <- [[], ["a.txt"], ~w(a b c d)] do
+          {:ok,
+           %{
+             base: "main",
+             ahead: 1,
+             uncommitted: files,
+             merge_request: "https://github.com/o/r/pull/12",
+             not_pushed: not_pushed
+           }}
+        end
+
+      for branch <- branches ++ opened ++ [{:error, :no_worktree}, {:error, :ambiguous_base}] do
         line = branch_line(branch)
         assert [_one] = Enum.filter(rows, &Regex.match?(&1, line)), "no one row for #{line}"
       end
@@ -603,6 +615,51 @@ defmodule Whiska.InstallStatuslineTest do
 
       assert commit =~ ~r/git refuses.{0,60}stop/i
       assert commit =~ ~r/then exactly as Land here/i
+    end
+
+    # Land here beside an open PR copies its work onto the base and leaves the
+    # PR open; Open makes a second one; Drop loses what is not pushed.
+    test "a merge request opened is offered a push, and never Land here, Open or Drop" do
+      assert options_for("merge request opened · <N> commit(s) not pushed · nothing uncommitted") =~
+               "| Push to the merge request (Recommended) |"
+
+      assert options_for("merge request opened · … · <N> file(s) not committed: …") =~
+               "| Commit and push to the merge request (Recommended) |"
+
+      assert options_for("merge request opened · everything pushed · nothing uncommitted") =~
+               ~r/\| none: .{0,40}see below \|/
+    end
+
+    test "a merge request with everything pushed shows its link and offers nothing" do
+      prose = delivered("finished.md") |> String.replace(~r/\s+/, " ")
+
+      assert prose =~ "## A merge request with everything pushed"
+      assert prose =~ ~r/offer no options.{0,80}`Merge request:` line/i
+      assert prose =~ ~r/the owl takes the worktree down once it .{0,40}merged/i
+      assert prose =~ ~r/a merge request's rows.{0,60}`finish:`.{0,40}never/i
+    end
+
+    test "pushing to the merge request is a plain push from the mouse's worktree" do
+      push = option("Push to the merge request")
+
+      assert push =~ "`git -C <worktree> push`"
+      refute push =~ ~r/--force|push -f|\+HEAD/
+      assert push =~ "never forced"
+      assert push =~ ~r/refuses.{0,120}stop and say why in its own words/i
+
+      commit = option("Commit and push to the merge request")
+      assert commit =~ ~r/commit as Commit and land does/i
+      assert commit =~ ~r/then exactly as Push to the merge request/i
+    end
+
+    # Whiska's own record, never the mouse's word, is what a later finished
+    # line is read against (ADR-0074).
+    test "opening a merge request records it, so later finished lines know" do
+      pr = option("Open a merge request / PR")
+
+      assert pr =~ "`git -C <worktree> push -u origin HEAD`"
+      assert pr =~ ~r/succeeds.{0,80}`whiska merge-request <id> '<url>'`/i
+      assert pr =~ ~r/the link `gh` or `glab` printed/i
     end
 
     test "opening a request commits the rest the same way first" do

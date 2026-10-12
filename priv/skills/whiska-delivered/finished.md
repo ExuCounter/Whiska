@@ -21,7 +21,22 @@ The person's reply is read as `SKILL.md`'s "Reading the person's reply" says.
 | `<N> commit(s) beyond <base> · <N> file(s) not committed: …` | Commit and land (Recommended), Commit and open a PR, Drop it |
 | `nothing committed beyond <base> · <N> file(s) not committed: …` | Commit and land (Recommended), Commit and open a PR, Drop it |
 | `nothing committed beyond <base> · nothing uncommitted` | none: a reply, not a choice — see below |
+| `merge request opened · <N> commit(s) not pushed · nothing uncommitted` | Push to the merge request (Recommended) |
+| `merge request opened · … · <N> file(s) not committed: …` | Commit and push to the merge request (Recommended) |
+| `merge request opened · everything pushed · nothing uncommitted` | none: the merge request has it — see below |
 | `On the branch: unknown — …`, or no such line | as for commits and nothing uncommitted: unknown keeps every option |
+
+## A merge request with everything pushed
+
+The merge request was opened from this branch and has all its work. Offer no
+options: show the message, with the `Merge request:` line `whiska show`
+printed under the branch line, and stop. The owl takes the worktree down once
+it sees the merge request merged into the base. The person's own words go to
+the mouse as on a reply, below. A merge request's rows are the same whatever
+`finish:` says, and never offer Land here, Open a merge request / PR or Drop
+it: landing beside an open merge request copies its work onto the base and
+leaves it open. A person whose merge request was closed drops the worktree
+with `drop-worktree`.
 
 ## A reply: nothing on the branch, no Proposed build
 
@@ -54,7 +69,7 @@ not the table alone. Each item becomes its own lettered option, in the
 mouse's order, showing the item's own line word for word so the person sees exactly
 what a pick sends, and reading only that block, one line per item, before the table's options for
 that branch line (Land here, Open a merge request / PR, Drop it, or their
-commit-first forms), which stay and keep their order. The item the mouse
+commit-first forms; for a merge request, its push), which stay and keep their order. The item the mouse
 marked `(recommended)` carries "(Recommended)". No other option carries
 "(Recommended)", whatever the table or `finish:` says: Land here and Commit
 and land are never "(Recommended)" once the mouse has marked an item. The exception is a Commit and
@@ -104,7 +119,8 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
   `git -C <worktree> commit -F <file>`: no path or word the mouse wrote goes
   on the command line. Git refuses — a hook, nothing to commit → stop and
   say why in its own words; nothing lands. Then exactly as Land here.
-- **Open a merge request / PR** — push the branch and open it with `gh`
+- **Open a merge request / PR** — push the branch with its upstream set,
+  `git -C <worktree> push -u origin HEAD`, and open it with `gh`
   or `glab`, whichever this repo's host wants, assigned to the account that
   tool is signed in as: `gh pr create --assignee @me`, or
   `glab mr create --assignee <username>` with the username `glab api user`
@@ -112,9 +128,21 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
   just showed: the branch's own session wrote it, with context you lack, so
   carry it over rather than composing a summary from the diff. Neither
   tool installed or signed in → say plainly what is missing and stop,
-  improvising no substitute.
+  improvising no substitute. Once it succeeds, record it with
+  `whiska merge-request <id> '<url>'`: `<id>` is this question's, `<url>`
+  the link `gh` or `glab` printed. This branch's later finished lines then
+  offer what fits an open merge request, and the owl watches the base for
+  its merge. Whiska refuses a link that is not a plain https one → say so in
+  one line; the merge request itself is open.
 - **Commit and open a PR** — commit as Commit and land does, file
   list included, then exactly as Open a merge request / PR.
+- **Push to the merge request** — push the branch's new commits to the
+  merge request already open for it: `git -C <worktree> push`, which
+  pushes to the upstream the merge request was opened from. A push is never
+  forced. Git refuses — a rebased branch, commits on the merge request this
+  branch lacks, no upstream → stop and say why in its own words.
+- **Commit and push to the merge request** — commit as Commit and land
+  does, file list included, then exactly as Push to the merge request.
 - **Drop it** — throw the work away. First confirm in prose, in one line
   naming what is lost: every commit on the branch, and each file not
   committed. A branch with nothing on it needs no confirmation: nothing is

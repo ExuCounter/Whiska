@@ -257,7 +257,8 @@ defmodule Whiska.Questions do
 
   @typedoc """
   Reads what a question's branch holds, as `Whiska.Git.on_branch/3` answers,
-  with `:review` the diff link's target when there is one;
+  with `:review` the diff link's target when there is one, and
+  `:merge_request` and `:not_pushed` when one was recorded as opened;
   `{:error, :no_record}` when Whiska has no worktree or branch for its mouse.
   """
   @type on_branch :: (Question.t() -> {:ok, map()} | {:error, term()})
@@ -275,11 +276,18 @@ defmodule Whiska.Questions do
 
   defp finished_branch(_question, _on_branch), do: []
 
-  defp branch_lines({:ok, %{review: link, ahead: ahead, base: base}} = held) do
-    [branch_line(held), "Review diff here: [#{Review.commits(ahead)} against #{base}](#{link})"]
-  end
+  defp branch_lines({:ok, on} = held),
+    do: [branch_line(held)] ++ merge_request_line(on) ++ review_line(on)
 
   defp branch_lines(held), do: [branch_line(held)]
+
+  defp merge_request_line(%{merge_request: url}), do: ["Merge request: #{printable(url)}"]
+  defp merge_request_line(_on), do: []
+
+  defp review_line(%{review: link, ahead: ahead, base: base}),
+    do: ["Review diff here: [#{Review.commits(ahead)} against #{base}](#{link})"]
+
+  defp review_line(_on), do: []
 
   # Read from Whiska's own copy, so it links wherever the question is read
   # from, and after its worktree is gone.
@@ -292,6 +300,9 @@ defmodule Whiska.Questions do
 
   defp finished_research(_question, _research), do: []
 
+  defp branch_line({:ok, %{merge_request: _, not_pushed: n, uncommitted: uncommitted}}),
+    do: "On the branch: merge request opened · #{pushed(n)} · #{uncommitted(uncommitted)}"
+
   defp branch_line({:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}),
     do: "On the branch: #{committed(ahead, base)} · #{uncommitted(uncommitted)}"
 
@@ -300,6 +311,10 @@ defmodule Whiska.Questions do
   defp committed(0, base), do: "nothing committed beyond #{base}"
   defp committed(1, base), do: "1 commit beyond #{base}"
   defp committed(n, base), do: "#{n} commits beyond #{base}"
+
+  defp pushed(0), do: "everything pushed"
+  defp pushed(1), do: "1 commit not pushed"
+  defp pushed(n), do: "#{n} commits not pushed"
 
   defp uncommitted([]), do: "nothing uncommitted"
 

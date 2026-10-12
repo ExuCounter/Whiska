@@ -36,7 +36,8 @@ defmodule Whiska.Storage do
     {11, Whiska.Migrations.V011AnswerTaken},
     {12, Whiska.Migrations.V012Base},
     {13, Whiska.Migrations.V013Usage},
-    {14, Whiska.Migrations.V014KeepsSlot}
+    {14, Whiska.Migrations.V014KeepsSlot},
+    {15, Whiska.Migrations.V015MergeRequest}
   ]
 
   @modes ~w(build sniff)
@@ -730,6 +731,25 @@ defmodule Whiska.Storage do
       nil -> {:error, :no_such_mouse}
       %Mouse{held_at: nil} = mouse -> {:ok, mouse}
       mouse -> mouse |> Ecto.Changeset.change(%{held_at: nil}) |> Repo.update()
+    end
+  end
+
+  @doc """
+  Record the merge request the person opened for a mouse's branch. A second
+  one replaces the first, link and time: a PR opened again after one was
+  closed is the one the branch now waits on.
+  """
+  @spec record_merge_request(String.t(), String.t()) ::
+          {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def record_merge_request(mouse_id, url) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      mouse ->
+        mouse
+        |> Ecto.Changeset.change(%{merge_request_at: now(), merge_request_url: url})
+        |> Repo.update()
     end
   end
 

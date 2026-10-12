@@ -224,6 +224,14 @@ defmodule Whiska.CLI do
     close <id>           Settle a question by hand, with no answer — for one
                          you dealt with some other way.
 
+    merge-request <id> <url>
+                         Record the merge request just opened for the branch
+                         of finished question <id>, by its https link. Its
+                         later finished lines then say "merge request opened"
+                         and offer pushing to it, and the owl fetches the base
+                         branch until it lands. The finished-line skill runs
+                         it after "Open a merge request / PR".
+
     ledger [--json]      Print the agent ledger a finished report ends with,
                          read from this Claude Code session's transcripts: one
                          line per agent sent this turn, then the mouse's whole
@@ -435,6 +443,9 @@ defmodule Whiska.CLI do
     do: with_question(cwd, id, &reply(&1, Enum.join([first | rest], " ")))
 
   def run(["close", id], cwd), do: with_question(cwd, id, &close/1)
+
+  def run(["merge-request", id, url], cwd),
+    do: with_question(cwd, id, &record_merge_request(&1, url))
 
   def run(["ledger"], _cwd), do: ledger(&Ledger.render/1)
   def run(["ledger", "--json"], _cwd), do: ledger(&Ledger.json/1)
@@ -2144,14 +2155,22 @@ defmodule Whiska.CLI do
   # The diff file is written wherever the show runs: a main session whose
   # shell sits in a mouse's worktree reads a finished branch too, and the
   # file is Whiska's own, ignored like the kept specs (ADR-0085).
-  defp held(main, %Mouse{path: path, branch: branch, base: base})
+  defp held(main, %Mouse{path: path, branch: branch, base: base} = mouse)
        when is_binary(path) and is_binary(branch) do
-    with {:ok, held} <- Git.on_branch(main, path, branch, base) do
+    with {:ok, held} <- Git.on_branch(main, path, branch, base),
+         {:ok, held} <- merge_request(main, held, mouse) do
       {:ok, Map.merge(held, review(main, branch, base, held))}
     end
   end
 
   defp held(_main, _no_worktree), do: {:error, :no_record}
+
+  defp merge_request(_main, held, %Mouse{merge_request_url: nil}), do: {:ok, held}
+
+  defp merge_request(main, held, %Mouse{merge_request_url: url} = mouse) do
+    with {:ok, n} <- Git.not_pushed(main, mouse.branch, mouse.base),
+         do: {:ok, Map.merge(held, %{merge_request: url, not_pushed: n})}
+  end
 
   # A diff viewer the person names in WHISKA_DIFF_LINK takes the link, and
   # no file is written (ADR-0085). The branch line stands without the diff
@@ -2516,6 +2535,28 @@ defmodule Whiska.CLI do
       {:error, reason} -> fail("whiska: could not close ##{q.id} (#{inspect(reason)}).")
     end
   end
+
+  # The link is printed under the branch line, where the main session reads
+  # it, so it is a plain https one or nothing.
+  defp record_merge_request(%Question{} = q, url) do
+    with true <- merge_request_link?(url) || :not_a_link,
+         %Mouse{branch: branch} <- Storage.mouse(q.mouse_id) || :no_mouse,
+         {:ok, _} <- Storage.record_merge_request(q.mouse_id, url) do
+      say("Recorded: #{branch}'s merge request, #{url}.")
+    else
+      :not_a_link ->
+        fail("whiska: #{inspect(url)} is not a plain https link. Nothing recorded.")
+
+      :no_mouse ->
+        fail("whiska: ##{q.id} has no mouse to record a merge request on.")
+
+      {:error, reason} ->
+        fail("whiska: could not record the merge request (#{inspect(reason)}).")
+    end
+  end
+
+  defp merge_request_link?(url),
+    do: Regex.match?(~r|\Ahttps://[A-Za-z0-9.-]+(:[0-9]+)?(/[^\s()\[\]<>"'`\\\p{C}]*)?\z|u, url)
 
   defp live_mouse(%Question{mouse_id: mouse_id}) do
     case Storage.mouse(mouse_id) do

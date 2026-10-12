@@ -184,7 +184,12 @@ defmodule Whiska.CLIQuestionsTest do
     end
 
     defp finished(repo, branch, opts \\ []) do
-      path = GitRepo.worktree(repo, branch, push: false, commit: Keyword.get(opts, :commit, true))
+      path =
+        GitRepo.worktree(repo, branch,
+          push: Keyword.get(opts, :push, false),
+          commit: Keyword.get(opts, :commit, true)
+        )
+
       Enum.each(Keyword.get(opts, :files, []), &File.write!(Path.join(path, &1), "unsaved"))
       if opts[:gone], do: File.rm_rf!(path)
 
@@ -198,6 +203,9 @@ defmodule Whiska.CLIQuestionsTest do
             branch: branch,
             base: opts[:base]
           })
+
+        if url = opts[:merge_request],
+          do: {:ok, _} = Storage.record_merge_request("m-#{branch}", url)
 
         {:ok, q} =
           Storage.record_question(%{
@@ -671,6 +679,150 @@ defmodule Whiska.CLIQuestionsTest do
 
       assert full =~
                ~r/##{q.id}  feat-j  finished  \([^)]+\)\nOn the branch: nothing committed beyond main · nothing uncommitted\n/
+    end
+
+    @pr "https://github.com/o/r/pull/12"
+
+    test "a merge request opened: what is not pushed, and its link, under the heading",
+         %{repo: repo} do
+      q = finished(repo, "feat-m", merge_request: @pr)
+
+      assert show_one(repo, q) =~
+               ~r/^##{q.id}  feat-m  finished  \([^)]+\)\nOn the branch: merge request opened · 1 commit not pushed · nothing uncommitted\nMerge request: #{Regex.escape(@pr)}\nReview diff here: \[1 commit against main\]/
+    end
+
+    test "a merge request with everything pushed says so", %{repo: repo} do
+      q = finished(repo, "feat-n", merge_request: @pr, push: true)
+
+      assert show_one(repo, q) =~
+               "\nOn the branch: merge request opened · everything pushed · nothing uncommitted\n"
+    end
+
+    test "a merge request's files not committed are named as on any branch line", %{repo: repo} do
+      q = finished(repo, "feat-p", merge_request: @pr, push: true, files: ["a.txt"])
+
+      assert show_one(repo, q) =~
+               "\nOn the branch: merge request opened · everything pushed · 1 file not committed: a.txt\n"
+    end
+
+    # The base's own commits travel with the branch but are the base's to push.
+    test "a commit the base has not pushed is not the merge request's", %{repo: repo} do
+      GitRepo.commit!(repo.checkout, "local.md", "not pushed yet")
+      q = finished(repo, "feat-q", merge_request: @pr)
+
+      assert show_one(repo, q) =~ "merge request opened · 1 commit not pushed ·"
+    end
+
+    test "commits not pushed are counted, merges included", %{repo: repo} do
+      q = finished(repo, "feat-r", merge_request: @pr, push: true)
+      path = Path.join([repo.root, "worktrees", "feat-r"])
+      GitRepo.commit!(path, "second.md", "more")
+      GitRepo.commit!(repo.checkout, "later.md", "moved on")
+      GitRepo.git!(path, ["merge", "--no-ff", "-m", "sync", "main"])
+
+      assert show_one(repo, q) =~ "merge request opened · 2 commits not pushed ·"
+    end
+  end
+
+  describe "whiska merge-request — the finished line remembers it" do
+    setup do
+      root = Path.join(System.tmp_dir!(), "whiska-mr-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(root)
+      on_exit(fn -> File.rm_rf!(root) end)
+      repo = GitRepo.create(root)
+      path = GitRepo.worktree(repo, "feat-x", push: false)
+
+      {:ok, handle} = Storage.open(repo.checkout)
+
+      try do
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "m-x", path: path, branch: "feat-x"})
+
+        {:ok, q} =
+          Storage.record_question(%{
+            mouse_id: "m-x",
+            text: "Done.\n⁣⁣⁣",
+            kind: "done",
+            status: "closed"
+          })
+
+        {:ok, repo: repo, q: q}
+      after
+        Storage.close(handle)
+      end
+    end
+
+    defp merge_request(repo, args) do
+      err =
+        capture_io(:stderr, fn ->
+          out =
+            capture_io(fn ->
+              send(self(), {:status, CLI.run(["merge-request" | args], repo.checkout)})
+            end)
+
+          send(self(), {:out, out})
+        end)
+
+      assert_received {:status, status}
+      assert_received {:out, out}
+      {status, out <> err}
+    end
+
+    defp recorded(repo) do
+      {:ok, handle} = Storage.open(repo.checkout)
+
+      try do
+        Storage.mouse("m-x")
+      after
+        Storage.close(handle)
+      end
+    end
+
+    test "records the link and the time on the question's mouse", %{repo: repo, q: q} do
+      assert {0, out} = merge_request(repo, [to_string(q.id), @pr])
+      assert out =~ "feat-x"
+      assert out =~ @pr
+
+      assert %{merge_request_url: @pr, merge_request_at: %DateTime{}} = recorded(repo)
+      assert show_one(repo, q) =~ "On the branch: merge request opened"
+    end
+
+    test "a second one replaces the first", %{repo: repo, q: q} do
+      assert {0, _} = merge_request(repo, [to_string(q.id), @pr])
+
+      assert {0, _} =
+               merge_request(repo, [
+                 to_string(q.id),
+                 "https://gitlab.example/g/r/-/merge_requests/3"
+               ])
+
+      assert %{merge_request_url: "https://gitlab.example/g/r/-/merge_requests/3"} =
+               recorded(repo)
+    end
+
+    test "refuses a link that is not a plain https one, and stores nothing", %{repo: repo, q: q} do
+      for bad <- [
+            "http://github.com/o/r/pull/12",
+            "github.com/o/r/pull/12",
+            "https://",
+            "https:///pull/12",
+            "https://github.com/o/r/pull/12 extra",
+            "https://github.com/o/r/pull/(12)",
+            "https://github.com/o/r/pull/12]",
+            "https://github.com/o/r/pull/12\"",
+            "https://github.com/o/r/pull/12'",
+            "https://github.com/o/r/pull/12<",
+            "https://github.com/o/r/pull/12\\",
+            "https://github.com/o/r/pull/12\n",
+            "https://github.com/o/r/pull/12\u202E"
+          ] do
+        assert {1, _} = merge_request(repo, [to_string(q.id), bad]), inspect(bad)
+      end
+
+      assert %{merge_request_url: nil, merge_request_at: nil} = recorded(repo)
+    end
+
+    test "refuses an id that is no question", %{repo: repo} do
+      assert {1, _} = merge_request(repo, ["999", @pr])
     end
   end
 

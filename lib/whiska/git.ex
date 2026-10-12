@@ -337,6 +337,26 @@ defmodule Whiska.Git do
   end
 
   @doc """
+  How many commits on a branch no remote has yet: what a push to its merge
+  request would carry. The base's own commits are the base's to push, so a
+  commit the base holds is never counted, pushed or not.
+  """
+  @spec not_pushed(Path.t(), branch(), branch() | nil) ::
+          {:ok, non_neg_integer()} | {:error, term()}
+  def not_pushed(checkout, branch, recorded_base \\ nil) do
+    with {:ok, base} <- base_of(checkout, recorded_base),
+         {:ok, base_ref} <- base_ref(checkout, base),
+         args = ["rev-list", "--count", "refs/heads/#{branch}", "--not", "--remotes", base_ref],
+         {:ok, count} <- git(checkout, args ++ ["--"]),
+         {n, ""} <- Integer.parse(count) do
+      {:ok, n}
+    else
+      {:error, _} = error -> error
+      _unparsed -> {:error, :unreadable}
+    end
+  end
+
+  @doc """
   What a finished branch holds: its own commits beyond the base, counted as
   Land here lists them — merges from the base skipped — and the paths its
   worktree has not committed, untracked ones included, as git lists them.
