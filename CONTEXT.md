@@ -235,9 +235,10 @@ Its **context gauge** is how full the mouse's context is — the input, cache-re
 cache-creation tokens of the last assistant message in the transcript, `142K` — with a
 five-cell bar against the window when the mouse has an auto-compact window, and the plain
 size when it has none. It is read for every live mouse, whatever its line says.
-A mouse is **stuck** when herdr says it is blocked, or it is working and has written
-nothing to its transcript for two minutes with no subagent out (a subagent writes to its
-own file, so a mouse waiting on one is silent and not stuck). A dead mouse has no row; what it left behind
+A mouse is **stuck** when herdr says it is blocked, or it is working with no subagent out
+and has written nothing to its transcript for two minutes while in a tool, or five while
+waiting on the model (a subagent writes to its own file and the model writes nothing until
+its answer arrives, so a mouse waiting on either is silent and not stuck at once). A dead mouse has no row; what it left behind
 unanswered is counted apart as orphaned, never as waiting. **Sidebar lines** are written
 from it, and `whiska watch` prints those. It reports and never acts (ADR-0082).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws), the statusline (a

@@ -36,32 +36,84 @@ defmodule Whiska.Watch.TranscriptTest do
     })
   end
 
-  defp tool_result(id) do
+  defp tool_result(id, content \\ "done") do
     JSON.encode!(%{
       "type" => "user",
       "message" => %{
-        "content" => [%{"type" => "tool_result", "tool_use_id" => id, "content" => "done"}]
+        "content" => [%{"type" => "tool_result", "tool_use_id" => id, "content" => content}]
       }
     })
   end
 
-  describe "subagent_out?/1" do
+  defp call(id, name, input) do
+    JSON.encode!(%{
+      "type" => "assistant",
+      "message" => %{
+        "content" => [%{"type" => "tool_use", "id" => id, "name" => name, "input" => input}]
+      }
+    })
+  end
+
+  # The receipt Claude Code writes for a background `Agent` call, copied from a
+  # real transcript (`Whiska.TranscriptTest` holds the rest of its shape).
+  defp launched(tool_use_id, agent_id) do
+    tool_result(tool_use_id, [
+      %{"type" => "text", "text" => "Async agent launched successfully.\nagentId: #{agent_id}"}
+    ])
+  end
+
+  defp transcript(tmp, worktree, lines, silent_for) do
+    dir = Transcript.project_dir(worktree, tmp)
+    File.mkdir_p!(dir)
+    file = Path.join(dir, "s.jsonl")
+    File.write!(file, Enum.join(lines, "\n"))
+    File.touch!(file, System.os_time(:second) - silent_for)
+  end
+
+  describe "waiting_on_in/1" do
     test "an Agent call with no result yet is a subagent still working" do
-      assert Transcript.subagent_out?(Enum.join([said("on it"), agent_call("toolu_a")], "\n"))
+      assert %{subagent?: true} =
+               Transcript.waiting_on_in(Enum.join([said("on it"), agent_call("toolu_a")], "\n"))
     end
 
     test "once its result is written the subagent is back" do
-      refute Transcript.subagent_out?(
-               Enum.join([agent_call("toolu_a"), tool_result("toolu_a")], "\n")
-             )
+      assert %{subagent?: false} =
+               Transcript.waiting_on_in(
+                 Enum.join([agent_call("toolu_a"), tool_result("toolu_a")], "\n")
+               )
     end
 
-    test "another tool in flight is not a subagent" do
-      refute Transcript.subagent_out?(tool("Bash", %{"command" => "mix test"}))
+    test "another tool in flight is not a subagent, but is a tool" do
+      assert Transcript.waiting_on_in(call("toolu_b", "Bash", %{"command" => "mix test"})) ==
+               %{subagent?: false, in_tool?: true}
     end
 
-    test "text that is not a transcript is no subagent" do
-      refute Transcript.subagent_out?("not json")
+    test "once every call has its result the mouse is waiting on the model" do
+      lines = [
+        call("toolu_b", "Bash", %{"command" => "mix test"}),
+        tool_result("toolu_b"),
+        user("go on")
+      ]
+
+      assert Transcript.waiting_on_in(Enum.join(lines, "\n")) ==
+               %{subagent?: false, in_tool?: false}
+    end
+
+    test "a subagent's own calls are not the mouse's" do
+      line =
+        JSON.encode!(%{
+          "type" => "assistant",
+          "isSidechain" => true,
+          "message" => %{
+            "content" => [%{"type" => "tool_use", "id" => "toolu_s", "name" => "Agent"}]
+          }
+        })
+
+      assert Transcript.waiting_on_in(line) == %{subagent?: false, in_tool?: false}
+    end
+
+    test "text that is not a transcript is waiting on nothing it can name" do
+      assert Transcript.waiting_on_in("not json") == %{subagent?: false, in_tool?: false}
     end
   end
 
@@ -246,16 +298,7 @@ defmodule Whiska.Watch.TranscriptTest do
 
     test "a mouse with no transcript is not silent, it is unknown", %{tmp: tmp} do
       assert Transcript.activity("/repo/worktrees/gone", user_home: tmp) ==
-               %{action: nil, silent_for: nil, context: nil, subagent?: false}
-    end
-
-    test "says a subagent is out when the transcript ends on its call", %{tmp: tmp} do
-      worktree = "/repo/worktrees/feat-a"
-      dir = Transcript.project_dir(worktree, tmp)
-      File.mkdir_p!(dir)
-      File.write!(Path.join(dir, "s.jsonl"), agent_call("toolu_a"))
-
-      assert %{subagent?: true} = Transcript.activity(worktree, user_home: tmp)
+               %{action: nil, silent_for: nil, context: nil}
     end
 
     test "carries how full the context is, from the last assistant message's usage", %{tmp: tmp} do
@@ -274,6 +317,39 @@ defmodule Whiska.Watch.TranscriptTest do
       File.write!(Path.join(dir, "s.jsonl"), line)
 
       assert %{context: 90_005} = Transcript.activity(worktree, user_home: tmp)
+    end
+  end
+
+  describe "waiting_on/2" do
+    setup do
+      tmp = Path.join(System.tmp_dir!(), "whiska-wait-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp)
+      on_exit(fn -> File.rm_rf!(tmp) end)
+      {:ok, tmp: tmp}
+    end
+
+    # Read from feat/rules-in-claude-md on 2026-10-11: the output of the calls
+    # sent alongside a background `Agent` call was written between the call and
+    # its receipt, and pushed the call out of the board's every-tick read.
+    test "a subagent launched far back is still out", %{tmp: tmp} do
+      worktree = "/repo/worktrees/feat-a"
+
+      lines = [
+        call("toolu_b", "Bash", %{"command" => "cat lib/whiska/install.ex"}),
+        agent_call("toolu_a"),
+        tool_result("toolu_b", String.duplicate("x", 100 * 1024)),
+        launched("toolu_a", "a628f31a26fa313db")
+      ]
+
+      transcript(tmp, worktree, lines, 150)
+
+      assert Transcript.waiting_on(worktree, user_home: tmp) ==
+               %{subagent?: true, in_tool?: false}
+    end
+
+    test "a mouse with no transcript waits on nothing it can name", %{tmp: tmp} do
+      assert Transcript.waiting_on("/repo/worktrees/gone", user_home: tmp) ==
+               %{subagent?: false, in_tool?: false}
     end
   end
 end

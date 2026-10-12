@@ -105,7 +105,8 @@ whole decision fails in on purpose.
 main session and any repo Whiska is merely installed in read no transcript at all.
 
 **Only the tail is read, and generously: 512 KB.** `Stop` fires once per turn, not every
-two seconds like the board (ADR-0050), so the budget can be large enough to hold a whole
+two seconds like the board (ADR-0050), which reads this tail only for a working mouse quiet
+two minutes (ADR-0082), so the budget can be large enough to hold a whole
 turn's launches. A tail that starts after a launch reads as nothing out, which is the safe
 direction above.
 
@@ -137,3 +138,5 @@ not want to be told five times that reviewers are running.
 **Leave it, and let the person ignore the noise.** What happened for a day. It costs the
 delivery slot (ADR-0008) — every mid-turn stop holds it until the person clears it, so a
 real question from another mouse waits behind a progress note.
+
+Changed on 2026-10-12: the board reads this same tail too, on every rebuild, for a working mouse quiet two minutes (ADR-0082).

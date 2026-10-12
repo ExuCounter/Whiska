@@ -13,7 +13,8 @@ defmodule Whiska.Watch do
   its pane stands with herdr; its topic — herdr's `terminal_title_stripped`, the
   short summary Claude Code keeps of what a session is working on — and its last
   action (`Whiska.Watch.Transcript`), which matters only when the mouse is not
-  getting on with it: blocked at a dialog, or working and silent for two minutes.
+  getting on with it: blocked at a dialog, or working and silent for longer than
+  a tool call or the model explains.
 
   A dead mouse (ADR-0026) has no row: its worktree is gone. What it left behind
   is counted apart as orphaned, and never as waiting — an orphan has nowhere to
@@ -41,11 +42,16 @@ defmodule Whiska.Watch do
   @orphans_max 60
 
   # Two minutes of nothing written to a transcript, on a mouse herdr says is
-  # working. Claude Code appends every few seconds while a turn runs, so this
-  # is a long tool call or a stall — the one case where a raw tool call says
-  # more than a topic. Short enough to catch a stall, long enough that an
-  # ordinary full test run does not flip the line.
-  @stuck_after 120
+  # working and in a tool. Claude Code writes a call's result as soon as it has
+  # one, so this is a long tool call or a stall — the one case where a raw tool
+  # call says more than a topic. Short enough to catch a stall, long enough that
+  # an ordinary full test run does not flip the line.
+  @tool_stuck_after 120
+
+  # Five minutes for a mouse waiting on the model. Claude Code writes nothing
+  # until the model's answer arrives, and a long think over a large context ran
+  # past three minutes on feat/rules-in-claude-md on 2026-10-11 (ADR-0082).
+  @model_stuck_after 300
 
   @waiting ["open", "sent"]
   @orphaned "orphaned"
@@ -173,7 +179,9 @@ defmodule Whiska.Watch do
   Options: `:questions`, its waiting and orphaned questions, counted apart;
   `:panes`, herdr's answer in `Whiska.Herdr.list_panes/1` form; `:activity`,
   what a mouse is doing and how long it has been silent,
-  `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:held`, why the
+  `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:waiting_on`, what
+  a working mouse quiet for two minutes waits on,
+  `Whiska.Watch.Transcript.waiting_on/1` unless a test pins it; `:held`, why the
   gate is not delivering (ADR-0082); `:mode`, what the person set aside
   (`Whiska.Delivery.Mode.t/0`, nothing by default); `:picked_up`, when each
   branch the owl picked up was picked up (ADR-0067).
@@ -182,7 +190,12 @@ defmodule Whiska.Watch do
   def board(mice, opts \\ []) do
     questions = Keyword.get(opts, :questions, [])
     panes = Keyword.get(opts, :panes, :no_socket)
-    activity = Keyword.get(opts, :activity, &Transcript.activity(&1.path))
+
+    readers = %{
+      activity: Keyword.get(opts, :activity, &Transcript.activity(&1.path)),
+      waiting_on: Keyword.get(opts, :waiting_on, &Transcript.waiting_on(&1.path))
+    }
+
     picked_up = Keyword.get(opts, :picked_up, %{})
     mode = Keyword.get(opts, :mode, Mode.none())
 
@@ -194,7 +207,7 @@ defmodule Whiska.Watch do
     rows =
       mice
       |> Enum.filter(&is_nil(&1.died_at))
-      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, activity, picked_up, context))
+      |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, readers, picked_up, context))
 
     %{
       rows: rows,
@@ -217,7 +230,7 @@ defmodule Whiska.Watch do
     end
   end
 
-  defp row(mouse, question, panes, activity, picked_up, context) do
+  defp row(mouse, question, panes, readers, picked_up, context) do
     {pane_state, pane} = pane(mouse, panes)
     status = status(pane_state, pane)
     held? = match?(%DateTime{}, mouse.held_at)
@@ -245,10 +258,11 @@ defmodule Whiska.Watch do
       picked_up_at: if(question_id, do: nil, else: picked_up[mouse.mouse_id])
     }
 
-    seen = activity.(mouse)
+    seen = readers.activity.(mouse)
     base = %{base | context: Map.get(seen, :context)}
+    waiting_on = fn -> readers.waiting_on.(mouse) end
 
-    if reads_activity?(base), do: with_activity(base, pane, seen), else: base
+    if reads_activity?(base), do: with_activity(base, pane, seen, waiting_on), else: base
   end
 
   # The transcript is read only for a mouse whose line is about what it is
@@ -259,10 +273,10 @@ defmodule Whiska.Watch do
       row.pane == :one
   end
 
-  defp with_activity(row, pane, %{action: action, silent_for: silent_for} = seen) do
+  defp with_activity(row, pane, %{action: action, silent_for: silent_for}, waiting_on) do
     %{
       row
-      | stuck?: stuck?(row.status, silent_for, Map.get(seen, :subagent?, false)),
+      | stuck?: stuck?(row.status, silent_for, waiting_on),
         silent_for: silent_for,
         topic: topic(pane),
         doing: doing(action)
@@ -345,12 +359,20 @@ defmodule Whiska.Watch do
 
   defp waits(_sent, _context), do: nil
 
-  defp stuck?("blocked", _silent_for, _subagent?), do: true
+  # What a mouse waits on is read only once it has been quiet long enough to be
+  # stuck in a tool, the shorter bound: it costs a longer read of the transcript.
+  defp stuck?("blocked", _silent_for, _waiting_on), do: true
 
-  defp stuck?("working", silent_for, subagent?),
-    do: not subagent? and is_integer(silent_for) and silent_for >= @stuck_after
+  defp stuck?("working", silent_for, waiting_on)
+       when is_integer(silent_for) and silent_for >= @tool_stuck_after do
+    waiting = waiting_on.()
+    not waiting.subagent? and silent_for >= stuck_after(waiting)
+  end
 
-  defp stuck?(_quiet, _silent_for, _subagent?), do: false
+  defp stuck?(_quiet, _silent_for, _waiting_on), do: false
+
+  defp stuck_after(%{in_tool?: true}), do: @tool_stuck_after
+  defp stuck_after(%{in_tool?: false}), do: @model_stuck_after
 
   defp doing({:tool, phrase}), do: phrase
   defp doing({:said, sentence}), do: ~s("#{sentence}")

@@ -52,7 +52,8 @@ defmodule Whiska.Transcript do
   """
 
   # Enough tail to hold a whole turn, launches included. `Stop` fires once per
-  # turn, so this is read a few times a minute rather than every two seconds.
+  # turn, and the board reads it on every rebuild only for a working mouse quiet
+  # two minutes, never for every mouse.
   @tail_bytes 512 * 1024
 
   # The session's own header and the start of its first turn; the working

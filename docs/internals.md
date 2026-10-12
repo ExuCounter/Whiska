@@ -398,7 +398,7 @@ feat/watch-board
 The first line is the state, starting with a symbol; up to two more carry the question,
 wrapped at 31 characters. In the order they sort: `❓` waiting on you (sent, with how
 long; or next to go), `✅` finished, `✖ stuck` (blocked, or working and silent for two
-minutes, with the tool call it is in), `⏳ queued behind #n`, `🎯`/`💤` waiting behind a
+minutes in a tool or five waiting on the model, with its last action), `⏳ queued behind #n`, `🎯`/`💤` waiting behind a
 focus or away, `⏸` held, `↩ picked up`, `◐` working — its spinner turns once a second, so a
 still one means the owl stopped — and `✖ no pane`, `⚠ many panes`, `? herdr can't say`. An
 idle mouse says `○ idle`. The main checkout's line says when no main

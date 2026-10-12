@@ -17,7 +17,9 @@ defmodule Whiska.Watch.Transcript do
   board simply leaves that column empty.
 
   Only the tail is read (`@tail_bytes`). A session's transcript grows all day
-  and the board reads every mouse's every second.
+  and the board reads every mouse's on every rebuild. What a quiet working mouse
+  waits on (`waiting_on/2`) is read from the longer tail the `Stop` hook reads,
+  and only for that mouse.
   """
 
   alias Whiska.Context
@@ -36,9 +38,15 @@ defmodule Whiska.Watch.Transcript do
   @type activity :: %{
           action: action(),
           silent_for: non_neg_integer() | nil,
-          context: non_neg_integer() | nil,
-          subagent?: boolean()
+          context: non_neg_integer() | nil
         }
+
+  @typedoc """
+  What a silent mouse is waiting on: a subagent still out, or one of its own
+  tool calls with no result written yet. Neither means it waits on the model,
+  which writes nothing until its answer arrives.
+  """
+  @type waiting :: %{subagent?: boolean(), in_tool?: boolean()}
 
   # What one column of a statusline row has room for.
   @phrase_max 60
@@ -64,9 +72,10 @@ defmodule Whiska.Watch.Transcript do
   transcript.
 
   Silence is the board's signal that a working mouse is stuck in something
-  rather than moving through it (ADR-0082): Claude Code
-  appends to this file every few seconds while a turn runs, so the file's own
-  mtime is when the mouse last did anything.
+  rather than moving through it (ADR-0082): Claude Code appends to this file as
+  a turn runs, so the file's own mtime is when the mouse last did anything. It
+  writes nothing while a subagent runs or the model thinks, which is why the
+  board asks `waiting_on/2` before calling silence stuck.
 
   Options: `:user_home`, the home to look under — `Whiska.ServiceManager.user_home/0`
   unless a test pins it; `:now`, the second to measure silence from.
@@ -78,7 +87,7 @@ defmodule Whiska.Watch.Transcript do
 
     case newest_transcript(project_dir(worktree_root, home)) do
       nil ->
-        %{action: nil, silent_for: nil, context: nil, subagent?: false}
+        %{action: nil, silent_for: nil, context: nil}
 
       {file, mtime} ->
         tail = Transcript.tail(file, @tail_bytes)
@@ -86,9 +95,28 @@ defmodule Whiska.Watch.Transcript do
         %{
           action: last_action(tail, worktree_root),
           silent_for: silent_for(now, mtime),
-          context: Context.tokens(tail),
-          subagent?: subagent_out?(tail)
+          context: Context.tokens(tail)
         }
+    end
+  end
+
+  @doc """
+  What the mouse is waiting on, read from the tail the `Stop` hook reads.
+
+  The calls sent alongside a background `Agent` call write their output between
+  the call and its receipt; on feat/rules-in-claude-md on 2026-10-11 that pushed
+  the call out of `activity/2`'s tail before the receipt was written, and the
+  board never saw that subagent.
+
+  Options: `:user_home`, as `activity/2`.
+  """
+  @spec waiting_on(Path.t(), keyword()) :: waiting()
+  def waiting_on(worktree_root, opts \\ []) do
+    home = Keyword.get_lazy(opts, :user_home, &ServiceManager.user_home/0)
+
+    case newest_transcript(project_dir(worktree_root, home)) do
+      nil -> waiting_on_in("")
+      {file, _mtime} -> file |> Transcript.tail() |> waiting_on_in()
     end
   end
 
@@ -105,26 +133,35 @@ defmodule Whiska.Watch.Transcript do
   defdelegate project_dir(worktree_root, user_home), to: Transcript
 
   @doc """
-  Whether a subagent is still working for the mouse: a background one not yet
-  handed back (`Whiska.Transcript.subagents_in_flight?/1`), or an `Agent` call
-  whose result is not written yet. A subagent writes to its own file, so the
-  mouse's transcript is silent for as long as it runs.
+  What a transcript's text says the mouse is waiting on. A subagent is out while
+  a background one is not yet handed back (`Whiska.Transcript.subagents_in_flight?/1`)
+  or an `Agent` call has no result yet; it writes to its own file, so the
+  mouse's transcript is silent for as long as it runs. Pure, and total.
   """
-  @spec subagent_out?(String.t()) :: boolean()
-  def subagent_out?(text) do
-    Transcript.subagents_in_flight?(text) or pending_agent_call?(text)
+  @spec waiting_on_in(String.t()) :: waiting()
+  def waiting_on_in(text) do
+    pending = pending_calls(text)
+
+    %{
+      subagent?: Transcript.subagents_in_flight?(text) or "Agent" in Map.values(pending),
+      in_tool?: map_size(pending) > 0
+    }
   end
 
-  defp pending_agent_call?(text) do
+  # Every tool call of the mouse's own with no result written yet, by id, with
+  # its tool's name. A background command's receipt is its result, so only a
+  # call still running is here.
+  defp pending_calls(text) do
     text
     |> String.split("\n")
-    |> Enum.reduce(MapSet.new(), &track_agent_calls/2)
-    |> MapSet.size()
-    |> Kernel.>(0)
+    |> Enum.reduce(%{}, &track_calls/2)
   end
 
-  defp track_agent_calls(line, pending) do
+  defp track_calls(line, pending) do
     case JSON.decode(line) do
+      {:ok, %{"isSidechain" => true}} ->
+        pending
+
       {:ok, %{"message" => %{"content" => content}}} when is_list(content) ->
         Enum.reduce(content, pending, &track_block/2)
 
@@ -133,12 +170,12 @@ defmodule Whiska.Watch.Transcript do
     end
   end
 
-  defp track_block(%{"type" => "tool_use", "name" => "Agent", "id" => id}, pending)
+  defp track_block(%{"type" => "tool_use", "name" => name, "id" => id}, pending)
        when is_binary(id),
-       do: MapSet.put(pending, id)
+       do: Map.put(pending, id, name)
 
   defp track_block(%{"type" => "tool_result", "tool_use_id" => id}, pending),
-    do: MapSet.delete(pending, id)
+    do: Map.delete(pending, id)
 
   defp track_block(_other, pending), do: pending
 

@@ -59,6 +59,7 @@ defmodule Whiska.SidebarTest do
       questions: Keyword.get(opts, :questions, []),
       panes: Keyword.get(opts, :panes, {:ok, Keyword.get(opts, :bare_panes, [])}),
       activity: activity(opts),
+      waiting_on: waiting_on(opts),
       held: Keyword.get(opts, :held),
       mode: Keyword.get(opts, :mode, Mode.none()),
       picked_up: Keyword.get(opts, :picked_up, %{})
@@ -71,11 +72,20 @@ defmodule Whiska.SidebarTest do
     action = Keyword.get(opts, :action, fn _mouse -> nil end)
     silent_for = Keyword.get(opts, :silent_for, 0)
     context = Keyword.get(opts, :context)
-    subagent? = Keyword.get(opts, :subagent?, false)
 
     fn mouse ->
-      %{action: action.(mouse), silent_for: silent_for, context: context, subagent?: subagent?}
+      %{action: action.(mouse), silent_for: silent_for, context: context}
     end
+  end
+
+  # What a quiet working mouse waits on: a subagent, a tool, else the model.
+  defp waiting_on(opts) do
+    waiting = %{
+      subagent?: Keyword.get(opts, :subagent?, false),
+      in_tool?: Keyword.get(opts, :in_tool?, true)
+    }
+
+    Keyword.get(opts, :waiting_on, fn _mouse -> waiting end)
   end
 
   defp lines(mice, opts) do
@@ -367,14 +377,27 @@ defmodule Whiska.SidebarTest do
              ) == %{"whiska" => "✖ stuck 6m", "whiska_q" => "Bash mix test"}
     end
 
-    test "working and silent for two minutes is stuck; a second less is not" do
+    test "working and silent in a tool for two minutes is stuck; a second less is not" do
       opts = [
         bare_panes: [pane("feat-a", "working", title: "Order builder")],
-        action: fn _ -> {:tool, "Bash mix test"} end
+        action: fn _ -> {:tool, "Bash mix test"} end,
+        in_tool?: true
       ]
 
       assert said([mouse("feat-a")], [silent_for: 120] ++ opts) == "✖ stuck 2m"
       assert said([mouse("feat-a")], [silent_for: 119] ++ opts) == "◐ Order builder"
+    end
+
+    test "working and waiting on the model is working until five minutes, then stuck" do
+      opts = [
+        bare_panes: [pane("feat-a", "working", title: "Order builder")],
+        action: fn _ -> {:said, "Waiting on the documentation check."} end,
+        in_tool?: false
+      ]
+
+      assert said([mouse("feat-a")], [silent_for: 196] ++ opts) == "◐ Order builder"
+      assert said([mouse("feat-a")], [silent_for: 299] ++ opts) == "◐ Order builder"
+      assert said([mouse("feat-a")], [silent_for: 300] ++ opts) == "✖ stuck 5m"
     end
 
     test "working and silent while a subagent runs is working, not stuck" do
@@ -385,6 +408,29 @@ defmodule Whiska.SidebarTest do
       ]
 
       assert said([mouse("feat-a")], opts) == "◐ Order builder"
+    end
+
+    test "only a working mouse quiet for two minutes is looked back on" do
+      me = self()
+      looked_back = fn _mouse -> send(me, :looked_back) && %{subagent?: false, in_tool?: true} end
+
+      for {status, silent_for} <- [{"idle", 3600}, {"blocked", 3600}, {"working", 119}] do
+        said([mouse("feat-a")],
+          bare_panes: [pane("feat-a", status)],
+          silent_for: silent_for,
+          waiting_on: looked_back
+        )
+
+        refute_received :looked_back, "#{status}, silent #{silent_for}s"
+      end
+
+      said([mouse("feat-a")],
+        bare_panes: [pane("feat-a", "working")],
+        silent_for: 120,
+        waiting_on: looked_back
+      )
+
+      assert_received :looked_back
     end
 
     test "blocked is stuck even with a subagent out" do

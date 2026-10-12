@@ -8,7 +8,9 @@ defmodule Whiska.CLIWatchTest do
 
   alias Whiska.CLI
   alias Whiska.Herdr.Mock, as: Herdr
+  alias Whiska.ServiceManager
   alias Whiska.Storage
+  alias Whiska.Transcript
 
   setup :verify_on_exit!
 
@@ -62,9 +64,54 @@ defmodule Whiska.CLIWatchTest do
 
   defp no_workspaces, do: stub(Herdr, :workspaces, fn _ -> {:ok, []} end)
 
+  # A mouse's own Claude Code transcript, last written `silent_for` seconds ago,
+  # under the home the suite runs in.
+  defp transcript(path, entries, silent_for) do
+    dir = Transcript.project_dir(path, ServiceManager.user_home())
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+    file = Path.join(dir, "s.jsonl")
+    File.write!(file, Enum.map_join(entries, "\n", &JSON.encode!/1))
+    File.touch!(file, System.os_time(:second) - silent_for)
+  end
+
+  defp call(id, name), do: entry("assistant", %{"type" => "tool_use", "id" => id, "name" => name})
+
+  defp result(id, text),
+    do: entry("user", %{"type" => "tool_result", "tool_use_id" => id, "content" => text})
+
+  defp entry(type, block), do: %{"type" => type, "message" => %{"content" => [block]}}
+
   describe "whiska watch" do
     test "prints each mouse under its branch, with the line the sidebar shows", %{main: main} do
       path = seed_mouse(main, "ma", "feat-a")
+      no_workspaces()
+
+      stub(Herdr, :list_panes, fn _ ->
+        {:ok, [Map.put(pane(path, "working"), :title, "Order builder")]}
+      end)
+
+      out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
+
+      assert out =~ "feat-a\n  ◐ Order builder"
+    end
+
+    test "a working mouse quiet while a subagent started far back runs is not stuck", %{
+      main: main
+    } do
+      path = seed_mouse(main, "ma", "feat-a")
+
+      transcript(
+        path,
+        [
+          call("toolu_b", "Bash"),
+          call("toolu_a", "Agent"),
+          result("toolu_b", String.duplicate("x", 100 * 1024)),
+          result("toolu_a", "Async agent launched successfully.\nagentId: a628f31a26fa313db")
+        ],
+        400
+      )
+
       no_workspaces()
 
       stub(Herdr, :list_panes, fn _ ->

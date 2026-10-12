@@ -21,7 +21,7 @@ sort (which one a mouse is in is decided as the paragraph under the table says):
 | 1 | `❓ #13 · waiting on you · 14m` — sent, unanswered | the question |
 | 2 | `❓ #12 · waiting on you` — next to go; `❓ #12 · answer not taken` | the question |
 | 3 | `✅ #14 · finished` — a report holding the slot | its closing line |
-| 4 | `✖ stuck 6m` — blocked, or working and silent two minutes with no subagent out | its last action |
+| 4 | `✖ stuck 6m` — blocked, or working with no subagent out and silent two minutes in a tool or five waiting on the model | its last action |
 | 5 | `⏳ queued behind #12` | the question |
 | 6 | `✅ finished · queued behind #12` | |
 | 7 | `↩ picked up 2m ago` | |
@@ -50,8 +50,15 @@ last action. The topic is herdr's `terminal_title_stripped`, the short summary C
 keeps of what a session is on, already in the pane list the house asks for. The last action
 is read from the mouse's own transcript, never asked for (ADR-0050), and shown only where
 the topic would mislead: a pane herdr calls blocked, or one working that has written
-nothing for two minutes (Claude Code appends every few seconds while a turn runs, but not while a subagent runs, which keeps its own file, so a mouse waiting on one is working and never stuck; shorter
-would flip on an ordinary test run). Which line is a question is read from the question's
+nothing for longer than what it waits on explains. A subagent keeps its own file, so a
+mouse waiting on one is working and never stuck, up to ADR-0052's half-hour bound; once a
+working mouse has been quiet two minutes, and for no other, the transcript is read as far
+back as the `Stop` hook reads it (ADR-0052), since a launch can sit further back than the
+every-tick read reaches. In a tool, Claude Code writes the result as soon as there is one, so two
+minutes is a long call or a stall (shorter would flip on an ordinary test run). Waiting on
+the model, it writes nothing until the answer arrives, and a long think over a large context
+ran past three minutes on 2026-10-11, so that wait reads as working until five; longer
+would hide a hung model call for good. Which line is a question is read from the question's
 id, never from the words: a topic beginning `waiting on you · #99` must not forge one.
 A dead mouse (ADR-0026) has no line; what it left is counted on the main checkout's. Every
 free string, a topic or a branch, is stripped to one line with no control characters before
@@ -61,7 +68,7 @@ it reaches herdr.
 cache-creation tokens of the last assistant message in its transcript, read the same way
 as the last action (ADR-0050), for every mouse with a line, since a mouse waiting on the
 person is the one whose length matters. That makes one 64 KB tail read per live mouse
-per tick, where the last action was read only for a working or blocked one; it is read
+per tick, plus the `Stop` hook's 512 KB tail for a working mouse quiet two minutes, where the last action was read only for a working or blocked one; it is read
 from the tail alone, so one very large message can leave a mouse without a gauge for a
 moment. A working mouse's goes before its free text, `◐ 142K · <topic>`, so a long topic
 cannot cut it off. A line that says the pane is lost (`✖ no pane`, `⚠ many panes`,
@@ -163,5 +170,6 @@ deleted. `whiska doctor` names any leftover as a warning with the init that remo
   scrolled away by the time the person is waiting.
 
 Changed on 2026-10-11: an idle mouse says `○ idle`, and the mice re-sort on any change of state, and when a new mouse appears in any state but idle.
+Changed on 2026-10-12: a working mouse is stuck after two minutes' silence in a tool or five waiting on the model, where it was two minutes whatever it waited on; and a subagent started further back than the short tail still counts as out.
 
 Folded in on 2026-10-08: 0051, 0058, 0059, 0065 (their text is in git history).
