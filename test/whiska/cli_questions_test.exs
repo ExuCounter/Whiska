@@ -311,16 +311,19 @@ defmodule Whiska.CLIQuestionsTest do
       end
     end
 
-    test "read from a mouse's worktree, it writes nothing into the main checkout", %{repo: repo} do
-      q = finished(repo, "feat-m")
-      worktree = Path.join(repo.checkout, "worktrees/reader")
-      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "reader", worktree])
+    test "read from another mouse's worktree, a finished branch still links its diff",
+         %{repo: repo} do
+      q = finished(repo, "feat-w")
+      worktree = Path.join(repo.checkout, "worktrees/elsewhere")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "elsewhere", worktree])
 
       out = capture_io(fn -> assert CLI.run(["show", to_string(q.id)], worktree) == 0 end)
 
-      assert out =~ "On the branch: 1 commit beyond main"
-      refute out =~ "Review diff here"
-      refute File.exists?(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md"))
+      assert out =~
+               "\nReview diff here: [1 commit against main](file://#{repo.checkout}/.whiska/reviews/#{q.id}.md)\n"
+
+      assert File.read!(Path.join(repo.checkout, ".whiska/reviews/#{q.id}.md")) =~
+               "git diff main...feat-w"
     end
 
     test "a kept research document is linked under the branch line, by its title", %{repo: repo} do

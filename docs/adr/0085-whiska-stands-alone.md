@@ -29,11 +29,13 @@ absence is said plainly.
   listed that looked built for an axis, so a plugin installed for something else could
   review Whiska's work. The mouse now writes each axis's prompt for Claude Code's
   `general-purpose` agent, the cold review aside, and the repo's own agents add axes.
-- **`hunk diff`**, printed above a finished branch's options. In its place `whiska show`,
-  run from the main checkout, writes the branch's diff, `git diff <base>...<branch>`, to
+- **`hunk diff`**, printed above a finished branch's options. In its place `whiska show`
+  writes the branch's diff, `git diff <base>...<branch>`, to
   `.whiska/reviews/<id>.md`, ignored like the kept specs (ADR-0063), and prints a link to
-  it under the branch line, as a spec goes to the person as a link. Run from a mouse's
-  worktree it writes nothing, since a mouse never writes to the main checkout. The file is
+  it under the branch line, as a spec goes to the person as a link. It writes the file
+  wherever it runs, a mouse's worktree included: the main session's shell can stand in a
+  worktree, and a read that wrote nothing from there dropped the link without a word. The
+  folder is Whiska's own and ignored, so a write from a mouse costs nothing. The file is
   Markdown, so it opens in whatever the person's links open in. No diff program, text
   conversion or submodule diff that git's config names runs, and the write never follows a
   link. A person who wants hunk, or any diff viewer of their own, sets `WHISKA_DIFF_LINK` to a
@@ -83,7 +85,7 @@ the person's side.
 ## Consequences
 
 - No mouse scouts before a build, and finishing has four axes.
-- Showing a finished question with commits from the main checkout writes its diff file,
+- Showing a finished question with commits writes its diff file, from wherever it runs,
   rewritten on each show, unless `WHISKA_DIFF_LINK` names a viewer. Nothing removes the
   folder: it holds one file per question shown, and a secret a branch once committed stays
   in its file after the branch is dropped.

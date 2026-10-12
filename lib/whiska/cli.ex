@@ -1763,7 +1763,7 @@ defmodule Whiska.CLI do
       {:ok, main} ->
         case Questions.summary(main) do
           {:ok, summary} ->
-            say(render(summary, shape, main, cwd))
+            say(render(summary, shape, main))
 
           {:error, reason} ->
             fail("whiska: could not open this repo's house (#{inspect(reason)}).")
@@ -1774,10 +1774,10 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp render(summary, :listing, _main, _cwd), do: Questions.render(summary)
+  defp render(summary, :listing, _main), do: Questions.render(summary)
 
-  defp render(summary, :full, main, cwd),
-    do: Questions.render_full(summary, &on_branch(main, &1, reviews?(cwd)), &research(main, &1))
+  defp render(summary, :full, main),
+    do: Questions.render_full(summary, &on_branch(main, &1), &research(main, &1))
 
   # Not repo-scoped: the line is machine-wide and herdr draws one of them for
   # the whole session (ADR-0048). Always 0 and never noisy — this runs every
@@ -2125,7 +2125,7 @@ defmodule Whiska.CLI do
         slot,
         mode,
         focus,
-        &on_branch(main, &1, reviews?(cwd)),
+        &on_branch(main, &1),
         &research(main, &1)
       )
     )
@@ -2135,28 +2135,24 @@ defmodule Whiska.CLI do
 
   # A question read by id comes without its mouse, and one from the listing
   # with it — the house is already closed by the time the listing renders.
-  defp on_branch(main, %Question{mouse: %Mouse{} = mouse} = q, reviews?),
-    do: held(main, q.id, mouse, reviews?)
+  defp on_branch(main, %Question{mouse: %Mouse{} = mouse} = q), do: held(main, q.id, mouse)
 
-  defp on_branch(_main, %Question{mouse: nil}, _reviews?), do: {:error, :no_record}
+  defp on_branch(_main, %Question{mouse: nil}), do: {:error, :no_record}
 
-  defp on_branch(main, %Question{id: id, mouse_id: mouse_id}, reviews?),
-    do: held(main, id, Storage.mouse(mouse_id), reviews?)
+  defp on_branch(main, %Question{id: id, mouse_id: mouse_id}),
+    do: held(main, id, Storage.mouse(mouse_id))
 
-  defp held(main, id, %Mouse{path: path, branch: branch, base: base}, reviews?)
+  # The diff file is written wherever the show runs: a main session whose
+  # shell sits in a mouse's worktree reads a finished branch too, and the
+  # file is Whiska's own, ignored like the kept specs (ADR-0085).
+  defp held(main, id, %Mouse{path: path, branch: branch, base: base})
        when is_binary(path) and is_binary(branch) do
     with {:ok, held} <- Git.on_branch(main, path, branch, base) do
-      if reviews?,
-        do: {:ok, Map.merge(held, review(main, id, branch, base, held))},
-        else: {:ok, held}
+      {:ok, Map.merge(held, review(main, id, branch, base, held))}
     end
   end
 
-  defp held(_main, _id, _no_worktree, _reviews?), do: {:error, :no_record}
-
-  # Only a read from the main checkout writes the diff file: a mouse never
-  # writes to the main checkout (ADR-0063).
-  defp reviews?(cwd), do: match?({:ok, _main}, Git.main_checkout(cwd))
+  defp held(_main, _id, _no_worktree), do: {:error, :no_record}
 
   # A diff viewer the person names in WHISKA_DIFF_LINK takes the link, and
   # no file is written (ADR-0085). The branch line stands without the diff

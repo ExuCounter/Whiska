@@ -75,7 +75,7 @@ C4Container
   Rel(house, doorstep, "Collects on idle, at open, and on a backstop")
   Rel(house, kept, "Keeps the spec and build plan a collected entry carried; the sweep marks them landed or dropped")
   Rel(house, keptresearch, "Keeps the research document a collected entry carried, under its question")
-  Rel(cli, reviews, "whiska show, from the main checkout, writes a finished branch's diff, unless WHISKA_DIFF_LINK is set")
+  Rel(cli, reviews, "whiska show writes a finished branch's diff, unless WHISKA_DIFF_LINK is set")
   Rel(house, backstop, "Marks what the backstop collected; clears it at open")
   Rel(house, marker, "At open, makes git ignore it, the research document, the build plan and worktrees/, through the main checkout's info/exclude")
   Rel(cli, clonelist, "shape reads it, clones those paths copy-on-write, and excludes each from git")
