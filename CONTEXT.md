@@ -157,7 +157,7 @@ see **Report**), event (as the table/record name)
 The shape a mouse's final message takes — one line of what is true now,
 what changed with each cheap choice made without asking, what was verified rather than
 assumed, one thing worth knowing, then
-either nothing waiting or the one decision. It
+the one decision when there is one, and no closing line when there is not. It
 names how a message reads, never the record it becomes: once collected the same message
 is a **question**. A mouse's `report` part teaches it; how any session writes, the
 plain words, the recap and the numbered questions included, is the `writing` part. `done` report is the older,

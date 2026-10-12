@@ -168,8 +168,8 @@ defmodule Whiska.RulesTest do
         ~r/\*\*problem\*\* and \*\*risk\*\*.{0,80}worst case/is,
       "a decision: terms, problem, why a choice, options, one recommendation":
         ~r/each term it turns on.{0,80}why there is a choice.{0,80}options.{0,60}one recommendation/is,
-      "end on one next step or nothing waiting, never both":
-        ~r/nothing is waiting on you.{0,40}never both/is,
+      "end on one next step, only when there is one":
+        ~r/end on one next step.{0,60}only when there is one/is,
       "several numbered questions, each standing alone, then a reply line":
         ~r/say how many and number them.{0,200}recommended letter.{0,80}reply line/is,
       "a reply stays short and detail goes in a document":
@@ -212,11 +212,23 @@ defmodule Whiska.RulesTest do
     refute body =~ ~r/no costly choice open from the start/i
   end
 
+  # A message just delivered to the person is read because it waits on them or
+  # is done; a closing "Nothing is waiting on you" is noise on every one.
+  test "no message is told to close on a line saying nothing is waiting" do
+    for role <- [:main, :mouse], part <- names(role) do
+      refute prose_of(role, part) =~ ~r/nothing is waiting/i, "#{part} (#{role})"
+    end
+  end
+
   test "a finished report carries no finding in full and ends with the agent ledger" do
     body = prose_of(:mouse, "report")
 
     refute body =~ ~r/findings, which go whole/i
     assert body =~ ~r/ends with the agent ledger, as `whiska-finish` describes/i
+  end
+
+  test "a report with no decision ends on its last point" do
+    assert prose_of(:mouse, "report") =~ ~r/none → end on the last point above/i
   end
 
   # Whiska stands alone (ADR-0085): its rules and skills

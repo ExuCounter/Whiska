@@ -132,9 +132,9 @@ defmodule Whiska.Rules do
   - **Verified, not assumed**: what was run and what came back — "31 tests pass". Not run,
     gone wrong, or unsure → one line saying so.
   - **One thing worth knowing**, only if it changes what the person does next.
-  - **"Nothing is waiting on you"**, or the one decision. Ask for one only when the next
-    step needs a review, approval, merge or design pick. The body carries every option;
-    the marker line is only the pointer, stripped before they read it.
+  - **The one decision**, only when the next step needs a review, approval, merge or
+    design pick. The body carries every option; the marker line is only the pointer,
+    stripped before they read it. None → end on the last point above.
 
   Leave out the mechanics of a review, and lessons, which go in the repo's docs. A
   finished report keeps a count of what a review fixed and one line per finding left
@@ -166,7 +166,7 @@ defmodule Whiska.Rules do
     labelled points, the worst case concrete. A decision then gives each term it turns on
     in one line, why there is a choice at all, the options with their trade-offs, and one
     recommendation.
-  - End on one next step: a recommendation, or "Nothing is waiting on you" — never both.
+  - End on one next step, a recommendation, only when there is one. No filler sign-off.
   - Several questions → say how many and number them, in one message. Each stands alone:
     its problem in one line, its options, a recommended letter. End with a reply line,
     such as "reply 1A 2B".
