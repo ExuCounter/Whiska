@@ -1,0 +1,8 @@
+# Scratch CLI
+
+A tiny Python CLI: `app.py` prints a greeting from `config.json` after a password check.
+Tests: `./check.sh`.
+
+## Finish
+
+checks: ./check.sh

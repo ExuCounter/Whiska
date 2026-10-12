@@ -135,5 +135,13 @@ follow either way, and the finish pipeline alone was 58% of it.
 - A new rule arrives as a bullet, its reasoning as an ADR, and a rule that applies at one
   moment as a skill. Tests pin behaviour, not sentences, plus a ceiling on length, so the
   next accretion fails a test rather than landing quietly.
+- The hook's text is plain context, where `CLAUDE.md` is wrapped as instructions that
+  must be followed. Measured on 2026-10-12
+  (`docs/spikes/2026-10-12-claude-md-reference`): a `CLAUDE.md` block referring the
+  session to the hook's text, and the rules written into `CLAUDE.md` itself, changed no
+  scored signal across 56 runs on six briefs, and the one rule that broke under an owner's
+  "skip it" broke under every framing. On that evidence, where a rule arrives is not what
+  makes it hold; a brief that splits the runs under one framing would be the place to
+  look again.
 
 Folded in on 2026-10-08: 0017, 0045, 0055 (their text is in git history).
