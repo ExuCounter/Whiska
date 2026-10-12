@@ -21,12 +21,18 @@ _Avoid_: worker, crewmate, agent
 **Base**:
 The branch a mouse's worktree was cut from: the branch the main checkout was on when
 `whiska shape` ran, kept in the mouse's record. Its commits are measured beyond it, and
-its work has landed when it reaches it (ADR-0061) — here, or in the **fetched base**, the
-copy of it last fetched from its remote, where a **merge request** merged on the forge
-shows before anyone pulls. A mouse with none recorded is read
-against the repo's default branch; a recorded one that is gone is unknown, never the
-default.
+its work has landed when it reaches it, here or in the **fetched base** (ADR-0061). A
+mouse with none recorded is read against the repo's default branch; a recorded one that is
+gone is unknown, never the default.
 _Avoid_: main, trunk, target
+
+**Fetched base**:
+The copy of a **base** last fetched from its remote: where a **merge request** merged on
+the forge shows before anyone pulls. Work it holds has landed as surely as work the base
+here holds. The owl fetches it while a merge request waits, and a fetch the person runs
+moves it too; it is only as fresh as its last fetch, and it never moves the base here
+(ADR-next-an-opened-merge-request-is-remembered).
+_Avoid_: remote base, upstream (git's word for what a branch pushes to and pulls from)
 
 **Brief**:
 What a mouse is given to build — the person's own words, routed in whole by
