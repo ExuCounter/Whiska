@@ -662,6 +662,21 @@ defmodule Whiska.InstallStatuslineTest do
       assert pr =~ ~r/the link `gh` or `glab` printed/i
     end
 
+    test "opening a merge request carries the mouse's words from files, never on the command line" do
+      pr = option("Open a merge request / PR")
+
+      assert pr =~ ~r/title.{0,40}message.{0,60}files outside both checkouts/i
+
+      assert pr =~
+               "`gh pr create --assignee @me --head <branch> --base <base> --title \"$(cat '<title-file>')\" --body-file '<body-file>'`"
+
+      assert pr =~
+               "`glab mr create --assignee <username> --source-branch <branch> --target-branch <base> --title \"$(cat '<title-file>')\" --description-file '<body-file>' --yes`"
+
+      assert pr =~ "no path or word the mouse wrote goes on the command line"
+      refute pr =~ ~r/--body "|--description "/
+    end
+
     test "opening a request commits the rest the same way first" do
       pr = option("Commit and open a PR")
 

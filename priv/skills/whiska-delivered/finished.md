@@ -122,11 +122,15 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
 - **Open a merge request / PR** — push the branch with its upstream set,
   `git -C <worktree> push -u origin HEAD`, and open it with `gh`
   or `glab`, whichever this repo's host wants, assigned to the account that
-  tool is signed in as: `gh pr create --assignee @me`, or
-  `glab mr create --assignee <username>` with the username `glab api user`
-  prints. The body is the message you
+  tool is signed in as. The body is the message you
   just showed: the branch's own session wrote it, with context you lack, so
-  carry it over rather than composing a summary from the diff. Neither
+  carry it over rather than composing a summary from the diff. Write the
+  title, in this repo's commit style, and the message with the file tool to
+  two files outside both checkouts, and run
+  `gh pr create --assignee @me --head <branch> --base <base> --title "$(cat '<title-file>')" --body-file '<body-file>'`,
+  or `glab mr create --assignee <username> --source-branch <branch> --target-branch <base> --title "$(cat '<title-file>')" --description-file '<body-file>' --yes`
+  with the username `glab api user` prints, `<base>` the one the branch line
+  names: no path or word the mouse wrote goes on the command line. Neither
   tool installed or signed in → say plainly what is missing and stop,
   improvising no substitute. Once it succeeds, record it with
   `whiska merge-request <id> '<url>'`: `<id>` is this question's, `<url>`

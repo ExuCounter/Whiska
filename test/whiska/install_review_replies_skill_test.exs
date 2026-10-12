@@ -128,7 +128,7 @@ defmodule Whiska.InstallReviewRepliesSkillTest do
       body = open_option()
 
       assert body =~ "gh pr create --assignee @me"
-      assert body =~ ~r/glab mr create --assignee <username>.{0,80}glab api user/
+      assert body =~ ~r/glab mr create --assignee <username>[^`]*`.{0,40}glab api user/
     end
 
     test "prints no account name beside the link" do
