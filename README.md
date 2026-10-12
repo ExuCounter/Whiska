@@ -2,272 +2,83 @@
 
 Run several Claude Code sessions at once, each in its own git worktree. Whiska keeps them
 out of each other's files, and when one needs a decision it types a single line into *your*
-session — with an id you answer by.
-
-## Install
-
-Requires macOS or Linux, git, Elixir ~> 1.19 on OTP 28 to build, and
-[herdr](https://herdr.dev), the terminal multiplexer Whiska reads pane status from and
-types into. On Linux, systemd keeps the owl running and `notify-send` (libnotify) shows its
-notifications; without systemd — most containers — the owl runs in a pane instead.
-`nc` with Unix-socket support (`nc -U`) draws the owl's line on herdr's tab bar and keeps
-each hook fast. macOS ships one; on Linux install `netcat-openbsd`, since GNU netcat has
-no Unix sockets.
-
-```bash
-brew install herdr              # or, on Linux: curl -fsSL https://herdr.dev/install.sh | sh
-
-git clone git@github.com:ExuCounter/Whiska.git && cd Whiska
-mix deps.get && mix escript.build
-cp whiska ~/.local/bin/        # anywhere on your PATH
-```
-
-## Set it up
-
-Two commands per repo, one per machine. Order matters: the owl has to be told about the
-repo before it is put under launchd or systemd, which start it with no arguments.
-
-```bash
-cd your-repo
-whiska init                    # hooks and skills, and an older install's leftovers out
-git add .claude CLAUDE.md && git commit -m "chore: enable whiska"
-
-whiska owl .                   # record this repo — runs in the foreground, Ctrl-C it
-whiska owl install             # the owl under launchd or systemd: at login, and after a crash
-```
-
-On Linux, systemd stops the owl when your last session ends. To keep it running after you
-log out, run `loginctl enable-linger` once; `whiska doctor` reminds you while it is off.
-
-Then, in the herdr pane you want your main session in — the one pane questions are
-delivered to:
-
-```bash
-whiska start                   # records this pane, and starts Claude Code in it
-```
-
-From inside a session that is already running, `! whiska start` records the pane and
-starts nothing; the `!` prefix runs it inside the session, so no restart is needed.
-
-```bash
-whiska doctor                  # is it working? every failing line names its own fix
-```
-
-## Use it
-
-Ask your main session to start a task in a worktree. When that session finishes a turn,
-one line arrives in yours:
+session, with an id you answer by.
 
 ```
 🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above" · 2 more open
 ```
 
 ```bash
-whiska questions               # everything waiting on you here, one line each
-whiska questions 12            # that one in full
-whiska reply 12 "go with A"    # saved, and that session's doorbell rung; #12 is answered
+whiska questions               # everything waiting on you, one line each
+whiska reply 12 "go with A"    # answers #12 and rings that session
 ```
 
-One at a time, and only while your pane is idle and you are not mid-draft; the rest queue
-silently. herdr's sidebar shows each one under its mouse's workspace:
+## Install
 
-```
-myrepo
-  ⏳ gated: you're typing
-feat/quiet-marker
-  ❓ #52 · waiting on you · 4m
-  sqlite or a plain file?
-fix/doctor-probe
-  ✖ stuck 6m
-  Bash mix test
-feat/cache-ttl
-  ⏳ queued behind #52
-  which cache TTL?
-feat/watch-board
-  ◐ A board the owl writes
+Needs macOS or Linux, git, Elixir ~> 1.19 on OTP 28, [herdr](https://herdr.dev) (the
+terminal multiplexer Whiska works through) and `nc` with `-U` (macOS has it; on Linux
+install `netcat-openbsd`).
+
+```bash
+brew install herdr              # Linux: curl -fsSL https://herdr.dev/install.sh | sh
+git clone git@github.com:ExuCounter/Whiska.git && cd Whiska
+mix deps.get && mix escript.build
+cp whiska ~/.local/bin/         # anywhere on your PATH
 ```
 
-The words are the project's own: a **mouse** is one of those task sessions, a **house** is
-one repo's storage, the **owl** is the one background process watching every house, and a
-question waits on the **doorstep** until the owl collects it —
-[`CONTEXT.md`](CONTEXT.md) defines each.
+## Set up
 
-## What you get
+In your repo, in this order:
 
-- **Nothing is lost while the owl is down** — a mouse writes its message into the repo and
-  carries on; the owl collects it whenever it is back.
-  [Details](docs/internals.md#the-owl-the-house-the-doorstep)
-- **One question at a time** — the next goes only when your pane is idle, you are not
-  half-way through typing, and the one before it is settled. A "finished" line waits for
-  that too, so it never lands over a question you are reading, then goes ahead of the
-  queue.
-- **A mouse that moved on cannot wedge the queue** — its newer question replaces its own
-  older ones.
-- **Answers are routed for you** — `whiska reply 12` saves the answer and rings mouse #12's
-  own pane, whichever branch and worktree that is. The mouse's own hook hands the answer
-  over whole, multi-line and all, and the owl rings again until it is taken.
-- **Each mouse's state where you click to reach it** — a line under its workspace in
-  herdr's sidebar, coloured by your own herdr config; the mice re-sort only when one
-  starts or stops needing you.
-  [Details](docs/internals.md#each-mouses-line-in-herdrs-sidebar)
-- **Mice stay out of each other's files** — a build mouse is denied writes into the main
-  checkout and the worktrees beside it; a sniff mouse is denied them everywhere but its
-  research document, the document you review its findings in. Not a sandbox — see below.
-  [Details](docs/internals.md#what-is-enforced)
-- **The owl comes back by itself** — launchd on macOS, or systemd on Linux, restarts it after
-  a crash and at login, and it reopens exactly the houses it had. [Details](docs/internals.md#keeping-the-owl-awake)
-- **Nothing is ever deleted** — questions, mouse records and collected entries are kept, and
-  no worktree is ever touched.
-- **Broken Whiska never blocks your session** — the hook complains on stderr and allows the
-  call rather than denying everything.
-- **It fits the config you already have** — `init` merges into the repo's own
-  `.claude/settings.json`, leaves other people's hooks alone, refuses rather than overwrite
-  what it cannot parse, and `whiska uninstall` takes it back out. Per repo, and only after
-  you run it. [Details](docs/internals.md#what-whiska-init-writes)
-- **`whiska doctor` runs the real thing** — prerequisites, the hooks through the committed
-  shim, the house, the doorstep, the backstop, the queue, every mouse record; each failing
-  line names its own fix. [Details](docs/internals.md#a-full-whiska-doctor-run)
-
-## Commands
-
-```
-whiska questions [<id>|--full]  what is waiting on you in this repo
-whiska reply <id> <text>        answer — saved, then handed to that mouse by its own hook
-whiska close <id>               settle one by hand, with no answer
-whiska waiting [--json]         the same, across every repo on the machine
-whiska jump [<repo|branch>]     focus the session of whatever needs you most
-
-inbox                           one word each, installed by `whiska init --global`
-show [<id>]                     under ~/.whiska/bin and as slash commands in the main
-reply <id> <text>               session: inbox = waiting, show = the question delivered
-dismiss <id>                    to you, dismiss = close; the long names keep working
-away                            nothing is delivered anywhere until `resume`
-focus <branch>                  only that mouse's questions reach this repo's session
-hold <branch>                   that mouse stops where it is; `resume <branch>` lifts it
-resume [<branch>]               end away and focus, or lift one hold; oldest first
-whiska watch                    the lines herdr's sidebar shows for this repo, printed once
-whiska mice                     what is alive here — branch, mode, pane, uptime, pickups
-whiska worktrees                linked worktrees, their herdr workspace and pane, tab-separated
-whiska where                    where this directory is, as one line of JSON, for hooks
-whiska doctor                   check this repo end to end; exits 1 on any failure
-whiska statusline               the tab-bar line
-whiska mode [build|sniff]       this mouse's mode; build|sniff gives one to a mouse nobody
-                                shaped, and refuses on one that has it. sniff writes only
-                                its research document
-whiska init [--global]          install into this repo's .claude/, or into ~/.claude
-whiska uninstall [--global]     take it back out; the house is untouched
-whiska start [--force]          record this herdr pane as the repo's main session, and
-      [--no-claude]             start Claude Code in it if nothing is running there
-whiska owl [install|start|stop|uninstall]
+```bash
+cd your-repo
+whiska init                     # hooks and skills
+git add .claude CLAUDE.md && git commit -m "chore: enable whiska"
+whiska owl .                    # record the repo; Ctrl-C it
+whiska owl install              # keep the owl running (launchd / systemd)
 ```
 
-`whiska --help` has the full text for each.
+Then, in the herdr pane you want questions delivered to:
 
-### `whiska where`, for scripts
-
-`whiska where` tells a hook or script where it runs, so it needs no copy of Whiska's
-layout rules. It prints one line of JSON and always exits 0:
-
-```
-{"version":1,"worktree":"/src/app/worktrees/feat/x","branch":"feat/x","main_checkout":"/src/app","main_workspace":"w3"}
+```bash
+whiska start                    # records this pane, starts Claude Code in it
+whiska doctor                   # every failing line names its fix
 ```
 
-| Field | Meaning |
-| --- | --- |
-| `version` | Format version, `1`. Changes only when a field changes. |
-| `worktree` | The worktree's root folder; `null` outside one. |
-| `branch` | The worktree's whole branch name; `null` outside one. |
-| `main_checkout` | The main checkout's folder; `null` outside both a worktree and the main checkout. |
-| `main_workspace` | The herdr workspace id open on the main checkout; `null` when herdr is not running, takes over half a second to answer, or has none open. |
+Linux with systemd: run `loginctl enable-linger` once so the owl survives logout.
 
-Every field is always present. These fields are stable: a change to them bumps
-`version`. Read one with `jq -r '.main_workspace // empty'`.
+## Use
 
-### `~/.whiska/owl.sock`, for scripts
+Ask your main session to start a task in a worktree. When that task needs you, one line
+arrives in your session. Answer with `whiska reply <id> "<text>"`. Lines come one at a
+time, and only while you are idle and not typing; the rest queue.
 
-The running owl answers questions over a Unix socket, so a script can ask without
-starting Whiska: a few milliseconds instead of a quarter of a second. Send one line, get
-one line back, then the owl closes the connection:
+Words: a **mouse** is a task session, the **owl** is the background process watching every
+repo. [`CONTEXT.md`](CONTEXT.md) has the rest.
 
-```
-echo waiting | nc -U ~/.whiska/owl.sock | jq -r '.waiting[] | "\(.repo)  \(.branch)  \(.pointer)"'
-```
-
-| Request | Answer |
-| --- | --- |
-| `waiting` | `{"version":1,"waiting":[…]}` — everything waiting on every repo, oldest first. Each row has the fields `whiska waiting --json` prints: `repo`, `main_checkout`, `branch`, `id` (`null` while still on the doorstep), `kind`, `status`, `pointer`, `age_seconds`, `pane`, `waits`, `held`. |
-| `show <id> <main_checkout>` | `{"version":1,"question":{…}}` — one question: `id`, `repo`, `main_checkout`, `branch`, `kind`, `status`, `pointer`, `text` (the whole message), `asked_at` (ISO 8601). Ids are numbered per repo, so the main checkout is needed; everything after the id is the path, spaces and all. |
-| `jump` | `{"version":1,"whiskas":[…]}` — every whiska `whiska jump` can land on, waiting ones first; the rows `whiska jump --list --json` prints: `repo`, `main_checkout`, `waiting`, `oldest_wait_seconds` (`null` when nothing waits), `summary`, `main_session`. |
-| `questions <main_checkout>` | `{"version":1,"questions":"…"}` — the text `whiska questions` prints in that repo. Only for a repo the owl has open. |
-| `line [hint]` | The tab-bar line, as plain text. A hint is added at the end when something not held is waiting. |
-| anything else | `{"version":1,"error":"…"}` — `unknown request`, `no such house`, `no such question`, `unreadable house`. |
-
-`version` is `1` and changes only when a field changes. No answer at all means the owl is
-not running; `whiska waiting --json` reads the same rows without it. The socket lives
-under `WHISKA_HOME` when that is set, and only your own user can open it.
-
-## Advanced
-
-- **A repo that cannot carry a committed `.claude/`** — `whiska init --global`, once, for
-  every repo on the machine. A repo that ran `whiska init` still wins there.
-  [Details](docs/internals.md#the-global-install).
-- **The machine-wide tab-bar line** — `whiska owl install` writes
-  `~/.whiska/herdr-status.sh` and prints a `tab_bar_right` entry; paste it into
-  `~/.config/herdr/config.toml` yourself and run `herdr server reload-config`. The script
-  asks the owl over `owl.sock` and starts nothing. Its one argument is the key you bound
-  to reach what waits, shown when something does — `herdr-status.sh '⌃a space'` draws
-  `🦉 watching · 🐱 2 whiskas · ⌃a space`; leave it off and no hint is shown.
-  [Details](docs/internals.md#wiring-the-tab-bar-and-the-sidebar).
-- **`keep` on a `CLAUDE.md` block marker** — claims that part so `init` never rewrites it.
-  [Details](docs/internals.md#the-claudemd-block).
-- **`WHISKA_BIN` and `WHISKA_ESCRIPT`** — override how the hook shim finds the binary and
-  the Erlang runtime.
-- **`WHISKA_DIFF_LINK`** — point a finished branch's `Review diff here:` link at a
-  diff viewer of your own instead of the Markdown diff file. It holds a link pattern your
-  terminal opens there, with `{base}` and `{branch}` filled in:
-  `export WHISKA_DIFF_LINK='hunk-review://{base}..{branch}'`. Set, no diff file is
-  written; a pattern without a scheme, or with a space, parenthesis, backslash or control
-  character in it, is ignored.
-- **`WHISKA_SPEC_LINK`** — the same for the `Review spec here:`, `Review build plan here:`
-  and `Review research here:` links a mouse sends for your ok, instead of the file links
-  that open in annotate. The pattern gets `{path}`, each file's absolute path, and
-  `{branch}`:
-  `export WHISKA_SPEC_LINK='myviewer://open?file={path}'`. The same patterns are ignored.
-  Set it in your own shell profile, never from a repo's env file: a pattern decides what
-  clicking the link opens.
-- **What the rules actually cover** — a build mouse cannot write into the main checkout or
-  the worktrees under it; a sniff mouse can write only its research document. **Neither is a sandbox**: a
-  path elsewhere on the machine is allowed, reads are never policed, and only
-  `Write`/`Edit`/`MultiEdit`/`NotebookEdit`/`Bash` go through the hook.
-  [Details](docs/internals.md#what-is-enforced).
+Mice cannot write into the main checkout or each other's worktrees. This is a guard, not a
+sandbox ([details](docs/internals.md#what-is-enforced)). Nothing is ever deleted, and a
+broken Whiska never blocks your session.
 
 ## Docs
 
 | | |
 |---|---|
+| [`docs/reference.md`](docs/reference.md) | Every command, `whiska where`, `owl.sock`, environment variables |
+| [`docs/internals.md`](docs/internals.md) | What `init` writes, what is enforced, how a question travels, cold start |
 | [`CONTEXT.md`](CONTEXT.md) | The glossary — the canonical name for every concept |
 | [`docs/adr/`](docs/adr/README.md) | Every architectural decision, one file each. Binding |
 | [`docs/architecture/`](docs/architecture/README.md) | C4 diagrams, including two end-to-end flows |
-| [`docs/internals.md`](docs/internals.md) | What `init` writes, what is enforced, how a question travels, cold start |
 
 ## Development
 
-Elixir/OTP, SQLite via Ecto, one escript serving the owl. The hooks are a bash shim that
-asks the running owl over a socket and runs the same escript only when the owl does not
-answer (ADR-0033).
-
 ```bash
-mix deps.get
-mix test                       # everything but the end-to-end test
-mix test.e2e                   # the real binary through a private herdr, ~50 s
+mix test                       # all but end-to-end
+mix test.e2e                   # real binary through a private herdr, ~50 s
 mix format --check-formatted
-mix escript.build
 ```
 
-If you contribute: ADRs are binding — if the right change conflicts with one, say so and
-change the ADR in the same piece of work. And use the repo's words; `CONTEXT.md` lists the
-synonyms that were rejected and why.
+ADRs are binding: if the right change conflicts with one, say so and change the ADR in the
+same piece of work. Use the words in `CONTEXT.md`.
 
-## License
-
-Not yet chosen.
+Licence: not yet chosen.
