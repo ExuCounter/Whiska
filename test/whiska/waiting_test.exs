@@ -430,6 +430,28 @@ defmodule Whiska.WaitingTest do
              ] = Waiting.list(open_houses: record)
     end
 
+    test "while a mouse's follow-up waits to be typed, the rest are queued behind it", %{
+      root: root,
+      record: record
+    } do
+      main = house!(root, "repo", record)
+
+      seed(main, fn ->
+        mouse("ma", "feat-a", "w1:p1")
+        mouse("mb", "feat-b", "w1:p2")
+        out = ask("ma", "[worktree-status: needs-decision] ?", status: "sent", asked_at: ago(30))
+        ask("mb", "[worktree-status: needs-decision] and?", asked_at: ago(20))
+        heir = ask("ma", "[worktree-status: needs-decision] still?", asked_at: ago(10))
+        {:ok, _} = Storage.supersede_earlier(heir)
+        out
+      end)
+
+      assert [
+               %{id: 2, waits: "queued behind #3"},
+               %{id: 3, waits: nil}
+             ] = Waiting.list(open_houses: record)
+    end
+
     test "an entry still on the doorstep is not queued behind the question out", %{
       root: root,
       record: record

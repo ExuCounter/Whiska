@@ -40,16 +40,37 @@ releasing it would turn the ordinary end of a mouse's life into silence.
 
 - **An answer.** `whiska reply` saves it; the question is `answered` and the slot is free
   whether or not the mouse has taken it yet (ADR-0080).
-- **The mouse's own newer question.** When a mouse's newer question is collected, its
-  earlier questions still `open` or `sent` become **superseded**. A delivered question does
-  not always get its answer through `reply`: the person types into the mouse's pane, or
-  the mouse moves on and finishes another turn. The mouse has moved past the question, and
-  an answer could no longer land in the conversation it was asked in, which is why answers
-  are keyed to a question id (ADR-0005). Settled history is untouched. A `done` report
-  supersedes an earlier open question too: the mouse declared itself finished.
 - **`dismiss`** (`whiska close <id>`), by hand, for a question dealt with some other way
   from a mouse that has not spoken since. It closes an orphaned question too.
 - **A hold on the branch** (ADR-0079), and the mouse's death.
+
+What the person types in the main session answers no question, so a question keeps the
+slot through it; only a finished line is let go by the next prompt, below.
+
+## A mouse's newer question takes the slot over
+
+When a mouse's newer question is collected, its earlier questions still `open` or `sent`
+become **superseded**. A delivered question does not always get its answer through
+`reply`: the person types into the mouse's pane, or the mouse moves on and finishes
+another turn. The mouse has moved past the question, and an answer could no longer land in
+the conversation it was asked in, which is why answers are keyed to a question id
+(ADR-0005). Settled history is untouched. A `done` report supersedes an earlier open
+question too: the mouse declared itself finished.
+
+Superseding passes the slot on rather than freeing it. When a superseded question held the
+slot, the newer one inherits it: it is stored with `keeps_slot`, goes next ahead of every
+other branch's question and finished line, and is typed once the gate lets it through. An
+heir superseded before it was typed passes the slot on in turn. Away, a focus and a hold
+are judged first, as always, so a held or unfocused mouse's heir has no priority. While the
+heir waits to be typed, the sidebar line, `whiska questions` and the inbox show the rest
+queued behind it.
+
+Seen live: the person was discussing a sent question with the main session when its mouse
+ended another turn saying only that it was still waiting. Superseding freed the slot, the
+oldest open question, from another branch, was typed into the middle of that
+conversation, and the mouse's own follow-up queued behind it. The cost, accepted: a
+follow-up that adds nothing still gets its own line, on the branch already being
+discussed.
 
 ## A finished line waits for the slot, goes first, and then holds it
 
@@ -67,8 +88,9 @@ second finished line landing before the person has written anything would make a
 letter ambiguous. The report is left `sent`; the `UserPromptSubmit` hook (ADR-0080), which
 runs in the main session too, closes it on the person's prompt. The owl raises a flag
 file, `whiska-finish` in the main checkout's `.git`, as it types the line and the hook
-lowers it, so a main session with nothing out never starts the escript. `dismiss`, a hold,
-the mouse's next message and the mouse's death free it as they free any sent question.
+lowers it, so a main session with nothing out never starts the escript. `dismiss`, a hold
+and the mouse's death free it as they free any sent question, and the mouse's next message
+takes it over.
 
 The cost, accepted: while a decision sits unanswered a finished branch gets no line and no
 hoot, for as long as the decision does. The mouse's sidebar line, `inbox` and
@@ -97,6 +119,10 @@ explanation.
 - **Hold on `unknown`.** Rejected, as above.
 - **A startup check in `whiska start`.** Rejected: it fires once, catching a machine that
   was already broken and missing herdr updated mid-session.
+- **Free the slot on supersede, oldest open question next.** Rejected, as seen live above:
+  another branch lands mid-conversation.
+- **Hand the slot to the newer question without typing it.** Rejected: a follow-up with
+  something truly new, a revised spec, would never be shown.
 - **Leave a stuck slot for the person to close by hand.** Rejected: the failure is silence
   from every other mouse, which the person reads as the mice being quiet, the direction
   ADR-0009 chooses against.

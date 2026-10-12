@@ -67,7 +67,8 @@ defmodule Whiska.Owl.House do
   and holds the slot once sent until the person writes something; an entry whose worktree is no longer on disk is recorded as
   orphaned rather than delivered. Whatever a mouse
   leaves supersedes its own earlier open or sent questions: it has moved past
-  them, and an answer could no longer land.
+  them, and an answer could no longer land. One that held the slot hands it to
+  the newer question, which goes next.
 
   ## Delivery (ADR-0008)
 

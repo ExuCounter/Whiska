@@ -127,12 +127,15 @@ defmodule Whiska.Delivery.Mode do
   @doc """
   What goes next, if the main session will have it, out of the house's
   waiting questions (`Whiska.Storage.questions/0`): nothing while a
-  deliverable question is sent; otherwise the oldest deliverable finished
-  report, else the oldest deliverable open question. A finished report waits
+  deliverable question is sent; otherwise an heir — a mouse's newer question
+  that superseded the one holding the slot, which inherits it — then the
+  oldest deliverable finished report, else the oldest deliverable open
+  question. A finished report waits
   for the slot, then holds it once sent until the person writes something
   (ADR-0008). Oldest
-  first, always; newest-first was rejected (a newer question from any mouse
-  would jump ahead, and old ones could wait forever).
+  first otherwise; newest-first was rejected (a newer question from any mouse
+  would jump ahead, and old ones could wait forever). Only an heir goes out of
+  turn, and only the one mouse's whose question held the slot.
   """
   @spec next([Question.t()], t()) :: Question.t() | nil
   def next(questions, mode) do
@@ -141,18 +144,24 @@ defmodule Whiska.Delivery.Mode do
 
     cond do
       Enum.any?(deliverable, &(&1.status == "sent")) -> nil
+      heir = Enum.find(open, & &1.keeps_slot) -> heir
       report = Enum.find(open, &(&1.kind == "done")) -> report
       true -> List.first(open)
     end
   end
 
-  @doc "The id of the sent question holding the slot for deliverable questions, or nil."
+  @doc """
+  The id of the question holding the slot for deliverable questions, or nil:
+  the oldest sent one, else an heir waiting to be typed.
+  """
   @spec slot([Question.t()], t()) :: pos_integer() | nil
   def slot(questions, mode) do
-    questions
-    |> Enum.filter(&(&1.status == "sent" and deliverable?(&1, mode)))
-    |> Enum.map(& &1.id)
-    |> Enum.min(fn -> nil end)
+    deliverable = Enum.filter(questions, &deliverable?(&1, mode))
+
+    case Enum.filter(deliverable, &(&1.status == "sent")) do
+      [] -> Enum.find_value(deliverable, &(&1.status == "open" and &1.keeps_slot and &1.id))
+      sent -> sent |> Enum.map(& &1.id) |> Enum.min()
+    end
   end
 
   @doc "How many open questions could be delivered."

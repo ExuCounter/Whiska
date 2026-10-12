@@ -107,6 +107,27 @@ defmodule Whiska.QuestionsTest do
                ~s(##{q2.id}  feat-b  stopped without saying why · "I just stopped."  \(waiting on you since )
     end
 
+    test "a follow-up that took over the slot holds the rest behind it, not itself",
+         %{main: main} do
+      %{other: other, heir: heir} =
+        seed(main, fn ->
+          out = ask("m1", "[worktree-status: needs-decision] pick a cache TTL")
+          {:ok, _} = Storage.mark_sent(out.id)
+          other = ask("m2", "[worktree-status: needs-decision] and this?")
+          heir = ask("m1", "[worktree-status: needs-decision] still waiting on the TTL")
+          {:ok, _} = Storage.supersede_earlier(heir)
+          %{other: other, heir: heir}
+        end)
+
+      {:ok, summary} = Questions.summary(main)
+      assert [other_line, heir_line] = String.split(Questions.render(summary), "\n")
+
+      assert other_line =~ "##{other.id} "
+      assert other_line =~ "(queued behind ##{heir.id})"
+      assert heir_line =~ "##{heir.id} "
+      refute heir_line =~ "queued behind"
+    end
+
     test "a finished report waits behind the question out, and says so", %{main: main} do
       %{sent: sent, report: report} =
         seed(main, fn ->

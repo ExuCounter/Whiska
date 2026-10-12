@@ -403,7 +403,8 @@ defmodule Whiska.Questions do
   can spell the state apart.
   """
   @spec behind(Question.t(), pos_integer() | nil) :: pos_integer() | nil
-  def behind(%Question{status: "open"}, slot) when is_integer(slot), do: slot
+  def behind(%Question{status: "open", id: id}, slot) when is_integer(slot) and slot != id,
+    do: slot
 
   def behind(_question, _slot), do: nil
 

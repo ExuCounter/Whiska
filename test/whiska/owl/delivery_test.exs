@@ -343,6 +343,61 @@ defmodule Whiska.Owl.DeliveryTest do
       end)
     end
 
+    # Seen live: the person was discussing a question with the main session, its
+    # mouse sent a follow-up, and the freed slot went to another branch's older
+    # question, typed into the middle of the conversation.
+    test "a newer question from the mouse holding the slot goes next, ahead of another branch's older one",
+         %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      leave(main, a, "[worktree-status: needs-decision] one")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, _}, @arrives
+
+      leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] from b")
+      House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      leave(main, a, "[worktree-status: needs-decision] three")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, text}, @arrives
+      assert text =~ ~s("three")
+
+      in_house(house, fn ->
+        assert Storage.question(1).status == "superseded"
+        assert Storage.question(2).status == "open"
+        assert Storage.question(3).status == "sent"
+      end)
+    end
+
+    test "a mouse's finished report that replaces its question out goes next, ahead of another branch's",
+         %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      leave(main, a, "[worktree-status: needs-decision] one")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, _}, @arrives
+
+      leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] from b")
+      House.collect(house)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      leave(main, a, "Merged it.\n[worktree-status: done]")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, text}, @arrives
+      assert text =~ "feat-a finished"
+
+      in_house(house, fn -> assert Storage.question(2).status == "open" end)
+    end
+
     test "herdr refusing the prompt leaves the question open for the next attempt", %{
       main: main,
       a: a
@@ -529,10 +584,8 @@ defmodule Whiska.Owl.DeliveryTest do
       assert text =~ "feat-b finished"
     end
 
-    test "a finished line goes once the decision out is superseded, ahead of the newer one", %{
-      main: main,
-      a: a
-    } do
+    test "a finished line waits behind the newer question that inherited the slot from the decision out",
+         %{main: main, a: a} do
       main_is("idle")
       expect_prompts()
       house = open(main)
@@ -547,15 +600,18 @@ defmodule Whiska.Owl.DeliveryTest do
 
       leave(main, a, "[worktree-status: needs-decision] two")
       House.collect(house)
-      assert_receive {:prompted, @main_pane, finished}, @arrives
-      assert finished =~ "feat-b finished"
-      assert finished =~ "1 more open"
-
-      in_house(house, fn -> Storage.settle_reports() end)
-      idle(house, @main_pane)
       assert_receive {:prompted, @main_pane, newer}, @arrives
       assert newer =~ ~s("two")
+      assert newer =~ "1 more finished"
       in_house(house, fn -> assert Storage.question(1).status == "superseded" end)
+
+      idle(house, @main_pane)
+      refute_receive {:prompted, _, _}, @wait * 2
+
+      in_house(house, fn -> {:ok, _} = Storage.answer(3, "yes") end)
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, finished}, @arrives
+      assert finished =~ "feat-b finished"
     end
 
     test "a finished line goes once the decision out is orphaned", %{main: main, a: a} do

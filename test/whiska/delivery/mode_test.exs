@@ -99,6 +99,19 @@ defmodule Whiska.Delivery.ModeTest do
       assert %Question{id: 2} = Mode.next(questions, mode())
     end
 
+    test "an heir goes ahead of an older finished report and an older open question" do
+      heir = %{q(3, "ma", "open") | keeps_slot: true}
+      questions = [q(1, "mb", "open"), q(2, "mc", "open", "done"), heir]
+      assert %Question{id: 3} = Mode.next(questions, mode())
+    end
+
+    test "a held mouse's heir has no priority" do
+      heir = %{q(2, "ma", "open") | keeps_slot: true}
+
+      assert %Question{id: 1} =
+               Mode.next([q(1, "mb", "open"), heir], mode(held: MapSet.new(["ma"])))
+    end
+
     test "nothing while a deliverable question is already sent" do
       assert Mode.next([q(1, "ma", "sent"), q(2, "mb", "open")], mode()) == nil
     end
@@ -176,6 +189,15 @@ defmodule Whiska.Delivery.ModeTest do
                finished: 1,
                open: 1
              }
+    end
+  end
+
+  describe "slot/2" do
+    test "the oldest sent question, else an heir waiting to be typed" do
+      heir = %{q(3, "ma", "open") | keeps_slot: true}
+      assert Mode.slot([q(1, "mb", "open"), q(2, "mc", "sent"), heir], mode()) == 2
+      assert Mode.slot([q(1, "mb", "open"), heir], mode()) == 3
+      assert Mode.slot([q(1, "mb", "open")], mode()) == nil
     end
   end
 end

@@ -124,7 +124,7 @@ never answered: once sent it holds the delivery slot until the person writes any
 the main session, and is closed then. A question is **open** while it waits to be told, **sent** once
 delivered and waiting for its answer, then **answered** once `whiska reply` saved the
 answer — which frees the slot whether or not the mouse has **taken** it yet; **superseded** when its own mouse asked a
-newer one, **closed** by hand or as a `done` report once the person wrote something after it, **settled** when its
+newer one, which takes over the slot the superseded one held and goes next (ADR-0008), **closed** by hand or as a `done` report once the person wrote something after it, **settled** when its
 mouse's branch landed and there is nothing left to answer to — the merge was the answer
 (ADR-0064) — and **orphaned** when nothing can act on it and nothing ever answered it
 (its mouse died, its worktree is gone, its record no longer stands for a worktree of this
@@ -287,8 +287,11 @@ _Avoid_: primary, parent, captain
 **Delivery**:
 The owl typing one question's line into the main session — only when that pane is idle
 and no other question is already sent. A queue, not a batch: the next question goes when
-the previous one is answered (or superseded, or closed, or orphaned, when its own mouse
-dies while holding the slot) and the session is idle again. Nothing that cannot be
+the previous one is answered (or closed, or orphaned, when its own mouse dies while
+holding the slot) and the session is idle again. A question superseded while holding the
+slot hands it to its mouse's newer one, which goes next ahead of every other branch's;
+what the person types in the main session answers no question, so a question's slot
+stays put through it. Nothing that cannot be
 answered ever holds the slot: before each attempt, everything still waiting for a mouse
 that is dead, or for a record that no longer stands for a worktree of this house, is
 released — **settled** where its mouse's branch landed, **orphaned** where it did not

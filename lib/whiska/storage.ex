@@ -35,7 +35,8 @@ defmodule Whiska.Storage do
     {10, Whiska.Migrations.V010HoldAndFocus},
     {11, Whiska.Migrations.V011AnswerTaken},
     {12, Whiska.Migrations.V012Base},
-    {13, Whiska.Migrations.V013Usage}
+    {13, Whiska.Migrations.V013Usage},
+    {14, Whiska.Migrations.V014KeepsSlot}
   ]
 
   @modes ~w(build sniff)
@@ -1012,18 +1013,29 @@ defmodule Whiska.Storage do
   A newer question from a mouse supersedes its earlier open and sent ones: the
   mouse has moved past them, so an answer could no longer land. Settled history
   is untouched. Returns how many were superseded.
+
+  Superseding passes the slot on rather than freeing it (ADR-0008): when one
+  of them held it — sent, or an heir not yet delivered — the newer question,
+  if it is open, is marked `keeps_slot` and goes next, so another branch's
+  question never lands in the middle of the conversation about this one.
   """
   @spec supersede_earlier(Question.t()) :: {:ok, non_neg_integer()}
-  def supersede_earlier(%Question{id: id, mouse_id: mouse_id}) do
-    {n, _} =
-      Repo.update_all(
-        from(q in Question,
-          where: q.mouse_id == ^mouse_id and q.id < ^id and q.status in ^@waiting
-        ),
-        set: [status: "superseded"]
+  def supersede_earlier(%Question{id: id, mouse_id: mouse_id, status: status}) do
+    earlier =
+      from(q in Question,
+        where: q.mouse_id == ^mouse_id and q.id < ^id and q.status in ^@waiting
       )
 
-    {:ok, n}
+    Repo.transaction(fn ->
+      heir? = Repo.exists?(from(q in earlier, where: q.status == "sent" or q.keeps_slot))
+
+      if heir? and status == "open" do
+        Repo.update_all(from(q in Question, where: q.id == ^id), set: [keeps_slot: true])
+      end
+
+      {n, _} = Repo.update_all(earlier, set: [status: "superseded"])
+      n
+    end)
   end
 
   @doc "Mark a question as the one whose turn left a new or revised spec."

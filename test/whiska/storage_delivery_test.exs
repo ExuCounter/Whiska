@@ -203,6 +203,35 @@ defmodule Whiska.StorageDeliveryTest do
       assert Storage.question(closed.id).status == "closed"
     end
 
+    test "the newer question inherits the slot from a sent one, and passes it down a chain" do
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      heir = ask("m1", "follow-up")
+      {:ok, _} = Storage.supersede_earlier(heir)
+      next = ask("m1", "another")
+      {:ok, _} = Storage.supersede_earlier(next)
+
+      assert Storage.question(heir.id).keeps_slot
+      assert Storage.question(next.id).keeps_slot
+    end
+
+    test "superseding a question still only queued passes no slot" do
+      queued = ask("m1", "queued")
+      newest = ask("m1", "newest")
+
+      {:ok, 1} = Storage.supersede_earlier(newest)
+      refute Storage.question(newest.id).keeps_slot
+    end
+
+    test "a newer question that arrived settled or orphaned inherits nothing" do
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      gone = ask("m1", "worktree gone", %{status: "orphaned"})
+
+      {:ok, 1} = Storage.supersede_earlier(gone)
+      refute Storage.question(gone.id).keeps_slot
+    end
+
     test "superseded is a status" do
       assert "superseded" in Question.statuses()
     end
