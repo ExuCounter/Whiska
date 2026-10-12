@@ -139,8 +139,8 @@ whiska jump [<repo|branch>]     focus the session of whatever needs you most
 
 inbox                           one word each, installed by `whiska init --global`
 show [<id>]                     under ~/.whiska/bin and as slash commands in the main
-reply <id> <text>               session: inbox = waiting, show = questions, dismiss =
-dismiss <id>                    close; the long names keep working
+reply <id> <text>               session: inbox = waiting, show = the question delivered
+dismiss <id>                    to you, dismiss = close; the long names keep working
 away                            nothing is delivered anywhere until `resume`
 focus <branch>                  only that mouse's questions reach this repo's session
 hold <branch>                   that mouse stops where it is; `resume <branch>` lifts it

@@ -498,16 +498,16 @@ defmodule Whiska.Install do
      """
      ---
      name: show
-     description: Read this repo's open questions in full, or one by id. Use on /show, or when the person asks to see a question or what the mice are asking here.
+     description: Read the question delivered to the person in full, or one of this repo's by id. Use on /show, or when the person asks to see a question.
      ---
 
      No argument → run exactly this:
 
          whiska show
 
-     Every open question of this repo in full, oldest first, each saying why it
-     is not being delivered, with anything orphaned or still on the doorstep
-     underneath.
+     The one question delivered to the person and waiting on them, in full,
+     or a line saying nothing is delivered. A queued question waits its turn
+     and is not shown: `inbox` lists the whole queue, one line each.
 
      An id passed ($ARGUMENTS is not empty) → run exactly this instead:
 
@@ -518,8 +518,8 @@ defmodule Whiska.Install do
 
      With an id, the person's reply to that question is read as
      `whiska-delivered`'s "Reading the person's reply" says, and an answer
-     leaves as `whiska reply <id> "<their words>"`. Bare `show` prints several
-     questions, so a bare letter after it names none of them: ask which.
+     leaves as `whiska reply <id> "<their words>"`. Bare `show` is not a
+     delivered line, so a bare letter after it names no question: ask which.
      """},
     {".claude/skills/reply/SKILL.md",
      """

@@ -599,7 +599,9 @@ defmodule Whiska.CLIQuestionsTest do
     test "every finished block of the full listing carries the same line", %{repo: repo} do
       q = finished(repo, "feat-j", commit: false, status: "open")
 
-      assert show(repo, []) =~
+      full = capture_io(fn -> assert CLI.run(["questions", "--full"], repo.checkout) == 0 end)
+
+      assert full =~
                ~r/##{q.id}  feat-j  finished  \([^)]+\)\nOn the branch: nothing committed beyond main · nothing uncommitted\n/
     end
   end

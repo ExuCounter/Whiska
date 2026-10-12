@@ -95,9 +95,11 @@ defmodule Whiska.InstallCommandsTest do
                List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
     end
 
-    test "/show reads everything in full with no argument, one by id with one" do
+    test "/show reads the delivered question with no argument, one by id with one" do
       {_path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
       assert body =~ "whiska show\n"
+      assert body =~ "delivered"
+      refute body =~ "Every open question"
       assert body =~ "whiska show $ARGUMENTS"
       assert body =~ "cannot see"
       assert body =~ "verbatim"

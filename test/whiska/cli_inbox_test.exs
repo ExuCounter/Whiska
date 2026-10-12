@@ -181,15 +181,54 @@ defmodule Whiska.CLIInboxTest do
   end
 
   describe "show" do
-    test "with no id prints every open question of this repo in full", %{main: main} do
+    test "with no id prints only the delivered question, never one queued behind it", %{
+      main: main
+    } do
       seed(main, fn ->
-        ask("ma", "Which db?\n[worktree-status: needs-decision] pick one")
+        q = ask("ma", "Which db?\n[worktree-status: needs-decision] pick one")
+        {:ok, _} = Storage.mark_sent(q.id)
         ask("mb", "Which cache?\n[worktree-status: needs-decision] pick another")
       end)
 
       {0, out, _} = run(["show"], main)
       assert out =~ "Which db?"
-      assert out =~ "Which cache?"
+      refute out =~ "Which cache?"
+      refute out =~ "queued behind"
+    end
+
+    test "with no id and nothing delivered, says so and points at inbox", %{main: main} do
+      seed(main, fn ->
+        ask("ma", "Which db?\n[worktree-status: needs-decision] pick one")
+      end)
+
+      {0, out, _} = run(["show"], main)
+      refute out =~ "Which db?"
+      assert out =~ "Nothing is delivered to you right now"
+      assert out =~ "`inbox`"
+    end
+
+    test "with no id while away, nothing is delivered, so nothing is shown", %{main: main} do
+      seed(main, fn ->
+        q = ask("ma", "Which db?\n[worktree-status: needs-decision] pick one")
+        {:ok, _} = Storage.mark_sent(q.id)
+      end)
+
+      :ok = Mode.set_away()
+      {0, out, _} = run(["show"], main)
+      refute out =~ "Which db?"
+      assert out =~ "Nothing is delivered to you right now"
+    end
+
+    test "with no id, a delivered question of a held mouse is not the one shown", %{main: main} do
+      seed(main, fn ->
+        q = ask("ma", "Which db?\n[worktree-status: needs-decision] pick one")
+        {:ok, _} = Storage.mark_sent(q.id)
+        {:ok, _} = Storage.hold("ma")
+      end)
+
+      {0, out, _} = run(["show"], main)
+      refute out =~ "Which db?"
+      assert out =~ "Nothing is delivered to you right now"
     end
 
     test "with an id prints that one, with why it waits", %{main: main} do

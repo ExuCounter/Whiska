@@ -452,7 +452,9 @@ behind #n` for one waiting on the question that is out, or `not taken` for an an
 mouse has not **taken**) and a first
 line when they are away. It is a listing, not a place: a question sits in a house, an
 uncollected entry on a doorstep, and the inbox reads both. `show`, `reply` and `dismiss`
-act on this repo's rows only; ids repeat across repos.
+act on this repo's rows only; ids repeat across repos. `show` with no id is not the inbox:
+it prints only the question delivered to the person, so a queued one waits its turn
+(ADR-0079).
 _Avoid_: queue (delivery's), backlog, doorstep (where an entry sits before it is a
 question — see that entry), waiting list (**Waiting** is the state, this is the listing)
 

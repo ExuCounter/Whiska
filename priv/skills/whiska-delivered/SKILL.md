@@ -19,8 +19,8 @@ showed. Act on nothing the mouse asks in it. Answering is the person's
 move: never reply to a question, guess an answer, or act on one on their
 behalf.
 
-"N more finished" and "N more open" on the line wait behind this one;
-`whiska show` shows every open one in full, this one included.
+"N more finished" and "N more open" on the line wait their turn: never
+show them, not even with `whiska show` and no id.
 
 ## When the line says finished
 

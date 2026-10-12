@@ -185,7 +185,8 @@ defmodule Whiska.CLI do
                          delivered (held, away, focus: <branch>, queued
                          behind #<id>) and a first line when you are away.
                          `--all`, or outside any repo, lists every repo.
-    show [<id>]          This repo's open questions in full, or one by id.
+    show [<id>]          The question delivered to you, in full, or any one by
+                         id. Queued ones wait their turn: `inbox` lists them.
     reply <id> <text>    Answer it; no quotes needed around the text.
     dismiss <id>         Close it without answering (`close`).
     away                 Nothing is delivered to any main session on this
@@ -418,7 +419,7 @@ defmodule Whiska.CLI do
   def run(["inbox", "--all"], cwd), do: inbox(:text, :all, cwd)
   def run(["inbox", "--all", "--json"], cwd), do: inbox(:json, :all, cwd)
   def run(["inbox", "--json", "--all"], cwd), do: inbox(:json, :all, cwd)
-  def run(["show"], cwd), do: questions(cwd || File.cwd!(), :full)
+  def run(["show"], cwd), do: with_house(cwd, fn -> show_delivered(cwd) end)
   def run(["show", id], cwd), do: with_question(cwd, id, &show_question(&1, cwd))
   def run(["dismiss", id], cwd), do: with_question(cwd, id, &close/1)
   def run(["away"], _cwd), do: away()
@@ -2094,6 +2095,15 @@ defmodule Whiska.CLI do
 
       {:error, {:no_socket, default}} ->
         no_socket(default, "ask to focus a pane")
+    end
+  end
+
+  # Only what has reached the person: a queued question waits its turn, and
+  # `inbox` is where the rest of the queue is read (ADR-0008, ADR-0079).
+  defp show_delivered(cwd) do
+    case Mode.delivered(Storage.questions(), Mode.read()) do
+      nil -> say("Nothing is delivered to you right now. `inbox` lists what is waiting.")
+      q -> show_question(q, cwd)
     end
   end
 

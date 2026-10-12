@@ -44,8 +44,17 @@ existed only as a line of text the mouse had read.
 
 Eight one-word commands, each a spelling of a `whiska` command: `inbox` (`waiting`
 narrowed to this repo, with why each row waits; `inbox --all`, or `inbox` outside any repo,
-lists every repo), `show` (`questions --full`, or one by id), `reply`, `dismiss`
-(`close`), `focus`, `away`, `hold`, `resume`. The long names keep working. `jump` gets no
+lists every repo), `show` (the one question delivered and waiting on the person, in
+full, or any one by id), `reply`, `dismiss` (`close`), `focus`, `away`, `hold`, `resume`.
+The long names keep working.
+
+`show` with no id once meant `questions --full`, every open question in full. Seen live: a
+delivered line said `1 more open`, the main session ran bare `show`, and the question
+queued behind the delivered one reached the person in full before its turn, which undoes
+the queue (ADR-0008). So bare `show` prints only the delivered one, the oldest `sent`
+question the mode lets through, or a line saying nothing is delivered and pointing at
+`inbox`. `inbox` stays the overview of everything, queued and held included, a line each;
+`questions --full` still prints them all in full for whoever asks by that name. `jump` gets no
 one-word command, and `show`, `reply` and `dismiss` are this repo's only: question ids
 repeat across repos, and a cross-repo `show 12` would have to guess. `inbox` is repo-scoped
 for the same reason: the person reads it from inside one repo, and the same ids in another

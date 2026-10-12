@@ -164,6 +164,19 @@ defmodule Whiska.Delivery.Mode do
     end
   end
 
+  @doc """
+  The question delivered to the person and waiting on them, or nil: the
+  oldest `sent` one the mode lets through. What `show` with no id prints. An
+  heir waiting to be typed holds the slot but has not reached the person, so
+  it is not this.
+  """
+  @spec delivered([Question.t()], t()) :: Question.t() | nil
+  def delivered(questions, mode) do
+    questions
+    |> Enum.filter(&(&1.status == "sent" and deliverable?(&1, mode)))
+    |> Enum.min_by(& &1.id, fn -> nil end)
+  end
+
   @doc "How many open questions could be delivered."
   @spec open_count([Question.t()], t()) :: non_neg_integer()
   def open_count(questions, mode) do

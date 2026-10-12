@@ -206,10 +206,13 @@ defmodule Whiska.InstallStatuslineTest do
       assert body =~ "whiska show"
     end
 
-    test "/show reads everything in full with no argument, one by id with one" do
+    test "/show reads the delivered question with no argument, one by id with one" do
       assert {_path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
 
       assert body =~ "whiska show\n"
+      # Bare show is the one question out, never the queue: `inbox` is that.
+      assert body =~ "`inbox`"
+      refute body =~ "Every open question"
       assert body =~ "$ARGUMENTS"
       assert body =~ "whiska show $ARGUMENTS"
       # Still a thin wrapper of fixed commands (ADR-0022), still never answering
@@ -237,11 +240,18 @@ defmodule Whiska.InstallStatuslineTest do
       end
     end
 
-    test "whiska-delivered points at whiska show for the ones behind the delivered line" do
+    test "whiska-delivered reads the line by its id, never sending the reader to the queue" do
       body = delivered("SKILL.md")
 
       assert body =~ "more open"
-      assert body =~ "`whiska show` shows every open one in full"
+      assert body =~ "whiska show <id>"
+      # A bare `whiska show` here is how a queued question reached the person
+      # before its turn: the session ran it on "1 more open".
+      refute body =~ "every open one"
+
+      assert String.replace(body, ~r/\s+/, " ") =~
+               "never show them, not even with `whiska show` and no id"
+
       refute body =~ "whiska questions"
     end
 
@@ -667,7 +677,8 @@ defmodule Whiska.InstallStatuslineTest do
       refute body =~ "AskUserQuestion"
       assert body =~ ~r/whiska reply/
       assert body =~ "whiska-delivered"
-      # Bare `show` is a list of several; a bare letter cannot name one of them.
+      # Bare `show` is not a delivered line: it may print a finished report with
+      # no options of Whiska's own, or nothing, so a bare letter names no question.
       assert String.replace(body, ~r/\s+/, " ") =~ ~r/a bare letter.{0,80}ask which/i
     end
 
