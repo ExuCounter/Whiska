@@ -2165,12 +2165,13 @@ defmodule Whiska.CLI do
 
   defp held(_main, _no_worktree), do: {:error, :no_record}
 
-  defp merge_request(_main, held, %Mouse{merge_request_url: nil}), do: {:ok, held}
-  defp merge_request(_main, held, %Mouse{landed_at: %DateTime{}}), do: {:ok, held}
-
   defp merge_request(main, held, %Mouse{merge_request_url: url} = mouse) do
-    with {:ok, n} <- Git.not_pushed(main, mouse.branch, mouse.base),
-         do: {:ok, Map.merge(held, %{merge_request: url, not_pushed: n})}
+    if is_binary(url) and Mouse.merge_request_waiting?(mouse) do
+      with {:ok, n} <- Git.not_pushed(main, mouse.branch, mouse.base),
+           do: {:ok, Map.merge(held, %{merge_request: url, not_pushed: n})}
+    else
+      {:ok, held}
+    end
   end
 
   # A diff viewer the person names in WHISKA_DIFF_LINK takes the link, and

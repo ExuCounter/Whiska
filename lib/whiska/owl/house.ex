@@ -1044,10 +1044,9 @@ defmodule Whiska.Owl.House do
     %{state | fetching: Task.async(fn -> fetch_bases(checkout, recorded, timeout) end)}
   end
 
-  # The recorded base of each mouse whose merge request has not landed yet.
   defp merge_requests_waiting do
-    for %Mouse{merge_request_at: %DateTime{}, landed_at: nil, removed_at: nil} = mouse <-
-          Storage.current_mice(),
+    for %Mouse{removed_at: nil} = mouse <- Storage.current_mice(),
+        Mouse.merge_request_waiting?(mouse),
         is_binary(mouse.path) and File.dir?(mouse.path),
         uniq: true,
         do: mouse.base

@@ -726,6 +726,19 @@ defmodule Whiska.CLIQuestionsTest do
       refute shown =~ "Merge request:"
     end
 
+    test "a merge request opened after its branch landed is the branch's again", %{repo: repo} do
+      q = finished(repo, "feat-t", merge_request: @pr)
+      {:ok, handle} = Storage.open(repo.checkout)
+      {:ok, landed} = Storage.mark_landed("m-feat-t")
+      earlier = DateTime.add(landed.landed_at, -60)
+      Whiska.Repo.update!(Ecto.Changeset.change(landed, %{landed_at: earlier}))
+      {:ok, _} = Storage.record_merge_request("m-feat-t", "https://github.com/o/r/pull/13")
+      Storage.close(handle)
+
+      assert show_one(repo, q) =~
+               "\nOn the branch: merge request opened · 1 commit not pushed · nothing uncommitted\nMerge request: https://github.com/o/r/pull/13\n"
+    end
+
     test "commits not pushed are counted, merges included", %{repo: repo} do
       q = finished(repo, "feat-r", merge_request: @pr, push: true)
       path = Path.join([repo.root, "worktrees", "feat-r"])

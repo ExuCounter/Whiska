@@ -64,4 +64,15 @@ defmodule Whiska.Schema.Mouse do
     field(:merge_request_at, :utc_datetime)
     field(:merge_request_url, :string)
   end
+
+  @doc """
+  A recorded merge request waits until its branch is seen landed. One recorded
+  after that landing is a new request, and waits in turn.
+  """
+  @spec merge_request_waiting?(%__MODULE__{}) :: boolean()
+  def merge_request_waiting?(%__MODULE__{merge_request_at: nil}), do: false
+  def merge_request_waiting?(%__MODULE__{landed_at: nil}), do: true
+
+  def merge_request_waiting?(%__MODULE__{merge_request_at: at, landed_at: landed}),
+    do: DateTime.compare(at, landed) == :gt
 end
