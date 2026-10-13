@@ -9,7 +9,7 @@ session, with an id you answer by.
 ```
 
 ```bash
-whiska questions               # everything waiting on you, one line each
+whiska questions               # what is waiting on you in this repo, one line each
 whiska reply 12 "go with A"    # answers #12 and rings that session
 ```
 
@@ -33,7 +33,7 @@ In your repo, in this order:
 ```bash
 cd your-repo
 whiska init                     # hooks and skills
-git add .claude CLAUDE.md && git commit -m "chore: enable whiska"
+git add .claude && git commit -m "chore: enable whiska"
 whiska owl .                    # record the repo; Ctrl-C it
 whiska owl install              # keep the owl running (launchd / systemd)
 ```
@@ -45,7 +45,8 @@ whiska start                    # records this pane, starts Claude Code in it
 whiska doctor                   # every failing line names its fix
 ```
 
-Linux with systemd: run `loginctl enable-linger` once so the owl survives logout.
+Linux with systemd: run `loginctl enable-linger` once so the owl survives logout. Adding
+another repo later takes [one more step](docs/internals.md#keeping-the-owl-running).
 
 ## Use
 
@@ -57,15 +58,16 @@ Words: a **mouse** is a task session, the **owl** is the background process watc
 repo. [`CONTEXT.md`](CONTEXT.md) has the rest.
 
 Mice cannot write into the main checkout or each other's worktrees. This is a guard, not a
-sandbox ([details](docs/internals.md#what-is-enforced)). Nothing is ever deleted, and a
-broken Whiska never blocks your session.
+sandbox ([details](docs/internals.md#what-is-enforced)). No question or record is ever
+deleted, Whiska takes a worktree down only once its branch has landed, and a broken
+Whiska never blocks your session.
 
 ## Docs
 
 | | |
 |---|---|
 | [`docs/reference.md`](docs/reference.md) | Every command, `whiska where`, `owl.sock`, environment variables |
-| [`docs/internals.md`](docs/internals.md) | What `init` writes, what is enforced, how a question travels, cold start |
+| [`docs/internals.md`](docs/internals.md) | What `init` writes, what is enforced, how a question travels, the owl, the doctor |
 | [`CONTEXT.md`](CONTEXT.md) | The glossary — the canonical name for every concept |
 | [`docs/adr/`](docs/adr/README.md) | Every architectural decision, one file each. Binding |
 | [`docs/architecture/`](docs/architecture/README.md) | C4 diagrams, including two end-to-end flows |

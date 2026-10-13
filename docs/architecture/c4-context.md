@@ -2,7 +2,7 @@
 
 Level 1. Who and what Whiska sits between.
 
-Whiska coordinates Claude Code sessions ("mice") working in isolated git worktrees. It
+Whiska tracks Claude Code sessions ("mice") working in isolated git worktrees. It
 does not run Claude Code itself and it does not manage terminals — herdr does both
 (ADR-0020). Whiska's job is identity, rules, and getting a mouse's question in front of
 the person exactly once.
@@ -23,8 +23,8 @@ C4Context
 
   Rel(person, claude, "Types into the main session")
   Rel(claude, whiska, "Sends hook events; the shim hands them to the owl over its socket", "JSON on stdin, nc -U")
-  Rel(whiska, claude, "Denies a tool call, rings a mouse's doorbell, hands it the saved answer as context")
-  Rel(whiska, herdr, "Opens panes, reads agent status, closes a landed mouse's pane", "herdr CLI")
+  Rel(whiska, claude, "Prints each session's rules at start, denies a tool call, rings a mouse's doorbell, hands it the saved answer as context")
+  Rel(whiska, herdr, "Reads agent status and screens, types into panes, closes a landed mouse's pane", "herdr's Unix socket, JSON lines")
   Rel(herdr, claude, "Starts and hosts every session")
   Rel(herdr, whiska, "Tab bar asks the owl for its line every five seconds", "nc -U")
   Rel(whiska, git, "Derives layout from, stores house under .git/, removes a landed worktree")
@@ -34,7 +34,7 @@ C4Context
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
 
-## The three actors worth naming
+## The actors worth naming
 
 - **The person** never talks to Whiska's storage directly. They type into a main session
   and answer one question at a time.

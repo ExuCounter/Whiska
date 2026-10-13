@@ -20,7 +20,7 @@ repo-scoped.
   `session-start` outside herdr, the global copy standing down, and the global
   `pre-tool-use` outside a worktree), it reads the payload and sends it to `hook.sock`
   with `nc -U`: the hook's name, the few environment variables the hooks read
-  (`HERDR_ENV`, `HERDR_PANE_ID`, `CLAUDE_PROJECT_DIR`, `HOME`, `PWD`), and the payload. The
+  (`HERDR_ENV`, `HERDR_PANE_ID`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PID`, `HOME`, `PWD`), and the payload. The
   owl runs the very modules `whiska hook <name>` runs (`Whiska.Owl.Hooks`) and sends back
   `ok <status>` and what that command would have printed.
 - **Anything but an answer goes to the escript.** No socket, no `nc`, a socket file left

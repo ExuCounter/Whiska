@@ -32,7 +32,7 @@ C4Dynamic
   Rel(mousepane, doorstep, "Otherwise the turn is over: one entry lands, written by the owl over its hook socket, or by the escript when the owl does not answer")
   Rel(herdr, collection, "Reports that mouse done or idle, unless the owl that wrote the entry has already asked")
   Rel(collection, doorstep, "Collect what is there")
-  Rel(collection, db, "Record as a question, classified by marker")
+  Rel(collection, db, "Record as a question, classified by its worktree-status marker")
   Rel(delivery, db, "Release what nothing can answer; then, among what the person has not set aside (away, focus, hold), and only if the slot is free: any finished line to tell, otherwise the oldest open question")
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
   Rel(delivery, mainpane, "Type one line only if idle, nothing half-typed and nothing sent")

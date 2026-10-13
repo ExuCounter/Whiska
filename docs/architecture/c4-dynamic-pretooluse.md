@@ -22,14 +22,14 @@ C4Dynamic
     Component(layout, "Layout", "path arithmetic", "Worktree root, main checkout")
     Component(markerm, "Marker", "identity", "mouse_id")
     Component(storage, "Storage", "Ecto", "House, best-effort")
-    Component(rules, "Rule.Sniff + Rule.MainCheckout", "rules", "Allow or deny")
+    Component(rules, "Rule.Held, Persons, Sniff, MainCheckout", "rules", "Allow or deny, in that order")
   }
 
   Rel(mouse, shim, "Fires the hook", "JSON on stdin")
   Rel(shim, hook, "Asks the owl over hook.sock with nc; else resolves the escript and execs")
   Rel(hook, session, "Whose session is this?")
   Rel(session, layout, "Resolve the start directory to a worktree")
-  Rel(hook, storage, "Read the recorded main pane; upsert the mouse, read its mode")
+  Rel(hook, storage, "Read the recorded main pane; upsert the mouse, read its mode and hold")
   Rel(hook, markerm, "Read or mint mouse_id")
   Rel(hook, rules, "Decide on tool name and input")
   Rel(hook, mouse, "Silence, or a deny as JSON on stdout")
@@ -42,7 +42,8 @@ C4Dynamic
 
 **Step 2 is where the shim earns its keep.** It reads the payload and sends it to
 `~/.whiska/hook.sock` with `nc -U`, with the hook's name and the few environment variables
-the hooks read — `HERDR_ENV`, `HERDR_PANE_ID`, `CLAUDE_PROJECT_DIR`, `HOME`, `PWD` — and
+the hooks read — `HERDR_ENV`, `HERDR_PANE_ID`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PID`, `HOME`,
+`PWD` — and
 the owl runs the steps below in its own process. Anything short of an answer within two
 seconds sends the shim on to the escript with the payload it already read. Finding that
 escript is the other half of its job: a hook does not inherit an interactive shell's
@@ -66,7 +67,7 @@ alone, and a write into the main checkout from there is denied like any other
 (ADR-0013). A folder Whiska cannot identify is where it can vouch for least, so it fails
 closed on the one path that bypasses every other guard.
 
-**Step 5 settles whose pane this is, then reads the mode.** A tool call firing in the pane
+**Step 5 settles whose pane this is, then reads the mode and whether it is held.** A tool call firing in the pane
 `whiska start` recorded is the person's own session: no mouse, no rules, nothing recorded,
 and the call is allowed. The pane is the hook's own `HERDR_PANE_ID`, the one the shim
 sent, never the owl's: an owl started by hand in the main session's pane would otherwise

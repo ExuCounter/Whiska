@@ -6,6 +6,17 @@ suite is not bloated (12,631 lines of lib, 17,892 of test, 1434 tests) and that 
 serially. The question here is the opposite one: given all that coverage, which
 behaviour is still unprotected and would hurt if it broke?
 
+**A snapshot, not kept up to date.** Line numbers and file names below are as of
+`9457196`. Status on 2026-10-13:
+
+- **Fixed:** #1, the Bash writes into the main checkout (`f065409`), so the Best Next
+  Test and open question 4 are done too. #3, since `Draft.hold/1` is now the one decision
+  delivery and pickup share (`5ee6646`).
+- **Gone with the code it tested:** #4 and #11, because `whiska init` writes no
+  `CLAUDE.md` block any more (ADR-0081), and the board-file half of #8, because the board
+  is no longer written to a file: the owl sends it to herdr's sidebar (ADR-0082).
+- **Still open:** #2, #5, #6, #7, #8 (two foreground owls), #9 and #10.
+
 ## Scope And Evidence
 
 - **Target:** all of `lib/whiska`. Six read-only scouts went deeper into six areas:

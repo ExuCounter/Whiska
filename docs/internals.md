@@ -1,345 +1,210 @@
 # Internals
 
-The parts of Whiska you only need when something is wrong, or when you want to know why a
-choice was made. [`docs/adr/`](adr/README.md) is the authority for every *why* here; this
-file is the operational detail around them.
+What happens under the hood, for when something is wrong. The *why* of each choice is in
+[`docs/adr/`](adr/README.md); this file only says what happens.
 
+- [What `whiska init` writes](#what-whiska-init-writes)
 - [What is enforced](#what-is-enforced)
 - [How a question reaches you](#how-a-question-reaches-you)
-- [What is built, and what is not](#what-is-built-and-what-is-not)
-- [What `whiska init` writes](#what-whiska-init-writes)
-- [The `CLAUDE.md` block](#the-claudemd-block)
 - [The global install](#the-global-install)
-- [Keeping the owl awake](#keeping-the-owl-awake)
-- [The owl, the house, the doorstep](#the-owl-the-house-the-doorstep)
-- [Delivery, in detail](#delivery-in-detail)
-- [Wiring the two statuslines](#wiring-the-two-statuslines)
-- [A full `whiska doctor` run](#a-full-whiska-doctor-run)
-- [Cold start](#cold-start)
-- [Why the binary is 3 MB](#why-the-binary-is-3-mb)
-
-## What is enforced
-
-Two rules, both through Claude Code's `PreToolUse` hook, both denied immediately:
-
-- **A build mouse may not change the main checkout** — including the sibling worktrees
-  that live under it. `Write`, `Edit`, `MultiEdit` and `NotebookEdit` by their literal
-  target path, and `Bash` when a command is *both* mutating *and* names a path resolving
-  into the main checkout. So `sed -i`, a redirect and `git -C <main> commit` are denied;
-  `cat <main>/CONTEXT.md` and `grep -r <main>` are not.
-- **A sniff mouse may not change anything at all**, its own worktree included, but its
-  research document: `.whiska-research.md` at its worktree root, with `Write` or `Edit`, never
-  through a link and never from the shell.
-
-Notes:
-
-- **This is not a sandbox, and it is not a security boundary.** Reads are never policed,
-  in any mode. Neither is anything else on the machine: a path outside both the worktree
-  and the main checkout — `~/.ssh`, `~/.zshrc`, another repo — is allowed. The rules keep
-  parallel sessions out of each other's work; they do not contain code you do not trust.
-- **If the house will not open, a sniff mouse degrades to a build mouse.** The mode is
-  read from SQLite; on a storage failure Whiska assumes `build`, warns on stderr, and
-  carries on — containment is pure path arithmetic and keeps working either way.
-- Whether a shell command counts as mutating is decided by a **read-only allowlist** —
-  anything unreadable (`eval`, a substitution, a nested `bash -c`, an unknown binary) is
-  treated as mutating.
-- **Only the tools in the hook matcher are policed** — `Write`, `Edit`, `MultiEdit`,
-  `NotebookEdit` and `Bash`, named exactly rather than `*`. `Read`, `Grep` and `Glob` are
-  a large share of all tool calls and can never be denied, so they never pay the cost; an
-  MCP server that writes files is not in the matcher either.
-- The hook **fails open**: if Whiska is not installed it complains on stderr and allows
-  the call, rather than denying every tool call in the session.
-
-## How a question reaches you
-
-1. **A mouse is minted** on its first edit or shell call inside a worktree — an opaque
-   `mouse_id` written to `.whiska-mouse`, and a row in this repo's house at
-   `<main-checkout>/.git/whiska/whiska.db`.
-2. **A finished turn hits the doorstep.** The `Stop` hook's whole final message lands in
-   `.git/whiska/doorstep/`, one JSON file per entry: written by the owl, which the hook
-   shim asks first over `~/.whiska/hook.sock`, or by the escript when the owl does not
-   answer. Whether the owl is running changes how fast it lands, never whether it does.
-3. **The owl collects**, when herdr reports that mouse's pane idle, when a house opens,
-   and on a slow backstop timer. Entries are renamed, never deleted.
-4. **Each entry becomes a question**, classified by an invisible marker the mouse ends its
-   message on: needs a decision, finished, or no marker at all — which is delivered too,
-   because forgetting it should make noise rather than silence.
-5. **Delivery is a queue.** One question goes to your main session when herdr says the
-   pane is `claude` + `idle`, nothing else is already out waiting, and you are not
-   mid-draft. The rest queue silently.
-6. **You answer by id.** `whiska reply 12` types into that mouse's pane and closes #12. A
-   newer question from the same mouse supersedes its earlier ones, so a mouse that moved
-   on cannot wedge the queue.
-
-Nothing on a worktree is ever touched, and nothing is ever deleted.
-
-See [`docs/architecture/`](docs/architecture/) for C4 diagrams of all of this, including
-two end-to-end flows.
-
-## What is built, and what is not
-
-Pre-1.0 (`v0.0.1`). The core loop works end to end.
-
-**Built:** mouse identity, per-repo houses, worktree containment and sniff mode, the
-doorstep and collection, delivery with its queue, `reply` / `close` / `questions` /
-`waiting` / `jump`, the tab bar line and each mouse's sidebar line, the doctor, launchd and
-systemd supervision, `init` and `init --global`, the finishing pipeline a mouse runs before
-it reports done, and the owl's two sockets in `~/.whiska/`: `owl.sock`, read-only, for
-your own scripts and herdr's tab bar, and `hook.sock`, which every hook asks before
-starting the escript.
-
-**Not yet:** the per-repo socket and `whiska stop` for a single house, `whiska reopen`,
-push approval, and watching a branch after its merge request (ADR-0060).
+- [Keeping the owl running](#keeping-the-owl-running)
+- [Wiring the tab bar and the sidebar](#wiring-the-tab-bar-and-the-sidebar)
+- [`whiska doctor`](#whiska-doctor)
+- [A change is not live until the thing running it restarts](#a-change-is-not-live-until-the-thing-running-it-restarts)
+- [What is not built yet](#what-is-not-built-yet)
+- [Speed and size](#speed-and-size)
 
 ## What `whiska init` writes
 
+`whiska init` writes into the repo's own `.claude/`, which you commit so the rules travel
+with the repo (ADR-0056):
+
 ```
-cd your-repo
-/path/to/whiska init
-git add .claude/settings.json .claude/hooks/whiska.sh .claude/skills CLAUDE.md
-git commit -m "chore: enable whiska"
-```
-
-`whiska init` writes the hook into the repo's own `.claude/settings.json` (ADR-0056), so
-the rules travel with the repo: anyone who clones it and has Whiska installed gets the
-same enforcement. It is safe to re-run, leaves unrelated settings and other people's
-hooks alone, and refuses rather than overwriting a settings file it cannot parse.
-
-What it writes, and why each part is the way it is:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
-        "hooks": [{
-          "type": "command",
-          "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska.sh\" pre-tool-use"
-        }]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [{
-          "type": "command",
-          "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/whiska.sh\" stop"
-        }]
-      }
-    ]
-  }
-}
+git add .claude && git commit -m "chore: enable whiska"
 ```
 
-- **The matcher lists exactly the tools a rule can deny** — no `*`. `Bash` belongs there
-  now that sniff mode denies mutating commands and containment denies ones reaching into
-  the main checkout; without it, both rules would silently never fire. `Read`, `Grep` and
-  `Glob` are left out on purpose: they are a large share of all tool calls, can never be
-  denied, and ADR-0033 is blunt that not running at all beats running fast.
-- **Nothing in the committed file is specific to your machine** (ADR-0035). It names only
-  `.claude/hooks/whiska.sh`, a shim `init` writes beside it. An earlier version baked two
-  absolute paths — the Erlang runtime and the binary — straight into the command, which
-  pinned the file to one home directory and one Erlang version, and put a username into a
-  shared repo. Check both files in.
-- **The shim asks the owl first** (ADR-0033). It sends the hook's name, a few
-  environment variables and the payload to `~/.whiska/hook.sock` with `nc -U`, and the
-  owl runs the same hook code the escript would — about 16 ms instead of 245. Anything
-  short of an answer within two seconds — no owl, no `nc`, an owl that is hung — and the
-  shim carries on to the escript below, so a dead owl only makes hooks slower.
-  `WHISKA_HOOK_SOCKET` points it at another socket.
-- **The shim resolves the runtime when the hook fires**, not when `init` runs. A
-  `mix escript.build` binary starts with `#!/usr/bin/env escript`, so it only runs when
-  `escript` is on `PATH` — and a hook does not necessarily inherit your shell's. With a
-  version manager it is not found at all (`env: escript: No such file or directory`). The
-  shim looks on `PATH`, then asks `asdf`; `WHISKA_BIN` and `WHISKA_ESCRIPT` override both.
-  No need to re-run `init` after an Erlang upgrade.
-- **The shim fails open.** If Whiska is not installed it complains on stderr and allows the
-  call, rather than denying every tool call in the session — the same trade
-  `Whiska.Hook.PreToolUse` makes on a malformed payload.
-- **The extra process is free at this size.** Wrapping the call in a shell costs about
-  5 ms, which was the original reason not to. Measured against the real hook it is noise:
-  214.5 ms unwrapped versus 204.7 ms wrapped, over 20 runs each — both dominated by BEAM
-  boot. With the owl answering, bash starting is about 2 ms of a 16 ms hook, and the shim
-  is what let the hooks move onto the owl with `settings.json` untouched (ADR-0033).
+| File | What it is |
+| --- | --- |
+| `.claude/settings.json` | Four hooks, below. Your other settings and hooks are left alone; a file that will not parse is refused, never overwritten. |
+| `.claude/hooks/whiska.sh` | The shim every hook calls. It finds the `whiska` binary and Erlang when the hook fires, so nothing committed names your machine (ADR-0035). `WHISKA_BIN` and `WHISKA_ESCRIPT` override the lookup. |
+| `.claude/skills/` | The skills: the eight one-word commands (`inbox`, `show`, `reply`, `dismiss`, `focus`, `away`, `hold`, `resume`), `whiska-delivered`, the three worktree skills (`spawn-worktree`, `send-to-worktree`, `drop-worktree`), and the ones a mouse runs: `grilling`, `whiska-spec`, `whiska-plan`, `whiska-research`, `whiska-finish`, `cold-review`, `whiska-review-replies`. |
 
-## The `CLAUDE.md` block
+| Hook | What it does |
+| --- | --- |
+| `PreToolUse` | Enforces the rules [below](#what-is-enforced). Fires only for `Write`, `Edit`, `MultiEdit`, `NotebookEdit` and `Bash`. |
+| `Stop` | Leaves a mouse's finished turn on the doorstep. |
+| `UserPromptSubmit` | Hands a mouse the answer you gave it (ADR-0080). |
+| `SessionStart` | Prints the rules for the session's role (ADR-0081). |
 
-`whiska init` also writes the worktree protocol into the repo's own `CLAUDE.md`
-(ADR-0081) and installs the skills that drive it — `spawn-worktree`, `send-to-worktree`
-and `drop-worktree` (ADR-0056), `whiska-finish`, which holds the finishing pipeline
-the block only points at (ADR-0081), `whiska-spec` and `whiska-plan`, which a mouse runs
-before building almost any brief, `whiska-research`, which it runs for a bug and at the
-end of an investigation, `whiska-review-replies`, which handles a merge request's review
-when the person asks (ADR-0085), and the person's own `grilling` skill (ADR-0063). The block is rules, not prose: an imperative or a
-concrete fact per line, with the reasoning left in these ADRs. It is a nest of named
-markers, one pair per part:
+Re-running `init` is safe, and it leaves a file alone when nothing in it would change.
 
-```markdown
-<!-- whiska:start -->
-<!-- whiska:worktrees:start -->   …the decision tree: route into a running mouse, or spawn
-<!-- whiska:marker:start -->      …the worktree-status marker a mouse ends every turn with
-<!-- whiska:delivery:start -->    …how its question reaches you, and why you never read its pane
-<!-- whiska:report:start -->      …the shape of the message it leaves you
-<!-- whiska:finish:start -->      …the trigger for the finishing pipeline, which lives in a skill
-<!-- whiska:end -->
+### No `CLAUDE.md` is written
+
+A session's rules come from the `SessionStart` hook, by role (ADR-0081): nothing outside
+herdr; routing, delivery and how to write for the main session; the order of work, the
+end-of-turn marker, the report shape and the finish trigger for a mouse. They are said
+again after `/compact` and `/clear`. To read them, run this in a herdr pane, in the main
+checkout or a worktree:
+
+```
+echo '{}' | whiska hook session-start | jq -r .hookSpecificOutput.additionalContext
 ```
 
-Re-running `init` replaces each part where it stands, adds one whose markers are missing,
-and returns everything outside the outer pair byte for byte — your own text included, and
-your own prose sitting between two parts. To make a part yours for good, put `keep` on
-its start marker (`<!-- whiska:marker:start keep -->`); Whiska then never rewrites it.
-Empty it as well, and the part is dropped for good.
+An older Whiska wrote these rules into `CLAUDE.md`, between `<!-- whiska:start -->` and
+`<!-- whiska:end -->`. `whiska init` takes that block out and leaves the rest of the file
+byte for byte.
 
-`whiska init` also installs the `/whiska-questions` slash command (ADR-0022).
+Two things you may write in `CLAUDE.md` yourself:
+
+- **A `## Finish` heading** with this repo's facts for a mouse finishing its work, one per
+  line: `checks:`, `specs:`, `ticket:`, `reviewers:`, `security:`. A missing one means the
+  mouse uses what the repo plainly offers and says what it assumed. `finish: land here`
+  makes that the recommended ending for a finished branch (ADR-0022).
+- **A part of the rules in your own words.** Wrap it in its markers with `keep` on the
+  start one, and the hook stops printing Whiska's version of that part. Leave it empty to
+  drop the part. The parts are `worktrees`, `work`, `delivery`, `marker`, `report`,
+  `writing` and `finish`.
+
+  ```markdown
+  <!-- whiska:writing:start keep -->
+  …your own rules for how a session writes to you…
+  <!-- whiska:writing:end -->
+  ```
+
+  A repo's own install reads `keep` from `~/.claude/CLAUDE.md` and the repo's `CLAUDE.md`;
+  the global install reads it from `~/.claude/CLAUDE.md` only, so a cloned repo cannot
+  switch rules off.
+
+## What is enforced
+
+Four rules, all through the `PreToolUse` hook, all denied at once (ADR-0011):
+
+- **A held mouse may do nothing** that the hook sees, until `resume <branch>`
+  (ADR-0079). It stops at its next write or shell command and says where it stopped.
+- **A mouse may not run your commands**: `away`, `focus`, `hold`, `resume`, `reply`,
+  `dismiss` and `close`, as a word or as `whiska <word>` (ADR-0079).
+- **A build mouse may not change the main checkout**, nor the other worktrees under it
+  (ADR-0013). `Write`, `Edit`, `MultiEdit` and `NotebookEdit` are judged by their target
+  path. `Bash` is denied when a command both changes something and names a path in the
+  main checkout: `sed -i`, a redirect or `git -C <main> commit` are denied; `cat` and
+  `grep` are not.
+- **A sniff mouse may change nothing** but its research document, `.whiska-research.md`
+  at its worktree root, and only with `Write` or `Edit` (ADR-0069).
+
+What this is not:
+
+- **Not a sandbox, and not a security boundary.** Reads are never checked. A path outside
+  the worktree and the main checkout, such as `~/.ssh` or another repo, is allowed. The
+  rules keep parallel sessions out of each other's work; they do not contain code you do
+  not trust.
+- **Only those five tools are checked.** `Read`, `Grep` and `Glob` never run the hook, and
+  neither does an MCP server that writes files.
+- A shell command counts as changing something unless a read-only allowlist says
+  otherwise. Anything it cannot read (`eval`, a substitution, a nested `bash -c`, an
+  unknown program) counts as changing (ADR-0034).
+- **A broken Whiska never blocks you.** If the binary is missing, the shim says so on
+  stderr and allows the call. If the house will not open, a sniff mouse is treated as a
+  build mouse, with a warning.
+
+## How a question reaches you
+
+1. **A mouse gets its identity** when `whiska shape` sets it up before Claude starts, or
+   else the first time one of its hooks fires (ADR-0069, ADR-0002): an opaque `mouse_id`
+   in `.whiska-mouse` at the worktree root, and a record in the repo's house,
+   `<main-checkout>/.git/whiska/whiska.db`.
+2. **A finished turn goes on the doorstep.** The `Stop` hook leaves the mouse's whole final
+   message in `.git/whiska/doorstep/`, one JSON file per entry. The owl writes it when it
+   answers on `~/.whiska/hook.sock`; the escript writes it when the owl does not
+   (ADR-0036). Either way it lands.
+3. **The owl collects it**: at once when it wrote the entry, when herdr says the mouse's
+   pane is idle, when a house opens, and on a 60-second backstop. Collected entries are
+   renamed `.collected`, never deleted (ADR-0007).
+4. **The entry becomes a question**, sorted by the invisible marker the mouse ended on
+   (ADR-0009): needs a decision, finished, or no marker. No marker is delivered too, so a
+   forgotten marker makes noise rather than silence. An entry whose worktree is gone is
+   recorded as orphaned.
+5. **One question at a time goes to your main session** (ADR-0008): when herdr says that
+   pane is Claude and idle, nothing else is out waiting, and you are not typing
+   (ADR-0047). The first of a new round waits 8 seconds so the count is right. The rest
+   queue. `away`, `focus` and `hold` decide what may reach you (ADR-0079). What is typed is
+   one line, not the message:
+
+   ```
+   🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above" · 2 more open
+   ```
+
+   The `whiska-delivered` skill sees that line and shows you the question in full.
+6. **You answer by id**: `whiska reply 12 "go with A"` (ADR-0005). The answer is saved,
+   the question is answered and the delivery slot is free. Then a short 🔔 doorbell line is
+   typed into the mouse's pane, and the mouse's own `UserPromptSubmit` hook hands it the
+   answer (ADR-0080). The owl rings again, up to three times, while the answer is not
+   taken. `whiska reply` needs no owl. `whiska close 12` settles a question with no answer.
+
+A newer question from the same mouse supersedes its earlier ones, so a mouse that moved on
+cannot block the queue. The main session is the herdr pane `whiska start` recorded
+(ADR-0066); it refuses to replace one still running Claude unless `--force`.
+
+[`docs/architecture/`](architecture/README.md) draws this flow, and the `PreToolUse` one.
 
 ## The global install
 
-Someone else's repo, or one whose owners will not take another tool's hooks, cannot have
-a committed `.claude/` — and an uncommitted file is in no worktree git creates, so every
-branch session there starts with none of the rules. `whiska init --global` writes the same
-install into `~/.claude` instead, once, for every repo on the machine (ADR-0056):
+A repo you cannot commit a `.claude/` to (someone else's, or one whose owners will not take
+another tool's hooks) can use the same install from `~/.claude` instead, once for every
+repo on the machine (ADR-0056):
 
 ```
 whiska init --global
 ```
 
-Nothing else is needed per repo. The hooks work out for themselves which worktree they are
-firing in — so a repo needs only its house and, if you want one, a `## Finish` heading in
-its own `CLAUDE.md`.
+It writes the same shim, hooks and skills under `~/.claude`, plus the one-word commands as
+shell commands in `~/.whiska/bin`; put that on your `PATH` to type `inbox` or `reply` in a
+shell. A word another program already answers to is skipped.
 
-A repo that has run `whiska init` keeps winning: its own hooks, block and skills are the
-ones in force, and the global copy stands down there. To hand a repo over to the global
-install instead:
+A repo that ran `whiska init` keeps its own copy, and the global one stands down there. To
+hand a repo over to the global install, run `whiska uninstall` in it and commit what it
+removes. `whiska uninstall --global` does the same for `~/.claude`. Neither touches the
+house.
 
-```
-cd your-repo
-whiska uninstall
-git add -A .claude CLAUDE.md && git commit -m "chore: whiska is installed globally now"
-```
+If a file under `~/.claude` is a symlink into a dotfiles repo, Whiska writes through the
+link and prints where each change landed, so you can commit it there.
 
-`whiska uninstall --global` is the same against `~/.claude`. Neither touches the house —
-its mice, its questions and its doorstep are all still there — and neither touches a part
-you claimed with `keep`. If `~/.claude/CLAUDE.md` or `~/.claude/settings.json` is a symlink
-into a dotfiles repo, every write goes through the link and changes the target in place;
-`init --global` prints where each change landed so you can commit it there.
-
-## Keeping the owl awake
+## Keeping the owl running
 
 ```
-whiska owl install    # write the owl's job for launchd or systemd, and start it
-whiska owl stop       # ask the owl to exit; it returns on `whiska owl start`, or when the service manager next starts your session
-whiska owl start      # start it now
-whiska owl uninstall  # unload the job and remove it; the log and the record stay
+whiska owl .          # run the owl in the foreground and record this repo's house
+whiska owl install    # hand it to launchd (macOS) or systemd (Linux), and start it
+whiska owl stop       # stop it; it stays stopped until `whiska owl start` or next login
+whiska owl start
+whiska owl uninstall  # remove the job; the log and the record stay
 ```
 
-The job is the platform's own: a user LaunchAgent,
-`~/Library/LaunchAgents/com.whiska.owl.plist`, on macOS, and a systemd user unit,
-`~/.config/systemd/user/whiska-owl.service`, on Linux
-(ADR-0040). Either starts the owl at login
-and restarts it if it crashes — only on a crash, so `whiska owl stop` is a clean exit that
-stays stopped (ADR-0040). The job runs
-`~/.whiska/owl.sh`, a wrapper generated from the same shell the hook shim uses, so the
-binary and the Erlang runtime are found at every launch rather than baked in; stdout and
-stderr go to `~/.whiska/owl.log`. `HERDR_SOCKET_PATH` and the `WHISKA_*` overrides are
-copied into the job from the shell you install from, so install from a herdr pane; with
-nothing to copy the owl falls back to herdr's default socket.
+The service manager starts the owl at login and restarts it after a crash, never after
+`whiska owl stop` (ADR-0040). It runs `~/.whiska/owl.sh`, which finds the binary at each
+launch, and logs to `~/.whiska/owl.log`. Install from a herdr pane: `HERDR_SOCKET_PATH`
+and your `WHISKA_*` variables are copied into the job.
 
-On Linux, systemd stops the owl when your last session ends unless lingering is on;
-`whiska owl install` prints `loginctl enable-linger` rather than running it, and the
-doctor's `logout` line warns while it is off. Where this user has no systemd at all —
-most containers — `install` refuses and says to run `whiska owl` in a pane.
-
-The service manager starts the owl with no arguments, so it opens exactly the houses in its record
-(`~/.whiska/houses`, ADR-0039). With the record empty it idles and waits; `whiska owl
-<repo>` in the foreground is how a house first gets recorded — Ctrl-C it afterwards and
-the supervised owl picks it up on `whiska owl start`.
-
-Two owls would collect the same doorsteps, so `install` refuses while any owl is in the
-process table and prints the handover (Ctrl-C the foreground one, install again), and the
-foreground `whiska owl` refuses while the supervised owl is running — unless it *is* that
-owl, which it tells by pid (ADR-0040). `whiska stop` is not the
-owl's stop: it shuts one house (ADR-0003) and is not built until the owl has a per-repo
-socket.
-
-## The owl, the house, the doorstep
+The owl opens every house in `~/.whiska/houses` (ADR-0039). A house gets there the first
+time `whiska owl <repo>` opens it. Only one owl runs at a time, so to add a repo while the
+owl is installed:
 
 ```
-whiska owl            # run the owl in the foreground, house open for this repo
-whiska owl ~/a ~/b    # ...or for each repo named (a worktree path names its repo)
+whiska owl stop
+whiska owl ~/src/other-repo    # record it; Ctrl-C once it prints "Opened"
+whiska owl start
 ```
 
-When a mouse finishes a turn, its `Stop` hook (installed by `whiska init`) leaves the
-whole final message on the repo's **doorstep** —
-`<main-checkout>/.git/whiska/doorstep/`, one JSON file per entry, stamped with `mouse_id`,
-branch and time. The shim asks the owl first, over `~/.whiska/hook.sock`, and the owl
-writes the entry and collects it at once; when the owl does not answer, `whiska hook stop`
-writes the same entry. Either way the question reaches the doorstep, so whether the owl is
-running changes nothing about what the mouse does (ADR-0036).
-
-The owl **collects** the doorstep when it wrote an entry itself, when herdr reports that
-mouse's pane idle, when a house opens, and on a slow backstop timer. Each entry becomes a question, classified by its
-marker alone (ADR-0009), an invisible line the mouse ends on: needs-decision → open;
-`done` → open too,
-delivered as "finished" with no reply offered, and closed once the person writes something after it (ADR-0008); no marker
-→ `unmarked`, and open — forgetting the marker makes noise rather than silence. An entry whose worktree is gone is recorded as `orphaned`. Collected entries are
-renamed `.collected`, never deleted (ADR-0007), so `ls *.json` on the doorstep is exactly
-what is still waiting.
-
-The house finds each mouse's herdr pane by its `cwd`, records it, and subscribes to that
-pane's status changes; a pane that closes or exits marks its mouse dead and orphans its
-open questions (ADR-0026). Nothing on disk is ever touched.
-
-herdr is the one boundary with a fake behind it in tests (`Whiska.Herdr`, ADR-0031); the
-real client is checked against an in-test server speaking herdr's wire protocol.
-
-## Delivery, in detail
-
-`whiska start` records the herdr pane it is run from as the repo's **main session**
-(ADR-0020) — the one pane the owl delivers to. Typed as `! whiska start` inside the
-session, the Bash tool inherits the pane id, so a session that is already running can be
-recorded without restarting it. It refuses to replace a main session that is still running
-Claude, naming the pane, unless `--force`; it does not launch Claude Code itself yet, which
-the spec describes and a later slice will add. Run in a worktree it refuses: mice are not
-main sessions.
-
-The owl then **delivers**. A question goes to the main session only when herdr reports
-that pane as `claude` + `idle` and no other question is already out waiting for its answer
-(ADR-0008); anything else queues silently. The first question of a fresh round waits 8 s so
-the count in the line is right. `claude` + `unknown` is delivered anyway, and the line says
-so. What is typed is one line — a pointer, not the message:
-
-```
-🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above" · 2 more open
-```
-
-No command in it: the `whiska-delivered` skill that `whiska init` installs recognises the
-line by its shape and runs `whiska questions 12` for you, shows the question, and stops
-(ADR-0022). Answering is still yours to do:
-
-```
-whiska questions             # what is waiting on you, one line each
-whiska questions 12          # that one in full
-whiska reply 12 "go with A"  # typed into the mouse's pane; #12 becomes answered
-whiska close 12              # settled some other way, no answer
-```
-
-`whiska reply` and `whiska close` open the house directly and ask herdr to type; they
-need no owl running and no socket. A newer question from the same mouse **supersedes**
-its earlier open or delivered ones (ADR-0008), so a mouse that moves on cannot wedge the
-queue; `whiska close` covers the rest.
+On Linux, run `loginctl enable-linger` once, or systemd stops the owl when you log out.
+With no systemd at all (most containers), run `whiska owl` in a pane.
 
 ## Wiring the tab bar and the sidebar
 
-Neither repeats the other (ADR-0048). Facts about the whole machine go on herdr's tab
-bar, once, one thing named and several counted (ADR-0048). What each mouse is doing goes
-in herdr's sidebar, under that mouse's own workspace
-(ADR-0082). Both are rows in your own herdr
-config, which Whiska never writes; `whiska doctor` prints each.
+Both are rows in your own herdr config, `~/.config/herdr/config.toml`. Whiska never writes
+that file: paste the rows in and run `herdr server reload-config`. `whiska doctor` prints
+any row you are missing.
 
-### The machine-wide line, on herdr's tab bar
+### The statusline, on herdr's tab bar
 
-The owl's state is always there, so a blank tab bar entry never passes for a working
-Whiska:
+One line for the whole machine (ADR-0048):
 
 ```
 🦉 watching
@@ -348,16 +213,14 @@ Whiska:
 🦉 owl down
 ```
 
-`whiska owl install` writes the script herdr runs, `~/.whiska/herdr-status.sh`, and
-prints the entry that runs it. The script starts nothing: it asks the owl for the line
-over `~/.whiska/owl.sock` with `nc -U` (ADR-0033). Its one argument is the key you bound
-to reach what is waiting, written the way you want it shown; the owl adds it only when
-something not held is waiting, and with no argument there is no hint. Whiska never reads
-your herdr keybindings. That entry is yours — herdr's config is machine-global and
-hand-edited, so Whiska never writes it. Paste it into `~/.config/herdr/config.toml`,
-commit it with your dotfiles, and `herdr server reload-config`. `whiska owl install` prints
-it with your own path already filled in; `~/.whiska/herdr-status.sh` works too, since herdr
-runs a command entry through a login shell:
+`🦉 owl down` means the owl did not answer within a second, or it has doorstep entries it
+should have collected by now. `🦉 nc missing` and `🦉 nc cannot reach the owl` mean the
+tool is the problem, not the owl. `🐱` is whatever is waiting on you across the machine.
+
+`whiska owl install` writes the script herdr runs, `~/.whiska/herdr-status.sh`, and prints
+the row with your path in it. The script asks the owl over `owl.sock` and starts nothing.
+Its one argument is the key you bound to reach what is waiting, shown only when something
+is:
 
 ```toml
 [ui]
@@ -367,20 +230,10 @@ tab_bar_right = [
 tab_bar_right_separator = " · "
 ```
 
-`whiska doctor` says whether it took.
-
-`🦉 watching` means the owl answered and is collecting; `🦉 owl down` means nothing
-answered on its socket within a second — no owl, a crashed one, a hung one — or it
-answered with doorstep entries sat uncollected past its backstop. `🦉 nc missing` and
-`🦉 nc cannot reach the owl` say the tool is the problem, not the owl. `🐱` is what is
-waiting anywhere on this machine, the same reading `whiska waiting` prints: one whiska is
-named by its repo, several become a count. `whiska statusline` prints the same line
-without the owl, finding it in the process table the way `whiska doctor` does.
-
 ### Each mouse's line, in herdr's sidebar
 
-The owl reports a line under each mouse's workspace (herdr 0.9 or newer), and one under
-the main checkout's for what is true of the whole repo:
+The owl writes a line under each mouse's workspace (herdr 0.9 or newer), and one under
+the main checkout's for the whole repo (ADR-0082):
 
 ```
 myrepo
@@ -392,34 +245,19 @@ fix/doctor-probe
   ✖ stuck 6m
   Bash mix test
 feat/cache-ttl
-  ⏳ queued behind #52
-  which cache TTL?
-feat/watch-board
-  ◐ A board the owl writes
+  ◐ Cache TTL per tenant
 ```
 
-The first line is the state, starting with a symbol; up to two more carry the question,
-wrapped at 31 characters. In the order they sort: `❓` waiting on you (sent, with how
-long; or next to go), `✅` finished, `✖ stuck` (blocked, or working and silent for two
-minutes in a tool or five waiting on the model, with its last action), `⏳ queued behind #n`, `🎯`/`💤` waiting behind a
-focus or away, `⏸` held, `↩ picked up`, `◐` working — its spinner turns once a second, so a
-still one means the owl stopped — and `✖ no pane`, `⚠ many panes`, `? herdr can't say`. An
-idle mouse says `○ idle`. The main checkout's line says when no main
-session is recorded, why delivery is gated, how many questions wait with no line of their
-own, and what dead branches left behind (`◌ 2 orphaned (feat-gone, fix-x)`).
+The first line is the state, the rest carry the question. `❓` waiting on you, `✅`
+finished, `✖ stuck`, `⏳` queued behind another question, `🎯` and `💤` waiting behind a
+focus or away, `⏸` held, `↩` picked up after its turn died, `◐` working (it spins, so a
+still one means the owl stopped), `○` idle. `✖ no pane`, `⚠ many panes` and
+`? herdr can't say` mean Whiska cannot find the mouse's pane. Lines expire after 30
+seconds, so a dead owl's lines go away rather than lie. `whiska watch` prints the same
+lines on the spot.
 
-The mice are ordered by what they are doing — those that need you first, a mouse queued
-behind a question right under the mouse holding it, mice you set aside below idle ones, and a
-sniff mouse below a build mouse in the same state. They re-sort only when one changes state, starts or stops
-queueing, or appears in any state but idle, so rows
-do not jump under your cursor, and your own drag order stands otherwise. Each line expires
-thirty seconds after it was last sent, so a dead owl's lines go away rather than lie, and
-the owl sends them all again within two seconds of herdr restarting, which drops them.
-
-The colours are yours: each line is coloured by its first symbol, which only Whiska writes,
-so a mouse whose topic says "waiting" never turns orange. `whiska doctor` prints these rows
-until your config has them; paste them into `~/.config/herdr/config.toml` and
-`herdr server reload-config`:
+Each line is coloured by its first symbol. The rows, shortened; `whiska doctor` prints them
+in full:
 
 ```toml
 [ui.sidebar.spaces]
@@ -429,136 +267,86 @@ rows = [
   [{ token = "$whiska", fg = "#657b83", dim = false, rules = [
     { starts_with = "❓", fg = "#2aa198" },
     { starts_with = "⚠", fg = "#dc322f" },
-    # … one rule per symbol; `whiska doctor` prints all fifteen
+    # … one rule per symbol
   ] }],
   [{ token = "$whiska_q", fg = "#93a1a1" }],
   [{ token = "$whiska_q2", fg = "#93a1a1" }],
 ]
 ```
 
-`whiska watch` prints the same lines, worked out on the spot, when the sidebar looks wrong.
+Whiska draws nothing in Claude Code's own statusline. `whiska init` takes out the one an
+older version wrote, and puts back yours if it had replaced it.
 
-Whiska no longer writes a Claude Code statusline. `whiska init` takes out the one an older
-init wrote — the script, its `statusLine` entry, and, for `init --global`, puts back the
-line it had displaced. Until then an old script draws only your own line.
+## `whiska doctor`
 
-## A full `whiska doctor` run
-
-```
-whiska doctor         # from the main checkout or any worktree of it
-```
-
-Delivery only happens when the owl is up and a main session is recorded and idle, and
-the tab bar only tells you whether the owl is watching. From
-the main terminal a broken pipe and a quiet fleet look much the same. The
-doctor is what you run when the mice have gone quiet, to learn which silence you are in
-(ADR-0038) — including the silence of something that is up and running code you have
-already replaced, which is what the next section is about. It checks this repo's
-prerequisites (binary, runtime, herdr, owl), its hooks
-and shim — **by running them**, through the committed shim with a payload outside any
-worktree, so nothing is minted or left behind — then its house, its doorstep, its
-backstop, its main session and question queue, and whether each mouse record still
-matches a real worktree and a live herdr pane.
-
-The backstop line is the one that catches a silent half-failure. Collection is meant to
-be event-driven: herdr tells the owl a mouse has gone idle and the owl reads that
-house's doorstep then, with a 60 s timer as a last resort (ADR-0036). When the event
-stops arriving, nothing breaks — every question still lands, a minute late — so the
-doctor watches the last resort instead: it warns when the backstop has collected
-anything at all since the owl opened this house, which means the trigger is not reaching
-the owl.
-
-It never repairs. Every failing line carries the command that fixes it. `FAIL` means a
-question from a mouse here would be lost or never written; `warn` means degraded but
-nothing lost. Exit status is 1 on any failure, 0 otherwise.
+Run it from the main checkout or any worktree when the mice have gone quiet. It checks,
+and never repairs (ADR-0038): the binary, Erlang, herdr, the owl, the hooks (by running
+them, leaving nothing behind), the house, the doorstep, the main session, the questions
+and every mouse. Each failing line names its fix. `FAIL` means a question would be lost;
+`warn` means degraded, nothing lost. It exits 1 on any `FAIL`.
 
 ```
 whiska doctor — myrepo (/Users/me/projects/myrepo)
 
-  warn  binary      /Users/me/.local/bin/whiska — not on PATH; the shim falls back here
-                    fix: export PATH="$HOME/.local/bin:$PATH"
-  warn  build       ./whiska here was built 1 h 0 min after /Users/me/.local/bin/whiska was installed — nothing runs this build until it is copied over
-                    fix: cp whiska /Users/me/.local/bin/whiska
-  ok    runtime     /Users/me/.asdf/installs/erlang/28.1.1/bin/escript
-  ok    herdr       reachable at /Users/me/.config/herdr/herdr.sock (12 panes)
-  ok    herdr version  0.9.3
-  warn  owl         not running — nothing collects the doorstep
-                    fix: whiska owl
-  warn  launch agent  not installed — the owl is not supervised
-                    fix: whiska owl install
-                    fix: whiska owl
-  FAIL  Stop        not wired — mice here cannot leave questions
-                    fix: whiska init
-  ok    house       /Users/me/projects/myrepo/.git/whiska/whiska.db, schema v3
-  ok    doorstep    nothing waiting
-  warn  backstop    collected 4 entries the idle trigger missed, last 12 min ago — the herdr idle trigger is not reaching the owl; check the subscription and the herdr version
-                    fix: whiska owl stop && whiska owl start
-  warn  main session  not recorded — nothing is delivered until it is
-                    fix: whiska start  (from the main checkout's pane)
-  ok    session wiring  not checked — herdr did not name the main session, or its transcript is gone
-  ok    questions   none waiting
-  ok    mice        feat-thing: live pane w1:p3
+  ok    binary                   /Users/me/.local/bin/whiska
+  ok    herdr                    reachable at /Users/me/.config/herdr/herdr.sock (12 panes)
+  warn  owl                      not running — nothing collects the doorstep
+                                 fix: whiska owl
+  FAIL  Stop                     not wired — mice here cannot leave questions
+                                 fix: whiska init
+  ok    house                    /Users/me/projects/myrepo/.git/whiska/whiska.db, schema v14
+  ok    doorstep                 nothing waiting
+  warn  main session             not recorded — nothing is delivered until it is
+                                 fix: whiska start  (from the main checkout's pane)
+  ok    mice                     feat-thing: live pane w1:p3
 
-1 failed, 6 warnings.
+1 failed, 2 warnings.
 ```
 
-## A change is not live until the thing running it is restarted
+The `backstop` line catches a quiet half-failure. The owl should collect when herdr says a
+mouse went idle; the 60-second timer is only the last resort. If the timer collects
+anything, questions still arrive, a minute late, and the doctor warns that herdr's signal
+is not reaching the owl.
 
-Three pieces of this run from a copy taken when they started, and keep running it until
-something restarts them. Each one has looked fine for hours while serving code that was
-already replaced, so the doctor checks all three by age rather than by liveness.
+## A change is not live until the thing running it restarts
 
-- **The owl holds the binary it started with.** `cp whiska ~/.local/bin/whiska` replaces
-  the file; the running owl is unaffected and the board keeps drawing the old behaviour.
-  `whiska owl stop && whiska owl start`. The doctor's `owl` line compares the process
-  against the binary's mtime and says so.
-- **Nothing runs an escript you built but did not install.** The hooks, the statusline and
-  the owl all run the binary on PATH. `mix escript.build` alone changes nothing. The
-  `build` line compares `./whiska` in the checkout with the installed copy.
-- **A Claude Code session reads its settings once, at startup.** A session that began
-  before `whiska init` changed the wiring is running the wiring from before it, and
-  nothing in that session ever says so — restart Claude in that pane. The `session wiring`
-  line compares when the main session started against when the settings files it loads
-  last changed: `.claude/settings.json` and `~/.claude/settings.json`, each with the
-  `.local` one beside it. The session's age is the creation time of its own transcript
-  file, not the first timestamp inside it — a resumed session is a new process that read
-  the settings afresh, but Claude Code copies the previous session's entries into the new
-  transcript, timestamps and all, so the entries would age a session that had just been
-  restarted at hours old. The line says only what the clock knows: that a settings file
-  changed after the session started. It does not claim the hooks in it changed — a model,
-  a permission or an MCP server moves that mtime exactly as a hook does. Only the settings
-  files are compared: the shim and the statusline script are executed afresh every time,
-  so a change to either is live the moment it lands.
+Three things keep running old code after you replace it, and the doctor checks each by age:
 
-`whiska init` leaves a file alone when what it would write is already there, mtime
-included — otherwise a harmless re-init would make every live session look stale. A
-statusline script an older init left in the repo is taken out rather than compared
-(ADR-0082).
+- **The owl keeps the binary it started with.** After
+  `cp whiska ~/.local/bin/whiska`, run `whiska owl stop && whiska owl start`. The `owl`
+  line says when the binary is newer than the owl.
+- **Nothing runs a build you did not install.** The hooks and the owl run the binary on
+  your `PATH`; `mix escript.build` alone changes nothing. The `build` line compares
+  `./whiska` with the installed copy.
+- **A Claude Code session reads its settings once, at start.** After `whiska init`
+  changes them, restart Claude in that pane. The `session wiring` line says when a
+  settings file changed after the main session started. The shim runs afresh every time,
+  so a change to it is live at once.
 
-## Cold start
+## What is not built yet
 
-Measured on the development machine (Apple silicon, macOS 25.4, OTP 28, Elixir 1.19),
-30 runs each:
+Pre-1.0 (`v0.0.1`). Every ADR is built except those under "Proposed, not built" in the
+[index](adr/README.md), and these parts of built ones:
 
-| What runs | Per invocation |
-|---|---|
-| Bare `elixir -e ':ok'` | 177 ms |
-| `whiska --version` — escript boot floor | 126 ms |
-| **`whiska hook pre-tool-use` — the real job, SQLite included** | **~220 ms** |
-| First run ever, which also unpacks the bundled SQLite library | 627 ms, once |
-| **The hook shim with the owl answering** (ADR-0033, measured 2026-10-07) | **~16 ms** |
+- `whiska stop` for one house, which needs a per-repo socket (ADR-0003, ADR-0024).
+- `whiska reopen` (ADR-0005) and `whiska cleanup` (ADR-0061) as commands.
+- Push approval (ADR-0011).
+- Relaunching a stuck mouse, then telling you (ADR-0026, ADR-0067).
 
-Roughly 126 ms of the escript's time is the BEAM booting before any code runs, and the
-rest is loading Ecto, db_connection and exqlite. The SQLite work itself — open, migrate,
-upsert — is under 2 ms. Nothing inside the program can remove the first 126 ms, which is
-why every hook asks the already-running owl first, and why the narrow matcher above
-matters more than it looks: `Read`, `Grep` and `Glob` never pay anything.
+## Speed and size
 
-## Why the binary is 3 MB
+Measured on Apple silicon, macOS, OTP 28, Elixir 1.19, 30 runs each:
 
-An escript is a zip archive. It carries no `priv/` directories, and native code cannot be
-`dlopen`ed out of a zip in any case — so SQLite's 1.6 MB native library travels as bytes
-embedded in `Whiska.BundledNIF` and is unpacked to `~/.cache/whiska/exqlite-<vsn>/` on
-first run. That is the only reason the single binary (ADR-0033) and ADR-0028's "real
-SQLite" can both hold. It stays: the escript is every command, and what every hook falls
-back on when the owl does not answer (ADR-0033).
+| What runs | Time |
+| --- | --- |
+| A hook, through the shim, with the owl answering (ADR-0033) | ~16 ms |
+| A hook, through the escript, when the owl does not answer | ~245 ms |
+| `whiska --version`, the escript's boot floor | 126 ms |
+| The first run ever, which also unpacks SQLite | 627 ms, once |
+
+Most of the escript's time is the Erlang VM starting, which nothing inside the program can
+remove. That is why every hook asks the running owl first.
+
+The binary is 3 MB because it carries SQLite's native library inside it: an escript is a
+zip, and native code cannot be loaded out of a zip. The library is unpacked to
+`~/.cache/whiska/` on first run (ADR-0028).

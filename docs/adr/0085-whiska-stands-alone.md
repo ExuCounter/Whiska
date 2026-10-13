@@ -64,8 +64,8 @@ absence is said plainly. The cases so far:
   output (ADR-0063). The same pattern serves the build plan and a bug's research
   document: `whiska spec-link` prints a line for each document the worktree holds.
 
-One older call stays, named so this record is not read as already true everywhere: the
-owl's desktop notification uses `terminal-notifier` when it is installed (ADR-0062).
+The one older call, `terminal-notifier` for the owl's desktop notification, was dropped on
+2026-10-11 (ADR-0062): the hoot uses `osascript` on macOS and `notify-send` on Linux.
 
 ## Why
 

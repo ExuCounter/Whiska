@@ -12,7 +12,7 @@ truth. Where a diagram and an ADR disagree, the ADR wins.
 | — | [c4-deployment.md](c4-deployment.md) | Where each piece sits on one machine |
 
 What is built and what is still designed is the two boundaries of the container diagram
-and the list in [`docs/internals.md`](../internals.md#what-is-built-and-what-is-not).
+and the list in [`docs/internals.md`](../internals.md#what-is-not-built-yet).
 Module-level structure is `lib/` itself.
 
 ## Mermaid traps already hit

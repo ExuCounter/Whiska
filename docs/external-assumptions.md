@@ -3,6 +3,10 @@
 An audit of everything Whiska relies on outside its own code, done 2026-10-04 against
 `2f7619b` and brought up to date with main later the same day, herdr 0.8.2 and Claude Code 2.1.285 on macOS arm64. It changes nothing; it
 says where each assumption lives, how it breaks, and what loosening it would cost.
+Checked against main again on 2026-10-13: Whiska's own Claude Code statusline is gone, and
+the board is drawn as a line per mouse in herdr's sidebar (ADR-0082); rules arrive by a
+`SessionStart` hook rather than a `CLAUDE.md` block (ADR-0081); and Whiska registers four
+hooks.
 
 The Hex packages are out of scope. They were audited separately: eleven in the lock,
 five declared (`ecto` and `exqlite` among them, since Whiska calls both directly), and
@@ -26,12 +30,11 @@ JSON from Elixir 1.19's own module.
   work each.
 - **herdr is load-bearing, and its shape has leaked.** The socket client is one narrow
   module, but herdr's words (`idle`, `done`, `working`, `"claude"`, its event names,
-  `HERDR_PANE_ID`) are matched in the house, pickup, the board, the doctor, the CLI and
-  the statusline script, and the shipped skills call `whiska worktrees` for what herdr
-  knows about worktrees.
+  `HERDR_PANE_ID`) are matched in the house, pickup, the sidebar, the doctor and the CLI,
+  and the shipped skills call `whiska worktrees` for what herdr knows about worktrees.
   Swapping herdr out is about a week's work, and only worth it if someone without herdr
-  will run Whiska. Nothing checks herdr's version, even though herdr answers a
-  `ping` with it.
+  will run Whiska. The doctor checks herdr is 0.9 or newer, which the sidebar needs;
+  nothing checks Claude Code's version.
 - **macOS is no longer required.** Done 2026-10-05: launchd is macOS's half, and a
   systemd user unit is Linux's (ADR-0040).
   The desktop fallback adds `notify-send`, and a missing `launchctl` or `systemctl` reads as
@@ -57,7 +60,7 @@ silent version is.
    pickup (ADR-0067) go through it, so either can type into a draft.
    If Claude Code changes its prompt marker, every delivery can land inside a
    half-typed draft, which is exactly what ADR-0047 exists to stop. `whiska doctor`
-   warns, but only when someone runs it. **Fix:** put a line on the board, and
+   warns, but only when someone runs it. **Fix:** put a line in the sidebar, and
    `warn_once` to the log, when the read is `:unknown`, next to `Draft.hold/1` so it covers
    pickup too. About an hour.
 2. **Whiska's shim fails open with exit 0, so its warning is probably never seen.**
@@ -78,10 +81,12 @@ silent version is.
    contracts were last checked against, and have the doctor warn when either is newer:
    "herdr 0.9.0 is newer than 0.8.2, which Whiska was last checked against". A warning,
    never a refusal. About two hours. Comparing herdr's `protocol` number is the
-   sharper test, since it moves only when the wire changes.
+   sharper test, since it moves only when the wire changes. **Half done:** the doctor
+   asks herdr for its version and warns below 0.9. It does not warn on a newer version,
+   and Claude Code's is never read.
 4. **An agent status Whiska does not know reads as "mid-turn" forever.**
    `main_session_free?/1` holds on any status that is not `idle`, `done` or `unknown`,
-   and the board says `held: this session is mid-turn`. If herdr renames `idle`,
+   and the sidebar says `⏳ gated: main is mid-turn`. If herdr renames `idle`,
    questions are held with a reason that sends the person looking in the wrong place.
    **Fix:** a separate hold reason for a status outside herdr's five, worded as
    "herdr said `ready`, which Whiska does not know". About an hour.
@@ -112,7 +117,7 @@ question, which the person notices.
 working or idle, a way to type into a pane, the visible screen, and pane lifecycle
 events. Everything else herdr does for Whiska could come from somewhere else.
 
-**Where the boundary is.** `Whiska.Herdr` is a behaviour with 10 callbacks, and
+**Where the boundary is.** `Whiska.Herdr` is a behaviour with 16 callbacks, and
 `Whiska.Herdr.Socket` is the only file that speaks herdr's wire (ADR-0031). It is a
 tolerant reader: unknown fields are dropped, a missing `agent_status` becomes
 `"unknown"`, and a reply that does not match is `{:error, {:unexpected_reply, _}}`.
@@ -127,18 +132,18 @@ outside the boundary:
 | Agent statuses `idle` `done` `working` `blocked` `unknown` | `owl/house.ex`, `pickup.ex`, `watch.ex`, `doctor.ex` | Renamed `idle`: mice collected a minute late by the backstop (doctor warns); delivery held as "mid-turn" (misleading, see fix 4) |
 | Agent name `"claude"` | house, pickup, cli, doctor (6 places) | Held with "not running Claude" in the log and the doctor. Loud |
 | Event names `pane_closed` `pane_exited` `pane_agent_detected` `workspace_closed` `pane.agent_status_changed` | `owl/house.ex` | Unknown events are dropped. The backstop and the two-second sweep cover it, a minute late. Doctor warns |
-| `HERDR_PANE_ID`, `HERDR_SOCKET_PATH`, `HERDR_CONFIG_PATH`, `~/.config/herdr/herdr.sock` | `session.ex`, `cli.ex`, `herdr.ex`, statusline script, plist | Main session not recognised: the person's own turns would be filed as mouse messages. Silent |
-| Methods `pane.list` `pane.get` `pane.read` `agent.prompt` `pane.send_text` `pane.focus` `worktree.list` `worktree.remove` `notification.show` `events.subscribe` | `herdr/socket.ex` only | herdr returns an error; delivery holds with a logged reason. Loud |
+| `HERDR_PANE_ID`, `HERDR_SOCKET_PATH`, `HERDR_CONFIG_PATH`, `~/.config/herdr/herdr.sock` | `session.ex`, `cli.ex`, `herdr.ex`, the owl's launchd or systemd job | Main session not recognised: the person's own turns would be filed as mouse messages. Silent |
+| Methods `ping` `pane.list` `pane.get` `pane.read` `agent.prompt` `pane.send_text` `pane.focus` `workspace.list` `workspace.move_block` `workspace.report_metadata` `worktree.list` `worktree.open` `worktree.remove` `notification.show` `events.subscribe` | `herdr/socket.ex` only | herdr returns an error; delivery holds with a logged reason. Loud |
 | Wire: one JSON line per request, connection closed after; subscriptions stay open | `herdr/socket.ex` only | Every call errors. Loud |
 | CLI: `herdr worktree create/list/remove`, `agent start --kind claude`, `agent prompt`, `workspace close` | the shipped skills in `priv/skills/`. Worktree and pane lookups go through `whiska worktrees` | The model reads the error and improvises. Half-loud |
 | `[ui] tab_bar_right` entry with `type = "command"`, `interval_seconds`, `timeout_seconds` | `install.ex` snippet, `doctor.ex` check | Owl's line disappears from the tab bar. Doctor checks the entry is there, not that herdr still draws it |
 | `[ui.toast]` and `[ui.sound]` | `herdr.ex` docs, `doctor.ex` | Hoot falls back to the desktop (ADR-0062). Fine |
-| herdr's client waiting up to 7 s for a reply | the 10-second staleness rule in the statusline script (ADR-0082) | A slower herdr makes a live owl look stale on the board. Cosmetic |
+| `[ui.sidebar.spaces]` rows with `rules`, and `workspace.report_metadata`, both herdr 0.9 | `sidebar.ex`, `owl/house.ex`, `doctor.ex` | Each mouse's sidebar line disappears. Doctor checks the version and the rows, not that herdr still draws them |
 
-**Version check.** None. herdr's `ping` returns its version and a protocol number, so
-one is cheap (fix 3).
+**Version check.** The doctor warns below herdr 0.9. `ping` also returns a protocol
+number, so warning on a newer herdr is cheap (fix 3).
 
-**Swapping in another multiplexer.** The 10 callbacks map onto tmux reasonably well:
+**Swapping in another multiplexer.** The callbacks map onto tmux reasonably well:
 `capture-pane` reads the screen, `send-keys` types, `list-panes -F` lists, and a
 desktop notifier already exists. What tmux has no equivalent for is herdr's agent
 status. Whiska would have to work that out itself, most likely from Claude Code's own
@@ -160,25 +165,26 @@ Every row is someone else's UI or file format, and can change in any release.
 
 | What | Where | If it changes |
 | --- | --- | --- |
-| `PreToolUse` and `Stop` hook names, `matcher`, `{"type": "command"}` layout in `settings.json` | `install.ex`, `doctor.ex` | Hooks stop firing. Doctor reads the file and probes the shim, so it would see a missing entry but not a renamed event. Half-loud |
+| `PreToolUse`, `Stop`, `UserPromptSubmit` and `SessionStart` hook names, `matcher`, `{"type": "command"}` layout in `settings.json` | `install.ex`, `doctor.ex` | Hooks stop firing. Doctor reads the file and probes the shim, so it would see a missing entry but not a renamed event. Half-loud |
 | `$CLAUDE_PROJECT_DIR` in the hook command | `install.ex` | Shim path fails, Claude Code shows a hook error. Loud |
 | Payload: `tool_name`, `tool_input.file_path` / `notebook_path` / `command`, `cwd`, `transcript_path` | `hook/pre_tool_use.ex`, `rule/*.ex`, `session.ex` | A renamed path key means no path, so containment allows the call. A renamed `command` reads as an empty, harmless command, so sniff mode allows it too. **Silent** |
 | Payload: `last_assistant_message` on `Stop` | `hook/stop.ex` | Empty question delivered. Loud |
 | Deny output: `hookSpecificOutput.permissionDecision = "deny"` | `hook/pre_tool_use.ex` | Denials ignored, every call allowed. **Silent**. The doctor's probe runs with an outside-worktree payload, so it never sees a deny |
 | Tool names `Write` `Edit` `MultiEdit` `NotebookEdit` `Bash` | matcher in `install.ex`, `rule/sniff.ex`, `rule/main_checkout.ex` | New or renamed editing tool bypasses both rules. **Silent** (fix 5) |
-| Global and project hook arrays merge; a project `statusLine` replaces the global one | the global shim's stand-down, the statusline script | Double denials and double doorstep entries, or the person's own statusline lost. Visible |
-| statusLine stdin `workspace.project_dir`, `refreshInterval` | statusline script, `install.ex` | Falls back to `$PWD`; board refreshes only on Claude Code's own events. Graceful |
+| Global and project hook arrays merge | the global shim's stand-down | Double denials and double doorstep entries. Visible |
 | `settings.json` read once at startup | doctor's session-wiring check | Doctor gives a wrong "restart" hint. Cosmetic |
-| Transcript at `~/.claude/projects/<slug>/<session>.jsonl`, slug = every non-alphanumeric to `-` | `transcript.ex`, `watch/transcript.ex` | Board column empty. Benign. `CLAUDE_CONFIG_DIR` is ignored (fix 6) |
+| Transcript at `~/.claude/projects/<slug>/<session>.jsonl`, slug = every non-alphanumeric to `-` | `transcript.ex`, `watch/transcript.ex` | No last action on a stuck mouse's sidebar line. Benign. `CLAUDE_CONFIG_DIR` is ignored (fix 6) |
 | Transcript first entry carries `cwd` | `session.ex` (ADR-0053) | Falls back to the payload's `cwd`, which follows `cd`. A main session that stepped into a worktree could be read as that mouse. Rare, silent |
 | Transcript subagent shapes: `Agent` tool, `agentId:` text, `origin.kind/handback/from`, `<task-notification>`, `<agent-message>`, `[Subagent hand-back]`, `isSidechain`, `attachment` | `transcript.ex` (ADR-0052) | Launch missed: a progress note delivered early. Hand-back missed: the mouse is held silent up to 30 minutes, then the backstop lets it through. Bounded, silent |
 | Transcript file birth time as session start | `transcript.ex` | Doctor reports "unchecked". Graceful |
 | Prompt box: column-0 `─` rules, `❯` marker followed by a non-breaking space, then padding | `delivery/draft.ex` (ADR-0047) | Rules change: held as "box not on screen" (loud, misleading). Marker changes: delivered into a draft (**silent**, fix 1) |
 | Claude Code draws its suggested next prompt and placeholder as faint text (SGR 2), read with herdr's `--format ansi` | `delivery/draft.ex` | Suggestions drawn in another style read as typing, so questions are held as "your prompt box isn't empty". Misleading, and silent until someone asks why nothing arrives |
 | Alternate screen | skills tell the model not to read a pane | Nothing in code depends on it |
-| U+2063 draws nothing in the terminal | `question/marker.ex`, `claude_md.ex` | Three odd glyphs appear in the pane. Visible, harmless. The marker is read from the payload, not the screen |
+| U+2063 draws nothing in the terminal | `question/marker.ex` | Three odd glyphs appear in the pane. Visible, harmless. The marker is read from the payload, not the screen |
 | Skills at `.claude/skills/<name>/SKILL.md`; agents at `.claude/agents/` | `install.ex`, the finish skill | Skills not found by the model. Visible |
-| `~/.claude/CLAUDE.md` and project `CLAUDE.md` both loaded | `claude_md.ex` (ADR-0081, ADR-0056) | Rules not read. Silent, but ADR-0009 makes a missing marker deliver, so the person notices |
+| `SessionStart` output `hookSpecificOutput.additionalContext` reaches the model | `hook/session_start.ex` (ADR-0081) | Rules not read. Silent, but ADR-0009 makes a missing marker deliver, so the person notices |
+| `UserPromptSubmit` output `additionalContext` reaches the model | `hook/user_prompt_submit.ex` (ADR-0080) | An answer is stamped taken but never reaches the mouse. **Silent** |
+| `~/.claude/CLAUDE.md` and project `CLAUDE.md` both loaded | `hook/session_start.ex` leaves out a part the person marked `keep` in them (ADR-0081) | That part reaches the session in neither wording. Silent |
 | `claude` on `PATH`, `--model` flag | `whiska start`, spawn-worktree skill | Command fails in the pane. Loud |
 
 **The pattern.** Anything the model reads or writes fails visibly, because the person
@@ -199,7 +205,7 @@ version warning's job.
 | `launchctl print` text format (`pid = N`, `last exit code = N`) | `launch_agent.ex` | macOS-only, and undocumented by Apple | A changed format reads as "loaded, not running". Doctor would mislead. Low risk |
 | `osascript`, then `notify-send` | `desktop/notifier.ex` | Yes. Neither is `{:error, :no_notifier}`, which the doctor reports | Done |
 | Homebrew paths `/opt/homebrew/bin`, `/usr/local/bin` | shim, doctor | Last-resort lookups for `escript` after `PATH`. Harmless elsewhere | Nothing needed |
-| `stat -f %B` / `-f %m` | `transcript.ex`, statusline script | Yes: both try BSD then GNU, and check the answer | Done |
+| `stat -f %B` / `-f %m` | `transcript.ex` | Yes: it tries BSD then GNU, and checks the answer | Done |
 | `sort -V` | shim, asdf lookup | GNU and recent macOS. Old macOS fails the step and falls through | Nothing needed |
 | `pgrep -f`, `ps -o etime=`, `id -u`, `kill -9` | `owl.ex`, `launch_agent.ex`, notifier | Yes | Done |
 | Escript with the SQLite NIF baked in | `bundled_nif.ex` | The binary carries one platform's `sqlite3_nif.so`, fetched or compiled when the escript is built, so fine. Cannot ship one binary for every platform | Per-platform builds, or ADR-0033's native hook. Only matters for distribution |
@@ -217,10 +223,10 @@ version warning's job.
   only matters for this repo. Nothing to loosen.
 - **The `worktrees/<branch>` layout** is Whiska's own convention (ADR-0030), not an
   outside one. It ties Whiska to its own spawn skill, not to herdr.
-- **Shell.** bash for the shim, statusline, owl wrapper and tab-bar script; `awk`,
-  `tr`, `dirname`, `date +%s`, `grep -q`, all POSIX. No script needs `jq`: the
-  statusline reads its JSON with `sed` and bash, and the skills call `whiska worktrees`. The
-  statusline sets `LC_ALL=C` for `tr`, the one place locale could have mattered.
+- **Shell.** bash for the shim, the one-word commands, the owl wrapper and the tab-bar
+  script; `grep -q`, `tail`, `ls`, `cat`, all POSIX, plus `nc -U`. No script needs
+  `jq`: the skills call `whiska worktrees`. The shim sets `LC_ALL=C` to count the
+  payload's bytes, the one place locale could have mattered.
 - **Erlang runtime.** The escript needs `escript` at run time. The shim finds it on
   `PATH`, through `asdf`, under `~/.asdf`, or at the Homebrew paths. It does not look
   in `mise`'s shims or a Nix profile. A hook with neither on `PATH` fails open, which
@@ -233,16 +239,16 @@ version warning's job.
 ## Drop, make optional, keep
 
 Ranked by what a person would gain. **Other people will run Whiska** (decided
-2026-10-04; the README already says "Requires macOS" for an outside reader), so the
+2026-10-04), so the
 Linux and herdr-decoupling items below are real work, not hypothetical.
 
-1. **Make the silent failures loud** (fixes 1 to 7; fix 2 is done). Gain: the next
+1. **Make the silent failures loud** (fixes 1 to 7; 2 and 7 are done, 3 is half done). Gain: the next
    herdr or Claude Code release that breaks something is noticed the same day, not
    after a lost question. Cost: about two days in total.
 2. ~~**Unblock Linux**~~ Done 2026-10-05: fix 7, a systemd unit and `notify-send`. Whiska
    runs on a Linux box; in a container without systemd the owl runs in a pane.
 3. ~~**Drop `jq` from the skills** by giving them `whiska` subcommands to call.~~ Done:
-   `jq` is gone from the skills, the statusline and the repo's push hook. Gain:
+   `jq` is gone from the skills and the repo's push hook. Gain:
    one less tool for a new user to install, and the herdr CLI calls move into code that
    has tests. Cost: half a day.
 4. **Keep herdr, but take its words out of the core.** Removing herdr is a week and
@@ -264,24 +270,24 @@ rank 1 is first.
 
 Decided 2026-10-04: other people will run Whiska, so the loud-failure fixes and Linux
 support go ahead, and taking herdr's words out of the core is planned work, not
-dropped. Proposed order, cheapest unblockers first. On hold: nothing below is built
-yet. The shim's exit code (fix 2) is already done, merged as `755718a`.
+dropped. Proposed order, cheapest unblockers first. Struck-through rows are done, and so
+is the shim's exit code (fix 2), merged as `755718a`.
 
 | # | Piece | Cost | Why here |
 | --- | --- | --- | --- |
 | 1 | ~~Rescue a missing `launchctl` as "not loaded" (fix 7)~~ Done | 30 min with a test | Owl and doctor start on Linux at all |
-| 2 | Version check: herdr `ping`, `claude --version`, doctor warns when newer than last checked (fix 3) | 2 h | Other people run other versions. Every later report starts with "which versions?" |
-| 3 | Unreadable prompt box goes on the board and the log (fix 1) | 1 h | Worst silent failure: typing into a draft. **Overlap:** branch `fix/the-board-says-what-a-question-is-waiting-on` is changing how the board says what a question waits on. Check what landed there before starting |
-| 4 | Own hold reason for an agent status Whiska does not know (fix 4) | 1 h | Stops "mid-turn" sending people the wrong way. Same board line as item 3, so the same overlap applies |
+| 2 | Version check: herdr `ping`, `claude --version`, doctor warns when newer than last checked (fix 3). Half done: the doctor warns below herdr 0.9 | 2 h | Other people run other versions. Every later report starts with "which versions?" |
+| 3 | Unreadable prompt box goes in the sidebar and the log (fix 1) | 1 h | Worst silent failure: typing into a draft |
+| 4 | Own hold reason for an agent status Whiska does not know (fix 4) | 1 h | Stops "mid-turn" sending people the wrong way |
 | 5 | Honour `CLAUDE_CONFIG_DIR` (fix 6) | 1 h | Cheap; other people set it |
 | 6 | Doctor probes a real deny: inside-worktree `Edit` at the main checkout, check the JSON back. Run it in a throwaway repo under tmp: the hook mints a marker and records a mouse, and the doctor never writes (ADR-0038) | 2 h | Covers the deny format and payload keys |
 | 7 | Doctor warns about tool names in transcripts it has never classified (fix 5) | half a day | Covers new editing tools and MCP writers |
 | 8 | ~~Run `mix test` in a Linux container, fix what is macOS-only~~ Done: six failures, four of them tests that assumed macOS or a herdr pane, one a real notifier race | 1 h to learn, unknown to fix | Turns the Linux cost from a guess into a number |
 | 9 | ~~systemd user unit behind the launchd runner, `notify-send` fallback, README's "Requires macOS" rewritten~~ Done. `mise` shims in the runtime lookup are still open | about 1.5 days | Linux supported, not just not crashing |
 | 10 | ~~Skills call `whiska` subcommands instead of `herdr … \| jq`~~ Done | half a day | One less thing for a new user to install, and the herdr CLI moves into tested code |
-| 11 | herdr's statuses, agent name and event names translated inside `Whiska.Herdr.Socket`; the house, pickup, board, doctor and CLI match Whiska's own words | 1–2 days, mostly tests through the Mox fake | Prerequisite for a second multiplexer. Reverses the "herdr's own name, verbatim" choice, so it comes with an ADR |
+| 11 | herdr's statuses, agent name and event names translated inside `Whiska.Herdr.Socket`; the house, pickup, sidebar, doctor and CLI match Whiska's own words | 1–2 days, mostly tests through the Mox fake | Prerequisite for a second multiplexer. Reverses the "herdr's own name, verbatim" choice, so it comes with an ADR |
 
-Items 1–7 come to about two days and need no new design. Items 8 and 9 are done; herdr
+Items 2–7 come to about two days and need no new design. Items 8 and 9 are done; herdr
 runs on Linux (herdr.dev lists macOS, Linux and Windows).
 
 ## Open questions
@@ -290,7 +296,7 @@ These need the person, not a guess.
 
 1. ~~Will anyone but you run Whiska?~~ Yes, decided 2026-10-04.
 2. **Should a version newer than the checked one only warn, or also add a line to the
-   board?** The doctor alone is only as loud as how often it is run.
+   sidebar?** The doctor alone is only as loud as how often it is run.
 3. ~~Is changing the shim's fail-open exit from 0 to 1 acceptable?~~ Yes, done in
    `755718a`.
 4. ~~Should the house stop matching herdr's strings?~~ Yes, as planned later work

@@ -69,8 +69,7 @@ returns.
 **Whiska never learns whether Claude actually came up.** It cannot wait for it without
 holding the pane it has to release. What happens instead is that the person sees it — they
 are in that pane — and every other place that cares already reports it: the owl's log, the
-doctor's main-session warning, and the board, which is drawn by Claude Code and so is
-missing entirely while Claude is not running.
+doctor's main-session warning, and the main checkout's sidebar line (ADR-0082).
 
 **`whiska start` now needs herdr for more than the pane id.** With no socket it records the
 pane and says it could not start Claude; the recording is the half that matters and it
