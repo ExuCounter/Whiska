@@ -78,7 +78,7 @@ defmodule Whiska.Git do
     end
   end
 
-  # The base is printed for a skill, which builds git commands from it.
+  # The base is printed for a mouse, which builds git commands from it.
   defp plain(name), do: if(plain_name?(name), do: {:ok, name}, else: {:error, :unsafe_base})
 
   defp local_base(checkout) do

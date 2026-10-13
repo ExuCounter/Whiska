@@ -113,7 +113,7 @@ defmodule Whiska.Question.MarkerTest do
     end
   end
 
-  describe "render/1 and spell/1 — the marker Whiska tells a mouse to write" do
+  describe "render/1 — the marker Whiska tells a mouse to write" do
     test "renders exactly what classify/1 reads back" do
       for {status, kind} <- [{:done, "done"}, {:needs_decision, "needs-decision"}] do
         assert Marker.classify(Marker.render(status)) == kind
@@ -123,15 +123,6 @@ defmodule Whiska.Question.MarkerTest do
     test "is the invisible spelling, so nothing shows in the mouse's pane" do
       assert Marker.render(:done) == @done
       assert Marker.render(:needs_decision) == @needs
-    end
-
-    test "spell/1 names the codepoint, since the characters cannot be read" do
-      assert Marker.spell(:done) =~ "three"
-      assert Marker.spell(:needs_decision) =~ "two"
-
-      for status <- [:done, :needs_decision] do
-        assert Marker.spell(status) =~ "U+2063"
-      end
     end
   end
 

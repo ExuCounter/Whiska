@@ -52,7 +52,7 @@ defmodule Whiska.Rule.SniffTest do
       assert reason =~ "sniff"
       # The way out is a proposal a fresh build mouse takes up, not flipping
       # this one, which would build on the model chosen for the investigation.
-      assert reason =~ "Proposed build"
+      assert reason =~ "What to change"
       refute reason =~ "whiska mode build"
     end
 

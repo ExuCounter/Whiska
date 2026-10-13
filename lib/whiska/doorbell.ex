@@ -39,9 +39,8 @@ defmodule Whiska.Doorbell do
           | :not_taken
           | {:left, atom() | {:refused, term()} | {:uncounted, term()}}
 
-  # Not the 🐱 a delivered line starts with: the `whiska-delivered` skill is
-  # listed in every session, a mouse's included, and fires on a 🐱 line with an
-  # id in it.
+  # Not the 🐱 a delivered line starts with: the main session's brief tells it
+  # to run `whiska show` on a 🐱 line, and a mouse is no place for that.
   @spec line(integer()) :: String.t()
   def line(question_id) do
     "🔔 The person answered your question ##{question_id}; the answer is attached to this message. " <>

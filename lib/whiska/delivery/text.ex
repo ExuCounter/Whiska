@@ -12,11 +12,10 @@ defmodule Whiska.Delivery.Text do
   It carries no command. An earlier shape ended in `read: whiska questions
   <id>` and `answer: whiska reply <id> "..."`, so the person could see what to
   type next; that made the line read like code, which is what the person did
-  not want to see. The commands moved into the `whiska-delivered` skill that
-  `whiska init` installs (ADR-0022): the main session's Claude recognises the
-  line by its shape — `🐱` first, `#<id>` after the verb — and runs the read
-  itself. The id stays in the line because answers are keyed to it (ADR-0005)
-  and because that skill needs it. A `done` report is the same line with
+  not want to see. The main session's brief carries the commands instead: its
+  Claude recognises the line by its shape — `🐱` first, `#<id>` after the
+  verb — and runs `whiska show` itself. The id stays in the line because
+  answers are keyed to it (ADR-0005) and because that read needs it. A `done` report is the same line with
   "finished" as its verb: it needs no answer, and nothing in the line says
   otherwise.
 

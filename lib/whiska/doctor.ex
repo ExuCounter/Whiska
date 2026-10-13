@@ -111,8 +111,8 @@ defmodule Whiska.Doctor do
       if binary_path != nil and shim.status == :ok,
         do:
           for(
-            hook <- ["pre-tool-use", "stop", "session-start", "user-prompt-submit"],
-            do: probe(main_checkout, hook, env, shim_root, shim_scope)
+            hook <- ["pre-tool-use", "stop", "user-prompt-submit"],
+            do: probe(main_checkout, hook, env, shim_root)
           ),
         else: []
 
@@ -640,64 +640,33 @@ defmodule Whiska.Doctor do
   Whether the global install is there, and whole (ADR-0056).
 
   Not being installed is not a failure: a repo that carries its own `.claude/`
-  needs none of it. A half-written one is, because the person meant to have it
-  and part of it is not working — the hooks without the skills is a question
-  nothing can read back, and an install without `SessionStart` starts every
-  session without Whiska's rules.
+  needs none of it. What an older install left is a warning either way: a
+  skill nothing reads, or a `SessionStart` hook that runs a command this
+  whiska no longer has, at the start of every session.
   """
-  @global_pieces [
-    {:hooks?, "hooks"},
-    {:session_start?, "SessionStart hook"},
-    {:skills?, "skills"}
-  ]
-
   @spec global(map()) :: Check.t()
   def global(state) do
-    case {Enum.split_with(@global_pieces, &state[elem(&1, 0)]), drifted(state)} do
-      {{[], _missing}, _drift} ->
-        Check.ok("global install", "not installed — this repo carries its own")
+    case {state[:hooks?], retired_present(state)} do
+      {_hooks?, [_ | _] = retired} ->
+        Check.warn(
+          "global install",
+          "~/.claude: #{Enum.join(retired, ", ")} #{verb(retired, "is", "are")} retired " <>
+            "and nothing reads it" <> linked(state),
+          @init_global
+        )
 
-      {{_there, []}, []} ->
+      {true, []} ->
         Check.ok(
           "global install",
           "~/.claude — every repo on this machine is covered" <> linked(state)
         )
 
-      {{_there, []}, drift} ->
-        Check.warn(
-          "global install",
-          "~/.claude: " <> Enum.join(drift, "; ") <> linked(state),
-          @init_global
-        )
-
-      {{_there, missing}, drift} ->
-        Check.warn(
-          "global install",
-          Enum.join(
-            ["half there in ~/.claude: no #{Enum.map_join(missing, ", ", &elem(&1, 1))}" | drift],
-            "; "
-          ) <> linked(state),
-          @init_global
-        )
+      {_absent, []} ->
+        Check.ok("global install", "not installed — this repo carries its own")
     end
   end
 
-  defp drifted(state) do
-    stale = state[:stale_skills] || []
-    retired = state[:retired_present] || []
-
-    if(stale != [],
-      do: [
-        "#{Enum.join(stale, ", ")} #{verb(stale, "differs", "differ")} from what this whiska ships"
-      ],
-      else: []
-    ) ++
-      if retired != [],
-        do: [
-          "#{Enum.join(retired, ", ")} #{verb(retired, "is", "are")} retired and nothing reads it"
-        ],
-        else: []
-  end
+  defp retired_present(state), do: state[:retired_present] || []
 
   defp verb([_], one, _many), do: one
   defp verb(_list, _one, many), do: many
@@ -750,29 +719,24 @@ defmodule Whiska.Doctor do
         nil,
         "not wired — mice here are rung for answers they can never take",
         global[:hooks?]
-      ),
-      session_start_check(settings, global)
-    ]
+      )
+    ] ++ retired_session_start(settings)
   end
 
-  # A global install written before SessionStart existed still enforces and
-  # delivers, so only this row fails — and its fix is the global init, not
-  # one for this repo.
-  defp session_start_check(settings, global) do
-    check =
-      hook_check(
-        "SessionStart",
-        settings,
-        Install.session_start_command(),
-        nil,
-        "not wired — sessions here start without Whiska's rules",
-        global[:session_start?]
-      )
+  # Each session's brief is on its launch line, so an older init's SessionStart
+  # entry runs a hook this whiska no longer has, at every session's start.
+  defp retired_session_start(settings) do
+    entries = get_in(settings, ["hooks", "SessionStart"])
 
-    case {check, global[:hooks?]} do
-      {%Check{status: :fail}, true} -> %{check | fix: "whiska init --global"}
-      {check, _global} -> check
-    end
+    if is_list(entries) and Enum.any?(entries, &ours?/1),
+      do: [
+        Check.warn(
+          "SessionStart",
+          "retired — an older init wired it, and nothing answers it now",
+          @init
+        )
+      ],
+      else: []
   end
 
   defp wires_whiska?(%{"hooks" => hooks}) when is_map(hooks) do
@@ -1192,7 +1156,7 @@ defmodule Whiska.Doctor do
       do:
         Check.warn(
           "review loop",
-          "#{Install.review_loop_path()} is retired — nothing runs it, and finishing is the whiska-finish skill",
+          "#{Install.review_loop_path()} is retired — nothing runs it, and finishing is in a build mouse's brief",
           "rm #{path}"
         ),
       else: Check.ok("review loop", "none")
@@ -1209,18 +1173,16 @@ defmodule Whiska.Doctor do
   Run the repo's installed hook for real, through its shim.
 
   The payload's `cwd` is a fresh temporary directory outside any worktree, so
-  `pre-tool-use` allows, `stop` and `user-prompt-submit` are no-ops, and
-  `session-start` prints the main session's rules: nothing is minted, nothing
-  lands on a doorstep, no answer is taken. What is being tested is everything
-  before that point — the shim finds a binary and a runtime, and the binary
-  knows this hook. For `session-start` it is also the rules themselves: a run
-  that prints none is a session started without them (ADR-0081).
+  `pre-tool-use` allows, and `stop` and `user-prompt-submit` are no-ops:
+  nothing is minted, nothing lands on a doorstep, no answer is taken. What is
+  being tested is everything before that point — the shim finds a binary and a
+  runtime, and the binary knows this hook.
 
   The shim fails open by design (ADR-0035), so exit 0 is not enough: its
   complaint on stderr is what says the call was allowed by accident.
   """
-  @spec probe(Path.t(), String.t(), map(), Path.t() | nil, Install.scope()) :: Check.t()
-  def probe(repo_root, hook, env, shim_root \\ nil, scope \\ :repo) do
+  @spec probe(Path.t(), String.t(), map(), Path.t() | nil) :: Check.t()
+  def probe(repo_root, hook, env, shim_root \\ nil) do
     name = "hook #{hook}"
     shim = Path.join(shim_root || repo_root, Install.shim_path())
 
@@ -1242,9 +1204,10 @@ defmodule Whiska.Doctor do
             ~s|payload=$1 stderr=$2; shift 2; bash "$0" "$@" < "$payload" 2> "$stderr"|,
             shim,
             payload_file,
-            stderr_file | hook_args(hook, scope)
+            stderr_file,
+            hook
           ],
-          env: probe_env(env, hook),
+          env: probe_env(env),
           cd: tmp
         )
 
@@ -1257,16 +1220,6 @@ defmodule Whiska.Doctor do
 
         String.contains?(stderr, "whiska:") ->
           Check.fail(name, "allowed by accident — #{complaint}", @reinstall)
-
-        hook == "session-start" ->
-          if rules?(out),
-            do: Check.ok(name, "runs through #{shim}, and hands out the rules"),
-            else:
-              Check.fail(
-                name,
-                "ran, and printed no rules — sessions start without them",
-                @reinstall
-              )
 
         String.trim(out) != "" ->
           Check.fail(
@@ -1284,39 +1237,21 @@ defmodule Whiska.Doctor do
   end
 
   # The shim leaves early where a hook has nothing to do — a project folder
-  # outside a worktree, a prompt with no answer flag, a session outside herdr —
-  # and a probe that leaves there proves nothing about the binary. So the
-  # project folder is unset and herdr is claimed, which carries every hook
-  # through to `whiska hook`, where the temporary `cwd` makes it a no-op. A nil
+  # outside a worktree, a prompt with no answer flag — and a probe that leaves
+  # there proves nothing about the binary. So the project folder is unset,
+  # which carries every hook through to `whiska hook`, where the temporary `cwd` makes it a no-op. A nil
   # value is what unsets it: a key left out is inherited from the doctor's own
   # environment, which a Claude session sets.
   # The hook socket points at nothing, so the probe runs the installed binary
   # even while an owl would answer for it: the binary is what every hook falls
   # back on, and the owl's own answer is the `sockets` check's to judge.
-  defp probe_env(env, hook) do
+  defp probe_env(env) do
     env
     |> Map.put("CLAUDE_PROJECT_DIR", nil)
     |> Map.put("WHISKA_HOOK_SOCKET", "/dev/null/no-owl")
-    |> then(&if hook == "session-start", do: Map.put(&1, "HERDR_ENV", "1"), else: &1)
     |> Map.to_list()
   end
 
-  # What the scope's own settings entry passes the shim, so the probe takes the
-  # same path through the binary as the real hook does.
-  defp hook_args("session-start", :global), do: ["session-start", "--global"]
-  defp hook_args(hook, _scope), do: [hook]
-
-  defp rules?(out) do
-    case JSON.decode(String.trim(out)) do
-      {:ok, %{"hookSpecificOutput" => %{"additionalContext" => rules}}} when is_binary(rules) ->
-        String.trim(rules) != ""
-
-      _ ->
-        false
-    end
-  end
-
-  defp payload("session-start", cwd), do: %{"cwd" => cwd, "source" => "startup"}
   defp payload("user-prompt-submit", cwd), do: %{"cwd" => cwd, "prompt" => "whiska doctor probe"}
 
   defp payload("pre-tool-use", cwd),

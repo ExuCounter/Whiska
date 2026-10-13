@@ -124,7 +124,7 @@ defmodule Whiska.CLITest do
 
       stderr = capture_io(:stderr, fn -> assert CLI.run(["mode", "build"], worktree) == 1 end)
       assert stderr =~ "shaped as sniff"
-      assert stderr =~ "Proposed build"
+      assert stderr =~ "What to change"
       assert stderr =~ "fresh mouse"
 
       out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)

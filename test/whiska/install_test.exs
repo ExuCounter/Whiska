@@ -93,16 +93,24 @@ defmodule Whiska.InstallTest do
       assert command == Install.command()
     end
 
-    test "wires SessionStart to the same shim, with no matcher, so it fires on every source" do
-      merged = Install.merge(%{})
+    test "wires no SessionStart, and takes out the one an older init wrote" do
+      theirs = %{"hooks" => [%{"type" => "command", "command" => "theirs.sh"}]}
 
-      assert [%{"hooks" => [%{"type" => "command", "command" => command}]} = entry] =
-               get_in(merged, ["hooks", "SessionStart"])
+      older = %{
+        "hooks" => [
+          %{
+            "type" => "command",
+            "command" => ~s|bash "$CLAUDE_PROJECT_DIR/.claude/hooks/whiska.sh" session-start|
+          }
+        ]
+      }
 
-      refute Map.has_key?(entry, "matcher")
-      assert command == Install.session_start_command()
-      assert command =~ Install.shim_path()
-      assert command =~ "session-start"
+      refute Map.has_key?(Install.merge(%{})["hooks"], "SessionStart")
+
+      for scope <- [:repo, :global] do
+        merged = Install.merge(%{"hooks" => %{"SessionStart" => [older, theirs]}}, scope)
+        assert merged["hooks"]["SessionStart"] == [theirs], "#{scope}"
+      end
     end
 
     test "every hook merge wires is one entry with its own command, the doctor checks it, and unmerge takes it out" do
@@ -110,8 +118,7 @@ defmodule Whiska.InstallTest do
         expected = %{
           "PreToolUse" => Install.command(scope),
           "Stop" => Install.stop_command(scope),
-          "UserPromptSubmit" => Install.prompt_command(scope),
-          "SessionStart" => Install.session_start_command(scope)
+          "UserPromptSubmit" => Install.prompt_command(scope)
         }
 
         merged = %{} |> Install.merge(scope) |> Install.merge(scope)
@@ -131,13 +138,6 @@ defmodule Whiska.InstallTest do
 
       doctor_rows = Install.merge(%{}) |> Whiska.Doctor.hooks() |> Enum.map(& &1.name)
       assert Enum.sort(doctor_rows) == Enum.sort(Map.keys(Install.merge(%{})["hooks"]))
-    end
-
-    test "unmerge takes SessionStart back out and leaves someone else's entry" do
-      theirs = %{"hooks" => [%{"type" => "command", "command" => "theirs.sh"}]}
-      merged = Install.merge(%{"hooks" => %{"SessionStart" => [theirs]}})
-
-      assert Install.unmerge(merged, nil)["hooks"]["SessionStart"] == [theirs]
     end
 
     test "leaves unrelated settings completely alone" do

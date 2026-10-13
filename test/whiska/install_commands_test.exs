@@ -1,9 +1,7 @@
 defmodule Whiska.InstallCommandsTest do
   @moduledoc """
-  The eight one-word commands and their slash commands
-  (ADR-0079): what `whiska init --global`
-  writes under the whiska home and under `~/.claude/skills`, and the two skills
-  it stops shipping.
+  The eight one-word commands (ADR-0079): what `whiska init --global` writes
+  under the whiska home.
   """
   use ExUnit.Case, async: true
 
@@ -70,99 +68,6 @@ defmodule Whiska.InstallCommandsTest do
       refute "show" in written
       assert why =~ "symlink"
       assert File.read!(target) == "mine\n"
-    end
-  end
-
-  describe "skills/0 — one slash command per word (ADR-0022)" do
-    test "ships a skill named by each word, a thin wrapper around the fixed command" do
-      for word <- @words do
-        assert {_path, body} =
-                 List.keyfind(Install.skills(), ".claude/skills/#{word}/SKILL.md", 0),
-               "#{word} has no skill"
-
-        assert body =~ "name: #{word}\n"
-        assert body =~ "whiska #{word}"
-      end
-    end
-
-    test "the two long-named skills are no longer shipped, and are named as retired" do
-      for name <- ~w(whiska-questions whiska-reply) do
-        refute List.keyfind(Install.skills(), ".claude/skills/#{name}/SKILL.md", 0)
-        assert ".claude/skills/#{name}/SKILL.md" in Install.retired_skills()
-      end
-
-      assert {_path, _body} =
-               List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/SKILL.md", 0)
-    end
-
-    test "/show reads the delivered question with no argument, one by id with one" do
-      {_path, body} = List.keyfind(Install.skills(), ".claude/skills/show/SKILL.md", 0)
-      assert body =~ "whiska show\n"
-      assert body =~ "delivered"
-      refute body =~ "Every open question"
-      assert body =~ "whiska show $ARGUMENTS"
-      assert body =~ "cannot see"
-      assert body =~ "verbatim"
-      assert body =~ "no fence"
-      assert body =~ ~r/never reply/
-    end
-
-    test "/reply carries the person's own words and nothing else" do
-      {_path, body} = List.keyfind(Install.skills(), ".claude/skills/reply/SKILL.md", 0)
-      assert body =~ "whiska reply $ARGUMENTS"
-      assert body =~ "own words"
-      assert body =~ "herdr agent prompt"
-    end
-
-    test "/inbox is machine-wide and says so" do
-      {_path, body} = List.keyfind(Install.skills(), ".claude/skills/inbox/SKILL.md", 0)
-      assert body =~ "whiska inbox"
-      assert body =~ ~r/every repo|across/i
-    end
-
-    test "the six words only the person types never load into a session's context" do
-      for word <- ~w(inbox dismiss away focus hold resume) do
-        {_path, body} = List.keyfind(Install.skills(), ".claude/skills/#{word}/SKILL.md", 0)
-
-        [frontmatter, _rest] =
-          body |> String.trim_leading("---\n") |> String.split("\n---\n", parts: 2)
-
-        assert frontmatter =~ ~r/^disable-model-invocation: true$/m, word
-        refute frontmatter =~ ~r/says they|asks for|asks to|says to/i, word
-      end
-    end
-
-    test "/show and /reply stay where the main session can reach them" do
-      for word <- ~w(show reply) do
-        {_path, body} = List.keyfind(Install.skills(), ".claude/skills/#{word}/SKILL.md", 0)
-        refute body =~ "disable-model-invocation", word
-      end
-    end
-
-    test "/away, /focus, /hold and /resume run the command and show what it said" do
-      for word <- ~w(away focus hold resume) do
-        {_path, body} = List.keyfind(Install.skills(), ".claude/skills/#{word}/SKILL.md", 0)
-        assert body =~ "whiska #{word}", word
-        assert body =~ "verbatim", word
-      end
-
-      {_path, hold} = List.keyfind(Install.skills(), ".claude/skills/hold/SKILL.md", 0)
-      assert hold =~ "whiska hold $ARGUMENTS"
-      {_path, resume} = List.keyfind(Install.skills(), ".claude/skills/resume/SKILL.md", 0)
-      assert resume =~ "whiska resume $ARGUMENTS"
-    end
-
-    test "the finish options land a branch by cherry-pick, not by merge" do
-      {_path, body} =
-        List.keyfind(Install.skills(), ".claude/skills/whiska-delivered/finished.md", 0)
-
-      assert body =~ "Land here"
-      assert body =~ "cherry-pick"
-      assert body =~ ~r/oldest first/
-      assert body =~ ~r/skipping .*merges/
-      refute body =~ "--no-ff"
-      refute body =~ "Merge here"
-      assert body =~ "finish: land here"
     end
   end
 end

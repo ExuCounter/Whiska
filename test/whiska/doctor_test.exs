@@ -32,17 +32,17 @@ defmodule Whiska.DoctorTest do
   # -- hooks -------------------------------------------------------------------
 
   describe "hooks/1 — what settings.json wires" do
-    test "a fresh init passes all four" do
+    test "a fresh init passes all three" do
       checks = Doctor.hooks(Install.merge(%{}))
 
-      for event <- ~w(PreToolUse Stop UserPromptSubmit SessionStart),
+      for event <- ~w(PreToolUse Stop UserPromptSubmit),
           do: assert(%Check{status: :ok} = find(checks, event), event)
     end
 
-    test "no hooks at all fails all four, pointing at init" do
+    test "no hooks at all fails all three, pointing at init" do
       checks = Doctor.hooks(%{})
 
-      for event <- ~w(PreToolUse Stop UserPromptSubmit SessionStart),
+      for event <- ~w(PreToolUse Stop UserPromptSubmit),
           do: assert(%Check{status: :fail, fix: "whiska init"} = find(checks, event), event)
     end
 
@@ -89,17 +89,6 @@ defmodule Whiska.DoctorTest do
 
       assert %Check{status: :fail, detail: detail} = Doctor.hooks(only_pre) |> find("Stop")
       assert detail =~ "cannot leave questions"
-    end
-
-    test "a fresh init passes SessionStart, and a missing one says sessions start without rules" do
-      assert %Check{status: :ok} = Doctor.hooks(Install.merge(%{})) |> find("SessionStart")
-
-      no_start = update_in(Install.merge(%{}), ["hooks"], &Map.delete(&1, "SessionStart"))
-
-      assert %Check{status: :fail, detail: detail, fix: "whiska init"} =
-               Doctor.hooks(no_start) |> find("SessionStart")
-
-      assert detail =~ "without Whiska's rules"
     end
   end
 

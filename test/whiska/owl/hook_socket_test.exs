@@ -375,44 +375,6 @@ defmodule Whiska.Owl.HookSocketTest do
     end
   end
 
-  describe "the rules a session starts with, through the owl" do
-    setup %{main: main, worktree: worktree, sockets: sockets} do
-      sniff_mouse(main, worktree)
-      start_owl(sockets)
-      :ok
-    end
-
-    test "a mouse gets a mouse's rules from the repo's own shim", c do
-      result = shim(c.root, c.sockets, "session-start", c.worktree, %{"cwd" => c.worktree})
-
-      assert result.called == []
-      assert rules(result.out) =~ "# Whiska: rules for a mouse"
-    end
-
-    # A part the repo's CLAUDE.md holds back is left out by the repo's own
-    # install and not by the global one (ADR-0081): only a scope that reached
-    # the owl intact tells the two apart.
-    test "the global copy's scope reaches the owl", c do
-      File.write!(Path.join(c.worktree, "CLAUDE.md"), """
-      <!-- whiska:finish:start keep -->
-      <!-- whiska:finish:end -->
-      """)
-
-      payload = %{"cwd" => c.worktree}
-      repo = shim(c.root, c.sockets, "session-start", c.worktree, payload)
-      global = shim(c.root, c.sockets, "session-start --global", c.worktree, payload, :global)
-
-      assert repo.called == [] and global.called == []
-      refute rules(repo.out) =~ "## Before a turn is done"
-      assert rules(global.out) =~ "## Before a turn is done"
-    end
-  end
-
-  defp rules(out) do
-    assert %{"hookSpecificOutput" => %{"additionalContext" => rules}} = JSON.decode!(out)
-    rules
-  end
-
   defp home(root) do
     home = Path.join(root, "home")
     File.mkdir_p!(Path.join(home, ".claude"))

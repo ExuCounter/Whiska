@@ -15,75 +15,60 @@ defmodule Whiska.DoctorGlobalTest do
 
   defp find(checks, name), do: Enum.find(checks, &(&1.name == name))
 
-  # The global install as the doctor sees it: which of its pieces are on disk.
-  defp installed, do: %{hooks?: true, session_start?: true, skills?: true}
+  # The global install as the doctor sees it: whether its hooks are on disk.
+  defp installed, do: %{hooks?: true}
 
-  defp absent,
-    do: %{hooks?: false, session_start?: false, skills?: false}
+  defp absent, do: %{hooks?: false}
+
+  # The SessionStart entry an older init wrote, which nothing answers now.
+  @older_session_start %{
+    "hooks" => [
+      %{
+        "type" => "command",
+        "command" => ~s|bash "$CLAUDE_PROJECT_DIR/.claude/hooks/whiska.sh" session-start|
+      }
+    ]
+  }
 
   describe "global/1 — is the global install there, and whole" do
     test "nothing installed is not a failure; a repo may simply carry its own" do
       assert %Check{status: :ok, name: "global install"} = Doctor.global(absent())
     end
 
-    test "every piece there reads as on" do
+    test "the hooks there reads as on" do
       assert %Check{status: :ok, detail: detail} = Doctor.global(installed())
       assert detail =~ "~/.claude"
     end
 
-    test "the hooks missing, SessionStart included, is a half-written install" do
-      assert %Check{status: :warn, detail: detail} =
-               Doctor.global(%{installed() | hooks?: false})
-
-      assert detail =~ "hooks"
-    end
-
-    test "a half-written install is a warning naming what is missing" do
-      assert %Check{status: :warn, detail: detail, fix: "whiska init --global"} =
-               Doctor.global(%{installed() | skills?: false})
-
-      assert detail =~ "skills"
-    end
-
-    test "a skill file that differs from what this whiska ships is named, fixed by the global init" do
-      state =
-        Map.put(installed(), :stale_skills, [".claude/skills/whiska-finish/proposed-build.md"])
+    test "a retired skill still on disk is named, fixed by the global init" do
+      state = Map.put(installed(), :retired_present, [".claude/skills/whiska-questions/SKILL.md"])
 
       assert %Check{status: :warn, detail: detail, fix: "whiska init --global"} =
                Doctor.global(state)
 
-      assert detail =~ "whiska-finish/proposed-build.md"
-      assert detail =~ "differs from what this whiska ships"
-    end
-
-    test "a retired skill still on disk is named" do
-      state = Map.put(installed(), :retired_present, [".claude/skills/whiska-questions/SKILL.md"])
-
-      assert %Check{status: :warn, detail: detail} = Doctor.global(state)
       assert detail =~ "whiska-questions"
       assert detail =~ "retired"
+    end
+
+    test "an older install's SessionStart hook is named, even with the hooks gone" do
+      state = Map.put(absent(), :retired_present, [".claude/settings.json SessionStart"])
+
+      assert %Check{status: :warn, detail: detail, fix: "whiska init --global"} =
+               Doctor.global(state)
+
+      assert detail =~ "SessionStart"
     end
   end
 
   describe "hooks/2 — a repo covered by the global install" do
-    test "a global install from before SessionStart: the other hooks still pass, and the fix is the global init" do
-      checks = Doctor.hooks(%{}, %{installed() | session_start?: false})
-
-      assert %Check{status: :ok} = find(checks, "PreToolUse")
-      assert %Check{status: :ok} = find(checks, "Stop")
-
-      assert %Check{status: :fail, fix: "whiska init --global"} = find(checks, "SessionStart")
-    end
-
     test "a repo with no hooks of its own passes when the global ones are there" do
       checks = Doctor.hooks(%{}, installed())
 
       assert %Check{status: :ok, detail: pre} = find(checks, "PreToolUse")
       assert %Check{status: :ok, detail: stop} = find(checks, "Stop")
-      assert %Check{status: :ok, detail: start} = find(checks, "SessionStart")
       assert pre =~ "globally"
       assert stop =~ "globally"
-      assert start =~ "globally"
+      refute find(checks, "SessionStart")
     end
 
     test "a repo with no hooks of its own still fails when nothing is global" do
@@ -91,6 +76,15 @@ defmodule Whiska.DoctorGlobalTest do
 
       assert %Check{status: :fail} = find(checks, "PreToolUse")
       assert %Check{status: :fail} = find(checks, "Stop")
+    end
+
+    test "a SessionStart hook an older init wired here is named, fixed by init" do
+      settings = put_in(Install.merge(%{}), ["hooks", "SessionStart"], [@older_session_start])
+
+      assert %Check{status: :warn, detail: detail, fix: "whiska init"} =
+               find(Doctor.hooks(settings, installed()), "SessionStart")
+
+      assert detail =~ "retired"
     end
 
     test "a repo with its own hooks passes either way, and says the repo's win" do
@@ -122,11 +116,11 @@ defmodule Whiska.DoctorGlobalTest do
     end
 
     test "a repo wiring Whiska itself gets nothing from the global copy, which stands down there" do
-      # A repo set up before SessionStart existed: its own three hooks, no fourth.
-      older = update_in(Install.merge(%{}), ["hooks"], &Map.delete(&1, "SessionStart"))
+      # A repo set up before UserPromptSubmit existed: its own two hooks, no third.
+      older = update_in(Install.merge(%{}), ["hooks"], &Map.delete(&1, "UserPromptSubmit"))
 
       assert %Check{status: :fail, detail: detail, fix: "whiska init"} =
-               find(Doctor.hooks(older, installed()), "SessionStart")
+               find(Doctor.hooks(older, installed()), "UserPromptSubmit")
 
       refute detail =~ "globally"
     end

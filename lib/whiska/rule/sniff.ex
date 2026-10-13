@@ -89,10 +89,9 @@ defmodule Whiska.Rule.Sniff do
     Edit, is its research document: `#{Research.filename()}` at the worktree root.
 
     If the work needs a change, do not make it and do not ask to switch modes.
-    Finish the investigation: write the research document, and end the report on the
-    finished marker with a **Proposed build** block — Found, Build, Touches,
-    Open — as the `whiska-finish` skill describes. The person can then hand it
-    to a fresh session shaped for the build.
+    Finish the investigation: write the research document, and end the report
+    with a **What to change** block, as your brief describes. The person can
+    then hand it to a fresh mouse shaped for the build.
     """
     |> String.trim()
   end

@@ -11,7 +11,7 @@ defmodule Whiska.Owl.Hooks do
 
   The request:
 
-      hook 1 <hook-name> <payload-bytes>[ --global]
+      hook 1 <hook-name> <payload-bytes>
       HERDR_PANE_ID=w1:p2
       …
       <blank line>
@@ -30,7 +30,6 @@ defmodule Whiska.Owl.Hooks do
   """
 
   alias Whiska.Hook.PreToolUse
-  alias Whiska.Hook.SessionStart
   alias Whiska.Hook.Stop
   alias Whiska.Hook.UserPromptSubmit
   alias Whiska.Owl
@@ -73,8 +72,6 @@ defmodule Whiska.Owl.Hooks do
   defp known("pre-tool-use", []), do: {:ok, :pre_tool_use}
   defp known("stop", []), do: {:ok, :stop}
   defp known("user-prompt-submit", []), do: {:ok, :user_prompt_submit}
-  defp known("session-start", []), do: {:ok, {:session_start, :repo}}
-  defp known("session-start", ["--global"]), do: {:ok, {:session_start, :global}}
   defp known(_name, _flags), do: :error
 
   defp env(socket, acc, deadline) do
@@ -152,13 +149,6 @@ defmodule Whiska.Owl.Hooks do
 
       {output, take} ->
         if reply(printed(output), socket) == :ok, do: take.()
-    end
-  end
-
-  defp answer(socket, {:session_start, scope}, payload, env) do
-    case SessionStart.output(payload, env, scope) do
-      :none -> reply("", socket)
-      output -> reply(output, socket)
     end
   end
 

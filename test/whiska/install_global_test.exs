@@ -4,7 +4,7 @@ defmodule Whiska.InstallGlobalTest do
 
   The global install is the per-repo install rooted at the person's home rather
   than at a repo: the same relative paths, the same shim, the same statusline
-  script, the same block. What differs is where the commands point, and the one
+  script. What differs is where the commands point, and the one
   rule that keeps a repo carrying both from running everything twice — the
   per-repo install wins and the global one stands down.
   """
@@ -116,38 +116,6 @@ defmodule Whiska.InstallGlobalTest do
     end
   end
 
-  describe "skills/1" do
-    test "the global install ships every skill, the worktree ones and the eight words included" do
-      assert Install.skills(:global) == Install.skills()
-      paths = Install.skills(:global) |> Enum.map(&elem(&1, 0))
-
-      for name <- ~w(whiska-delivered whiska-finish cold-review whiska-spec whiska-plan
-                     whiska-research whiska-review-replies grilling spawn-worktree send-to-worktree drop-worktree
-                     inbox show reply dismiss focus away hold resume) do
-        assert ".claude/skills/#{name}/SKILL.md" in paths
-      end
-    end
-
-    test "the per-repo install is unchanged and ships all nineteen, with the files beside them" do
-      assert Install.skills(:repo) == Install.skills()
-
-      {skill_files, beside} =
-        Install.skills()
-        |> Enum.map(&elem(&1, 0))
-        |> Enum.split_with(&(Path.basename(&1) == "SKILL.md"))
-
-      assert length(skill_files) == 19
-
-      assert Enum.sort(beside) == [
-               ".claude/skills/whiska-delivered/finished.md",
-               ".claude/skills/whiska-delivered/sniff.md",
-               ".claude/skills/whiska-finish/needs-attention.md",
-               ".claude/skills/whiska-finish/proposed-build.md",
-               ".claude/skills/whiska-finish/repo-reviewers.md"
-             ]
-    end
-  end
-
   describe "merge/2 — ~/.claude/settings.json" do
     test "wires both hooks, global-flavoured, and no statusline" do
       merged = Install.merge(%{}, :global)
@@ -175,10 +143,7 @@ defmodule Whiska.InstallGlobalTest do
 
       assert merged["model"] == "opus"
       assert merged["permissions"] == settings["permissions"]
-      assert hd(merged["hooks"]["SessionStart"]) == hd(settings["hooks"]["SessionStart"])
-
-      assert [_theirs, %{"hooks" => [%{"command" => ours}]}] = merged["hooks"]["SessionStart"]
-      assert ours == Install.session_start_command(:global)
+      assert merged["hooks"]["SessionStart"] == settings["hooks"]["SessionStart"]
 
       assert Enum.any?(
                merged["hooks"]["PreToolUse"],

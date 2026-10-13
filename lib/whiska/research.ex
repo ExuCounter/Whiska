@@ -1,7 +1,7 @@
 defmodule Whiska.Research do
   @moduledoc """
   The research document a finished investigation leaves for the person to review: what it
-  established and its Proposed build, as Markdown at the worktree root
+  established and what to change, as Markdown at the worktree root
   (ADR-0074).
 
   It is the one file a sniff mouse may write (ADR-0069), and like the spec it

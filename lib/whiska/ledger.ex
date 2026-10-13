@@ -5,8 +5,7 @@ defmodule Whiska.Ledger do
 
   Read from real sessions on 2026-10-08, the hand-back is the wrong source
   three ways. Its `subagent_tokens` is the size of the agent's last model call,
-  not a sum. The cold review, a forked skill (ADR-0049), hands back no usage at
-  all. And the mouse's own session, usually the biggest spend, has no
+  not a sum. A forked skill hands back no usage at all. And the mouse's own session, usually the biggest spend, has no
   hand-back. The transcripts carry all of it: the session's file, and beside it
   a folder holding one transcript and one `meta.json` per agent it sent.
 
@@ -183,7 +182,7 @@ defmodule Whiska.Ledger do
   defp plain(_not_text), do: nil
 
   # A forked skill's meta carries no description; its opening prompt names the
-  # skill's folder (ADR-0049).
+  # skill's folder.
   defp label(%{"description" => description}, _entries, _path) when is_binary(description),
     do: description
 

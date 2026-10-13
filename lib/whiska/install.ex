@@ -56,27 +56,15 @@ defmodule Whiska.Install do
   @command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" pre-tool-use|
   @stop_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" stop|
   @prompt_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" user-prompt-submit|
-  @session_start_command ~s|bash "$CLAUDE_PROJECT_DIR/#{@shim_path}" session-start|
 
   @global_command ~s|bash "$HOME/#{@shim_path}" pre-tool-use|
   @global_stop_command ~s|bash "$HOME/#{@shim_path}" stop|
   @global_prompt_command ~s|bash "$HOME/#{@shim_path}" user-prompt-submit|
-  @global_session_start_command ~s|bash "$HOME/#{@shim_path}" session-start --global|
-
-  # Outside herdr no mouse is spawned and nothing is delivered, so a session
-  # there starts with no rules, and the escript is not worth starting to say so.
-  @skip_outside_herdr """
-  if [ "${1:-}" = "session-start" ] && [ "${HERDR_ENV:-}" != 1 ]; then
-    exit 0
-  fi
-
-  """
 
   @shim_header """
   #!/usr/bin/env bash
-  # Whiska's hooks. Takes the hook's name - pre-tool-use, stop,
-  # user-prompt-submit or session-start - and hands the payload on stdin to
-  # `whiska hook <name>`.
+  # Whiska's hooks. Takes the hook's name - pre-tool-use, stop or
+  # user-prompt-submit - and hands the payload on stdin to `whiska hook <name>`.
   #
   # Written by `whiska init` and checked into the repo so the rules travel with
   # it (ADR-0056). Everything machine-specific is resolved here, when the hook
@@ -134,9 +122,7 @@ defmodule Whiska.Install do
   # `case` written inside `$( )`.
   whiska_request() {
     local var
-    printf 'hook 1 %s %s' "$1" "$whiska_bytes"
-    if [ "$2" = "--global" ]; then printf ' --global'; fi
-    printf '\\n'
+    printf 'hook 1 %s %s\\n' "$1" "$whiska_bytes"
     for var in HERDR_ENV HERDR_PANE_ID CLAUDE_PROJECT_DIR CLAUDE_PID HOME PWD; do
       case "${!var-}" in
         "" | *$'\\n'*) ;;
@@ -158,7 +144,7 @@ defmodule Whiska.Install do
     LC_ALL=C
     whiska_bytes=${#whiska_payload}
     if [ -n "$whiska_lc_set" ]; then LC_ALL="$whiska_lc_all"; else unset LC_ALL; fi
-    whiska_answer="$(whiska_request "${1:-}" "${2:-}" | nc -w 2 -U "$whiska_hook_socket" 2>/dev/null)"
+    whiska_answer="$(whiska_request "${1:-}" | nc -w 2 -U "$whiska_hook_socket" 2>/dev/null)"
     whiska_status="${whiska_answer%%$'\\n'*}"
     case "$whiska_status" in
       "ok "[0-9] | "ok "[0-9][0-9] | "ok "[0-9][0-9][0-9])
@@ -227,8 +213,6 @@ defmodule Whiska.Install do
       echo "whiska: this turn's message was not delivered - run whiska doctor" >&2
     elif [ "${2:-}" = "user-prompt-submit" ]; then
       echo "whiska: the answer waiting here was not handed over - run whiska doctor" >&2
-    elif [ "${2:-}" = "session-start" ]; then
-      echo "whiska: this session started without Whiska's rules - run whiska doctor" >&2
     else
       echo "whiska: sniff mode and worktree containment are off - run whiska doctor" >&2
     fi
@@ -293,7 +277,6 @@ defmodule Whiska.Install do
 
   @shim @shim_header <>
           @prompt_fast_path <>
-          @skip_outside_herdr <>
           @ask_owl <>
           @resolve_whiska <>
           @shim_fail_open <>
@@ -368,8 +351,6 @@ defmodule Whiska.Install do
       *) exit 0 ;;
     esac
   fi
-
-  #{String.trim_trailing(@skip_outside_herdr)}
 
   """
 
@@ -448,204 +429,25 @@ defmodule Whiska.Install do
   printf '🦉 owl down'
   """
 
-  # One slash-command skill per command (ADR-0022): a thin wrapper around the
-  # fixed `whiska` call, discoverable via /help, so the model never has to
-  # compose the bash itself. Paths are relative to the repo root.
-  #
-  # The six only the person types carry `disable-model-invocation`: their
-  # slash commands work, and no session — a mouse's included — pays for their
-  # descriptions in its context. `show` and `reply` stay where the main session
-  # can reach them after a delivered question.
-  #
-  # The verbatim rule every reading skill carries. Claude Code folds a Bash
-  # tool's result away from the person, so "show its output" alone was read as
-  # "it is already visible" and the model summarised; and a fenced block turns
-  # the mouse's markdown off.
-  @verbatim """
-  The person cannot see the command's output, only your reply. So your whole
-  reply is that output, verbatim, as markdown: every line, in full and in its
-  own words, no commentary before or after, and no fence around it — a code
-  block would show the mouse's bold and backticks raw instead of rendering
-  them. Then stop.
-  """
+  # Every skill an older Whiska wrote, files beside a SKILL.md included: each
+  # session's brief carries what they said now. `whiska init` removes a plain
+  # file of these; one reached through a symlink is the person's and stays
+  # (ADR-0056).
+  @retired_skills for(
+                    name <-
+                      ~w(inbox show reply dismiss focus away hold resume whiska-questions
+                            whiska-reply spawn-worktree send-to-worktree drop-worktree
+                            whiska-delivered whiska-finish cold-review grilling whiska-spec
+                            whiska-plan whiska-research whiska-review-replies),
+                    do: ".claude/skills/#{name}/SKILL.md"
+                  ) ++
+                    ~w(.claude/skills/whiska-delivered/finished.md
+                       .claude/skills/whiska-delivered/sniff.md
+                       .claude/skills/whiska-finish/needs-attention.md
+                       .claude/skills/whiska-finish/proposed-build.md
+                       .claude/skills/whiska-finish/repo-reviewers.md)
 
-  # One word each (ADR-0079): the slash
-  # commands are the words the person types at a shell, and the two long-named
-  # reading skills they replace are in `@retired_skills`.
-  @skills [
-    {".claude/skills/inbox/SKILL.md",
-     """
-     ---
-     name: inbox
-     description: What is waiting on you in this repo, oldest first.
-     disable-model-invocation: true
-     ---
-
-     Run exactly this:
-
-         whiska inbox
-
-     #{String.trim(@verbatim)} Answering is the person's move: never reply to
-     a question, guess an answer, or act on one on their behalf.
-
-     It lists this repo only; `whiska inbox --all` lists every repo on the
-     machine, and so does running it outside any repo. A first line saying `away` means
-     nothing is delivered anywhere until the person runs `resume`; a row's last
-     word — `held`, `away`, `focus: <branch>` — says why that one is not being
-     delivered. `/show <id>` reads one of this repo's in full.
-     """},
-    {".claude/skills/show/SKILL.md",
-     """
-     ---
-     name: show
-     description: Read the question delivered to the person in full, or one of this repo's by id. Use on /show, or when the person asks to see a question.
-     ---
-
-     No argument → run exactly this:
-
-         whiska show
-
-     The one question delivered to the person and waiting on them, in full,
-     or a line saying nothing is delivered. A queued question waits its turn
-     and is not shown: `inbox` lists the whole queue, one line each.
-
-     An id passed ($ARGUMENTS is not empty) → run exactly this instead:
-
-         whiska show $ARGUMENTS
-
-     #{String.trim(@verbatim)} Answering is the person's move: never reply to
-     a question, guess an answer, or act on one on their behalf.
-
-     With an id, the person's reply to that question is read as
-     `whiska-delivered`'s "Reading the person's reply" says, and an answer
-     leaves as `whiska reply <id> "<their words>"`. Bare `show` is not a
-     delivered line, so a bare letter after it names no question: ask which.
-     """},
-    {".claude/skills/reply/SKILL.md",
-     """
-     ---
-     name: reply
-     description: Answer a question one of this repo's mice is waiting on. Use when the person has decided what to tell a mouse, or on /reply.
-     ---
-
-     Run exactly this:
-
-         whiska reply $ARGUMENTS
-
-     No id spelled out — they are answering a question you just showed them →
-     the id is the one from that delivered line:
-
-         whiska reply <id> <what they said>
-
-     The text is the person's own words, or the option they picked — never
-     your summary of them or an answer you worked out: answering is their
-     move, and this only carries it. Show the command's output verbatim and
-     stop. If it says a hold was lifted, that mouse was on hold and the answer
-     is what picks it up.
-
-     A mouse is answered only this way: never with `herdr agent prompt` into
-     its pane, never with `send-to-worktree`. Talking it over with the person
-     first is fine; what that talk produces goes out as the reply.
-     """},
-    {".claude/skills/dismiss/SKILL.md",
-     """
-     ---
-     name: dismiss
-     description: Close one of this repo's questions without answering it.
-     disable-model-invocation: true
-     ---
-
-     Run exactly this, with the id the person gave:
-
-         whiska dismiss $ARGUMENTS
-
-     Show its output verbatim and stop. This is the person's command: run it
-     only when they ask for that question to be dismissed, never on your own
-     reading that it looks handled. A question the person has not answered
-     stays as it is; Whiska supersedes it itself when that mouse's next message
-     arrives.
-     """},
-    {".claude/skills/away/SKILL.md",
-     """
-     ---
-     name: away
-     description: Stop every delivery on this machine until you resume; mice keep working.
-     disable-model-invocation: true
-     ---
-
-     Run exactly this:
-
-         whiska away
-
-     Show its output verbatim and stop. Nothing is delivered to any main
-     session until the person runs `resume`; mice keep working, and `inbox`
-     keeps listing what they ask.
-     """},
-    {".claude/skills/focus/SKILL.md",
-     """
-     ---
-     name: focus
-     description: Let only one mouse's questions reach this repo's main session; /focus alone prints the current focus.
-     disable-model-invocation: true
-     ---
-
-     Run exactly this, with the branch the person named, or with nothing to
-     print the current focus:
-
-         whiska focus $ARGUMENTS
-
-     Show its output verbatim and stop. Only that mouse's questions reach this
-     session now; the rest wait, still listed by `inbox`, and a question
-     already delivered from another mouse no longer blocks the focused one.
-     `resume` ends it. The branch is the person's choice: never pick one
-     yourself.
-     """},
-    {".claude/skills/hold/SKILL.md",
-     """
-     ---
-     name: hold
-     description: Stop one mouse where it is and park its questions, undelivered, until you resume it.
-     disable-model-invocation: true
-     ---
-
-     Run exactly this, with the branch the person named:
-
-         whiska hold $ARGUMENTS
-
-     Show its output verbatim and stop. The mouse's next tool call is refused
-     and it ends its turn; its questions sit in the inbox marked held; it is
-     never offered for landing. `resume <branch>` lifts it. Never hold a
-     branch the person did not name.
-     """},
-    {".claude/skills/resume/SKILL.md",
-     """
-     ---
-     name: resume
-     description: End away and this repo's focus, or lift one mouse's hold.
-     disable-model-invocation: true
-     ---
-
-     Run exactly this, with the branch the person named or nothing at all:
-
-         whiska resume $ARGUMENTS
-
-     Show its output verbatim and stop. With no branch it ends away and this
-     repo's focus, and what waited arrives oldest first. With a branch it lifts
-     that mouse's hold and, when the mouse stopped because of the hold, tells
-     it to carry on from where it stopped; a mouse that was waiting on an
-     answer gets no line, and the output names the question to reply to.
-     """}
-  ]
-
-  # The long-named reading skills the words replace. `whiska init` removes a
-  # plain file of these; one reached through a symlink is the person's and
-  # stays (ADR-0056).
-  @retired_skills [
-    ".claude/skills/whiska-questions/SKILL.md",
-    ".claude/skills/whiska-reply/SKILL.md"
-  ]
-
-  # The same eight, as plain commands at a shell. Each is a two-line spelling
+  # The eight words the person types, as plain commands at a shell. Each is a two-line spelling
   # of `whiska <word>` that resolves the binary the way the shim does, written
   # into a directory of Whiska's own so a generic word never lands among other
   # programs, and skipped where one already answers to the word.
@@ -666,81 +468,6 @@ defmodule Whiska.Install do
   fi
   exec "$whiska_bin" WORD "$@"
   """
-
-  # The three worktree skills (ADR-0056). Unlike the two above, these wrap
-  # `herdr` rather than `whiska` — they are the half of the protocol that
-  # creates a mouse and takes it down again, and Whiska ships them because
-  # Whiska is what the protocol is for. ADR-0022 stands: there is still no
-  # `whiska spawn`, and spawning still happens through a conversation.
-  #
-  # Read from files at compile time rather than written out here. They are long
-  # prose, and one source of truth is the only way the shipped copy and the
-  # committed copy cannot drift.
-  @worktree_skills ~w(spawn-worktree send-to-worktree drop-worktree)
-
-  # The finish pipeline (ADR-0081). It binds a mouse the same way its rules
-  # do, and ships as a skill for the same reason the worktree skills are
-  # files: it is long, and a session only needs it at the moment a turn is
-  # ending.
-  #
-  # `cold-review` is the reviewer finishing always sends (ADR-0049): a skill
-  # that forks into its own read-only subagent, so the caller cannot write its
-  # brief.
-  #
-  # The spec binds a mouse at one moment too, after grilling and before it
-  # builds, and so do the build plan beside it and a bug's research document.
-  # The person's grilling skill ships beside them so it has one copy
-  # (ADR-0063).
-  #
-  # `whiska-delivered` is the one skill nobody types a slash command for: the
-  # owl's delivered line triggers it by its shape — the leading 🐱 and the
-  # number after `#` — which its description names in a quoted YAML string,
-  # since unquoted a space followed by `#` starts a comment and cut the listing
-  # off before every example. Its two files of finish options ship beside it and are
-  # read only when the line says finished.
-  #
-  # `whiska-review-replies` has no line in a mouse's rules, which are at their size
-  # cap: its description is what a mouse asked to handle a merge request's review
-  # loads it by (ADR-0085).
-  @committed_skills @worktree_skills ++
-                      ~w(whiska-delivered whiska-finish cold-review grilling whiska-spec whiska-plan
-                         whiska-research whiska-review-replies)
-
-  # The source is `priv/skills/`, not this repo's own `.claude/skills/`. They
-  # are build inputs, and a repo installed globally (ADR-0056) has no committed
-  # `.claude/` to read them out of — sourcing them there made `whiska init
-  # --global` on this repo delete the files the next build needed. The
-  # destination is unchanged: `.claude/skills/<name>/SKILL.md` under whichever
-  # scope root is being written.
-  @skill_source "priv/skills"
-
-  # SKILL.md first, then whatever it reads on demand, in name order.
-  @committed_sources for name <- @committed_skills,
-                         file <-
-                           ["SKILL.md"] ++
-                             ("#{@skill_source}/#{name}/*.md"
-                              |> Path.wildcard()
-                              |> Enum.map(&Path.basename/1)
-                              |> Enum.reject(&(&1 == "SKILL.md"))
-                              |> Enum.sort()),
-                         do: "#{name}/#{file}"
-
-  for source <- @committed_sources do
-    @external_resource "#{@skill_source}/#{source}"
-  end
-
-  @committed_skill_files for source <- @committed_sources,
-                             do:
-                               {".claude/skills/#{source}",
-                                File.read!("#{@skill_source}/#{source}")}
-
-  # A file added beside a skill is a new build input, which @external_resource
-  # cannot see until something already listed changes.
-  def __mix_recompile__? do
-    @committed_skills
-    |> Enum.flat_map(&Path.wildcard("#{@skill_source}/#{&1}/*.md"))
-    |> length() != length(@committed_sources)
-  end
 
   @doc """
   The shell that finds the whiska binary: `WHISKA_BIN`, then `PATH`, then
@@ -815,15 +542,6 @@ defmodule Whiska.Install do
   def prompt_command(:global), do: @global_prompt_command
 
   @doc """
-  The SessionStart hook command: the same shim, told it is a `session-start`.
-  It prints the rules for the session's role (ADR-0081).
-  """
-  @spec session_start_command(scope()) :: String.t()
-  def session_start_command(scope \\ :repo)
-  def session_start_command(:repo), do: @session_start_command
-  def session_start_command(:global), do: @global_session_start_command
-
-  @doc """
   The shim script's contents.
 
   Resolves the binary and the Erlang runtime when the hook fires, and allows the
@@ -846,9 +564,8 @@ defmodule Whiska.Install do
   @doc """
   Where an older Whiska's review loop lives, relative to the repo root.
 
-  Retired (ADR-0049): finishing is the pipeline the `whiska-finish` skill
-  teaches and the `finish` part of `CLAUDE.md` points at (ADR-0081), run by the
-  mouse itself. The path is kept so a `Stop` entry naming it
+  Retired (ADR-0049): finishing is the steps a build mouse's brief gives it,
+  run by the mouse itself. The path is kept so a `Stop` entry naming it
   is recognised as Whiska's and dropped, and so `whiska doctor` can say a file
   left on disk is no longer run by anything.
   """
@@ -897,28 +614,19 @@ defmodule Whiska.Install do
   end
 
   @doc """
-  Which pieces of the global install are on disk right now (ADR-0056).
+  What of the global install is on disk right now (ADR-0056).
 
-  Three, and they are read rather than assumed because each can be removed on
-  its own: the three hooks that enforce, deliver and hand a mouse its answer, the
-  `SessionStart` hook that hands out the rules, and the skills. `SessionStart` is apart because an
-  install written before it existed still enforces and delivers. `whiska doctor` turns a half-written
-  answer into a warning; `whiska init` uses it only to say whether the global
-  install is there at all.
-
-  `stale_skills` are skill files, supporting files included, whose content is
-  not what this build writes; a symlinked one is the person's and never listed
-  (ADR-0056). `retired_statusline` is what an older install left of the Claude
-  Code statusline in the home. `retired_present` are retired skills still on disk as plain
-  files, the ones `whiska init --global` removes.
+  `hooks?` is the three hooks that enforce, deliver and hand a mouse its
+  answer, with the shim they run. The rest is what an older install left:
+  `retired_statusline` of the Claude Code statusline, and `retired_present` the
+  skill files still there as plain files and a `SessionStart` entry still
+  wired, the ones `whiska init --global` removes. A symlinked skill is the
+  person's and never listed (ADR-0056).
   """
   @spec global_state() :: %{
           hooks?: boolean(),
-          session_start?: boolean(),
-          skills?: boolean(),
           retired_statusline: [String.t()],
-          stale_skills: [Path.t()],
-          retired_present: [Path.t()],
+          retired_present: [String.t()],
           links: [{Path.t(), Path.t()}]
         }
   def global_state do
@@ -931,39 +639,41 @@ defmodule Whiska.Install do
           wired?(settings, "Stop", stop_command(:global)) and
           wired?(settings, "UserPromptSubmit", prompt_command(:global)) and
           File.exists?(Path.join(home, @shim_path)),
-      session_start?:
-        wired?(settings, "SessionStart", session_start_command(:global)) and
-          File.exists?(Path.join(home, @shim_path)),
-      skills?: Enum.all?(skills(:global), fn {rel, _} -> File.exists?(Path.join(home, rel)) end),
       retired_statusline: retired_statusline(home),
-      stale_skills: stale_skills(home),
-      retired_present: Enum.filter(@retired_skills, &ours?(home, &1)),
+      retired_present: retired_skills(home) ++ retired_session_start(settings),
       links: global_links()
     }
   end
 
-  defp stale_skills(home) do
-    for {rel, body} <- skills(:global),
-        ours?(home, rel),
-        File.read(Path.join(home, rel)) != {:ok, body},
-        do: rel
+  @doc "Every skill file an older Whiska wrote, relative to the root it wrote them under."
+  @spec retired_skills() :: [Path.t()]
+  def retired_skills, do: @retired_skills
+
+  @doc "The skill files an older Whiska wrote that are still under `root`, as plain files of its own."
+  @spec retired_skills(Path.t()) :: [Path.t()]
+  def retired_skills(root), do: Enum.filter(@retired_skills, &ours?(root, &1))
+
+  defp retired_session_start(settings) do
+    if settings |> entries("SessionStart") |> Enum.any?(&ours?/1),
+      do: [".claude/settings.json SessionStart"],
+      else: []
   end
 
-  # A plain file reached through no link at any segment below the home: a
+  # A plain file reached through no link at any segment below the root: a
   # linked `~/.claude/skills` makes everything under it the person's (ADR-0056).
-  defp ours?(home, rel) do
-    path = Path.join(home, rel)
+  defp ours?(root, rel) do
+    path = Path.join(root, rel)
 
     match?({:ok, %File.Stat{type: :regular}}, File.lstat(path)) and
-      Whiska.Layout.canonical(path) == Path.join(Whiska.Layout.canonical(home), rel)
+      Whiska.Layout.canonical(path) == Path.join(Whiska.Layout.canonical(root), rel)
   end
 
-  @global_pieces [:hooks?, :session_start?, :skills?]
-
-  @doc "Is any of the global install there? Part of one still counts."
+  @doc "Is any of the global install there? An older one's leftovers still count."
   @spec global_installed?() :: boolean()
-  def global_installed?,
-    do: global_state() |> Map.take(@global_pieces) |> Map.values() |> Enum.any?()
+  def global_installed? do
+    state = global_state()
+    state.hooks? or state.retired_present != []
+  end
 
   @doc """
   Which of the paths the global install writes are symlinks, and where each
@@ -978,11 +688,7 @@ defmodule Whiska.Install do
   def global_links do
     home = root(:global)
 
-    paths =
-      [".claude/CLAUDE.md", ".claude/settings.json", ".claude/skills", ".claude/hooks"] ++
-        [@shim_path] ++ Enum.map(skills(:global), &elem(&1, 0))
-
-    for rel <- paths,
+    for rel <- [".claude/settings.json", ".claude/hooks", @shim_path],
         {:ok, target} <- [:file.read_link(Path.join(home, rel))],
         do: {rel, to_string(target)}
   end
@@ -1064,31 +770,6 @@ defmodule Whiska.Install do
 
   defp ours_statusline?(_other), do: false
 
-  @doc """
-  The skills `whiska init` writes, as `{path, contents}`.
-
-  Two kinds, and both are one skill per fixed command rather than bash the model
-  composes itself (ADR-0022): the reading skills that wrap `whiska`, and the
-  three worktree skills that wrap `herdr` (ADR-0056). `whiska-finish`,
-  `whiska-spec`, `whiska-plan` and `whiska-research` are neither: they are steps a
-  mouse's rules point at (ADR-0081). Nor is `whiska-review-replies`, a step a mouse
-  loads by its description when the person asks it to handle a merge request's review.
-  Nor is `grilling`, the person's own skill, shipped so it has one copy.
-  """
-  @spec skills() :: [{Path.t(), String.t()}]
-  def skills, do: @skills ++ @committed_skill_files
-
-  @doc """
-  The skills one scope writes: all nine in both, because the global install
-  is the only source of them on a machine that has it (ADR-0056).
-  """
-  @spec skills(scope()) :: [{Path.t(), String.t()}]
-  def skills(_scope), do: skills()
-
-  @doc "The skills an older Whiska shipped and this one removes where they are plain files."
-  @spec retired_skills() :: [Path.t()]
-  def retired_skills, do: @retired_skills
-
   @doc "The eight one-word commands, in the order the help lists them."
   @spec commands() :: [String.t()]
   def commands, do: @commands
@@ -1162,11 +843,6 @@ defmodule Whiska.Install do
     removed
   end
 
-  @doc "The three worktree skills, as the paths both scopes write them to."
-  @spec worktree_skill_paths() :: [Path.t()]
-  def worktree_skill_paths,
-    do: for(name <- @worktree_skills, do: ".claude/skills/#{name}/SKILL.md")
-
   @doc """
   Merge Whiska's hook into an existing settings map.
 
@@ -1200,16 +876,14 @@ defmodule Whiska.Install do
     stop = %{"hooks" => [%{"type" => "command", "command" => stop_command(scope)}]}
     prompt = %{"hooks" => [%{"type" => "command", "command" => prompt_command(scope)}]}
 
-    session_start = %{
-      "hooks" => [%{"type" => "command", "command" => session_start_command(scope)}]
-    }
-
+    # Each session's brief is on its launch line, so an older init's
+    # SessionStart entry goes.
     settings
     |> sound_hooks()
     |> put_ours("PreToolUse", [pre_tool_use])
     |> put_ours("Stop", [stop])
     |> put_ours("UserPromptSubmit", [prompt])
-    |> put_ours("SessionStart", [session_start])
+    |> drop_ours("SessionStart")
     |> restore_statusline(base)
   end
 

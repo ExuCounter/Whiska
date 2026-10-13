@@ -4,7 +4,7 @@ defmodule Whiska.CLI do
 
   Built with `mix escript.build`. The hooks invoke it fresh per event (ADR-0033):
   `PreToolUse` opens SQLite, makes one decision, and exits; `Stop` writes one
-  doorstep entry and exits; `SessionStart` prints one role's rules and exits.
+  doorstep entry and exits.
   `whiska owl` is the other half — the one supervised
   process per machine (ADR-0001), under the platform's service manager —
   launchd on macOS, systemd on Linux — once `whiska owl install` has run
@@ -12,11 +12,9 @@ defmodule Whiska.CLI do
   """
 
   alias Whiska.Hook.PreToolUse
-  alias Whiska.Hook.SessionStart
   alias Whiska.Hook.Stop
   alias Whiska.Hook.UserPromptSubmit
   alias Whiska.AnswerFlag
-  alias Whiska.ClaudeMd
   alias Whiska.Delivery.Mode
   alias Whiska.Doctor
   alias Whiska.Doorbell
@@ -62,11 +60,6 @@ defmodule Whiska.CLI do
                          ~/.whiska/hook.sock, and runs these only when the
                          owl does not answer.
 
-    hook session-start   Print the rules a session starts with, for its role:
-                         nothing outside herdr, the main session's rules in a
-                         main checkout, a mouse's in a worktree. Reads the
-                         SessionStart payload on stdin.
-
     owl [<repo>...]      Run the owl in the foreground. Opens every house it
                          had open last time (~/.whiska/houses) plus the one
                          you are in, if it has a house; any repo named is
@@ -91,10 +84,10 @@ defmodule Whiska.CLI do
                          it needs the owl's socket. `whiska owl stop` stops
                          the whole owl.
 
-    init                 Write Whiska's hooks and skills into this repo's own
-                         .claude/, so the rules travel with the repo, and take
-                         an older Whiska's block and statusline out. Safe to
-                         re-run.
+    init                 Write Whiska's hooks into this repo's own .claude/, so
+                         the rules travel with the repo, and take out what an
+                         older Whiska wrote: its skills, its SessionStart hook
+                         and its statusline. Safe to re-run.
 
     init --global        The same, into ~/.claude, for every repo on this
                          machine — for a repo that cannot carry a committed
@@ -104,10 +97,9 @@ defmodule Whiska.CLI do
                          replacing it, so a dotfiles repo stays connected.
 
     uninstall            Take Whiska back out of this repo: the hooks, the
-    uninstall --global   scripts, the skills and any old block. The house — its
-                         mice, its questions, its doorstep — is untouched, and
-                         so is a part you claimed with `keep`. With --global,
-                         the same against ~/.claude.
+    uninstall --global   scripts and any skills an older Whiska wrote. The
+                         house — its mice, its questions, its doorstep — is
+                         untouched. With --global, the same against ~/.claude.
 
     start [--force]      Record the herdr pane this is run from as the main
          [--no-claude]   session for this repo: where the owl delivers
@@ -275,8 +267,8 @@ defmodule Whiska.CLI do
                          of finished question <id>, by its https link. Its
                          later finished lines then say "merge request opened"
                          and offer pushing to it, and the owl fetches the base
-                         branch until it lands. The finished-line skill runs
-                         it after "Open a merge request / PR".
+                         branch until it lands. `whiska pr` records the one it
+                         opens; this is for one opened by hand.
 
     ledger [--json]      Print the agent ledger a finished report ends with,
                          read from this Claude Code session's transcripts: one
@@ -316,8 +308,8 @@ defmodule Whiska.CLI do
     worktrees            List this repo's linked worktrees as tab-separated
                          lines: branch, path, herdr workspace id, the id of the
                          pane in it, and what that pane is doing. A dash where
-                         there is no workspace open. The worktree skills read
-                         herdr through this, so they need no jq.
+                         there is no workspace open. The main session reads it
+                         before it routes a task.
 
     where                For scripts and hooks: where this directory is, as
                          one line of JSON. Always exits 0. The fields are a
@@ -341,7 +333,7 @@ defmodule Whiska.CLI do
                          mouse investigates and reports, and writes nothing
                          but its research document. Refuses a mouse that has
                          a mode: it keeps it, and a build for what it found
-                         goes to a fresh mouse, from its Proposed build. Like
+                         goes to a fresh mouse, from its What to change. Like
                          shape, makes git ignore the worktree's
                          .whiska-spec.md, .whiska-research.md and
                          .whiska-plan.md.
@@ -396,11 +388,6 @@ defmodule Whiska.CLI do
     stdin() |> UserPromptSubmit.run() |> emit()
     0
   end
-
-  def run(["hook", "session-start"], _cwd), do: session_start(System.get_env(), :repo)
-
-  def run(["hook", "session-start", "--global"], _cwd),
-    do: session_start(System.get_env(), :global)
 
   def run(["owl", "install"], _cwd), do: owl_install()
   def run(["owl", "uninstall"], _cwd), do: owl_uninstall()
@@ -613,18 +600,15 @@ defmodule Whiska.CLI do
          :ok <- File.mkdir_p(Path.dirname(shim)),
          :ok <- write_unchanged(shim, Install.shim(scope)),
          :ok <- make_executable(shim),
-         :ok <- write_skills(scope, root),
          retired = remove_retired_skills(root),
          {:ok, commands} <- write_commands(scope),
-         {:ok, block} <- retire_claude_md(scope, root),
          :ok <- File.mkdir_p(Path.dirname(path)),
          :ok <- write_unchanged(path, JSON.encode!(merged) |> reformat()) do
       statusline = retire_statusline(scope, root, settings, merged)
 
       say(
         told(scope) <>
-          statusline_note(statusline) <>
-          retired_note(retired) <> block_note(block, scope) <> commands_note(commands)
+          statusline_note(statusline) <> retired_note(retired) <> commands_note(commands)
       )
     else
       {:error, :unparseable} ->
@@ -647,25 +631,34 @@ defmodule Whiska.CLI do
     end
   end
 
-  # A skill an older Whiska wrote and this one no longer ships goes, where it
-  # is a plain file of Whiska's; one reached through a symlink is the person's
-  # (ADR-0056) and stays. Returns the names removed.
+  # A skill an older Whiska wrote goes, deleted outright, where it is a plain
+  # file of Whiska's. One reached through a symlink is the person's (ADR-0056):
+  # it stays, and is named so it can be deleted where it lives. A folder goes
+  # once nothing else is in it.
   defp remove_retired_skills(root) do
-    for rel <- Install.retired_skills(),
-        file = Path.join(root, rel),
-        File.regular?(file),
-        not through_link?(root, rel) do
-      File.rm(file)
-      File.rmdir(Path.dirname(file))
-      rel |> Path.dirname() |> Path.basename()
+    removed = Install.retired_skills(root)
+
+    for rel <- removed do
+      File.rm(Path.join(root, rel))
+      File.rmdir(Path.dirname(Path.join(root, rel)))
     end
+
+    linked =
+      Enum.filter(
+        Install.retired_skills(),
+        &(File.exists?(Path.join(root, &1)) and through_link?(root, &1))
+      )
+
+    {removed |> Enum.map(&(&1 |> Path.dirname() |> Path.basename())) |> Enum.uniq(), linked}
   end
 
-  defp retired_note([]), do: ""
+  defp retired_note({[], linked}), do: linked_note(linked)
 
-  defp retired_note(names) do
-    "\n\nRemoved #{Enum.join(names, " and ")}: the one-word skills replace them " <>
-      "(/show, /reply and the rest)."
+  defp retired_note({names, linked}) do
+    "\n\nRemoved the skills an older Whiska wrote, which nothing reads now: " <>
+      Enum.join(names, ", ") <>
+      ". Each session's brief carries what they said." <>
+      linked_note(linked)
   end
 
   # The one-word commands are the machine's, like the home they are written
@@ -768,8 +761,8 @@ defmodule Whiska.CLI do
 
   defp told(:repo) do
     """
-    Wrote Whiska's hooks to .claude/settings.json — PreToolUse, Stop,
-    UserPromptSubmit and SessionStart. PreToolUse is the one that enforces:
+    Wrote Whiska's hooks to .claude/settings.json — PreToolUse, Stop and
+    UserPromptSubmit. PreToolUse is the one that enforces:
 
       matcher: #{Install.matcher()}
       command: #{Install.command()}
@@ -782,23 +775,16 @@ defmodule Whiska.CLI do
     workspace, and the owl's state on herdr's tab bar (ADR-0048). The owl
     writes both; `whiska doctor` prints the herdr config that draws them.
 
-    And one slash command per whiska command under .claude/skills/.
+    Each session's rules come on its launch line: `whiska start` starts the
+    main session with its brief, and `whiska spawn` each mouse with its own.
 
-    And a SessionStart hook that hands each session the worktree protocol for
-    its role: nothing outside herdr, routing and delivery in the main session,
-    and in a mouse the marker it ends a turn with, the shape of its message
-    and a pointer at the `whiska-finish` skill, so the finishing steps cost
-    nothing until a turn is actually ending. It says them again after
-    /compact and /clear.
-
-    Tell the finish rules what green means here: a `## Finish` heading in
-    CLAUDE.md naming this repo's checks, where its written decisions live and
-    its ticket prefix. Without one a mouse runs whatever the tooling
-    obviously offers and says what it assumed.
+    Tell Whiska what green means here: a `## Finish` heading in CLAUDE.md with
+    a `checks:` line naming this repo's checks, which `whiska land` runs once
+    it has landed a branch.
 
     Check them into git so the rules travel with the repo (ADR-0056):
 
-      git add .claude/settings.json .claude/hooks .claude/skills
+      git add .claude/settings.json .claude/hooks
       git commit -m "chore: enable whiska"
     """
     |> String.trim()
@@ -811,19 +797,16 @@ defmodule Whiska.CLI do
 
     #{written()}
 
-    #{landed()}
-
     Nothing else is needed per repo. The hooks work out for themselves which
     worktree they are firing in — so a repo that cannot carry a committed
     `.claude/` is covered by this and by its house alone.
 
     Per repo there is still one thing worth writing: a `## Finish` heading in
-    that repo's own CLAUDE.md naming its checks, where its written decisions
-    live and its ticket prefix. Without one a mouse runs whatever the tooling
-    obviously offers and says what it assumed.
+    that repo's own CLAUDE.md with a `checks:` line naming its checks, which
+    `whiska land` runs once it has landed a branch.
 
-    A repo that has run `whiska init` keeps winning — its own hooks and
-    skills are the ones in force, and this copy stands down there. To hand a
+    A repo that has run `whiska init` keeps winning — its own hooks are the
+    ones in force, and this copy stands down there. To hand a
     repo over to this one instead, run `whiska uninstall` inside it and commit
     what that removes.
     """
@@ -834,63 +817,18 @@ defmodule Whiska.CLI do
   defp written do
     [
       {"~/" <> Install.shim_path(), "the hook shim every hook calls"},
-      {"~/.claude/settings.json", "the four hooks"},
-      {"~/.claude/skills/", "inbox, show, reply, dismiss, focus, away, hold, resume,"},
-      {"", "whiska-delivered, whiska-finish, cold-review, whiska-spec,"},
-      {"", "whiska-plan, whiska-research, whiska-review-replies, grilling,"},
-      {"", "spawn-worktree, send-to-worktree, drop-worktree"}
+      {"~/.claude/settings.json", "the three hooks"}
     ]
     |> Enum.map_join("\n", fn {path, what} ->
       "  " <> String.pad_trailing(path, 40) <> what
     end)
   end
 
-  # A dotfiles repo may still install the worktree skills, each as a link into
-  # it. The write goes through the link (ADR-0056), so where each of the three
-  # really landed is printed, plain file or not. "Through a symlink" is the
-  # same test uninstall uses, so a linked `~/.claude/skills` counts too.
-  defp landed do
-    home = Install.root(:global)
-
-    rows =
-      for rel <- Install.worktree_skill_paths() do
-        path = Path.join(home, rel)
-
-        {rel |> Path.dirname() |> Path.basename(), Layout.canonical(path),
-         through_link?(home, rel)}
-      end
-
-    table =
-      Enum.map_join(rows, "\n", fn {name, real, linked?} ->
-        "  " <>
-          String.pad_trailing(name, 18) <>
-          real <> if(linked?, do: "  (through a symlink)", else: "")
-      end)
-
-    "The worktree skills landed here:\n\n" <> table <> linked_skills_note(rows)
-  end
-
-  defp linked_skills_note(rows) do
-    if Enum.any?(rows, &elem(&1, 2)) do
-      """
-
-
-      One through a symlink changed a file in the repo the link points into. Once
-      that repo stops installing it, delete the link and run this again for a
-      plain file.
-      """
-      |> String.trim_trailing()
-    else
-      ""
-    end
-  end
-
-  # ~/.claude/CLAUDE.md and ~/.claude/settings.json are commonly links into a
-  # dotfiles repo. Every write went through the link, so the change is sitting
-  # in that repo and the person's next move is there, not here.
+  # ~/.claude/settings.json is commonly a link into a dotfiles repo. Every
+  # write went through the link, so the change is sitting in that repo and the
+  # person's next move is there, not here.
   defp through_links do
-    # The worktree skills have their own lines above, link or not.
-    case Enum.reject(Install.global_links(), &(elem(&1, 0) in Install.worktree_skill_paths())) do
+    case Install.global_links() do
       [] ->
         ""
 
@@ -934,7 +872,7 @@ defmodule Whiska.CLI do
          :ok <- rewrite_settings(path, Install.unmerge(settings, base)) do
       {removed, linked} = remove_files(scope, root)
       commands = remove_commands(scope)
-      say(removal_report(scope, removed ++ remove_claude_md(scope, root) ++ commands, linked))
+      say(removal_report(scope, removed ++ commands, linked))
     else
       {:error, :unparseable} ->
         IO.puts(:stderr, "whiska: could not parse #{path} — leaving it alone.")
@@ -975,7 +913,7 @@ defmodule Whiska.CLI do
   defp remove_files(scope, root) do
     paths =
       [Install.shim_path(), Install.statusline_path()] ++
-        Enum.map(Install.skills(scope), &elem(&1, 0)) ++ base_statusline(scope)
+        Install.retired_skills() ++ base_statusline(scope)
 
     paths
     |> Enum.filter(&File.exists?(Path.join(root, &1)))
@@ -1000,13 +938,6 @@ defmodule Whiska.CLI do
 
   defp base_statusline(:global), do: [Install.base_statusline_path()]
   defp base_statusline(:repo), do: []
-
-  defp remove_claude_md(scope, root) do
-    case retire_claude_md(scope, root) do
-      {:ok, :retired} -> [Path.relative_to(claude_md_path(scope, root), root)]
-      _none -> []
-    end
-  end
 
   defp removal_report(scope, [], linked) do
     String.trim("Nothing of Whiska's to remove #{where(scope)}." <> left_linked(linked))
@@ -1068,57 +999,6 @@ defmodule Whiska.CLI do
       _wrong_or_missing -> File.chmod(path, @mode)
     end
   end
-
-  defp write_skills(scope, root) do
-    Enum.reduce_while(Install.skills(scope), :ok, fn {rel, body}, :ok ->
-      file = Path.join(root, rel)
-
-      # The target's directory, not the link's: a link left behind after its
-      # dotfiles file was deleted is written through like any other.
-      with :ok <- File.mkdir_p(Path.dirname(file)),
-           :ok <- File.mkdir_p(Path.dirname(Layout.canonical(file))),
-           :ok <- File.write(file, body) do
-        {:cont, :ok}
-      else
-        error -> {:halt, error}
-      end
-    end)
-  end
-
-  # The rules arrive at session start, so an older Whiska's block in CLAUDE.md
-  # would say every rule twice. Its parts go; a `keep` part and the person's own
-  # text stay (ADR-0081). A file with no block, or none at all, is left alone.
-  defp retire_claude_md(scope, root) do
-    path = claude_md_path(scope, root)
-
-    with {:ok, contents} <- File.read(path),
-         stripped when stripped != contents <- ClaudeMd.remove(contents),
-         :ok <- File.write(path, stripped) do
-      {:ok, :retired}
-    else
-      {:error, :enoent} -> {:ok, :none}
-      {:error, reason} -> {:error, reason}
-      _unchanged -> {:ok, :none}
-    end
-  end
-
-  defp block_note(:none, _scope), do: ""
-
-  defp block_note(:retired, scope) do
-    "\n\nTook the old block out of #{md_name(scope)}: its rules arrive at session " <>
-      "start now. A part you marked `keep` is still there." <> commit_md(scope)
-  end
-
-  # A mouse branches off what is committed, so a block left in the committed
-  # CLAUDE.md reaches every new mouse beside the hook's rules.
-  defp commit_md(:repo), do: " Commit that too:\n\n  git add CLAUDE.md"
-  defp commit_md(:global), do: ""
-
-  defp md_name(:repo), do: "CLAUDE.md"
-  defp md_name(:global), do: "~/.claude/CLAUDE.md"
-
-  defp claude_md_path(:repo, root), do: Path.join(root, "CLAUDE.md")
-  defp claude_md_path(:global, root), do: Path.join(root, ".claude/CLAUDE.md")
 
   # A missing file is a fresh install; an unreadable one is not, and must never
   # be silently replaced.
@@ -1305,7 +1185,7 @@ defmodule Whiska.CLI do
     end
   end
 
-  # Plain: a skill reads this as the branch to diff against.
+  # Plain: a mouse reads this as the branch to diff against.
   defp show_base(mouse_id, layout) do
     recorded = with %Mouse{base: base} <- Storage.mouse(mouse_id), do: base
 
@@ -1346,7 +1226,7 @@ defmodule Whiska.CLI do
       :stderr,
       "whiska: #{layout.branch_label} #{had}, and a mouse keeps its mode (ADR-0074). " <>
         "Its model and effort were chosen for that work. To build what it found, end its " <>
-        "report on a Proposed build and have a fresh mouse shaped for the build."
+        "report on What to change and have a fresh mouse shaped for the build."
     )
 
     1
@@ -2915,16 +2795,4 @@ defmodule Whiska.CLI do
 
   defp emit(:none), do: :ok
   defp emit(json), do: IO.puts(json)
-
-  @doc """
-  The `SessionStart` hook, given the environment it fired in, so the role it
-  picks is testable without touching the VM's own. Always 0: what it prints is
-  the whole answer, and any other status reads to Claude Code as the hook
-  failing.
-  """
-  @spec session_start(%{optional(String.t()) => String.t()}, Install.scope()) :: 0
-  def session_start(env, scope \\ :repo) do
-    stdin() |> SessionStart.run(env, scope)
-    0
-  end
 end

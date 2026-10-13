@@ -7,11 +7,10 @@ defmodule Whiska.Rule.Persons do
   what the person decided — what reaches them, which mouse stops, what a mouse
   is told. `spawn`, `send`, `land`, `pr` and `drop` start, steer, ship or throw
   away a branch, which the person decides from the main session; they are
-  judged only as `whiska <word>`, since `pr` and `send` are other programs too. The eight one-word skills are installed under `~/.claude/skills/`,
-  where every mouse's session lists them too, so the sentence in each skill
-  saying "only when the person types" was the one thing between a mouse and
-  putting the whole machine away, holding a sibling, or lifting its own hold.
-  ADR-0011 puts a rule like that in the hook, not in prose.
+  judged only as `whiska <word>`, since `pr` and `send` are other programs too.
+  Prose in a brief is the only other thing between a mouse and putting the
+  whole machine away, holding a sibling, or lifting its own hold, and ADR-0011
+  puts a rule like that in the hook, not in prose.
 
   Judged on the text of a shell command, segment by segment (`Whiska.Shell`):
   `whiska <word>` and the bare word at the head of a command. Reading commands —

@@ -49,37 +49,14 @@ defmodule Whiska.CLIInitGlobalTest do
 
   defp settings(path), do: path |> File.read!() |> JSON.decode!()
 
-  # What an older `whiska init --global` left in ~/.claude/CLAUDE.md, below the
-  # person's own text.
-  @old_block """
-  # Mine
-
-  Plain language, always.
-
-  <!-- whiska:start -->
-  <!-- whiska:scope:start -->
-  ## Which copy of these rules counts
-  <!-- whiska:scope:end -->
-
-  <!-- whiska:worktrees:start -->
-  ## Worktrees
-  <!-- whiska:worktrees:end -->
-  <!-- whiska:end -->
-  """
+  # A skill file an older `whiska init` wrote under `root`.
+  defp older_skill(root, rel) do
+    path = Path.join(root, ".claude/skills/" <> rel)
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path, "written by an older whiska\n")
+  end
 
   describe "whiska init --global" do
-    test "takes an older install's block out of ~/.claude/CLAUDE.md, and keeps the person's text",
-         %{home: home} do
-      path = Path.join(home, ".claude/CLAUDE.md")
-      File.mkdir_p!(Path.dirname(path))
-      File.write!(path, @old_block)
-
-      output = init_global()
-
-      assert File.read!(path) == "# Mine\n\nPlain language, always.\n"
-      assert output =~ "Took the old block out of ~/.claude/CLAUDE.md"
-    end
-
     test "writes nothing into the person's own global CLAUDE.md", %{home: home} do
       path = Path.join(home, ".claude/CLAUDE.md")
       File.mkdir_p!(Path.dirname(path))
@@ -175,28 +152,39 @@ defmodule Whiska.CLIInitGlobalTest do
       assert File.read!(base) == "my-line.sh"
     end
 
-    test "writes every skill, the worktree ones and the eight words included", %{home: home} do
+    test "writes no skill", %{home: home} do
       init_global()
 
-      for name <- ~w(whiska-delivered whiska-finish whiska-spec grilling
-                     spawn-worktree send-to-worktree drop-worktree
-                     inbox show reply dismiss focus away hold resume) do
-        assert File.exists?(Path.join(home, ".claude/skills/#{name}/SKILL.md"))
-      end
+      refute File.exists?(Path.join(home, ".claude/skills"))
     end
 
-    test "removes the two retired skills where they are plain files of Whiska's", %{home: home} do
-      for name <- ~w(whiska-questions whiska-reply) do
-        File.mkdir_p!(Path.join(home, ".claude/skills/#{name}"))
-        File.write!(Path.join(home, ".claude/skills/#{name}/SKILL.md"), "name: #{name}\n")
+    # Every skill an older Whiska wrote, files beside a SKILL.md included. A
+    # plain file is Whiska's; one reached through a link is the person's
+    # (ADR-0056), as `cli_init_global_symlink_test` checks.
+    test "removes the skills an older install wrote, and names them", %{home: home} do
+      older =
+        ~w(whiska-questions/SKILL.md show/SKILL.md whiska-finish/SKILL.md
+           whiska-finish/needs-attention.md whiska-delivered/finished.md grilling/SKILL.md)
+
+      for rel <- older do
+        path = Path.join(home, ".claude/skills/" <> rel)
+        File.mkdir_p!(Path.dirname(path))
+        File.write!(path, "written by an older whiska\n")
       end
+
+      File.write!(Path.join(home, ".claude/skills/whiska-finish/mine.md"), "the person's\n")
 
       output = init_global()
 
-      for name <- ~w(whiska-questions whiska-reply) do
-        refute File.exists?(Path.join(home, ".claude/skills/#{name}/SKILL.md")), name
-        assert output =~ name
-      end
+      for rel <- older, do: refute(File.exists?(Path.join(home, ".claude/skills/" <> rel)), rel)
+
+      for name <- ~w(whiska-questions show whiska-finish whiska-delivered grilling),
+          do: assert(output =~ name, name)
+
+      refute File.exists?(Path.join(home, ".claude/skills/show"))
+
+      assert File.read!(Path.join(home, ".claude/skills/whiska-finish/mine.md")) ==
+               "the person's\n"
     end
 
     test "writes the eight commands under the whiska home, executable, and prints the PATH line",
@@ -251,31 +239,10 @@ defmodule Whiska.CLIInitGlobalTest do
       refute output =~ "skipped"
     end
 
-    test "names every skill it wrote" do
-      [_, after_heading] = init_global() |> String.split("~/.claude/skills/", parts: 2)
-      [written | _] = String.split(after_heading, "\n\n", parts: 2)
-
-      for {path, _} <- Whiska.Install.skills(:global) do
-        name = path |> Path.dirname() |> Path.basename()
-        assert written =~ ~r/\b#{name}\b/, "#{name} is not named"
-      end
-    end
-
-    test "says where each worktree skill landed, a plain file included", %{home: home} do
-      output = init_global()
-
-      for name <- ~w(spawn-worktree send-to-worktree drop-worktree) do
-        real = Whiska.Layout.canonical(Path.join(home, ".claude/skills/#{name}/SKILL.md"))
-        [line] = output |> String.split("\n") |> Enum.filter(&(&1 =~ "#{name} "))
-        assert line =~ real
-        refute line =~ "symlink"
-      end
-    end
-
     test "is idempotent — a second run changes nothing", %{home: home, settings: path} do
       md = Path.join(home, ".claude/CLAUDE.md")
       File.mkdir_p!(Path.dirname(md))
-      File.write!(md, @old_block)
+      File.write!(md, "# Mine\n")
 
       init_global()
       before = {File.read!(md), File.read!(path)}
@@ -354,15 +321,16 @@ defmodule Whiska.CLIInitGlobalTest do
   end
 
   describe "whiska uninstall --global" do
-    test "takes the old block, the hooks, the scripts and the skills back out", %{
+    test "takes the hooks, the scripts and an older install's skills back out", %{
       home: home,
       settings: path
     } do
       init_global()
-      File.write!(Path.join(home, ".claude/CLAUDE.md"), @old_block)
+      older_skill(home, "show/SKILL.md")
+      older_skill(home, "whiska-delivered/finished.md")
+      older_skill(home, "whiska-finish/SKILL.md")
       uninstall_global()
 
-      refute File.read!(Path.join(home, ".claude/CLAUDE.md")) =~ "<!-- whiska:start -->"
       refute File.exists?(Path.join(home, Install.shim_path()))
       refute File.exists?(Path.join(home, Install.statusline_path()))
       refute File.exists?(Path.join(home, ".claude/skills/show/SKILL.md"))
@@ -372,7 +340,7 @@ defmodule Whiska.CLIInitGlobalTest do
       settings = settings(path)
       assert settings["hooks"]["Stop"] == []
       assert settings["hooks"]["UserPromptSubmit"] == []
-      assert settings["hooks"]["SessionStart"] == []
+      refute Map.has_key?(settings["hooks"], "SessionStart")
       refute Map.has_key?(settings, "statusLine")
     end
 
@@ -424,12 +392,13 @@ defmodule Whiska.CLIInitGlobalTest do
   end
 
   describe "whiska uninstall — one repo" do
-    test "takes this repo's old block, hooks, scripts and skills back out", %{repo: repo} do
+    test "takes this repo's hooks, scripts and an older install's skills back out", %{
+      repo: repo
+    } do
       init(repo)
-      File.write!(Path.join(repo, "CLAUDE.md"), @old_block)
+      older_skill(repo, "spawn-worktree/SKILL.md")
       uninstall(repo)
 
-      refute File.read!(Path.join(repo, "CLAUDE.md")) =~ "<!-- whiska:start -->"
       refute File.exists?(Path.join(repo, ".claude/hooks/whiska.sh"))
       refute File.exists?(Path.join(repo, ".claude/hooks/whiska-statusline.sh"))
       refute File.exists?(Path.join(repo, ".claude/skills/spawn-worktree/SKILL.md"))
@@ -452,10 +421,10 @@ defmodule Whiska.CLIInitGlobalTest do
 
     test "prints what it removed", %{repo: repo} do
       init(repo)
-      File.write!(Path.join(repo, "CLAUDE.md"), @old_block)
+      older_skill(repo, "whiska-finish/SKILL.md")
       output = uninstall(repo)
 
-      assert output =~ "CLAUDE.md"
+      assert output =~ ".claude/skills/whiska-finish/SKILL.md"
       assert output =~ ".claude/hooks/whiska.sh"
     end
   end

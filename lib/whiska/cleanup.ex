@@ -8,8 +8,8 @@ defmodule Whiska.Cleanup do
   from the remote, the worktree is clean, nothing on it is
   unpushed, and the mouse is quiet — and
   the pane goes with it, through the one `worktree.remove` call herdr offers,
-  which closes the workspace and removes the worktree together the way the
-  `drop-worktree` skill always has.
+  which closes the workspace and removes the worktree together the way
+  `whiska drop` does.
 
   **Unknown is never permission.** Anything that cannot be established — a
   detached head, a base branch nobody can name, a herdr that will not answer, a

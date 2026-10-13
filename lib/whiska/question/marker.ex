@@ -97,21 +97,13 @@ defmodule Whiska.Question.Marker do
   end
 
   @doc """
-  The literal marker for a status, for telling a mouse what to write.
-
-  The CLAUDE.md block quotes this rather than spelling it out again
-  (`Whiska.ClaudeMd`), so what a mouse is told to write and what `classify/1`
-  reads back cannot drift apart. It is invisible, so the block names it in
-  words too — that is `spell/1`.
+  The literal marker for a status. A mouse's brief carries it, and is tested
+  against this, so what a mouse is told to write and what `classify/1` reads
+  back cannot drift apart.
   """
   @spec render(:done | :needs_decision) :: String.t()
   def render(:done), do: String.duplicate(@invisible, 3)
   def render(:needs_decision), do: String.duplicate(@invisible, 2)
-
-  @doc "The same marker in words, for prose that cannot show it."
-  @spec spell(:done | :needs_decision) :: String.t()
-  def spell(:done), do: "three U+2063 characters"
-  def spell(:needs_decision), do: "two U+2063 characters"
 
   # The last line carrying a marker, with what it carries: `{index, form}`.
   defp marker_line(text) do
