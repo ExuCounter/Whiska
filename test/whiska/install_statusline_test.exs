@@ -617,8 +617,9 @@ defmodule Whiska.InstallStatuslineTest do
       assert commit =~ ~r/then exactly as Land here/i
     end
 
-    # Land here beside an open PR copies its work onto the base and leaves the
-    # PR open; Open makes a second one; Drop loses what is not pushed.
+    # Land here beside an open merge request copies its work onto the base and
+    # leaves the request open; Open makes a second one; Drop loses what is not
+    # pushed.
     test "a merge request opened is offered a push, and never Land here, Open or Drop" do
       assert options_for("merge request opened · <N> commit(s) not pushed · nothing uncommitted") =~
                "| Push to the merge request (Recommended) |"
@@ -675,6 +676,7 @@ defmodule Whiska.InstallStatuslineTest do
 
       assert pr =~ "no path or word the mouse wrote goes on the command line"
       refute pr =~ ~r/--body "|--description "/
+      assert pr =~ ~r/a line that names no base.{0,40}leave `--base`.{0,20}`--target-branch` out/i
     end
 
     test "opening a request commits the rest the same way first" do

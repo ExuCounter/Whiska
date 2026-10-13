@@ -130,7 +130,9 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
   `gh pr create --assignee @me --head <branch> --base <base> --title "$(cat '<title-file>')" --body-file '<body-file>'`,
   or `glab mr create --assignee <username> --source-branch <branch> --target-branch <base> --title "$(cat '<title-file>')" --description-file '<body-file>' --yes`
   with the username `glab api user` prints, `<base>` the one the branch line
-  names: no path or word the mouse wrote goes on the command line. Neither
+  names (a line that names no base → leave `--base` or `--target-branch` out,
+  and the forge picks its default): no path or word the mouse wrote goes on
+  the command line. Neither
   tool installed or signed in → say plainly what is missing and stop,
   improvising no substitute. Once it succeeds, record it with
   `whiska merge-request <id> '<url>'`: `<id>` is this question's, `<url>`
