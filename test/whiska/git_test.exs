@@ -481,7 +481,7 @@ defmodule Whiska.GitTest do
       refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-b"
     end
 
-    test "a branch deleted as landed takes its upstream setting with it, as -d does",
+    test "a branch deleted as landed leaves its settings, so only the branch goes",
          %{repo: repo} do
       path = GitRepo.worktree(repo, "feat-b")
       GitRepo.merge_on_forge(repo, "feat-b", squash: true)
@@ -490,7 +490,8 @@ defmodule Whiska.GitTest do
       {:ok, head} = Git.branch_head(repo.checkout, "feat-b")
 
       assert :ok = Git.delete_branch(repo.checkout, "feat-b", {:in_base, head})
-      refute GitRepo.git!(repo.checkout, ["config", "--list"]) =~ "branch.feat-b."
+      refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-b"
+      assert GitRepo.git!(repo.checkout, ["config", "branch.feat-b.remote"]) =~ "origin"
     end
 
     test "keeps a branch landed as copies that moved since it was checked", %{repo: repo} do

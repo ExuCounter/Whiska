@@ -665,8 +665,8 @@ defmodule Whiska.Git do
   merged by git's measure, and one only the fetched copy of the base holds is
   not merged into anything `-d` reads, so `-d` would refuse what has just been
   shown is already in the base. It is deleted only while it still points at
-  `head`, the commit that was checked, so a commit made since keeps it, and its
-  branch settings go with it, as `-d` takes them.
+  `head`, the commit that was checked, so a commit made since keeps it. Its
+  branch settings stay where they are.
   """
   @spec delete_branch(Path.t(), branch(), :merged | {:in_base, String.t()}) ::
           :ok | {:error, term()}
@@ -677,10 +677,7 @@ defmodule Whiska.Git do
   end
 
   def delete_branch(checkout, branch, {:in_base, head}) do
-    with {:ok, _} <- git(checkout, ["update-ref", "-d", "refs/heads/" <> branch, head]) do
-      git(checkout, ["config", "--remove-section", "branch." <> branch])
-      :ok
-    end
+    with {:ok, _} <- git(checkout, ["update-ref", "-d", "refs/heads/" <> branch, head]), do: :ok
   end
 
   @doc "Forget the admin records of worktrees whose folders have gone."
