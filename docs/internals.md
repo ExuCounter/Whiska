@@ -103,7 +103,7 @@ What this is not:
    (ADR-0036). Either way it lands.
 3. **The owl collects it**: at once when it wrote the entry, when herdr says the mouse's
    pane is idle, when a house opens, and on a 60-second backstop. Collected entries are
-   renamed `.collected`, never deleted (ADR-0007).
+   removed once recorded; the row is the history (ADR-0007).
 4. **The entry becomes a question**, sorted by the invisible marker the mouse ended on
    (ADR-0009): needs a decision, finished, or no marker. No marker is delivered too, so a
    forgotten marker makes noise rather than silence. An entry whose worktree is gone is

@@ -15,9 +15,10 @@ and keeping it doubles as a free history of every decision made.
   every check passing, so delivery releases such questions itself (ADR-0008).
 - **A mouse whose worktree has been taken down is marked removed**, and its row survives,
   permanently inert.
-- **Collection never touches disk.** It marks state in the database; collected doorstep
-  entries are renamed `.collected`, not deleted (ADR-0036), and the worktree folder stays
-  where it is.
+- **Collection never touches the worktree.** It marks state in the database, and the
+  worktree folder stays where it is. A collected doorstep entry is deleted once its row is
+  written (ADR-0036): the row is the record, and the file was a second copy nothing read.
+  An entry that cannot be collected is left where it is.
 
 The one thing that is taken down is a landed worktree, by the owl, together with its pane
 and its branch, once the branch is merged, the worktree clean, nothing unpushed and the

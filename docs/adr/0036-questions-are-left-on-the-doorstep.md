@@ -12,8 +12,10 @@ written.
 The doorstep is a directory in the house, `<main-checkout>/.git/whiska/doorstep/`, beside
 the database. Each entry is stamped with `mouse_id`, branch label and timestamp, written
 to a temporary name and renamed into place so the owl never reads a half-written file.
-Collected entries are renamed `.collected` rather than deleted (ADR-0007), so `ls *.json`
-on the doorstep is exactly what is still waiting, answerable with no database and no owl.
+A collected entry is deleted once its row, and whatever it carried, are recorded (ADR-0007):
+the row is the history. So the doorstep is exactly what is still waiting, answerable with
+no database and no owl. Older owls renamed entries `.collected` and kept them; an owl
+removes those when it opens the house.
 
 ## Why a file, and why in the house
 

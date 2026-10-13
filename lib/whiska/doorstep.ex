@@ -13,17 +13,18 @@ defmodule Whiska.Doorstep do
 
   - **Writes are atomic.** An entry is written to a `.tmp` name and renamed into
     place, so the owl never reads half a file. `waiting/1` ignores `.tmp` files.
-  - **Collection marks, it never deletes** (ADR-0007). A collected entry is
-    renamed to `.collected` in the same directory. That is also what lets the
-    statusline count what is waiting straight off disk when the owl is down
-    (ADR-0048): the waiting entries are exactly the `.json` files.
+  - **Collection removes the entry** (ADR-0007). The question's row in the house
+    is the history, so a collected entry is deleted once recorded. That is also
+    what lets the statusline count what is waiting straight off disk when the
+    owl is down (ADR-0048): the waiting entries are exactly the `.json` files.
   """
 
   alias Whiska.Doorstep.Entry
 
   @dir ".git/whiska/doorstep"
   @ext ".json"
-  @collected ".collected"
+  # What an older owl renamed collected entries to; only ever swept now.
+  @legacy ".collected"
 
   @doc "This house's doorstep."
   @spec path(Path.t()) :: Path.t()
@@ -60,7 +61,7 @@ defmodule Whiska.Doorstep do
   Every uncollected entry, oldest first, as `{file, entry}`.
 
   A file that will not parse is skipped and left exactly where it is: it is
-  somebody's evidence, and collection never deletes.
+  somebody's evidence, and collection deletes only what it recorded.
   """
   @spec waiting(Path.t()) :: [{Path.t(), Entry.t()}]
   def waiting(main_checkout) do
@@ -97,15 +98,33 @@ defmodule Whiska.Doorstep do
   end
 
   @doc """
-  Mark an entry collected by renaming it in place. Returns the new path.
+  Remove an entry the owl has recorded. The row is the history (ADR-0007).
+  An entry already gone counts as removed.
   """
-  @spec mark_collected(Path.t()) :: {:ok, Path.t()} | {:error, File.posix()}
-  def mark_collected(file) do
-    kept = file <> @collected
+  @spec collected(Path.t()) :: :ok | {:error, File.posix()}
+  def collected(file) do
+    case File.rm(file) do
+      # Already gone is collected: holding the entry back would record it twice.
+      {:error, :enoent} -> :ok
+      other -> other
+    end
+  end
 
-    case File.rename(file, kept) do
-      :ok -> {:ok, kept}
-      {:error, reason} -> {:error, reason}
+  @doc """
+  Remove the `.collected` files an older owl kept. Returns how many went.
+  """
+  @spec sweep_collected(Path.t()) :: non_neg_integer()
+  def sweep_collected(main_checkout) do
+    dir = path(main_checkout)
+
+    case File.ls(dir) do
+      {:ok, names} ->
+        names
+        |> Enum.filter(&String.ends_with?(&1, @legacy))
+        |> Enum.count(&(File.rm(Path.join(dir, &1)) == :ok))
+
+      {:error, _} ->
+        0
     end
   end
 end

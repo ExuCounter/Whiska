@@ -230,6 +230,21 @@ defmodule Whiska.Owl.HouseTest do
       end)
     end
 
+    test "removes `.collected` files an older owl left when the house opens", %{
+      main: main,
+      a: a
+    } do
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+      old = Path.join(Doorstep.path(main), "1-ma-x.json.collected")
+      File.mkdir_p!(Doorstep.path(main))
+      File.write!(old, "{}")
+
+      open(main)
+
+      refute File.exists?(old)
+    end
+
     test "collects whatever landed while the owl was down", %{main: main, a: a} do
       stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
       stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
@@ -239,7 +254,8 @@ defmodule Whiska.Owl.HouseTest do
       House.collect(house)
 
       assert Doorstep.waiting(main) == []
-      assert File.exists?(file <> ".collected")
+      refute File.exists?(file)
+      assert File.ls!(Doorstep.path(main)) == []
 
       in_house(house, fn ->
         assert [%Question{mouse_id: "ma", kind: "needs-decision", status: "open"} = q] =

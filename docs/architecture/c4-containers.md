@@ -20,7 +20,7 @@ C4Container
     Container(cli, "whiska", "Elixir escript", "Hooks, init, start, spawn, send, land, pr, drop, mode, shape - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
     Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection, delivery to the main session")
-    Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, renamed .collected once read")
+    Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, removed once collected")
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records, questions and each collected turn's usage, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
     Container(finishflag, "Finish flag", "empty file, whiska-finish in the main checkout's .git", "A finished line is out and the person has not written since; the shim reads it so a main-session prompt with nothing to settle starts nothing")
@@ -127,7 +127,7 @@ The reasoning is in the ADR each line names; this is the map.
   stored there at collection, keyed by its question
   (ADR-0086).
 - **Doorstep, a directory in the house**: every question enters through it, whoever writes
-  the entry; a dead owl loses nothing; collected entries are renamed, never deleted, and an
+  the entry; a dead owl loses nothing; collected entries are removed, the row being the history, and an
   ordinary `whiska drop` cannot erase a question still waiting (ADR-0036, ADR-0007).
 - **Backstop mark**: per house, so the doctor's one line is about this run of this house
   (ADR-0036).

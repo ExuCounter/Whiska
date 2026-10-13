@@ -50,7 +50,7 @@ defmodule Whiska.Owl.House do
   Three triggers, only one of them a timer: a mouse pane reporting `done` or
   `idle`, opening the house, and a slow backstop. Each one reads the doorstep,
   records every entry as a question — classified by its marker alone
-  (ADR-0009) — and marks the entry collected.
+  (ADR-0009) — and removes the entry (ADR-0007).
 
   The idle trigger races Whiska's own `Stop` hook — Claude Code runs the two in
   no fixed order — so herdr's idle event can arrive before the entry is on the
@@ -378,6 +378,9 @@ defmodule Whiska.Owl.House do
     File.rm_rf(Path.join(Whiska.OpenHouses.home(), "board"))
 
     hide_own_files(state)
+
+    # Entries an older owl renamed `.collected` are a second copy of rows.
+    Doorstep.sweep_collected(state.main_checkout)
 
     # Delivery is attempted at open, not only after a collection: reconciling
     # may just have freed ADR-0008's slot by marking a mouse dead that died
@@ -1191,7 +1194,7 @@ defmodule Whiska.Owl.House do
   end
 
   # Nothing in this house can be picked up while it stands, and nothing moves
-  # it: the owl never deletes a doorstep entry (ADR-0007). So it is said, once.
+  # it: the owl deletes only an entry it recorded (ADR-0007). So it is said, once.
   defp said({_mouse_id, {:left, :doorstep_unreadable}}, state) do
     warn_once(
       state,
@@ -1366,7 +1369,7 @@ defmodule Whiska.Owl.House do
          :ok <- keep_research(state, entry, question),
          :ok <- keep_document(state, entry, question, Storage.mode_of(mouse)),
          :ok <- record_usage(state, entry, question),
-         {:ok, _} <- Doorstep.mark_collected(file) do
+         Doorstep.collected(file) do
       true
     else
       {:error, reason} ->

@@ -167,20 +167,37 @@ defmodule Whiska.DoorstepTest do
     end
   end
 
-  describe "mark_collected/1 (collection reads and marks; it never deletes)" do
-    test "renames the entry in place, so it stops waiting but stays on disk", %{main: main} do
+  describe "collected/1 (the row is the history; the entry is removed)" do
+    test "deletes the entry, leaving nothing on the doorstep", %{main: main} do
       {:ok, file} = Doorstep.leave(main, entry())
-      assert {:ok, kept} = Doorstep.mark_collected(file)
+      assert :ok = Doorstep.collected(file)
 
       assert Doorstep.waiting(main) == []
-      assert File.exists?(kept)
       refute File.exists?(file)
-      assert Path.dirname(kept) == Doorstep.path(main)
+      assert File.ls!(Doorstep.path(main)) == []
     end
 
-    test "reports an entry that is already gone rather than raising", %{main: main} do
-      assert {:error, :enoent} =
-               Doorstep.mark_collected(Path.join(Doorstep.path(main), "nope.json"))
+    test "an entry already gone counts as collected, not an error", %{main: main} do
+      assert :ok =
+               Doorstep.collected(Path.join(Doorstep.path(main), "nope.json"))
+    end
+  end
+
+  describe "sweep_collected/1 (entries an older owl renamed)" do
+    test "removes `.collected` files only", %{main: main} do
+      {:ok, a} = Doorstep.leave(main, entry())
+      {:ok, b} = Doorstep.leave(main, entry())
+      File.rename!(a, a <> ".collected")
+      File.write!(b <> ".tmp", "half")
+
+      assert Doorstep.sweep_collected(main) == 1
+      assert File.exists?(b)
+      assert File.exists?(b <> ".tmp")
+      refute File.exists?(a <> ".collected")
+    end
+
+    test "counts nothing when there is no doorstep", %{main: main} do
+      assert Doorstep.sweep_collected(main) == 0
     end
   end
 
@@ -188,7 +205,7 @@ defmodule Whiska.DoorstepTest do
     test "counts uncollected entries only", %{main: main} do
       {:ok, a} = Doorstep.leave(main, entry())
       {:ok, _} = Doorstep.leave(main, entry())
-      {:ok, _} = Doorstep.mark_collected(a)
+      :ok = Doorstep.collected(a)
 
       assert Doorstep.count_waiting(main) == 1
     end
