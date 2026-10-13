@@ -82,7 +82,7 @@ reports every bad state — not recorded, pane gone, pane not running Claude —
 because the owl holds the queue and nothing is lost. A main session running a Claude
 started without its brief, the file `whiska start` writes into the house, is a warning
 too: it does not know it is Whiska or which commands are the person's, and only a restart
-through `whiska start` reads the brief (ADR-next-one-brief-per-session). It also prints
+through `whiska start` reads the brief (ADR-0088). It also prints
 the queue as a diagnosis rather than a listing (`whiska questions` is the listing): how
 many are open, whether one is sent and for how long, and a warning for the one combination
 that means nothing can move — open questions with no main session to deliver them to.
@@ -112,4 +112,4 @@ thing to run when that line says something is wrong.
 
 Changed on 2026-10-13: no `session-start` probe; the doctor warns of a main session started
 without its brief and of a skill or `SessionStart` entry an older install left
-(ADR-next-one-brief-per-session).
+(ADR-0088).

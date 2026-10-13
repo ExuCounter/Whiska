@@ -23,7 +23,7 @@ would land inside somebody's conversation, is exactly the case this refuses.
 **The line carries the main session's brief.** `whiska start` writes the brief, `main.md`,
 into the house beside its database, and the line it types is
 `claude --append-system-prompt-file <that path>`, so the session starts knowing it is
-Whiska and which commands are the person's (ADR-next-one-brief-per-session). In a pane
+Whiska and which commands are the person's (ADR-0088). In a pane
 already running a Claude started without that brief, it records the pane, starts nothing,
 and says to quit Claude and restart it with the line: only a restart reads a brief.
 
@@ -61,7 +61,7 @@ command, in the person's own pane, in the breath they asked for it.
 
 **It is not `whiska spawn`.** Spawning a *mouse* carries judgment — which mode, which
 model, whether the work deserves a worktree — which the main session settles in
-conversation and passes to `whiska spawn` as arguments (ADR-next-one-brief-per-session).
+conversation and passes to `whiska spawn` as arguments (ADR-0088).
 None of that applies here: there is one main session per house,
 it lives in the main checkout, and the pane is already chosen — it is the one the command
 was run in. ADR-0020 still holds too: herdr starts Claude Code, Whiska does not own the
@@ -89,4 +89,4 @@ Claude is already running and it records and stops; that is the only safe readin
 person who wants a second session makes a second pane.
 
 Changed on 2026-10-13: the line typed starts Claude with the main session's brief, and a
-Claude already running without it is told to restart (ADR-next-one-brief-per-session).
+Claude already running without it is told to restart (ADR-0088).

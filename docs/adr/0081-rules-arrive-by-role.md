@@ -1,7 +1,7 @@
 # A session's rules arrive at session start, by its role, as rules not prose
 
 Superseded on 2026-10-13 by
-[ADR-next-one-brief-per-session](next-one-brief-per-session.md): each session starts with
+[ADR-0088](0088-one-brief-per-session.md): each session starts with
 one brief on its launch line, and there is no `SessionStart` hook, no part, no `keep` and
 no skill.
 

@@ -1,7 +1,7 @@
 # Each command gets a slash-command skill, not model-composed bash
 
 Superseded on 2026-10-13 by
-[ADR-next-one-brief-per-session](next-one-brief-per-session.md): procedures are commands
+[ADR-0088](0088-one-brief-per-session.md): procedures are commands
 with fixed steps — `whiska spawn`, `send`, `land`, `pr`, `drop` — and no skill wraps any
 command.
 

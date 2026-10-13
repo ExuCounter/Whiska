@@ -90,6 +90,6 @@ claim "done" without running it, and push committed work through the gate where 
 set up. Nothing in this file overrides those.
 
 The worktree protocol is each session's brief, on the launch line `whiska start` or
-`whiska spawn` types (ADR-next-one-brief-per-session). The hooks come from the global
+`whiska spawn` types (ADR-0088). The hooks come from the global
 install `whiska init --global` writes (ADR-0056). This repo keeps no local install, so the
 hooks in force here are the ones every other repo on this machine gets.

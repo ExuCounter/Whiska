@@ -262,7 +262,7 @@ defmodule Whiska.Questions do
   end
 
   # A report prints as its summary, the rest behind its link; one that ends on a
-  # decision keeps the question it asks (ADR-next-the-report-is-a-document).
+  # decision keeps the question it asks (ADR-0089).
   defp shown(%Question{kind: "unmarked"}, text), do: text
 
   defp shown(q, text) do

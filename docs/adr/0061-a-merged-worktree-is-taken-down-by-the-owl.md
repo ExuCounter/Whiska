@@ -177,7 +177,7 @@ so it fails the fourth condition without anything here having to know what stuck
 ### The pane goes with the worktree
 
 Removing the git worktree and leaving herdr's workspace open leaves half a thing, which is
-why `whiska drop` does both (ADR-next-one-brief-per-session). The owl does what that
+why `whiska drop` does both (ADR-0088). The owl does what that
 command does: one `worktree.remove` on herdr's socket with the workspace id, `force: false`, which
 removes the worktree and closes the workspace together. A worktree with no open workspace —
 the mouse was already dead — is removed with plain `git worktree remove`.

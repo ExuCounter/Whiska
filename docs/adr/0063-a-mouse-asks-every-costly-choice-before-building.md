@@ -34,7 +34,7 @@ the main checkout.
 
 A mouse never asks what the task already spells out. The oks it waits for are on its
 costly choices and on its spec and build plan. The main session's own 2–4 line plan
-before work it does in place is a different thing (ADR-next-one-brief-per-session).
+before work it does in place is a different thing (ADR-0088).
 
 ## The build plan
 
@@ -161,7 +161,7 @@ lines to the exclude file.
 
 Grilling, the spec, the build plan and the research document are a few lines each of the
 build brief, and the research document and its questions of the sniff brief
-(ADR-next-one-brief-per-session). Grilling goes in rounds, each asking the whole frontier,
+(ADR-0088). Grilling goes in rounds, each asking the whole frontier,
 numbered, each with the answer the mouse recommends, and the person answers in their own
 words; only the costly choices are asked, and the cheap ones are decided and listed in
 the report. A mouse's round ends with the decision marker. A sniff mouse asks only when
@@ -186,7 +186,7 @@ with the same header and the same landed or dropped status; with no spec, as for
 takes the date and branch name itself. Only a new or revised spec marks its question as a
 spec sent. A research document is kept the same way, as `<the same name>.research.md`,
 with the same header and status, and so is a mouse's report, as `<the same name>.report.md`
-(ADR-next-the-report-is-a-document); neither marks its question as a spec sent. A new file
+(ADR-0089); neither marks its question as a spec sent. A new file
 of any of the four takes the name of one already kept for its mouse, so they sit side by
 side. The research copy is what `whiska show` links (ADR-0074), so one file per branch,
 overwritten each round, is what makes an earlier question's link open the latest text.
@@ -270,12 +270,12 @@ The link names the worktree's file, so an answer given after the worktree is gon
 dead link; the text is then in the kept copy, whose `question:` header names the question.
 
 Changed on 2026-10-13: a mouse's report and a sniff mouse's research document are its
-final message, kept beside the spec (ADR-next-the-report-is-a-document).
+final message, kept beside the spec (ADR-0089).
 
 Changed on 2026-10-13: the spec, build plan, research document and grilling are sections
 of the briefs, not skills; `whiska show` links the spec and build plan, and the mouse
 pastes no link; the spec has four headings and no user stories
-(ADR-next-one-brief-per-session).
+(ADR-0088).
 
 Changed on 2026-10-12: a build plan beside the spec, and a research document for a bug.
 

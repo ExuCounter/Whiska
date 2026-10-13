@@ -3,7 +3,7 @@
 A rule that must hold whatever the model decides is enforced by the `PreToolUse` hook,
 which runs before a tool call and can block it. A line in a session's brief is a
 suggestion, followed only if the mouse chooses to. The split is deliberate: the brief
-carries everything that takes judgment (ADR-next-one-brief-per-session), and the hook
+carries everything that takes judgment (ADR-0088), and the hook
 carries the short list that
 must hold regardless — containment in the worktree (ADR-0013), sniff mode, the read-only
 allowlist for shell commands (ADR-0034), the person's own commands and a hold

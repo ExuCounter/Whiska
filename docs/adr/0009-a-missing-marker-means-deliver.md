@@ -59,7 +59,7 @@ machine's mice, 29 of 126 finished turns that changed files ended with changes n
 committed, because nothing asked a mouse to commit, so `done` beside uncommitted files is
 far more often finished work nobody committed than a mouse that stopped short. On the
 person's ok, `--commit <file>` commits them in the mouse's worktree with a message the
-main session wrote to that file (ADR-next-one-brief-per-session). The cost: a mouse that
+main session wrote to that file (ADR-0088). The cost: a mouse that
 stopped short and still ended on `done` has its half-done work committed and landed; the
 marker rule is the only guard there.
 
@@ -67,7 +67,7 @@ marker rule is the only guard there.
 
 The delivered line is `🐱 <branch> <verb> · #<id> · "<pointer>" · <n> more open` and
 carries no command: a line that reads like code gets acted on. The main session knows it
-from its brief and runs `whiska show` (ADR-next-one-brief-per-session). The id stays
+from its brief and runs `whiska show` (ADR-0088). The id stays
 because answers are keyed to it (ADR-0005).
 
 A turn with a background subagent still out is not a stop: the hook writes nothing
@@ -99,4 +99,4 @@ same direction as this one.
 
 Changed on 2026-10-13: a finished branch is landed, opened as a merge request or dropped by
 `whiska land`, `whiska pr` or `whiska drop` on the person's word, with no options offered
-(ADR-next-one-brief-per-session).
+(ADR-0088).

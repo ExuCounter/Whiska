@@ -2,7 +2,7 @@
 
 The spawn gives a mouse its shape, its mode, its model and its effort, before Claude
 starts. `whiska spawn` shapes it after herdr creates the worktree and before Claude starts
-there (ADR-next-one-brief-per-session); `whiska shape build|sniff [--model <name>]
+there (ADR-0088); `whiska shape build|sniff [--model <name>]
 [--effort <level>]`, run inside a worktree, does the same for a mouse started by hand.
 Either mints the marker and the mouse record there and then, records the shape and
 `shaped_at`, writes the mouse's brief — its mode's, with its task in it — to
@@ -24,7 +24,7 @@ construction. Lazy minting stays as the fallback for a mouse nobody shaped.
 **build** produces a real change: edits confined to its own worktree, push needs
 approval. **sniff** is investigation only: it writes a report, never a PR, and
 `PreToolUse` denies every edit, not only the ones outside the worktree. Its **research
-document** is its final message, which Whiska keeps (ADR-next-the-report-is-a-document),
+document** is its final message, which Whiska keeps (ADR-0089),
 so there is no file for it to write. The shell rules still deny a sniff mouse loading a
 program or a config from a file, `/dev/null` aside (ADR-0034): a Markdown heading is a
 comment line to git, awk and sed, so a research document a build mouse left can be read
@@ -133,7 +133,7 @@ included.
   so a field saying it did would be a lie.
 - **A research document the sniff mouse writes itself,** as the one file it may write.
   Chosen first, then dropped: two copies of one report, and an exception in a mode whose
-  point is writing nothing (ADR-next-the-report-is-a-document).
+  point is writing nothing (ADR-0089).
 - **Whiska matching a `when` to the request by keyword.** A worse version of what the
   spawning session already does.
 
@@ -160,7 +160,7 @@ whose model is set in its own agent definition. A mouse started by hand without
 Folded in on 2026-10-08: 0018, 0019, 0073 (their text is in git history).
 
 Changed on 2026-10-13: `whiska spawn` shapes the mouse, and the shape writes its brief and
-adds it to the flags (ADR-next-one-brief-per-session).
+adds it to the flags (ADR-0088).
 
 Changed on 2026-10-13: a sniff mouse writes no file; its final message is the research
-document, and every edit is denied (ADR-next-the-report-is-a-document).
+document, and every edit is denied (ADR-0089).

@@ -5,7 +5,7 @@ Level 1. Who and what Whiska sits between.
 Whiska tracks Claude Code sessions ("mice") working in isolated git worktrees. It
 does not run Claude Code itself and it does not manage terminals — herdr does both
 (ADR-0020). Whiska's job is identity, rules, each session's brief
-(ADR-next-one-brief-per-session), and getting a mouse's question in front of the person
+(ADR-0088), and getting a mouse's question in front of the person
 exactly once.
 
 ```mermaid

@@ -42,7 +42,7 @@ yours, so it stays, and `init` names it for you to delete where it lives (ADR-00
 ### What a session is told: its brief
 
 Everything Whiska tells a session is one file, its brief, which Claude Code is started with
-(`claude --append-system-prompt-file <brief>`, ADR-next-one-brief-per-session). Nothing is
+(`claude --append-system-prompt-file <brief>`, ADR-0088). Nothing is
 written into `CLAUDE.md`, and no skill is installed.
 
 | Session | Brief | Where it is written |
@@ -74,7 +74,7 @@ Four rules, all through the `PreToolUse` hook, all denied at once (ADR-0011):
   main checkout: `sed -i`, a redirect or `git -C <main> commit` are denied; `cat` and
   `grep` are not.
 - **A sniff mouse may change nothing.** Its research document is its final message,
-  which Whiska keeps (ADR-0069, ADR-next-the-report-is-a-document).
+  which Whiska keeps (ADR-0069, ADR-0089).
 
 What this is not:
 

@@ -53,7 +53,7 @@ takes this path, since a question lost is worse than a turn slowed.
 ## Whiska installs no skill
 
 Creating a mouse and taking it down are `whiska spawn` and `whiska drop`, and everything
-else a session is told is its brief (ADR-next-one-brief-per-session). The half of the
+else a session is told is its brief (ADR-0088). The half of the
 protocol that creates a mouse and the half that tracks it have to agree about the worktree
 layout, the marker's spelling (ADR-0009) and where a question is read from, and in one
 program they cannot drift: the person's dotfiles once carried their own copy of a
@@ -111,4 +111,4 @@ nothing else is touched. The house stays: ADR-0007 is about records.
 Folded in on 2026-10-08: 0016, 0046 (their text is in git history).
 
 Changed on 2026-10-13: the install writes no skill and no `SessionStart` entry, and takes
-out the ones an older install wrote (ADR-next-one-brief-per-session).
+out the ones an older install wrote (ADR-0088).

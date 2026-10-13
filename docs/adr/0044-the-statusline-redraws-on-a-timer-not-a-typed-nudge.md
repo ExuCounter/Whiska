@@ -13,7 +13,7 @@ in Whiska types into any other session but a mouse, into its own pane, about its
 
 The last two run on the person's word, from the main session, and type fixed text: never
 anything the person, a mouse or a forge wrote, which travels in the brief or in a file
-(ADR-next-one-brief-per-session). No other exception.
+(ADR-0088). No other exception.
 
 ## Why
 
@@ -59,4 +59,4 @@ on.
 Folded in on 2026-10-08: 0041 (its text is in git history).
 
 Changed on 2026-10-13: `whiska spawn` and `whiska send` type one fixed line into a mouse's
-pane, where the main session typed through herdr before (ADR-next-one-brief-per-session).
+pane, where the main session typed through herdr before (ADR-0088).

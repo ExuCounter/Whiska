@@ -10,7 +10,7 @@ defmodule Whiska.Rule.Sniff do
 
   That "all" is the whole point: where the edit points is irrelevant. Its
   research document is its final message, which Whiska keeps
-  (ADR-next-the-report-is-a-document), so there is no file for it to write.
+  (ADR-0089), so there is no file for it to write.
 
   For `Bash`, "changes anything" is `Whiska.Shell`'s judgment, which errs towards
   mutating whenever it cannot read a command confidently. A sniff mouse denied a

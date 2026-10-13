@@ -37,7 +37,7 @@ counts the branch's commits that no remote and no base holds. On "pr" again, `wh
 pushes the new commits to the open request, never forced, refusing files not committed
 until `--commit <file>` as it does for any branch. `whiska land` refuses a branch with a
 request open: landing beside it would copy its work onto the base and leave the request
-open (ADR-next-one-brief-per-session). Once the branch is seen landed, its lines are an
+open (ADR-0088). Once the branch is seen landed, its lines are an
 ordinary branch's again: new commits on it land, or go into a request of their own, which
 waits until it lands in turn and moves the landing date (ADR-0064). A commit in the
 fetched base is not beyond it, so a request merged on the forge leaves nothing to land. A
@@ -98,4 +98,4 @@ from what a fetch brings back, by the git checks cleanup already trusts.
 
 Changed on 2026-10-13: `whiska pr` opens and records the request, pushes to it once open,
 and `whiska land` refuses a branch with one open, where finish options did that before
-(ADR-next-one-brief-per-session).
+(ADR-0088).

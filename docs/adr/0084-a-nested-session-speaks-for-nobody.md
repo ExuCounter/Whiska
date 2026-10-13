@@ -72,4 +72,4 @@ and `CLAUDE_PID` for its children, but a nested `claude` overwrites both for its
 hooks. Nothing the nested hook sees points back to the parent.
 
 Changed on 2026-10-13: there is no `SessionStart` hook to silence
-(ADR-next-one-brief-per-session).
+(ADR-0088).

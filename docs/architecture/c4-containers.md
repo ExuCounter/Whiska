@@ -135,7 +135,7 @@ The reasoning is in the ADR each line names; this is the map.
 - **Brief, one file per session**: everything Whiska tells a session, on Claude Code's
   launch line, so it is in the system prompt from the first turn and stays there; a
   mouse's is git-ignored at its worktree root, the main session's sits in the house so a
-  checkout holds no file of Whiska's (ADR-next-one-brief-per-session).
+  checkout holds no file of Whiska's (ADR-0088).
 - **Answer flag and finish flag**: hints for the shim, never the answer or the slot, which
   are in the house database (ADR-0080, ADR-0008).
 - **Spec and build plan in the worktree, kept copies in the main checkout**: both live and

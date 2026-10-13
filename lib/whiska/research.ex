@@ -2,7 +2,7 @@ defmodule Whiska.Research do
   @moduledoc """
   The research document a finished investigation leaves for the person to
   review: what it established and what to change (ADR-0074). A sniff mouse's is
-  its final message (ADR-next-the-report-is-a-document); a build mouse fixing a
+  its final message (ADR-0089); a build mouse fixing a
   bug writes one as Markdown at the worktree root, and like the spec it is
   never committed: git ignores it through the main checkout's
   `.git/info/exclude` (ADR-0063).

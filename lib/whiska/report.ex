@@ -1,7 +1,7 @@
 defmodule Whiska.Report do
   @moduledoc """
   A mouse's final message as a document: one with a `## Summary` heading of its
-  own, outside any code block (ADR-next-the-report-is-a-document). A sniff
+  own, outside any code block (ADR-0089). A sniff
   mouse's is its research document; a build mouse's is its report. Whiska keeps
   it whole, beside the spec, and `whiska show` prints its summary, under the
   link to the rest.

@@ -64,7 +64,7 @@ repo's rows would invite that guess. `waiting` stays machine-wide.
 home, which the person adds to PATH once. A word that already resolves to another program
 on PATH is skipped and named, never shadowed, and `whiska doctor` warns where a word
 resolves to anything but Whiska's own wrapper. In the main session the person says them
-in words, and its brief names the command each runs (ADR-next-one-brief-per-session).
+in words, and its brief names the command each runs (ADR-0088).
 
 **The person's commands are refused to a mouse.** `Whiska.Rule.Persons` runs in the hook
 beside the held rule: a mouse's shell command whose head word is `away`, `hold`, `focus`,
@@ -127,4 +127,4 @@ commands (`inbox`, `show`, `questions`, `waiting`, `mice`) are anyone's.
   twelve Whiska skills in every session's context, two of them saying what two others say.
 
 Changed on 2026-10-13: the one-word commands have no slash commands, and `spawn`, `send`,
-`land`, `pr` and `drop` are the person's too (ADR-next-one-brief-per-session).
+`land`, `pr` and `drop` are the person's too (ADR-0088).

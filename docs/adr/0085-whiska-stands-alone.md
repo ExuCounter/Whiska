@@ -5,7 +5,7 @@ built-in agents, herdr, git and the platform's service manager. Everything else 
 person's machine — their own skills, plugins, agent packs, viewers, link handlers and
 scripts — is theirs to opt into and never built in: Whiska names none of it. No test reads
 the briefs for names, since tests pin what Whiska does and not its sentences
-(ADR-next-one-brief-per-session); a name that slips into a brief is the cold review's to
+(ADR-0088); a name that slips into a brief is the cold review's to
 catch.
 
 Opting in goes through text the person or the repo already owns: the person's own
@@ -128,4 +128,4 @@ Folded in on 2026-10-11: 0075 (its text is in git history).
 
 Changed on 2026-10-13: `whiska pr` opens a merge request on the person's word, the build
 brief handles its review, `whiska show` prints the spec and build plan links itself, and no
-test scans the briefs for names (ADR-next-one-brief-per-session).
+test scans the briefs for names (ADR-0088).

@@ -2104,7 +2104,7 @@ defmodule Whiska.CLI do
   defp in_worktree(_mouse), do: []
 
   # Whiska's own copy, linked like the research document, so it opens after the
-  # worktree is gone (ADR-next-the-report-is-a-document).
+  # worktree is gone (ADR-0089).
   defp report(main, %Mouse{mouse_id: mouse_id, branch: branch}) when is_binary(branch) do
     with file when is_binary(file) <- Whiska.SpecArchive.report(main, mouse_id, branch),
          {file, title} <- Whiska.Research.document(file, "report") do

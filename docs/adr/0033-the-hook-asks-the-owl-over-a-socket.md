@@ -138,4 +138,4 @@ Folded in on 2026-10-08: 0025 (its text is in git history).
 
 Changed on 2026-10-13: there is no `session-start` hook, so the shim has no exit for it and
 the owl no answer; a request is `hook 1 <name> <bytes>`, with no `--global`
-(ADR-next-one-brief-per-session).
+(ADR-0088).

@@ -1,6 +1,6 @@
 # Finishing is a pipeline the mouse runs, not a hook that blocks it
 
-Finishing is four steps in a build mouse's brief (ADR-next-one-brief-per-session), which
+Finishing is four steps in a build mouse's brief (ADR-0088), which
 the mouse runs itself, in order, before it writes the done marker: read the change back,
 send the cold review, commit, report with the agent ledger. Whiska runs no reviewer, has
 no opinion about any finding, and does not know whether the steps ran. They never run on
@@ -32,7 +32,7 @@ mouse reads it first, and one that fetches something, writes outside the repo or
 credentials is a question for the person.
 
 The repo's `checks:` line under `## Finish` in its own `CLAUDE.md` is what `whiska land`
-runs after copying a branch's commits (ADR-next-one-brief-per-session). The mouse builds
+runs after copying a branch's commits (ADR-0088). The mouse builds
 test first, so its own tests run as it builds.
 
 ## Why
@@ -104,7 +104,7 @@ Changed on 2026-10-13: the steps are a section of the build brief, four of them;
 reviewer is one the mouse briefs, plus security when it applies; the axis table, the
 Against the spec and Needs attention lists, `reviewers:`, `security:` and the cold-review
 skill are gone; the repo's checks run at `whiska land`
-(ADR-next-one-brief-per-session).
+(ADR-0088).
 
 Changed on 2026-10-12: "never push" binds finishing, not a push the person asked for
 (ADR-0085).

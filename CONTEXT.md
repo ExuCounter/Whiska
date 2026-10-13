@@ -41,7 +41,7 @@ The main session's is `main.md`, written into the house by `whiska start`; a mou
 its mode's, `build.md` or `sniff.md`, with its **task** in it, written by `whiska shape`
 to `.whiska-brief.md` at the worktree root, which git ignores. Nothing else carries
 Whiska's words into a session: no start-up hook, no skill, nothing in a `CLAUDE.md`
-(ADR-next-one-brief-per-session).
+(ADR-0088).
 _Avoid_: rules, skill, system prompt (Claude Code's own, which a brief is appended to),
 instructions
 
@@ -183,7 +183,7 @@ report is its **research document**. It names how a message reads, never the rec
 becomes: once collected the same message is a **question**. A mouse's **brief** asks for
 it. Whiska keeps a build mouse's last one beside the kept **spec**, overwritten each
 round, and `whiska show` links it as `Review report here:` and prints only its summary
-(ADR-next-the-report-is-a-document). `done` report is the older, narrower use of the word
+(ADR-0089). `done` report is the older, narrower use of the word
 — a question whose marker said `done` — and both stay.
 _Avoid_: status, update, hand-off
 
@@ -192,7 +192,7 @@ The `## Summary` section at the top of a **report** or **research document**: th
 five lines, written to be read alone. A message with one is a document, and Whiska keeps
 it; `whiska show` prints the summary, and the first line of a **proposal** when there is
 one, under the links, and the rest is behind them. A message with none — a question
-mid-way, a mouse started before this — is printed whole (ADR-next-the-report-is-a-document).
+mid-way, a mouse started before this — is printed whole (ADR-0089).
 _Avoid_: gist, abstract, TL;DR, pointer (one line standing for a message, beside its marker)
 
 **Finish**:
@@ -205,7 +205,7 @@ rather than opening another; carried on by its mouse, the person's words sent to
 (`whiska send`); or dropped unmerged (`whiska drop`). Files the mouse left uncommitted
 stop a landing or a merge request, named, until the person says to commit them. A
 **proposal** is built by a fresh mouse (`whiska spawn --from`). Nothing is offered: the
-main session shows the report and stops (ADR-next-one-brief-per-session). A finish is
+main session shows the report and stops (ADR-0088). A finish is
 never an answer — a finished question has nothing to answer.
 _Avoid_: close (which a question does), disposition, land. **Cleanup** now names something
 else — what becomes of the worktree after the branch has landed, not what becomes of the
@@ -227,7 +227,7 @@ and no file is written (ADR-0085); when the branch has a **research document**, 
 `Review research here:` (ADR-0074); when the mouse's worktree holds a **spec** or a
 **build plan**, `Review spec here:` and `Review build plan here:`, links to its files
 (ADR-0063); and when a **report** is kept, `Review report here:`
-(ADR-next-the-report-is-a-document).
+(ADR-0089).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Merge request**:
@@ -263,7 +263,7 @@ work: a bug's in the build **brief**, an investigation's in the sniff brief.
   against it (ADR-0063).
 - **An investigation's**: the sniff mouse's final message, which writes no file — its
   **summary**, its **proposal** when something should change, the question, then what it
-  established, in full (ADR-next-the-report-is-a-document). `whiska show` links it under
+  established, in full (ADR-0089). `whiska show` links it under
   the **branch line** as `Review research here:`, and the person's comments on it are
   their own words, carried as a file: to the build (`whiska spawn --from <id> --comments
   <file>`), to the investigating mouse (`whiska send`), or not sent (ADR-0074).

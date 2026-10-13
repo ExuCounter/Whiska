@@ -40,7 +40,7 @@ answers to is skipped. A mouse cannot run `away`, `focus`, `hold`, `resume`, `re
 ### A branch
 
 Your main session runs these when you say so; it picks the mode, model, effort and
-branch name with you, and passes each as an argument (ADR-next-one-brief-per-session).
+branch name with you, and passes each as an argument (ADR-0088).
 
 ```
 whiska spawn build|sniff <branch> <task-file>     a fresh worktree with a mouse working on the task in the file

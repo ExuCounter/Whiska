@@ -6,7 +6,7 @@ says where each assumption lives, how it breaks, and what loosening it would cos
 Checked against main again on 2026-10-13: Whiska's own Claude Code statusline is gone, and
 the board is drawn as a line per mouse in herdr's sidebar (ADR-0082). Brought up to date
 again on 2026-10-13: each session's brief is on its Claude Code launch line, Whiska ships
-no skills, and it registers three hooks (ADR-next-one-brief-per-session).
+no skills, and it registers three hooks (ADR-0088).
 
 The Hex packages are out of scope. They were audited separately: eleven in the lock,
 five declared (`ecto` and `exqlite` among them, since Whiska calls both directly), and
@@ -183,7 +183,7 @@ Every row is someone else's UI or file format, and can change in any release.
 | Alternate screen | the main session's brief tells the model not to read a pane | Nothing in code depends on it |
 | U+2063 draws nothing in the terminal | `question/marker.ex` | Three odd glyphs appear in the pane. Visible, harmless. The marker is read from the payload, not the screen |
 | Skills at `.claude/skills/<name>/SKILL.md` | `install.ex`, to find and delete the ones an older Whiska wrote | An older skill left where Claude Code still lists it. Visible: the doctor names it |
-| `--append-system-prompt-file <path>` adds the file to the system prompt, in an interactive session | `brief.ex`, `whiska start`, `spawn.ex`, `whiska shape` (ADR-next-one-brief-per-session) | Removed: `claude` refuses the flag and nothing starts. Loud. Ignored: a session runs without its brief. Silent, but ADR-0009 makes a missing marker deliver, so the person notices |
+| `--append-system-prompt-file <path>` adds the file to the system prompt, in an interactive session | `brief.ex`, `whiska start`, `spawn.ex`, `whiska shape` (ADR-0088) | Removed: `claude` refuses the flag and nothing starts. Loud. Ignored: a session runs without its brief. Silent, but ADR-0009 makes a missing marker deliver, so the person notices |
 | The system prompt is kept across `/clear`, a resume and compaction: `claude --help` documents `--system-prompt-snapshot`, on by default, recording it on the first request and resending it as-is until compaction renders it again | the briefs carry no "you were just compacted" step beyond rereading the `.whiska-*` files | A session loses its brief part way through. Silent |
 | `UserPromptSubmit` output `additionalContext` reaches the model | `hook/user_prompt_submit.ex` (ADR-0080) | An answer is stamped taken but never reaches the mouse. **Silent** |
 | `claude` on `PATH`, `--model`, `--effort` and `--autocompact` flags | `whiska start`, `whiska shape`, `spawn.ex` | Command fails in the pane, or `spawn` reports herdr's error. Loud |

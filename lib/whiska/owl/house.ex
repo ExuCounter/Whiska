@@ -1414,7 +1414,7 @@ defmodule Whiska.Owl.House do
   end
 
   # The message itself, when it is a document, is a research document or a
-  # report, and is kept the same way (ADR-next-the-report-is-a-document).
+  # report, and is kept the same way (ADR-0089).
   defp keep_document(state, entry, question, mode) do
     with {:error, reason} <- SpecArchive.keep_document(state.main_checkout, entry, question, mode) do
       warn(state, "could not keep the report of question #{question.id} (#{inspect(reason)})")
