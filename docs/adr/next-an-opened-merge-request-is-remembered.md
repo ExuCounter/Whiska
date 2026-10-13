@@ -31,7 +31,9 @@ it. Not pushed counts the branch's commits that no remote and no base holds. The
 are Push to the merge request, Commit and push to the merge request where files are not
 committed, and none once everything is pushed. Land here, Open and Drop are not offered,
 whatever `finish:` says (ADR-0022). Once the branch is seen landed, its lines are an
-ordinary branch's again: new commits on it land, or go into a request of their own. A
+ordinary branch's again: new commits on it land, or go into a request of their own, which
+waits until it lands in turn and moves the landing date (ADR-0064). A commit in the
+fetched base is not beyond it, so a request merged on the forge leaves nothing to land. A
 request closed on the forge is invisible here, so `drop-worktree` stays the way out.
 
 **While a request waits, the owl fetches its base.** Every 5 minutes on the house's

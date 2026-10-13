@@ -726,6 +726,19 @@ defmodule Whiska.CLIQuestionsTest do
       refute shown =~ "Merge request:"
     end
 
+    test "a merge request merged on the forge and fetched leaves nothing beyond the base",
+         %{repo: repo} do
+      q = finished(repo, "feat-u", merge_request: @pr, push: true)
+      GitRepo.merge_on_forge(repo, "feat-u")
+      :ok = Whiska.Git.fetch_base(repo.checkout, "main")
+      {:ok, handle} = Storage.open(repo.checkout)
+      {:ok, _} = Storage.mark_landed("m-feat-u")
+      Storage.close(handle)
+
+      assert show_one(repo, q) =~
+               "\nOn the branch: nothing committed beyond main · nothing uncommitted\n"
+    end
+
     test "a merge request opened after its branch landed is the branch's again", %{repo: repo} do
       q = finished(repo, "feat-t", merge_request: @pr)
       {:ok, handle} = Storage.open(repo.checkout)

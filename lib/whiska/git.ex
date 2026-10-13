@@ -314,9 +314,10 @@ defmodule Whiska.Git do
   `landing_refs/2` reads. Nothing else in the checkout moves: no local branch,
   no tag, no submodule, no `FETCH_HEAD`.
 
-  It can never stop to ask: a remote that wants a password or a passphrase
+  It never stops to ask: a remote that wants a password or a passphrase
   fails, and no password program runs. An ssh command the person set is
-  theirs and stays. A transfer that stalls gives up by itself; one still
+  theirs and stays, and may ask on the terminal an owl run by hand holds,
+  until `timeout`. A transfer that stalls gives up by itself; one still
   running at `timeout` is killed, with the programs it started, and is
   `{:error, :timeout}`.
   """
@@ -550,7 +551,9 @@ defmodule Whiska.Git do
   @doc """
   What a finished branch holds: its own commits beyond the base, counted as
   Land here lists them — merges from the base skipped — and the paths its
-  worktree has not committed, untracked ones included, as git lists them.
+  worktree has not committed, untracked ones included, as git lists them. A
+  commit in the fetched copy of the base is not beyond it: a merge request
+  merged on the forge leaves nothing to land.
 
   Anything git will not say plainly is an error, never an empty branch: a
   worktree that is not there (`:no_worktree`), one moved off `branch`
@@ -574,9 +577,9 @@ defmodule Whiska.Git do
          {:ok, ^branch} <- head_branch(worktree) |> off_branch(),
          {:ok, base} <- base_of(checkout, recorded_base),
          true <- plain_name?(base) || {:error, :unsafe_base},
-         {:ok, base_ref} <- base_ref(checkout, base),
-         range = "#{base_ref}..refs/heads/#{branch}",
-         {:ok, count} <- git(checkout, ["rev-list", "--count", "--no-merges", range]),
+         {:ok, [{:local, base_ref} | _] = places} <- landing_refs(checkout, base),
+         beyond = ["refs/heads/#{branch}", "--not" | Enum.map(places, &elem(&1, 1))],
+         {:ok, count} <- git(checkout, ["rev-list", "--count", "--no-merges" | beyond]),
          {ahead, ""} <- Integer.parse(count),
          {:ok, uncommitted} <- uncommitted(worktree) do
       {:ok,
