@@ -228,6 +228,46 @@ defmodule Whiska.Herdr do
   @callback remove_worktree(socket :: Path.t(), workspace_id :: String.t()) ::
               :ok | {:error, term()}
 
+  @typedoc """
+  A worktree `create_worktree/2` asks for. `cwd` names the repo, since herdr
+  picks the repo from it and not from the workspace; `workspace_id` is the one
+  the request comes from, when there is one.
+  """
+  @type new_worktree :: %{
+          cwd: Path.t(),
+          path: Path.t(),
+          branch: String.t(),
+          label: String.t(),
+          workspace_id: String.t() | nil
+        }
+
+  @doc """
+  Create a worktree on a new branch and open it as a workspace, without
+  moving the person's view — `whiska spawn`'s first step. Answers the new
+  workspace and the shell pane in it.
+  """
+  @callback create_worktree(socket :: Path.t(), new_worktree()) ::
+              {:ok, %{workspace_id: String.t(), pane_id: String.t()}} | {:error, term()}
+
+  @doc """
+  Start an agent of `kind` in a pane sitting at its shell prompt, with `args`
+  after its program name, and wait until it is ready for input. Answers the
+  command line herdr ran.
+  """
+  @callback start_agent(
+              socket :: Path.t(),
+              pane_id :: String.t(),
+              name :: String.t(),
+              args :: [String.t()]
+            ) :: {:ok, [String.t()]} | {:error, term()}
+
+  @doc """
+  `remove_worktree/2`, forced: work left in the worktree goes with it. Only
+  `whiska drop --force` asks, after the person was told what is lost.
+  """
+  @callback force_remove_worktree(socket :: Path.t(), workspace_id :: String.t()) ::
+              :ok | {:error, term()}
+
   @doc "The implementation in use."
   @spec impl() :: module()
   def impl, do: Application.get_env(:whiska, :herdr, Whiska.Herdr.Socket)

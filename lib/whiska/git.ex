@@ -631,11 +631,48 @@ defmodule Whiska.Git do
   # it; a name with anything else in it is a name a mouse chose.
   defp plain_name?(name), do: Regex.match?(~r/\A[A-Za-z0-9._\/][A-Za-z0-9._\/-]*\z/, name)
 
-  # `-z` keeps each path whole and unquoted; a rename or copy carries its
-  # source as the next field, which is not a second uncommitted path. Every
-  # untracked file is listed whatever the person's `status.showUntrackedFiles`
-  # says, and no optional lock is taken on an index a session may be using.
-  defp uncommitted(worktree) do
+  @doc """
+  The commits a branch carries beyond its base, oldest first and merges from
+  the base left out: what landing it copies.
+  """
+  @spec own_commits(Path.t(), branch(), branch() | nil) ::
+          {:ok, %{base: branch(), commits: [String.t()]}} | {:error, term()}
+  def own_commits(checkout, branch, recorded_base \\ nil) do
+    with {:ok, base} <- base_of(checkout, recorded_base),
+         {:ok, base_ref} <- base_ref(checkout, base),
+         range = "#{base_ref}..refs/heads/#{branch}",
+         {:ok, out} <-
+           git(checkout, ["log", "--no-merges", "--reverse", "--format=%H", range, "--"]) do
+      {:ok, %{base: base, commits: String.split(out, "\n", trim: true)}}
+    end
+  end
+
+  @doc """
+  The commits on a branch that neither a remote nor the base holds, newest
+  first, each as its short id and subject: what deleting the branch loses.
+  """
+  @spec unpushed_commits(Path.t(), branch(), branch() | nil) ::
+          {:ok, [String.t()]} | {:error, term()}
+  def unpushed_commits(checkout, branch, recorded_base \\ nil) do
+    with {:ok, base} <- base_of(checkout, recorded_base),
+         {:ok, base_ref} <- base_ref(checkout, base),
+         args = ["log", "--format=%h %s", "refs/heads/#{branch}", "--not", "--remotes", base_ref],
+         {:ok, out} <- git(checkout, args ++ ["--"]) do
+      {:ok, String.split(out, "\n", trim: true)}
+    end
+  end
+
+  @doc """
+  The paths a worktree has not committed, untracked ones included, as git
+  lists them.
+
+  `-z` keeps each path whole and unquoted; a rename or copy carries its
+  source as the next field, which is not a second uncommitted path. Every
+  untracked file is listed whatever the person's `status.showUntrackedFiles`
+  says, and no optional lock is taken on an index a session may be using.
+  """
+  @spec uncommitted(Path.t()) :: {:ok, [String.t()]} | {:error, term()}
+  def uncommitted(worktree) do
     args = ["--no-optional-locks", "status", "--porcelain", "-z", "--untracked-files=all"]
 
     case run(worktree, args) do

@@ -224,6 +224,50 @@ defmodule Whiska.CLI do
     close <id>           Settle a question by hand, with no answer — for one
                          you dealt with some other way.
 
+    The main session's commands for a branch. A mouse is refused them.
+
+    spawn build|sniff <branch> <task-file> [--model <name>] [--effort <level>]
+    spawn build|sniff <branch> --from <id> [--comments <file>] [...]
+                         A fresh worktree at worktrees/<branch>, opened by
+                         herdr in its own workspace without moving you there;
+                         the mouse shaped (see `shape`), Whiska's hooks carried
+                         in where the repo never committed them, Claude started
+                         and handed the task in the file. --from builds what
+                         question <id> proposes under "What to change", and
+                         --comments hands the new mouse your comments on its
+                         research document. The branch must be new: a-z, 0-9,
+                         - and /, at most 32 characters.
+
+    send <branch> <file> Your words in <file> to the mouse at work on <branch>:
+                         copied into its worktree, and one line typed into its
+                         pane pointing there. A mouse mid-turn reads it once
+                         its turn ends. An answer to a question is `reply`.
+
+    land <id> [--commit <message-file>]
+                         Copy the commits of question <id>'s branch onto the
+                         branch this checkout is on, oldest first, then run
+                         the `checks:` this repo's CLAUDE.md names under
+                         ## Finish. Files the mouse left uncommitted are
+                         listed and nothing lands; --commit commits them first
+                         with the message in that file. A clash lands nothing;
+                         a failing check leaves the copies and says how to
+                         take them back. The owl removes the worktree once the
+                         work is in the base.
+
+    pr <id> [--commit <message-file>]
+                         Push question <id>'s branch by name and open a merge
+                         request with gh (glab for a GitLab remote): the
+                         mouse's message as its body, the branch's first
+                         commit subject as its title. The link is recorded as
+                         `merge-request` would. Once one is open, `pr` pushes
+                         the branch's new commits to it instead.
+
+    drop <branch> [--force]
+                         Take down a branch that is not landing: its worktree,
+                         its herdr workspace and the branch. Commits no remote
+                         has and files not committed are listed and nothing
+                         goes, unless --force.
+
     merge-request <id> <url>
                          Record the merge request just opened for the branch
                          of finished question <id>, by its https link. Its
@@ -513,6 +557,23 @@ defmodule Whiska.CLI do
         1
     end
   end
+
+  def run(["spawn" | args], cwd), do: spawn(cwd, args)
+
+  def run(["send", branch, file], cwd),
+    do: with_herdr(cwd, "send to a mouse", &Whiska.Send.run(&1, branch, file, &2))
+
+  def run(["drop", branch], cwd),
+    do: with_herdr(cwd, "drop a worktree in", &Whiska.Drop.run(&1, branch, false, &2))
+
+  def run(["drop", branch, "--force"], cwd),
+    do: with_herdr(cwd, "drop a worktree in", &Whiska.Drop.run(&1, branch, true, &2))
+
+  def run(["land", id], cwd), do: with_question(cwd, id, &land(&1, cwd, nil))
+  def run(["land", id, "--commit", file], cwd), do: with_question(cwd, id, &land(&1, cwd, file))
+
+  def run(["pr", id], cwd), do: with_question(cwd, id, &pr(&1, cwd, nil))
+  def run(["pr", id, "--commit", file], cwd), do: with_question(cwd, id, &pr(&1, cwd, file))
 
   def run(["--version"], _cwd), do: say(@version)
   def run(["-v"], _cwd), do: say(@version)
@@ -1371,15 +1432,13 @@ defmodule Whiska.CLI do
   end
 
   # stdout is the flags to start Claude with — plain words only, or nothing —
-  # so a spawn can split them straight into `claude`'s arguments; what was
-  # recorded goes to stderr, for the person.
-  defp shape(mouse_id, layout, %{mode: mode, model: model, effort: effort} = shape) do
-    case Storage.shape(mouse_id, mode, model, effort, cut_from(layout.main_checkout)) do
-      {:ok, _} ->
-        IO.puts(:stderr, "#{layout.branch_label} is #{Whiska.Shape.describe(shape)}.")
-        ignore_spec(layout)
-        clone(layout)
-        say(Enum.join(Whiska.Shape.claude_args(shape), " "))
+  # so a spawn by hand can split them straight into `claude`'s arguments; what
+  # was recorded goes to stderr, for the person.
+  defp shape(mouse_id, layout, shape) do
+    case Whiska.Spawn.shape(mouse_id, layout, shape) do
+      {:ok, %{flags: flags, said: said}} ->
+        Enum.each(said, &IO.puts(:stderr, &1))
+        say(Enum.join(flags, " "))
 
       {:error, reason} ->
         IO.puts(:stderr, "whiska: could not shape this mouse (#{inspect(reason)}).")
@@ -1387,35 +1446,67 @@ defmodule Whiska.CLI do
     end
   end
 
-  # The branch the main checkout is on is the one this worktree was just cut
-  # from, which is what the mouse's branch is measured against. A detached
-  # head names none, and the mouse is read against the default branch.
-  defp cut_from(main_checkout) do
-    case Git.head_branch(main_checkout) do
-      {:ok, branch} -> branch
-      {:error, _} -> nil
+  # Setting the mode of a mouse nobody shaped comes before it can write a
+  # spec or a research document. A failure stops neither: the mouse says so
+  # under its spec, and until then the owl only leaves the worktree standing.
+  defp ignore_spec(layout) do
+    layout.main_checkout |> Whiska.Spawn.ignore_files() |> Enum.each(&IO.puts(:stderr, &1))
+  end
+
+  defp spawn(cwd, args) do
+    case Whiska.Spawn.parse(args) do
+      {:ok, request} -> with_herdr(cwd, "spawn a mouse in", &Whiska.Spawn.run(&1, request, &2))
+      {:error, message} -> fail("whiska: #{message}")
     end
   end
 
-  # Stocking the worktree comes last and can fail nothing: what it did, or why
-  # it did nothing, is one stderr line for the spawn's report.
-  defp clone(layout) do
-    IO.puts(:stderr, "whiska: #{Whiska.Clone.run(layout.main_checkout, layout.worktree_root)}.")
+  defp land(%Question{} = q, cwd, commit) do
+    {:ok, main} = main_checkout(cwd || File.cwd!())
+
+    with %Mouse{} = mouse <- Storage.mouse(q.mouse_id),
+         {:ok, report} <- Whiska.Land.run(main, mouse, commit) do
+      say(report)
+    else
+      nil -> fail("whiska: ##{q.id} has no mouse, so no branch to land.")
+      {:error, message} -> fail("whiska: #{message}")
+    end
   end
 
-  # Shaping, or setting the mode of a mouse nobody shaped, comes before the
-  # mouse can write a spec or a research document. A failure does not stop either: the
-  # mouse says so under its spec, and until then the owl only leaves the
-  # worktree standing.
-  defp ignore_spec(layout) do
-    for {name, line} <- [
-          {Whiska.Spec.filename(), Whiska.Spec.exclude_line()},
-          {Whiska.Research.filename(), Whiska.Research.exclude_line()},
-          {Whiska.BuildPlan.filename(), Whiska.BuildPlan.exclude_line()}
-        ] do
-      with {:error, reason} <- Whiska.Spec.ignore(layout.main_checkout, line) do
-        IO.puts(:stderr, "whiska: could not make git ignore #{name} (#{inspect(reason)}).")
+  defp pr(%Question{} = q, cwd, commit) do
+    {:ok, main} = main_checkout(cwd || File.cwd!())
+
+    with %Mouse{} = mouse <- Storage.mouse(q.mouse_id),
+         {:ok, report} <- Whiska.PR.run(main, mouse, q, commit) do
+      say(report)
+    else
+      nil -> fail("whiska: ##{q.id} has no mouse, so no branch to open a merge request for.")
+      {:error, message} -> fail("whiska: #{message}")
+    end
+  end
+
+  # Run `work` with this repo's main checkout and herdr, in an open house, and
+  # print what it answers.
+  defp with_herdr(cwd, cannot, work) do
+    with_house(cwd, fn ->
+      {:ok, main} = main_checkout(cwd || File.cwd!())
+
+      case herdr_socket() do
+        {:ok, socket} ->
+          case work.(main, %{herdr: Herdr.impl(), socket: socket, workspace: workspace_here()}) do
+            {:ok, report} -> say(report)
+            {:error, message} -> fail("whiska: #{message}")
+          end
+
+        {:error, {:no_socket, default}} ->
+          no_socket(default, cannot)
       end
+    end)
+  end
+
+  defp workspace_here do
+    case System.get_env("HERDR_WORKSPACE_ID") do
+      id when is_binary(id) and id != "" -> id
+      _ -> nil
     end
   end
 
@@ -2541,7 +2632,7 @@ defmodule Whiska.CLI do
   # The link is printed under the branch line, where the main session reads
   # it, so it is a plain https one or nothing.
   defp record_merge_request(%Question{} = q, url) do
-    with true <- merge_request_link?(url) || :not_a_link,
+    with true <- Whiska.PR.link?(url) || :not_a_link,
          %Mouse{branch: branch} <- Storage.mouse(q.mouse_id) || :no_mouse,
          {:ok, _} <- Storage.record_merge_request(q.mouse_id, url) do
       say("Recorded: #{branch}'s merge request, #{url}.")
@@ -2556,9 +2647,6 @@ defmodule Whiska.CLI do
         fail("whiska: could not record the merge request (#{inspect(reason)}).")
     end
   end
-
-  defp merge_request_link?(url),
-    do: Regex.match?(~r|\Ahttps://[A-Za-z0-9.-]+(:[0-9]+)?(/[^\s()\[\]<>"'`\\\p{C}]*)?\z|u, url)
 
   defp live_mouse(%Question{mouse_id: mouse_id}) do
     case Storage.mouse(mouse_id) do

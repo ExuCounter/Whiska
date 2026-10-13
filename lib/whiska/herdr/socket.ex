@@ -134,11 +134,70 @@ defmodule Whiska.Herdr.Socket do
   end
 
   @impl true
-  def remove_worktree(socket, workspace_id) do
-    params = %{"workspace_id" => workspace_id, "force" => false}
+  def remove_worktree(socket, workspace_id), do: remove(socket, workspace_id, false)
+
+  @impl true
+  def force_remove_worktree(socket, workspace_id), do: remove(socket, workspace_id, true)
+
+  defp remove(socket, workspace_id, force?) do
+    params = %{"workspace_id" => workspace_id, "force" => force?}
 
     with {:ok, %{"result" => _}} <- request(socket, "worktree.remove", params) do
       :ok
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  # Checked against herdr 0.9.3's `herdr api schema --json`: the reply is
+  # `worktree_created`, carrying the new workspace and its root pane.
+  @impl true
+  def create_worktree(socket, new) do
+    params =
+      %{
+        "cwd" => new.cwd,
+        "path" => new.path,
+        "branch" => new.branch,
+        "label" => new.label,
+        "focus" => false
+      }
+      |> then(&if new[:workspace_id], do: Map.put(&1, "workspace_id", new.workspace_id), else: &1)
+
+    with {:ok,
+          %{
+            "result" => %{
+              "workspace" => %{"workspace_id" => workspace},
+              "root_pane" => %{"pane_id" => pane}
+            }
+          }}
+         when is_binary(workspace) and is_binary(pane) <-
+           request(socket, "worktree.create", params) do
+      {:ok, %{workspace_id: workspace, pane_id: pane}}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  # Starting an agent waits for it to be ready, which takes longer than any
+  # other reply here: the request carries its own deadline, and the reply is
+  # read for that long and a little more.
+  @start_timeout 15_000
+
+  @impl true
+  def start_agent(socket, pane_id, name, args) do
+    params = %{
+      "name" => name,
+      "kind" => "claude",
+      "pane_id" => pane_id,
+      "args" => args,
+      "timeout_ms" => @start_timeout
+    }
+
+    with {:ok, %{"result" => %{"argv" => argv}}} when is_list(argv) <-
+           request(socket, "agent.start", params, @start_timeout + @reply_timeout) do
+      {:ok, argv}
     else
       {:ok, other} -> {:error, {:unexpected_reply, other}}
       {:error, _} = error -> error
@@ -315,11 +374,11 @@ defmodule Whiska.Herdr.Socket do
     end
   end
 
-  defp request(socket, method, params) do
+  defp request(socket, method, params, timeout \\ @reply_timeout) do
     with {:ok, conn} <- connect(socket) do
       try do
         with :ok <- send_request(conn, method, params) do
-          read_line(conn)
+          read_line(conn, timeout)
         end
       after
         :gen_tcp.close(conn)
@@ -345,8 +404,8 @@ defmodule Whiska.Herdr.Socket do
     )
   end
 
-  defp read_line(conn) do
-    with {:ok, line, _rest} <- recv_line(conn, "", @reply_timeout) do
+  defp read_line(conn, timeout \\ @reply_timeout) do
+    with {:ok, line, _rest} <- recv_line(conn, "", timeout) do
       case JSON.decode(line) do
         {:ok, %{"error" => error}} -> {:error, {:herdr, error}}
         {:ok, reply} -> {:ok, reply}

@@ -407,6 +407,24 @@ defmodule Whiska.Hook.PreToolUseTest do
       end
     end
 
+    test "a mouse may not spawn, send to, land, open a merge request for or drop a branch", %{
+      main: main,
+      worktree: worktree
+    } do
+      shaped_build(main, worktree)
+
+      for command <- [
+            "whiska spawn build feat/x /tmp/task.md",
+            "whiska send feat-other /tmp/note.md",
+            "whiska land 12",
+            "whiska pr 12",
+            "whiska drop feat-other --force"
+          ] do
+        assert {:deny, reason} = bash(worktree, command), command
+        assert reason =~ "the person's command", command
+      end
+    end
+
     test "reading commands, and other programs' words, pass", %{main: main, worktree: worktree} do
       shaped_build(main, worktree)
 
@@ -418,7 +436,9 @@ defmodule Whiska.Hook.PreToolUseTest do
             "whiska mice",
             "git show HEAD",
             "grep -n hold lib/x.ex",
-            "echo focus"
+            "echo focus",
+            "pr -2 notes.txt",
+            "drop"
           ] do
         assert :allow = bash(worktree, command), command
       end
