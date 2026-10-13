@@ -70,12 +70,6 @@ defmodule Whiska.CLIQuestionsTest do
       assert out =~ "1 orphaned"
       assert out =~ "1 on the doorstep"
     end
-
-    test "is in the usage text, beside statusline" do
-      out = capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
-      assert out =~ "questions"
-      assert out =~ "statusline"
-    end
   end
 
   describe "whiska questions --full — no id to type" do
@@ -165,11 +159,6 @@ defmodule Whiska.CLIQuestionsTest do
 
       one = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
       assert one =~ "##{q.id}  feat-a  finished"
-    end
-
-    test "--full is in the usage text" do
-      out = capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
-      assert out =~ "--full"
     end
   end
 

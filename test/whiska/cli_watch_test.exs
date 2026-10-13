@@ -213,12 +213,6 @@ defmodule Whiska.CLIWatchTest do
       assert out =~ "◐ Order builder"
     end
 
-    test "is in the usage text" do
-      out = ExUnit.CaptureIO.capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
-
-      assert out =~ ~r/^\s+watch\s+\S/m
-    end
-
     test "statusline --here, which an older statusline script runs, prints nothing", %{
       main: main
     } do

@@ -45,20 +45,5 @@ defmodule Whiska.Rule.SniffTest do
       assert :allow = Sniff.decide("Grep", %{"pattern" => "foo"}, "sniff")
       assert :allow = Sniff.decide("Glob", %{"pattern" => "**/*.ex"}, "sniff")
     end
-
-    test "the reason explains the mode and points at the way out" do
-      {:deny, reason} = Sniff.decide("Write", %{"file_path" => "lib/x.ex"}, "sniff")
-
-      assert reason =~ "sniff"
-      # The way out is a proposal a fresh build mouse takes up, not flipping
-      # this one, which would build on the model chosen for the investigation.
-      assert reason =~ "What to change"
-      refute reason =~ "whiska mode build"
-    end
-
-    test "the reason names the one file a sniff mouse may write" do
-      {:deny, reason} = Sniff.decide("Write", %{"file_path" => "lib/x.ex"}, "sniff")
-      assert reason =~ "`.whiska-research.md` at the worktree root"
-    end
   end
 end

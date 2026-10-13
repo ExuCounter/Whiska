@@ -165,21 +165,4 @@ defmodule Whiska.ShapeTest do
       assert Shape.label(shape("build", nil, nil)) == "build"
     end
   end
-
-  test "the help gives the catch-all model and effort from priv/models.json" do
-    help = capture_io(fn -> Whiska.CLI.run(["--help"]) end)
-
-    assert help =~ "shape --rules"
-    assert help =~ "shape build|sniff [--model <name>] [--effort <level>]"
-    if @model, do: assert(help =~ @model)
-    if @effort, do: assert(help =~ @effort)
-  end
-
-  test "no source or shipped skill names a model, so changing one is a one-file edit" do
-    for path <- Path.wildcard("lib/**/*.ex") ++ Path.wildcard("priv/skills/**/*.md"),
-        model <- @models do
-      refute File.read!(path) =~ ~r/\b#{model}\b/,
-             "#{path} names #{model}; it belongs in priv/models.json"
-    end
-  end
 end

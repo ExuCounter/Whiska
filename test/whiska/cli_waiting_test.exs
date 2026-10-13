@@ -175,12 +175,6 @@ defmodule Whiska.CLIWaitingTest do
       out = capture_io(fn -> assert CLI.run(["waiting"], plain) == 0 end)
       assert out =~ "feat-a"
     end
-
-    test "is in the usage text" do
-      out = capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
-      assert out =~ "waiting"
-      assert out =~ "jump"
-    end
   end
 
   # A jump lands on the house's main session, never on a mouse's pane

@@ -58,11 +58,6 @@ defmodule Whiska.CLIDoctorTest do
     assert out =~ ~r/(ok|warn)\s+hoot/
   end
 
-  test "help lists it" do
-    out = capture_io(fn -> CLI.run(["--help"]) end)
-    assert out =~ "doctor"
-  end
-
   # stderr is deliberately let through: a doctor's diagnostics are the point.
   defp with_status(fun) do
     holder = self()

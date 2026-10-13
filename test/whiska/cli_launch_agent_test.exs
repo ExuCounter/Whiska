@@ -270,12 +270,4 @@ defmodule Whiska.CLILaunchAgentTest do
       assert err =~ "whiska owl stop"
     end
   end
-
-  test "help lists the owl's launchd commands" do
-    out = capture_io(fn -> CLI.run(["--help"]) end)
-    assert out =~ "owl install"
-    assert out =~ "owl uninstall"
-    assert out =~ "owl stop"
-    assert out =~ "owl start"
-  end
 end

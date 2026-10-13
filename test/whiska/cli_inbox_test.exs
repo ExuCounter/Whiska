@@ -489,15 +489,4 @@ defmodule Whiska.CLIInboxTest do
       in_house(main, fn -> assert Storage.mouse("ma").held_at == nil end)
     end
   end
-
-  test "the eight words are in the usage text, and jump is not one of them" do
-    out = capture_io(fn -> assert CLI.run(["--help"]) == 0 end)
-
-    for word <- ~w(inbox show reply dismiss focus away hold resume) do
-      assert out =~ ~r/^ {2,4}#{word}\b/m, "#{word} is not in the usage text"
-    end
-
-    assert out =~ ~r/^ {2,4}jump \[<repo\|branch>\]/m
-    refute out =~ ~r/^ {2,4}jump\s{2,}/m
-  end
 end

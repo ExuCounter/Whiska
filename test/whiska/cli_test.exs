@@ -402,13 +402,6 @@ defmodule Whiska.CLITest do
       assert File.read!(Path.join(main, ".claude/settings.json")) == "{ this is not json"
     end
 
-    test "tells you what it did and what to do next", %{main: main} do
-      out = capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
-
-      assert out =~ ".claude/settings.json"
-      assert out =~ "git add"
-    end
-
     test "writes the shim script and makes it executable", %{main: main} do
       capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
 

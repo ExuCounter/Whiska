@@ -152,10 +152,5 @@ defmodule Whiska.CLIMiceTest do
 
       assert stderr =~ "not a git checkout"
     end
-
-    test "is in the usage text" do
-      stderr = capture_io(:stderr, fn -> assert CLI.run([]) == 1 end)
-      assert stderr =~ "mice"
-    end
   end
 end

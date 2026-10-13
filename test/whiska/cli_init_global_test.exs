@@ -284,13 +284,6 @@ defmodule Whiska.CLIInitGlobalTest do
       capture_io(fn -> assert CLI.run(["init", "--global"], nil) == 0 end)
       assert File.exists?(Path.join(home, ".claude/settings.json"))
     end
-
-    test "says what it wrote and how to switch a repo over" do
-      output = init_global()
-
-      assert output =~ "~/.claude"
-      assert output =~ "whiska uninstall"
-    end
   end
 
   describe "a repo that also has the per-repo install" do

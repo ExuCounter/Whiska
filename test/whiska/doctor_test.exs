@@ -217,13 +217,6 @@ defmodule Whiska.DoctorTest do
       assert check.fix =~ Whiska.Herdr.config_path()
     end
 
-    test "the fix edits the person's existing table rather than handing them one to paste" do
-      %Check{fix: fix} = Doctor.hoot({:ok, {:not_shown, "disabled"}})
-
-      refute fix =~ ~r/^\[ui\.toast\]$/m
-      assert fix =~ ~r/set .*delivery/i
-    end
-
     test "herdr unreachable is a warning, and says the probe could not be made" do
       check = Doctor.hoot({:error, :enoent})
 

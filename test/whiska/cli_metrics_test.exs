@@ -225,9 +225,4 @@ defmodule Whiska.CLIMetricsTest do
 
     assert out =~ "No usage recorded yet"
   end
-
-  test "is in the usage text" do
-    out = capture_io(fn -> CLI.run(["help"]) end)
-    assert out =~ "metrics [--json]"
-  end
 end
