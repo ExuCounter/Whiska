@@ -640,10 +640,11 @@ defmodule Whiska.InstallStatuslineTest do
       assert prose =~ ~r/a merge request's rows.{0,60}`finish:`.{0,40}never/i
     end
 
-    test "pushing to the merge request pushes the worktree's head to its branch on origin" do
+    test "pushing to the merge request pushes the mouse's branch by name, whatever the worktree has out" do
       push = option("Push to the merge request")
 
-      assert push =~ "`git -C <worktree> push origin HEAD`"
+      assert push =~ "`git -C <worktree> push origin refs/heads/<branch>:refs/heads/<branch>`"
+      refute push =~ "HEAD"
       refute push =~ ~r/--force|push -f|\+HEAD/
       assert push =~ "never forced"
       assert push =~ ~r/refuses.{0,120}stop and say why in its own words/i
@@ -658,7 +659,8 @@ defmodule Whiska.InstallStatuslineTest do
     test "opening a merge request records it, so later finished lines know" do
       pr = option("Open a merge request / PR")
 
-      assert pr =~ "`git -C <worktree> push -u origin HEAD`"
+      assert pr =~ "`git -C <worktree> push -u origin refs/heads/<branch>:refs/heads/<branch>`"
+      refute pr =~ "HEAD"
       assert pr =~ ~r/succeeds.{0,80}`whiska merge-request <id> '<url>'`/i
       assert pr =~ ~r/the link `gh` or `glab` printed/i
     end

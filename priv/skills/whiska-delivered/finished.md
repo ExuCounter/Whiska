@@ -120,7 +120,8 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
   on the command line. Git refuses — a hook, nothing to commit → stop and
   say why in its own words; nothing lands. Then exactly as Land here.
 - **Open a merge request / PR** — push the branch with its upstream set,
-  `git -C <worktree> push -u origin HEAD`, and open it with `gh`
+  `git -C <worktree> push -u origin refs/heads/<branch>:refs/heads/<branch>`,
+  by its name whatever the worktree has checked out, and open it with `gh`
   or `glab`, whichever this repo's host wants, assigned to the account that
   tool is signed in as. The body is the message you
   just showed: the branch's own session wrote it, with context you lack, so
@@ -143,7 +144,8 @@ recommend a step. A mouse that forgot the block is fixed in `whiska-finish`.
 - **Commit and open a PR** — commit as Commit and land does, file
   list included, then exactly as Open a merge request / PR.
 - **Push to the merge request** — push the branch's new commits to the
-  merge request already open for it: `git -C <worktree> push origin HEAD`,
+  merge request already open for it:
+  `git -C <worktree> push origin refs/heads/<branch>:refs/heads/<branch>`,
   to the branch of the same name the merge request was opened from. A push
   is never forced. Git refuses — a rebased branch, commits on the merge
   request this branch lacks → stop and say why in its own words.
