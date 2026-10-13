@@ -1,8 +1,8 @@
-defmodule Whiska.Inbox do
+defmodule Whiska.Letters do
   @moduledoc """
-  The person's words for a mouse, as files in its worktree: what `whiska send`
-  hands a running mouse, and the comments `whiska spawn --from` hands a fresh
-  one. A mouse reads its own worktree without asking anyone, which a file the
+  The person's words for a mouse, as letters: files in its worktree, holding
+  what `whiska send` hands a running mouse and the comments `whiska spawn
+  --from` hands a fresh one. A mouse reads its own worktree without asking anyone, which a file the
   main session wrote elsewhere is not.
 
   The folder is ignored through the main checkout's `.git/info/exclude`, like
@@ -10,13 +10,13 @@ defmodule Whiska.Inbox do
   reading the worktree clean.
   """
 
-  @folder ".whiska-inbox"
+  @folder ".whiska-letters"
 
   @spec exclude_line() :: String.t()
   def exclude_line, do: "/" <> @folder <> "/"
 
   @doc """
-  Copy `source` into `worktree`'s inbox under a name no earlier message has.
+  Copy `source` into `worktree`'s letters under a name no earlier letter has.
   Answers the copy's absolute path.
   """
   @spec put(Path.t(), Path.t(), Path.t()) :: {:ok, Path.t()} | {:error, term()}

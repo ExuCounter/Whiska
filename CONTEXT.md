@@ -270,6 +270,13 @@ work: a bug's in the build **brief**, an investigation's in the sniff brief.
 Whiska keeps one copy per branch beside the kept **spec**, overwritten each round, so
 every question's link opens the latest. First named the write-up, for investigations
 alone.
+
+**Letter**:
+The person's words for a mouse, copied as a file into its worktree's `.whiska-letters/`,
+which git ignores: what `whiska send` hands a running mouse, and the comments
+`whiska spawn --from <id> --comments <file>` hands a fresh one. Only the copy's path is
+typed into the pane, never the words (ADR-0044).
+_Avoid_: inbox (the person's own list of what waits on them), message (a mouse's)
 _Avoid_: findings (a reviewer's word), write-up, report (the message's shape)
 
 **Waiting**:
@@ -690,7 +697,7 @@ Nothing is ever
 forced, and anything that cannot be established leaves the worktree exactly where it is.
 The mouse record survives, as every record does (ADR-0007); only the folder, the pane and
 the branch go.
-_Avoid_: teardown, reaping, archiving, drop (`drop-worktree` is the person's own way to
+_Avoid_: teardown, reaping, archiving, drop (`whiska drop` is the person's own way to
 take a worktree down, which stays)
 
 **Quiet**:

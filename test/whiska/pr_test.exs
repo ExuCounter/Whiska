@@ -42,7 +42,12 @@ defmodule Whiska.PRTest do
         {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: path, branch: "feat-a"})
 
         {:ok, q} =
-          Storage.record_question(%{mouse_id: "m1", text: @message, kind: "done", status: "open"})
+          Storage.record_question(%{
+            mouse_id: "m1",
+            text: @message <> "⁣⁣⁣",
+            kind: "done",
+            status: "open"
+          })
 
         to_string(q.id)
       end)

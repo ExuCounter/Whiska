@@ -110,6 +110,21 @@ defmodule Whiska.DropTest do
     refute branch?(ctx.repo, "feat-b")
   end
 
+  test "the hooks spawn carried in from an uncommitted install are no work to lose", ctx do
+    path = mouse(ctx.repo, "feat-c", [])
+
+    for root <- [ctx.repo.checkout, path] do
+      File.mkdir_p!(Path.join(root, ".claude/hooks"))
+      File.write!(Path.join(root, ".claude/settings.json"), "{}\n")
+      File.write!(Path.join(root, ".claude/hooks/whiska.sh"), "#!/bin/sh\n")
+    end
+
+    herdr_removes(ctx.repo, path, :force_remove_worktree)
+
+    assert {0, _, _} = drop(["feat-c"], ctx.repo)
+    refute File.dir?(path)
+  end
+
   test "a branch with no worktree and no branch says there is nothing to drop", ctx do
     stub(Herdr, :worktrees, fn @socket, _checkout -> {:ok, []} end)
 

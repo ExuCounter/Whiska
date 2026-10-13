@@ -20,11 +20,11 @@ defmodule Whiska.Land do
   """
 
   alias Whiska.Git
-  alias Whiska.Inbox
+  alias Whiska.Letters
   alias Whiska.Schema.Mouse
 
   @whiska_files ~w(.whiska-mouse .whiska-spec.md .whiska-research.md .whiska-plan.md
-                   .whiska-brief.md .whiska-inbox)
+                   .whiska-brief.md .whiska-letters)
 
   @doc "Land `mouse`'s branch onto `main_checkout`, committing first with the message in `commit`."
   @spec run(Path.t(), Mouse.t(), Path.t() | nil) :: {:ok, String.t()} | {:error, String.t()}
@@ -32,7 +32,7 @@ defmodule Whiska.Land do
     with :ok <- no_merge_request(mouse),
          {:ok, onto} <- onto(main_checkout),
          checks = checks(main_checkout),
-         :ok <- commit_left(mouse, commit, "land"),
+         :ok <- commit_left(main_checkout, mouse, commit, "land"),
          {:ok, %{base: base, commits: commits}} <- own_commits(main_checkout, mouse),
          :ok <- something(mouse.branch, base, commits),
          {:ok, before} <- Git.head(main_checkout),
@@ -89,31 +89,46 @@ defmodule Whiska.Land do
   `commit`; with no message, refuse and name each file, so the person sees
   them before they reach a commit. `command` is the one that asked.
   """
-  @spec commit_left(Mouse.t(), Path.t() | nil, String.t()) :: :ok | {:error, String.t()}
-  def commit_left(%Mouse{path: path, branch: branch}, commit, command) do
-    case {Git.uncommitted(path), commit} do
-      {{:ok, []}, _} ->
+  @spec commit_left(Path.t(), Mouse.t(), Path.t() | nil, String.t()) ::
+          :ok | {:error, String.t()}
+  def commit_left(main_checkout, %Mouse{path: path, branch: branch}, commit, command) do
+    case {left(main_checkout, path), commit} do
+      {{:ok, [], _carried}, _} ->
         :ok
 
-      {{:ok, files}, nil} ->
+      {{:ok, files, _carried}, nil} ->
         {:error,
          "#{branch} has files not committed, so nothing was done:\n\n" <>
            Enum.map_join(files, "", &"  #{&1}\n") <>
            "\n`whiska #{command} <id> --commit <message-file>` commits them first, with " <>
            "the message in that file."}
 
-      {{:ok, _files}, file} ->
-        commit(path, file)
+      {{:ok, _files, carried}, file} ->
+        commit(path, file, carried)
 
       {{:error, reason}, _} ->
         {:error, "could not read #{path} (#{inspect(reason)}), so nothing was done."}
     end
   end
 
-  defp commit(worktree, file) do
-    keep_out = Enum.map(@whiska_files, &":!#{&1}")
+  @doc """
+  The files not committed in `worktree`, apart from the hook files a spawn
+  carried in (`Whiska.Spawn.carried?/3`), and those apart.
+  """
+  @spec left(Path.t(), Path.t()) :: {:ok, [String.t()], [String.t()]} | {:error, term()}
+  def left(main_checkout, worktree) do
+    with {:ok, files} <- Git.uncommitted(worktree) do
+      {carried, left} =
+        Enum.split_with(files, &Whiska.Spawn.carried?(main_checkout, worktree, &1))
 
-    with {:ok, _} <- Inbox.read(file),
+      {:ok, left, carried}
+    end
+  end
+
+  defp commit(worktree, file, carried) do
+    keep_out = Enum.map(@whiska_files ++ carried, &":!#{&1}")
+
+    with {:ok, _} <- Letters.read(file),
          {_, 0} <- git(worktree, ["add", "-A", "--", "." | keep_out]),
          {_, 0} <- git(worktree, ["commit", "--quiet", "-F", Path.expand(file)]) do
       :ok

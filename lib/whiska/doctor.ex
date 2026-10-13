@@ -1164,8 +1164,29 @@ defmodule Whiska.Doctor do
 
   defp retired(main_checkout) do
     case review_loop(main_checkout) do
-      %Check{status: :ok} -> []
-      check -> [check]
+      %Check{status: :ok} -> repo_skills(main_checkout)
+      check -> [check | repo_skills(main_checkout)]
+    end
+  end
+
+  @doc """
+  The skills an older repo-scope init left in `repo_root`, as plain files of
+  its own; a linked one is the person's (ADR-0056). None is nothing to say.
+  """
+  @spec repo_skills(Path.t()) :: [Check.t()]
+  def repo_skills(repo_root) do
+    case Install.retired_skills(repo_root) do
+      [] ->
+        []
+
+      skills ->
+        [
+          Check.warn(
+            "skills",
+            "#{Enum.join(skills, ", ")} #{verb(skills, "is", "are")} retired and nothing reads it",
+            "whiska init"
+          )
+        ]
     end
   end
 

@@ -42,7 +42,9 @@ rules in `priv/models.json` price lowest. One mode per mouse removes the flip.
 ADR-0009 classifies a turn by its marker alone, and the doorstep already carries the whole
 message as the question's text. A second marker, or a field the `Stop` hook cut out of
 the text, would be Whiska reading prose to decide something, which ADR-0009 refuses. So
-the proposal is content, read by the person and the main session. `whiska questions <id>`
+the proposal is content, read by the person and the main session. `whiska show` prints its
+first line under the research document's summary, and the turn is still what its marker
+says (ADR-next-the-report-is-a-document). `whiska questions <id>`
 heads a sniff mouse's question `feat/x (sniff)` and prints what any finished question's
 branch holds under its heading.
 

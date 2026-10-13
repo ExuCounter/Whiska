@@ -53,8 +53,8 @@ defmodule Whiska.Drop do
 
   defp lost(main_checkout, branch, tree) do
     with {:ok, commits} <- commits(main_checkout, branch),
-         {:ok, files} <- files(tree) do
-      {:ok, %{commits: commits, files: files}}
+         {:ok, files, dirty?} <- files(main_checkout, tree) do
+      {:ok, %{commits: commits, files: files, dirty?: dirty?}}
     end
   end
 
@@ -65,12 +65,14 @@ defmodule Whiska.Drop do
     end
   end
 
-  defp files(nil), do: {:ok, []}
+  defp files(_main_checkout, nil), do: {:ok, [], false}
 
-  defp files(%{path: path}) do
-    case Git.uncommitted(path) do
-      {:ok, files} -> {:ok, files}
-      {:error, _} -> {:ok, :unknown}
+  # The hook files a spawn carried in are no work to lose, but they still keep
+  # git from removing the worktree unforced.
+  defp files(main_checkout, %{path: path}) do
+    case Whiska.Land.left(main_checkout, path) do
+      {:ok, files, carried} -> {:ok, files, files != [] or carried != []}
+      {:error, _} -> {:ok, :unknown, true}
     end
   end
 
@@ -101,7 +103,7 @@ defmodule Whiska.Drop do
   defp remove(_main_checkout, nil, _lost, _via), do: :ok
 
   defp remove(main_checkout, %{path: path, workspace_id: workspace}, lost, via) do
-    dirty? = lost.files != []
+    dirty? = lost.dirty?
 
     removed =
       cond do

@@ -610,7 +610,9 @@ defmodule Whiska.CLI do
 
       say(
         told(scope) <>
-          statusline_note(statusline) <> retired_note(retired) <> commands_note(commands)
+          statusline_note(statusline) <>
+          retired_note(retired, scope) <>
+          commands_note(commands)
       )
     else
       {:error, :unparseable} ->
@@ -654,14 +656,19 @@ defmodule Whiska.CLI do
     {removed |> Enum.map(&(&1 |> Path.dirname() |> Path.basename())) |> Enum.uniq(), linked}
   end
 
-  defp retired_note({[], linked}), do: linked_note(linked)
+  defp retired_note({[], linked}, _scope), do: linked_note(linked)
 
-  defp retired_note({names, linked}) do
+  defp retired_note({names, linked}, scope) do
     "\n\nRemoved the skills an older Whiska wrote, which nothing reads now: " <>
       Enum.join(names, ", ") <>
       ". Each session's brief carries what they said." <>
-      linked_note(linked)
+      commit_removal(scope) <> linked_note(linked)
   end
+
+  # A repo's skills were committed, so every worktree cut from it keeps them
+  # until the removal is.
+  defp commit_removal(:repo), do: " Commit their removal too: `git add -A .claude/skills`."
+  defp commit_removal(:global), do: ""
 
   # The one-word commands are the machine's, like the home they are written
   # under; the per-repo install writes none.

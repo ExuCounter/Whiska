@@ -46,6 +46,16 @@ defmodule Whiska.ReportTest do
     assert Report.document?(@document)
   end
 
+  test "a heading inside a code block belongs to the block, not the message" do
+    quoted = "The brief now asks for:\n\n```\n# Title\n\n## Summary\n3-5 lines.\n```\n"
+
+    refute Report.document?(quoted)
+    assert Report.summary(quoted) == nil
+
+    assert Report.summary("## Summary\nShort.\n\n```\n## Found\n```\n\n## Found\nx") ==
+             "## Summary\nShort.\n\n```\n## Found\n```"
+  end
+
   test "a document is kept without its marker line" do
     assert Report.text(@document <> "\n⁣⁣⁣") == @document
   end

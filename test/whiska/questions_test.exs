@@ -185,6 +185,23 @@ defmodule Whiska.QuestionsTest do
       assert Questions.render_full(summary) =~ "(queued behind ##{sent.id}, asked"
     end
 
+    test "a report that ends on a decision shows its summary and the question it asks", %{
+      main: main
+    } do
+      q =
+        seed(main, fn ->
+          ask(
+            "m1",
+            "# Built\n\n## Summary\nDone.\n\n## Options\nKeep or drop.\n\nKeep the flag?\n⁣⁣"
+          )
+        end)
+
+      shown = Questions.full(q, "feat-a", nil)
+
+      assert shown =~ "\n\n## Summary\nDone.\n\nKeep the flag?"
+      refute shown =~ "## Options"
+    end
+
     test "an open question with nothing sent is just open", %{main: main} do
       q = seed(main, fn -> ask("m1", "Recap.\n[worktree-status: needs-decision] pick one") end)
 

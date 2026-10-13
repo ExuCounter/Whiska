@@ -3,7 +3,7 @@ defmodule Whiska.Send do
   `whiska send`: the person's words to a mouse already at work on its branch —
   a follow-up, notes on what it found, comments on its research document.
 
-  The words travel as a file in the mouse's own worktree (`Whiska.Inbox`), and
+  The words travel as a file in the mouse's own worktree (`Whiska.Letters`), and
   what is typed into its pane is one fixed line pointing at it. Nothing the
   person or another mouse wrote is typed, so nothing in it can be read as a
   keystroke, cut short by the pane, or lost to a prompt box already holding
@@ -13,7 +13,7 @@ defmodule Whiska.Send do
   the question and the mouse's own hook takes it (ADR-0080).
   """
 
-  alias Whiska.Inbox
+  alias Whiska.Letters
   alias Whiska.Schema.Mouse
   alias Whiska.Storage
 
@@ -25,7 +25,7 @@ defmodule Whiska.Send do
           {:ok, String.t()} | {:error, String.t()}
   def run(main_checkout, branch, file, via) do
     with {:ok, mouse} <- live_mouse(branch),
-         {:ok, _text} <- Inbox.read(file),
+         {:ok, _text} <- Letters.read(file),
          {:ok, copy} <- copy(main_checkout, mouse, file) do
       busy? = busy?(via, mouse.pane)
 
@@ -58,7 +58,7 @@ defmodule Whiska.Send do
   end
 
   defp copy(main_checkout, mouse, file) do
-    case Inbox.put(main_checkout, mouse.path, file) do
+    case Letters.put(main_checkout, mouse.path, file) do
       {:ok, copy} ->
         {:ok, copy}
 

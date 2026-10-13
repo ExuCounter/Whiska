@@ -20,10 +20,14 @@ whole, and `whiska show` prints its summary under the link to it.
   ADR-0063 keeps a spec. A message with no `## Summary` keeps nothing.
 - **`whiska show <id>` prints the summary.** The header lines, every "Review … here" link
   (the diff, research, spec, build plan and now the report), then the `## Summary`
-  section and, when there is one, the first line under `## What to change`. The rest is
-  behind the link. `whiska questions --full` prints the same, from the same code. A
-  message with no `## Summary` (a question mid-grill, a mouse started before this) is
-  printed whole.
+  section and, when there is one, the first line under `## What to change`. A turn that
+  ends on a decision keeps the question on the line above its marker. The rest is behind
+  the link. `whiska questions --full` prints the same, from the same code. A message with
+  no `## Summary` (a question mid-grill, a mouse started before this) is printed whole.
+- **A heading inside a code block is not one.** A message quoting the template is not a
+  document.
+- **The heading never decides what the turn is.** Its kind is its marker's alone
+  (ADR-0009); the heading decides only what Whiska keeps and how much it prints.
 
 ## Why
 
@@ -47,8 +51,8 @@ to Claude Code's own launch flags one day, since those take no exception.
 - **Keep the document by the marker** (only a `done` turn). The heading is what the brief
   asks for and what `whiska show` reads, so one test decides both, and a finished report
   that ends on a decision is kept too.
-- **Print the first lines of any message.** A cut a mouse cannot aim at: the summary is
-  the mouse's own, written to be read alone.
+- **Print the first lines of any message.** A cut the mouse does not write for: the
+  summary is the mouse's own, written to be read alone.
 
 ## Consequences
 
@@ -64,3 +68,6 @@ to Claude Code's own launch flags one day, since those take no exception.
   line, which `whiska show` no longer prints.
 - A heading is prose. A mouse that leaves out `## Summary` is printed whole and nothing is
   kept, which is the loud failure: the person sees the whole message.
+- The mouse chooses what the person reads first. `whiska pr` sends the whole report as
+  the merge request's description, and `spawn --from` hands its Found to the next mouse
+  as fact; both are behind the links `whiska show` prints, not on screen.

@@ -17,6 +17,7 @@ defmodule Whiska.PR do
 
   alias Whiska.Git
   alias Whiska.Land
+  alias Whiska.Report
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -25,7 +26,7 @@ defmodule Whiska.PR do
   @spec run(Path.t(), Mouse.t(), Question.t(), Path.t() | nil) ::
           {:ok, String.t()} | {:error, String.t()}
   def run(main_checkout, %Mouse{} = mouse, %Question{} = question, commit) do
-    with :ok <- Land.commit_left(mouse, commit, "pr") do
+    with :ok <- Land.commit_left(main_checkout, mouse, commit, "pr") do
       case mouse.merge_request_url do
         nil -> open(main_checkout, mouse, question)
         url -> push_more(mouse, url)
@@ -49,7 +50,8 @@ defmodule Whiska.PR do
          {:ok, title} <- subject(main_checkout, first),
          {:ok, forge} <- forge(main_checkout),
          :ok <- push(mouse, ["-u"]),
-         {:ok, url} <- create(forge, main_checkout, mouse.branch, base, title, question.text),
+         {:ok, url} <-
+           create(forge, main_checkout, mouse.branch, base, title, Report.text(question.text)),
          :ok <- record(mouse, url) do
       {:ok,
        "Opened #{url} for #{mouse.branch}. The owl takes the worktree down once it is " <>
@@ -99,7 +101,7 @@ defmodule Whiska.PR do
 
   defp create(tool, main_checkout, branch, base, title, body) do
     file = Path.join(System.tmp_dir!(), "whiska-pr-#{System.unique_integer([:positive])}.md")
-    File.write!(file, body)
+    File.write!(file, body, [:exclusive])
 
     try do
       with {:ok, args} <- args(tool, main_checkout, branch, base, title, file) do

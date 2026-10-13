@@ -375,6 +375,19 @@ defmodule Whiska.CLITest do
       assert [_whiska] = settings["hooks"]["PreToolUse"]
     end
 
+    test "removes the skills an older init committed, and says to commit their removal", %{
+      main: main
+    } do
+      skill = Path.join(main, ".claude/skills/whiska-finish/SKILL.md")
+      File.mkdir_p!(Path.dirname(skill))
+      File.write!(skill, "written by an older whiska\n")
+
+      output = capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
+
+      refute File.exists?(skill)
+      assert output =~ "git add -A .claude/skills"
+    end
+
     test "is safe to re-run", %{main: main} do
       capture_io(fn -> assert CLI.run(["init"], main) == 0 end)
       first = File.read!(Path.join(main, ".claude/settings.json"))

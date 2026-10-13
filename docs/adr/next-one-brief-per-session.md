@@ -55,8 +55,9 @@ offered.
 ## What carries over
 
 - **Judgment is written, hard rules are hooks.** Whiska routes and stores, and decides
-  nothing by reading prose: no scoring, no parsing of a report beyond its marker
-  (ADR-0009). What takes judgment is in a brief, which a capable model reads; what must
+  nothing by reading prose: no scoring, and a turn's kind is its marker's alone
+  (ADR-0009). A `## Summary` heading decides only what Whiska keeps and how much
+  `whiska show` prints (ADR-next-the-report-is-a-document). What takes judgment is in a brief, which a capable model reads; what must
   hold whatever the model decides is a `PreToolUse` deny (ADR-0011).
 - **An answer goes through `whiska reply`, as the person's words.** It is saved against the
   question and the mouse's own hook takes it (ADR-0080). The main session never types into

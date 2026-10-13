@@ -144,7 +144,7 @@ defmodule Whiska.SpawnTest do
     refute brief =~ "Keep the old flag"
     refute brief =~ "do the thing"
 
-    [copied] = Path.wildcard(Path.join(worktree, ".whiska-inbox/*"))
+    [copied] = Path.wildcard(Path.join(worktree, ".whiska-letters/*"))
     assert brief =~ copied
     assert File.read!(copied) =~ "Keep the old flag"
 

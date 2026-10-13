@@ -86,6 +86,27 @@ defmodule Whiska.LandTest do
     assert ["feat: keep the scratch", "add second.md" | _] = subjects(ctx.repo)
   end
 
+  test "the hooks spawn carried in from an uncommitted install are neither named nor committed",
+       ctx do
+    for root <- [ctx.repo.checkout, ctx.path] do
+      File.mkdir_p!(Path.join(root, ".claude/hooks"))
+      File.write!(Path.join(root, ".claude/settings.json"), "{}\n")
+      File.write!(Path.join(root, ".claude/hooks/whiska.sh"), "#!/bin/sh\n")
+    end
+
+    GitRepo.dirty!(ctx.path)
+
+    assert {1, _, err} = land([ctx.id], ctx.repo)
+    assert err =~ "scratch.txt"
+    refute err =~ ".claude"
+
+    message = Path.join(ctx.root, "message.txt")
+    File.write!(message, "feat: keep the scratch\n")
+
+    assert {0, _, _} = land([ctx.id, "--commit", message], ctx.repo)
+    assert GitRepo.git!(ctx.repo.checkout, ["ls-files", ".claude"]) == ""
+  end
+
   test "a failing check is named, and the copies stay for the person", ctx do
     File.write!(Path.join(ctx.repo.checkout, "CLAUDE.md"), "## Finish\n\nchecks: false\n")
     GitRepo.git!(ctx.repo.checkout, ["commit", "-am", "break the checks"])

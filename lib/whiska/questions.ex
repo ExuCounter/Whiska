@@ -256,10 +256,28 @@ defmodule Whiska.Questions do
     """
     #{Enum.join([heading | under], "\n")}
 
-    #{Report.summary(text) || text}
+    #{shown(q, text)}
     """
     |> String.trim_trailing()
   end
+
+  # A report prints as its summary, the rest behind its link; one that ends on a
+  # decision keeps the question it asks (ADR-next-the-report-is-a-document).
+  defp shown(q, text) do
+    case Report.summary(text) do
+      nil -> text
+      summary -> summary <> asks(q, summary)
+    end
+  end
+
+  defp asks(%Question{kind: "needs-decision", text: text}, summary) do
+    case Marker.pointer(text) do
+      "" -> ""
+      pointer -> if String.contains?(summary, pointer), do: "", else: "\n\n" <> pointer
+    end
+  end
+
+  defp asks(_question, _summary), do: ""
 
   @typedoc """
   Reads what a question's branch holds, as `Whiska.Git.on_branch/3` answers,

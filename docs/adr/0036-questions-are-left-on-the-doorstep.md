@@ -22,7 +22,7 @@ listening, and "fail loudly" has no target: the hook's stderr lands in the mouse
 transcript, seen by nobody who needs to know. A file write has no connect timeout, no
 retry and no second code path for a dead owl, which still loses nothing.
 
-The doorstep sits in the house, not the worktree, so an ordinary `drop-worktree` cannot
+The doorstep sits in the house, not the worktree, so an ordinary `whiska drop` cannot
 silently erase pending questions. The mirror cost is that a question can outlive its mouse;
 that state has a name already (ADR-0026), and delivery releases such a question as settled
 or orphaned rather than typing it (ADR-0008). `.git/whiska/` is gitignored by construction.

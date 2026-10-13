@@ -121,6 +121,23 @@ defmodule Whiska.DoctorTest do
 
   # -- the sidebar ---------------------------------------------------------------
 
+  describe "repo_skills/1 — what an older init left in the repo's own skills" do
+    test "a retired skill still in the repo is named, with init as the fix" do
+      repo = Path.join(System.tmp_dir!(), "whiska-skills-#{System.unique_integer([:positive])}")
+      on_exit(fn -> File.rm_rf!(repo) end)
+      assert Doctor.repo_skills(repo) == []
+
+      [retired | _] = Install.retired_skills()
+      File.mkdir_p!(Path.dirname(Path.join(repo, retired)))
+      File.write!(Path.join(repo, retired), "retired\n")
+
+      assert [%Check{status: :warn, detail: detail, fix: "whiska init"}] =
+               Doctor.repo_skills(repo)
+
+      assert detail =~ retired
+    end
+  end
+
   describe "sidebar/1 — the herdr config that draws each mouse's line" do
     test "the shipped snippet passes" do
       config = "[ui]\nstatus_indicators = \"symbols\"\n\n" <> Whiska.Sidebar.snippet()

@@ -75,7 +75,7 @@ defmodule Whiska.SendTest do
 
     assert_received {:line, line}
     refute line =~ "old flag"
-    [copy] = Path.wildcard(Path.join(ctx.path, ".whiska-inbox/*.md"))
+    [copy] = Path.wildcard(Path.join(ctx.path, ".whiska-letters/*.md"))
     assert line =~ copy
     assert File.read!(copy) == File.read!(ctx.note)
     assert GitRepo.git!(ctx.path, ["status", "--porcelain"]) == ""
@@ -84,6 +84,6 @@ defmodule Whiska.SendTest do
   test "a branch with no live mouse on it is refused, and nothing is copied", ctx do
     assert {1, _, err} = send_note(["feat-nobody", ctx.note], ctx.repo)
     assert err =~ "feat-nobody"
-    assert Path.wildcard(Path.join(ctx.path, ".whiska-inbox/*")) == []
+    assert Path.wildcard(Path.join(ctx.path, ".whiska-letters/*")) == []
   end
 end

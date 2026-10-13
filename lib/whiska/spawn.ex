@@ -23,7 +23,7 @@ defmodule Whiska.Spawn do
   alias Whiska.Brief
   alias Whiska.Clone
   alias Whiska.Git
-  alias Whiska.Inbox
+  alias Whiska.Letters
   alias Whiska.Layout
   alias Whiska.Marker
   alias Whiska.Schema.Question
@@ -131,7 +131,7 @@ defmodule Whiska.Spawn do
   end
 
   defp read_task({:file, file}) do
-    with {:ok, text} <- Inbox.read(file), do: {:ok, {:words, text}}
+    with {:ok, text} <- Letters.read(file), do: {:ok, {:words, text}}
   end
 
   defp read_task({:from, id, comments}) do
@@ -151,7 +151,7 @@ defmodule Whiska.Spawn do
   end
 
   defp comments_readable(nil), do: {:ok, nil}
-  defp comments_readable(file), do: Inbox.read(file)
+  defp comments_readable(file), do: Letters.read(file)
 
   defp create(via, main_checkout, branch, path) do
     new = %{
@@ -266,6 +266,28 @@ defmodule Whiska.Spawn do
     end
   end
 
+  @doc """
+  Whether `rel`, a file not committed in `worktree`, is one of the hook files
+  carried in from the main checkout's install and still as carried: local
+  setup, not the mouse's work.
+  """
+  @spec carried?(Path.t(), Path.t(), String.t()) :: boolean()
+  def carried?(main_checkout, worktree, rel) do
+    (rel == ".claude/settings.json" or String.starts_with?(rel, ".claude/hooks/")) and
+      same_file?(Path.join(main_checkout, rel), Path.join(worktree, rel))
+  end
+
+  defp same_file?(a, b) do
+    with {:ok, %File.Stat{type: :regular}} <- File.lstat(a),
+         {:ok, %File.Stat{type: :regular}} <- File.lstat(b),
+         {:ok, text} <- File.read(a),
+         {:ok, ^text} <- File.read(b) do
+      true
+    else
+      _ -> false
+    end
+  end
+
   defp task_text({:words, text}, _main_checkout, _worktree), do: {:ok, String.trim(text)}
 
   defp task_text({:from, id, comments}, main_checkout, worktree) do
@@ -279,7 +301,7 @@ defmodule Whiska.Spawn do
         {:ok, proposal}
 
       file ->
-        with {:ok, copy} <- Inbox.put(main_checkout, worktree, file) do
+        with {:ok, copy} <- Letters.put(main_checkout, worktree, file) do
           {:ok,
            proposal <>
              " Then read the person's comments on that research document, in their own " <>
