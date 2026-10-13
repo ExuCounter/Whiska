@@ -497,7 +497,7 @@ defmodule Whiska.Herdr.SocketTest do
   end
 
   describe "create_worktree/2" do
-    test "asks worktree.create without taking focus and answers the workspace and its pane" do
+    test "asks worktree.create by cwd alone, without taking focus, and answers the workspace and its pane" do
       {path, fake} = start_fake()
 
       send(
@@ -516,8 +516,7 @@ defmodule Whiska.Herdr.SocketTest do
         cwd: "/main",
         path: "/main/worktrees/feat/a",
         branch: "feat/a",
-        label: "feat/a",
-        workspace_id: "w1"
+        label: "feat/a"
       }
 
       assert {:ok, %{workspace_id: "w9", pane_id: "w9:p1"}} = Socket.create_worktree(path, new)
@@ -525,14 +524,17 @@ defmodule Whiska.Herdr.SocketTest do
       assert_received {:fake_got,
                        %{
                          "method" => "worktree.create",
-                         "params" => %{
-                           "cwd" => "/main",
-                           "path" => "/main/worktrees/feat/a",
-                           "branch" => "feat/a",
-                           "focus" => false,
-                           "workspace_id" => "w1"
-                         }
+                         "params" =>
+                           %{
+                             "cwd" => "/main",
+                             "path" => "/main/worktrees/feat/a",
+                             "branch" => "feat/a",
+                             "focus" => false
+                           } = params
                        }}
+
+      # herdr 0.9.3 refuses a request naming both a cwd and a workspace_id.
+      refute Map.has_key?(params, "workspace_id")
     end
   end
 

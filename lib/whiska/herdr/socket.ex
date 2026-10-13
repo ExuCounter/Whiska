@@ -173,7 +173,6 @@ defmodule Whiska.Herdr.Socket do
         "label" => new.label,
         "focus" => false
       }
-      |> then(&if new[:workspace_id], do: Map.put(&1, "workspace_id", new.workspace_id), else: &1)
 
     with {:ok,
           %{

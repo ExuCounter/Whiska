@@ -108,6 +108,23 @@ defmodule Whiska.SpawnTest do
     assert mouse.shaped_at
   end
 
+  test "a kickoff herdr refuses while the fresh claude is still registering is tried again",
+       ctx do
+    herdr_creates(ctx.repo, "feat/csv-sort")
+    expect(Herdr, :start_agent, fn @socket, "w9:p1", _name, args -> {:ok, args} end)
+
+    not_ready =
+      {:error,
+       {:herdr,
+        %{"code" => "agent_not_ready", "message" => "agent w9:p1 is not an active named agent"}}}
+
+    Herdr
+    |> expect(:prompt, fn @socket, "w9:p1", _text -> not_ready end)
+    |> expect(:prompt, fn @socket, "w9:p1", _text -> :ok end)
+
+    assert {0, _out, _err} = spawn_mouse(["build", "feat/csv-sort", ctx.task], ctx.repo)
+  end
+
   test "a branch name outside a-z, 0-9, - and / is refused before herdr is asked", ctx do
     assert {1, _out, err} = spawn_mouse(["build", "Feat/CSV", ctx.task], ctx.repo)
     assert err =~ "Feat/CSV"

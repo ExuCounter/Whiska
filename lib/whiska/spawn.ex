@@ -87,7 +87,7 @@ defmodule Whiska.Spawn do
   Spawn the mouse `request` describes, from `main_checkout`, whose house is
   open. Answers the report for the person, or why nothing was started.
   """
-  @spec run(Path.t(), request(), %{herdr: module(), socket: Path.t(), workspace: String.t() | nil}) ::
+  @spec run(Path.t(), request(), %{herdr: module(), socket: Path.t()}) ::
           {:ok, String.t()} | {:error, String.t()}
   def run(main_checkout, %{branch: branch} = request, via) do
     path = Path.join([main_checkout, "worktrees", branch])
@@ -158,8 +158,7 @@ defmodule Whiska.Spawn do
       cwd: main_checkout,
       path: path,
       branch: branch,
-      label: branch,
-      workspace_id: via[:workspace]
+      label: branch
     }
 
     case via.herdr.create_worktree(via.socket, new) do
@@ -314,7 +313,21 @@ defmodule Whiska.Spawn do
   defp start_claude(via, pane, branch, flags),
     do: via.herdr.start_agent(via.socket, pane, agent_name(branch), flags)
 
-  defp hand_over(via, pane, text), do: via.herdr.prompt(via.socket, pane, text)
+  # herdr answers agent.start a moment before it lists the new claude under
+  # its name, and refuses a prompt in between: the kickoff waits that out.
+  @kickoff_tries 20
+  @kickoff_pause 250
+
+  defp hand_over(via, pane, text, tries \\ @kickoff_tries) do
+    case via.herdr.prompt(via.socket, pane, text) do
+      {:error, {:herdr, %{"code" => "agent_not_ready"}}} when tries > 1 ->
+        Process.sleep(@kickoff_pause)
+        hand_over(via, pane, text, tries - 1)
+
+      answer ->
+        answer
+    end
+  end
 
   @doc "herdr's name for the agent on `branch`: no `/`, which herdr refuses."
   @spec agent_name(String.t()) :: String.t()

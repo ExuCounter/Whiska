@@ -238,15 +238,13 @@ defmodule Whiska.Herdr do
 
   @typedoc """
   A worktree `create_worktree/2` asks for. `cwd` names the repo, since herdr
-  picks the repo from it and not from the workspace; `workspace_id` is the one
-  the request comes from, when there is one.
+  picks the repo from it; herdr refuses a workspace named alongside it.
   """
   @type new_worktree :: %{
           cwd: Path.t(),
           path: Path.t(),
           branch: String.t(),
-          label: String.t(),
-          workspace_id: String.t() | nil
+          label: String.t()
         }
 
   @doc """

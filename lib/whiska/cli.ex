@@ -1304,7 +1304,7 @@ defmodule Whiska.CLI do
 
       case herdr_socket() do
         {:ok, socket} ->
-          case work.(main, %{herdr: Herdr.impl(), socket: socket, workspace: workspace_here()}) do
+          case work.(main, %{herdr: Herdr.impl(), socket: socket}) do
             {:ok, report} -> say(report)
             {:error, message} -> fail("whiska: #{message}")
           end
@@ -1313,13 +1313,6 @@ defmodule Whiska.CLI do
           no_socket(default, cannot)
       end
     end)
-  end
-
-  defp workspace_here do
-    case System.get_env("HERDR_WORKSPACE_ID") do
-      id when is_binary(id) and id != "" -> id
-      _ -> nil
-    end
   end
 
   @doc """
