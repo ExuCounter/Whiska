@@ -32,7 +32,7 @@ In your repo, in this order:
 
 ```bash
 cd your-repo
-whiska init                     # hooks and skills
+whiska init                     # three hooks and their shim; no skills
 git add .claude && git commit -m "chore: enable whiska"
 whiska owl .                    # record the repo; Ctrl-C it
 whiska owl install              # keep the owl running (launchd / systemd)
@@ -52,7 +52,12 @@ another repo later takes [one more step](docs/internals.md#keeping-the-owl-runni
 
 Ask your main session to start a task in a worktree. When that task needs you, one line
 arrives in your session. Answer with `whiska reply <id> "<text>"`. Lines come one at a
-time, and only while you are idle and not typing; the rest queue.
+time, and only while you are idle and not typing; the rest queue. When a task is
+finished, say "land", "pr" or "drop" and your main session runs it.
+
+Each session is told what it is by one file, its brief, which Claude Code is started with:
+[`priv/briefs/`](priv/briefs) holds the main session's, a build mouse's and a sniff
+mouse's. Change what a session is told by editing one of them.
 
 Words: a **mouse** is a task session, the **owl** is the background process watching every
 repo. [`CONTEXT.md`](CONTEXT.md) has the rest.

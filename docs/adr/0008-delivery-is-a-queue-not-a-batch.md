@@ -75,7 +75,7 @@ discussed.
 ## A finished line waits for the slot, goes first, and then holds it
 
 A finished line is a report, not a question, but typing it makes the main session take a
-turn that prints the report and its options over whatever the person was reading. Seen
+turn that prints the report over whatever the person was reading. Seen
 live: a spec waiting for the person's ok was sent, and while they were still reading it the
 owl typed the next branch's finished line on top. So a finished line waits while any
 question is out, goes ahead of every merely queued question once the slot is free (oldest
@@ -85,7 +85,7 @@ apart from other questions. The gates apply to it as to any line.
 Once typed, it holds the slot until the person's next prompt in the main session, whatever
 that prompt says. The main session reads each prompt against the branch last shown, so a
 second finished line landing before the person has written anything would make a bare
-letter ambiguous. The report is left `sent`; the `UserPromptSubmit` hook (ADR-0080), which
+"land" ambiguous. The report is left `sent`; the `UserPromptSubmit` hook (ADR-0080), which
 runs in the main session too, closes it on the person's prompt. The owl raises a flag
 file, `whiska-finish` in the main checkout's `.git`, as it types the line and the hook
 lowers it, so a main session with nothing out never starts the escript. `dismiss`, a hold
@@ -133,8 +133,8 @@ explanation.
 - **Refuse to record a question for a dead mouse at collection.** Rejected: the house never
   judges liveness on collection, because a pane list a moment stale would cost the question
   just collected (ADR-0026).
-- **One line for several finished branches.** Rejected: it changes the line the
-  `whiska-delivered` skill reads, and puts several finishes into one reply.
+- **One line for several finished branches.** Rejected: it changes the line the main
+  session reads, and puts several finishes into one reply.
 - **A time cap on a waiting finished line.** Rejected: it brings back the interruption.
 - **No hold after a finished line, every answer keyed to its question** (firstmate's way).
   Rejected: firstmate lists decisions and waits to be asked, while Whiska types into the

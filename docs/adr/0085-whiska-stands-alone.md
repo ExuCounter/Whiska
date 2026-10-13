@@ -1,30 +1,32 @@
 # Whiska stands alone: it builds on Claude Code, herdr and git, and calls nothing else on the machine
 
-Whiska's rules and shipped skills call only what Whiska ships, plus Claude Code and its
+Whiska's briefs and commands call only what Whiska ships, plus Claude Code and its
 built-in agents, herdr, git and the platform's service manager. Everything else on the
 person's machine — their own skills, plugins, agent packs, viewers, link handlers and
-scripts — is theirs to opt into and never built in: Whiska names none of it. A test reads
-the rules and every shipped skill, and fails on a "`<name>` skill" Whiska does not ship, a
-"`<name>` agent" or `agent:` line Claude Code does not ship, or a known outside tool by
-name; wording that slips past those patterns is the cold review's to catch.
+scripts — is theirs to opt into and never built in: Whiska names none of it. No test reads
+the briefs for names, since tests pin what Whiska does and not its sentences
+(ADR-next-one-brief-per-session); a name that slips into a brief is the cold review's to
+catch.
 
 Opting in goes through text the person or the repo already owns: the person's own
 `CLAUDE.md`, a reviewer named there included, and a repo's `.claude/agents/*-reviewer.md`
 and its `reviewers:` line under `## Finish` (ADR-0049). What Whiska itself prints, which no
 `CLAUDE.md` line can change, is opted into through the person's environment instead: so
-far only `WHISKA_DIFF_LINK` and `WHISKA_SPEC_LINK`, the diff link's and the spec link's
-patterns (below). A forge's command-line tool,
+far only `WHISKA_DIFF_LINK` and `WHISKA_SPEC_LINK`, the diff link's and the spec and build
+plan links' patterns (below). A forge's command-line tool,
 `gh` or `glab`, runs only for something the person asked of a merge request, and its
 absence is said plainly. The cases so far:
 
-- **Opening one:** the person picks "Open a merge request / PR". It is assigned to the
-  account the tool is signed in as, the account that is also its author.
+- **Opening one:** the person says "pr", and the main session runs `whiska pr`, which
+  pushes the branch by its name and opens the request. It is assigned to the account the
+  tool is signed in as, the account that is also its author.
 - **Handling its review:** the person asks a mouse to handle the review on its merge
-  request (the `whiska-review-replies` skill). The mouse reads every open thread, fixes
-  or disputes each, pushes, replies on the thread and resolves a bot's, all under the
-  person's account and without asking along the way. A person's thread is answered but
-  never resolved, and a disagreement with a person goes to the person before anything is
-  posted: resolving their thread, and pushing back on them, are the person's to do.
+  request (the build brief's section on merge request comments). The mouse reads every
+  open thread, fixes or disputes each, pushes, replies on the thread and resolves a bot's,
+  all under the person's account and without asking along the way. A person's thread is
+  answered but never resolved, and a disagreement with a person goes to the person before
+  anything is posted: resolving their thread, and pushing back on them, are the person's
+  to do.
 
 ## What went
 
@@ -32,12 +34,12 @@ absence is said plainly. The cases so far:
   a build and the reviewer judged each written test at finish. A mouse now names its own
   failing test (ADR-0063), the cold review reads test changes like any other change, and
   finishing has no tests axis.
-- **The frontend-preview step** in the `work` part, which leaned on the person's own
+- **The frontend-preview step** in the mouse's rules, which leaned on the person's own
   `frontend-preview` skill.
 - **"Prefer a reviewer somebody else maintains."** Finishing took any agent the session
   listed that looked built for an axis, so a plugin installed for something else could
-  review Whiska's work. The mouse now writes each axis's prompt for Claude Code's
-  `general-purpose` agent, the cold review aside, and the repo's own agents add axes.
+  review Whiska's work. The mouse now writes its reviewers' prompts for Claude Code's
+  `general-purpose` agent.
 - **`hunk diff`**, printed above a finished branch's options. In its place `whiska show`
   writes the branch's diff, `git diff <base>...<branch>`, to
   `.whiska/reviews/<branch>-<hash>.md`, one file per branch (the name made safe for a
@@ -58,11 +60,9 @@ absence is said plainly. The cases so far:
 - **The spec link has its own variable, `WHISKA_SPEC_LINK`,** with `{path}` (the
   file's absolute path) and `{branch}` filled in, percent-encoded, under the same rules
   and fallback. Two variables rather than one because the diff needs a base and a branch
-  and the spec a file path, so no one pattern serves both. A mouse sends the spec link as
-  its question, so Whiska builds the line instead of the mouse typing it: `whiska
-  spec-link "<title>"` prints it, and the `whiska-spec` skill has the mouse send that
-  output (ADR-0063). The same pattern serves the build plan and a bug's research
-  document: `whiska spec-link` prints a line for each document the worktree holds.
+  and the spec a file path, so no one pattern serves both. `whiska show` prints the link
+  itself, under the branch line, for the spec and the build plan the mouse's worktree
+  holds, as it does the diff's; the mouse pastes no link (ADR-0063).
 
 The one older call, `terminal-notifier` for the owl's desktop notification, was dropped on
 2026-10-11 (ADR-0062): the hoot uses `osascript` on macOS and `notify-send` on Linux.
@@ -95,7 +95,7 @@ the person's side.
 
 ## Consequences
 
-- No mouse scouts before a build, and finishing has four axes.
+- No mouse scouts before a build, and finishing has no tests axis.
 - Showing a finished question with commits writes its diff file, from wherever it runs,
   rewritten on each show, unless `WHISKA_DIFF_LINK` names a viewer. Nothing removes the
   folder: it holds one file per branch shown, and a secret a branch once committed stays
@@ -104,8 +104,8 @@ the person's side.
   session started before the person set it keeps printing the file link until it is
   restarted. Whether a link with the person's scheme reaches them clickable is up to
   Claude Code and their terminal, not Whiska. `WHISKA_SPEC_LINK` is read the same way, by
-  the process that runs `whiska spec-link`.
-- A rule or shipped skill that names an outside tool fails a test.
+  the process that runs `whiska show`.
+- A brief that names an outside tool is caught by review, not by a test.
 
 Changed on 2026-10-11: the diff link can point at the person's own diff viewer through
 `WHISKA_DIFF_LINK`; until then a person who wanted hunk could only ask for it in their own
@@ -125,3 +125,7 @@ Changed on 2026-10-12: the diff file is one per branch, not one per question, so
 earlier question's link opens the branch's diff as it stands, not the diff as it was.
 
 Folded in on 2026-10-11: 0075 (its text is in git history).
+
+Changed on 2026-10-13: `whiska pr` opens a merge request on the person's word, the build
+brief handles its review, `whiska show` prints the spec and build plan links itself, and no
+test scans the briefs for names (ADR-next-one-brief-per-session).

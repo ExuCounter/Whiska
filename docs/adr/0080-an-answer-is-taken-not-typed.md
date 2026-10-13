@@ -1,7 +1,7 @@
 # An answer is taken by the mouse's own hook, not typed into its pane
 
 **The answer is saved, then a doorbell is rung, then the mouse's own hook takes it.** The
-doorbell is the second exception to the rule that Whiska types only into its own house's
+doorbell is one of the exceptions to the rule that Whiska types only into its own house's
 main session (ADR-0044), beside the pickup (ADR-0067): a mouse's own pane, while an answer
 the person gave it is not taken, at most three times. The line is that mouse's own answer
 and the turn is the point.
@@ -10,8 +10,8 @@ and the turn is the point.
   `answered` and the delivery slot is free (ADR-0008). Anything after the save failing is
   the owl's to retry, not a failed reply, so `reply` exits 0 and says so.
 - Into the pane goes only the **doorbell**: one fixed line carrying the question id. It
-  starts with 🔔, never the 🐱 of a delivered line: the `whiska-delivered` skill is listed
-  in a mouse's session too, and fires on a 🐱 line with an id in it.
+  starts with 🔔, never the 🐱 of a delivered line: a 🐱 line with an id in it is the main
+  session's cue to run `whiska show`, which has no place in a mouse.
 - A **`UserPromptSubmit` hook**, Whiska's third, runs inside the session the line was
   submitted to. It reads the saved answer from the house database, gives it to the model
   as `additionalContext`, and stamps it **taken** (`taken_at`). Claude Code ran the hook in

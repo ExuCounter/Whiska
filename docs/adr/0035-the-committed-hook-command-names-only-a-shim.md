@@ -1,7 +1,7 @@
 # The committed hook command names only a shim
 
-The hook entry in the repo's own `.claude/settings.json` is committed so the rules travel
-with the repo (ADR-0056). The first implementation did not deliver that: it wrote the
+The hook entry in the repo's own `.claude/settings.json` is committed so the hard rules
+travel with the repo (ADR-0056). The first implementation did not deliver that: it wrote the
 Erlang runtime and the Whiska binary into the command as absolute paths, resolved at
 install time:
 
@@ -33,7 +33,7 @@ without editing the file.
 Erlang version and assumes both asdf and `~/.local/bin`.
 
 **Gitignore `settings.json` and treat the hook as per-machine config.** Honest, and zero
-code. Rejected because the rules would stop travelling with the repo, which is the reason
+code. Rejected because the hard rules would stop travelling with the repo, which is the reason
 hooks are per-project.
 
 **Bare `whiska hook pre-tool-use`, relying on `PATH`.** Rejected on measurement: `escript`

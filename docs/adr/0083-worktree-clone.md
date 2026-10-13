@@ -22,13 +22,13 @@ entries are cloned.
 
 Each entry cloned goes into the main checkout's `.git/info/exclude` (one file, read by
 every worktree), unless git already ignores it. Without it a copy is an untracked change:
-a finished mouse offers to commit it, and the owl will not take the worktree down
-(ADR-0061). The line names the entry cloned (`/.claude/skills/duty`), not the whole listed
+`whiska land` refuses it as a file not committed, and the owl will not take the worktree
+down (ADR-0061). The line names the entry cloned (`/.claude/skills/duty`), not the whole listed
 folder, so a file a mouse really adds beside it still shows. Lines are never removed.
 
 ## Alternatives not taken
 
-- A separate `whiska clone` command: one more skill step to forget, where `whiska shape`
+- A separate `whiska clone` command: one more step to forget, where `whiska shape`
   already runs in the worktree before Claude and cannot be skipped. Cost: the Shape term
   now covers stocking too.
 - Symlinks: one mouse's `mix deps.update` would change every other mouse's deps.

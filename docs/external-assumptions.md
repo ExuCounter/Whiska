@@ -4,9 +4,9 @@ An audit of everything Whiska relies on outside its own code, done 2026-10-04 ag
 `2f7619b` and brought up to date with main later the same day, herdr 0.8.2 and Claude Code 2.1.285 on macOS arm64. It changes nothing; it
 says where each assumption lives, how it breaks, and what loosening it would cost.
 Checked against main again on 2026-10-13: Whiska's own Claude Code statusline is gone, and
-the board is drawn as a line per mouse in herdr's sidebar (ADR-0082); rules arrive by a
-`SessionStart` hook rather than a `CLAUDE.md` block (ADR-0081); and Whiska registers four
-hooks.
+the board is drawn as a line per mouse in herdr's sidebar (ADR-0082). Brought up to date
+again on 2026-10-13: each session's brief is on its Claude Code launch line, Whiska ships
+no skills, and it registers three hooks (ADR-next-one-brief-per-session).
 
 The Hex packages are out of scope. They were audited separately: eleven in the lock,
 five declared (`ecto` and `exqlite` among them, since Whiska calls both directly), and
@@ -31,7 +31,7 @@ JSON from Elixir 1.19's own module.
 - **herdr is load-bearing, and its shape has leaked.** The socket client is one narrow
   module, but herdr's words (`idle`, `done`, `working`, `"claude"`, its event names,
   `HERDR_PANE_ID`) are matched in the house, pickup, the sidebar, the doctor and the CLI,
-  and the shipped skills call `whiska worktrees` for what herdr knows about worktrees.
+  and `whiska spawn` and `whiska drop` create and remove worktrees through it.
   Swapping herdr out is about a week's work, and only worth it if someone without herdr
   will run Whiska. The doctor checks herdr is 0.9 or newer, which the sidebar needs;
   nothing checks Claude Code's version.
@@ -133,9 +133,10 @@ outside the boundary:
 | Agent name `"claude"` | house, pickup, cli, doctor (6 places) | Held with "not running Claude" in the log and the doctor. Loud |
 | Event names `pane_closed` `pane_exited` `pane_agent_detected` `workspace_closed` `pane.agent_status_changed` | `owl/house.ex` | Unknown events are dropped. The backstop and the two-second sweep cover it, a minute late. Doctor warns |
 | `HERDR_PANE_ID`, `HERDR_SOCKET_PATH`, `HERDR_CONFIG_PATH`, `~/.config/herdr/herdr.sock` | `session.ex`, `cli.ex`, `herdr.ex`, the owl's launchd or systemd job | Main session not recognised: the person's own turns would be filed as mouse messages. Silent |
-| Methods `ping` `pane.list` `pane.get` `pane.read` `agent.prompt` `pane.send_text` `pane.focus` `workspace.list` `workspace.move_block` `workspace.report_metadata` `worktree.list` `worktree.open` `worktree.remove` `notification.show` `events.subscribe` | `herdr/socket.ex` only | herdr returns an error; delivery holds with a logged reason. Loud |
+| Methods `ping` `pane.list` `pane.get` `pane.read` `pane.process_info` `agent.start` `agent.prompt` `pane.send_text` `pane.focus` `workspace.list` `workspace.move_block` `workspace.report_metadata` `worktree.create` `worktree.list` `worktree.open` `worktree.remove` `notification.show` `events.subscribe` | `herdr/socket.ex` only | herdr returns an error; delivery holds with a logged reason, and `spawn`, `send` or `drop` says what failed. Loud |
+| `agent.start` with `kind = "claude"` and `args` waits until Claude is ready, then answers its `argv` | `herdr/socket.ex`, `spawn.ex` | A spawned mouse starts without its brief or shape flags, or `spawn` times out after 15 s and says where the worktree is. Loud |
+| `pane.process_info` lists the pane's foreground processes with their `argv` | `brief.ex`, `doctor.ex`, `whiska start` | Renamed: the doctor's `main brief` line says "not checked". `argv` dropped: the doctor and `whiska start` say the main session was started without its brief when it was. Visible, misleading |
 | Wire: one JSON line per request, connection closed after; subscriptions stay open | `herdr/socket.ex` only | Every call errors. Loud |
-| CLI: `herdr worktree create/list/remove`, `agent start --kind claude`, `agent prompt`, `workspace close` | the shipped skills in `priv/skills/`. Worktree and pane lookups go through `whiska worktrees` | The model reads the error and improvises. Half-loud |
 | `[ui] tab_bar_right` entry with `type = "command"`, `interval_seconds`, `timeout_seconds` | `install.ex` snippet, `doctor.ex` check | Owl's line disappears from the tab bar. Doctor checks the entry is there, not that herdr still draws it |
 | `[ui.toast]` and `[ui.sound]` | `herdr.ex` docs, `doctor.ex` | Hoot falls back to the desktop (ADR-0062). Fine |
 | `[ui.sidebar.spaces]` rows with `rules`, and `workspace.report_metadata`, both herdr 0.9 | `sidebar.ex`, `owl/house.ex`, `doctor.ex` | Each mouse's sidebar line disappears. Doctor checks the version and the rows, not that herdr still draws them |
@@ -149,7 +150,7 @@ desktop notifier already exists. What tmux has no equivalent for is herdr's agen
 status. Whiska would have to work that out itself, most likely from Claude Code's own
 hooks (`UserPromptSubmit` for working, `Stop` and `Notification` for idle), which
 trades a herdr dependency for more Claude Code hook surface. Add the leaked vocabulary,
-the skills, the tab bar and `HERDR_PANE_ID`, and it is about a week. ADR-0020 (mice
+herdr's worktree and agent-start calls, the tab bar and `HERDR_PANE_ID`, and it is about a week. ADR-0020 (mice
 stay herdr panes) would have to be revisited first. Not worth doing unless someone
 without herdr wants to run Whiska.
 
@@ -165,7 +166,7 @@ Every row is someone else's UI or file format, and can change in any release.
 
 | What | Where | If it changes |
 | --- | --- | --- |
-| `PreToolUse`, `Stop`, `UserPromptSubmit` and `SessionStart` hook names, `matcher`, `{"type": "command"}` layout in `settings.json` | `install.ex`, `doctor.ex` | Hooks stop firing. Doctor reads the file and probes the shim, so it would see a missing entry but not a renamed event. Half-loud |
+| `PreToolUse`, `Stop` and `UserPromptSubmit` hook names, `matcher`, `{"type": "command"}` layout in `settings.json` | `install.ex`, `doctor.ex` | Hooks stop firing. Doctor reads the file and probes the shim, so it would see a missing entry but not a renamed event. Half-loud |
 | `$CLAUDE_PROJECT_DIR` in the hook command | `install.ex` | Shim path fails, Claude Code shows a hook error. Loud |
 | Payload: `tool_name`, `tool_input.file_path` / `notebook_path` / `command`, `cwd`, `transcript_path` | `hook/pre_tool_use.ex`, `rule/*.ex`, `session.ex` | A renamed path key means no path, so containment allows the call. A renamed `command` reads as an empty, harmless command, so sniff mode allows it too. **Silent** |
 | Payload: `last_assistant_message` on `Stop` | `hook/stop.ex` | Empty question delivered. Loud |
@@ -179,13 +180,13 @@ Every row is someone else's UI or file format, and can change in any release.
 | Transcript file birth time as session start | `transcript.ex` | Doctor reports "unchecked". Graceful |
 | Prompt box: column-0 `─` rules, `❯` marker followed by a non-breaking space, then padding | `delivery/draft.ex` (ADR-0047) | Rules change: held as "box not on screen" (loud, misleading). Marker changes: delivered into a draft (**silent**, fix 1) |
 | Claude Code draws its suggested next prompt and placeholder as faint text (SGR 2), read with herdr's `--format ansi` | `delivery/draft.ex` | Suggestions drawn in another style read as typing, so questions are held as "your prompt box isn't empty". Misleading, and silent until someone asks why nothing arrives |
-| Alternate screen | skills tell the model not to read a pane | Nothing in code depends on it |
+| Alternate screen | the main session's brief tells the model not to read a pane | Nothing in code depends on it |
 | U+2063 draws nothing in the terminal | `question/marker.ex` | Three odd glyphs appear in the pane. Visible, harmless. The marker is read from the payload, not the screen |
-| Skills at `.claude/skills/<name>/SKILL.md`; agents at `.claude/agents/` | `install.ex`, the finish skill | Skills not found by the model. Visible |
-| `SessionStart` output `hookSpecificOutput.additionalContext` reaches the model | `hook/session_start.ex` (ADR-0081) | Rules not read. Silent, but ADR-0009 makes a missing marker deliver, so the person notices |
+| Skills at `.claude/skills/<name>/SKILL.md` | `install.ex`, to find and delete the ones an older Whiska wrote | An older skill left where Claude Code still lists it. Visible: the doctor names it |
+| `--append-system-prompt-file <path>` adds the file to the system prompt, in an interactive session | `brief.ex`, `whiska start`, `spawn.ex`, `whiska shape` (ADR-next-one-brief-per-session) | Removed: `claude` refuses the flag and nothing starts. Loud. Ignored: a session runs without its brief. Silent, but ADR-0009 makes a missing marker deliver, so the person notices |
+| The system prompt is kept across `/clear`, a resume and compaction: `claude --help` documents `--system-prompt-snapshot`, on by default, recording it on the first request and resending it as-is until compaction renders it again | the briefs carry no "you were just compacted" step beyond rereading the `.whiska-*` files | A session loses its brief part way through. Silent |
 | `UserPromptSubmit` output `additionalContext` reaches the model | `hook/user_prompt_submit.ex` (ADR-0080) | An answer is stamped taken but never reaches the mouse. **Silent** |
-| `~/.claude/CLAUDE.md` and project `CLAUDE.md` both loaded | `hook/session_start.ex` leaves out a part the person marked `keep` in them (ADR-0081) | That part reaches the session in neither wording. Silent |
-| `claude` on `PATH`, `--model` flag | `whiska start`, spawn-worktree skill | Command fails in the pane. Loud |
+| `claude` on `PATH`, `--model`, `--effort` and `--autocompact` flags | `whiska start`, `whiska shape`, `spawn.ex` | Command fails in the pane, or `spawn` reports herdr's error. Loud |
 
 **The pattern.** Anything the model reads or writes fails visibly, because the person
 reads the output. What fails silently is what the hook **decides**: a payload key, a
@@ -222,11 +223,15 @@ version warning's job.
   `.git/worktrees/`, unchanged for a decade. `mix adr.claim` hard-codes `main`, which
   only matters for this repo. Nothing to loosen.
 - **The `worktrees/<branch>` layout** is Whiska's own convention (ADR-0030), not an
-  outside one. It ties Whiska to its own spawn skill, not to herdr.
+  outside one. `whiska spawn` asks herdr's `worktree.create` for exactly that path.
+- **`gh` and `glab`.** `whiska pr` opens a merge request with `gh`, or `glab` when the
+  remote's URL names GitLab, signed in by the person. A missing or signed-out tool is
+  said, and nothing stands in for it (ADR-0085). `whiska land` and `whiska pr` also use
+  git's `cherry-pick` and `push`.
 - **Shell.** bash for the shim, the one-word commands, the owl wrapper and the tab-bar
   script; `grep -q`, `tail`, `ls`, `cat`, all POSIX, plus `nc -U`. No script needs
-  `jq`: the skills call `whiska worktrees`. The shim sets `LC_ALL=C` to count the
-  payload's bytes, the one place locale could have mattered.
+  `jq`. The shim sets `LC_ALL=C` to count the payload's bytes, the one place locale
+  could have mattered.
 - **Erlang runtime.** The escript needs `escript` at run time. The shim finds it on
   `PATH`, through `asdf`, under `~/.asdf`, or at the Homebrew paths. It does not look
   in `mise`'s shims or a Nix profile. A hook with neither on `PATH` fails open, which

@@ -16,9 +16,8 @@ repo-scoped.
 
 ## The hook socket
 
-- **The shim asks the owl first.** After its early exits (the prompt fast path,
-  `session-start` outside herdr, the global copy standing down, and the global
-  `pre-tool-use` outside a worktree), it reads the payload and sends it to `hook.sock`
+- **The shim asks the owl first.** After its early exits (the prompt fast path, the
+  global copy standing down, and the global `pre-tool-use` outside a worktree), it reads the payload and sends it to `hook.sock`
   with `nc -U`: the hook's name, the few environment variables the hooks read
   (`HERDR_ENV`, `HERDR_PANE_ID`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PID`, `HOME`, `PWD`), and the payload. The
   owl runs the very modules `whiska hook <name>` runs (`Whiska.Owl.Hooks`) and sends back
@@ -126,7 +125,7 @@ spike at `docs/spikes/2026-09-25-hook-latency/` measured the native binary not t
 and the brew formula, for a cost 16 ms already removes almost all of.
 
 **Socket only, no escript behind it.** Fails open when the owl is down: no sniff mode, no
-containment, no hold, no rules at session start, every finished turn lost. Rejected.
+containment, no hold, every finished turn lost. Rejected.
 
 **Keep `Stop` off the socket**, bash writing the raw payload to the doorstep for the owl to
 parse later. The check for a subagent still out (ADR-0052) would read the transcript
@@ -136,3 +135,7 @@ seconds late. Rejected.
 is that it cannot.
 
 Folded in on 2026-10-08: 0025 (its text is in git history).
+
+Changed on 2026-10-13: there is no `session-start` hook, so the shim has no exit for it and
+the owl no answer; a request is `hook 1 <name> <bytes>`, with no `--global`
+(ADR-next-one-brief-per-session).

@@ -1,13 +1,14 @@
 # Hard rules are a PreToolUse hook that denies at once
 
 A rule that must hold whatever the model decides is enforced by the `PreToolUse` hook,
-which runs before a tool call and can block it. A line in a session's rules is a
-suggestion, followed only if the mouse chooses to. The split is deliberate: the rules
-carry everything that takes judgment (ADR-0081), and the hook carries the short list that
+which runs before a tool call and can block it. A line in a session's brief is a
+suggestion, followed only if the mouse chooses to. The split is deliberate: the brief
+carries everything that takes judgment (ADR-next-one-brief-per-session), and the hook
+carries the short list that
 must hold regardless — containment in the worktree (ADR-0013), sniff mode, the read-only
 allowlist for shell commands (ADR-0034), the person's own commands and a hold
 (ADR-0079). The same principle is applied wherever it matters: cleanup checks that a
-branch is merged rather than trusting a skill to remember (ADR-0061).
+branch is merged rather than trusting a session to remember (ADR-0061).
 
 The hook never waits. It answers in milliseconds — it cannot stay open while a test suite
 runs, and certainly not while a human decides — so it denies the attempt on the spot, with
@@ -42,6 +43,6 @@ denies a push and the mouse says so in its report.
   for as long as a suite or a human takes.
 - **Git hooks as the enforcement.** Convenience, not enforcement: one flag skips them.
 - **Judgment in the hook** — reading the diff, deciding what counts. The hook has fixed
-  rules; judgment belongs to the model reading the rules.
+  rules; judgment belongs to the model reading its brief.
 
 Folded in on 2026-10-08: 0010, 0012 (their text is in git history).

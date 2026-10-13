@@ -16,8 +16,8 @@ the branch merges.**
 - `mix adr.claim`, run on the branch right before the person merges it, gives each
   placeholder the next number free on both the branch and main. It rewrites the file name,
   the link and every citation in one go, so the file name and the citation key stay one
-  string. The person merges locally from the finish options, so the claim belongs there; nothing
-  of the owl's touches it.
+  string. The person lands locally, with `whiska land` or by hand, so the claim belongs
+  there; nothing of the owl's touches it.
 - `mix test` carries the check (`Whiska.Adr.problems/2`). It fails on two files with one
   number, on a citation or README link with no file behind it, and on a placeholder that
   reached main.
@@ -38,10 +38,9 @@ existing record from looking like a collision.
 
 ## Scope
 
-**This repo only.** Nothing goes into the installed CLAUDE.md block or the shipped skills.
-A rule for other repos would have to work without `mix`, in repos that are not Elixir,
-which is a different and larger job. The six ADR citations under `priv/skills/` stay
-exactly as they are. That is because of this scope, not because of the scheme.
+**This repo only.** Nothing goes into the briefs Whiska ships. A rule for other repos would
+have to work without `mix`, in repos that are not Elixir, which is a different and larger
+job.
 
 ## Alternatives rejected
 

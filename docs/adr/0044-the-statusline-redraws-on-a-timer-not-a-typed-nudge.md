@@ -1,10 +1,19 @@
-# Whiska types only into its own house's main session, a pickup and a doorbell aside
+# Whiska types only into its own house's main session, and into a mouse's pane only about its own work
 
 Delivery (ADR-0008) types into the main session of the question's own house, and nothing
-in Whiska types into any other session. Two exceptions, both into a mouse's own pane and
-both about that mouse's own work: a pickup of its dead turn, once (ADR-0067), and the
-doorbell for an answer it has not taken, at most three times, only into an idle pane with
-an empty prompt box, never a held mouse's (ADR-0080). No other exception.
+in Whiska types into any other session but a mouse, into its own pane, about its own work:
+
+- a pickup of its dead turn, once (ADR-0067);
+- the doorbell for an answer it has not taken, at most three times, only into an idle pane
+  with an empty prompt box, never a held mouse's (ADR-0080);
+- on `whiska spawn`, once Claude has started there, "Start on the task in your Whiska
+  brief.";
+- on `whiska send`, one fixed line pointing at the file the person's words were copied to
+  in the mouse's worktree.
+
+The last two run on the person's word, from the main session, and type fixed text: never
+anything the person, a mouse or a forge wrote, which travels in the brief or in a file
+(ADR-next-one-brief-per-session). No other exception.
 
 ## Why
 
@@ -20,9 +29,11 @@ in the transcript, and still something the model may act on. `SIGWINCH` to the `
 process does not redraw a statusline and a bare keystroke does not either (tested); nothing
 pushed from outside redraws a session without a turn.
 
-The two exceptions are the opposite case. The nudge spent a turn on work that session had
+The exceptions are the opposite case. The nudge spent a turn on work that session had
 nothing to do with. A pickup spends the turn on the stalled mouse's own unfinished work,
-which cannot resume without one, and a doorbell's turn is the answer arriving.
+which cannot resume without one; a doorbell's turn is the answer arriving; and a spawn or
+a send is the person handing that mouse its task or their words, which it is there to act
+on.
 
 ## Consequences
 
@@ -46,3 +57,6 @@ which cannot resume without one, and a doorbell's turn is the answer arriving.
   gone with the statusline (ADR-0048, ADR-0082).
 
 Folded in on 2026-10-08: 0041 (its text is in git history).
+
+Changed on 2026-10-13: `whiska spawn` and `whiska send` type one fixed line into a mouse's
+pane, where the main session typed through herdr before (ADR-next-one-brief-per-session).

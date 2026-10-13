@@ -8,7 +8,7 @@ is where it cascades *to*. The rest of ADR-0007 is untouched.
 
 A mouse asks a question. The person reads it, answers it in conversation rather than
 through `whiska reply`, and merges the branch. The worktree comes down — by the owl
-(ADR-0061), by `drop-worktree`, or by hand — and nobody ever runs `whiska close`. The
+(ADR-0061), by `whiska drop`, or by hand — and nobody ever runs `whiska close`. The
 question was still `sent` when its mouse went, so it cascaded to `orphaned`.
 
 That is the normal, successful path through the system, and it leaves an orphan behind
@@ -37,8 +37,8 @@ Two new things carry it:
 ### Landed is not the same question the teardown asks
 
 A commit is its own ancestor, so **a branch cut an hour ago and not yet written to is an
-ancestor of the base**. A mouse record is minted on its first tool call, seconds after
-`spawn-worktree`, and the sweep runs every minute — so an ancestor test alone would stamp
+ancestor of the base**. A mouse record is made as `whiska spawn` creates its worktree, and
+the sweep runs every minute — so an ancestor test alone would stamp
 nearly every mouse while its branch was still empty, and then settle its questions however
 the work ended. That is the orphan count inverted rather than fixed: permanently zero
 instead of only ever growing.
@@ -82,12 +82,10 @@ question is not quiet, so the owl never takes its worktree down — there is not
 to settle. That precondition is right and stays: tearing a pane down under a question the
 person has not answered destroys the context the answer would have gone back to.
 
-**`drop-worktree` cannot be relied on, because it is a skill.** It is prose a session
-reads and may follow — or may not, when the person removes a worktree with plain `git
-worktree remove`, or deletes the folder, or does it from another terminal with no Claude
-Code involved. A rule that only holds when a model happens to follow a document is not a
-rule. It is also the path that actually ran in the case that prompted this, so it is
-precisely the one that has to work.
+**`whiska drop` cannot be relied on, because it is not the only way a worktree goes.** The
+person may remove one with plain `git worktree remove`, delete the folder, or do it from
+another terminal with no Whiska involved, and when this was decided dropping was a skill a
+session read and might not follow. A rule that only holds on one path is not a rule.
 
 So **Whiska notices by itself, and it notices the landing rather than the teardown.** The
 sweep that already runs every 60 s stamps `landed_at` on every mouse whose branch has
@@ -108,7 +106,7 @@ state.
 ### What it does not reach, and why that is the safe side
 
 **A branch deleted in the same breath as its worktree, before any sweep saw it merged.**
-`drop-worktree` deletes the branch by default, and then nothing is left to ask; so does a
+`whiska drop` deletes the branch, and then nothing is left to ask; so does a
 person landing by hand and deleting the branch at once. Those
 questions orphan, as they do today. The window is one sweep interval, the failure is the
 old behaviour rather than a new wrong one, and the person can still `whiska close` by
@@ -130,11 +128,11 @@ worktree that has gone; while one stands, its own head is the authority.
 
 ### Why `settled` is its own status rather than `closed`
 
-`closed` is already two things — a `done` report closed once the person has read it, and a question the
-person closed by hand with `whiska close`. Folding a third in would throw away the one
-distinction this change exists to make: a question somebody dealt with, against one that
-was simply abandoned. Keeping them apart is the point, and a status is the cheapest place
-to keep them apart, since every reader already switches on one.
+`closed` is already two things — a `done` report closed once the person has read it, and a
+question the person closed by hand with `whiska close`. Folding a third in would throw
+away the one distinction this change exists to make: a question somebody dealt with,
+against one that was simply abandoned. Keeping them apart is the point, and a status is
+the cheapest place to keep them apart, since every reader already switches on one.
 
 ### What is still an orphan
 
@@ -142,7 +140,7 @@ The concept survives with a narrower, truer meaning: **a question nothing can ac
 nothing ever answered.** Two real cases remain.
 
 - **Abandoned work.** A mouse whose pane died, or whose worktree was dropped early, on a
-  branch that never landed. `drop-worktree`'s own stated use is taking a worktree down
+  branch that never landed. `whiska drop`'s own stated use is taking a worktree down
   *before* its branch lands, so this is not a hypothetical. Nobody answered the question
   and the work it was about is gone.
 - **A record that never stood for a worktree.** ADR-0008's phantom — the ordinary folder
@@ -186,8 +184,8 @@ the question is dealt with. Rejected — it overclaims exactly where the distinc
 A worktree dropped early with its question unanswered is the abandonment case, and under
 this rule it would read as dealt with.
 
-**Make `drop-worktree` run `whiska close`.** Rejected: a skill is prose, and this has to
-hold when no session is involved at all. Whiska noticing by itself costs little more and
+**Make `whiska drop` run `whiska close`.** Rejected: this has to hold when a worktree goes
+some other way, with no Whiska involved at all. Whiska noticing by itself costs little more and
 cannot be skipped.
 
 **Record every branch's head commit so merged-ness is answerable forever.** It would close

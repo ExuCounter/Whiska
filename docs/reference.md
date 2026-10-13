@@ -30,12 +30,29 @@ hold <branch>            that mouse stops at its next write or shell command
 resume [<branch>]        end away and focus, or lift one mouse's hold
 ```
 
-Each is also `whiska <word>`, and a slash command (`/inbox`) in every session of a repo
-Whiska is installed in. All but `show` and `reply` run only when you type them.
-`whiska init --global` also writes them as shell commands to `~/.whiska/bin`: put it on
-your `PATH`. A word another program already answers to is skipped. A mouse cannot run
-`away`, `focus`, `hold`, `resume`, `reply`, `dismiss` or `close`: the hook refuses them
+Each is also `whiska <word>`, and your main session runs it when you ask in your own
+words ("what's waiting?", "I'm away"). `whiska init --global` also writes them as shell
+commands to `~/.whiska/bin`: put it on your `PATH`. A word another program already
+answers to is skipped. A mouse cannot run `away`, `focus`, `hold`, `resume`, `reply`,
+`dismiss` or `close`, nor the commands for a branch below: the hook refuses them
 (ADR-0079).
+
+### A branch
+
+Your main session runs these when you say so; it picks the mode, model, effort and
+branch name with you, and passes each as an argument (ADR-next-one-brief-per-session).
+
+```
+whiska spawn build|sniff <branch> <task-file>     a fresh worktree with a mouse working on the task in the file
+      [--model <name>] [--effort <level>]
+whiska spawn build <branch> --from <id>           build what question <id> proposes under "What to change"
+      [--comments <file>]
+whiska send <branch> <file>                       your words in the file, to the mouse at work on that branch
+whiska land <id> [--commit <message-file>]        copy the branch's commits onto this checkout's branch, then run checks:
+whiska pr <id> [--commit <message-file>]          push the branch and open its merge request, or push to the open one
+whiska drop <branch> [--force]                    take down its worktree, herdr workspace and branch
+whiska merge-request <id> <url>                   record a merge request opened by hand
+```
 
 ### Looking at what is going on
 
@@ -53,23 +70,22 @@ whiska doctor                   check this repo end to end; exits 1 on any failu
 whiska init [--global]          install into this repo's .claude/, or into ~/.claude
 whiska uninstall [--global]     take it back out; the house is untouched
 whiska start [--force]          record this herdr pane as the main session, and start
-      [--no-claude]             Claude Code in it if nothing runs there
+      [--no-claude]             Claude Code in it, with its brief, if nothing runs there
 whiska owl [<repo>...]          run the owl in the foreground; the repos named are recorded
 whiska owl install|start|stop|uninstall
 whiska --version
 ```
 
-### Called by hooks, skills and scripts
+### Called by hooks, sessions and scripts
 
 ```
-whiska hook <name>              pre-tool-use, stop, user-prompt-submit, session-start
+whiska hook <name>              pre-tool-use, stop, user-prompt-submit
 whiska where                    where this directory is, as JSON (below)
 whiska worktrees                linked worktrees with their herdr workspace and pane, tab-separated
-whiska shape build|sniff        give a fresh mouse its mode, model and effort before Claude starts
-      [--model <name>] [--effort <level>]
+whiska shape build|sniff        give a mouse started by hand its mode, model, effort and brief,
+      [--model <name>] [--effort <level>]   and print the flags to start Claude with
 whiska shape --rules            the rules a spawn picks a model and an effort by
 whiska mode [build|sniff]       this mouse's mode; or give one to a mouse nobody shaped
-whiska spec-link <title>        the review links a mouse sends for your ok
 whiska ledger [--json]          the agent ledger a finished report ends with
 whiska base                     the branch this worktree was cut from
 ```
@@ -145,6 +161,6 @@ rows without it. Only your own user can open the socket.
   committed `.claude/`.
 - [Wiring the tab bar and the sidebar](internals.md#wiring-the-tab-bar-and-the-sidebar)
   into herdr's config.
-- [Rules in your own words](internals.md#no-claudemd-is-written): `keep` on a part of the
-  rules in `CLAUDE.md`, and the `## Finish` heading.
+- [What a session is told](internals.md#what-a-session-is-told-its-brief): its brief, and
+  the `checks:` line `whiska land` reads.
 - [What is enforced](internals.md#what-is-enforced), and what is not.

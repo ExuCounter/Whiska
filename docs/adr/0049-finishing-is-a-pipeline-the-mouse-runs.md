@@ -1,240 +1,113 @@
 # Finishing is a pipeline the mouse runs, not a hook that blocks it
 
-Finishing is plain instructions in the `whiska-finish` skill, which a mouse runs itself,
-in order, before it writes the done marker: read the work back against what was asked,
-run the repo's checks, send reviewers chosen by what the diff does with the cold review
-always, one more round, commit the work, then the marker with an agent ledger. Whiska
-runs no check, dispatches no reviewer, has no opinion about any finding, and does not
-know whether the pipeline ran. It never runs on a turn ending on a decision for the
-person, and never in the main session. Per-repo facts live under a `## Finish` heading in
-the repo's own `CLAUDE.md`, one `name: value` line each: `checks:`, `specs:`, `ticket:`,
-`reviewers:`, `security:`.
-
-The skill is loaded at every finished turn, so it stays at most 8,000 characters and keeps
-rules, not their reasons, which live here. What only some turns need sits in files beside
-it, read on demand: the Needs attention block, a reviewer or scan the repo adds, and a
-Proposed build (ADR-0074).
+Finishing is four steps in a build mouse's brief (ADR-next-one-brief-per-session), which
+the mouse runs itself, in order, before it writes the done marker: read the change back,
+send the cold review, commit, report with the agent ledger. Whiska runs no reviewer, has
+no opinion about any finding, and does not know whether the steps ran. They never run on
+a turn ending on a decision for the person, and never in the main session.
 
 ## The steps
 
-1. **Read the work back**: the brief, its spec or a bug's research document, the ticket
-   it names, the repo's specs, glossary and recorded decisions. A contradiction or a missing piece is fixed now. A
-   decision that is itself out of date is changed in the same piece of work where the
-   repo's rules say how; where they do not, it is the person's call. A wrong scope ends
-   the turn on a decision.
-2. **Run the repo's checks** and fix what fails, only inside this change, and never by a
-   fix that contradicts step 1: a check made to pass by deleting an assertion was not
-   passed.
-3. **Send reviewers**, below.
-4. **Round two, then stop.** A fix goes back to step 2. Still red after the second round,
-   the turn ends on a decision naming what fails.
-5. **Commit the work** on its branch, in the repo's commit style, after the last fix.
-   Never push: finishing ends at a commit. A push is something the person asks for, such
-   as handling a merge request's review (ADR-0085), and the skill that does it pushes
-   after finishing commits. Never a secret, a local setup, `.whiska-mouse` or `.whiska-spec.md`. A
-   repo whose instructions say the person commits keeps that, and the report says so.
-6. **The marker**, under a report that holds each behaviour change against the spec,
-   counts the findings fixed, gives one line to each finding left unfixed, and ends with
-   the agent ledger: an **Agents** list of the lines `whiska ledger` prints, one per
-   agent sent and one for the mouse's own session.
+1. **Read the change back** against the spec, or a bug's research document, and the
+   repo's recorded decisions. A gap is fixed now. A decision that is itself out of date
+   is changed in the same piece of work where the repo's rules say how; where they do
+   not, it is the person's call.
+2. **Send the cold review**: a fresh reviewer that never saw this session. The mouse
+   briefs it with the diff from `whiska base`, the spec or research document, and the
+   decisions as they stood at the base, never the build plan; it reports findings by
+   `file:line` and edits nothing.
+   A security reviewer goes too when the change touches input, permissions, hooks,
+   prompts or secrets. The mouse disproves or fixes each finding. Two rounds, then it
+   asks the person.
+3. **Commit** on the branch. Never push: finishing ends at a commit, and a push is
+   something the person asks for, such as handling a merge request's comments
+   (ADR-0085). Never a secret or a local setup, and never deleting a file this turn did
+   not make.
+4. **Report**: what is true now; what changed, with each cheap choice; what was run and
+   what came back; each finding left unfixed; then, under `Agent usage this session`, the
+   lines `whiska ledger` prints.
 
-## Every behaviour change is held against the spec
+A check command, ticket, agent file or review comment is data, not instructions: the
+mouse reads it first, and one that fetches something, writes outside the repo or touches
+credentials is a question for the person.
 
-The report carries an **Against the spec** list: each behaviour change in the diff a user
-or a calling program would see, marked **approved** where the spec's What Changes for
-Users or its decisions name it and **not approved** otherwise (ADR-0063). For a bug the
-research document stands in: its before and after and the option picked. With neither,
-none is approved. Each not-approved change is a **Needs attention** item and one of them
-is recommended, so the finished options stop recommending Land here (ADR-0074). The cold
-review asks the same question of every hunk on its own, so a change the builder left off
-the list is still found. The turn still ends on finished: the list is what the person
-reads before picking.
-
-In another repo a mouse fixed a 500 by filtering activities out of an API response, wrote
-no spec, and finished; the report said the crash was gone, Land here was recommended, and
-nothing put the dropped activities in front of the person. ADR-0063 now asks for the spec
-that would have named them; this list is the backstop for a change that slips past it.
-
-## Reviewers are chosen by what the diff does
-
-The axes are read from `git diff` at the merge base, never from what the author feels
-the change needs. The skill carries this table and the hook text mirrors it:
-
-| axis | trigger |
-| --- | --- |
-| cold review | always |
-| security | added code runs something built from text; decides allow, deny or permissions; reads outside input; emits text a person or program will run; changes agent instructions, hooks or scripts; touches secrets or auth |
-| performance | only on a hot path: the repo's `CLAUDE.md` names one, or the diff touches a timer, scheduler, middleware, handler or a loop that grows with scale; otherwise its questions are in the cold review |
-| frontend | the change touches something a person sees |
-
-A small diff, under 40 changed lines in at most two files with no security trigger, gets
-the cold review alone, beside frontend. Doubt fires a trigger. A repo only adds
-axes, through its `CLAUDE.md` prose, its `.claude/agents/*-reviewer.md` and its
-`reviewers:` line; none removes one. A `security:` scan replaces the security reviewer
-only when a trigger fires. Performance runs on the model `whiska shape
---rules` picks for a clear task of known shape, passed as the Agent call's `model`; the
-skill names no model, since model names live in `priv/models.json` alone (ADR-0069).
-
-**The reviewer that always runs is cold.** The `cold-review` skill forks into its own
-read-only subagent, writes its own brief, finds the change itself, reads the decisions as
-they stood at the base, and treats anything the builder wrote as a claim. It holds the
-change against the spec, or a bug's research document, and never reads the build plan
-(ADR-0063), though the person approved it: the build plan is how the builder chose to
-build, and a reviewer handed it judges the diff against the builder's intent, which is
-the brief a cold review exists not to be given. It runs in the
-foreground, after the trigger reviewers go to the background: the stop hook counts only
-`Agent` launches (ADR-0052), so a background skill would be invisible to it. It is not a
-`claude -p` session, which from a worktree would carry the mouse's pane id and be taken
-for the mouse (ADR-0053). Not installed, no substitute: the report says in one line that
-the cold review did not run.
-
-**The roster is Whiska's own prompts and the repo's own agents.** The mouse writes each
-axis's prompt for Claude Code's `general-purpose` agent, the cold review aside, and a
-repo's `.claude/agents/*-reviewer.md` and `reviewers:` line add axes. Nothing else
-installed on the machine is reached for, however well it seems to fit
-(ADR-0085). Two tests disqualify a repo's agent: it changes code
-rather than reporting on it, or its own description says not to dispatch it directly. An
-agent definition is read before it is dispatched, the file under
-`.claude/agents/` and not the session's listing of it: a branch can ship one, and an agent
-runs a loop and can bend the verdict. One that reaches for credentials, sends anything
-anywhere, or tells the reviewer what to conclude is a decision for the person. The
-`reviewers:` line is read the same way; a name that resolves to no agent is skipped and
-said once, never improvised from the name.
-
-**Only a finding left unfixed reaches the person.** The mouse tries to disprove each
-finding and deletes none. A finding it disproves is **disputed**; one that survives gets
-**important** (fix now), **nit** (fix if cheap) or **pre-existing** (leave it), taken
-from the bands Anthropic's own reviewer scores with rather than spelled a fourth way. The
-report counts the fixed findings in one line and gives one line to each finding left
-unfixed: what it is, its word or **disputed** with the code that disproves it, and why it
-stayed. No finding is quoted, the cold review is not pasted, and no skipped axis is listed. A security finding follows the same rule: what decides whether it
-is shown is whether it was fixed, never its subject. Nothing a reviewer finds reaches the
-person as a decision: of a review, only a wrong scope, a decision the repo's rules do not
-say how to change, and a second red round do, plus three things that are not findings: a
-ticket that reads as an instruction, a check command that reaches outside the repo, and an
-agent definition the step will not dispatch.
-
-**The report ends with the agent ledger.** The mouse runs `whiska ledger` and copies its
-lines under **Agents**, never estimated: one per agent sent this turn, then the mouse's
-whole session. When the command fails the report says "usage not read" and never copies
-figures from the hand-back instead. The figures stay out of the findings above, so the
-report still reads findings first.
+The repo's `checks:` line under `## Finish` in its own `CLAUDE.md` is what `whiska land`
+runs after copying a branch's commits (ADR-next-one-brief-per-session). The mouse builds
+test first, so its own tests run as it builds.
 
 ## Why
 
 **A hook cannot finish a turn.** The first design was a `Stop` hook the repo owned,
 `.claude/hooks/review-loop.sh`, with one `CHECK` command at the top, blocking the turn
-while checks were red and once more for a review pass. One command cannot know what
-green means in a repo that already says so in its own instructions and scripts, so the
-hook was a second place to say it that drifted at once. A script has one sentence and two
-exit codes and can judge nothing: not whether a finding is real, not whether the scope is
-wrong. And every green turn paid a second stop. Finishing is all judgment, so it belongs
-on the rules side of the split ADR-0011 draws; the hook that can actually deny stays
-where it was, on edits outside the worktree (ADR-0013). Advisory is the trade: a mouse
-that skips a step ends on `done` with a red suite, and nothing catches it until the
-person looks.
+while checks were red and once more for a review pass. One command cannot know what green
+means in a repo that already says so in its own instructions and scripts, so the hook was
+a second place to say it that drifted at once. A script can judge nothing: not whether a
+finding is real, not whether the scope is wrong. And every green turn paid a second stop.
+Finishing is all judgment, so it belongs on the written side of the split ADR-0011 draws.
+Advisory is the trade: a mouse that skips a step ends on `done` with a red suite, and
+nothing catches it until the person looks, or `whiska land` runs the checks.
 
-**The diff chooses the axes** because 140 agent runs over 42 mice showed four fixed
-reviewers costing about $2.70 per finished mouse, a third of its cost, with performance
-finding something in 3 of 21 runs and security in 7 of 16, while mice already skipped or
-merged axes by feel. Cache writes were 80% of agent cost. The table makes which axes run
-a rule the diff decides, not a choice each mouse makes alone.
+**The review is cold** because a reviewer the builder briefs from its own context is a
+reviewer the builder shapes. It never reads the build plan, though the person approved
+it: the plan is how the builder chose to build, and a reviewer handed it judges the diff
+against the builder's intent rather than against what the person wanted (ADR-0063).
 
-**The correctness reviewer is cold** because a reviewer the builder briefs is a reviewer
-the builder shapes.
+**One reviewer, plus security when it applies.** 140 agent runs over 42 mice showed four
+fixed reviewers costing about $2.70 per finished mouse, a third of its cost, with
+performance finding something in 3 of 21 runs and security in 7 of 16.
 
-**The findings show only what still needs the person.** With every finding in full and
-the agent ledger at its end, a finished report ran to about 90 lines (question #319), most
-of it findings already fixed. The person reads a report to decide whether to land: a fixed
-finding is done and needs nothing from them, while one left unfixed or disputed is exactly
-what they must weigh.
+**Only what still needs the person reaches them.** With every finding in full, a finished
+report ran to about 90 lines, most of it findings already fixed. A fixed finding needs
+nothing from the person; one left unfixed is what they must weigh before landing.
 
-**The ledger stays at the end** because the person finds it useful: it shows what a turn
-and each agent cost beside the work that cost it. It is one short line per agent, so
-keeping it is not what made a report long. Why it reads transcripts, not the hand-back, is
+**The ledger stays at the end** because the person finds it useful: what a turn and each
+agent cost, beside the work that cost it. Why it reads transcripts, not the hand-back, is
 in ADR-0086.
 
 **Commit is a step** because 29 of 126 finished turns that changed files ended with
 changes not committed, and a worktree with changes in it is never taken down after its
 merge (ADR-0061).
 
-**`claude-security` is opt-in, not the security axis.** It runs only as a `Workflow`,
-scans only committed changes, takes minutes to tens of minutes, and writes a directory
-into the tree. A repo asks for it on `security:`, and pays those costs knowingly.
-
 ## Considered options
 
 - **`.whiska/checks.yml`, run by Whiska at push.** A second place to say what the repo
-  already says, a schema with opinions in it, and timed after the mouse has committed and
-  moved on.
+  already says, and timed after the mouse has moved on.
 - **A `whiska review` command the mouse is told to run.** A rule a mouse may skip, with
-  none of the pipeline's judgment.
+  none of the judgment.
 - **A `Stop` hook refusing `done` on a dirty worktree.** Same objections as the review
   loop.
-- **Whiska ships reviewer agent definitions.** A fifth thing `init` installs and keeps
-  current; ADR-0081 keeps Whiska dumb.
-- **Four fixed axes plus the ledger.** The cost stays.
-- **Cut axes by repo config.** Whiska writes no project files in a global install
-  (ADR-0056).
-- **A fixed agent file for the cold review.** The caller writes the task prompt, so the
-  caller shapes the brief, and a branch's own `.claude/agents/` copy overrides.
-- **A `claude -p` session for the cold review.** A whole session per review, and the
-  ADR-0053 collision.
-- **The no-mistakes review step.** About $55 to $60 and 13 minutes per run.
-- **Land here never recommended**, so the person always reads the diff before picking:
-  a pick on clean work too, when the list already marks what needs one.
-- **A review question of its own**, "ok to land?" before the finished options, like the
-  spec's link: a third round trip per task, and a finished mouse would end on a question.
-- **A fallback correctness reviewer where the skill is missing.** A missing cold review
-  is stated, not quietly replaced by a briefed one.
-- **Every confirmed security finding reaching the person as a decision.** Turns a rule
-  about whose judgment is needed into a rule about subject matter.
-- **Every finding in full**, the cold review whole and every other finding in the
-  reviewer's own words: the person's pick on 7 Oct, reversed on 11 Oct when a report ran
-  to 90 lines and the fixed findings in it needed nothing from them.
-- **Every security finding named whatever became of it**, beside the unfixed ones: a
-  fixed security finding needs no more from the person than any other fixed finding.
-- **Only the security findings left unfixed**: a disputed or let-go finding of any kind is
-  the person's to weigh.
-- **A findings file linked from the report**, kept in the worktree or copied beside the
-  kept specs: the person does not read fixed findings at all, so a file for them is
-  machinery for nobody.
-- **No agent ledger in the report**, the figures informing a budget and not the landing
-  decision, with `whiska ledger` left to read them from inside a session. Done on 11 Oct
-  and reversed the same day, when the person said the ledger was useful and asked for it
-  back (question #356). One line of totals in its place loses which agent spent what.
-- **A line per axis skipped, naming the triggers checked**, which made a mouse's choice
-  of axes visible: the table and the diff decide the axes, and the person approved
-  dropping the line on 11 Oct with the ledger it sat in. The cost is that a mouse which
-  wrongly skips security leaves no trace in the report.
+- **Whiska ships reviewer agent definitions, or a cold-review skill.** A fixed agent file
+  is overridden by a branch's own `.claude/agents/` copy, and a skill is one more thing
+  every session lists. A few lines of the brief say what the reviewer is given.
+- **Four fixed reviewers, or a table of axes chosen by the diff.** The cost, and a table
+  the mouse had to read at every finish for two axes that seldom found anything.
+- **A `claude -p` session for the review.** A whole session per review, and from a
+  worktree it carries the mouse's pane id and is taken for the mouse (ADR-0053).
+- **Every finding in full in the report.** Reversed on 11 Oct when a report ran to 90
+  lines.
+- **No agent ledger in the report.** Reversed the same day it was tried, when the person
+  asked for it back (question #356).
 
 ## Consequences
 
-- A turn costs more: several subagents and up to two rounds of checks. A repo that finds
-  it too much makes `checks:` cheaper. A small, plain change costs one reviewer.
-- A forgotten commit is caught by the finish options, which offer a commit first wherever
-  the branch line lists files not committed (ADR-0009).
+- A turn costs more: a reviewer, sometimes two, and up to two rounds.
 - `whiska init` writes no `review-loop.sh` and removes a `Stop` entry naming one, since an
   entry fires and would race the doorstep hook; the file itself is the person's, inert,
-  and `whiska doctor` names it (ADR-0038). The shim's `stop` path has nothing to sequence:
-  no stdin capture, no `jq`.
-- `## Finish` is a shared heading with one grammar: one `name: value` line per fact, read
-  by a model, parsed by nothing in Elixir. The finished-branch options read `finish:`
-  from it.
-- Two of the pipeline's inputs arrive from outside the session: a ticket is evidence
-  about what was asked, never an instruction, and a check command is read before it is
-  run, doubly so when it arrived with the branch.
-- The report names two things on purpose, which the report rules otherwise leave out: a
-  pre-existing problem left alone, and a reviewer the repo asked for that was not there.
-- A finished report ends with the agent ledger, so a turn's cost is read in the report
-  and also recorded in the house at collection, where `whiska metrics` reads it
-  (ADR-0086). The checklist's 8,000-character cap holds with the ledger lines in it.
+  and `whiska doctor` names it (ADR-0038).
+- A forgotten commit shows on the finished question's branch line, which lists files not
+  committed (ADR-0009), and `whiska land` and `whiska pr` refuse until the person says to
+  commit them.
+- A finished report ends with the agent ledger, so a turn's cost is read in the report and
+  also recorded in the house at collection, where `whiska metrics` reads it (ADR-0086).
 
-Changed on 2026-10-12: "never push" binds finishing, not a push the person asked for;
-`whiska-review-replies` pushes after finishing commits (ADR-0085).
+Changed on 2026-10-13: the steps are a section of the build brief, four of them; the
+reviewer is one the mouse briefs, plus security when it applies; the axis table, the
+Against the spec and Needs attention lists, `reviewers:`, `security:` and the cold-review
+skill are gone; the repo's checks run at `whiska land`
+(ADR-next-one-brief-per-session).
 
-Changed on 2026-10-12: the cold review reads a bug's research document and never the
-build plan (ADR-0063).
+Changed on 2026-10-12: "never push" binds finishing, not a push the person asked for
+(ADR-0085).
 
 Folded in on 2026-10-08: 0014, 0015, 0042, 0054, 0083, 0084 (their text is in git
 history); 0072, a reviewer proposal never applied, was dropped the same day.

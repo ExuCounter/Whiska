@@ -49,7 +49,11 @@ C4Dynamic
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
 ```
 
-Finishing happens before any of this, inside the turn: the mouse runs its own pipeline,
-brief, checks, reviewers, one more round, a commit on its branch, and only then writes the
-marker (ADR-0049). Nothing sits in front of the stop hook, and nothing in Whiska knows
-whether that pipeline ran.
+Finishing happens before any of this, inside the turn: the mouse follows its brief's
+finishing steps, reading the change back, a fresh reviewer, a commit on its branch, and
+only then writes the marker (ADR-0049). Nothing sits in front of the stop hook, and
+nothing in Whiska knows whether those steps ran.
+
+After a delivered line, the main session runs `whiska show`, prints the question and stops;
+the person says what happens next, and the main session runs `whiska reply`, `land`, `pr`,
+`drop` or `send` for it (ADR-next-one-brief-per-session).

@@ -35,29 +35,41 @@ moves it too; it is only as fresh as its last fetch, and it never moves the loca
 _Avoid_: remote base, upstream (git's word for what a branch pushes to and pulls from)
 
 **Brief**:
-What a mouse is given to build — the person's own words, routed in whole by
-`spawn-worktree` or `send-to-worktree`, or a **proposal** the person said yes to, handed
-over by its question id alone. A brief is **buildable** once its **spec** and **build
-plan** have the person's ok, or for a bug its **research document** and build plan, and
-before that no **costly choice** in it may be left open, "done" and the failing test that
-proves it included; an open one gets grilled, after the mouse has read the code and
-before it writes any (ADR-0063). One of the four briefs that skip the spec is buildable as
-it stands: its words are its spec.
-_Avoid_: task, ticket
+Everything Whiska tells a session, in one file Claude Code is started with
+(`--append-system-prompt-file`), so it sits in the system prompt for the whole session.
+The main session's is `main.md`, written into the house by `whiska start`; a mouse's is
+its mode's, `build.md` or `sniff.md`, with its **task** in it, written by `whiska shape`
+to `.whiska-brief.md` at the worktree root, which git ignores. Nothing else carries
+Whiska's words into a session: no start-up hook, no skill, nothing in a `CLAUDE.md`
+(ADR-next-one-brief-per-session).
+_Avoid_: rules, skill, system prompt (Claude Code's own, which a brief is appended to),
+instructions
+
+**Task**:
+What a mouse is given to build or find out — the person's own words, written to a file and
+handed over by `whiska spawn` or `whiska send`, or a **proposal** the person said to
+build, handed over by its question id alone (`whiska spawn --from`). It sits in the
+mouse's **brief**. A task is **buildable** once its **spec** and **build plan** have the
+person's ok, or for a bug its **research document** and build plan, and before that no
+**costly choice** in it may be left open, "done" and the failing test that proves it
+included; an open one gets grilled, after the mouse has read the code and before it writes
+any (ADR-0063). One of the four tasks that skip the spec is buildable as it stands: its
+words are its spec.
+_Avoid_: brief (the file it sits in), ticket
 
 **Grilling**:
-The rounds of questions a mouse asks before building a brief that is not yet buildable:
-every costly choice still open, each with the answer the mouse recommends, then a wait for
-the person's ok. A round asks the whole frontier — every question whose prerequisites are
-already settled — in one message, because each round costs the person a full round trip.
-A sniff mouse grills only the research question — goal, the decision it feeds, scope,
-depth, what to deliver — and never design. With nothing costly to ask, no round is sent
+The rounds of questions a mouse asks before building a task that is not yet buildable:
+every costly choice still open, numbered, each with the answer the mouse recommends, then
+a wait for the person, who answers in their own words. A round asks the whole frontier —
+every question whose prerequisites are already settled — in one message, because each
+round costs the person a full round trip. A sniff mouse asks only when the goal, the scope
+or the decision it feeds is unclear, and never grills design. With nothing costly to ask, no round is sent
 and the mouse goes straight to its spec. A bug gets no round: the fix options in its
 **research document** are its questions.
 _Avoid_: interview, clarification
 
 **Costly choice**:
-A choice in a brief that has real alternatives and is costly to undo: something outside
+A choice in a task that has real alternatives and is costly to undo: something outside
 the change depends on it — a file format, a command-line flag or interface, stored data, a
 dependency added or dropped, behaviour the person would notice — or it touches secrets,
 access or a security check, or the rest of the change is built on it. A mouse asks these
@@ -67,18 +79,19 @@ one (ADR-0063).
 _Avoid_: big decision, one-way door
 
 **Spec**:
-A brief, written down: its problem, what changes for users, user stories, the decisions a
+A task, written down on one screen: its problem, what changes for users, the decisions a
 user or a calling program sees, and what is out of scope, in `.whiska-spec.md` at the
 worktree root, which git ignores. How it is built is in its **build plan**, never here.
-The mouse writes it with the `whiska-spec` skill after the last grilling round, or with no
-round when nothing costly was open, sends a link to it with its build plan's as one
-question (the person opens the files, in annotate or, when their `WHISKA_SPEC_LINK` holds
-a link pattern with `{path}` and `{branch}`, in their own viewer; the question holds no
-spec text), and builds only on the person's ok. What changes for users is never left out: anything hidden, dropped, skipped or turned
-from an error into silence included, or "Nothing." Every brief gets one but a bug, which
-gets a **research document**, and four named by what the change touches: a typo or a comment or doc no program reads, a formatting or lint
-fix, a test-only change, and a brief that spells out the exact change, whose words are its
-spec. A change that hides, drops or skips anything, or touches secrets, access or a
+The mouse writes it after the last grilling round, or with no round when nothing costly
+was open, asks for the person's ok on it and its build plan as one question, and builds
+only on that ok. `whiska show` links both under the **branch line** (the person opens the
+files, in annotate or, when their `WHISKA_SPEC_LINK` holds a link pattern with `{path}`
+and `{branch}`, in their own viewer; the question holds no spec text and no link). What
+changes for users is never left out: anything hidden, dropped, skipped or turned from an
+error into silence included, or "Nothing." Every task gets one but a bug, which gets a
+**research document**, and four named by what the change touches: a typo or a comment or
+doc no program reads, a formatting or lint fix, a test-only change, and a task that spells
+out the exact change, whose words are its spec. A change that hides, drops or skips anything, or touches secrets, access or a
 security check, is never one of the four. A task's size never skips it, and neither does
 having nothing to grill (ADR-0063). A copy of every spec sent is kept in `.whiska/specs/` in the main checkout,
 named by date and branch, with a header saying its question and whether the branch
@@ -92,7 +105,7 @@ it will be tested, and the approach turned down and why. The shape of the change
 step-by-step plan: text, with code only for interfaces, data shapes and output the user
 sees, and a diagram only when data moves across three or more parts; a few lines for a
 small change, one screen at most. In `.whiska-plan.md` at the worktree root, which git
-ignores, written with `whiska-plan` beside every spec, or for a bug beside its research
+ignores, written beside every spec, or for a bug beside its research
 document or after the person's pick, and approved with it. The cold review never reads it
 (ADR-0049), so the diff is judged against what the person wanted, not against the plan;
 neither the spec nor the research document names it. A costly change to it mid-build is
@@ -136,7 +149,7 @@ A Claude Code session whose `claude` process runs underneath another `claude`, s
 a test script or a `claude -p` a mouse starts in its own worktree. It starts where the
 mouse started and runs in the mouse's pane, so neither the start directory nor the pane
 tells it apart. The process tree does. It speaks for nobody: nothing it ends a turn with
-reaches the doorstep, it is handed no answer, and it is printed no rules. It is still
+reaches the doorstep, and it is handed no answer. It is still
 held to the containment rules of the worktree it runs in
 (ADR-0084).
 _Avoid_: child session, subsession (a subagent is neither, and is no session of its own)
@@ -145,7 +158,7 @@ _Avoid_: child session, subsession (a subagent is neither, and is no session of 
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
 **unmarked** question: delivered like any other, recorded as having arrived unmarked. A
-`done` report is told as "finished" with a **finish** offered in place of a reply. It is
+`done` report is told as "finished", and the person says its **finish** in place of a reply. It is
 never answered: once sent it holds the delivery slot until the person writes anything in
 the main session, and is closed then. A question is **open** while it waits to be told, **sent** once
 delivered and waiting for its answer, then **answered** once `whiska reply` saved the
@@ -162,34 +175,27 @@ _Avoid_: report (as the table/record name — the word now names how a message r
 see **Report**), event (as the table/record name)
 
 **Report**:
-The shape a mouse's final message takes — one line of what is true now,
-what changed with each cheap choice made without asking, what was verified rather than
-assumed, one thing worth knowing, then
-the one decision when there is one, and no closing line when there is not. It
-names how a message reads, never the record it becomes: once collected the same message
-is a **question**. A mouse's `report` part teaches it; how any session writes, the
-plain words, the recap and the numbered questions included, is the `writing` part. `done` report is the older,
-narrower use of the word — a question whose marker said `done` — and both stay.
+The shape a mouse's final message takes — what is true now, what changed with each cheap
+choice made without asking, what was run and what came back, each finding left unfixed,
+then the agent ledger; a question for the person, when only they can decide, sits on the
+line above the marker. It names how a message reads, never the record it becomes: once
+collected the same message is a **question**. A mouse's **brief** asks for it. `done`
+report is the older, narrower use of the word — a question whose marker said `done` — and
+both stay.
 _Avoid_: summary, status, update, hand-off
 
 **Finish**:
-What becomes of a branch once its mouse is done: landed on the current branch by
-cherry-picking its own commits, oldest first, its merges from the base skipped
-(ADR-0079; it was `merge --no-ff`) and its worktree left to **cleanup**, which counts
-the copies as landed (ADR-0064), opened as a
-**merge request**, which is recorded, so its later finished lines offer a push to it and
-never a landing beside it, carried on by its mouse, talked to from the main session (the person's words carried to the mouse), or dropped
-unmerged. The person picks one when a "finished" question is told — lettered options at
-the end of the reply, answered by a letter, an option's word, or their own words; "hold"
-sets the branch aside as **held** (ADR-0022) — from what fits the
-branch as its **branch line** reads: files not committed are committed first, in the
-mouse's worktree, then landed or opened as a request; a branch with nothing on it is
-offered neither; and one git cannot read is offered all four. A repo may name its usual
-choice, and that one is recommended where landing is. A **held** mouse's finished line is never told, so it is never
-offered one. A **proposal** from a branch with nothing to merge — a sniff mouse's, or any
-mouse's whose branch has nothing on it — is built by a fresh mouse, talked to
-further, or dropped, and none is recommended. A finish is never an answer — a finished
-question has nothing to answer — and it is only ever offered for a finished one.
+What becomes of a branch once its mouse is done, as the person says it in their own words
+after its report: landed on the current branch (`whiska land`) by cherry-picking its own
+commits, oldest first, its merges from the base skipped, then the repo's checks run, and
+its worktree left to **cleanup**, which counts the copies as landed (ADR-0064); opened as
+a **merge request** (`whiska pr`), which is recorded, so a later `whiska pr` pushes to it
+rather than opening another; carried on by its mouse, the person's words sent to it
+(`whiska send`); or dropped unmerged (`whiska drop`). Files the mouse left uncommitted
+stop a landing or a merge request, named, until the person says to commit them. A
+**proposal** is built by a fresh mouse (`whiska spawn --from`). Nothing is offered: the
+main session shows the report and stops (ADR-next-one-brief-per-session). A finish is
+never an answer — a finished question has nothing to answer.
 _Avoid_: close (which a question does), disposition, land. **Cleanup** now names something
 else — what becomes of the worktree after the branch has landed, not what becomes of the
 branch
@@ -200,21 +206,23 @@ branch holds as git says when it is shown — its own commits beyond the base, i
 not committed, or `unknown`; for a branch with a recorded **merge request**, `merge
 request opened`, its commits no remote has yet, and its files not committed, with a
 `Merge request:` line and its link under it. Whiska's record of the branch, never the
-mouse's word, and what a **finish** is chosen by (ADR-0074). Under it, when the branch has commits, the
+mouse's word, and what the person reads before saying a **finish** (ADR-0074). Under it, when the branch has commits, the
 **diff link**: `Review diff here:`, a link to the branch's diff, which `whiska show`
 writes to one file per branch in `.whiska/reviews/`, named for the branch with a short hash of
 its name, as Markdown, so the person reviews it from a link as
 they review a **spec** — or, when the person's `WHISKA_DIFF_LINK` holds a link pattern,
 that pattern with `{base}` and `{branch}` filled in, pointing at a diff viewer of their own,
-and no file is written (ADR-0085); and when the turn left a **research document**, its link,
-`Review research here:` (ADR-0074).
+and no file is written (ADR-0085); when the branch has a **research document**, its link,
+`Review research here:` (ADR-0074); and when the mouse's worktree holds a **spec** or a
+**build plan**, `Review spec here:` and `Review build plan here:`, links to its files
+(ADR-0063).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Merge request**:
 A branch's request, on its forge, to merge into the base. Whiska knows of one only when
-it was opened from the **finish** option, which records its link on the mouse
-(`whiska merge-request`): until it lands the branch's finished lines offer a push to it,
-and while it waits the owl fetches the base, so its merge on the forge reaches the
+`whiska pr` opened it, or `whiska merge-request` recorded one opened by hand: the link is
+kept on the mouse, its **branch line** says so and `whiska pr` pushes to it until it
+lands, and while it waits the owl fetches the base, so its merge on the forge reaches the
 **fetched base** and **cleanup** takes the worktree down. One opened elsewhere, or closed
 on the forge, is not seen (ADR-0087).
 _Avoid_: PR, pull request (GitHub's words; both forges are meant), review (what happens
@@ -222,54 +230,35 @@ on it)
 
 **Proposal**:
 The block a finished investigation ends its report with when it changed nothing and found
-something that should change: **Proposed build**, then a Found, a Build, a Touches and an Open
-line. Content, never classification — the turn still ends on `done` — so it travels inside
-the question's text, and the main session reads it the way it reads lettered options. It
-is offered when the branch has nothing to merge, whatever the mouse's mode. Its lines are
-the preview of the one question the person is asked, and building it starts a fresh
-mouse shaped for that work rather than flipping the one shaped for the investigation
-(ADR-0074). Open lists the costly choices the investigation left; the build mouse takes
-Found as fact and grills Open and the design.
-_Avoid_: plan, recommendation, next steps, hand-off (a word **Report** already rejected)
+something that should change: **What to change**, then a Found, a Build, a Why, a Cost and
+an Open line. Content, never classification — the turn still ends on `done` — so it
+travels inside the question's text, where the person reads it. When they say to build
+it, `whiska spawn build <branch> --from <id>` starts a fresh mouse shaped for that work
+rather than flipping the one shaped for the investigation (ADR-0074). Open lists the
+costly choices the investigation left; the build mouse takes Found as fact and grills Open
+and the design.
+_Avoid_: Proposed build (the block's older label), plan, recommendation, next steps,
+hand-off (a word **Report** already rejected)
 
 **Research document**:
 What a piece of work found out before anything is built, in `.whiska-research.md` at the
-worktree root, which git ignores: one template, `whiska-research`'s, its sections switched
-on by the kind of work.
+worktree root, which git ignores, its sections set by the kind of work: a bug's in the
+build **brief**, an investigation's in the sniff brief.
 - **A bug's**: written after a failing test reproduces it — before and after, the root
   cause, what else the fix affects, and fix options with a recommendation only when there
   is a real choice. It stands in for the spec: the person oks it or picks an option, the
   pick is written into it, its **build plan** follows, and the cold review holds the fix
   against it (ADR-0063).
-- **An investigation's**: written before its report — what it established, in full, then
-  its **proposal**. With no proposal it is written only when the findings outgrow the
-  report. The one file a sniff mouse may write (ADR-0069). `whiska show` links it under the
-  **branch line** as `Review research here:`, and the person's comments on it are their
-  own words: built with the proposal, sent to the investigating mouse, or not sent
-  (ADR-0074).
+- **An investigation's**: written before its report — the question, what it established,
+  in full, then its **proposal** when something should change. The one file a sniff mouse
+  may write (ADR-0069). `whiska show` links it under the **branch line** as
+  `Review research here:`, and the person's comments on it are their own words, carried
+  as a file: to the build (`whiska spawn --from <id> --comments <file>`), to the
+  investigating mouse (`whiska send`), or not sent (ADR-0074).
 Whiska keeps one copy per branch beside the kept **spec**, overwritten each round, so
 every question's link opens the latest. First named the write-up, for investigations
 alone.
 _Avoid_: findings (a reviewer's word), write-up, report (the message's shape)
-
-**Needs attention**:
-The block a finished turn ends its report with when the mouse advises a step on the same
-branch before it lands: one line per item, what needs attention and the action to take,
-at most one marked `(recommended)`. Content, never classification — the turn still ends
-on `done`. The main session turns each item into its own lettered option ahead of the
-finish options, marks only the mouse's recommendation "(Recommended)", and sends a
-picked item to the mouse as the person's own words. With no block the finish options
-are the table's, never read from the mouse's prose (ADR-0074).
-_Avoid_: next step, follow-up, to-do, issues
-
-**Against the spec**:
-The list a finished report carries of each behaviour change in the diff a user or a
-calling program would see, each marked **approved** where the spec names it and **not
-approved** otherwise; for a bug its **research document** stands in, and with neither,
-none is approved. Each not-approved change becomes a
-**Needs attention** item, one of them recommended, so the finish options do not recommend
-landing it (ADR-0049).
-_Avoid_: diff summary, changelog
 
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,
@@ -356,7 +345,7 @@ slot is free it goes ahead of whatever is queued. Once typed it holds the slot u
 person's next prompt in the main session, whatever it says. Several go one per prompt,
 each line counting how many more finished are behind it (ADR-0008).
 What is typed is a one-line pointer with the id and no command; the full text is
-`whiska questions <id>`, which the `whiska-delivered` skill runs when the line lands.
+`whiska show <id>`, which the main session's **brief** has it run when the line lands.
 Delivery only ever types into the main session of the question's own house (ADR-0044);
 the only other lines Whiska types go into a mouse's own pane — a **pickup** and a
 **doorbell**. Every delivery raises a **hoot**.
@@ -365,8 +354,8 @@ _Avoid_: notify, ping, relay (the old bash mechanism), push
 **Doorbell**:
 The one fixed line typed into a mouse's pane when the person has answered it — "🔔 The
 person answered your question #12; the answer is attached …" — and never the answer
-itself (ADR-0080). Never a 🐱: that is a delivered line, and
-the `whiska-delivered` skill every session lists fires on one. `whiska reply` rings it
+itself (ADR-0080). Never a 🐱: that is a delivered line, which the main session's
+**brief** has it read with `whiska show`. `whiska reply` rings it
 once the answer is saved; the owl rings it again on the backstop while the answer is not
 **taken**, at least 90 s apart and at most three times, only into an idle pane with an
 empty prompt box, never a held mouse's, a landed branch's or the main session's. A
@@ -447,8 +436,8 @@ real stored status, lifted by `resume <branch>` or by a reply to one of its ques
 shell command — a read passes until then, or until the turn ends — with a reason that
 says to end the turn here and say where it stopped
 (`Whiska.Rule.Held`); the message it ends on sits in the inbox marked `held`, never
-delivered, and never counted as waiting on the person — they parked it. A held mouse is
-never offered for landing, since its finished line is never told; never taken down by
+delivered, and never counted as waiting on the person — they parked it. A held mouse's
+finished line is never told; it is never taken down by
 cleanup (ADR-0061); never picked up (ADR-0067). Its **sidebar line** says `⏸ held`, and
 `whiska mice` says `held` where herdr's status would go. The word this entry took from the gate on
 2026-10-06 — see **Gated**.
@@ -458,7 +447,9 @@ gated (the gate's), on ice
 **Person's command**:
 A `whiska` command only the person runs, never a mouse: `away`, `hold`, `focus`,
 `resume`, `reply`, `dismiss` and `close` — the ones that set or end what reaches them,
-which mouse stops, and what a mouse is told. The hook refuses a mouse's shell command that
+which mouse stops, and what a mouse is told — and `spawn`, `send`, `land`, `pr` and
+`drop`, which start, steer, ship or throw away a branch. The main session runs them on
+the person's word. The hook refuses a mouse's shell command that
 is one of them, by its head word, `whiska` in front or bare (`Whiska.Rule.Persons`,
 ADR-0079); a mouse that needs one says so in its
 report. The reading commands — `inbox`, `show`, `questions`, `waiting`, `mice` — are
@@ -558,8 +549,9 @@ neither is a jump), switch, attach, take over
 **Shape**:
 What a mouse is spawned as: its mode, the model it runs on and the effort it runs at,
 each chosen on its own — a hard investigation is sniff on the heaviest model at the
-highest effort. Given by the spawn, with `whiska shape`, before Claude starts, so the
-mouse's first tool call is already judged by its mode. The spawning session picks the
+highest effort. Given by `whiska spawn`, through `whiska shape`, before Claude starts, so
+the mouse's first tool call is already judged by its mode; shaping also writes the mouse's
+**brief**, and its flags start Claude with it. The spawning session picks the
 model and the effort by the ordered rules in `priv/models.json`; one it leaves unnamed
 is the last rule's. A build mouse also starts with an auto-compact window for its model,
 from the same file; a sniff mouse keeps Claude Code's own. The record also keeps the model the mouse actually ran on, read from
@@ -568,7 +560,7 @@ its transcript. Shaping also stocks the worktree: the main checkout's `deps`, `_
 copy-on-write, never symlinked. There is no default mode: a mouse **never shaped** may read but not
 write until the person runs `whiska mode` in its worktree. That gives a mode to a mouse
 nobody shaped and to no other: a shaped mouse keeps its mode, since its model and effort
-were chosen for that work, and `whiska mode` refuses it, pointing to a proposed build and a
+were chosen for that work, and `whiska mode` refuses it, pointing to What to change and a
 fresh mouse. The record keeps what the mouse was **shaped as** — the mode its model and
 effort were chosen with — and `whiska mice` says so for a mouse flipped before that rule.
 _Avoid_: profile, preset, role
@@ -738,35 +730,14 @@ much it has had to collect is the measure of whether the event-driven path is al
 _Avoid_: fallback, poller, sweep, safety net (all of them suggest a path that is fine to
 be on; being on this one is the symptom)
 
-**Rules** (a session's):
-The worktree protocol, in Whiska's words, as one session starts with it: the `SessionStart`
-hook prints the **parts** its role needs and nothing else (ADR-0081).
-Outside herdr, none. The main session gets `worktrees` (routing work to mice), `work`,
-`delivery` and `writing`; a mouse gets `work`, `marker`, `report`, `writing` and `finish`. Said again after
-`/compact`, `/clear` and a resume. Rules, not prose: an imperative or a concrete fact per
-line, with the reasoning left in Whiska's own ADRs (ADR-0081). A part the person holds as
-`keep` is left out, since their own wording is already in context — in `~/.claude/CLAUDE.md`
-always, and in the project's `CLAUDE.md` only under that repo's own install.
-_Avoid_: block (the older home of the same rules), prompt, instructions, system prompt
-
-**Block**:
-The region of a `CLAUDE.md` an older `whiska init` wrote the rules into, bounded by one
-outer marker pair and made of **parts**. Nothing writes one now: `whiska init` and
-`whiska uninstall` take it out, keeping a `keep` part and any text of the person's inside
-the markers, and leaving everything outside them byte for byte (ADR-0081).
-_Avoid_: section (a part is a section too, so the word cannot tell the two apart),
-template, preamble
-
 **Scope**:
 Which root an install hangs off: the project (`whiska init`) or the person's home
 (`whiska init --global`). Every path is the same relative path either way —
 `.claude/hooks/whiska.sh` is one file in two places — so a scope is a root and nothing
-else, and the merge, the `keep` semantics and the idempotency are one implementation for
-both. Per-repo is the default and the only one that travels to someone else's machine
+else, and the merge and the idempotency are one implementation for both. Per-repo is the default and the only one that travels to someone else's machine
 (ADR-0056); global is for a repo that will not carry a committed `.claude/`. Where a repo
 has both, the project's copy is **in force** and the global one **stands down**: its shim
-exits before doing anything — for every hook, `SessionStart` included — and Claude Code's
-own rules settle the skills (ADR-0056).
+exits before doing anything, for every hook (ADR-0056).
 _Avoid_: level, mode (build and sniff are modes), profile, target
 
 **Stands down**:
@@ -777,20 +748,13 @@ merges the hook arrays from both files, so a hook that did not stand down would 
 twice and leave the same question on the doorstep twice.
 _Avoid_: override, shadow, disable, precedence
 
-**Part**:
-One named piece of a session's **rules** — `worktrees`, `work`, `delivery`, `marker`,
-`report`, `writing` and `finish` — each going to one role or both. The name is what `keep` claims: a
-part whose start marker in a `CLAUDE.md` says `keep` is the person's, left out of what the
-hook prints and left in place when an old **block** is taken out (ADR-0081). `scope` was a part of the global block only and is gone.
-_Avoid_: block (the whole thing), fragment, chunk
-
 **Worktree-status marker**:
 The line a mouse ends every response with, and the only thing a turn is classified by
 (ADR-0009). It is written in invisible separators (U+2063) so the person watching the
 pane never sees it: three of them for `done`, two for `needs-decision`, whose readable
-pointer sentence sits on the line above. `done` means the brief is done: a turn that stops
+pointer sentence sits on the line above. `done` means the task is done: a turn that stops
 short of it on purpose — a failing test written first, a mid-task answer — ends on
-`needs-decision`, its option A the next step. The older bracket spelling,
+`needs-decision`, its question the next step. The older bracket spelling,
 `[worktree-status: done]`, is still read and no longer written. The main session never
 writes one. Distinct from the **marker file** that
 carries a `mouse_id`: that one is identity on disk, this one is a line in a message.
@@ -807,68 +771,35 @@ pointer to the question the person reads in full with `whiska questions <id>`. S
 _Avoid_: summary, title, subject, preview
 
 **Finishing**:
-What a mouse does before it is allowed to say `done`: read the work back against the
-brief and the repo's written decisions, run the repo's checks and fix what they catch,
-send reviewers over its own diff (the ones the diff calls for, the cold review always),
-fix what they find, go round once more, commit the work on its branch, and only then
-write the marker, under a report that counts the findings fixed, gives one line to each
-finding left unfixed, and ends with an agent ledger: one line per agent sent, with its
-tokens, then one for the mouse's own session, printed by `whiska ledger` from the
-session's transcripts (ADR-0049).
-Plain instructions in the `whiska-finish` skill `whiska init` installs, which a mouse's
-`finish` part names as the trigger and nothing more — the steps only matter as a turn
-ends, so they stay out of context until then (ADR-0081). Nothing changed since the
-session's last green finish → the checks and reviewers are skipped and the message says
-so. Run by the mouse itself: Whiska
-neither runs it nor knows whether it was run (ADR-0049). What green means here, where the
-decisions live and what a ticket id looks like are the repo's to say, under a `## Finish`
-heading in its own `CLAUDE.md`. The same heading carries the person's
-usual choice for a finished branch, the repo's extra **reviewers**, and a security scan
-it would rather run than a reviewer.
+What a build mouse does before it is allowed to say `done`: read the change back against
+the spec, or a bug's research document, and the repo's written decisions; send the
+**cold review**, and a security **reviewer** when the change touches input, permissions,
+hooks, prompts or secrets; disprove or fix each finding, two rounds at most; commit the
+work on its branch; and only then write the marker, under a **report** that gives one
+line to each finding left unfixed and ends with an agent ledger: one line per agent sent,
+with its tokens, then one for the mouse's own session, printed by `whiska ledger` from the
+session's transcripts (ADR-0049). A section of the build **brief**, run by the mouse
+itself: Whiska neither runs it nor knows whether it was run. What green means here is the
+repo's to say, as a `checks:` line under a `## Finish` heading in its own `CLAUDE.md`,
+which `whiska land` runs after copying a branch's commits.
 _Avoid_: review loop (retired, below), checks, gate (the no-mistakes gate is a different
 thing, and it runs after a push rather than at the end of a turn), CI, ralph loop
 
 **Reviewer**:
-One subagent sent over the change in finishing's third step, on one **axis**, chosen by what
-the diff does: the **cold review** always; security when a trigger fires; performance on a hot path;
-frontend when a person can see the change; and a small diff gets the cold review alone
-(ADR-0049). A repo can add axes, with its `.claude/agents/*-reviewer.md` and its
-`reviewers:` line, and never remove one. A reviewer **reports and never edits**, which is what
-separates it from an agent that merely reads code well: one that changes code, or whose own
-description says not to dispatch it directly, is not a reviewer however good it is.
-Whiska ships no agent: the mouse writes each axis's prompt for Claude Code's own
-`general-purpose` agent, and nothing else installed on the machine is reached for
-(ADR-0085).
-_Avoid_: critic, auditor, linter, checker (a check is step 2 and a different thing), gate
+One subagent sent over the change in **finishing**: the **cold review** always, and a
+security reviewer when the change touches input, permissions, hooks, prompts or secrets
+(ADR-0049). A reviewer **reports and never edits**: findings by `file:line`, no changes.
+Whiska ships no agent: the mouse writes each reviewer's prompt itself, and nothing else
+installed on the machine is reached for (ADR-0085).
+_Avoid_: critic, auditor, linter, checker (a check is a command and a different thing), gate
 
 **Cold review**:
-The reviewer finishing always sends: the `cold-review` skill, which forks into its own
-read-only subagent and writes its own brief, so the mouse that built the change cannot
-shape it. It finds the change and the spec itself, reads the repo's decisions as they stood
-at the base, and treats anything the builder wrote as a claim. It runs in the foreground
-and its findings are handled like any reviewer's. Where the skill is missing, no other reviewer
-takes its place and the report says it did not run
-(ADR-0049).
+The reviewer finishing always sends: a fresh one that never saw the mouse's session,
+given the diff from `whiska base`, the spec or research document, and the repo's decisions
+as they stood at the base — never the build plan, so the diff is judged against what the
+person wanted rather than how the builder chose to build (ADR-0049).
 _Avoid_: correctness reviewer (what it replaced), second opinion
 
-**Disputed**:
-The mark on a finding the mouse tried to disprove and did, with the code that disproves it.
-A disputed finding gets its line in the report, with that code, for the person to weigh;
-nothing a reviewer says is deleted (ADR-0049).
-
-**Important / nit / pre-existing**:
-The three words a reviewer's finding gets once it has survived being disproved, and the
-word is what happens to it: fix it now; fix it if it is cheap; leave it alone. A fixed
-finding is only counted in the report; one left unfixed, of any word or subject, gets a
-line. Taken from the band names Anthropic's own reviewer already scores with,
-rather than spelled a fourth way here (ADR-0049). None of the three reaches the person as
-a decision: what a review can lead to is a wrong scope, a recorded decision the repo's
-rules do not say how to change, or a second round still red, and all three were already
-finishing's. Finishing escalates three further things that are not findings — an
-untrusted ticket, an untrusted check command, and an agent definition it will not
-dispatch — and those are untouched by this.
-_Avoid_: blocking, critical, major/minor, P0, severity (the ladder is what to do, not how
-bad it is)
 
 **Review loop** (retired):
 `.claude/hooks/review-loop.sh`, a `Stop` hook the repo owned, which blocked a turn ending

@@ -180,14 +180,15 @@ forge CLI is sitting right there.
 
 ## Where it is blocked: typing into a mouse's pane
 
-Nothing in Whiska types into a mouse's pane today. Delivery types into one place only —
-the main session of the question's own house — and ADR-0044 put it in the broadest terms:
-"nothing in Whiska types into a session that is not its own house's main session".
+Delivery types into one place only — the main session of the question's own house — and
+ADR-0044 lets Whiska type into a mouse's pane only about the mouse's own work, on a short
+list: a pickup, a doorbell, and the fixed line of a spawn or a send. A red build the owl
+found is on none of them.
 
 That rule was written against a nudge into a *person's* session, where the cost was a turn
 the person paid for and a model improvising on a prompt that was not theirs. A mouse is
 the opposite case: it exists to be given work, and the pickup ADR-0067 types into a dead
-turn's own pane is already the same shape, built as the one exception. The reasoning may
+turn's own pane is already the same shape. The reasoning may
 well not hold here — but the letter of ADR-0044 does, so this records the gate rather than
 stepping over it. **Building this half means widening ADR-0044 first**, deliberately.
 
@@ -226,8 +227,8 @@ owl-watching design has to send that failure to a session cold.
 anything changed; and a loop that dies when the pane closes or the machine sleeps — which
 is exactly when a person most wants something watching. And **Whiska cannot start one**:
 Whiska types into panes, so looping is a decision the mouse makes at the end of its own
-turn, which means it is a `CLAUDE.md` rule and not a feature Whiska can ship, switch off,
-or report on.
+turn, which means it is a line in the mouse's brief and not a feature Whiska can switch
+off or report on.
 
 **Where I disagree with dismissing it, and where I disagree with it:** the context
 advantage is real but is almost entirely recovered by the split above. A mouse whose pane
@@ -238,7 +239,7 @@ pane has closed, and there `/loop` is already dead too.
 
 So: **not the leading candidate, and not useless either.** It is the version of this
 feature for someone who wants no watching daemon at all, and it is worth writing into the
-block as a thing a mouse *may* do for a short, bounded wait it chose itself — a merge
+build brief as a thing a mouse *may* do for a short, bounded wait it chose itself — a merge
 request it expects to go green in four minutes. It is not the mechanism for "watch this
 branch until it lands", because the two things it cannot survive, a closed pane and a
 sleeping laptop, are the whole reason the feature exists.
@@ -267,7 +268,7 @@ back on the write-capable credential.
 **Whiska running the merge itself**, as the first draft had it. Rejected: it is the one
 write that would force a write-capable credential into the owl, and it buys a keystroke.
 
-**One adapter, GitHub only.** Rejected by the brief. The port costs two functions behind a
+**One adapter, GitHub only.** Rejected by the task. The port costs two functions behind a
 behaviour, and the second adapter is written when the work repo needs it.
 
 Folded in on 2026-10-08: 0032 (its text is in git history).

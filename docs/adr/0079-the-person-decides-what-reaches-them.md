@@ -16,8 +16,8 @@ reads all three before the delivery gate does (ADR-0008).
   reason that says to end the turn here and say where it stopped; a read passes until
   then, or until the turn ends on its own. Nothing is typed into its pane to stop it. The
   message it ends on sits in the inbox marked `held`, never delivered and never counted
-  as waiting on the person: they parked it. A held mouse is never offered a finish, never
-  taken down by cleanup (ADR-0061) and never picked up (ADR-0067).
+  as waiting on the person: they parked it. A held mouse is never taken down by cleanup
+  (ADR-0061) and never picked up (ADR-0067).
 - **The queue is judged against all three first** (`Whiska.Delivery.Mode`), then the gate
   decides as before. A `sent` question whose mouse is held, or is not the focused mouse
   while a focus is on, does not hold the one slot: a hold that left the queue wedged
@@ -63,15 +63,17 @@ repo's rows would invite that guess. `waiting` stays machine-wide.
 `whiska init --global` installs them into a directory of Whiska's own under the whiska
 home, which the person adds to PATH once. A word that already resolves to another program
 on PATH is skipped and named, never shadowed, and `whiska doctor` warns where a word
-resolves to anything but Whiska's own wrapper. The same eight are slash commands in the
-main session, each a thin wrapper around the fixed command (ADR-0022).
+resolves to anything but Whiska's own wrapper. In the main session the person says them
+in words, and its brief names the command each runs (ADR-next-one-brief-per-session).
 
 **The person's commands are refused to a mouse.** `Whiska.Rule.Persons` runs in the hook
 beside the held rule: a mouse's shell command whose head word is `away`, `hold`, `focus`,
-`resume`, `reply`, `dismiss` or `close`, with `whiska` in front or bare, is refused with
-the reason that those are the person's to run. The eight skills land in every mouse's
-session too, so a sentence in a skill was the only thing stopping a mouse from putting the
-machine away or holding a sibling; what must hold goes in the hook (ADR-0011). Reading
+`resume`, `reply`, `dismiss` or `close`, with `whiska` in front or bare, or `whiska spawn`,
+`send`, `land`, `pr` or `drop`, judged only with `whiska` in front since `pr` and `send`
+are other programs too, is refused with the reason that those are the person's to run.
+Prose in a brief would be the only other thing stopping a mouse from putting the machine
+away, holding a sibling, or starting, landing or throwing away a branch; what must hold
+goes in the hook (ADR-0011). Reading
 commands (`inbox`, `show`, `questions`, `waiting`, `mice`) are anyone's.
 
 ## What is said where
@@ -99,9 +101,10 @@ commands (`inbox`, `show`, `questions`, `waiting`, `mice`) are anyone's.
 - `whiska doctor` warns about any file in the commands directory that is not one of
   Whiska's own wrappers, and `whiska init --global` and `away` refuse to write through a
   symlink where their file would go, since a build mouse may write under the whiska home.
-- A finished branch lands by cherry-picking its own commits onto the current branch,
-  oldest first, skipping its merges from the base, then running the repo's checks and
-  dropping the worktree. A `## Finish` heading names it as `finish: land here`.
+- A finished branch lands by `whiska land`, on the person's word: its own commits
+  cherry-picked onto the current branch, oldest first, its merges from the base skipped,
+  then the repo's checks. The owl takes the worktree down once it sees the work in the
+  base (ADR-0061).
 
 ## Considered options
 
@@ -122,3 +125,6 @@ commands (`inbox`, `show`, `questions`, `waiting`, `mice`) are anyone's.
 - **The words in `~/.local/bin`.** Rejected: eight generic names in a shared directory.
 - **Keeping `/whiska-questions` and `/whiska-reply` beside the new skills.** Rejected:
   twelve Whiska skills in every session's context, two of them saying what two others say.
+
+Changed on 2026-10-13: the one-word commands have no slash commands, and `spawn`, `send`,
+`land`, `pr` and `drop` are the person's too (ADR-next-one-brief-per-session).

@@ -18,7 +18,7 @@ main checkout, on an unrelated branch, with no plan and no ok.
 
 Two other size exceptions go with it:
 
-- **The spec** (ADR-0063) is written for every brief but four, named by what the change
+- **The spec** (ADR-0063) is written for every task but four, named by what the change
   touches. Never skipped for a tweak or quick fix, nor for having nothing to grill.
 - **The main session's plan** is given before anything the session does itself, not
   only before "non-trivial" work.

@@ -17,7 +17,7 @@ C4Container
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; asks the owl first, else resolves the runtime at fire time; fails open, with a visible hook error in a worktree. The global copy stands down where the repo has its own")
     Container(statusline, "herdr-status.sh", "bash", "Machine-level status script in ~/.whiska; herdr's tab bar runs it on a timer")
-    Container(cli, "whiska", "Elixir escript", "Hooks, init, mode, shape - and boots the owl")
+    Container(cli, "whiska", "Elixir escript", "Hooks, init, start, spawn, send, land, pr, drop, mode, shape - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
     Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection, delivery to the main session")
     Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, renamed .collected once read")
@@ -25,7 +25,8 @@ C4Container
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
     Container(finishflag, "Finish flag", "empty file, whiska-finish in the main checkout's .git", "A finished line is out and the person has not written since; the shim reads it so a main-session prompt with nothing to settle starts nothing")
     Container(flag, "Answer flag", "empty file, whiska-answer in the worktree's git admin directory", "This worktree's mouse has an answer not yet taken; the shim reads it so a prompt with nothing waiting starts nothing")
-    Container(spec, "Spec", ".whiska-spec.md file", "What a brief will build, at the worktree root; the mouse writes it, git ignores it")
+    Container(brief, "Brief", ".whiska-brief.md file, or main.md in .git/whiska/", "Everything Whiska tells one session, which Claude Code starts with: a mouse's at its worktree root, its task inside, git ignores it; the main session's in the house")
+    Container(spec, "Spec", ".whiska-spec.md file", "What a task will build, at the worktree root; the mouse writes it, git ignores it")
     Container(plan, "Build plan", ".whiska-plan.md file", "How a change will be built, beside its spec or a bug's research document; the cold review never reads it, git ignores it")
     Container(kept, "Kept specs", "directory, .whiska/specs/ in the main checkout", "One copy per branch of its spec, build plan and research document, each under a header: its question, the ones it replaced, landed or dropped; overwritten each round, the research copy linked from whiska show; git ignores it")
     Container(research, "Research document", ".whiska-research.md file", "What a bug's fix rests on, or what an investigation found and proposes, at the worktree root; the one file a sniff mouse may write, git ignores it")
@@ -43,6 +44,7 @@ C4Container
   }
 
   Rel(person, cli, "Runs whiska init / init --global / uninstall / mode / owl / questions")
+  Rel(claude, cli, "The main session runs spawn, send, land, pr and drop on the person's word; a mouse is refused them")
   Rel(herdr, statusline, "Tab bar runs it every 5 seconds and shows its last line")
   Rel(statusline, owlsock, "Asks for the line with nc; owl down when nothing answers")
   Rel(owl, owlsock, "Answers waiting, show, jump, questions and line from every recorded house")
@@ -51,9 +53,14 @@ C4Container
   Rel(cli, doorstep, "questions, statusline and waiting count what is uncollected")
   Rel(cli, herdr, "mice list panes; doctor reads herdr's config for the tab bar and sidebar rows, and its version")
   Rel(house, nc, "Raises a hoot herdr will not show; doctor probes the same path")
-  Rel(cli, herdr, "start types claude at this pane's shell prompt when nothing runs there")
+  Rel(cli, herdr, "start types claude, with the main session's brief, at this pane's shell prompt when nothing runs there")
+  Rel(cli, brief, "start writes the main session's; spawn and shape write a mouse's, its task inside")
+  Rel(cli, herdr, "spawn creates the worktree and starts Claude in its pane with the brief and shape flags; spawn and send then type one fixed line there")
+  Rel(cli, herdr, "drop removes a worktree and its workspace together")
+  Rel(cli, remote, "pr pushes a finished branch by name, then opens its merge request with gh or glab", "git push")
   Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
-  Rel(claude, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session, UserPromptSubmit in the main session too; SessionStart in every herdr session, and prints its rules")
+  Rel(claude, brief, "Reads it once, at start, as part of its system prompt")
+  Rel(claude, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session, UserPromptSubmit in the main session too")
   Rel(shim, flag, "user-prompt-submit in a mouse exits at once unless it is there")
   Rel(shim, finishflag, "user-prompt-submit in the main session exits at once unless it is there")
   Rel(house, finishflag, "Raises it when it delivers a finished line; the person's next prompt lowers it")
@@ -86,7 +93,7 @@ C4Container
   Rel(house, db, "Records questions, marks mice dead and removed; reads the next open one")
   Rel(house, db, "Records each collected turn's usage, read from the transcript its entry names")
   Rel(cli, db, "metrics reads usage, waits and spec timing")
-  Rel(cli, db, "merge-request records the link the forge's tool printed for a finished branch")
+  Rel(cli, db, "pr and merge-request record the link the forge's tool printed for a finished branch")
   Rel(house, remote, "Fetches the base alone every 5 minutes while a merge request waits, in a task, never prompting", "git fetch")
   Rel(house, herdr, "Removes a landed worktree, here or in the fetched base, and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
@@ -121,10 +128,14 @@ The reasoning is in the ADR each line names; this is the map.
   (ADR-0086).
 - **Doorstep, a directory in the house**: every question enters through it, whoever writes
   the entry; a dead owl loses nothing; collected entries are renamed, never deleted, and an
-  ordinary `drop-worktree` cannot erase a question still waiting (ADR-0036, ADR-0007).
+  ordinary `whiska drop` cannot erase a question still waiting (ADR-0036, ADR-0007).
 - **Backstop mark**: per house, so the doctor's one line is about this run of this house
   (ADR-0036).
 - **Mouse marker**: the opaque `mouse_id`, never the branch or path (ADR-0002).
+- **Brief, one file per session**: everything Whiska tells a session, on Claude Code's
+  launch line, so it is in the system prompt from the first turn and stays there; a
+  mouse's is git-ignored at its worktree root, the main session's sits in the house so a
+  checkout holds no file of Whiska's (ADR-next-one-brief-per-session).
 - **Answer flag and finish flag**: hints for the shim, never the answer or the slot, which
   are in the house database (ADR-0080, ADR-0008).
 - **Spec and build plan in the worktree, kept copies in the main checkout**: both live and
@@ -141,7 +152,8 @@ The reasoning is in the ADR each line names; this is the map.
 - **herdr is the one boundary with a fake behind it** (ADR-0031).
 - **The git remote is the one thing off the machine the owl reaches**, through git alone,
   for the base branch alone, and only while a merge request waits; no forge is asked
-  (ADR-0087, ADR-0060).
+  (ADR-0087, ADR-0060). `whiska pr` reaches it too, on the person's word: a push by the
+  branch's name, and the forge's own `gh` or `glab` to open the merge request (ADR-0085).
 
 ## Designed only
 

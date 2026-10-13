@@ -25,55 +25,39 @@ git add .claude && git commit -m "chore: enable whiska"
 
 | File | What it is |
 | --- | --- |
-| `.claude/settings.json` | Four hooks, below. Your other settings and hooks are left alone; a file that will not parse is refused, never overwritten. |
+| `.claude/settings.json` | Three hooks, below. Your other settings and hooks are left alone; a file that will not parse is refused, never overwritten. |
 | `.claude/hooks/whiska.sh` | The shim every hook calls. It finds the `whiska` binary and Erlang when the hook fires, so nothing committed names your machine (ADR-0035). `WHISKA_BIN` and `WHISKA_ESCRIPT` override the lookup. |
-| `.claude/skills/` | The skills: the eight one-word commands (`inbox`, `show`, `reply`, `dismiss`, `focus`, `away`, `hold`, `resume`), `whiska-delivered`, the three worktree skills (`spawn-worktree`, `send-to-worktree`, `drop-worktree`), and the ones a mouse runs: `grilling`, `whiska-spec`, `whiska-plan`, `whiska-research`, `whiska-finish`, `cold-review`, `whiska-review-replies`. |
 
 | Hook | What it does |
 | --- | --- |
 | `PreToolUse` | Enforces the rules [below](#what-is-enforced). Fires only for `Write`, `Edit`, `MultiEdit`, `NotebookEdit` and `Bash`. |
 | `Stop` | Leaves a mouse's finished turn on the doorstep. |
 | `UserPromptSubmit` | Hands a mouse the answer you gave it (ADR-0080). |
-| `SessionStart` | Prints the rules for the session's role (ADR-0081). |
 
-Re-running `init` is safe, and it leaves a file alone when nothing in it would change.
+Re-running `init` is safe, and it leaves a file alone when nothing in it would change. It
+also takes out what an older Whiska wrote: its skills under `.claude/skills/`, folder and
+all once empty, and its `SessionStart` hook entry. A skill reached through a symlink is
+yours, so it stays, and `init` names it for you to delete where it lives (ADR-0056).
 
-### No `CLAUDE.md` is written
+### What a session is told: its brief
 
-A session's rules come from the `SessionStart` hook, by role (ADR-0081): nothing outside
-herdr; routing, delivery and how to write for the main session; the order of work, the
-end-of-turn marker, the report shape and the finish trigger for a mouse. They are said
-again after `/compact` and `/clear`. To read them, run this in a herdr pane, in the main
-checkout or a worktree:
+Everything Whiska tells a session is one file, its brief, which Claude Code is started with
+(`claude --append-system-prompt-file <brief>`, ADR-next-one-brief-per-session). Nothing is
+written into `CLAUDE.md`, and no skill is installed.
 
-```
-echo '{}' | whiska hook session-start | jq -r .hookSpecificOutput.additionalContext
-```
+| Session | Brief | Where it is written |
+| --- | --- | --- |
+| Main session | `priv/briefs/main.md` | `.git/whiska/main.md`, by `whiska start`, which starts Claude with it |
+| Build mouse | `priv/briefs/build.md`, the task in place | `.whiska-brief.md` at the worktree root, by `whiska spawn` or `whiska shape`; git ignores it |
+| Sniff mouse | `priv/briefs/sniff.md`, the same way | the same |
 
-An older Whiska wrote these rules into `CLAUDE.md`, between `<!-- whiska:start -->` and
-`<!-- whiska:end -->`. `whiska init` takes that block out and leaves the rest of the file
-byte for byte.
+The brief sits in the session's system prompt, so `/clear` and `/compact` keep it. A Claude
+you start by hand gets none: `whiska start` in such a session says to restart it, and
+`whiska doctor`'s `main brief` line warns about it.
 
-Two things you may write in `CLAUDE.md` yourself:
-
-- **A `## Finish` heading** with this repo's facts for a mouse finishing its work, one per
-  line: `checks:`, `specs:`, `ticket:`, `reviewers:`, `security:`. A missing one means the
-  mouse uses what the repo plainly offers and says what it assumed. `finish: land here`
-  makes that the recommended ending for a finished branch (ADR-0022).
-- **A part of the rules in your own words.** Wrap it in its markers with `keep` on the
-  start one, and the hook stops printing Whiska's version of that part. Leave it empty to
-  drop the part. The parts are `worktrees`, `work`, `delivery`, `marker`, `report`,
-  `writing` and `finish`.
-
-  ```markdown
-  <!-- whiska:writing:start keep -->
-  …your own rules for how a session writes to you…
-  <!-- whiska:writing:end -->
-  ```
-
-  A repo's own install reads `keep` from `~/.claude/CLAUDE.md` and the repo's `CLAUDE.md`;
-  the global install reads it from `~/.claude/CLAUDE.md` only, so a cloned repo cannot
-  switch rules off.
+One line Whiska reads in your `CLAUDE.md`: `checks:` under a `## Finish` heading, the
+command `whiska land` runs after copying a branch's commits. The rest of the file loads as
+Claude Code loads it.
 
 ## What is enforced
 
@@ -82,7 +66,8 @@ Four rules, all through the `PreToolUse` hook, all denied at once (ADR-0011):
 - **A held mouse may do nothing** that the hook sees, until `resume <branch>`
   (ADR-0079). It stops at its next write or shell command and says where it stopped.
 - **A mouse may not run your commands**: `away`, `focus`, `hold`, `resume`, `reply`,
-  `dismiss` and `close`, as a word or as `whiska <word>` (ADR-0079).
+  `dismiss` and `close`, as a word or as `whiska <word>`, nor the main session's `whiska
+  spawn`, `send`, `land`, `pr` and `drop` (ADR-0079).
 - **A build mouse may not change the main checkout**, nor the other worktrees under it
   (ADR-0013). `Write`, `Edit`, `MultiEdit` and `NotebookEdit` are judged by their target
   path. `Bash` is denied when a command both changes something and names a path in the
@@ -133,7 +118,9 @@ What this is not:
    🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above" · 2 more open
    ```
 
-   The `whiska-delivered` skill sees that line and shows you the question in full.
+   The main session's brief tells it to run `whiska show` on that line, print the question
+   in full, and stop. You say what happens next: an answer, "land", "pr", "drop", or a
+   note for the mouse, and it runs the command for it.
 6. **You answer by id**: `whiska reply 12 "go with A"` (ADR-0005). The answer is saved,
    the question is answered and the delivery slot is free. Then a short 🔔 doorbell line is
    typed into the mouse's pane, and the mouse's own `UserPromptSubmit` hook hands it the
@@ -156,9 +143,11 @@ repo on the machine (ADR-0056):
 whiska init --global
 ```
 
-It writes the same shim, hooks and skills under `~/.claude`, plus the one-word commands as
-shell commands in `~/.whiska/bin`; put that on your `PATH` to type `inbox` or `reply` in a
-shell. A word another program already answers to is skipped.
+It writes the same shim and hooks under `~/.claude`, plus the one-word commands as shell
+commands in `~/.whiska/bin`; put that on your `PATH` to type `inbox` or `reply` in a
+shell. A word another program already answers to is skipped. Like the repo install, it
+deletes the skills an older Whiska wrote under `~/.claude/skills` and its `SessionStart`
+entry, and names a skill reached through a symlink rather than deleting it.
 
 A repo that ran `whiska init` keeps its own copy, and the global one stands down there. To
 hand a repo over to the global install, run `whiska uninstall` in it and commit what it
@@ -321,7 +310,8 @@ Three things keep running old code after you replace it, and the doctor checks e
 - **A Claude Code session reads its settings once, at start.** After `whiska init`
   changes them, restart Claude in that pane. The `session wiring` line says when a
   settings file changed after the main session started. The shim runs afresh every time,
-  so a change to it is live at once.
+  so a change to it is live at once. A brief is read at start too: a new build's briefs
+  reach a session that `whiska start` or `whiska spawn` starts after it.
 
 ## What is not built yet
 

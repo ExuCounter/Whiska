@@ -21,7 +21,6 @@ some `claude`'s shell does not make every mouse inside it nested.
 - `Stop` leaves nothing on the doorstep.
 - `UserPromptSubmit` hands over no answer and stamps nothing taken. In the main checkout,
   a `claude` the main session started settles no finished line: it is not the person.
-- `SessionStart` prints no rules.
 - `PreToolUse` is unchanged: a nested session in a mouse's worktree is still held to that
   mouse's rules (ADR-0011, ADR-0013). Containment protects the person's checkout, whoever
   is writing.
@@ -42,8 +41,8 @@ what that lets through.
 Nothing is stored, so nothing has to be kept in step: a mouse that restarts, resumes,
 `/clear`s or compacts is still the mouse, because it still runs under no other `claude`.
 
-It costs one `ps -A` per finished `Stop`, per `SessionStart` in herdr, and per
-`UserPromptSubmit` that has an answer or a finished line waiting: about 28 ms on a machine
+It costs one `ps -A` per finished `Stop`, and per `UserPromptSubmit` that has an answer or
+a finished line waiting: about 28 ms on a machine
 with 800 processes, measured 2026-10-10. It grows with the machine's process count, not
 with the number of mice. `PreToolUse` does not pay it.
 
@@ -71,3 +70,6 @@ apart needs the process tree anyway.
 **Read a variable the parent session sets.** Claude Code sets `CLAUDE_CODE_SESSION_ID`
 and `CLAUDE_PID` for its children, but a nested `claude` overwrites both for its own
 hooks. Nothing the nested hook sees points back to the parent.
+
+Changed on 2026-10-13: there is no `SessionStart` hook to silence
+(ADR-next-one-brief-per-session).

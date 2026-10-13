@@ -4,8 +4,9 @@ Level 1. Who and what Whiska sits between.
 
 Whiska tracks Claude Code sessions ("mice") working in isolated git worktrees. It
 does not run Claude Code itself and it does not manage terminals — herdr does both
-(ADR-0020). Whiska's job is identity, rules, and getting a mouse's question in front of
-the person exactly once.
+(ADR-0020). Whiska's job is identity, rules, each session's brief
+(ADR-next-one-brief-per-session), and getting a mouse's question in front of the person
+exactly once.
 
 ```mermaid
 C4Context
@@ -15,7 +16,7 @@ C4Context
 
   System(whiska, "Whiska", "Mints mouse identity, enforces hard rules, queues questions to the main session")
 
-  System_Ext(claude, "Claude Code", "Main session and mice; fires PreToolUse, Stop, UserPromptSubmit and SessionStart hooks")
+  System_Ext(claude, "Claude Code", "Main session and mice, each started with its brief; fires PreToolUse, Stop and UserPromptSubmit hooks")
   System_Ext(herdr, "herdr", "Terminal multiplexer - owns panes, starts Claude, reports agent status")
   System_Ext(git, "git worktrees", "One worktree per mouse, laid out under the main checkout")
   System_Ext(launchd, "Service manager", "launchd on macOS, systemd on Linux - keeps the one owl per machine running")
@@ -24,14 +25,14 @@ C4Context
 
   Rel(person, claude, "Types into the main session")
   Rel(claude, whiska, "Sends hook events; the shim hands them to the owl over its socket", "JSON on stdin, nc -U")
-  Rel(whiska, claude, "Prints each session's rules at start, denies a tool call, rings a mouse's doorbell, hands it the saved answer as context")
-  Rel(whiska, herdr, "Reads agent status and screens, types into panes, closes a landed mouse's pane", "herdr's Unix socket, JSON lines")
+  Rel(whiska, claude, "Writes each session's brief, denies a tool call, rings a mouse's doorbell, hands it the saved answer as context")
+  Rel(whiska, herdr, "Reads agent status and screens, creates worktrees and starts Claude in them, types into panes, closes a landed or dropped mouse's pane", "herdr's Unix socket, JSON lines")
   Rel(herdr, claude, "Starts and hosts every session")
   Rel(herdr, whiska, "Tab bar asks the owl for its line every five seconds", "nc -U")
   Rel(whiska, git, "Derives layout from, stores house under .git/, removes a landed worktree")
   Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
   Rel(whiska, nc, "Raises a hoot herdr will not show")
-  Rel(whiska, remote, "Fetches the base while a merge request waits", "git fetch")
+  Rel(whiska, remote, "Fetches the base while a merge request waits; pr pushes a branch and opens its merge request", "git, gh or glab")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```

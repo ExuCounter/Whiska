@@ -16,6 +16,12 @@ behaviour is still unprotected and would hurt if it broke?
   `CLAUDE.md` block any more (ADR-0081), and the board-file half of #8, because the board
   is no longer written to a file: the owl sends it to herdr's sidebar (ADR-0082).
 - **Still open:** #2, #5, #6, #7, #8 (two foreground owls), #9 and #10.
+- **Dropped with what they pinned:** the skills, the `SessionStart` hook and `keep` are
+  gone (ADR-next-one-brief-per-session), and every test of them with them, their length
+  caps included. So are 16 tests that checked only wording: usage-text listings, `init`'s
+  and the doctor's advice, and the sniff deny reason's sentences. The briefs that replace
+  the skills are tested for rendering whole, never for their sentences. None of the
+  candidates below was among them.
 
 ## Scope And Evidence
 

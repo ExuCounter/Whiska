@@ -17,7 +17,7 @@ in git history.
 - [0033](0033-the-hook-asks-the-owl-over-a-socket.md) — The owl answers on two sockets: `hook.sock` for the hooks, `owl.sock` read-only for scripts
 - [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
 - [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The install is per-repo by default, and the global install is the same install rooted at the home
-- [0081](0081-rules-arrive-by-role.md) — A session's rules arrive at session start, by its role, as rules not prose
+- [next-one-brief-per-session](next-one-brief-per-session.md) — Each session starts with one brief, on its launch line
 - [0085](0085-whiska-stands-alone.md) — Whiska stands alone: it builds on Claude Code, herdr and git, and calls nothing else on the machine
 
 ## Identity
@@ -47,7 +47,7 @@ in git history.
 - [0079](0079-the-person-decides-what-reaches-them.md) — The person decides what reaches them: away, focus and hold
 - [0080](0080-an-answer-is-taken-not-typed.md) — An answer is taken by the mouse's own hook, not typed into its pane
 - [0062](0062-the-owl-hoots-when-it-delivers.md) — The owl hoots when it delivers
-- [0044](0044-the-statusline-redraws-on-a-timer-not-a-typed-nudge.md) — Whiska types only into its own house's main session, a pickup and a doorbell aside
+- [0044](0044-the-statusline-redraws-on-a-timer-not-a-typed-nudge.md) — Whiska types only into its own house's main session, and into a mouse's pane only about its own work
 
 ## Enforcement and finishing
 
@@ -69,7 +69,6 @@ in git history.
 
 ## Interface
 
-- [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash
 - [0048](0048-the-owls-line-is-drawn-on-herdrs-tab-bar.md) — The owl's line is drawn once on herdr's tab bar, machine-wide
 - [0082](0082-a-mouses-state-is-a-line-in-herdrs-sidebar.md) — A mouse's state is a line in herdr's sidebar
 - [0066](0066-whiska-start-starts-claude-in-the-pane-it-records.md) — `whiska start` starts Claude in the pane it records
@@ -85,3 +84,11 @@ in git history.
 
 - [0024](0024-endpoint-identity-is-two-layers.md) — Endpoint identity is two layers, with an honest limit; one mouse per worktree is enforced through it
 - [0060](0060-watching-a-branch-is-the-owls-one-networked-job.md) — Watching a branch is the owl's one networked job, and it only ever reads; its merge, seen through a fetch of the base, is built
+
+## Superseded
+
+Kept for the citations that reach them; each names its successor, and its old text is in
+git history.
+
+- [0081](0081-rules-arrive-by-role.md) — A session's rules arrive at session start, by its role, as rules not prose
+- [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash

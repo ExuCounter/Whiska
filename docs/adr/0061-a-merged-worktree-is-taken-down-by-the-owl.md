@@ -80,7 +80,7 @@ skips them.
    this asks about the branch's history rather than how the base reached it
    (ADR-0064's landing stamp asks the latter, and reads a fast-forward as no landing).
    A reflog that is missing or empty is unknown, and unknown is not permission. Such a
-   worktree stays until the person drops it with `drop-worktree`.
+   worktree stays until the person drops it with `whiska drop`.
 
    Two limits, both on the safe side. The test is "the tip moved", not "a commit of its
    own": a sniff mouse that fast-forwards its own branch (`git pull`) reads as having
@@ -96,7 +96,7 @@ skips them.
    worktree is destroyed. Adding `--ignored` was considered and rejected: in a repo with
    build output under the worktree — `_build/`, `deps/`, `node_modules/` — it would refuse
    every worktree forever, which is the feature not existing. This is the same deletion
-   `drop-worktree` has always performed by hand; what changes is that nobody is watching
+   `whiska drop` performs on the person's word; what changes is that nobody is watching
    when it happens. A worktree holding a local secret that is not in the base branch is
    the one case to take down by hand before it lands.
 3. **Nothing is unpushed.** No commit on the branch is absent from every remote.
@@ -131,7 +131,7 @@ branch settings stay where they are.
 branch that cannot be resolved unambiguously, a git command that fails for any reason, a
 herdr that does not answer — every one of them means *do nothing and leave it for the
 person*. Nothing is logged as an error and nothing is retried in a tighter loop; the
-worktree simply stays, and the person can still take it down by hand with `drop-worktree`.
+worktree simply stays, and the person can still take it down by hand with `whiska drop`.
 
 ### Quiet, which replaces "dead"
 
@@ -169,7 +169,7 @@ A **quiet** mouse is one with nothing left to do and nothing anyone is waiting o
 
 This is deliberately strict on one case: a branch the person merged themselves, for a mouse
 that never said `done`, is never cleaned up automatically. That is the conservative side of
-"unknown is never permission", and `drop-worktree` still exists for it.
+"unknown is never permission", and `whiska drop` still exists for it.
 
 ADR-0026's **stuck** mouse is untouched. A stuck mouse is alive and its pane says `working`,
 so it fails the fourth condition without anything here having to know what stuck means.
@@ -177,14 +177,14 @@ so it fails the fourth condition without anything here having to know what stuck
 ### The pane goes with the worktree
 
 Removing the git worktree and leaving herdr's workspace open leaves half a thing, which is
-why the `drop-worktree` skill has always done both (ADR-0056). The owl does what that skill
-does: one `worktree.remove` on herdr's socket with the workspace id, `force: false`, which
+why `whiska drop` does both (ADR-next-one-brief-per-session). The owl does what that
+command does: one `worktree.remove` on herdr's socket with the workspace id, `force: false`, which
 removes the worktree and closes the workspace together. A worktree with no open workspace —
 the mouse was already dead — is removed with plain `git worktree remove`.
 
 **This gives the owl a power it has never had: it can make a Claude Code session
-disappear.** Until now the owl could type into a pane and nothing else; ADR-0044 even took
-away typing into panes that are not its own house's main session. Closing a pane is a
+disappear.** Until now the owl could type into a pane and nothing else, and ADR-0044 keeps
+that to its own house's main session and a mouse's own work. Closing a pane is a
 larger power than typing into one, and it is worth saying plainly what it means:
 
 - A session the person was reading is gone from their screen, with its scrollback, and
@@ -239,7 +239,7 @@ record. Anything able to write that file already runs as the person.
 - **`whiska cleanup` as a command is not built.** ADR-0007 named it, the spec lists it, and
   it was always the human trigger this ADR removes. If it comes back it is a *now, not in a
   minute* convenience, not the only way in.
-- **`drop-worktree` stays exactly as it is.** It is the path for everything the
+- **`whiska drop` stays.** It is the path for everything the
   preconditions refuse, and the person's own way to take down a worktree early.
 - **This is the first thing in Whiska that deletes anything.** ADR-0007's title is no longer
   true as written, which is why it is superseded here rather than quietly amended.
@@ -261,7 +261,7 @@ way every time. Rejected for exactly that: a question with one sensible answer i
 notification with extra steps.
 
 **Keep the pane and remove only the worktree.** Rejected: it is the half-teardown
-`drop-worktree` exists to prevent, and it would leave a Claude Code session sitting in a
+`whiska drop` exists to prevent, and it would leave a Claude Code session sitting in a
 folder that no longer exists.
 
 **Archive instead of delete** — move the worktree aside rather than removing it. Rejected:

@@ -1,7 +1,8 @@
 # An opened merge request is remembered, and its base is fetched until it lands
 
-When the person picks "Open a merge request / PR" on a finished line, the main session
-records the link on the mouse record with `whiska merge-request <id> <url>`. From then on
+When the person says "pr" after a finished line, `whiska pr` opens the merge request and
+records its link on the mouse record; `whiska merge-request <id> <url>` records one opened
+by hand. From then on
 that branch's finished lines are a merge request's, and while it waits the owl fetches the
 branch it was opened against, so a merge on the forge lands it for cleanup with nobody
 pulling.
@@ -17,29 +18,30 @@ pane and branch stayed until the person pulled.
 
 ## Decision
 
-**The pick is recorded, not inferred.** The mouse record gains `merge_request_at` and
-`merge_request_url`, stamped by the one command the finished-line skill runs once `gh` or
-`glab` printed the link. A second record replaces the first: a new request after a closed
-one. Only a plain `https://` link with a host is taken, with no space, quote, bracket or
-control character in it: it is printed under the branch line, where the main session
-reads it and hands it to the person. A merge request opened outside that option is not known, and its branch
-keeps the ordinary options.
+**The request is recorded, not inferred.** The mouse record gains `merge_request_at` and
+`merge_request_url`, stamped by `whiska pr` once `gh` or `glab` printed the link, or by
+`whiska merge-request` for one opened by hand. A second record replaces the first: a new
+request after a closed one. Only a plain `https://` link with a host is taken, with no
+space, quote, bracket or control character in it: it is printed under the branch line,
+where the main session reads it and hands it to the person. A merge request opened any
+other way and never recorded is not known, and its branch reads as an ordinary one.
 
 **The request targets the mouse's base**, the branch its finished line names, not the
 forge's default branch. The owl watches that base for the merge, so a request into any
 other branch would never be seen landed and its worktree would stay. A line that names no
 base leaves the target to the forge.
 
-**Its finished lines offer what fits an open request.** The branch line reads
-`merge request opened · <N> commits not pushed · …`, with `Merge request: <link>` under
-it. Not pushed counts the branch's commits that no remote and no base holds. The options
-are Push to the merge request, Commit and push to the merge request where files are not
-committed, and none once everything is pushed. Land here, Open and Drop are not offered,
-whatever `finish:` says (ADR-0022). Once the branch is seen landed, its lines are an
+**Its finished lines read as an open request's.** The branch line reads `merge request
+opened · <N> commits not pushed · …`, with `Merge request: <link>` under it. Not pushed
+counts the branch's commits that no remote and no base holds. On "pr" again, `whiska pr`
+pushes the new commits to the open request, never forced, refusing files not committed
+until `--commit <file>` as it does for any branch. `whiska land` refuses a branch with a
+request open: landing beside it would copy its work onto the base and leave the request
+open (ADR-next-one-brief-per-session). Once the branch is seen landed, its lines are an
 ordinary branch's again: new commits on it land, or go into a request of their own, which
 waits until it lands in turn and moves the landing date (ADR-0064). A commit in the
 fetched base is not beyond it, so a request merged on the forge leaves nothing to land. A
-request closed on the forge is invisible here, so `drop-worktree` stays the way out.
+request closed on the forge is invisible here, so `whiska drop` stays the way out.
 
 **While a request waits, the owl fetches its base.** Every 5 minutes on the house's
 backstop, in a task of its own with a 60 s deadline, the base branch alone is fetched into
@@ -64,11 +66,11 @@ main checkout has out, never the fetched base where the landing was found.
 
 ## Why
 
-The record is what makes the options right. Inferring "in review" from git was weighed and
-rejected: a branch pushed as a backup looks the same as one under review, and would lose
-Land here. Asking the forge was rejected as the way to see the merge (below), so the only
-thing the forge decides that Whiska needs — merged or not — is read from what a fetch
-brings back, by the git checks cleanup already trusts.
+The record is what makes landing and pushing right. Inferring "in review" from git was
+weighed and rejected: a branch pushed as a backup looks the same as one under review, and
+could no longer be landed. Asking the forge was rejected as the way to see the merge
+(below), so the only thing the forge decides that Whiska needs — merged or not — is read
+from what a fetch brings back, by the git checks cleanup already trusts.
 
 ## Consequences
 
@@ -79,8 +81,8 @@ brings back, by the git checks cleanup already trusts.
   preconditions, read against the fetched base.
 - **`origin/<base>` moves in the main checkout by itself** while a request waits. The
   local base branch never does.
-- **A closed request is not seen.** Its branch keeps the merge request's options until the
-  person drops it.
+- **A closed request is not seen.** Its branch reads as a merge request's, and
+  `whiska land` refuses it, until the person drops it.
 
 ## Considered options
 
@@ -89,7 +91,11 @@ brings back, by the git checks cleanup already trusts.
   calls a tool ADR-0085 keeps to what the person asked of a merge request.
 - **Opt in per repo.** Rejected: there is no settings place to switch it in (ADR-0085), and
   the fetch cannot prompt, so on is safe everywhere.
-- **Keep Drop it on a merge request's lines, last.** Rejected by the brief: Drop beside an
-  open request throws away what the request still shows. `drop-worktree` covers a closed
+- **Offer Drop it on a merge request's lines, last.** Rejected by the task: Drop beside an
+  open request throws away what the request still shows. `whiska drop` covers a closed
   one.
 - **An "in review" state in the sidebar.** Left out: the finished line already says it.
+
+Changed on 2026-10-13: `whiska pr` opens and records the request, pushes to it once open,
+and `whiska land` refuses a branch with one open, where finish options did that before
+(ADR-next-one-brief-per-session).

@@ -1,10 +1,13 @@
 # A mouse is shaped before it starts: mode, model and effort
 
 The spawn gives a mouse its shape, its mode, its model and its effort, before Claude
-starts. `spawn-worktree` runs `whiska shape build|sniff [--model <name>] [--effort
-<level>]` inside the new worktree, after `herdr worktree create` and before `herdr agent
-start`. The command mints the marker and the mouse record there and then, records the
-shape and `shaped_at`, and prints the flags to start Claude with. The three axes are
+starts. `whiska spawn` shapes it after herdr creates the worktree and before Claude starts
+there (ADR-next-one-brief-per-session); `whiska shape build|sniff [--model <name>]
+[--effort <level>]`, run inside a worktree, does the same for a mouse started by hand.
+Either mints the marker and the mouse record there and then, records the shape and
+`shaped_at`, writes the mouse's brief — its mode's, with its task in it — to
+`.whiska-brief.md` at the worktree root, which git ignores, and gives the flags to start
+Claude with, `--append-system-prompt-file .whiska-brief.md` among them. The three axes are
 chosen apart: the mode says what the mouse may do, the model and the effort say what the
 work needs. There is no default mode. A mouse keeps the mode it was shaped with.
 
@@ -38,13 +41,13 @@ never given a shape and to ask the person. It cannot shape itself: of `whiska`, 
 caught too. The person runs `whiska mode build|sniff` in its
 worktree, which stamps `shaped_at`. `whiska mode` gives a mode only to a mouse nobody
 shaped and refuses a shaped one (ADR-0074): its model and effort were chosen for the
-mode's work, so a sniff mouse denied an edit is told to finish with a proposal, not to
-ask for `whiska mode build`. `whiska mice` shows an unshaped mouse as `never shaped,
+mode's work, so a sniff mouse denied an edit is told to finish with a What to change
+block, not to ask for `whiska mode build`. `whiska mice` shows an unshaped mouse as `never shaped,
 reads only`.
 
-This hold exists because `spawn-worktree` is text and nothing tests that a session
-follows it. When build was the default, a skipped `whiska shape` left a mouse asked for
-as sniff with write access, and nothing said so.
+This hold exists for a mouse nothing shaped: one started by hand, or by an older Whiska.
+When spawning was a skill of prose and build the default, a skipped `whiska shape` left a
+mouse asked for as sniff with write access, and nothing said so.
 
 ## Model and effort are chosen by ordered rules
 
@@ -66,20 +69,20 @@ build and needs neither. `priv/models.json` holds ordered rules for each axis:
 
 The first rule that fits wins, so the last rule, `"when": "anything else"`, is the
 catch-all and the default; the build refuses a file whose list does not end on it. A
-`when` is a judgment about the work, so the session that read the request judges it:
-`spawn-worktree` runs `whiska shape --rules`, which prints the file as the build read it,
-and passes what it chose as `--model` and `--effort`. A flag left out gets the
-catch-all's value; a flag named on the command line wins with no rule applied. The skill
-carries neither the rules nor a model name, and a test fails if any file under `lib/` or
-any shipped skill names a model the file uses.
+`when` is a judgment about the work, so the session that read the request judges it: the
+main session runs `whiska shape --rules`, which prints the file as the build read it, and
+passes what it chose to `whiska spawn` as `--model` and `--effort`. A flag left out gets
+the catch-all's value; a flag named on the command line wins with no rule applied. The
+main session's brief carries neither the rules nor a model name.
 
 Every `use`, fallback and flag value is one plain word: lowercase letters, digits and
 dashes. The catch-all alone may be null, for the person's own default. Nothing checks
 that a word names a model Claude Code has; a misspelt name passes Whiska and fails in
 Claude Code, which is the cost of not keeping a list of models. The plain word is also
 what makes the output safe: `whiska shape` prints one line, `--model opus --effort xhigh
---fallback-model sonnet`, or nothing, every word checked, so the spawn can split it with
-`eval "set -- $flags"` and it can do nothing but pass flags.
+--fallback-model sonnet --append-system-prompt-file .whiska-brief.md`, every word checked,
+so a mouse started by hand can split it with `eval "set -- $flags"` and it can do nothing
+but pass flags. `whiska spawn` hands herdr the same flags as separate words.
 
 `model.fallback` becomes `--fallback-model`, which Claude Code walks inside the session
 when the model is overloaded or not available, retrying the primary each turn. The chain
@@ -140,9 +143,9 @@ included.
 The mice table carries `mode`, `model`, `effort`, `shaped_at`, `shaped_as` and `ran_on`.
 `whiska shape` fails non-zero rather than guess, on a bad mode, a value that is not one
 plain word, a directory that is no worktree or a house it cannot reach, and checks its
-arguments before minting; the skill stops on that and does not start Claude. It writes
-what it recorded on stderr, "feat/x is a sniff mouse on opus, xhigh effort", and the
-skill's report quotes that line: Whiska's record, not the skill's intent.
+arguments before minting; `whiska spawn` stops on that and does not start Claude. It says
+what it recorded, "feat/x is a sniff mouse on opus, xhigh effort", and `whiska spawn`'s
+report carries that line: Whiska's record, not the main session's intent.
 
 Sniff and the hold on an unshaped mouse are not a security boundary. A house that will
 not open degrades both to build, loudly, and a missing `whiska` binary allows every call.
@@ -152,8 +155,10 @@ not. The hold is for a mouse that follows its instructions, not one that fights.
 
 A reviewer in the finish pipeline (ADR-0049) is a third kind of work but not a third
 shape: a subagent inside a mouse's session, with no worktree, no marker and no record,
-whose model is set in its own agent definition. A mouse started by an older
-`spawn-worktree`, or by hand, reads but does not write until the person answers;
-re-running `whiska init`, or `whiska init --global`, updates the skill.
+whose model is set in its own agent definition. A mouse started by hand without
+`whiska shape` reads but does not write until the person answers.
 
 Folded in on 2026-10-08: 0018, 0019, 0073 (their text is in git history).
+
+Changed on 2026-10-13: `whiska spawn` shapes the mouse, and the shape writes its brief and
+adds it to the flags (ADR-next-one-brief-per-session).

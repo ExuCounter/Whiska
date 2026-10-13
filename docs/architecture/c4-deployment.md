@@ -21,6 +21,7 @@ C4Deployment
       Container(doorstep, "doorstep/", "directory, .git/whiska/", "Uncollected questions")
       Container(sock, "repo socket - NOT BUILT", "Unix socket, .git/whiska/", "Push approval, mouse identity")
       Container(markerf, ".whiska-mouse", "file, worktree root", "The opaque mouse_id")
+      Container(briefs, "Briefs", "main.md in .git/whiska/, .whiska-brief.md at a worktree root", "Everything Whiska tells each session")
     }
     Deployment_Node(home, "Home directory", "~") {
       Container(globalsock, "owl.sock", "Unix socket, ~/.whiska/", "Read-only, cross-repo: waiting, show, jump, questions, the tab bar line")
@@ -29,7 +30,7 @@ C4Deployment
       Container(plist, "The owl's job", "~/Library/LaunchAgents/ or ~/.config/systemd/user/", "The plist or the unit: runs owl.sh, restarts on a crash only")
       Container(wrapper, "owl.sh + owl.log", "~/.whiska/", "Resolves binary and runtime at launch; the owl's stdout and stderr")
       Container(cache, "exqlite cache", "~/.cache/whiska/", "Unpacked SQLite native library")
-      Container(globalinstall, "Global install - optional", "~/.claude/", "The same shim, four hooks and skills, for every repo. Often symlinks into a dotfiles repo")
+      Container(globalinstall, "Global install - optional", "~/.claude/", "The same shim and three hooks, for every repo. Often symlinks into a dotfiles repo")
     }
   }
   Deployment_Node(forge, "The forge", "off this machine") {
@@ -49,6 +50,7 @@ C4Deployment
   Rel(owl, doorstep, "Writes the entry a hook sent it, then collects")
   Rel(mousepane, housedb, "UserPromptSubmit hook takes a saved answer and stamps it")
   Rel(mousepane, markerf, "Hook reads or mints")
+  Rel(mainpane, briefs, "Claude Code starts with its brief, as do the mice")
   Rel(tabbar, globalsock, "Asks for the line every five seconds")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

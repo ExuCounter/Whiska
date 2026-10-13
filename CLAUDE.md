@@ -89,7 +89,7 @@ The global `CLAUDE.md` still applies in full: TDD is mandatory (failing test fir
 claim "done" without running it, and push committed work through the gate where one is
 set up. Nothing in this file overrides those.
 
-The worktree protocol comes from the global install `whiska init --global` writes
-(ADR-0056): a `SessionStart` hook prints each session's rules by role (ADR-0081). This
-repo keeps no local install, so the copy in force here is the one every other repo on
-this machine gets.
+The worktree protocol is each session's brief, on the launch line `whiska start` or
+`whiska spawn` types (ADR-next-one-brief-per-session). The hooks come from the global
+install `whiska init --global` writes (ADR-0056). This repo keeps no local install, so the
+hooks in force here are the ones every other repo on this machine gets.

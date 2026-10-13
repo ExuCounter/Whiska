@@ -42,31 +42,33 @@ a mouse meant is the heuristic this record refuses, and the worst case is a turn
 finished rather than lost. `WHISKA_DEBUG=1` renders the marker visibly and logs what the
 hook read.
 
-## `done` means the brief is done
+## `done` means the task is done
 
-A turn that stops short of the brief on purpose, a failing test written first or an answer
-to a question asked mid-task, ends on `needs-decision`, with its option A naming the
-concrete next step. Seen live: a mouse told to write a failing test first did, stopped
+A turn that stops short of its task on purpose, a failing test written first or an answer
+to a question asked mid-task, ends on `needs-decision`, its question naming the concrete
+next step. Seen live: a mouse told to write a failing test first did, stopped
 with it uncommitted, ended on `done`, and the finish options recommended landing a branch
 whose test would have broken CI. The two markers and the owl's reading of them do not
 move; their meaning sharpens.
 
 `whiska show` prints a branch line under a finished question's heading, read from git and
 never from the message: commits beyond the base, files not committed, or `unknown`. The
-finish options offer what fits (ADR-0022). Files not committed are offered a commit first:
-measured across this machine's mice, 29 of 126 finished turns that changed files ended
-with changes not committed, because nothing asked a mouse to commit, so `done` beside
-uncommitted files is far more often finished work nobody committed than a mouse that
-stopped short. The main session commits in the mouse's worktree with a message passed by
-file (ADR-0074). The cost: a mouse that stopped short and still ended on `done` has its
-half-done work committed and landed; the marker rule is the only guard there.
+person says land, pr or drop, and `whiska land` and `whiska pr` refuse files not committed
+and name them, so the person sees each before it is offered a commit: measured across this
+machine's mice, 29 of 126 finished turns that changed files ended with changes not
+committed, because nothing asked a mouse to commit, so `done` beside uncommitted files is
+far more often finished work nobody committed than a mouse that stopped short. On the
+person's ok, `--commit <file>` commits them in the mouse's worktree with a message the
+main session wrote to that file (ADR-next-one-brief-per-session). The cost: a mouse that
+stopped short and still ended on `done` has its half-done work committed and landed; the
+marker rule is the only guard there.
 
 ## What the line carries
 
 The delivered line is `🐱 <branch> <verb> · #<id> · "<pointer>" · <n> more open` and
-carries no command: a line that reads like code gets acted on. The `whiska-delivered`
-skill recognises it and runs the read (ADR-0022). The id stays because answers are keyed
-to it (ADR-0005).
+carries no command: a line that reads like code gets acted on. The main session knows it
+from its brief and runs `whiska show` (ADR-next-one-brief-per-session). The id stays
+because answers are keyed to it (ADR-0005).
 
 A turn with a background subagent still out is not a stop: the hook writes nothing
 (ADR-0052). Everything the hook cannot read counts as ended, so that rule fails in the
@@ -82,8 +84,8 @@ same direction as this one.
   its report readable only by someone who already knew to run `whiska questions <id>`.
 - **A third marker for "stopped short".** Rejected: it changes the parser, the line, the
   hoot and the sidebar, and still needs a way to say "carry on".
-- **Recording the branch in the `Stop` hook.** Rejected: the options need the branch as it
-  is when the person picks, not as it was when the turn ended.
+- **Recording the branch in the `Stop` hook.** Rejected: landing needs the branch as it
+  is when the person says so, not as it was when the turn ended.
 
 ## Consequences
 
@@ -94,3 +96,7 @@ same direction as this one.
   in what happens after it is sent.
 - Recording that an entry arrived unmarked is deliberate evidence of which mice forget and
   how often.
+
+Changed on 2026-10-13: a finished branch is landed, opened as a merge request or dropped by
+`whiska land`, `whiska pr` or `whiska drop` on the person's word, with no options offered
+(ADR-next-one-brief-per-session).

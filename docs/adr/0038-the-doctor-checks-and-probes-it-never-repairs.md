@@ -76,13 +76,16 @@ house" — was considered and deferred: `owl.sock` answers `waiting` for every h
 ## The main session and the queue
 
 Delivery added the one thing about a house that is neither a mouse nor a question: the
-pane `whiska start` recorded as the main session. The doctor judges it with the same
-herdr call the delivery gate uses, so the two agree on what "running Claude" means, and
-it reports every bad state — not recorded, pane gone, pane not running Claude — as a
-warning, because the owl holds the queue and nothing is lost. It also prints the queue
-as a diagnosis rather than a listing (`whiska questions` is the listing): how many are
-open, whether one is sent and for how long, and a warning for the one combination that
-means nothing can move — open questions with no main session to deliver them to.
+pane `whiska start` recorded as the main session. The doctor judges it with the same herdr
+call the delivery gate uses, so the two agree on what "running Claude" means, and it
+reports every bad state — not recorded, pane gone, pane not running Claude — as a warning,
+because the owl holds the queue and nothing is lost. A main session running a Claude
+started without its brief, the file `whiska start` writes into the house, is a warning
+too: it does not know it is Whiska or which commands are the person's, and only a restart
+through `whiska start` reads the brief (ADR-next-one-brief-per-session). It also prints
+the queue as a diagnosis rather than a listing (`whiska questions` is the listing): how
+many are open, whether one is sent and for how long, and a warning for the one combination
+that means nothing can move — open questions with no main session to deliver them to.
 
 ## What is a failure
 
@@ -91,7 +94,8 @@ hook not wired or at an older version, a shim that differs, a binary that cannot
 the hook, a house that will not open. **warn** means degraded but nothing is lost: the
 owl is down and entries are waiting, the binary is only in the fallback location, herdr
 cannot be asked, no main session is recorded, a mouse record no longer matches the
-worktree or has no live pane.
+worktree or has no live pane, a skill or a `SessionStart` entry an older install left in
+the repo or in `~/.claude`, which nothing reads, with `whiska init` as the fix.
 Owl-down is a warning and not a failure on purpose — ADR-0036 made the doorstep the
 reason it is not a loss — but the warning carries the waiting count and the oldest
 entry's age, so "3 waiting, oldest 40 min" reads as urgent without redefining the levels.
@@ -105,3 +109,7 @@ the least likely moment and misses the likely one". The doctor has the same limi
 makes no claim otherwise: it reports the moment it is run. It is not monitoring, and it
 does not replace the tab bar line, where "the owl is down" belongs (ADR-0048). It is the
 thing to run when that line says something is wrong.
+
+Changed on 2026-10-13: no `session-start` probe; the doctor warns of a main session started
+without its brief and of a skill or `SessionStart` entry an older install left
+(ADR-next-one-brief-per-session).

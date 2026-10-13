@@ -20,6 +20,13 @@ typed into that. It is the right reading anyway — the person just typed this c
 that pane, so the prompt is theirs — and a pane running Claude, the one case where typing
 would land inside somebody's conversation, is exactly the case this refuses.
 
+**The line carries the main session's brief.** `whiska start` writes the brief, `main.md`,
+into the house beside its database, and the line it types is
+`claude --append-system-prompt-file <that path>`, so the session starts knowing it is
+Whiska and which commands are the person's (ADR-next-one-brief-per-session). In a pane
+already running a Claude started without that brief, it records the pane, starts nothing,
+and says to quit Claude and restart it with the line: only a restart reads a brief.
+
 **`--no-claude` records and starts nothing**, for a script, and for a person who means to
 start Claude themselves. It is the escape hatch, not the default: a recorded pane with no
 Claude in it was never anybody's goal, it was the gap.
@@ -52,9 +59,10 @@ because the person's own `claude` may be a shell function, an alias or a wrapper
 types anywhere, after delivery (ADR-0044) — and unlike delivery it is the person's own
 command, in the person's own pane, in the breath they asked for it.
 
-**It is not a `whiska spawn`.** ADR-0022 refused a command that spawns a *mouse*, because
-which mode, which model and whether the work deserves a worktree are judgment calls that
-belong in a conversation. None of that applies here: there is one main session per house,
+**It is not `whiska spawn`.** Spawning a *mouse* carries judgment — which mode, which
+model, whether the work deserves a worktree — which the main session settles in
+conversation and passes to `whiska spawn` as arguments (ADR-next-one-brief-per-session).
+None of that applies here: there is one main session per house,
 it lives in the main checkout, and the pane is already chosen — it is the one the command
 was run in. ADR-0020 still holds too: herdr starts Claude Code, Whiska does not own the
 process, and the result is a herdr pane like any other.
@@ -79,3 +87,6 @@ nothing to start.
 **It will not resurrect a dead session into the same pane twice.** Run it in a pane where
 Claude is already running and it records and stops; that is the only safe reading, and the
 person who wants a second session makes a second pane.
+
+Changed on 2026-10-13: the line typed starts Claude with the main session's brief, and a
+Claude already running without it is told to restart (ADR-next-one-brief-per-session).
