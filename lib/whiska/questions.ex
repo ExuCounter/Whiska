@@ -264,26 +264,22 @@ defmodule Whiska.Questions do
     |> String.trim_trailing()
   end
 
-  # A finished report's heading says what it is and what its branch holds, once
-  # each: its time is when it finished, and a plain "waiting on you" is what
-  # every delivered one is, so only an unusual state is named. Any other
-  # question keeps the state and the day it was asked.
-  defp heading(%Question{kind: "done"} = q, branch, slot, mode, focus, held) do
+  # The heading says what the question is and when, once each. A plain
+  # "waiting on you" is what every delivered one is, so only an unusual state
+  # is named. A finished one also says what its branch holds.
+  defp heading(q, branch, slot, mode, focus, held) do
     state =
       case state(q, slot, mode, focus) do
         "waiting on you since" <> _ -> []
         other -> [other]
       end
 
-    Enum.join(
-      ["##{q.id} #{branch}", "#{verb(q.kind)} #{finished_at(q.asked_at)}"] ++
-        state ++ branch_state(held),
-      " · "
-    )
-  end
+    when_ = finished_at(q.asked_at)
 
-  defp heading(q, branch, slot, mode, focus, _held) do
-    "##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})"
+    lead =
+      if q.kind == "done", do: ["#{verb(q.kind)} #{when_}"], else: [verb(q.kind), when_]
+
+    Enum.join(["##{q.id} #{branch}"] ++ lead ++ state ++ branch_state(held), " · ")
   end
 
   # The time alone reads as today's; any other day is named.

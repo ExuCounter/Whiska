@@ -318,7 +318,7 @@ defmodule Whiska.CLIDeliveryTest do
       end)
 
       {0, out, _} = run(["questions", "2"], main)
-      assert out =~ "(queued behind #1, asked"
+      assert out =~ " · queued behind #1"
     end
 
     test "with an id prints that question in full", %{main: main} do

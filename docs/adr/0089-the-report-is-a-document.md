@@ -32,8 +32,8 @@ whole, and `whiska show` prints its summary under the link to it.
   (`1 commit, clean`). Under it one row of labels, `Diff · Research · Full report`, each
   only when it has something to open. `Spec` and `Build plan` link only on a question
   that is not finished: they are what an "ok to build?" asks about, and the report
-  replaces them. Other questions keep their heading's state and day, and take the same
-  row.
+  replaces them. Other questions say the same, with the kind first
+  (`#<id> <branch> · needs a decision · 21:42`), and take the same row.
 - **A heading inside a code block is not one.** A message quoting the template is not a
   document.
 - **The heading never decides what the turn is.** Its kind is its marker's alone

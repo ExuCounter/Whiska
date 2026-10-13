@@ -239,7 +239,7 @@ defmodule Whiska.CLIInboxTest do
 
       {0, out, _} = run(["show", "1"], main)
       assert out =~ "Which db?"
-      assert out =~ "(waits: focus on feat-b, asked"
+      assert out =~ " · waits: focus on feat-b"
     end
 
     test "works from a worktree of the repo, and refuses outside any repo", %{

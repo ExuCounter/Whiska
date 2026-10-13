@@ -168,7 +168,7 @@ defmodule Whiska.QuestionsTest do
                "(waiting on you since #{pad.(h)}:#{pad.(mi)})"
 
       assert Questions.full(q, "feat-a", 132) =~
-               "asked #{y}-#{pad.(mo)}-#{pad.(d)} #{pad.(h)}:#{pad.(mi)})"
+               "needs a decision · #{y}-#{pad.(mo)}-#{pad.(d)} #{pad.(h)}:#{pad.(mi)}\n"
     end
 
     test "at length, a queued question still says what it is behind", %{main: main} do
@@ -182,7 +182,7 @@ defmodule Whiska.QuestionsTest do
 
       {:ok, summary} = Questions.summary(main)
 
-      assert Questions.render_full(summary) =~ "(queued behind ##{sent.id}, asked"
+      assert Questions.render_full(summary) =~ " · queued behind ##{sent.id}"
     end
 
     test "a report that ends on a decision shows its summary and the question it asks", %{
@@ -350,7 +350,7 @@ defmodule Whiska.QuestionsTest do
 
       {:ok, summary} = Questions.summary(main)
       assert Questions.render(summary) =~ ~s|#1  feat-a  needs a decision · "which db?"  (held)|
-      assert Questions.render_full(summary) =~ "(held, asked"
+      assert Questions.render_full(summary) =~ " · held"
     end
 
     test "a question waiting behind a focus names the focused branch", %{main: main} do
