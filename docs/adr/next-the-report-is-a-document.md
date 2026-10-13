@@ -23,7 +23,9 @@ whole, and `whiska show` prints its summary under the link to it.
   section and, when there is one, the first line under `## What to change`. A turn that
   ends on a decision keeps the question on the line above its marker. The rest is behind
   the link. `whiska questions --full` prints the same, from the same code. A message with
-  no `## Summary` (a question mid-grill, a mouse started before this) is printed whole.
+  no `## Summary`, or an empty one (a question mid-grill, a mouse started before this), is
+  printed whole, and so is a turn that stopped with no marker, since it may have been cut
+  off.
 - **A heading inside a code block is not one.** A message quoting the template is not a
   document.
 - **The heading never decides what the turn is.** Its kind is its marker's alone

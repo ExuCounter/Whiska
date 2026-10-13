@@ -667,7 +667,9 @@ defmodule Whiska.CLI do
 
   # A repo's skills were committed, so every worktree cut from it keeps them
   # until the removal is.
-  defp commit_removal(:repo), do: " Commit their removal too: `git add -A .claude/skills`."
+  defp commit_removal(:repo),
+    do: " If git tracked them, commit their removal too: `git add -A .claude/skills`."
+
   defp commit_removal(:global), do: ""
 
   # The one-word commands are the machine's, like the home they are written

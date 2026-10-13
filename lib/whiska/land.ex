@@ -113,7 +113,7 @@ defmodule Whiska.Land do
 
   @doc """
   The files not committed in `worktree`, apart from the hook files a spawn
-  carried in (`Whiska.Spawn.carried?/3`), and those apart.
+  carried in (`Whiska.Spawn.carried?/3`), and the carried files on their own.
   """
   @spec left(Path.t(), Path.t()) :: {:ok, [String.t()], [String.t()]} | {:error, term()}
   def left(main_checkout, worktree) do
@@ -126,7 +126,7 @@ defmodule Whiska.Land do
   end
 
   defp commit(worktree, file, carried) do
-    keep_out = Enum.map(@whiska_files ++ carried, &":!#{&1}")
+    keep_out = Enum.map(@whiska_files ++ carried, &":(exclude,literal)#{&1}")
 
     with {:ok, _} <- Letters.read(file),
          {_, 0} <- git(worktree, ["add", "-A", "--", "." | keep_out]),

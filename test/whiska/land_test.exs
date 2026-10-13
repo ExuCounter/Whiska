@@ -107,6 +107,33 @@ defmodule Whiska.LandTest do
     assert GitRepo.git!(ctx.repo.checkout, ["ls-files", ".claude"]) == ""
   end
 
+  test "a carried hook file the mouse changed is its work, named and committed", ctx do
+    for root <- [ctx.repo.checkout, ctx.path] do
+      File.mkdir_p!(Path.join(root, ".claude/hooks"))
+      File.write!(Path.join(root, ".claude/hooks/whiska.sh"), "#!/bin/sh\n")
+    end
+
+    File.write!(Path.join(ctx.path, ".claude/hooks/whiska.sh"), "#!/bin/sh\necho changed\n")
+
+    assert {1, _, err} = land([ctx.id], ctx.repo)
+    assert err =~ ".claude/hooks/whiska.sh"
+  end
+
+  test "a committed settings file changed alike in both checkouts is still the mouse's change",
+       ctx do
+    File.mkdir_p!(Path.join(ctx.repo.checkout, ".claude"))
+    File.write!(Path.join(ctx.repo.checkout, ".claude/settings.json"), "{}\n")
+    GitRepo.git!(ctx.repo.checkout, ["add", ".claude/settings.json"])
+    GitRepo.git!(ctx.repo.checkout, ["commit", "-m", "settings"])
+    GitRepo.git!(ctx.path, ["merge", "--quiet", "main"])
+
+    for root <- [ctx.repo.checkout, ctx.path],
+        do: File.write!(Path.join(root, ".claude/settings.json"), "{\"model\": \"opus\"}\n")
+
+    assert {1, _, err} = land([ctx.id], ctx.repo)
+    assert err =~ ".claude/settings.json"
+  end
+
   test "a failing check is named, and the copies stay for the person", ctx do
     File.write!(Path.join(ctx.repo.checkout, "CLAUDE.md"), "## Finish\n\nchecks: false\n")
     GitRepo.git!(ctx.repo.checkout, ["commit", "-am", "break the checks"])

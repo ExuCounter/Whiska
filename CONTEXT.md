@@ -263,13 +263,14 @@ work: a bug's in the build **brief**, an investigation's in the sniff brief.
   against it (ADR-0063).
 - **An investigation's**: the sniff mouse's final message, which writes no file — its
   **summary**, its **proposal** when something should change, the question, then what it
-  established, in full (ADR-next-the-report-is-a-document). `whiska show` links it under the **branch line** as
-  `Review research here:`, and the person's comments on it are their own words, carried
-  as a file: to the build (`whiska spawn --from <id> --comments <file>`), to the
-  investigating mouse (`whiska send`), or not sent (ADR-0074).
+  established, in full (ADR-next-the-report-is-a-document). `whiska show` links it under
+  the **branch line** as `Review research here:`, and the person's comments on it are
+  their own words, carried as a file: to the build (`whiska spawn --from <id> --comments
+  <file>`), to the investigating mouse (`whiska send`), or not sent (ADR-0074).
 Whiska keeps one copy per branch beside the kept **spec**, overwritten each round, so
 every question's link opens the latest. First named the write-up, for investigations
 alone.
+_Avoid_: findings (a reviewer's word), write-up, report (the message's shape)
 
 **Letter**:
 The person's words for a mouse, copied as a file into its worktree's `.whiska-letters/`,
@@ -277,7 +278,6 @@ which git ignores: what `whiska send` hands a running mouse, and the comments
 `whiska spawn --from <id> --comments <file>` hands a fresh one. Only the copy's path is
 typed into the pane, never the words (ADR-0044).
 _Avoid_: inbox (the person's own list of what waits on them), message (a mouse's)
-_Avoid_: findings (a reviewer's word), write-up, report (the message's shape)
 
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,

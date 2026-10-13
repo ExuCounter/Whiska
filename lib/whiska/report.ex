@@ -10,19 +10,19 @@ defmodule Whiska.Report do
   alias Whiska.Question.Marker
 
   @spec document?(String.t()) :: boolean()
-  def document?(text), do: section(text, "## Summary") != nil
+  def document?(text), do: summary(text) != nil
 
   @doc """
   The `## Summary` section, and under it the first line of `## What to change`
-  when there is one; nil for a message that is not a document.
+  when there is one; nil for a message that is not a document, or whose Summary
+  is empty.
   """
   @spec summary(String.t()) :: String.t() | nil
   def summary(text) do
-    with summary when summary != nil <- section(text, "## Summary") do
-      case section(text, "## What to change") do
-        change when change in [nil, ""] -> "## Summary\n" <> summary
-        change -> "## Summary\n#{summary}\n\n## What to change\n#{first_line(change)}"
-      end
+    case {section(text, "## Summary"), section(text, "## What to change")} do
+      {summary, _change} when summary in [nil, ""] -> nil
+      {summary, change} when change in [nil, ""] -> "## Summary\n" <> summary
+      {summary, change} -> "## Summary\n#{summary}\n\n## What to change\n#{first_line(change)}"
     end
   end
 

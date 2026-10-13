@@ -691,6 +691,14 @@ defmodule Whiska.Git do
   defp paths([], acc), do: {:ok, Enum.reverse(acc)}
   defp paths([_warning | _rest], _acc), do: {:error, :unreadable}
 
+  @spec tracked?(Path.t(), String.t()) :: boolean()
+  def tracked?(worktree, path) do
+    match?(
+      {_, 0},
+      run(worktree, ["--literal-pathspecs", "ls-files", "--error-unmatch", "--", path])
+    )
+  end
+
   @doc "Remove a worktree, never forcing. Git refuses a dirty one, and that refusal stands."
   @spec remove_worktree(Path.t(), Path.t()) :: :ok | {:error, term()}
   def remove_worktree(checkout, worktree) do

@@ -1183,7 +1183,7 @@ defmodule Whiska.Doctor do
         [
           Check.warn(
             "skills",
-            "#{Enum.join(skills, ", ")} #{verb(skills, "is", "are")} retired and nothing reads it",
+            "#{Enum.join(skills, ", ")} #{verb(skills, "is", "are")} retired and nothing reads #{verb(skills, "it", "them")}",
             "whiska init"
           )
         ]

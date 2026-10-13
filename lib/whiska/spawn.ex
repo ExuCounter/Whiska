@@ -268,13 +268,14 @@ defmodule Whiska.Spawn do
 
   @doc """
   Whether `rel`, a file not committed in `worktree`, is one of the hook files
-  carried in from the main checkout's install and still as carried: local
+  carried in from the main checkout's install, untracked and still as carried: local
   setup, not the mouse's work.
   """
   @spec carried?(Path.t(), Path.t(), String.t()) :: boolean()
   def carried?(main_checkout, worktree, rel) do
     (rel == ".claude/settings.json" or String.starts_with?(rel, ".claude/hooks/")) and
-      same_file?(Path.join(main_checkout, rel), Path.join(worktree, rel))
+      same_file?(Path.join(main_checkout, rel), Path.join(worktree, rel)) and
+      not Git.tracked?(worktree, rel)
   end
 
   defp same_file?(a, b) do

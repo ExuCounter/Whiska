@@ -202,6 +202,13 @@ defmodule Whiska.QuestionsTest do
       refute shown =~ "## Options"
     end
 
+    test "a turn that stopped without a marker is shown whole, Summary or not", %{main: main} do
+      text = "# Built\n\n## Summary\nDone.\n\n## Why it stopped\nThe tests hang."
+      q = seed(main, fn -> ask("m1", text, kind: "unmarked") end)
+
+      assert Questions.full(q, "feat-a", nil) =~ "The tests hang."
+    end
+
     test "an open question with nothing sent is just open", %{main: main} do
       q = seed(main, fn -> ask("m1", "Recap.\n[worktree-status: needs-decision] pick one") end)
 

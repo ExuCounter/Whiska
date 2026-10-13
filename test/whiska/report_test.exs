@@ -56,6 +56,15 @@ defmodule Whiska.ReportTest do
              "## Summary\nShort.\n\n```\n## Found\n```"
   end
 
+  test "an empty Summary makes no document" do
+    refute Report.document?("# Title\n\n## Summary\n\n## Found\nx")
+    assert Report.summary("# Title\n\n## Summary\n\n## Found\nx") == nil
+  end
+
+  test "a code block that never closes runs to the end" do
+    assert Report.summary("## Summary\nA\n```\n## Found\nx") == "## Summary\nA\n```\n## Found\nx"
+  end
+
   test "a document is kept without its marker line" do
     assert Report.text(@document <> "\n⁣⁣⁣") == @document
   end

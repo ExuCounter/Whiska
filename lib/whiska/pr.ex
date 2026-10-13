@@ -100,18 +100,28 @@ defmodule Whiska.PR do
   end
 
   defp create(tool, main_checkout, branch, base, title, body) do
-    file = Path.join(System.tmp_dir!(), "whiska-pr-#{System.unique_integer([:positive])}.md")
-    File.write!(file, body, [:exclusive])
+    name = "whiska-pr-" <> Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)
+    file = Path.join(System.tmp_dir!(), name <> ".md")
 
-    try do
-      with {:ok, args} <- args(tool, main_checkout, branch, base, title, file) do
-        case System.cmd(tool, args, cd: main_checkout, stderr_to_stdout: true) do
-          {out, 0} -> url(tool, out)
-          {out, _} -> {:error, "#{branch} is pushed, but #{tool} said: #{String.trim(out)}"}
+    case File.write(file, body, [:exclusive]) do
+      :ok ->
+        try do
+          open(tool, main_checkout, branch, base, title, file)
+        after
+          File.rm(file)
         end
+
+      {:error, reason} ->
+        {:error, "#{branch} is pushed, but its description could not be written (#{reason})."}
+    end
+  end
+
+  defp open(tool, main_checkout, branch, base, title, file) do
+    with {:ok, args} <- args(tool, main_checkout, branch, base, title, file) do
+      case System.cmd(tool, args, cd: main_checkout, stderr_to_stdout: true) do
+        {out, 0} -> url(tool, out)
+        {out, _} -> {:error, "#{branch} is pushed, but #{tool} said: #{String.trim(out)}"}
       end
-    after
-      File.rm(file)
     end
   end
 
