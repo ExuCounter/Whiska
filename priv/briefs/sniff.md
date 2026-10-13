@@ -39,7 +39,7 @@ person reads your final message later, cold, from another terminal. Be concise.
    - Open: costly choices left for the build to ask; none → "none".
    ```
 
-   Then, under `Agents`, the lines `whiska ledger` prints.
+   Then, under `Agent usage this session`, the lines `whiska ledger` prints.
 
 - Comments on the research document arrive as a file: recheck what they question, and
   rewrite the document whole. After a compaction, reread it.
