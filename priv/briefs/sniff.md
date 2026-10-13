@@ -35,7 +35,8 @@ person reads your final message later, cold, from another terminal. Be concise.
    **Proposed build**
    - Found: what was established, in a sentence.
    - Build: the change, as a task a fresh session can start from cold.
-   - Touches: the parts it changes.
+   - Why: what the person gains, such as reliability, speed or less to maintain.
+   - Cost: what is lost or risked, and why that is acceptable here.
    - Open: costly choices left for the build to ask; none → "none".
    ```
 
