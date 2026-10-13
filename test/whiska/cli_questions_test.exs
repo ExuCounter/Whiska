@@ -113,8 +113,6 @@ defmodule Whiska.CLIQuestionsTest do
       refute one =~ "answer: whiska reply"
     end
 
-    # The finish options in the `whiska-delivered` skill (ADR-0022) read the
-    # line, and the report is closed once the person writes something.
     test "a finished report reads back by id after it has been closed", %{main: main} do
       q =
         seed(main, fn ->
@@ -133,9 +131,7 @@ defmodule Whiska.CLIQuestionsTest do
       refute out =~ "nothing committed"
     end
 
-    # The finish options in `whiska-delivered` offer a fresh build only for
-    # a mouse that could only look, and reads that from this heading — Whiska's
-    # record, not the mouse's own word about itself.
+    # The heading is Whiska's record of the mode, not the mouse's word about itself.
     test "a sniff mouse's question names its mode in the heading", %{main: main} do
       q =
         seed(main, fn ->
@@ -162,8 +158,6 @@ defmodule Whiska.CLIQuestionsTest do
     end
   end
 
-  # The finish options in `whiska-delivered` offer a landing only when this
-  # line says there is something to land.
   describe "whiska show — what a finished question's branch holds" do
     setup do
       root = Path.join(System.tmp_dir!(), "whiska-onbranch-#{System.unique_integer([:positive])}")

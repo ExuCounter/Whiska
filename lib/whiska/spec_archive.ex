@@ -6,7 +6,7 @@ defmodule Whiska.SpecArchive do
   The spec itself lives in the worktree and goes with it (ADR-0063). Its text
   rides on the doorstep entry of the turn that ended with it, and the owl writes
   it here when it collects that entry, so no way of removing a worktree — the
-  owl's sweep, `drop-worktree`, or by hand — can lose it.
+  owl's sweep, `whiska drop`, or by hand — can lose it.
 
   One file per spec, `.whiska/specs/<date first written>-<branch>.md`, under a
   short header, the build plan beside it as `<the same name>.plan.md`, and the

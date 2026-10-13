@@ -294,8 +294,8 @@ defmodule Whiska.CLIInitGlobalTest do
       assert File.exists?(Path.join(repo, ".claude/hooks/whiska.sh"))
       assert File.exists?(Path.join(home, ".claude/hooks/whiska.sh"))
 
-      assert settings(Path.join(repo, ".claude/settings.json"))["hooks"]["SessionStart"] ==
-               Install.merge(%{})["hooks"]["SessionStart"]
+      assert settings(Path.join(repo, ".claude/settings.json"))["hooks"]["PreToolUse"] ==
+               Install.merge(%{})["hooks"]["PreToolUse"]
     end
 
     test "whiska init says the global install is there and how to drop the repo copy", %{

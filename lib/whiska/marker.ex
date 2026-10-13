@@ -8,8 +8,8 @@ defmodule Whiska.Marker do
   path stay mutable display labels hanging off it.
 
   ADR-0030 makes the minting lazy: the marker appears on the first hook invocation
-  inside a worktree that has none, written by this CLI, so nothing upstream
-  (`spawn-worktree`) has to change for this slice.
+  inside a worktree that has none, written by this CLI, so nothing that creates a
+  worktree has to write it.
 
   The file holds the bare id and nothing else — no JSON, no key/value — so reading
   it stays "no more complex than reading a branch name, and involves no parsing"

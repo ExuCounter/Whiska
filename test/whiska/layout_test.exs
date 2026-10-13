@@ -4,7 +4,7 @@ defmodule Whiska.LayoutTest do
   alias Whiska.Layout
 
   # Worktrees are laid out under <main-checkout>/worktrees/<branch>/ by
-  # spawn-worktree, and ADR-0030 says to lean on exactly that layout rather than
+  # `whiska spawn`, and ADR-0030 says to lean on exactly that layout rather than
   # on git internals. So the whole derivation is: walk up until you find an
   # ancestor whose parent directory is named "worktrees".
 

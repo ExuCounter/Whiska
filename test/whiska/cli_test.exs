@@ -113,7 +113,7 @@ defmodule Whiska.CLITest do
       assert Whiska.BuildPlan.exclude_line() in lines
     end
 
-    test "refuses a shaped mouse and points to a proposed build and a fresh mouse", %{
+    test "refuses a shaped mouse and points to What to change and a fresh mouse", %{
       worktree: worktree
     } do
       with_io(:stderr, fn ->

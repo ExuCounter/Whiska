@@ -2,7 +2,7 @@ defmodule Whiska.Layout do
   @moduledoc """
   Where this invocation is, worked out from the on-disk layout alone.
 
-  `spawn-worktree` lays every worktree out at `<main-checkout>/worktrees/<branch>/`,
+  `whiska spawn` lays every worktree out at `<main-checkout>/worktrees/<branch>/`,
   and ADR-0030 says to lean on exactly that rather than on `git worktree list`. So
   the derivation starts structurally: walk up from the working directory until an
   ancestor's parent directory is named `worktrees`. That ancestor's parent is the

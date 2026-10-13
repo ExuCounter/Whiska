@@ -7,7 +7,7 @@ defmodule Whiska.Doorstep do
   finished turn is written here: by the owl when it answers the mouse's `Stop`
   hook, by the escript when it does not, so whether the owl is awake changes
   nothing about what is left (ADR-0036). Being in the house
-  rather than the worktree is what keeps an entry alive through `drop-worktree`.
+  rather than the worktree is what keeps an entry alive through `whiska drop`.
 
   Two rules shape everything here:
 

@@ -38,7 +38,7 @@ defmodule Whiska.CLIWhereTest do
     {:ok, repo: repo}
   end
 
-  # A worktree laid out the way spawn-worktree lays it out: under the main
+  # A worktree laid out the way `whiska spawn` lays it out: under the main
   # checkout's own `worktrees/` folder.
   defp worktree(repo, branch) do
     path = Path.join([repo.checkout, "worktrees", branch])

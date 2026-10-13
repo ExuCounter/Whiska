@@ -204,7 +204,7 @@ defmodule Whiska.E2ETest do
     pane
   end
 
-  # What spawn-worktree types into a new mouse's pane (ADR-0069).
+  # A mouse shaped before Claude starts (ADR-0069).
   defp start_mouse(c) do
     pane = open_workspace(c, c.worktree, "mouse")
     herdr!(c, ["pane", "run", pane.pane, "whiska shape build && claude"])
