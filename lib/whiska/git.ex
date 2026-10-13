@@ -237,8 +237,8 @@ defmodule Whiska.Git do
   @doc """
   Every place a landing in the base is read: the base as `on_branch/4` reads
   it, then the copy of it last fetched from its remote, when that holds
-  something else. The fetched copy is what sees a merge request merged on the
-  forge before anyone pulls.
+  commits the base here lacks. The fetched copy is what sees a merge request
+  merged on the forge before anyone pulls.
 
   Each comes tagged, and `ancestor?/3`, `in_base?/3` and `reached_by_merge?/3`
   take it in place of a branch name.
@@ -253,8 +253,7 @@ defmodule Whiska.Git do
 
   defp fetched(checkout, base, local) do
     with {:ok, %{ref: ref}} when ref != local <- upstream(checkout, base),
-         {:ok, out} <- git(checkout, ["rev-parse", local, ref]),
-         [one, other] when one != other <- String.split(out, "\n") do
+         {:ok, false} <- ancestor?(checkout, ref, {:local, local}) do
       [{:fetched, ref}]
     else
       _ -> []
@@ -661,12 +660,13 @@ defmodule Whiska.Git do
   @doc """
   Delete a branch with `-d`. Git refuses an unmerged one, and so do we.
 
-  `{:in_base, head}` is the one exception: a branch landed as copies is never
-  merged by git's measure, and one only the fetched copy of the base holds is
-  not merged into anything `-d` reads, so `-d` would refuse what has just been
-  shown is already in the base. It is deleted only while it still points at
-  `head`, the commit that was checked, so a commit made since keeps it. Its
-  branch settings stay where they are.
+  `{:in_base, head}` is the one exception. `-d` judges a branch against its
+  upstream, or with none against the main checkout's HEAD, never against
+  where its landing was found: it refuses a branch landed as copies, and
+  answers one only the fetched copy of the base holds by its own measure. It
+  is deleted only while it still points at `head`, the commit that was
+  checked, so a commit made since keeps it. Its branch settings stay where
+  they are.
   """
   @spec delete_branch(Path.t(), branch(), :merged | {:in_base, String.t()}) ::
           :ok | {:error, term()}

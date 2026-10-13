@@ -213,6 +213,12 @@ defmodule Whiska.GitTest do
       assert GitRepo.git!(repo.checkout, ["rev-parse", "main"]) == local
     end
 
+    test "a fetched base the base here is already ahead of is no second place", %{repo: repo} do
+      GitRepo.commit!(repo.checkout, "local.md", "not pushed yet")
+
+      assert {:ok, [{:local, "refs/heads/main"}]} = Git.landing_refs(repo.checkout, "main")
+    end
+
     test "a squash on the forge is in the fetched base", %{repo: repo} do
       path = GitRepo.worktree(repo, "feat-a")
       GitRepo.commit!(path, "more.md", "second")

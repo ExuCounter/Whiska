@@ -52,7 +52,8 @@ tried.
 mouse, not only one with a merge request: a fetch the person ran counts too. The checks
 are ADR-0061's and ADR-0064's, unchanged, asked of the second place. A branch found only
 there is deleted with `update-ref -d` while it still points at the commit checked, as a
-branch landed as copies is, since `git branch -d` reads the base here and would refuse.
+branch landed as copies is: `git branch -d` judges it against its upstream, or what the
+main checkout has out, never the fetched base where the landing was found.
 
 ## Why
 

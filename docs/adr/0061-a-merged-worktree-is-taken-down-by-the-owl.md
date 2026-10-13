@@ -120,11 +120,12 @@ commits are on its upstream.** Git's rule is "these commits exist somewhere else
 "this landed in the base". So `-d` protects against losing work outright and is *not* a
 second opinion on condition 1 — condition 1 stands alone, and `-d` stays because there is
 no reason to reach for `-D` once it has passed. The one exception is a landing `-d` cannot
-see: a branch landed as copies, whose commits it reads as unmerged though the trial merge
-has just shown nothing on it is missing from the base, and a branch only the fetched base
-holds, which `-d` measures against the base here. Such a branch is deleted with
-`update-ref -d` only while it still points at the commit that was checked, and its branch
-settings go with it, as `-d` takes them.
+see, since it measures a branch against its upstream, or with none against what the main
+checkout has out, never against where the landing was found: a branch landed as copies,
+whose commits it reads as unmerged though the trial merge has just shown nothing on it is
+missing from the base, and a branch only the fetched base holds. Such a branch is deleted
+with `update-ref -d` only while it still points at the commit that was checked; its
+branch settings stay where they are.
 
 **Unknown is never permission.** A detached head, an unreadable git directory, a base
 branch that cannot be resolved unambiguously, a git command that fails for any reason, a
