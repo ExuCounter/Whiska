@@ -72,7 +72,7 @@ A merge request opened that way is recorded on the mouse by the skill's fixed
 finished lines are a merge request's: push to it, with a commit first where files are not
 committed, and none once everything is pushed. Land here, open and drop are never offered
 beside an open merge request, whatever `finish:` says
-([ADR-next-an-opened-merge-request-is-remembered](next-an-opened-merge-request-is-remembered.md)).
+([ADR-0087](0087-an-opened-merge-request-is-remembered.md)).
 
 A repo names its usual choice with a line like `finish: land here` under a `## Finish`
 heading in its own `CLAUDE.md`, and that option is recommended instead. It is a heading

@@ -136,7 +136,7 @@ defmodule Whiska.Owl.House do
   expires. The mice are re-sorted only when one changes state or a new one
   appears busy, so rows do not move under the cursor otherwise.
 
-  ## Fetching the base (ADR-next-an-opened-merge-request-is-remembered)
+  ## Fetching the base (ADR-0087)
 
   While a mouse's merge request waits, the backstop fetches its base every
   `fetch_ms` (5 min), so a merge on the forge reaches the fetched copy cleanup
@@ -1020,7 +1020,7 @@ defmodule Whiska.Owl.House do
 
   # A merge request is merged on the forge, where nothing tells the owl, so its
   # base is fetched on the backstop for cleanup to read
-  # (ADR-next-an-opened-merge-request-is-remembered). Git runs in a task: a
+  # (ADR-0087). Git runs in a task: a
   # network call never holds the house (ADR-0060).
   defp fetch_base(%{fetching: %Task{}} = state), do: state
 

@@ -29,7 +29,7 @@ Two new things carry it:
   on neither of the board's lines and listed by neither half of `whiska questions`.
 - **`landed_at` on the mouse record**, stamped by the owl's sweep the first time it sees
   that branch's work reach the base, and again when a merge request recorded after that
-  lands in turn (ADR-next-an-opened-merge-request-is-remembered). ADR-0061's first
+  lands in turn (ADR-0087). ADR-0061's first
   precondition — `merge-base
   --is-ancestor` — is asked of every mouse rather than only of the ones about to be torn
   down, and one more question is asked behind it.
@@ -174,7 +174,7 @@ reading.
   merge question are paid once per mouse, on the sweep that stamps it. While the base's
   fetched copy holds commits the base here lacks, it is a second place, and a branch the
   base here does not hold is asked about there too
-  (ADR-next-an-opened-merge-request-is-remembered).
+  (ADR-0087).
 - **Nothing here deletes anything** and nothing here takes a worktree down. ADR-0061's
   four preconditions are untouched, and so is the rule that a question the person has not
   answered holds its mouse's worktree in place.

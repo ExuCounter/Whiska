@@ -5,7 +5,7 @@ status: proposed
 # Watching a branch is the owl's one networked job, and it only ever reads
 
 One slice is built: the merge, seen through git rather than the forge
-([ADR-next-an-opened-merge-request-is-remembered](next-an-opened-merge-request-is-remembered.md)).
+([ADR-0087](0087-an-opened-merge-request-is-remembered.md)).
 While a merge request Whiska opened waits, the owl fetches its base branch, and cleanup
 reads a landing from that fetched copy. The rest is not built. It is recorded so it is not
 redesigned from scratch. An earlier

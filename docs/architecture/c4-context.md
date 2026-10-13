@@ -47,7 +47,7 @@ C4Context
   question, and it is the one that lets the owl take a landed worktree down by itself
   (ADR-0061). No forge and no credentials of Whiska's are involved in it. The one network
   call is git's own: while a merge request waits, the owl fetches the base, so a merge on
-  the forge reads as landed (ADR-next-an-opened-merge-request-is-remembered).
+  the forge reads as landed (ADR-0087).
 - **The service manager** matters because there is exactly one owl per machine, not one
   process per repo (ADR-0001). `whiska owl install` writes the user LaunchAgent
   `com.whiska.owl` on macOS, or the systemd user unit `whiska-owl.service` on Linux, which

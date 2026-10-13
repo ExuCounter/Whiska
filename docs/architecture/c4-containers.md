@@ -141,7 +141,7 @@ The reasoning is in the ADR each line names; this is the map.
 - **herdr is the one boundary with a fake behind it** (ADR-0031).
 - **The git remote is the one thing off the machine the owl reaches**, through git alone,
   for the base branch alone, and only while a merge request waits; no forge is asked
-  (ADR-next-an-opened-merge-request-is-remembered, ADR-0060).
+  (ADR-0087, ADR-0060).
 
 ## Designed only
 

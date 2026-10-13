@@ -56,7 +56,7 @@ skips them.
    the remote it tracks (`origin/main`), where a merge request merged on the forge shows
    before anyone pulls. Every check below is asked of each, the base here first. The owl
    refreshes that copy with a fetch of the base alone while a merge request waits
-   ([ADR-next-an-opened-merge-request-is-remembered](next-an-opened-merge-request-is-remembered.md));
+   ([ADR-0087](0087-an-opened-merge-request-is-remembered.md));
    a fetch the person ran counts the same.
 
    **Or its work is in the base under other commits.** Land here copies a branch's
