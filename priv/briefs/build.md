@@ -36,8 +36,8 @@ Before any spec, read the code, then grill the person until you share one unders
 - **Skip 2-3** only for a typo, a doc no program reads, a format fix, a test-only change,
   or a task spelling out the exact change. Never if it hides or skips anything, or
   touches security.
-- **From a mouse's "What to change"**: read its research document and any comments on it. Its
-  findings are fact; still grill its open choices and the design.
+- **From a mouse's "What to change"**: read its research document and any comments on
+  it. Its findings are fact; still grill its open choices and the design.
 - `.whiska-*` files are git-ignored: never commit or delete them. After a compaction,
   reread them and `git status`.
 

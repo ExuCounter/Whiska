@@ -44,8 +44,9 @@ They say what happens next:
 
 - an answer → `whiska reply <id> <file>`; "land" → `whiska land <id>`; "pr" →
   `whiska pr <id>`; "drop" → `whiska drop <branch>`
-- "build it" after a mouse's "What to change" → `whiska spawn --from <id> [--comments <file>]`, on a
-  branch name you make; nothing the mouse wrote goes on a command line
+- "build it" after a mouse's "What to change" →
+  `whiska spawn --from <id> [--comments <file>]`, on a branch name you make; nothing the
+  mouse wrote goes on a command line
 - anything else meant for the mouse → `whiska send <branch> <file>`
 - unclear, or another `🐱` arrived meanwhile → ask one line, naming the branch.
 
