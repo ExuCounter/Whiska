@@ -247,10 +247,13 @@ defmodule Whiska.Questions do
         research \\ nil,
         documents \\ nil
       ) do
-    heading =
-      "##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})"
+    held = finished_branch(q, on_branch)
+    heading = heading(q, branch, slot, mode, focus, held)
 
-    under = finished_branch(q, on_branch) ++ research_line(q, research) ++ reviews(q, documents)
+    under =
+      merge_request_line(held) ++
+        links(Enum.reject([diff_link(held), research_link(q, research)], &is_nil/1), q, documents)
+
     text = q.text |> Marker.strip() |> String.trim_trailing()
 
     """
@@ -259,6 +262,40 @@ defmodule Whiska.Questions do
     #{shown(q, text)}
     """
     |> String.trim_trailing()
+  end
+
+  # A finished report's heading says what it is and what its branch holds, once
+  # each: its time is when it finished, and a plain "waiting on you" is what
+  # every delivered one is, so only an unusual state is named. Any other
+  # question keeps the state and the day it was asked.
+  defp heading(%Question{kind: "done"} = q, branch, slot, mode, focus, held) do
+    state =
+      case state(q, slot, mode, focus) do
+        "waiting on you since" <> _ -> []
+        other -> [other]
+      end
+
+    Enum.join(
+      ["##{q.id} #{branch}", "#{verb(q.kind)} #{finished_at(q.asked_at)}"] ++
+        state ++ branch_state(held),
+      " · "
+    )
+  end
+
+  defp heading(q, branch, slot, mode, focus, _held) do
+    "##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})"
+  end
+
+  # The time alone reads as today's; any other day is named.
+  defp finished_at(%DateTime{} = at) do
+    at = local(at)
+
+    format =
+      if NaiveDateTime.to_date(at) == NaiveDateTime.to_date(local(DateTime.utc_now())),
+        do: "%H:%M",
+        else: "%Y-%m-%d %H:%M"
+
+    Calendar.strftime(at, format)
   end
 
   # A report prints as its summary, the rest behind its link; one that ends on a
@@ -294,67 +331,72 @@ defmodule Whiska.Questions do
 
   @typedoc """
   The other documents a question's mouse asks the person to review, each as
-  its label, title and link, in the order they are linked.
+  its label and link, in the order they are linked.
   """
-  @type documents :: (Question.t() -> [{String.t(), String.t(), String.t()}])
+  @type documents :: (Question.t() -> [{String.t(), String.t()}])
 
   @named 3
 
   # Only a finished question is offered a finish, so only it says what its
-  # branch holds — on the line straight under the heading, which the mouse's
-  # own text, after the blank line, can never occupy.
+  # branch holds, in its heading.
   defp finished_branch(%Question{kind: "done"} = q, on_branch) when is_function(on_branch, 1),
-    do: branch_lines(on_branch.(q))
+    do: on_branch.(q)
 
-  defp finished_branch(_question, _on_branch), do: []
+  defp finished_branch(_question, _on_branch), do: nil
 
-  defp branch_lines({:ok, on} = held),
-    do: [branch_line(held)] ++ merge_request_line(on) ++ review_line(on)
+  defp merge_request_line({:ok, %{merge_request: url}}),
+    do: ["Merge request: #{printable(url)}"]
 
-  defp branch_lines(held), do: [branch_line(held)]
+  defp merge_request_line(_held), do: []
 
-  defp merge_request_line(%{merge_request: url}), do: ["Merge request: #{printable(url)}"]
-  defp merge_request_line(_on), do: []
-
-  defp review_line(%{review: link, ahead: ahead, base: base}),
-    do: ["Review diff here: [#{Review.commits(ahead)} against #{base}](#{link})"]
-
-  defp review_line(_on), do: []
+  defp diff_link({:ok, %{review: link}}), do: {"Diff", link}
+  defp diff_link(_held), do: nil
 
   # Read from Whiska's own copy, so it links wherever the question is read
   # from, and after its worktree is gone.
-  defp research_line(q, research) when is_function(research, 1) do
+  defp research_link(q, research) when is_function(research, 1) do
     case research.(q) do
-      {path, title} -> ["Review research here: [#{title}](#{Review.file_link(path)})"]
-      nil -> []
+      {path, _title} -> {"Research", Review.file_link(path)}
+      nil -> nil
     end
   end
 
-  defp research_line(_question, _research), do: []
+  defp research_link(_question, _research), do: nil
 
-  defp reviews(q, documents) when is_function(documents, 1) do
-    for {label, title, link} <- documents.(q), do: "Review #{label} here: [#{title}](#{link})"
+  # One row of short labels, the diff first. A label names the document, not
+  # the mouse's own title for it: a long title said the same thing the heading
+  # and the summary do.
+  defp links(front, q, documents) do
+    more = if is_function(documents, 1), do: documents.(q), else: []
+
+    case front ++ more do
+      [] -> []
+      all -> [Enum.map_join(all, " · ", fn {label, link} -> "[#{label}](#{link})" end)]
+    end
   end
 
-  defp reviews(_question, _documents), do: []
+  defp branch_state({:ok, %{merge_request: _, not_pushed: n, uncommitted: uncommitted}}),
+    do: ["merge request opened, #{pushed(n)}, #{uncommitted(uncommitted)}"]
 
-  defp branch_line({:ok, %{merge_request: _, not_pushed: n, uncommitted: uncommitted}}),
-    do: "On the branch: merge request opened · #{pushed(n)} · #{uncommitted(uncommitted)}"
+  defp branch_state({:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}),
+    do: ["#{committed(ahead, base)}, #{uncommitted(uncommitted)}"]
 
-  defp branch_line({:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}),
-    do: "On the branch: #{committed(ahead, base)} · #{uncommitted(uncommitted)}"
+  defp branch_state({:error, reason}), do: ["branch unknown — #{unknown(reason)}"]
+  defp branch_state(nil), do: []
 
-  defp branch_line({:error, reason}), do: "On the branch: unknown — #{unknown(reason)}"
+  defp committed(0, base), do: "nothing committed#{beyond(base)}"
+  defp committed(1, base), do: "1 commit#{beyond(base)}"
+  defp committed(n, base), do: "#{n} commits#{beyond(base)}"
 
-  defp committed(0, base), do: "nothing committed beyond #{base}"
-  defp committed(1, base), do: "1 commit beyond #{base}"
-  defp committed(n, base), do: "#{n} commits beyond #{base}"
+  # The usual base goes unsaid; a mouse cut from another one names it.
+  defp beyond(base) when base in ["main", "master"], do: ""
+  defp beyond(base), do: " beyond #{base}"
 
   defp pushed(0), do: "everything pushed"
   defp pushed(1), do: "1 commit not pushed"
   defp pushed(n), do: "#{n} commits not pushed"
 
-  defp uncommitted([]), do: "nothing uncommitted"
+  defp uncommitted([]), do: "clean"
 
   defp uncommitted(paths) do
     {named, rest} = Enum.split(paths, @named)

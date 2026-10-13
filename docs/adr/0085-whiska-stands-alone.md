@@ -45,7 +45,7 @@ absence is said plainly. The cases so far:
   `.whiska/reviews/<branch>-<hash>.md`, one file per branch (the name made safe for a
   file, and a short hash of the whole name, so `feat/x` and `feat-x` keep a file each),
   ignored like the kept specs (ADR-0063), and prints a link to
-  it under the branch line, as a spec goes to the person as a link. It writes the file
+  it on the row under the heading, as a spec goes to the person as a link. It writes the file
   wherever it runs, a mouse's worktree included: the main session's shell can stand in a
   worktree, and a read that wrote nothing from there dropped the link without a word. The
   folder is Whiska's own and ignored, so a write from a mouse costs nothing. The file is
@@ -61,7 +61,7 @@ absence is said plainly. The cases so far:
   file's absolute path) and `{branch}` filled in, percent-encoded, under the same rules
   and fallback. Two variables rather than one because the diff needs a base and a branch
   and the spec a file path, so no one pattern serves both. `whiska show` prints the link
-  itself, under the branch line, for the spec and the build plan the mouse's worktree
+  itself, on the row under the heading, for the spec and the build plan the mouse's worktree
   holds, as it does the diff's; the mouse pastes no link (ADR-0063).
 
 The one older call, `terminal-notifier` for the owl's desktop notification, was dropped on

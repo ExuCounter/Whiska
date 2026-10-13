@@ -2077,8 +2077,14 @@ defmodule Whiska.CLI do
 
   defp documents(main, %Question{} = q) do
     mouse = mouse_of(q)
-    in_worktree(mouse) ++ report(main, mouse)
+    ahead_of_build(q, mouse) ++ report(main, mouse)
   end
+
+  # The spec and build plan are what the person is asked to review before the
+  # build, so only a question still open on them links them; a finished
+  # report's own link is the one to read.
+  defp ahead_of_build(%Question{kind: "done"}, _mouse), do: []
+  defp ahead_of_build(_question, mouse), do: in_worktree(mouse)
 
   # The spec and build plan a mouse asks the person to review, linked where
   # they stand in its worktree (ADR-0063). A viewer the person names in
@@ -2087,11 +2093,11 @@ defmodule Whiska.CLI do
   defp in_worktree(%Mouse{path: path, branch: branch})
        when is_binary(path) and is_binary(branch) do
     for {label, name} <- [
-          {"spec", Whiska.Spec.filename()},
-          {"build plan", Whiska.BuildPlan.filename()}
+          {"Spec", Whiska.Spec.filename()},
+          {"Build plan", Whiska.BuildPlan.filename()}
         ],
-        {file, title} <- [Whiska.Research.document(Path.join(path, name), label)],
-        do: {label, title, document_link(file, branch)}
+        {file, _title} <- [Whiska.Research.document(Path.join(path, name), label)],
+        do: {label, document_link(file, branch)}
   end
 
   defp in_worktree(_mouse), do: []
@@ -2100,8 +2106,8 @@ defmodule Whiska.CLI do
   # worktree is gone (ADR-0089).
   defp report(main, %Mouse{mouse_id: mouse_id, branch: branch}) when is_binary(branch) do
     with file when is_binary(file) <- Whiska.SpecArchive.report(main, mouse_id, branch),
-         {file, title} <- Whiska.Research.document(file, "report") do
-      [{"report", title, Review.file_link(file)}]
+         {file, _title} <- Whiska.Research.document(file, "report") do
+      [{"Full report", Review.file_link(file)}]
     else
       _ -> []
     end
@@ -2147,7 +2153,7 @@ defmodule Whiska.CLI do
   end
 
   # A diff viewer the person names in WHISKA_DIFF_LINK takes the link, and
-  # no file is written (ADR-0085). The branch line stands without the diff
+  # no file is written (ADR-0085). The heading stands without the diff
   # link when the file cannot be written.
   defp review(_main, _branch, _base, %{ahead: 0}), do: %{}
 
@@ -2510,7 +2516,7 @@ defmodule Whiska.CLI do
     end
   end
 
-  # The link is printed under the branch line, where the main session reads
+  # The link is printed under the heading, where the main session reads
   # it, so it is a plain https one or nothing.
   defp record_merge_request(%Question{} = q, url) do
     with true <- Whiska.PR.link?(url) || :not_a_link,

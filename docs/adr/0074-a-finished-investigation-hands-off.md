@@ -73,8 +73,8 @@ in the build brief, which a bug fix is approved from before any code (ADR-0063).
   as ADR-0063 keeps a spec: one file per branch, overwritten each round. It is not a
   spec: it never marks the question `spec_sent`, so the spec figures (ADR-0086) count
   only specs.
-- **`whiska show` links it** under the branch line, as `Review research here:`, by its
-  first heading, as it links the diff (ADR-0085). The link is Whiska's, not the mouse's:
+- **`whiska show` links it** on the row under the heading, as `Research`, as it links
+  the diff (ADR-0085). The link is Whiska's, not the mouse's:
   the mouse cannot know its question id. It names the kept copy, so it works from a
   mouse's worktree too, and after the investigation's worktree is gone. Every question
   from the branch names the same copy, so a link read from an earlier round opens the

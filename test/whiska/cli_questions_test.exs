@@ -127,7 +127,7 @@ defmodule Whiska.CLIQuestionsTest do
       assert out =~ "finished"
       assert out =~ "Merged it."
       assert out =~ "closed"
-      assert out =~ "On the branch: unknown"
+      assert out =~ "branch unknown"
       refute out =~ "nothing committed"
     end
 
@@ -140,10 +140,10 @@ defmodule Whiska.CLIQuestionsTest do
         end)
 
       one = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
-      assert one =~ "##{q.id}  feat-a (sniff)  finished"
+      assert one =~ "##{q.id} feat-a (sniff) · finished"
 
       full = capture_io(fn -> assert CLI.run(["questions", "--full"], main) == 0 end)
-      assert full =~ "##{q.id}  feat-a (sniff)  finished"
+      assert full =~ "##{q.id} feat-a (sniff) · finished"
     end
 
     test "a build mouse's heading names the branch alone", %{main: main} do
@@ -154,7 +154,7 @@ defmodule Whiska.CLIQuestionsTest do
         end)
 
       one = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
-      assert one =~ "##{q.id}  feat-a  finished"
+      assert one =~ "##{q.id} feat-a · finished"
     end
   end
 
@@ -195,7 +195,8 @@ defmodule Whiska.CLIQuestionsTest do
             mouse_id: "m-#{branch}",
             text: "Done.\n⁣⁣⁣",
             kind: Keyword.get(opts, :kind, "done"),
-            status: Keyword.get(opts, :status, "closed")
+            status: Keyword.get(opts, :status, "closed"),
+            asked_at: opts[:asked_at]
           })
 
         q
@@ -251,15 +252,25 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "feat-a")
 
       assert show_one(repo, q) =~
-               ~r/^##{q.id}  feat-a  finished  \(closed, asked [^)]+\)\nOn the branch: 1 commit beyond main · nothing uncommitted\nReview diff here: .*\n\nDone\./
+               ~r/^##{q.id} feat-a · finished \d\d:\d\d · closed · 1 commit, clean\n\[Diff\]\(.*\)\n\nDone\./
     end
 
-    test "its diff is a file beside the kept specs, linked under the branch line", %{repo: repo} do
+    test "a report from an earlier day says its date", %{repo: repo} do
+      q = finished(repo, "feat-y", asked_at: ~U[2026-09-01 12:00:00Z])
+      shown = show_one(repo, q)
+
+      assert shown =~
+               ~r/^##{q.id} feat-y · finished 2026-09-01 \d\d:\d\d · closed · 1 commit, clean\n/
+    end
+
+    test "its diff is a file beside the kept specs, linked on the row under the heading", %{
+      repo: repo
+    } do
       q = finished(repo, "feat-d")
       review = review_file(repo, "feat-d")
 
       assert show_one(repo, q) =~
-               "\nReview diff here: [1 commit against main](file://#{review})\n"
+               "\n[Diff](file://#{review})\n"
 
       text = File.read!(review)
       assert text =~ "git diff main...feat-d"
@@ -287,7 +298,7 @@ defmodule Whiska.CLIQuestionsTest do
 
       out = with_diff_link("hunk-review://{base}..{branch}", fn -> show_one(repo, q) end)
 
-      assert out =~ "\nReview diff here: [1 commit against main](hunk-review://main..feat-d)\n"
+      assert out =~ "\n[Diff](hunk-review://main..feat-d)\n"
       refute File.exists?(review_file(repo, "feat-d"))
     end
 
@@ -302,7 +313,7 @@ defmodule Whiska.CLIQuestionsTest do
 
       out = with_diff_link("hunk-review://{base}..{branch}", fn -> show_one(repo, q) end)
 
-      assert out =~ "[1 commit against staging](hunk-review://origin/staging..feat-o)\n"
+      assert out =~ "[Diff](hunk-review://origin/staging..feat-o)\n"
     end
 
     test "a branch name that would break the link reaches the pattern encoded", %{repo: repo} do
@@ -342,19 +353,19 @@ defmodule Whiska.CLIQuestionsTest do
       out = capture_io(fn -> assert CLI.run(["show", to_string(q.id)], worktree) == 0 end)
 
       assert out =~
-               "\nReview diff here: [1 commit against main](file://#{review_file(repo, "feat-w")})\n"
+               "\n[Diff](file://#{review_file(repo, "feat-w")})\n"
 
       assert File.read!(review_file(repo, "feat-w")) =~
                "git diff main...feat-w"
     end
 
-    test "a kept research document is linked under the branch line, by its title", %{repo: repo} do
+    test "a kept research document is linked on the row under the heading", %{repo: repo} do
       q = finished(repo, "ask-w1", commit: false)
       keep_research(repo, q, "# Why the owl hangs\n\nFound.\n")
 
       assert show_one(repo, q) =~
-               "On the branch: nothing committed beyond main · nothing uncommitted\n" <>
-                 "Review research here: [Why the owl hangs](#{research_file(repo, "ask-w1")})\n\nDone."
+               "nothing committed, clean\n" <>
+                 "[Research](#{research_file(repo, "ask-w1")})\n\nDone."
     end
 
     test "the research document is linked when read from a mouse's worktree too", %{repo: repo} do
@@ -366,7 +377,7 @@ defmodule Whiska.CLIQuestionsTest do
       out = capture_io(fn -> assert CLI.run(["show", to_string(q.id)], worktree) == 0 end)
 
       assert out =~
-               "\nReview research here: [research](#{research_file(repo, "ask-w2")})\n"
+               "\n[Research](#{research_file(repo, "ask-w2")})\n"
     end
 
     test "a research document still links once its worktree is gone", %{repo: repo} do
@@ -374,7 +385,7 @@ defmodule Whiska.CLIQuestionsTest do
       keep_research(repo, q, "# Found [it]\n")
 
       assert show_one(repo, q) =~
-               ~r/\nOn the branch: unknown[^\n]*\nReview research here: \[Found it\]\(file:/
+               ~r/ · branch unknown[^\n]*\n\[Research\]\(file:/
     end
 
     test "a finished question with no research document has no research document link", %{
@@ -387,7 +398,7 @@ defmodule Whiska.CLIQuestionsTest do
     test "nothing committed has no diff to review", %{repo: repo} do
       q = finished(repo, "ask-n", commit: false)
 
-      refute show_one(repo, q) =~ "Review diff here"
+      refute show_one(repo, q) =~ "Diff"
       refute File.exists?(review_file(repo, "ask-n"))
     end
 
@@ -411,7 +422,7 @@ defmodule Whiska.CLIQuestionsTest do
 
       for q <- [first, second] do
         assert show_one(repo, q) =~
-                 "\nReview research here: [Final](#{research_file(repo, "ask-r")})\n"
+                 "\n[Research](#{research_file(repo, "ask-r")})\n"
       end
     end
 
@@ -422,7 +433,7 @@ defmodule Whiska.CLIQuestionsTest do
       File.mkdir_p!(Path.dirname(old))
       File.write!(old, "# Older\n")
 
-      assert show_one(repo, q) =~ "\nReview research here: [Older](file://#{old})\n"
+      assert show_one(repo, q) =~ "\n[Research](file://#{old})\n"
     end
 
     # The main checkout works on staging, which is ahead of main; a mouse cut
@@ -438,7 +449,7 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "ask-s", commit: false, base: "staging")
 
       assert show_one(repo, q) =~
-               "On the branch: nothing committed beyond staging · nothing uncommitted"
+               "nothing committed beyond staging, clean"
     end
 
     test "whiska shape records the branch the main checkout is on as the base", %{repo: repo} do
@@ -487,13 +498,13 @@ defmodule Whiska.CLIQuestionsTest do
       on_staging(repo)
       q = finished(repo, "ask-t", commit: false)
 
-      assert show_one(repo, q) =~ "On the branch: 2 commits beyond main"
+      assert show_one(repo, q) =~ "2 commits, clean"
     end
 
     test "a recorded base that is gone is unknown, never main", %{repo: repo} do
       q = finished(repo, "ask-u", commit: false, base: "staging")
 
-      assert show_one(repo, q) =~ "On the branch: unknown — its base branch staging is gone"
+      assert show_one(repo, q) =~ "branch unknown — its base branch staging is gone"
     end
 
     test "an untracked file is uncommitted work, and nothing committed is said so",
@@ -501,14 +512,14 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "fix-b", commit: false, files: ["timeout_test.exs"])
 
       assert show_one(repo, q) =~
-               "On the branch: nothing committed beyond main · 1 file not committed: timeout_test.exs"
+               "nothing committed, 1 file not committed: timeout_test.exs"
     end
 
     test "commits beside uncommitted files", %{repo: repo} do
       q = finished(repo, "feat-c", files: ["a.txt", "b.txt"])
 
       assert show_one(repo, q) =~
-               "On the branch: 1 commit beyond main · 2 files not committed: a.txt, b.txt"
+               "1 commit, 2 files not committed: a.txt, b.txt"
     end
 
     test "names the first three uncommitted files and counts the rest", %{repo: repo} do
@@ -521,7 +532,7 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "ask-e", commit: false)
 
       assert show_one(repo, q) =~
-               "On the branch: nothing committed beyond main · nothing uncommitted"
+               "nothing committed, clean"
     end
 
     # Land here skips merges from the base, so they are nothing to land.
@@ -531,14 +542,14 @@ defmodule Whiska.CLIQuestionsTest do
       GitRepo.commit!(repo.checkout, "later.md", "moved on")
       GitRepo.git!(path, ["merge", "--no-ff", "-m", "sync", "main"])
 
-      assert show_one(repo, q) =~ "nothing committed beyond main"
+      assert show_one(repo, q) =~ "nothing committed, clean"
     end
 
     test "a worktree that is gone is unknown, never empty", %{repo: repo} do
       q = finished(repo, "feat-g", commit: false, gone: true)
       out = show_one(repo, q)
 
-      assert out =~ "On the branch: unknown — its worktree is gone"
+      assert out =~ "branch unknown — its worktree is gone"
       refute out =~ "nothing committed"
     end
 
@@ -548,7 +559,7 @@ defmodule Whiska.CLIQuestionsTest do
       GitRepo.git!(repo.checkout, ["branch", "-m", "main", "trunk"])
       out = show_one(repo, q)
 
-      assert out =~ "On the branch: unknown"
+      assert out =~ "branch unknown"
       refute out =~ "nothing committed"
     end
 
@@ -556,7 +567,7 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "feat-l")
       GitRepo.git!(Path.join([repo.root, "worktrees", "feat-l"]), ["mv", "feat-l.md", "moved.md"])
 
-      assert show_one(repo, q) =~ "1 commit beyond main · 1 file not committed: moved.md"
+      assert show_one(repo, q) =~ "1 commit, 1 file not committed: moved.md"
     end
 
     test "an untracked file counts even where git is told to hide them", %{repo: repo} do
@@ -574,7 +585,7 @@ defmodule Whiska.CLIQuestionsTest do
       GitRepo.commit!(path, "lost.md", "work on another branch")
       out = show_one(repo, q)
 
-      assert out =~ "On the branch: unknown — its worktree is not on its branch"
+      assert out =~ "branch unknown — its worktree is not on its branch"
       refute out =~ "nothing committed"
     end
 
@@ -584,7 +595,7 @@ defmodule Whiska.CLIQuestionsTest do
       GitRepo.git!(path, ["switch", "--detach"])
       GitRepo.commit!(path, "loose.md", "work on no branch")
 
-      assert show_one(repo, q) =~ "On the branch: unknown — its worktree is not on its branch"
+      assert show_one(repo, q) =~ "branch unknown — its worktree is not on its branch"
     end
 
     test "a base branch named like an option is unknown", %{repo: repo} do
@@ -598,7 +609,7 @@ defmodule Whiska.CLIQuestionsTest do
       ])
 
       assert show_one(repo, q) =~
-               "On the branch: unknown — its base branch's name is not a plain one"
+               "branch unknown — its base branch's name is not a plain one"
     end
 
     test "a folder git cannot read is unknown, never a crash", %{repo: repo} do
@@ -614,7 +625,7 @@ defmodule Whiska.CLIQuestionsTest do
           :ok
 
         {:error, _} ->
-          assert show_one(repo, q) =~ "On the branch: unknown — git could not read it"
+          assert show_one(repo, q) =~ "branch unknown — git could not read it"
       end
     end
 
@@ -645,14 +656,15 @@ defmodule Whiska.CLIQuestionsTest do
       ])
 
       out = show_one(repo, q)
-      assert out =~ "On the branch: unknown — its base branch's name is not a plain one"
+      assert out =~ "branch unknown — its base branch's name is not a plain one"
       refute out =~ "$(touch-pwned)"
     end
 
     test "a question that did not finish says nothing about the branch", %{repo: repo} do
       q = finished(repo, "feat-i", kind: "needs-decision", status: "open")
 
-      refute show_one(repo, q) =~ "On the branch"
+      refute show_one(repo, q) =~ "branch unknown"
+      refute show_one(repo, q) =~ "clean"
     end
 
     test "every finished block of the full listing carries the same line", %{repo: repo} do
@@ -661,7 +673,7 @@ defmodule Whiska.CLIQuestionsTest do
       full = capture_io(fn -> assert CLI.run(["questions", "--full"], repo.checkout) == 0 end)
 
       assert full =~
-               ~r/##{q.id}  feat-j  finished  \([^)]+\)\nOn the branch: nothing committed beyond main · nothing uncommitted\n/
+               ~r/##{q.id} feat-j · finished \d\d:\d\d · open · nothing committed, clean\n/
     end
 
     @pr "https://github.com/o/r/pull/12"
@@ -671,21 +683,21 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "feat-m", merge_request: @pr)
 
       assert show_one(repo, q) =~
-               ~r/^##{q.id}  feat-m  finished  \([^)]+\)\nOn the branch: merge request opened · 1 commit not pushed · nothing uncommitted\nMerge request: #{Regex.escape(@pr)}\nReview diff here: \[1 commit against main\]/
+               ~r/^##{q.id} feat-m · finished \d\d:\d\d · closed · merge request opened, 1 commit not pushed, clean\nMerge request: #{Regex.escape(@pr)}\n\[Diff\]/
     end
 
     test "a merge request with everything pushed says so", %{repo: repo} do
       q = finished(repo, "feat-n", merge_request: @pr, push: true)
 
       assert show_one(repo, q) =~
-               "\nOn the branch: merge request opened · everything pushed · nothing uncommitted\n"
+               " · merge request opened, everything pushed, clean\n"
     end
 
     test "a merge request's files not committed are named as on any branch line", %{repo: repo} do
       q = finished(repo, "feat-p", merge_request: @pr, push: true, files: ["a.txt"])
 
       assert show_one(repo, q) =~
-               "\nOn the branch: merge request opened · everything pushed · 1 file not committed: a.txt\n"
+               " · merge request opened, everything pushed, 1 file not committed: a.txt\n"
     end
 
     # The base's own commits travel with the branch but are the base's to push.
@@ -693,7 +705,7 @@ defmodule Whiska.CLIQuestionsTest do
       GitRepo.commit!(repo.checkout, "local.md", "not pushed yet")
       q = finished(repo, "feat-q", merge_request: @pr)
 
-      assert show_one(repo, q) =~ "merge request opened · 1 commit not pushed ·"
+      assert show_one(repo, q) =~ "merge request opened, 1 commit not pushed,"
     end
 
     test "a merge request already merged reads as any branch, so new commits can land",
@@ -705,7 +717,7 @@ defmodule Whiska.CLIQuestionsTest do
 
       shown = show_one(repo, q)
 
-      assert shown =~ "\nOn the branch: 1 commit beyond main · nothing uncommitted\n"
+      assert shown =~ " · 1 commit, clean\n"
       refute shown =~ "Merge request:"
     end
 
@@ -719,7 +731,7 @@ defmodule Whiska.CLIQuestionsTest do
       Storage.close(handle)
 
       assert show_one(repo, q) =~
-               "\nOn the branch: nothing committed beyond main · nothing uncommitted\n"
+               " · nothing committed, clean\n"
     end
 
     test "a merge request opened after its branch landed is the branch's again", %{repo: repo} do
@@ -732,7 +744,7 @@ defmodule Whiska.CLIQuestionsTest do
       Storage.close(handle)
 
       assert show_one(repo, q) =~
-               "\nOn the branch: merge request opened · 1 commit not pushed · nothing uncommitted\nMerge request: https://github.com/o/r/pull/13\n"
+               " · merge request opened, 1 commit not pushed, clean\nMerge request: https://github.com/o/r/pull/13\n"
     end
 
     test "commits not pushed are counted, merges included", %{repo: repo} do
@@ -742,7 +754,7 @@ defmodule Whiska.CLIQuestionsTest do
       GitRepo.commit!(repo.checkout, "later.md", "moved on")
       GitRepo.git!(path, ["merge", "--no-ff", "-m", "sync", "main"])
 
-      assert show_one(repo, q) =~ "merge request opened · 2 commits not pushed ·"
+      assert show_one(repo, q) =~ "merge request opened, 2 commits not pushed,"
     end
   end
 
@@ -805,7 +817,7 @@ defmodule Whiska.CLIQuestionsTest do
       assert out =~ @pr
 
       assert %{merge_request_url: @pr, merge_request_at: %DateTime{}} = recorded(repo)
-      assert show_one(repo, q) =~ "On the branch: merge request opened"
+      assert show_one(repo, q) =~ "merge request opened"
     end
 
     test "a second one replaces the first", %{repo: repo, q: q} do
@@ -958,23 +970,29 @@ defmodule Whiska.CLIQuestionsTest do
       File.write!(Path.join(path, ".whiska-plan.md"), "# Build plan: CSV sort\n")
     end
 
-    test "both are linked under the heading, each by its own title", %{path: path} = ctx do
+    test "both are linked on one row under the heading, by short labels", %{path: path} = ctx do
       write_documents(path)
 
       assert show_with(ctx, nil) =~
-               "\nReview spec here: [CSV sort](file://#{path}/.whiska-spec.md)\n" <>
-                 "Review build plan here: [Build plan: CSV sort](file://#{path}/.whiska-plan.md)\n\n" <>
+               "\n[Spec](file://#{path}/.whiska-spec.md) · " <>
+                 "[Build plan](file://#{path}/.whiska-plan.md)\n\n" <>
                  "Ok to build?"
     end
 
-    test "with neither written, there is nothing to review", ctx do
-      refute show_with(ctx, nil) =~ "Review"
+    test "a finished report links neither: the question they were for is closed",
+         %{path: path} = ctx do
+      write_documents(path)
+      ctx = ask_document(ctx, "# Done\n\n## Summary\nIt is built.\n⁣⁣⁣", "build")
+
+      out = show_with(ctx, nil)
+
+      refute out =~ "[Spec]"
+      refute out =~ "Build plan"
+      assert out =~ "[Full report](file://"
     end
 
-    test "a document with no heading is linked by what it is", %{path: path} = ctx do
-      File.write!(Path.join(path, ".whiska-spec.md"), "No heading.\n")
-
-      assert show_with(ctx, nil) =~ "Review spec here: [spec](file://"
+    test "with neither written, there is nothing to review", ctx do
+      refute show_with(ctx, nil) =~ "["
     end
 
     test "WHISKA_SPEC_LINK takes each document's path and the branch", %{path: path} = ctx do
@@ -984,17 +1002,17 @@ defmodule Whiska.CLIQuestionsTest do
       out = show_with(ctx, "myviewer://open?file={path}&branch={branch}")
 
       assert out =~
-               "[CSV sort](myviewer://open?file=#{encoded.(".whiska-spec.md")}&branch=feat/spec-w)\n"
+               "[Spec](myviewer://open?file=#{encoded.(".whiska-spec.md")}&branch=feat/spec-w) · "
 
       assert out =~
-               "[Build plan: CSV sort](myviewer://open?file=#{encoded.(".whiska-plan.md")}&branch=feat/spec-w)\n"
+               "[Build plan](myviewer://open?file=#{encoded.(".whiska-plan.md")}&branch=feat/spec-w)\n"
     end
 
     test "a pattern that could break the link keeps the file link", %{path: path} = ctx do
       write_documents(path)
 
       for pattern <- ["", "myviewer//{path}", "myviewer://{path} x", "myviewer://{path})"] do
-        assert show_with(ctx, pattern) =~ "(file://#{path}/.whiska-spec.md)\n",
+        assert show_with(ctx, pattern) =~ "(file://#{path}/.whiska-spec.md) · ",
                "pattern #{inspect(pattern)}"
       end
     end
@@ -1004,8 +1022,8 @@ defmodule Whiska.CLIQuestionsTest do
       File.ln_s!(Path.join(path, "README.md"), Path.join(path, ".whiska-plan.md"))
 
       out = show_with(ctx, nil)
-      assert out =~ "Review spec here"
-      refute out =~ "Review build plan here"
+      assert out =~ "[Spec]("
+      refute out =~ "Build plan"
     end
 
     test "a bug's research document is linked on the question asking for the ok", ctx do
@@ -1023,7 +1041,7 @@ defmodule Whiska.CLIQuestionsTest do
       Storage.close(handle)
       :kept = Whiska.SpecArchive.keep_research(ctx.repo.checkout, entry, q)
 
-      assert show_with(ctx, nil) =~ "\nReview research here: [Why the export drops rows](file://"
+      assert show_with(ctx, nil) =~ "\n[Research](file://"
     end
 
     defp ask_document(ctx, text, mode) do
@@ -1061,7 +1079,7 @@ defmodule Whiska.CLIQuestionsTest do
       out = show_with(ctx, nil)
 
       assert out =~
-               ~r"\nReview research here: \[Why the export drops rows\]\(file://[^)]+\.research\.md\)\n"
+               ~r"\n\[Research\]\(file://[^)]+\.research\.md\)\n"
 
       assert out =~
                "\n\n## Summary\nThe last page is never read.\n\n" <>
@@ -1083,7 +1101,7 @@ defmodule Whiska.CLIQuestionsTest do
       out = show_with(ctx, nil)
 
       assert out =~
-               ~r"\nReview report here: \[The export keeps every row\]\(file://[^)]+\.report\.md\)\n\n## Summary\nThe pager reads to the end.\n"
+               ~r"\n\[Full report\]\(file://[^)]+\.report\.md\)\n\n## Summary\nThe pager reads to the end.\n"
 
       refute out =~ "Pages counted from one"
     end

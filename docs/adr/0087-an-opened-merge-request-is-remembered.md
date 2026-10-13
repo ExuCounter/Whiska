@@ -32,7 +32,7 @@ other branch would never be seen landed and its worktree would stay. A line that
 base leaves the target to the forge.
 
 **Its finished lines read as an open request's.** The branch line reads `merge request
-opened · <N> commits not pushed · …`, with `Merge request: <link>` under it. Not pushed
+opened, <N> commits not pushed, …`, with `Merge request: <link>` under it. Not pushed
 counts the branch's commits that no remote and no base holds. On "pr" again, `whiska pr`
 pushes the new commits to the open request, never forced, refusing files not committed
 until `--commit <file>` as it does for any branch. `whiska land` refuses a branch with a

@@ -182,7 +182,7 @@ person, when only they can decide, sits on the line above the marker. A sniff mo
 report is its **research document**. It names how a message reads, never the record it
 becomes: once collected the same message is a **question**. A mouse's **brief** asks for
 it. Whiska keeps a build mouse's last one beside the kept **spec**, overwritten each
-round, and `whiska show` links it as `Review report here:` and prints only its summary
+round, and `whiska show` links it as `Full report` and prints only its summary
 (ADR-0089). `done` report is the older, narrower use of the word
 — a question whose marker said `done` — and both stay.
 _Avoid_: status, update, hand-off
@@ -212,22 +212,24 @@ else — what becomes of the worktree after the branch has landed, not what beco
 branch
 
 **Branch line**:
-The line `whiska show` prints straight under a finished question's heading: what its
-branch holds as git says when it is shown — its own commits beyond the base, its files
-not committed, or `unknown`; for a branch with a recorded **merge request**, `merge
-request opened`, its commits no remote has yet, and its files not committed, with a
-`Merge request:` line and its link under it. Whiska's record of the branch, never the
-mouse's word, and what the person reads before saying a **finish** (ADR-0074). Under it, when the branch has commits, the
-**diff link**: `Review diff here:`, a link to the branch's diff, which `whiska show`
-writes to one file per branch in `.whiska/reviews/`, named for the branch with a short hash of
-its name, as Markdown, so the person reviews it from a link as
+The last part of a finished question's heading in `whiska show`: what its branch holds
+as git says when it is shown — its own commits beyond the base (the base named only when
+it is not `main`), its files not committed or `clean`, or `branch unknown`; for a branch
+with a recorded **merge request**, `merge request opened`, its commits no remote has yet,
+and its files not committed, with a `Merge request:` line and its link under the heading.
+Whiska's record of the branch, never the mouse's word, and what the person reads before
+saying a **finish** (ADR-0074). The heading is `#<id> <branch> · finished <time> ·
+<branch line>`; the time is when it finished, and only a state other than waiting on the
+person is named, after it (ADR-0089). Under it, one row of short links, each there only
+when it has something to open: the **diff link**, `Diff`, a link to the branch's diff,
+which `whiska show` writes to one file per branch in `.whiska/reviews/`, named for the
+branch with a short hash of its name, as Markdown, so the person reviews it from a link as
 they review a **spec** — or, when the person's `WHISKA_DIFF_LINK` holds a link pattern,
 that pattern with `{base}` and `{branch}` filled in, pointing at a diff viewer of their own,
-and no file is written (ADR-0085); when the branch has a **research document**, its link,
-`Review research here:` (ADR-0074); when the mouse's worktree holds a **spec** or a
-**build plan**, `Review spec here:` and `Review build plan here:`, links to its files
-(ADR-0063); and when a **report** is kept, `Review report here:`
-(ADR-0089).
+and no file is written (ADR-0085); the **research document**, `Research` (ADR-0074); the
+**spec** and **build plan**, `Spec` and `Build plan`, links to the worktree's files,
+only on a question that is not finished, since they are what an "ok to build?" asks
+about (ADR-0063); and the **report**, `Full report` (ADR-0089).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Merge request**:
@@ -264,7 +266,7 @@ work: a bug's in the build **brief**, an investigation's in the sniff brief.
 - **An investigation's**: the sniff mouse's final message, which writes no file — its
   **summary**, its **proposal** when something should change, the question, then what it
   established, in full (ADR-0089). `whiska show` links it under
-  the **branch line** as `Review research here:`, and the person's comments on it are
+  the **branch line**'s row as `Research`, and the person's comments on it are
   their own words, carried as a file: to the build (`whiska spawn --from <id> --comments
   <file>`), to the investigating mouse (`whiska send`), or not sent (ADR-0074).
 Whiska keeps one copy per branch beside the kept **spec**, overwritten each round, so

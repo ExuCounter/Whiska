@@ -141,14 +141,14 @@ rows without it. Only your own user can open the socket.
   run it again after changing either.
 - **`HERDR_SOCKET_PATH`** is herdr's socket, `~/.config/herdr/herdr.sock` when unset.
   Also copied into the owl's job.
-- **`WHISKA_DIFF_LINK`** points a finished branch's `Review diff here:` link at a diff
+- **`WHISKA_DIFF_LINK`** points a finished branch's `Diff` link at a diff
   viewer of your own instead of the Markdown diff file. It is a link pattern your
   terminal opens, with `{base}` and `{branch}` filled in:
   `export WHISKA_DIFF_LINK='hunk-review://{base}..{branch}'`. When it is set, no diff
   file is written. A pattern with no scheme, or with a space, parenthesis, backslash or
   control character in it, is ignored.
-- **`WHISKA_SPEC_LINK`** does the same for the `Review spec here:`,
-  `Review build plan here:` and `Review research here:` links, with `{path}` (each
+- **`WHISKA_SPEC_LINK`** does the same for the `Spec`,
+  `Build plan` and `Research` links, with `{path}` (each
   file's absolute path) and `{branch}`:
   `export WHISKA_SPEC_LINK='myviewer://open?file={path}'`. Set it in your own shell
   profile, never in a repo's env file: the pattern decides what clicking the link opens.

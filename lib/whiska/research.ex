@@ -77,9 +77,9 @@ defmodule Whiska.Research do
     end
   end
 
-  # The mouse's own words, set inside a Markdown link under the branch line:
-  # nothing that could close the link, escape its bracket, or reorder the line
-  # survives.
+  # The mouse's own words, kept plain: nothing that could close a Markdown
+  # link, escape its bracket, or reorder a line survives. `whiska show` links
+  # with its own short labels now, so no caller sets this in a link.
   defp title(text, fallback) do
     with [_, heading] <- Regex.run(~r/^#[ \t]+([^\n]+)$/m, text),
          title when title != "" <-

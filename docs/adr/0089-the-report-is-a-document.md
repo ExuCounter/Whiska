@@ -18,7 +18,7 @@ whole, and `whiska show` prints its summary under the link to it.
   document's text, marker line removed, as `<the spec's name>.research.md` for a sniff
   mouse and `<the spec's name>.report.md` for any other, overwritten each round, as
   ADR-0063 keeps a spec. A message with no `## Summary` keeps nothing.
-- **`whiska show <id>` prints the summary.** The header lines, every "Review … here" link
+- **`whiska show <id>` prints the summary.** The heading, one row of links
   (the diff, research, spec, build plan and now the report), then the `## Summary`
   section and, when there is one, the first line under `## What to change`. A turn that
   ends on a decision keeps the question on the line above its marker. The rest is behind
@@ -26,6 +26,14 @@ whole, and `whiska show` prints its summary under the link to it.
   no `## Summary`, or an empty one (a question mid-grill, a mouse started before this), is
   printed whole, and so is a turn that stopped with no marker, since it may have been cut
   off.
+- **A finished report's heading and links are short.** `#<id> <branch> · finished <time>
+  · <branch state>`: the time is when it finished (with its date, when not today), the
+  state only when it is not plain waiting on the person, and the branch state folded in
+  (`1 commit, clean`). Under it one row of labels, `Diff · Research · Full report`, each
+  only when it has something to open. `Spec` and `Build plan` link only on a question
+  that is not finished: they are what an "ok to build?" asks about, and the report
+  replaces them. Other questions keep their heading's state and day, and take the same
+  row.
 - **A heading inside a code block is not one.** A message quoting the template is not a
   document.
 - **The heading never decides what the turn is.** Its kind is its marker's alone
