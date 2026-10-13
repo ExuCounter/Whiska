@@ -370,6 +370,27 @@ defmodule Whiska.CleanupTest do
       refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-a"
     end
 
+    test "a second merge request, opened after the first landed, is seen landed in turn",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      GitRepo.merge_on_forge(repo, "feat-a")
+      :ok = Git.fetch_base(repo.checkout, "main")
+      seen(repo, m, workspace_id: nil)
+      sweep(repo)
+      landed = Storage.mouse("m-feat-a")
+      earlier = DateTime.add(landed.landed_at, -60)
+      Whiska.Repo.update!(Ecto.Changeset.change(landed, %{landed_at: earlier}))
+      {:ok, _} = Storage.record_merge_request("m-feat-a", "https://github.com/o/r/pull/2")
+      GitRepo.commit!(m.path, "more.md", "second")
+      GitRepo.git!(m.path, ["push", "--quiet", "origin", "feat-a"])
+      GitRepo.merge_on_forge(repo, "feat-a")
+      :ok = Git.fetch_base(repo.checkout, "main")
+
+      sweep(repo)
+
+      refute Whiska.Schema.Mouse.merge_request_waiting?(Storage.mouse("m-feat-a"))
+    end
+
     test "with a commit made since the merge, stays", %{repo: repo} do
       m = mouse(repo, "feat-a")
       GitRepo.merge_on_forge(repo, "feat-a")

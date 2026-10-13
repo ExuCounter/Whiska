@@ -79,9 +79,13 @@ defmodule Whiska.Cleanup do
   # the teardown asks for again a line later: carrying it across is what keeps
   # one sweep to one such check per standing worktree. A mouse already stamped
   # is asked nothing at all.
-  defp note_landing(%Mouse{landed_at: %DateTime{}} = mouse, _local), do: {mouse, nil}
+  defp note_landing(%Mouse{landed_at: %DateTime{}} = mouse, local) do
+    if Mouse.merge_request_waiting?(mouse), do: ask_landing(mouse, local), else: {mouse, nil}
+  end
 
-  defp note_landing(mouse, local) do
+  defp note_landing(mouse, local), do: ask_landing(mouse, local)
+
+  defp ask_landing(mouse, local) do
     with {:ok, {base, places}} <- base(mouse, local),
          {:ok, head} <- head_of(mouse, local, base),
          {:ok, how} = asked <- reached(local.checkout, head, places) do

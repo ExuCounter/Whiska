@@ -577,7 +577,8 @@ defmodule Whiska.Storage do
   Anything still answerable is untouched: a live mouse's open question is the
   person's to answer whether or not the branch has landed.
 
-  Idempotent: the first landing date stands.
+  Idempotent: the first landing date stands, until a merge request recorded
+  after it lands in turn.
   """
   @spec mark_landed(String.t()) ::
           {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
@@ -587,20 +588,24 @@ defmodule Whiska.Storage do
         {:error, :no_such_mouse}
 
       %Mouse{landed_at: %DateTime{}} = mouse ->
-        {:ok, mouse}
+        if Mouse.merge_request_waiting?(mouse), do: stamp_landed(mouse), else: {:ok, mouse}
 
       mouse ->
-        Repo.transaction(fn ->
-          Repo.update_all(
-            from(q in Question, where: q.mouse_id == ^mouse_id and q.status == "orphaned"),
-            set: [status: "settled"]
-          )
-
-          mouse
-          |> Ecto.Changeset.change(%{landed_at: now()})
-          |> Repo.update!()
-        end)
+        stamp_landed(mouse)
     end
+  end
+
+  defp stamp_landed(%Mouse{mouse_id: mouse_id} = mouse) do
+    Repo.transaction(fn ->
+      Repo.update_all(
+        from(q in Question, where: q.mouse_id == ^mouse_id and q.status == "orphaned"),
+        set: [status: "settled"]
+      )
+
+      mouse
+      |> Ecto.Changeset.change(%{landed_at: now()})
+      |> Repo.update!()
+    end)
   end
 
   @doc """
