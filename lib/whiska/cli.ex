@@ -118,7 +118,8 @@ defmodule Whiska.CLI do
     questions --full     delivered question, then any orphaned ones, then
                          what is still on the doorstep. With an id, that
                          question in full; with --full, every open one in
-                         full, oldest first, so there is no id to type.
+                         full, oldest first, so there is no id to type. A
+                         report shows only its Summary, under its link.
 
     waiting [--json]     What is waiting on you anywhere on this machine: one
                          line per question, across every house the owl has
@@ -180,7 +181,8 @@ defmodule Whiska.CLI do
                          behind #<id>) and a first line when you are away.
                          `--all`, or outside any repo, lists every repo.
     show [<id>]          The question delivered to you, in full, or any one by
-                         id. Queued ones wait their turn: `inbox` lists them.
+                         id; a report shows only its Summary, under its link.
+                         Queued ones wait their turn: `inbox` lists them.
     reply <id> <text>    Answer it; no quotes needed around the text.
     dismiss <id>         Close it without answering (`close`).
     away                 Nothing is delivered to any main session on this
@@ -1713,7 +1715,7 @@ defmodule Whiska.CLI do
         summary,
         &on_branch(main, &1),
         &research(main, &1),
-        &documents/1
+        &documents(main, &1)
       )
 
   # Not repo-scoped: the line is machine-wide and herdr draws one of them for
@@ -2064,31 +2066,46 @@ defmodule Whiska.CLI do
         focus,
         &on_branch(main, &1),
         &research(main, &1),
-        &documents/1
+        &documents(main, &1)
       )
     )
   end
 
   defp research(main, %Question{} = q), do: Whiska.Research.find(main, q, mouse_of(q))
 
+  defp documents(main, %Question{} = q) do
+    mouse = mouse_of(q)
+    in_worktree(mouse) ++ report(main, mouse)
+  end
+
   # The spec and build plan a mouse asks the person to review, linked where
   # they stand in its worktree (ADR-0063). A viewer the person names in
   # WHISKA_SPEC_LINK takes each; otherwise the file link annotate opens
   # (ADR-0085).
-  defp documents(%Question{} = q) do
-    case mouse_of(q) do
-      %Mouse{path: path, branch: branch} when is_binary(path) and is_binary(branch) ->
-        for {label, name} <- [
-              {"spec", Whiska.Spec.filename()},
-              {"build plan", Whiska.BuildPlan.filename()}
-            ],
-            {file, title} <- [Whiska.Research.document(Path.join(path, name), label)],
-            do: {label, title, document_link(file, branch)}
+  defp in_worktree(%Mouse{path: path, branch: branch})
+       when is_binary(path) and is_binary(branch) do
+    for {label, name} <- [
+          {"spec", Whiska.Spec.filename()},
+          {"build plan", Whiska.BuildPlan.filename()}
+        ],
+        {file, title} <- [Whiska.Research.document(Path.join(path, name), label)],
+        do: {label, title, document_link(file, branch)}
+  end
 
-      _ ->
-        []
+  defp in_worktree(_mouse), do: []
+
+  # Whiska's own copy, linked like the research document, so it opens after the
+  # worktree is gone (ADR-next-the-report-is-a-document).
+  defp report(main, %Mouse{mouse_id: mouse_id, branch: branch}) when is_binary(branch) do
+    with file when is_binary(file) <- Whiska.SpecArchive.report(main, mouse_id, branch),
+         {file, title} <- Whiska.Research.document(file, "report") do
+      [{"report", title, Review.file_link(file)}]
+    else
+      _ -> []
     end
   end
+
+  defp report(_main, _mouse), do: []
 
   defp document_link(file, branch) do
     case Review.spec_link(System.get_env("WHISKA_SPEC_LINK"), file, branch) do

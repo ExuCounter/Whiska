@@ -8,7 +8,7 @@ environment variables. `whiska --help` has the full text for each command.
 ### Questions
 
 ```
-whiska questions [<id>|--full]  what is waiting on you in this repo; an id or --full shows it in full
+whiska questions [<id>|--full]  what is waiting on you in this repo; an id or --full shows it in full, a report as its Summary
 whiska reply <id> <text>        answer it: saved, then that mouse's own hook takes it
 whiska close <id>               settle one by hand, with no answer
 whiska waiting [--json]         what is waiting on you in every repo on this machine

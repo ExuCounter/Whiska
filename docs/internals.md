@@ -73,8 +73,8 @@ Four rules, all through the `PreToolUse` hook, all denied at once (ADR-0011):
   path. `Bash` is denied when a command both changes something and names a path in the
   main checkout: `sed -i`, a redirect or `git -C <main> commit` are denied; `cat` and
   `grep` are not.
-- **A sniff mouse may change nothing** but its research document, `.whiska-research.md`
-  at its worktree root, and only with `Write` or `Edit` (ADR-0069).
+- **A sniff mouse may change nothing.** Its research document is its final message,
+  which Whiska keeps (ADR-0069, ADR-next-the-report-is-a-document).
 
 What this is not:
 

@@ -1025,5 +1025,84 @@ defmodule Whiska.CLIQuestionsTest do
 
       assert show_with(ctx, nil) =~ "\nReview research here: [Why the export drops rows](file://"
     end
+
+    defp ask_document(ctx, text, mode) do
+      {:ok, handle} = Storage.open(ctx.repo.checkout)
+
+      try do
+        {:ok, q} =
+          Storage.record_question(%{mouse_id: "m-s", text: text, kind: "done", status: "open"})
+
+        entry = %Entry{
+          mouse_id: "m-s",
+          branch: "feat/spec-w",
+          worktree_root: ctx.path,
+          stamped_at: ~U[2026-10-06 09:00:00Z],
+          text: text
+        }
+
+        :kept = Whiska.SpecArchive.keep_document(ctx.repo.checkout, entry, q, mode)
+        %{ctx | id: to_string(q.id)}
+      after
+        Storage.close(handle)
+      end
+    end
+
+    test "a research document prints its summary and what to change, under its link", ctx do
+      ctx =
+        ask_document(
+          ctx,
+          "# Why the export drops rows\n\n## Summary\nThe last page is never read.\n\n" <>
+            "## What to change\n- Found: the pager stops one short.\n- Build: read to the end.\n\n" <>
+            "## Question\nWhy?\n\n## Found\nexport.ex:40 loops while page < last.\n⁣⁣⁣",
+          "sniff"
+        )
+
+      out = show_with(ctx, nil)
+
+      assert out =~
+               ~r"\nReview research here: \[Why the export drops rows\]\(file://[^)]+\.research\.md\)\n"
+
+      assert out =~
+               "\n\n## Summary\nThe last page is never read.\n\n" <>
+                 "## What to change\n- Found: the pager stops one short.\n"
+
+      refute out =~ "Build: read to the end"
+      refute out =~ "export.ex:40"
+    end
+
+    test "a build report prints its summary, under the link to the whole report", ctx do
+      ctx =
+        ask_document(
+          ctx,
+          "# The export keeps every row\n\n## Summary\nThe pager reads to the end.\n\n" <>
+            "## What changed\n- Pages counted from one.\n⁣⁣⁣",
+          "build"
+        )
+
+      out = show_with(ctx, nil)
+
+      assert out =~
+               ~r"\nReview report here: \[The export keeps every row\]\(file://[^)]+\.report\.md\)\n\n## Summary\nThe pager reads to the end.\n"
+
+      refute out =~ "Pages counted from one"
+    end
+
+    test "a message with no Summary is printed whole", ctx do
+      {:ok, handle} = Storage.open(ctx.repo.checkout)
+
+      {:ok, q} =
+        Storage.record_question(%{
+          mouse_id: "m-s",
+          text: "Two ways.\n\n## Found\nexport.ex:40\n⁣⁣",
+          kind: "needs-decision",
+          status: "open"
+        })
+
+      Storage.close(handle)
+
+      assert show_with(%{ctx | id: to_string(q.id)}, nil) =~
+               "\n\nTwo ways.\n\n## Found\nexport.ex:40"
+    end
   end
 end

@@ -185,14 +185,17 @@ A build plan is kept the same way beside its spec, as `<the spec's file name>.pl
 with the same header and the same landed or dropped status; with no spec, as for a bug, it
 takes the date and branch name itself. Only a new or revised spec marks its question as a
 spec sent. A research document is kept the same way, as `<the same name>.research.md`,
-with the same header and status; it never marks its question as a spec sent. A new file
-of any of the three takes the name of one already kept for its mouse, so they sit side by
+with the same header and status, and so is a mouse's report, as `<the same name>.report.md`
+(ADR-next-the-report-is-a-document); neither marks its question as a spec sent. A new file
+of any of the four takes the name of one already kept for its mouse, so they sit side by
 side. The research copy is what `whiska show` links (ADR-0074), so one file per branch,
 overwritten each round, is what makes an earlier question's link open the latest text.
 
 The copy is taken when the spec is sent. The `Stop` hook reads the worktree's spec, research
 document and build plan into the doorstep entry beside the message (ADR-0036), and the owl writes the copy when it
-collects the entry, naming the question just recorded. An entry whose spec matches the
+collects the entry, naming the question just recorded. A message with a `## Summary` is a
+document itself, kept from the message the same way: a sniff mouse's as its research
+document, any other's as its report. An entry whose spec matches the
 kept copy writes nothing. Only a regular UTF-8 file of at most 256 KB travels; anything
 else is left out so the message itself still reaches the doorstep.
 
@@ -265,6 +268,9 @@ house (ADR-0002).
 
 The link names the worktree's file, so an answer given after the worktree is gone finds a
 dead link; the text is then in the kept copy, whose `question:` header names the question.
+
+Changed on 2026-10-13: a mouse's report and a sniff mouse's research document are its
+final message, kept beside the spec (ADR-next-the-report-is-a-document).
 
 Changed on 2026-10-13: the spec, build plan, research document and grilling are sections
 of the briefs, not skills; `whiska show` links the spec and build plan, and the mouse

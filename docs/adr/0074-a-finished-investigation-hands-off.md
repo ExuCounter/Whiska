@@ -1,8 +1,9 @@
 # A finished investigation hands its proposal to a fresh build mouse
 
-A turn that investigated, changed nothing, and found something that should change ends
-its report with a **What to change** block and on the done marker, and writes its findings
-and the same block to a **research document** the person reviews line by line. When the
+A turn that investigated, changed nothing, and found something that should change ends on
+the done marker with a final message that is its **research document**, holding a **What
+to change** section, which the person reviews line by line
+(ADR-next-the-report-is-a-document). When the
 person says to build it, the main session runs `whiska spawn build <branch> --from <id>`,
 a fresh mouse shaped for that build, with `--comments <file>` when the person commented on
 the research document. A mouse's mode is never flipped in place: `whiska mode` gives a
@@ -19,15 +20,15 @@ rules in `priv/models.json` price lowest. One mode per mouse removes the flip.
 
 ## The rule
 
-- **The proposal.** The block is the label `**What to change**` and five lines: Found,
+- **The proposal.** The section is the heading `## What to change` and five lines: Found,
   Build, Why, Cost and Open. The sniff brief carries it, and the build brief reads it
   (ADR-next-one-brief-per-session).
 - **The person asks for the build.** The main session shows the report with `whiska show`
   and stops. "Build it" is the person's to say, in their words; nothing is offered.
 - **The spawn is fixed text.** `whiska spawn build <branch> --from <id>` writes the new
-  mouse's task as a fixed line naming the question: read it with `whiska show <id>`, its
-  Build line is the task, Found is fact, Open is what to grill, and read the research
-  document it links. The main session picks the branch, mode, model and effort, judged
+  mouse's task as a fixed line naming the question: in the research document
+  `whiska show <id>` links, its Build line is the task, Found is fact, Open is what to
+  grill. The main session picks the branch, mode, model and effort, judged
   against the Build line by the ordered rules (ADR-0069), and passes each as an argument.
 - **`whiska mode build|sniff` gives a mode only to a mouse nobody shaped**: a hand-made
   worktree, or one from an older spawn (ADR-0069). It stamps `shaped_at`. On a mouse that
@@ -48,8 +49,8 @@ branch holds under its heading.
 No character a mouse wrote goes on the main session's command line: `--from` carries only
 the id, `--comments` a path the main session chose, and the branch is a name it makes out
 of `a-z0-9`, `-` and `/`, which `whiska spawn` refuses otherwise, never copied from the
-proposal. The new mouse reads the whole report with `whiska show <id>`, and the report
-stays in the house (ADR-0007).
+proposal. The new mouse reads the whole report from the research document `whiska show
+<id>` links, and the report stays in the house (ADR-0007).
 
 ## The research document
 
@@ -61,17 +62,15 @@ It is one template, in the brief that writes it: an investigation's question, fi
 and What to change in the sniff brief, or a bug's before and after, cause and fix options
 in the build brief, which a bug fix is approved from before any code (ADR-0063).
 
-- **The mouse writes it.** Before its report, the turn writes `.whiska-research.md` at its
-  worktree root: what it established, in full, then the same What to change block when
-  something should change. It is the one file a sniff mouse may write (ADR-0069). Git
-  ignores it through the main checkout's exclude file, which `whiska shape` and
-  `whiska mode` write as they do for the spec (ADR-0063), and the owl writes on opening
-  the house, so the branch still has nothing on it.
-- **Whiska keeps it once per branch.** The `Stop` hook carries it on the doorstep entry
-  beside the spec, with the same limits, and the owl writes it at collection beside the
-  kept spec, as ADR-0063 keeps a spec: one file per branch, overwritten each round. It is
-  not a spec: it never marks the question `spec_sent`, so the spec figures (ADR-0086)
-  count only specs.
+- **The sniff mouse's final message is the document**, with a `## Summary` at the top
+  (ADR-next-the-report-is-a-document). It writes no file (ADR-0069). A build mouse fixing a
+  bug still writes `.whiska-research.md` at its worktree root, which git ignores through
+  the main checkout's exclude file, as it ignores the spec (ADR-0063).
+- **Whiska keeps it once per branch.** The `Stop` hook carries the message, or the bug's
+  file, on the doorstep entry, and the owl writes it at collection beside the kept spec,
+  as ADR-0063 keeps a spec: one file per branch, overwritten each round. It is not a
+  spec: it never marks the question `spec_sent`, so the spec figures (ADR-0086) count
+  only specs.
 - **`whiska show` links it** under the branch line, as `Review research here:`, by its
   first heading, as it links the diff (ADR-0085). The link is Whiska's, not the mouse's:
   the mouse cannot know its question id. It names the kept copy, so it works from a
@@ -84,7 +83,7 @@ in the build brief, which a bug fix is approved from before any code (ADR-0063).
   which a mouse wrote, so the main session writes it to a file outside both checkouts.
   For the build, `--comments <file>` copies it into the new worktree and the task names
   the copy; for the investigating mouse, `whiska send <branch> <file>` does the same, and
-  the mouse rechecks, rewrites its research document and finishes again. Nothing a person
+  the mouse rechecks and sends its research document again, whole. Nothing a person
   or a mouse wrote is typed into a pane, where a newline can send half (ADR-0080).
 
 ## Considered options
@@ -119,6 +118,9 @@ in the build brief, which a bug fix is approved from before any code (ADR-0063).
 - The owl also writes the research document's exclude line when it opens a house, as it
   does the marker's (ADR-0002), so a worktree shaped before this hides its research
   document too.
+
+Changed on 2026-10-13: a sniff mouse's final message is its research document, and
+What to change is a section of it (ADR-next-the-report-is-a-document).
 
 Changed on 2026-10-13: the block is **What to change**, with Why and Cost in place of
 Touches; the build is `whiska spawn --from`, asked for by the person, with no options

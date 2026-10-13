@@ -1346,7 +1346,7 @@ defmodule Whiska.Owl.House do
   defp collect_entry(state, file, entry) do
     kind = Marker.classify(entry.text)
 
-    with {:ok, _} <-
+    with {:ok, mouse} <-
            Storage.record_mouse(%{
              mouse_id: entry.mouse_id,
              path: entry.worktree_root,
@@ -1364,6 +1364,7 @@ defmodule Whiska.Owl.House do
          {:ok, _} <- Storage.supersede_earlier(question),
          :ok <- keep_spec(state, entry, question),
          :ok <- keep_research(state, entry, question),
+         :ok <- keep_document(state, entry, question, Storage.mode_of(mouse)),
          :ok <- record_usage(state, entry, question),
          {:ok, _} <- Doorstep.mark_collected(file) do
       true
@@ -1407,6 +1408,16 @@ defmodule Whiska.Owl.House do
         state,
         "could not keep the research document of question #{question.id} (#{inspect(reason)})"
       )
+    end
+
+    :ok
+  end
+
+  # The message itself, when it is a document, is a research document or a
+  # report, and is kept the same way (ADR-next-the-report-is-a-document).
+  defp keep_document(state, entry, question, mode) do
+    with {:error, reason} <- SpecArchive.keep_document(state.main_checkout, entry, question, mode) do
+      warn(state, "could not keep the report of question #{question.id} (#{inspect(reason)})")
     end
 
     :ok

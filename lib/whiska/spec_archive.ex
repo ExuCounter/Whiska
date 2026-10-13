@@ -9,8 +9,9 @@ defmodule Whiska.SpecArchive do
   owl's sweep, `whiska drop`, or by hand — can lose it.
 
   One file per spec, `.whiska/specs/<date first written>-<branch>.md`, under a
-  short header, the build plan beside it as `<the same name>.plan.md`, and the
-  research document as `<the same name>.research.md`. A
+  short header, the build plan beside it as `<the same name>.plan.md`, the
+  research document as `<the same name>.research.md`, and the mouse's last
+  report as `<the same name>.report.md`. A
   revision overwrites its file and moves the question it replaced into
   `replaced:`; a later turn that leaves the text as it was moves nothing. The
   cleanup sweep turns `status: waiting` into landed or dropped, for each.
@@ -21,6 +22,7 @@ defmodule Whiska.SpecArchive do
   alias Whiska.Doorstep.Entry
   alias Whiska.Git
   alias Whiska.HouseFile
+  alias Whiska.Report
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Spec
@@ -30,7 +32,8 @@ defmodule Whiska.SpecArchive do
   @spec_suffix ""
   @plan_suffix ".plan"
   @research_suffix ".research"
-  @suffixes [@spec_suffix, @plan_suffix, @research_suffix]
+  @report_suffix ".report"
+  @suffixes [@spec_suffix, @plan_suffix, @research_suffix, @report_suffix]
 
   @doc "Where this checkout's specs are kept."
   @spec dir(Path.t()) :: Path.t()
@@ -55,10 +58,33 @@ defmodule Whiska.SpecArchive do
   def keep_research(main_checkout, %Entry{} = entry, %Question{} = question),
     do: keep(main_checkout, entry, question, entry.research, @research_suffix)
 
+  @doc """
+  Keep the final message an entry carried when it is a document
+  (`Whiska.Report`): a sniff mouse's as its research document, any other's as
+  its report. A message that is not one keeps nothing.
+  """
+  @spec keep_document(Path.t(), Entry.t(), Question.t(), String.t()) ::
+          :kept | :unchanged | {:error, term()}
+  def keep_document(main_checkout, %Entry{text: text} = entry, %Question{} = question, mode) do
+    cond do
+      not Report.document?(text) -> :unchanged
+      mode == "sniff" -> keep(main_checkout, entry, question, Report.text(text), @research_suffix)
+      true -> keep(main_checkout, entry, question, Report.text(text), @report_suffix)
+    end
+  end
+
   @doc "The research document kept for `mouse_id` on `branch`, or nil."
   @spec research(Path.t(), String.t(), String.t()) :: Path.t() | nil
-  def research(main_checkout, mouse_id, branch) do
-    case find(main_checkout, names(main_checkout), mouse_id, branch, @research_suffix) do
+  def research(main_checkout, mouse_id, branch),
+    do: kept(main_checkout, mouse_id, branch, @research_suffix)
+
+  @doc "The report kept for `mouse_id` on `branch`, or nil."
+  @spec report(Path.t(), String.t(), String.t()) :: Path.t() | nil
+  def report(main_checkout, mouse_id, branch),
+    do: kept(main_checkout, mouse_id, branch, @report_suffix)
+
+  defp kept(main_checkout, mouse_id, branch, suffix) do
+    case find(main_checkout, names(main_checkout), mouse_id, branch, suffix) do
       {file, _saved} -> file
       nil -> nil
     end
@@ -195,8 +221,8 @@ defmodule Whiska.SpecArchive do
     end
   end
 
-  # A mouse's spec, build plan and research document share one name, so they
-  # sit side by side.
+  # A mouse's spec, build plan, research document and report share one name, so
+  # they sit side by side.
   defp new_file(main_checkout, entry, suffix) do
     names = names(main_checkout)
 

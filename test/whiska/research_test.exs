@@ -12,21 +12,6 @@ defmodule Whiska.ResearchTest do
     {:ok, root: root, worktree: worktree}
   end
 
-  describe "target?/2" do
-    test "names the research document at the worktree root, by its absolute path", %{worktree: wt} do
-      assert Research.target?(Path.join(wt, ".whiska-research.md"), wt)
-    end
-
-    test "a relative path is no research document: where it lands depends on the session's folder",
-         %{worktree: wt} do
-      refute Research.target?(".whiska-research.md", wt)
-    end
-
-    test "a path that climbs through a folder is no research document", %{worktree: wt} do
-      refute Research.target?(Path.join(wt, "lib/../.whiska-research.md"), wt)
-    end
-  end
-
   describe "find/3" do
     defp kept(root, text) do
       path = Path.join(root, ".whiska/research/7.md")

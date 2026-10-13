@@ -63,6 +63,7 @@ in git history.
 - [0069](0069-a-mouse-is-shaped-before-it-starts.md) — A mouse is shaped before it starts: mode, model and effort
 - [0083](0083-worktree-clone.md) — A new worktree is stocked by `whiska shape`, copy-on-write, from a list the house keeps
 - [0074](0074-a-finished-investigation-hands-off.md) — A finished investigation hands its proposal to a fresh build mouse
+- [next-the-report-is-a-document](next-the-report-is-a-document.md) — A mouse's report is a document; `whiska show` prints its summary
 - [0026](0026-dead-mice-and-stuck-mice-are-separate-problems.md) — Dead mice and stuck mice are separate problems needing separate mechanisms
 - [0050](0050-a-mouses-last-action-is-read-from-its-transcript.md) — A mouse's last action is read from its Claude Code transcript, never asked for
 - [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl

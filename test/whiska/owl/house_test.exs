@@ -84,13 +84,16 @@ defmodule Whiska.Owl.HouseTest do
     fun.()
   end
 
-  defp leave(main, mouse_id, root, text) do
+  defp leave(main, mouse_id, root, text),
+    do: leave_at(main, mouse_id, root, DateTime.utc_now(), text)
+
+  defp leave_at(main, mouse_id, root, stamped_at, text) do
     {:ok, file} =
       Doorstep.leave(main, %Entry{
         mouse_id: mouse_id,
         branch: Path.basename(root),
         worktree_root: root,
-        stamped_at: DateTime.utc_now(),
+        stamped_at: stamped_at,
         text: text
       })
 
@@ -403,6 +406,47 @@ defmodule Whiska.Owl.HouseTest do
         assert {^file, "Final"} =
                  in_house(house, fn -> Research.find(main, q, Storage.mouse(q.mouse_id)) end)
       end
+    end
+
+    test "a sniff mouse's final message with a Summary is its research document, and the next one replaces it",
+         %{main: main, a: a, house: house} do
+      in_house(house, fn -> Storage.set_mode("ma", "sniff") end)
+
+      for {title, at} <- [
+            {"Draft", ~U[2026-10-06 09:00:00Z]},
+            {"Final", ~U[2026-10-07 09:00:00Z]}
+          ] do
+        leave_at(main, "ma", a, at, "# #{title}\n\n## Summary\nIt hangs.\n\n## Found\nx\n\n⁣⁣⁣")
+        House.collect(house)
+      end
+
+      assert [file] = Path.wildcard(Path.join(main, ".whiska/specs/*.md"))
+      assert Path.basename(file) == "2026-10-06-feat-a.research.md"
+
+      assert String.ends_with?(
+               File.read!(file),
+               "\n\n# Final\n\n## Summary\nIt hangs.\n\n## Found\nx\n"
+             )
+
+      for q <- in_house(house, fn -> Storage.all(Question) end) do
+        assert {^file, "Final"} =
+                 in_house(house, fn -> Research.find(main, q, Storage.mouse(q.mouse_id)) end)
+      end
+    end
+
+    test "any other mouse's final message with a Summary is kept as its report", %{
+      main: main,
+      b: b,
+      house: house
+    } do
+      in_house(house, fn -> Storage.set_mode("mb", "build") end)
+      leave_at(main, "mb", b, ~U[2026-10-06 09:00:00Z], "# Built\n\n## Summary\nDone.\n⁣⁣⁣")
+      House.collect(house)
+
+      file = Path.join(main, ".whiska/specs/2026-10-06-feat-b.report.md")
+      assert String.ends_with?(File.read!(file), "\n\n# Built\n\n## Summary\nDone.\n")
+      assert Whiska.SpecArchive.report(main, "mb", "feat-b") == file
+      assert Whiska.SpecArchive.research(main, "mb", "feat-b") == nil
     end
 
     test "a turn with no spec keeps nothing and ignores nothing", %{

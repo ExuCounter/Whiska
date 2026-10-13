@@ -23,13 +23,12 @@ construction. Lazy minting stays as the fallback for a mouse nobody shaped.
 
 **build** produces a real change: edits confined to its own worktree, push needs
 approval. **sniff** is investigation only: it writes a report, never a PR, and
-`PreToolUse` denies every edit, not only the ones outside the worktree, but one: its
-**research document**, `.whiska-research.md` at its own worktree root, with `Write` or `Edit`, never
-through a link (ADR-0074). The research document is what the person reviews line by line, and
-git ignores it. It can still be read as a program, since a Markdown heading is a comment
-line to git, awk and sed, so the shell rules deny a sniff mouse loading a program or a
-config from a file, `/dev/null` aside (ADR-0034). A build mouse is not held to that. A
-shell command writing it is still denied, and a mouse nobody shaped gets no such file.
+`PreToolUse` denies every edit, not only the ones outside the worktree. Its **research
+document** is its final message, which Whiska keeps (ADR-next-the-report-is-a-document),
+so there is no file for it to write. The shell rules still deny a sniff mouse loading a
+program or a config from a file, `/dev/null` aside (ADR-0034): a Markdown heading is a
+comment line to git, awk and sed, so a research document a build mouse left can be read
+as one. A build mouse is not held to that.
 Both are the same kind of mouse. The names are deliberately not firstmate's Ship and Scout; no firstmate
 vocabulary leaks into this project's language.
 
@@ -132,9 +131,9 @@ included.
   session and subagents too, and keeps the numbers outside Whiska.
 - **A `may_write` field beside the modes.** The file does not decide what sniff may do,
   so a field saying it did would be a lie.
-- **No research document: Whiska writes the document from the mouse's final message.** Keeps
-  "every edit" whole, but the chat message must then carry the whole investigation, and
-  the mouse cannot rewrite the document after the person's comments.
+- **A research document the sniff mouse writes itself,** as the one file it may write.
+  Chosen first, then dropped: two copies of one report, and an exception in a mode whose
+  point is writing nothing (ADR-next-the-report-is-a-document).
 - **Whiska matching a `when` to the request by keyword.** A worse version of what the
   spawning session already does.
 
@@ -162,3 +161,6 @@ Folded in on 2026-10-08: 0018, 0019, 0073 (their text is in git history).
 
 Changed on 2026-10-13: `whiska spawn` shapes the mouse, and the shape writes its brief and
 adds it to the flags (ADR-next-one-brief-per-session).
+
+Changed on 2026-10-13: a sniff mouse writes no file; its final message is the research
+document, and every edit is denied (ADR-next-the-report-is-a-document).

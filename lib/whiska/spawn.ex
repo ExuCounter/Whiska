@@ -270,9 +270,9 @@ defmodule Whiska.Spawn do
 
   defp task_text({:from, id, comments}, main_checkout, worktree) do
     proposal =
-      "Build what question ##{id} proposes under \"What to change\". Read it first with " <>
-        "`whiska show #{id}`: its Build line is the task, Found is fact to take as given, " <>
-        "Open is what to grill. Read the research document it links."
+      "Build what question ##{id} proposes under \"What to change\", in the research " <>
+        "document `whiska show #{id}` links: its Build line is the task, Found is fact to " <>
+        "take as given, Open is what to grill."
 
     case comments do
       nil ->

@@ -22,6 +22,7 @@ defmodule Whiska.Questions do
   alias Whiska.Delivery.Mode
   alias Whiska.Doorstep
   alias Whiska.Question.Marker
+  alias Whiska.Report
   alias Whiska.Review
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -250,11 +251,12 @@ defmodule Whiska.Questions do
       "##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})"
 
     under = finished_branch(q, on_branch) ++ research_line(q, research) ++ reviews(q, documents)
+    text = q.text |> Marker.strip() |> String.trim_trailing()
 
     """
     #{Enum.join([heading | under], "\n")}
 
-    #{q.text |> Marker.strip() |> String.trim_trailing()}
+    #{Report.summary(text) || text}
     """
     |> String.trim_trailing()
   end

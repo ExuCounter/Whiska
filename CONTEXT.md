@@ -175,14 +175,25 @@ _Avoid_: report (as the table/record name — the word now names how a message r
 see **Report**), event (as the table/record name)
 
 **Report**:
-The shape a mouse's final message takes — what is true now, what changed with each cheap
-choice made without asking, what was run and what came back, each finding left unfixed,
-then the agent ledger; a question for the person, when only they can decide, sits on the
-line above the marker. It names how a message reads, never the record it becomes: once
-collected the same message is a **question**. A mouse's **brief** asks for it. `done`
-report is the older, narrower use of the word — a question whose marker said `done` — and
-both stay.
-_Avoid_: summary, status, update, hand-off
+The shape a mouse's final message takes — a `# ` title saying what is true now, its
+**summary**, then what changed with each cheap choice made without asking, what was run
+and what came back, each finding left unfixed, then the agent ledger; a question for the
+person, when only they can decide, sits on the line above the marker. A sniff mouse's
+report is its **research document**. It names how a message reads, never the record it
+becomes: once collected the same message is a **question**. A mouse's **brief** asks for
+it. Whiska keeps a build mouse's last one beside the kept **spec**, overwritten each
+round, and `whiska show` links it as `Review report here:` and prints only its summary
+(ADR-next-the-report-is-a-document). `done` report is the older, narrower use of the word
+— a question whose marker said `done` — and both stay.
+_Avoid_: status, update, hand-off
+
+**Summary**:
+The `## Summary` section at the top of a **report** or **research document**: three to
+five lines, written to be read alone. A message with one is a document, and Whiska keeps
+it; `whiska show` prints the summary, and the first line of a **proposal** when there is
+one, under the links, and the rest is behind them. A message with none — a question
+mid-way, a mouse started before this — is printed whole (ADR-next-the-report-is-a-document).
+_Avoid_: gist, abstract, TL;DR, pointer (one line standing for a message, beside its marker)
 
 **Finish**:
 What becomes of a branch once its mouse is done, as the person says it in their own words
@@ -213,9 +224,10 @@ its name, as Markdown, so the person reviews it from a link as
 they review a **spec** — or, when the person's `WHISKA_DIFF_LINK` holds a link pattern,
 that pattern with `{base}` and `{branch}` filled in, pointing at a diff viewer of their own,
 and no file is written (ADR-0085); when the branch has a **research document**, its link,
-`Review research here:` (ADR-0074); and when the mouse's worktree holds a **spec** or a
+`Review research here:` (ADR-0074); when the mouse's worktree holds a **spec** or a
 **build plan**, `Review spec here:` and `Review build plan here:`, links to its files
-(ADR-0063).
+(ADR-0063); and when a **report** is kept, `Review report here:`
+(ADR-next-the-report-is-a-document).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Merge request**:
@@ -229,9 +241,9 @@ _Avoid_: PR, pull request (GitHub's words; both forges are meant), review (what 
 on it)
 
 **Proposal**:
-The block a finished investigation ends its report with when it changed nothing and found
-something that should change: **What to change**, then a Found, a Build, a Why, a Cost and
-an Open line. Content, never classification — the turn still ends on `done` — so it
+The section of a finished investigation's **research document** when it changed nothing
+and found something that should change: `## What to change`, then a Found, a Build, a Why,
+a Cost and an Open line. Content, never classification — the turn still ends on `done` — so it
 travels inside the question's text, where the person reads it. When they say to build
 it, `whiska spawn build <branch> --from <id>` starts a fresh mouse shaped for that work
 rather than flipping the one shaped for the investigation (ADR-0074). Open lists the
@@ -241,17 +253,17 @@ _Avoid_: Proposed build (the block's older label), plan, recommendation, next st
 hand-off (a word **Report** already rejected)
 
 **Research document**:
-What a piece of work found out before anything is built, in `.whiska-research.md` at the
-worktree root, which git ignores, its sections set by the kind of work: a bug's in the
-build **brief**, an investigation's in the sniff brief.
-- **A bug's**: written after a failing test reproduces it — before and after, the root
+What a piece of work found out before anything is built, its sections set by the kind of
+work: a bug's in the build **brief**, an investigation's in the sniff brief.
+- **A bug's**: `.whiska-research.md` at the worktree root, which git ignores, written
+  after a failing test reproduces it — before and after, the root
   cause, what else the fix affects, and fix options with a recommendation only when there
   is a real choice. It stands in for the spec: the person oks it or picks an option, the
   pick is written into it, its **build plan** follows, and the cold review holds the fix
   against it (ADR-0063).
-- **An investigation's**: written before its report — the question, what it established,
-  in full, then its **proposal** when something should change. The one file a sniff mouse
-  may write (ADR-0069). `whiska show` links it under the **branch line** as
+- **An investigation's**: the sniff mouse's final message, which writes no file — its
+  **summary**, its **proposal** when something should change, the question, then what it
+  established, in full (ADR-next-the-report-is-a-document). `whiska show` links it under the **branch line** as
   `Review research here:`, and the person's comments on it are their own words, carried
   as a file: to the build (`whiska spawn --from <id> --comments <file>`), to the
   investigating mouse (`whiska send`), or not sent (ADR-0074).
@@ -570,8 +582,8 @@ A mouse mode that produces a real code change. Edits confined to its own worktre
 push needs approval.
 
 **Sniff mode**:
-A mouse mode for investigation only. Never writes code, never pushes — produces a
-report instead, and a **research document**, the one file it may write. Says nothing
+A mouse mode for investigation only. Never writes code or any file, never pushes —
+produces a report instead, which is its **research document**. Says nothing
 about the model or the effort: those are chosen apart.
 _Avoid_: research mode, research mouse (`research/` is the prefix a sniff mouse's branch
 carries, not the mode's name)

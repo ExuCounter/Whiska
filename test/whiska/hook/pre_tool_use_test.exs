@@ -483,50 +483,22 @@ defmodule Whiska.Hook.PreToolUseTest do
       assert reason =~ "sniff"
     end
 
-    test "a sniff mouse may write its research document and nothing beside it", %{
+    test "a sniff mouse may not write even a research document", %{
       main: main,
       worktree: worktree
     } do
       set_mode(main, worktree, "sniff")
-      research = Path.join(worktree, ".whiska-research.md")
 
       for tool <- ~w(Write Edit) do
-        assert :allow =
-                 run(%{
-                   "cwd" => worktree,
-                   "tool_name" => tool,
-                   "tool_input" => %{"file_path" => research}
-                 })
-      end
-
-      for path <- [
-            Path.join(worktree, "lib/.whiska-research.md"),
-            Path.join(worktree, "research.md"),
-            Path.join(main, ".whiska-research.md")
-          ] do
         assert {:deny, reason} =
                  run(%{
                    "cwd" => worktree,
-                   "tool_name" => "Write",
-                   "tool_input" => %{"file_path" => path}
+                   "tool_name" => tool,
+                   "tool_input" => %{"file_path" => Path.join(worktree, ".whiska-research.md")}
                  })
 
         assert reason =~ "sniff"
       end
-
-      assert {:deny, _} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Bash",
-                 "tool_input" => %{"command" => "echo x > .whiska-research.md"}
-               })
-
-      assert {:deny, _} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "NotebookEdit",
-                 "tool_input" => %{"notebook_path" => research}
-               })
     end
 
     test "a research document cannot then be run as a program or a config", %{
@@ -571,22 +543,6 @@ defmodule Whiska.Hook.PreToolUseTest do
                  }),
                command
       end
-    end
-
-    test "a research document that is a link is not written through", %{
-      main: main,
-      worktree: worktree
-    } do
-      set_mode(main, worktree, "sniff")
-      research = Path.join(worktree, ".whiska-research.md")
-      File.ln_s!(Path.join(worktree, "lib/x.ex"), research)
-
-      assert {:deny, _} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => research}
-               })
     end
 
     test "a mouse nobody shaped may not write a research document either", %{

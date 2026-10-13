@@ -119,7 +119,7 @@ defmodule Whiska.Hook.PreToolUse do
 
     with :allow <- Held.decide(held?, layout.branch_label),
          :allow <- Persons.decide(tool_name, tool_input),
-         :allow <- Sniff.decide(tool_name, tool_input, mode, layout.worktree_root) do
+         :allow <- Sniff.decide(tool_name, tool_input, mode) do
       MainCheckout.decide(tool_name, tool_input, layout, where(payload, env))
     end
   end
