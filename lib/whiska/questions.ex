@@ -363,9 +363,7 @@ defmodule Whiska.Questions do
 
   defp research_link(_question, _research), do: nil
 
-  # One row of short labels, the diff first. A label names the document, not
-  # the mouse's own title for it: a long title said the same thing the heading
-  # and the summary do.
+  # One row of short labels, the diff first.
   defp links(front, q, documents) do
     more = if is_function(documents, 1), do: documents.(q), else: []
 
