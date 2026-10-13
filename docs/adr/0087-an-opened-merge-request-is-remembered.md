@@ -25,6 +25,11 @@ control character in it: it is printed under the branch line, where the main ses
 reads it and hands it to the person. A merge request opened outside that option is not known, and its branch
 keeps the ordinary options.
 
+**The request targets the mouse's base**, the branch its finished line names, not the
+forge's default branch. The owl watches that base for the merge, so a request into any
+other branch would never be seen landed and its worktree would stay. A line that names no
+base leaves the target to the forge.
+
 **Its finished lines offer what fits an open request.** The branch line reads
 `merge request opened · <N> commits not pushed · …`, with `Merge request: <link>` under
 it. Not pushed counts the branch's commits that no remote and no base holds. The options
