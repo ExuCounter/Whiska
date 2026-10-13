@@ -923,9 +923,10 @@ defmodule Whiska.CLIQuestionsTest do
     end
   end
 
-  # The spec's review link, which a mouse sends as its question (ADR-0063);
-  # the person's own viewer is named only in their environment (ADR-0085).
-  describe "whiska spec-link — the line a mouse sends with its spec" do
+  # The documents a mouse asks the person to review (ADR-0063), linked by
+  # `whiska show` itself; the person's own viewer is named only in their
+  # environment (ADR-0085).
+  describe "whiska show — the spec and build plan in the mouse's worktree" do
     setup do
       root = Path.join(System.tmp_dir!(), "whiska-speclink-#{System.unique_integer([:positive])}")
       File.mkdir_p!(root)
@@ -933,15 +934,35 @@ defmodule Whiska.CLIQuestionsTest do
       repo = GitRepo.create(root)
       path = Path.join(repo.checkout, "worktrees/feat/spec-w")
       GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "feat/spec-w", path])
-      {:ok, repo: repo, path: path}
+
+      {:ok, handle} = Storage.open(repo.checkout)
+
+      q =
+        try do
+          {:ok, _} = Storage.record_mouse(%{mouse_id: "m-s", path: path, branch: "feat/spec-w"})
+
+          {:ok, q} =
+            Storage.record_question(%{
+              mouse_id: "m-s",
+              text: "Ok to build?\n⁣⁣",
+              kind: "needs-decision",
+              status: "open"
+            })
+
+          q
+        after
+          Storage.close(handle)
+        end
+
+      {:ok, repo: repo, path: path, id: to_string(q.id)}
     end
 
-    defp spec_link(path, pattern, title \\ "My spec") do
+    defp show_with(ctx, pattern) do
       previous = System.get_env("WHISKA_SPEC_LINK")
       if pattern, do: System.put_env("WHISKA_SPEC_LINK", pattern)
 
       try do
-        capture_io(fn -> assert CLI.run(["spec-link", title], path) == 0 end)
+        capture_io(fn -> assert CLI.run(["show", ctx.id], ctx.repo.checkout) == 0 end)
       after
         if previous,
           do: System.put_env("WHISKA_SPEC_LINK", previous),
@@ -949,95 +970,77 @@ defmodule Whiska.CLIQuestionsTest do
       end
     end
 
-    test "WHISKA_SPEC_LINK points the link at the person's viewer", %{path: path} do
-      out = spec_link(path, "myviewer://open?file={path}&branch={branch}")
-
-      file = URI.encode(path <> "/.whiska-spec.md", &(URI.char_unreserved?(&1) or &1 == ?/))
-
-      assert out ==
-               "Review spec here: [My spec](myviewer://open?file=#{file}&branch=feat/spec-w)\n"
+    defp write_documents(path) do
+      File.write!(Path.join(path, ".whiska-spec.md"), "# CSV sort\n")
+      File.write!(Path.join(path, ".whiska-plan.md"), "# Build plan: CSV sort\n")
     end
 
-    test "with none set, it is the file link annotate opens", %{path: path} do
-      assert spec_link(path, nil) ==
-               "Review spec here: [My spec](file://#{path}/.whiska-spec.md)\n"
+    test "both are linked under the heading, each by its own title", %{path: path} = ctx do
+      write_documents(path)
+
+      assert show_with(ctx, nil) =~
+               "\nReview spec here: [CSV sort](file://#{path}/.whiska-spec.md)\n" <>
+                 "Review build plan here: [Build plan: CSV sort](file://#{path}/.whiska-plan.md)\n\n" <>
+                 "Ok to build?"
     end
 
-    test "a pattern that could break the link keeps the file link", %{path: path} do
+    test "with neither written, there is nothing to review", ctx do
+      refute show_with(ctx, nil) =~ "Review"
+    end
+
+    test "a document with no heading is linked by what it is", %{path: path} = ctx do
+      File.write!(Path.join(path, ".whiska-spec.md"), "No heading.\n")
+
+      assert show_with(ctx, nil) =~ "Review spec here: [spec](file://"
+    end
+
+    test "WHISKA_SPEC_LINK takes each document's path and the branch", %{path: path} = ctx do
+      write_documents(path)
+      encoded = &URI.encode(path <> "/" <> &1, fn c -> URI.char_unreserved?(c) or c == ?/ end)
+
+      out = show_with(ctx, "myviewer://open?file={path}&branch={branch}")
+
+      assert out =~
+               "[CSV sort](myviewer://open?file=#{encoded.(".whiska-spec.md")}&branch=feat/spec-w)\n"
+
+      assert out =~
+               "[Build plan: CSV sort](myviewer://open?file=#{encoded.(".whiska-plan.md")}&branch=feat/spec-w)\n"
+    end
+
+    test "a pattern that could break the link keeps the file link", %{path: path} = ctx do
+      write_documents(path)
+
       for pattern <- ["", "myviewer//{path}", "myviewer://{path} x", "myviewer://{path})"] do
-        assert spec_link(path, pattern) =~ "(file://#{path}/.whiska-spec.md)\n",
+        assert show_with(ctx, pattern) =~ "(file://#{path}/.whiska-spec.md)\n",
                "pattern #{inspect(pattern)}"
       end
     end
 
-    test "a branch name that would break the link reaches the pattern encoded", %{repo: repo} do
-      odd = Path.join(repo.checkout, "worktrees/feat/a(b)")
-      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "feat/a(b)", odd])
-
-      assert spec_link(odd, "myviewer://x?b={branch}") =~ "(myviewer://x?b=feat/a%28b%29)\n"
-    end
-
-    test "from the main checkout it links that checkout's spec, and registers no mouse",
-         %{repo: repo} do
-      assert spec_link(repo.checkout, nil) =~
-               ~r{\AReview spec here: \[My spec\]\(file://.+/repo/\.whiska-spec\.md\)\n\z}
-
-      refute File.exists?(Path.join(repo.checkout, ".whiska-mouse"))
-    end
-
-    test "an empty title is refused, not printed as an empty link", %{path: path} do
-      stderr = capture_io(:stderr, fn -> assert CLI.run(["spec-link", "  "], path) == 1 end)
-
-      assert stderr =~ "needs the spec's title"
-    end
-
-    test "a title with brackets cannot close the link early", %{path: path} do
-      assert spec_link(path, nil, "a [b] c") =~ "[a \\[b\\] c](file://"
-    end
-
-    test "with a build plan beside the spec, it links both, the spec first", %{path: path} do
-      File.write!(Path.join(path, ".whiska-spec.md"), "# My spec\n")
-      File.write!(Path.join(path, ".whiska-plan.md"), "# Build plan\n")
-
-      assert spec_link(path, nil) ==
-               "Review spec here: [My spec](file://#{path}/.whiska-spec.md)\n" <>
-                 "Review build plan here: [My spec](file://#{path}/.whiska-plan.md)\n"
-    end
-
-    test "a bug's research document comes first, then its build plan", %{path: path} do
-      File.write!(Path.join(path, ".whiska-research.md"), "# A bug\n")
-      File.write!(Path.join(path, ".whiska-plan.md"), "# Build plan\n")
-
-      assert spec_link(path, nil) ==
-               "Review research here: [My spec](file://#{path}/.whiska-research.md)\n" <>
-                 "Review build plan here: [My spec](file://#{path}/.whiska-plan.md)\n"
-    end
-
-    test "a research document alone is linked alone", %{path: path} do
-      File.write!(Path.join(path, ".whiska-research.md"), "# A bug\n")
-
-      assert spec_link(path, nil) ==
-               "Review research here: [My spec](file://#{path}/.whiska-research.md)\n"
-    end
-
-    test "a document that is a link is not offered for review", %{path: path} do
-      File.write!(Path.join(path, ".whiska-spec.md"), "# My spec\n")
+    test "a document that is a link is not offered for review", %{path: path} = ctx do
+      File.write!(Path.join(path, ".whiska-spec.md"), "# CSV sort\n")
       File.ln_s!(Path.join(path, "README.md"), Path.join(path, ".whiska-plan.md"))
 
-      assert spec_link(path, nil) ==
-               "Review spec here: [My spec](file://#{path}/.whiska-spec.md)\n"
+      out = show_with(ctx, nil)
+      assert out =~ "Review spec here"
+      refute out =~ "Review build plan here"
     end
 
-    test "WHISKA_SPEC_LINK takes every document's path", %{path: path} do
-      File.write!(Path.join(path, ".whiska-spec.md"), "# My spec\n")
-      File.write!(Path.join(path, ".whiska-plan.md"), "# Build plan\n")
+    test "a bug's research document is linked on the question asking for the ok", ctx do
+      entry = %Entry{
+        mouse_id: "m-s",
+        branch: "feat/spec-w",
+        worktree_root: ctx.path,
+        stamped_at: ~U[2026-10-06 09:00:00Z],
+        text: "",
+        research: "# Why the export drops rows\n"
+      }
 
-      out = spec_link(path, "myviewer://open?file={path}")
-      encoded = &URI.encode(path <> "/" <> &1, fn c -> URI.char_unreserved?(c) or c == ?/ end)
+      {:ok, handle} = Storage.open(ctx.repo.checkout)
+      q = Storage.question(String.to_integer(ctx.id))
+      Storage.close(handle)
+      :kept = Whiska.SpecArchive.keep_research(ctx.repo.checkout, entry, q)
 
-      assert out ==
-               "Review spec here: [My spec](myviewer://open?file=#{encoded.(".whiska-spec.md")})\n" <>
-                 "Review build plan here: [My spec](myviewer://open?file=#{encoded.(".whiska-plan.md")})\n"
+      assert show_with(ctx, nil) =~ "\nReview research here: [Why the export drops rows](file://"
     end
   end
 end

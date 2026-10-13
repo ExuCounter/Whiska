@@ -139,8 +139,9 @@ defmodule Whiska.Questions do
   said. Each block is exactly what `whiska questions <id>` prints for that one,
   so the two can never drift apart — given the same `on_branch`.
   """
-  @spec render_full(summary(), on_branch() | nil, research() | nil) :: String.t()
-  def render_full(%{open: open} = summary, on_branch \\ nil, research \\ nil) do
+  @spec render_full(summary(), on_branch() | nil, research() | nil, documents() | nil) ::
+          String.t()
+  def render_full(%{open: open} = summary, on_branch \\ nil, research \\ nil, documents \\ nil) do
     slot = Mode.slot(open, summary.mode)
 
     open_block =
@@ -159,7 +160,8 @@ defmodule Whiska.Questions do
               summary.mode,
               summary.focus,
               on_branch,
-              research
+              research,
+              documents
             )
           )
       end
@@ -231,7 +233,8 @@ defmodule Whiska.Questions do
           Mode.t(),
           String.t() | nil,
           on_branch() | nil,
-          research() | nil
+          research() | nil,
+          documents() | nil
         ) :: String.t()
   def full(
         %Question{} = q,
@@ -240,12 +243,13 @@ defmodule Whiska.Questions do
         mode \\ Mode.none(),
         focus \\ nil,
         on_branch \\ nil,
-        research \\ nil
+        research \\ nil,
+        documents \\ nil
       ) do
     heading =
       "##{q.id}  #{branch}  #{verb(q.kind)}  (#{state(q, slot, mode, focus)}, asked #{Calendar.strftime(local(q.asked_at), "%Y-%m-%d %H:%M")})"
 
-    under = finished_branch(q, on_branch) ++ finished_research(q, research)
+    under = finished_branch(q, on_branch) ++ research_line(q, research) ++ reviews(q, documents)
 
     """
     #{Enum.join([heading | under], "\n")}
@@ -265,6 +269,12 @@ defmodule Whiska.Questions do
 
   @typedoc "Finds the research document kept for a question, as its path and title, or nil."
   @type research :: (Question.t() -> {Path.t(), String.t()} | nil)
+
+  @typedoc """
+  The other documents a question's mouse asks the person to review, each as
+  its label, title and link, in the order they are linked.
+  """
+  @type documents :: (Question.t() -> [{String.t(), String.t(), String.t()}])
 
   @named 3
 
@@ -291,14 +301,20 @@ defmodule Whiska.Questions do
 
   # Read from Whiska's own copy, so it links wherever the question is read
   # from, and after its worktree is gone.
-  defp finished_research(%Question{kind: "done"} = q, research) when is_function(research, 1) do
+  defp research_line(q, research) when is_function(research, 1) do
     case research.(q) do
       {path, title} -> ["Review research here: [#{title}](#{Review.file_link(path)})"]
       nil -> []
     end
   end
 
-  defp finished_research(_question, _research), do: []
+  defp research_line(_question, _research), do: []
+
+  defp reviews(q, documents) when is_function(documents, 1) do
+    for {label, title, link} <- documents.(q), do: "Review #{label} here: [#{title}](#{link})"
+  end
+
+  defp reviews(_question, _documents), do: []
 
   defp branch_line({:ok, %{merge_request: _, not_pushed: n, uncommitted: uncommitted}}),
     do: "On the branch: merge request opened · #{pushed(n)} · #{uncommitted(uncommitted)}"

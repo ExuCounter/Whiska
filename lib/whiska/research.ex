@@ -52,9 +52,19 @@ defmodule Whiska.Research do
     path =
       kept(main_checkout, mouse) || Path.join([main_checkout, @dir, "#{id}.md"])
 
+    document(path, "research")
+  end
+
+  @doc """
+  A document to link for review, as its path and the title its first `# `
+  heading gives it, or `fallback` with none; nil for anything but a plain
+  file, so a link at another file is never offered as the document.
+  """
+  @spec document(Path.t(), String.t()) :: {Path.t(), String.t()} | nil
+  def document(path, fallback) do
     with {:ok, %File.Stat{type: :regular}} <- File.lstat(path),
          {:ok, head} <- head(path) do
-      {path, title(head)}
+      {path, title(head, fallback)}
     else
       _ -> nil
     end
@@ -85,7 +95,7 @@ defmodule Whiska.Research do
   # The mouse's own words, set inside a Markdown link under the branch line:
   # nothing that could close the link, escape its bracket, or reorder the line
   # survives.
-  defp title(text) do
+  defp title(text, fallback) do
     with [_, heading] <- Regex.run(~r/^#[ \t]+([^\n]+)$/m, text),
          title when title != "" <-
            heading
@@ -95,7 +105,7 @@ defmodule Whiska.Research do
            |> String.trim() do
       title
     else
-      _ -> "research"
+      _ -> fallback
     end
   end
 end

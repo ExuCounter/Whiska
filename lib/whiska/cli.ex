@@ -335,15 +335,6 @@ defmodule Whiska.CLI do
                          four are null. Read one with
                          jq -r '.main_workspace // empty'.
 
-    spec-link <title>    Print the lines a mouse sends for its ok: "Review
-                         research here:", "Review spec here:" and "Review
-                         build plan here:", each with a link to this
-                         worktree's .whiska-research.md, .whiska-spec.md or
-                         .whiska-plan.md, for each file written (the spec's
-                         line when none is), or to the viewer a
-                         WHISKA_SPEC_LINK pattern names, its {path} and
-                         {branch} filled in.
-
     mode                 Print this mouse's mode.
     mode build|sniff     Give a mouse nobody shaped its mode. A build mouse
                          makes changes, confined to its own worktree. A sniff
@@ -533,8 +524,6 @@ defmodule Whiska.CLI do
   def run(["mode"], cwd), do: with_mouse(cwd, &show_mode/2)
 
   def run(["base"], cwd), do: with_mouse(cwd, &show_base/2)
-
-  def run(["spec-link", title], cwd), do: spec_link(cwd, title)
 
   def run(["mode", mode], cwd) when mode in ["build", "sniff"],
     do: with_mouse(cwd, &set_mode(&1, &2, mode))
@@ -1330,78 +1319,6 @@ defmodule Whiska.CLI do
     end
   end
 
-  # The review links a mouse sends for its ok: a line for each document it
-  # wrote, the research document, the spec and the build plan in that order
-  # (ADR-0063). A viewer the person names in WHISKA_SPEC_LINK takes each;
-  # otherwise the file link annotate opens (ADR-0085). From the main checkout
-  # the documents sit at its root.
-  defp spec_link(cwd, title) do
-    title =
-      title
-      |> String.replace(~r/[\s\p{C}]+/u, " ")
-      |> String.trim()
-      |> String.replace(~r/([\[\]\\])/, "\\\\\\1")
-
-    with true <- title != "" || {:error, :no_title},
-         {:ok, root, branch} <- spec_place(cwd || File.cwd!()) do
-      pattern = System.get_env("WHISKA_SPEC_LINK")
-
-      root
-      |> review_documents()
-      |> Enum.map_join("\n", fn {label, path} ->
-        link =
-          case Review.spec_link(pattern, path, branch) do
-            {:ok, link} -> link
-            :error -> Review.file_link(path)
-          end
-
-        "Review #{label} here: [#{title}](#{link})"
-      end)
-      |> say()
-    else
-      {:error, :no_title} ->
-        IO.puts(:stderr, "whiska: spec-link needs the spec's title.")
-        1
-
-      _ ->
-        IO.puts(:stderr, "whiska: not inside a worktree or a main checkout.")
-        1
-    end
-  end
-
-  # With none written yet, the spec's line stands, as it always has. A link
-  # at a document's name is passed over, as the Stop hook passes it over: the
-  # person would review its target, and the copy Whiska keeps would not match.
-  defp review_documents(root) do
-    written =
-      for {label, name} <- [
-            {"research", Whiska.Research.filename()},
-            {"spec", Whiska.Spec.filename()},
-            {"build plan", Whiska.BuildPlan.filename()}
-          ],
-          path = Path.join(root, name),
-          match?({:ok, %File.Stat{type: :regular}}, File.lstat(path)),
-          do: {label, path}
-
-    if written == [], do: [{"spec", Path.join(root, Whiska.Spec.filename())}], else: written
-  end
-
-  defp spec_place(cwd) do
-    case Layout.resolve(cwd) do
-      {:ok, layout} ->
-        {:ok, layout.worktree_root, layout.branch_label}
-
-      _ ->
-        with {:ok, main} <- Git.main_checkout(cwd) do
-          {:ok, main,
-           with({:ok, branch} <- Git.head_branch(main), do: branch) |> branch_or_empty()}
-        end
-    end
-  end
-
-  defp branch_or_empty(branch) when is_binary(branch), do: branch
-  defp branch_or_empty(_), do: ""
-
   defp set_mode(mouse_id, layout, mode) do
     case Storage.set_mode(mouse_id, mode) do
       {:ok, _mouse} ->
@@ -1911,7 +1828,13 @@ defmodule Whiska.CLI do
   defp render(summary, :listing, _main), do: Questions.render(summary)
 
   defp render(summary, :full, main),
-    do: Questions.render_full(summary, &on_branch(main, &1), &research(main, &1))
+    do:
+      Questions.render_full(
+        summary,
+        &on_branch(main, &1),
+        &research(main, &1),
+        &documents/1
+      )
 
   # Not repo-scoped: the line is machine-wide and herdr draws one of them for
   # the whole session (ADR-0048). Always 0 and never noisy — this runs every
@@ -2260,12 +2183,39 @@ defmodule Whiska.CLI do
         mode,
         focus,
         &on_branch(main, &1),
-        &research(main, &1)
+        &research(main, &1),
+        &documents/1
       )
     )
   end
 
   defp research(main, %Question{} = q), do: Whiska.Research.find(main, q, mouse_of(q))
+
+  # The spec and build plan a mouse asks the person to review, linked where
+  # they stand in its worktree (ADR-0063). A viewer the person names in
+  # WHISKA_SPEC_LINK takes each; otherwise the file link annotate opens
+  # (ADR-0085).
+  defp documents(%Question{} = q) do
+    case mouse_of(q) do
+      %Mouse{path: path, branch: branch} when is_binary(path) and is_binary(branch) ->
+        for {label, name} <- [
+              {"spec", Whiska.Spec.filename()},
+              {"build plan", Whiska.BuildPlan.filename()}
+            ],
+            {file, title} <- [Whiska.Research.document(Path.join(path, name), label)],
+            do: {label, title, document_link(file, branch)}
+
+      _ ->
+        []
+    end
+  end
+
+  defp document_link(file, branch) do
+    case Review.spec_link(System.get_env("WHISKA_SPEC_LINK"), file, branch) do
+      {:ok, link} -> link
+      :error -> Review.file_link(file)
+    end
+  end
 
   defp mouse_of(%Question{mouse: %Mouse{} = mouse}), do: mouse
   defp mouse_of(%Question{mouse: nil}), do: nil
