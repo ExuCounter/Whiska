@@ -165,12 +165,13 @@ defmodule Whiska.CLITest do
                       model: @rules["model"]["choose"] |> List.last() |> Map.fetch!("use"),
                       effort: @rules["effort"]["choose"] |> List.last() |> Map.fetch!("use")
                     })
+    @brief_args ["--append-system-prompt-file", ".whiska-brief.md"]
 
     test "records the mode and prints the catch-all's flags to start Claude with", %{
       worktree: worktree
     } do
       out = shape_stdout(["sniff"], worktree)
-      assert String.trim(out) == Enum.join(@catch_all_args, " ")
+      assert String.trim(out) == Enum.join(@catch_all_args ++ @brief_args, " ")
 
       out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
       assert out =~ "sniff"
@@ -181,7 +182,10 @@ defmodule Whiska.CLITest do
     } do
       out = shape_stdout(["sniff", "--model", "m1", "--effort", "xhigh"], worktree)
       fallback = Enum.join(@rules["model"]["fallback"], ",")
-      assert String.trim(out) == "--model m1 --effort xhigh --fallback-model #{fallback}"
+
+      assert String.trim(out) ==
+               "--model m1 --effort xhigh --fallback-model #{fallback} " <>
+                 Enum.join(@brief_args, " ")
     end
 
     test "records the model and effort it was asked for", %{main: main, worktree: worktree} do
@@ -220,6 +224,20 @@ defmodule Whiska.CLITest do
       assert Enum.count(lines, &(&1 == Whiska.BuildPlan.exclude_line())) == 1
     end
 
+    test "writes the mode's brief into the worktree, where git ignores it", %{
+      main: main,
+      worktree: worktree
+    } do
+      shape_stdout(["sniff"], worktree)
+
+      brief = File.read!(Path.join(worktree, ".whiska-brief.md"))
+      assert brief =~ "# Whiska: sniff mouse"
+      refute brief =~ "{{task}}"
+
+      lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
+      assert Whiska.Brief.exclude_line() in lines
+    end
+
     test "a spec git cannot be told to ignore warns, and the spawn still gets its flags", %{
       main: main,
       worktree: worktree
@@ -231,7 +249,7 @@ defmodule Whiska.CLITest do
           capture_io(fn -> assert CLI.run(["shape", "sniff"], worktree) == 0 end)
         end)
 
-      assert String.trim(out) == Enum.join(@catch_all_args, " ")
+      assert String.trim(out) == Enum.join(@catch_all_args ++ @brief_args, " ")
       assert stderr =~ "could not make git ignore #{Whiska.Spec.filename()}"
     end
 

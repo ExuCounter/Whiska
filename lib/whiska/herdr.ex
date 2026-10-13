@@ -83,6 +83,14 @@ defmodule Whiska.Herdr do
   @callback pane(socket :: Path.t(), pane_id :: String.t()) :: {:ok, pane()} | {:error, term()}
 
   @doc """
+  The processes in the foreground of a pane, each with the arguments it was
+  started with: how `whiska start` tells a Claude started with its brief from
+  one started without.
+  """
+  @callback processes(socket :: Path.t(), pane_id :: String.t()) ::
+              {:ok, [%{name: String.t(), argv: [String.t()]}]} | {:error, term()}
+
+  @doc """
   The visible screen of a pane, with its style escapes kept (`--format ansi`).
 
   Only the delivery gate uses this, and only for the main session's prompt box

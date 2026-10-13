@@ -45,14 +45,21 @@ defmodule Whiska.CLIDeliveryTest do
         else: System.delete_env("HERDR_SOCKET_PATH")
     end)
 
-    # Unless a test says otherwise, every pane is already running Claude, so
-    # `whiska start` records and starts nothing (ADR-0066).
+    # Unless a test says otherwise, every pane is already running Claude,
+    # started with the main session's brief, so `whiska start` records and
+    # starts nothing (ADR-0066).
     stub(Herdr, :pane, fn @socket, pane ->
       {:ok, %{pane_id: pane, cwd: main, agent: "claude", agent_status: "idle"}}
     end)
 
+    stub(Herdr, :processes, fn @socket, _pane ->
+      {:ok, [%{name: "claude", argv: ["claude" | Whiska.Brief.claude_args(main_brief(main))]}]}
+    end)
+
     {:ok, root: root, main: main, worktree: worktree}
   end
+
+  defp main_brief(main), do: Path.join(main, ".git/whiska/main.md")
 
   # A pane sitting at a shell prompt: nothing running in it.
   defp empty_pane(id, cwd),
@@ -170,30 +177,52 @@ defmodule Whiska.CLIDeliveryTest do
       {0, _, _} = run(["start"], main)
     end
 
-    test "starts Claude in the pane when nothing is running there (ADR-0066)", %{main: main} do
+    test "starts Claude in the pane with the main session's brief when nothing is running there",
+         %{main: main} do
       stub(Herdr, :pane, fn @socket, "w1:p2" -> empty_pane("w1:p2", main) end)
-      expect(Herdr, :run_command, fn @socket, "w1:p2", "claude" -> :ok end)
+
+      expect(Herdr, :run_command, fn @socket, "w1:p2", command ->
+        send(self(), {:typed, command})
+        :ok
+      end)
 
       {0, out, _} = run(["start"], main)
 
       assert out =~ "Starting Claude Code"
+      assert_received {:typed, command}
+      assert command == "claude --append-system-prompt-file '#{main_brief(main)}'"
+      assert File.read!(main_brief(main)) =~ "# Whiska: main session"
+      in_house(main, fn -> assert Storage.main_pane() == "w1:p2" end)
+    end
+
+    test "a Claude already running without the brief is told to restart, and keeps the pane",
+         %{main: main} do
+      stub(Herdr, :processes, fn @socket, "w1:p2" ->
+        {:ok, [%{name: "claude", argv: ["claude", "--model", "opus"]}]}
+      end)
+
+      {0, out, _} = run(["start"], main)
+
+      assert out =~ "restart"
+      assert out =~ "claude --append-system-prompt-file '#{main_brief(main)}'"
       in_house(main, fn -> assert Storage.main_pane() == "w1:p2" end)
     end
 
     test "starts Claude in a pane that is already the recorded main session", %{main: main} do
       in_house(main, fn -> Storage.set_main_pane("w1:p2") end)
       stub(Herdr, :pane, fn @socket, "w1:p2" -> empty_pane("w1:p2", main) end)
-      expect(Herdr, :run_command, fn @socket, "w1:p2", "claude" -> :ok end)
+      expect(Herdr, :run_command, fn @socket, "w1:p2", "claude " <> _ -> :ok end)
 
       {0, out, _} = run(["start"], main)
 
       assert out =~ "Starting Claude Code"
     end
 
-    test "starts nothing when the pane is already running Claude", %{main: main} do
+    test "starts nothing when the pane is already running Claude with the brief", %{main: main} do
       {0, out, _} = run(["start"], main)
 
       refute out =~ "Starting Claude Code"
+      refute out =~ "restart"
     end
 
     test "--no-claude records the pane and starts nothing", %{main: main} do
@@ -209,7 +238,7 @@ defmodule Whiska.CLIDeliveryTest do
     test "the pane stays recorded when Claude cannot be started, and it says so", %{main: main} do
       stub(Herdr, :pane, fn @socket, "w1:p2" -> empty_pane("w1:p2", main) end)
 
-      stub(Herdr, :run_command, fn @socket, "w1:p2", "claude" ->
+      stub(Herdr, :run_command, fn @socket, "w1:p2", "claude " <> _ ->
         {:error, {:herdr, %{"code" => "pane_not_found", "message" => "gone"}}}
       end)
 

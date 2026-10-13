@@ -29,7 +29,8 @@ many sessions and read each message cold.
 - Write the task, or the person's comments, to a file outside the repo first, in their
   own words, full detail. Only the file's path goes on the command line.
 - Mode: `sniff` when the outcome is an answer, `build` when it is a change.
-- Model and effort: the person's if named, else pick from `whiska shape --rules`.
+- Model and effort: the person's if named, else pick from `whiska shape --rules`; pass
+  them as `--model` and `--effort`.
 - Branch: `research/<slug>` or `investigation/<slug>` for sniff, `<type>/<slug>` for build
   (`feat`, `fix`, `docs`, ...; a repo's own rule wins). Only `a-z 0-9 - /`, at most 32
   characters. Say it out loud.
@@ -42,11 +43,13 @@ A line starting `🐱` is Whiska's delivery, not the person. Run `whiska show <i
 its output verbatim as markdown, and stop. Never answer for the person or offer options.
 They say what happens next:
 
-- an answer → `whiska reply <id> <file>`; "land" → `whiska land <id>`; "pr" →
-  `whiska pr <id>`; "drop" → `whiska drop <branch>`
+- an answer → `whiska reply <id> <their words>`; "land" → `whiska land <id>`; "pr" →
+  `whiska pr <id>`; "drop" → `whiska drop <branch>`. Land or pr refusing over files the
+  mouse left uncommitted → show the list; on the person's ok, add `--commit <file>`, a
+  commit message you write to a file.
 - "build it" after a mouse's "What to change" →
-  `whiska spawn --from <id> [--comments <file>]`, on a branch name you make; nothing the
-  mouse wrote goes on a command line
+  `whiska spawn build <branch> --from <id> [--comments <file>]`, on a branch name you
+  make; nothing the mouse wrote goes on a command line
 - anything else meant for the mouse → `whiska send <branch> <file>`
 - unclear, or another `🐱` arrived meanwhile → ask one line, naming the branch.
 

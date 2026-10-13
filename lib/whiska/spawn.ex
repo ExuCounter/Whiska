@@ -20,6 +20,7 @@ defmodule Whiska.Spawn do
   agent name, or already taken, and a task that cannot be read.
   """
 
+  alias Whiska.Brief
   alias Whiska.Clone
   alias Whiska.Git
   alias Whiska.Inbox
@@ -28,6 +29,8 @@ defmodule Whiska.Spawn do
   alias Whiska.Schema.Question
   alias Whiska.Shape
   alias Whiska.Storage
+
+  @kickoff "Start on the task in your Whiska brief."
 
   @branch ~r/\A[a-z][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*\z/
   @longest 32
@@ -171,11 +174,11 @@ defmodule Whiska.Spawn do
     with {:ok, layout} <- Layout.resolve(path),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
          {:ok, _} <- record(mouse_id, layout, created.pane_id),
-         {:ok, shaped} <- shape(mouse_id, layout, request.shape),
-         :ok <- carry_hooks(main_checkout, layout.worktree_root),
          {:ok, text} <- task_text(task, main_checkout, layout.worktree_root),
+         {:ok, shaped} <- shape(mouse_id, layout, request.shape, text),
+         :ok <- carry_hooks(main_checkout, layout.worktree_root),
          {:ok, _argv} <- start_claude(via, created.pane_id, request.branch, shaped.flags),
-         :ok <- hand_over(via, created.pane_id, text) do
+         :ok <- hand_over(via, created.pane_id, @kickoff) do
       {:ok, report(request, shaped)}
     else
       {:error, reason} ->
@@ -195,23 +198,27 @@ defmodule Whiska.Spawn do
   end
 
   @doc """
-  Record a mouse's shape and get its worktree ready (ADR-0069, ADR-0083): git
-  ignores Whiska's files there, and the main checkout's dependencies are
-  cloned in. Answers the flags to start Claude with and the lines that say
-  what was done; a failed clone or ignore is said, never a failure.
+  Record a mouse's shape and get its worktree ready (ADR-0069, ADR-0083): its
+  mode's brief written with `task` in it, git ignoring Whiska's files there,
+  and the main checkout's dependencies cloned in. Answers the flags to start
+  Claude with and the lines that say what was done; a failed clone or ignore
+  is said, never a failure.
   """
-  @spec shape(String.t(), Layout.t(), Shape.t()) ::
+  @spec shape(String.t(), Layout.t(), Shape.t(), String.t() | nil) ::
           {:ok, %{flags: [String.t()], said: [String.t()]}} | {:error, term()}
-  def shape(mouse_id, layout, shape) do
+  def shape(mouse_id, layout, shape, task) do
     base = cut_from(layout.main_checkout)
+    main = layout.main_checkout
 
-    with {:ok, _} <- Storage.shape(mouse_id, shape.mode, shape.model, shape.effort, base) do
+    with {:ok, _} <- Storage.shape(mouse_id, shape.mode, shape.model, shape.effort, base),
+         {:ok, brief_said} <- Brief.write(main, layout.worktree_root, shape.mode, task) do
       said =
         ["#{layout.branch_label} is #{Shape.describe(shape)}."] ++
-          ignore_files(layout.main_checkout) ++
-          ["whiska: #{Clone.run(layout.main_checkout, layout.worktree_root)}."]
+          ignore_files(main) ++
+          brief_said ++
+          ["whiska: #{Clone.run(main, layout.worktree_root)}."]
 
-      {:ok, %{flags: Shape.claude_args(shape), said: said}}
+      {:ok, %{flags: Shape.claude_args(shape) ++ Brief.claude_args(), said: said}}
     end
   end
 

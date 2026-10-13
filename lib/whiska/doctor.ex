@@ -1358,15 +1358,18 @@ defmodule Whiska.Doctor do
 
             in_house =
               [
-                main_session(main_pane, word, env["HERDR_PANE_ID"]),
-                session_wiring(
-                  session_started_at(word, main_checkout, env),
-                  settings_changes(main_checkout, env)
-                ),
-                prompt_box(box, scroll_offset(word)),
-                questions(open, sent, main_pane != nil, box, now),
-                set_aside(mode, focus_name(mode), held_names(mode))
-              ] ++ mice(Storage.all(Mouse), panes, MapSet.new(Storage.chased(), & &1.mouse_id))
+                main_session(main_pane, word, env["HERDR_PANE_ID"])
+              ] ++
+                main_brief(main_checkout, main_pane, word, herdr, socket) ++
+                [
+                  session_wiring(
+                    session_started_at(word, main_checkout, env),
+                    settings_changes(main_checkout, env)
+                  ),
+                  prompt_box(box, scroll_offset(word)),
+                  questions(open, sent, main_pane != nil, box, now),
+                  set_aside(mode, focus_name(mode), held_names(mode))
+                ] ++ mice(Storage.all(Mouse), panes, MapSet.new(Storage.chased(), & &1.mouse_id))
 
             {Check.ok("house", "#{path}, schema v#{version}"), in_house}
           after
@@ -1455,6 +1458,37 @@ defmodule Whiska.Doctor do
         "recorded as #{named(pane, here)}, but herdr has no such pane",
         @restart
       )
+
+  # Asked only of a main pane herdr says is running Claude: anything else is
+  # the main session line's to warn about.
+  defp main_brief(main_checkout, pane, {:ok, %{agent: "claude"}}, herdr, socket)
+       when is_binary(pane),
+       do: [main_brief(herdr.processes(socket, pane), Whiska.Brief.main_path(main_checkout))]
+
+  defp main_brief(_main_checkout, _pane, _word, _herdr, _socket), do: []
+
+  @doc """
+  Whether the Claude in the main session was started with Whiska's brief, the
+  file `whiska start` writes into the house. One started any other way does
+  not know it is Whiska or which commands are the person's, and only a restart
+  reads the brief.
+  """
+  @spec main_brief({:ok, [%{name: String.t(), argv: [String.t()]}]} | {:error, term()}, Path.t()) ::
+          Check.t()
+  def main_brief({:ok, processes}, brief) do
+    if Whiska.Brief.started_with?(processes, brief),
+      do: Check.ok("main brief", "started with #{brief}"),
+      else:
+        Check.warn(
+          "main brief",
+          "Claude in the main session was started without Whiska's brief, " <>
+            "so it does not know Whiska's commands",
+          "quit Claude in that pane, then run `whiska start` there"
+        )
+  end
+
+  def main_brief({:error, _reason}, _brief),
+    do: Check.ok("main brief", "not checked (herdr could not list the pane's processes)")
 
   # A pane id is not something a person recognises on sight, so the line says
   # whether it is the pane they are asking from (ADR-0082). Outside a herdr

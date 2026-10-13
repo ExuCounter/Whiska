@@ -114,8 +114,10 @@ defmodule Whiska.CLI do
                          questions. Run it in the main checkout, in the pane
                          you want your main Claude Code session in — and if
                          nothing is running there, it starts Claude Code for
-                         you. From inside a session already running,
-                         `! whiska start` records the pane and starts nothing.
+                         you, with the main session's brief (written to
+                         .git/whiska/main.md). From inside a session already
+                         running, `! whiska start` records the pane and starts
+                         nothing, and says to restart one started without it.
                          Refuses to replace a main session still running
                          Claude unless --force. --no-claude records the pane
                          and leaves starting Claude to you.
@@ -355,10 +357,12 @@ defmodule Whiska.CLI do
 
     shape build|sniff [--model <name>] [--effort <level>]
                          Give a fresh mouse its shape, before Claude starts
-                         (ADR-0069): record its mode, model and effort, and
-                         print the flags to start Claude with, or nothing. A
+                         (ADR-0069): record its mode, model and effort, write
+                         its mode's brief to .whiska-brief.md, and print the
+                         flags to start Claude with, the brief's among them. A
                          build mouse also gets --autocompact, its model's
-                         window from priv/models.json.
+                         window from priv/models.json. `spawn` does all this
+                         itself; this is for a mouse started by hand.
                          Also makes git ignore the worktree's .whiska-spec.md,
                          .whiska-research.md and .whiska-plan.md, and clones
                          deps, _build and node_modules (plus the paths in
@@ -1435,7 +1439,7 @@ defmodule Whiska.CLI do
   # so a spawn by hand can split them straight into `claude`'s arguments; what
   # was recorded goes to stderr, for the person.
   defp shape(mouse_id, layout, shape) do
-    case Whiska.Spawn.shape(mouse_id, layout, shape) do
+    case Whiska.Spawn.shape(mouse_id, layout, shape, nil) do
       {:ok, %{flags: flags, said: said}} ->
         Enum.each(said, &IO.puts(:stderr, &1))
         say(Enum.join(flags, " "))
@@ -1717,16 +1721,16 @@ defmodule Whiska.CLI do
         case Storage.main_pane() do
           ^pane ->
             say("#{pane} is already the main session for #{Path.basename(main)}.")
-            start_claude(pane, claude?)
+            start_claude(main, pane, claude?)
 
           nil ->
             record_main(main, pane)
-            start_claude(pane, claude?)
+            start_claude(main, pane, claude?)
 
           other ->
             if force? or not running_claude?(other) do
               record_main(main, pane)
-              start_claude(pane, claude?)
+              start_claude(main, pane, claude?)
             else
               refuse_to_replace(other)
             end
@@ -1764,17 +1768,45 @@ defmodule Whiska.CLI do
 
   # The second half of `whiska start` (ADR-0066): the pane is recorded, and a
   # pane with no Claude Code in it has nothing to deliver into, so the command
-  # starts one rather than leaving the person a second command to remember.
+  # starts one, with the main session's brief, rather than leaving the person a
+  # second command to remember.
   #
   # The pane is recorded first because this is the last thing that happens
   # here — whiska is itself what is running in that pane, and starting Claude
   # means handing the pane over and getting out of the way. The line is typed
   # at the shell prompt and waits there until this process exits.
-  defp start_claude(pane, claude?) do
-    cond do
-      running_claude?(pane) -> 0
-      not claude? -> say("Nothing is delivered until Claude Code is running in this pane.")
-      true -> run_claude(pane)
+  defp start_claude(main, pane, claude?) do
+    case Whiska.Brief.write_main(main) do
+      {:ok, brief} ->
+        cond do
+          running_claude?(pane) -> briefed(pane, brief)
+          not claude? -> say("Nothing is delivered until Claude Code is running in this pane.")
+          true -> run_claude(pane, brief)
+        end
+
+      {:error, reason} ->
+        fail("whiska: could not write the main session's brief (#{inspect(reason)}).")
+    end
+  end
+
+  defp claude_line(brief), do: "claude --append-system-prompt-file " <> shell_quote(brief)
+
+  defp shell_quote(text), do: "'" <> String.replace(text, "'", ~S('\'')) <> "'"
+
+  # A Claude started some other way never read the brief, so it does not know
+  # it is Whiska or which commands are the person's. Only a restart reads it.
+  defp briefed(pane, brief) do
+    with {:ok, socket} <- Herdr.socket(),
+         {:ok, processes} <- Herdr.impl().processes(socket, pane),
+         false <- Whiska.Brief.started_with?(processes, brief) do
+      say("""
+      Claude Code is running here without Whiska's brief, so it does not know it is
+      Whiska or which commands are yours. Quit it and restart it with:
+
+        #{claude_line(brief)}
+      """)
+    else
+      _ -> 0
     end
   end
 
@@ -1782,10 +1814,10 @@ defmodule Whiska.CLI do
   # already running in the pane, and whether it could be started. The pane is
   # recorded either way, and saying so is the whole of what is left to do —
   # not a failure, because nothing was attempted and failed.
-  defp run_claude(pane) do
+  defp run_claude(pane, brief) do
     case Herdr.socket() do
       {:ok, socket} ->
-        case Herdr.impl().run_command(socket, pane, "claude") do
+        case Herdr.impl().run_command(socket, pane, claude_line(brief)) do
           :ok -> say("Starting Claude Code here.")
           {:error, reason} -> could_not_start(pane, reason)
         end

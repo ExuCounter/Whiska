@@ -94,8 +94,14 @@ defmodule Whiska.SpawnTest do
     assert out =~ "feat/csv-sort"
     assert_received {:args, args}
     assert ["--model", "opus" | _] = args
+    assert Enum.take(args, -2) == ["--append-system-prompt-file", ".whiska-brief.md"]
+
+    brief = File.read!(Path.join([ctx.repo.checkout, "worktrees/feat/csv-sort/.whiska-brief.md"]))
+    assert brief =~ "# Whiska: build mouse"
+    assert brief =~ "sortable by date"
+
     assert_received {:prompt, prompt}
-    assert prompt =~ "sortable by date"
+    refute prompt =~ "sortable by date"
 
     mouse = mouse_on(ctx.repo, "feat/csv-sort")
     assert %{mode: "build", model: "opus", pane: "w9:p1", base: "main"} = mouse
@@ -132,17 +138,19 @@ defmodule Whiska.SpawnTest do
                ctx.repo
              )
 
-    assert_received {:prompt, prompt}
-    assert prompt =~ "whiska show #{id}"
-    refute prompt =~ "Keep the old flag"
+    worktree = Path.join(ctx.repo.checkout, "worktrees/feat/from-research")
+    brief = File.read!(Path.join(worktree, ".whiska-brief.md"))
+    assert brief =~ "whiska show #{id}"
+    refute brief =~ "Keep the old flag"
+    refute brief =~ "do the thing"
 
-    [copied] =
-      Path.wildcard(
-        Path.join([ctx.repo.checkout, "worktrees/feat/from-research/.whiska-inbox/*"])
-      )
-
-    assert prompt =~ copied
+    [copied] = Path.wildcard(Path.join(worktree, ".whiska-inbox/*"))
+    assert brief =~ copied
     assert File.read!(copied) =~ "Keep the old flag"
+
+    assert_received {:prompt, prompt}
+    refute prompt =~ "Keep the old flag"
+    refute prompt =~ "do the thing"
   end
 
   test "--from names a question this house has", ctx do

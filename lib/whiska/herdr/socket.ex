@@ -44,6 +44,17 @@ defmodule Whiska.Herdr.Socket do
   end
 
   @impl true
+  def processes(socket, pane_id) do
+    with {:ok, %{"result" => %{"process_info" => %{"foreground_processes" => raw}}}}
+         when is_list(raw) <- request(socket, "pane.process_info", %{"pane_id" => pane_id}) do
+      {:ok, Enum.map(raw, &%{name: &1["name"], argv: &1["argv"] || []})}
+    else
+      {:ok, other} -> {:error, {:unexpected_reply, other}}
+      {:error, _} = error -> error
+    end
+  end
+
+  @impl true
   def read_screen(socket, pane_id) do
     # With its styling: faint text in the prompt box is Claude Code's own
     # suggestion, not the person's draft, and only the escapes say which.

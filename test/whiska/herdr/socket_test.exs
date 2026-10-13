@@ -481,6 +481,127 @@ defmodule Whiska.Herdr.SocketTest do
     end
   end
 
+  describe "force_remove_worktree/2" do
+    test "asks worktree.remove for that workspace with force" do
+      {path, fake} = start_fake()
+      send(fake, {:fake_reply, %{"type" => "worktree_removed"}})
+
+      assert :ok = Socket.force_remove_worktree(path, "ws-7")
+
+      assert_received {:fake_got,
+                       %{
+                         "method" => "worktree.remove",
+                         "params" => %{"workspace_id" => "ws-7", "force" => true}
+                       }}
+    end
+  end
+
+  describe "create_worktree/2" do
+    test "asks worktree.create without taking focus and answers the workspace and its pane" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "worktree_created",
+           "workspace" => %{"workspace_id" => "w9"},
+           "tab" => %{"tab_id" => "w9:t1"},
+           "root_pane" => %{"pane_id" => "w9:p1"},
+           "worktree" => %{"path" => "/main/worktrees/feat/a"}
+         }}
+      )
+
+      new = %{
+        cwd: "/main",
+        path: "/main/worktrees/feat/a",
+        branch: "feat/a",
+        label: "feat/a",
+        workspace_id: "w1"
+      }
+
+      assert {:ok, %{workspace_id: "w9", pane_id: "w9:p1"}} = Socket.create_worktree(path, new)
+
+      assert_received {:fake_got,
+                       %{
+                         "method" => "worktree.create",
+                         "params" => %{
+                           "cwd" => "/main",
+                           "path" => "/main/worktrees/feat/a",
+                           "branch" => "feat/a",
+                           "focus" => false,
+                           "workspace_id" => "w1"
+                         }
+                       }}
+    end
+  end
+
+  describe "start_agent/4" do
+    test "asks agent.start for a claude in that pane with the flags, and answers its argv" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "agent_started",
+           "agent" => %{"name" => "feat-a"},
+           "argv" => ["claude", "--model", "opus"]
+         }}
+      )
+
+      assert {:ok, ["claude", "--model", "opus"]} =
+               Socket.start_agent(path, "w9:p1", "feat-a", ["--model", "opus"])
+
+      assert_received {:fake_got,
+                       %{
+                         "method" => "agent.start",
+                         "params" => %{
+                           "name" => "feat-a",
+                           "kind" => "claude",
+                           "pane_id" => "w9:p1",
+                           "args" => ["--model", "opus"]
+                         }
+                       }}
+    end
+  end
+
+  # The shape herdr 0.9.3 answers `pane.process_info` with, checked live on
+  # 2026-10-13: a process herdr cannot read the arguments of carries no `argv`.
+  describe "processes/2" do
+    test "asks pane.process_info and answers each foreground process's name and argv" do
+      {path, fake} = start_fake()
+
+      send(
+        fake,
+        {:fake_reply,
+         %{
+           "type" => "pane_process_info",
+           "process_info" => %{
+             "pane_id" => "w1:p1",
+             "foreground_processes" => [
+               %{"pid" => 1, "name" => "node", "argv0" => "chrome-devtools-mcp"},
+               %{
+                 "pid" => 2,
+                 "name" => "claude",
+                 "argv" => ["claude", "--append-system-prompt-file", "/m/main.md"]
+               }
+             ]
+           }
+         }}
+      )
+
+      assert {:ok,
+              [
+                %{name: "node", argv: []},
+                %{name: "claude", argv: ["claude", "--append-system-prompt-file", "/m/main.md"]}
+              ]} = Socket.processes(path, "w1:p1")
+
+      assert_received {:fake_got,
+                       %{"method" => "pane.process_info", "params" => %{"pane_id" => "w1:p1"}}}
+    end
+  end
+
   # The shape herdr 0.9.3 answers `workspace.list` with, checked live on
   # 2026-10-07: `tokens` is there only once something reported one, and
   # `worktree` only for a workspace opened on a git checkout.

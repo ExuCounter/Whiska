@@ -825,6 +825,30 @@ defmodule Whiska.DoctorTest do
 
   # -- questions ---------------------------------------------------------------
 
+  describe "main_brief/2 — the main session was started with Whiska's brief" do
+    @brief "/repo/.git/whiska/main.md"
+
+    test "a Claude started with the brief passes" do
+      processes = [%{name: "claude", argv: ["claude", "--append-system-prompt-file", @brief]}]
+      assert %Check{status: :ok} = Doctor.main_brief({:ok, processes}, @brief)
+    end
+
+    test "a Claude started without it warns, and says to restart it through whiska start" do
+      processes = [%{name: "claude", argv: ["claude", "--model", "opus"]}]
+
+      assert %Check{status: :warn, detail: detail, fix: fix} =
+               Doctor.main_brief({:ok, processes}, @brief)
+
+      assert detail =~ "without"
+      assert fix =~ "whiska start"
+    end
+
+    test "processes herdr cannot list are not checked, not guessed at" do
+      assert %Check{status: :ok, detail: detail} = Doctor.main_brief({:error, :closed}, @brief)
+      assert detail =~ "not checked"
+    end
+  end
+
   describe "prompt_box/2 — the one place a Claude Code redesign shows up by name" do
     test "a box on the screen is what the gate expects" do
       assert %Check{status: :ok, detail: detail} = Doctor.prompt_box(:empty, 0)
@@ -1216,6 +1240,11 @@ defmodule Whiska.DoctorTest do
 
       stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
       stub(Herdr, :read_screen, fn _socket, _pane -> {:ok, box("")} end)
+
+      stub(Herdr, :processes, fn _socket, _pane ->
+        brief = Whiska.Brief.main_path(main)
+        {:ok, [%{name: "claude", argv: ["claude", "--append-system-prompt-file", brief]}]}
+      end)
 
       {:ok, root: root, main: main, env: env}
     end
