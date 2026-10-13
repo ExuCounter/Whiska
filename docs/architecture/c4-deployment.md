@@ -32,6 +32,9 @@ C4Deployment
       Container(globalinstall, "Global install - optional", "~/.claude/", "The same shim, four hooks and skills, for every repo. Often symlinks into a dotfiles repo")
     }
   }
+  Deployment_Node(forge, "The forge", "off this machine") {
+    Container(remote, "Git remote", "git over https or ssh", "The base branch a merge request is merged into")
+  }
 
   Rel(plist, wrapper, "The service manager runs the wrapper, which execs the owl")
   Rel(owl, housedb, "Holds open per open house")
@@ -39,6 +42,7 @@ C4Deployment
   Rel(owl, sock, "Listens, one per open house")
   Rel(owl, globalsock, "Listens, one per machine")
   Rel(owl, hooksock, "Listens, one per machine")
+  Rel(owl, remote, "Fetches the base alone while a merge request waits, never prompting", "git fetch")
   Rel(mousepane, globalinstall, "Runs its hooks where the repo wires none")
   Rel(mousepane, hooksock, "Every hook asks the owl first, with nc")
   Rel(mousepane, doorstep, "Stop hook writes an entry when the owl does not answer")

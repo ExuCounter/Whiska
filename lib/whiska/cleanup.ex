@@ -78,7 +78,7 @@ defmodule Whiska.Cleanup do
   # Returns the mouse with git's answer to "how did the base reach this", which
   # the teardown asks for again a line later: carrying it across is what keeps
   # one sweep to one such check per standing worktree. A mouse already stamped
-  # is asked nothing at all.
+  # is asked again only while a merge request recorded after its landing waits.
   defp note_landing(%Mouse{landed_at: %DateTime{}} = mouse, local) do
     if Mouse.merge_request_waiting?(mouse), do: ask_landing(mouse, local), else: {mouse, nil}
   end

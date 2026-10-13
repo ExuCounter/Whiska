@@ -28,7 +28,9 @@ Two new things carry it:
   and frees the slot exactly as orphaning did (ADR-0008). Not orphaned, so it is counted
   on neither of the board's lines and listed by neither half of `whiska questions`.
 - **`landed_at` on the mouse record**, stamped by the owl's sweep the first time it sees
-  that branch's work reach the base. ADR-0061's first precondition — `merge-base
+  that branch's work reach the base, and again when a merge request recorded after that
+  lands in turn (ADR-next-an-opened-merge-request-is-remembered). ADR-0061's first
+  precondition — `merge-base
   --is-ancestor` — is asked of every mouse rather than only of the ones about to be torn
   down, and one more question is asked behind it.
 
