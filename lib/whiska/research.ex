@@ -29,15 +29,14 @@ defmodule Whiska.Research do
 
   @doc """
   The research document kept for the branch `question` was asked from, as its
-  path and the title its link shows: its first heading, else "research". Nil
-  when none was kept.
+  path and its first `# ` heading, or nil with none. Nil when none was kept.
   """
-  @spec find(Path.t(), Question.t(), Mouse.t() | nil) :: {Path.t(), String.t()} | nil
+  @spec find(Path.t(), Question.t(), Mouse.t() | nil) :: {Path.t(), String.t() | nil} | nil
   def find(main_checkout, %Question{id: id}, mouse) do
     path =
       kept(main_checkout, mouse) || Path.join([main_checkout, @dir, "#{id}.md"])
 
-    document(path, "research")
+    document(path, nil)
   end
 
   @doc """
@@ -45,7 +44,7 @@ defmodule Whiska.Research do
   heading gives it, or `fallback` with none; nil for anything but a plain
   file, so a link at another file is never offered as the document.
   """
-  @spec document(Path.t(), String.t()) :: {Path.t(), String.t()} | nil
+  @spec document(Path.t(), String.t() | nil) :: {Path.t(), String.t() | nil} | nil
   def document(path, fallback) do
     with {:ok, %File.Stat{type: :regular}} <- File.lstat(path),
          {:ok, head} <- head(path) do

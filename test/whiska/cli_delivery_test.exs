@@ -327,8 +327,7 @@ defmodule Whiska.CLIDeliveryTest do
       end)
 
       {0, out, _} = run(["questions", "1"], main)
-      assert out =~ "#1"
-      assert out =~ "feat-a"
+      assert out =~ "**feat-a**"
       assert out =~ "Which db?\nPostgres or SQLite?\npick"
       # The marker token and the `answer:` trailer are plumbing, not shown.
       refute out =~ "[worktree-status"

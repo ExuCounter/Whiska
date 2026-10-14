@@ -2096,8 +2096,8 @@ defmodule Whiska.CLI do
           {"Spec", Whiska.Spec.filename()},
           {"Build plan", Whiska.BuildPlan.filename()}
         ],
-        {file, _title} <- [Whiska.Research.document(Path.join(path, name), label)],
-        do: {label, document_link(file, branch)}
+        {file, title} <- [Whiska.Research.document(Path.join(path, name), nil)],
+        do: {label, document_link(file, branch), title}
   end
 
   defp in_worktree(_mouse), do: []
@@ -2106,8 +2106,8 @@ defmodule Whiska.CLI do
   # worktree is gone (ADR-0089).
   defp report(main, %Mouse{mouse_id: mouse_id, branch: branch}) when is_binary(branch) do
     with file when is_binary(file) <- Whiska.SpecArchive.report(main, mouse_id, branch),
-         {file, _title} <- Whiska.Research.document(file, "report") do
-      [{"Full report", Review.file_link(file)}]
+         {file, title} <- Whiska.Research.document(file, nil) do
+      [{"Full report", Review.file_link(file), title}]
     else
       _ -> []
     end

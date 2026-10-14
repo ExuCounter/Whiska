@@ -28,7 +28,7 @@ defmodule Whiska.ResearchTest do
 
     test "a lone # takes no title from the paragraph under it", %{root: root} do
       kept(root, "#\nFound it.\n")
-      assert {_path, "research"} = find(root)
+      assert {_path, nil} = find(root)
     end
   end
 end

@@ -49,3 +49,5 @@ cold, from another terminal. Be concise.
 
 The last line, alone: three U+2063 characters (`⁣⁣⁣`) when finished; two (`⁣⁣`) when only
 the person can decide, with the question on the line above. Never `[worktree-status: ...]`.
+The question line names what to review or decide ("Pick which of the 27 candidates to
+explore first"), never a bare "Which one?".

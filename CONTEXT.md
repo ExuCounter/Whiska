@@ -218,9 +218,9 @@ it is not `main`), its files not committed or `clean`, or `branch unknown`; for 
 with a recorded **merge request**, `merge request opened`, its commits no remote has yet,
 and its files not committed, with a `Merge request:` line and its link under the heading.
 Whiska's record of the branch, never the mouse's word, and what the person reads before
-saying a **finish** (ADR-0074). The heading is `#<id> <branch> · finished <time> ·
-<branch line>`; the time is when it finished, and only a state other than waiting on the
-person is named, after it (ADR-0089). Under it, one row of short links, each there only
+saying a **finish** (ADR-0074). The heading is `**<title>** · ✅ finished ·
+<branch line>`: the title is the report's own, else the branch, and only a state other
+than waiting on the person is named, with an age once it is a day old (ADR-0089). Under it, one row of short links, each there only
 when it has something to open: the **diff link**, `Diff`, a link to the branch's diff,
 which `whiska show` writes to one file per branch in `.whiska/reviews/`, named for the
 branch with a short hash of its name, as Markdown, so the person reviews it from a link as

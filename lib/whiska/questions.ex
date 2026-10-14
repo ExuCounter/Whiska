@@ -248,11 +248,13 @@ defmodule Whiska.Questions do
         documents \\ nil
       ) do
     held = finished_branch(q, on_branch)
-    heading = heading(q, branch, slot, mode, focus, held)
+    found = research_of(q, research)
+    more = if is_function(documents, 1), do: documents.(q), else: []
+    heading = heading(q, title(more, found) || branch, slot, mode, focus, held)
 
     under =
       merge_request_line(held) ++
-        links(Enum.reject([diff_link(held), research_link(q, research)], &is_nil/1), q, documents)
+        links(Enum.reject([diff_link(held), research_link(found)], &is_nil/1) ++ more)
 
     text = q.text |> Marker.strip() |> String.trim_trailing()
 
@@ -264,35 +266,51 @@ defmodule Whiska.Questions do
     |> String.trim_trailing()
   end
 
-  # The heading says what the question is and when, once each. A plain
-  # "waiting on you" is what every delivered one is, so only an unusual state
-  # is named. A finished one also says what its branch holds.
-  defp heading(q, branch, slot, mode, focus, held) do
-    state =
-      case state(q, slot, mode, focus) do
-        "waiting on you since" <> _ -> []
-        other -> [other]
+  # The work is named by what the person would review: the spec, else the
+  # report, else the research, each by its own `# ` title.
+  defp title(documents, found) do
+    Enum.find_value(documents ++ List.wrap(found), fn
+      {_label, _link, title} when is_binary(title) -> title
+      {_path, title} when is_binary(title) -> title
+      _ -> nil
+    end)
+  end
+
+  # The heading names the work, then where it stands, each once. A plain
+  # "waiting on you" stands alone; an age is said once a question is held or
+  # a day old. A finished one also says what its branch holds.
+  defp heading(q, title, slot, mode, focus, held) do
+    stands =
+      case {q.kind, state(q, slot, mode, focus)} do
+        {"done", "waiting on you since" <> _} -> ["✅ finished"]
+        {_kind, "waiting on you since" <> _} -> ["❓ waiting on you"]
+        {"done", "held"} -> ["✅ finished", "⏸ held"]
+        {_kind, "held"} -> ["⏸ held"]
+        {kind, other} -> [lead(kind), other]
       end
 
-    when_ = finished_at(q.asked_at)
-
-    lead =
-      if q.kind == "done", do: ["#{verb(q.kind)} #{when_}"], else: [verb(q.kind), when_]
-
-    Enum.join(["##{q.id} #{branch}"] ++ lead ++ state ++ branch_state(held), " · ")
+    Enum.join(["**#{title}**" | aged(stands, q)] ++ branch_state(held), " · ")
   end
 
-  # The time alone reads as today's; any other day is named.
-  defp finished_at(%DateTime{} = at) do
-    at = local(at)
+  defp lead("done"), do: "✅ finished"
+  defp lead("needs-decision"), do: "❓ needs a decision"
+  defp lead(kind), do: verb(kind)
 
-    format =
-      if NaiveDateTime.to_date(at) == NaiveDateTime.to_date(local(DateTime.utc_now())),
-        do: "%H:%M",
-        else: "%Y-%m-%d %H:%M"
+  defp aged(stands, %Question{asked_at: %DateTime{} = at}) do
+    seconds = DateTime.diff(DateTime.utc_now(), at)
 
-    Calendar.strftime(at, format)
+    cond do
+      List.last(stands) == "⏸ held" -> List.replace_at(stands, -1, "⏸ held #{age(seconds)}")
+      seconds >= 86_400 -> stands ++ [age(seconds)]
+      true -> stands
+    end
   end
+
+  defp aged(stands, _question), do: stands
+
+  defp age(seconds) when seconds < 3600, do: "#{max(div(seconds, 60), 1)}m"
+  defp age(seconds) when seconds < 86_400, do: "#{div(seconds, 3600)}h"
+  defp age(seconds), do: "#{div(seconds, 86_400)}d"
 
   # A report prints as its summary, the rest behind its link; one that ends on a
   # decision keeps the question it asks (ADR-0089).
@@ -323,13 +341,13 @@ defmodule Whiska.Questions do
   @type on_branch :: (Question.t() -> {:ok, map()} | {:error, term()})
 
   @typedoc "Finds the research document kept for a question, as its path and title, or nil."
-  @type research :: (Question.t() -> {Path.t(), String.t()} | nil)
+  @type research :: (Question.t() -> {Path.t(), String.t() | nil} | nil)
 
   @typedoc """
   The other documents a question's mouse asks the person to review, each as
-  its label and link, in the order they are linked.
+  its label, link and `# ` title, in the order they are linked.
   """
-  @type documents :: (Question.t() -> [{String.t(), String.t()}])
+  @type documents :: (Question.t() -> [{String.t(), String.t(), String.t() | nil}])
 
   @named 3
 
@@ -348,25 +366,19 @@ defmodule Whiska.Questions do
   defp diff_link({:ok, %{review: link}}), do: {"Diff", link}
   defp diff_link(_held), do: nil
 
+  defp research_of(q, research) when is_function(research, 1), do: research.(q)
+  defp research_of(_question, _research), do: nil
+
   # Read from Whiska's own copy, so it links wherever the question is read
   # from, and after its worktree is gone.
-  defp research_link(q, research) when is_function(research, 1) do
-    case research.(q) do
-      {path, _title} -> {"Research", Review.file_link(path)}
-      nil -> nil
-    end
-  end
-
-  defp research_link(_question, _research), do: nil
+  defp research_link({path, _title}), do: {"Research", Review.file_link(path)}
+  defp research_link(nil), do: nil
 
   # One row of short labels, the diff first.
-  defp links(front, q, documents) do
-    more = if is_function(documents, 1), do: documents.(q), else: []
+  defp links([]), do: []
 
-    case front ++ more do
-      [] -> []
-      all -> [Enum.map_join(all, " · ", fn {label, link} -> "[#{label}](#{link})" end)]
-    end
+  defp links(all) do
+    [Enum.map_join(all, " · ", fn link -> "[#{elem(link, 0)}](#{elem(link, 1)})" end)]
   end
 
   defp branch_state({:ok, %{merge_request: _, not_pushed: n, uncommitted: uncommitted}}),

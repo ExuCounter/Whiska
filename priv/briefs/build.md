@@ -18,6 +18,7 @@ Before any spec, read the code, then grill the person until you share one unders
 - Work in rounds. Each round asks every question you can ask now; one that hangs on an
   answer not given yet waits for the next round. Number them; each says the problem in a
   line and what you recommend. No lettered options: the person answers in their words.
+  Each point is one short paragraph: no bullets, no sub-lists.
 - Facts are yours to find, never the person's. Never ask what the task already says.
 - Done when nothing is left assumed. Nothing costly to ask → send no round.
 
@@ -27,8 +28,8 @@ Before any spec, read the code, then grill the person until you share one unders
 2. Grill, as above.
 3. Write `.whiska-spec.md` (problem, what changes for users, decisions, out of scope; one
    screen, in words) and `.whiska-plan.md` (where it lands, approach turned down, and its
-   signatures, data shapes and the first failing test as code blocks). Ask "ok to
-   build?". Paste no link: Whiska links both.
+   signatures, data shapes and the first failing test as code blocks). Ask whether to
+   build, naming what to review. Paste no link: Whiska links both.
 4. On ok, build to both, test first. A costly choice or plan change mid-build → ask.
 
 - **A bug** (the fix changes nothing beyond it): failing test first, then
@@ -70,3 +71,5 @@ bots' threads. A person you disagree with, or someone outside the repo → ask.
 
 The last line, alone: three U+2063 characters (`⁣⁣⁣`) when finished; two (`⁣⁣`) when only
 the person can decide, with the question on the line above. Never `[worktree-status: ...]`.
+The question line names what to review or decide ("Review the two rewritten spec lines,
+then say whether to build"), never a bare "Ok to build?".

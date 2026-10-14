@@ -26,14 +26,17 @@ whole, and `whiska show` prints its summary under the link to it.
   no `## Summary`, or an empty one (a question mid-grill, a mouse started before this), is
   printed whole, and so is a turn that stopped with no marker, since it may have been cut
   off.
-- **A finished report's heading and links are short.** `#<id> <branch> · finished <time>
-  · <branch state>`: the time is when it finished (with its date, when not today), the
-  state only when it is not plain waiting on the person, and the branch state folded in
+- **The heading names the work, then where it stands.** `**<title>** · <state>`: the
+  title is the `# ` title of the spec, else the report, else the research document, else
+  the branch; the person decides by what the work is, and the main session routes by the
+  🐱 line, so the id, branch and time are left out. The state is `❓ waiting on you`,
+  `❓ needs a decision · <where it stands>`, `⏸ held <age>` or `✅ finished`, with an age
+  only once a question is held or a day old, and a finished one's branch state folded in
   (`1 commit, clean`). Under it one row of labels, `Diff · Research · Full report`, each
   only when it has something to open. `Spec` and `Build plan` link only on a question
   that is not finished: they are what an "ok to build?" asks about, and the report
-  replaces them. Other questions say the same, with the kind first
-  (`#<id> <branch> · needs a decision · 21:42`), and take the same row.
+  replaces them. `whiska questions --full` prints the same blocks, so it carries no ids
+  either; the one-line listing keeps them.
 - **A heading inside a code block is not one.** A message quoting the template is not a
   document.
 - **The heading never decides what the turn is.** Its kind is its marker's alone

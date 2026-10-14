@@ -140,10 +140,10 @@ defmodule Whiska.CLIQuestionsTest do
         end)
 
       one = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
-      assert one =~ "##{q.id} feat-a (sniff) · finished"
+      assert one =~ "**feat-a (sniff)** · ✅ finished"
 
       full = capture_io(fn -> assert CLI.run(["questions", "--full"], main) == 0 end)
-      assert full =~ "##{q.id} feat-a (sniff) · finished"
+      assert full =~ "**feat-a (sniff)** · ✅ finished"
     end
 
     test "a build mouse's heading names the branch alone", %{main: main} do
@@ -154,7 +154,7 @@ defmodule Whiska.CLIQuestionsTest do
         end)
 
       one = capture_io(fn -> assert CLI.run(["questions", to_string(q.id)], main) == 0 end)
-      assert one =~ "##{q.id} feat-a · finished"
+      assert one =~ "**feat-a** · ✅ finished"
     end
   end
 
@@ -252,15 +252,15 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "feat-a")
 
       assert show_one(repo, q) =~
-               ~r/^##{q.id} feat-a · finished \d\d:\d\d · closed · 1 commit, clean\n\[Diff\]\(.*\)\n\nDone\./
+               ~r/^\*\*feat-a\*\* · ✅ finished · closed · 1 commit, clean\n\[Diff\]\(.*\)\n\nDone\./
     end
 
-    test "a report from an earlier day says its date", %{repo: repo} do
+    test "a report from an earlier day says its age", %{repo: repo} do
       q = finished(repo, "feat-y", asked_at: ~U[2026-09-01 12:00:00Z])
       shown = show_one(repo, q)
 
       assert shown =~
-               ~r/^##{q.id} feat-y · finished 2026-09-01 \d\d:\d\d · closed · 1 commit, clean\n/
+               ~r/^\*\*feat-y\*\* · ✅ finished · closed · \d+d · 1 commit, clean\n/
     end
 
     test "its diff is a file beside the kept specs, linked on the row under the heading", %{
@@ -673,7 +673,7 @@ defmodule Whiska.CLIQuestionsTest do
       full = capture_io(fn -> assert CLI.run(["questions", "--full"], repo.checkout) == 0 end)
 
       assert full =~
-               ~r/##{q.id} feat-j · finished \d\d:\d\d · open · nothing committed, clean\n/
+               ~r/\*\*feat-j\*\* · ✅ finished · open · nothing committed, clean\n/
     end
 
     @pr "https://github.com/o/r/pull/12"
@@ -683,7 +683,7 @@ defmodule Whiska.CLIQuestionsTest do
       q = finished(repo, "feat-m", merge_request: @pr)
 
       assert show_one(repo, q) =~
-               ~r/^##{q.id} feat-m · finished \d\d:\d\d · closed · merge request opened, 1 commit not pushed, clean\nMerge request: #{Regex.escape(@pr)}\n\[Diff\]/
+               ~r/^\*\*feat-m\*\* · ✅ finished · closed · merge request opened, 1 commit not pushed, clean\nMerge request: #{Regex.escape(@pr)}\n\[Diff\]/
     end
 
     test "a merge request with everything pushed says so", %{repo: repo} do

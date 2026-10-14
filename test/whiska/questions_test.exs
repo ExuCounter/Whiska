@@ -9,6 +9,7 @@ defmodule Whiska.QuestionsTest do
 
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
+  alias Whiska.Delivery.Mode
   alias Whiska.Questions
   alias Whiska.Storage
 
@@ -159,16 +160,85 @@ defmodule Whiska.QuestionsTest do
         sent_at: at
       }
 
-      {{y, mo, d}, {h, mi, _s}} =
+      {_date, {h, mi, _s}} =
         :calendar.universal_time_to_local_time({{2026, 10, 4}, {6, 56, 0}})
 
       pad = &String.pad_leading("#{&1}", 2, "0")
 
       assert Questions.line(q, 132) =~
                "(waiting on you since #{pad.(h)}:#{pad.(mi)})"
+    end
 
-      assert Questions.full(q, "feat-a", 132) =~
-               "needs a decision · #{y}-#{pad.(mo)}-#{pad.(d)} #{pad.(h)}:#{pad.(mi)}\n"
+    test "the heading names the work by its spec's title, then where it stands", %{main: main} do
+      q =
+        seed(main, fn ->
+          q = ask("m1", "Answered both.\n\nOk to build?\n⁣⁣")
+          {:ok, q} = Storage.mark_sent(q.id)
+          q
+        end)
+
+      documents = fn _ ->
+        [
+          {"Spec", "file:///w/spec.md", "Bypass mode"},
+          {"Build plan", "file:///w/plan.md", "Plan"}
+        ]
+      end
+
+      shown = Questions.full(q, "feat-a", q.id, Mode.none(), nil, nil, nil, documents)
+
+      assert shown =~
+               ~r/\A\*\*Bypass mode\*\* · ❓ waiting on you\n\[Spec\]\(file:\/\/\/w\/spec\.md\) · \[Build plan\]\(file:\/\/\/w\/plan\.md\)\n\nAnswered both\./
+
+      refute shown =~ "##{q.id}"
+      refute shown =~ "feat-a"
+    end
+
+    test "with no document to name it, the heading names the branch" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "open",
+        text: "Which?",
+        asked_at: DateTime.utc_now()
+      }
+
+      assert Questions.full(q, "feat-a", nil) =~
+               ~r/\A\*\*feat-a\*\* · ❓ needs a decision · open\n/
+    end
+
+    test "a held question says for how long; any other says its age only after a day" do
+      five_days = DateTime.add(DateTime.utc_now(), -5 * 86_400, :second)
+      two_days = DateTime.add(DateTime.utc_now(), -2 * 86_400, :second)
+
+      base = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        text: "Which?"
+      }
+
+      held = %{Mode.none() | held: MapSet.new(["m1"])}
+
+      assert Questions.full(
+               %{base | status: "sent", asked_at: five_days, sent_at: five_days},
+               "feat-a",
+               9,
+               held
+             ) =~
+               ~r/\A\*\*feat-a\*\* · ⏸ held 5d\n/
+
+      assert Questions.full(
+               %{base | status: "sent", asked_at: two_days, sent_at: two_days},
+               "feat-a",
+               9
+             ) =~
+               ~r/\A\*\*feat-a\*\* · ❓ waiting on you · 2d\n/
+
+      now = DateTime.utc_now()
+
+      assert Questions.full(%{base | status: "sent", asked_at: now, sent_at: now}, "feat-a", 9) =~
+               ~r/\A\*\*feat-a\*\* · ❓ waiting on you\n/
     end
 
     test "at length, a queued question still says what it is behind", %{main: main} do
@@ -350,7 +420,7 @@ defmodule Whiska.QuestionsTest do
 
       {:ok, summary} = Questions.summary(main)
       assert Questions.render(summary) =~ ~s|#1  feat-a  needs a decision · "which db?"  (held)|
-      assert Questions.render_full(summary) =~ " · held"
+      assert Questions.render_full(summary) =~ " · ⏸ held"
     end
 
     test "a question waiting behind a focus names the focused branch", %{main: main} do
