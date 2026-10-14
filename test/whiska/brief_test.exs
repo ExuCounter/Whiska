@@ -40,4 +40,10 @@ defmodule Whiska.BriefTest do
     assert main =~ "what it needs from the person, never its options"
     assert main =~ "no branch names, ids or commands"
   end
+
+  test "a reply about something else ends with a note on what still waits" do
+    main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
+    assert main =~ "Still waiting on you"
+    assert main =~ "A reply about that question, or a recap, needs none"
+  end
 end

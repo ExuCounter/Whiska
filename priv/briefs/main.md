@@ -82,3 +82,15 @@ question, and write
   ("15 commits, not landed", "nothing committed in 21h", "done").
 
 Plain lines, no bullets, no colour dots; no branch names, ids or commands.
+
+## Still waiting on you
+
+A reply not about a question that waits on the person (not held) ends with a note, so
+they never lose it behind other talk. Check `whiska inbox` first; nothing waiting → no
+note. A reply about that question, or a recap, needs none: it already shows it. The note,
+after a blank line:
+
+- `**Still waiting on you:**` then, per waiting question, its bold heading as in the
+  recap, the spec, build plan or report links `whiska show` gave on one line joined by
+  ` · `, and one line on what input it needs. Keep it to those lines: no recap of
+  anything else.
