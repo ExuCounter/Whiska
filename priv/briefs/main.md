@@ -67,3 +67,9 @@ Run each only when the person asks:
 - "take me to feat/auth" → `whiska open feat/auth`; "anything waiting anywhere?" →
   `whiska waiting`; "what did it cost?" → `whiska metrics`; "is Whiska working?" →
   `whiska doctor`
+
+After "what's waiting?", "I'm back" or "unfocus", recap what waits, not the command's
+output alone. Run `whiska inbox`, then `whiska show <id>` for each question. Per question:
+its branch and id, one plain line on what it asks and why it matters, then the links
+`whiska show` gave (spec, build plan, report, diff). Questions on a held branch go last,
+one line each, under their own heading.
