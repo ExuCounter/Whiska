@@ -18,6 +18,7 @@ defmodule Whiska.Storage do
   alias Whiska.Layout
   alias Whiska.Repo
   alias Whiska.Schema.House
+  alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Schema.Usage
@@ -39,7 +40,8 @@ defmodule Whiska.Storage do
     {14, Whiska.Migrations.V014KeepsSlot},
     {15, Whiska.Migrations.V015MergeRequest},
     {16, Whiska.Migrations.V016BuiltFrom},
-    {17, Whiska.Migrations.V017KeptAs}
+    {17, Whiska.Migrations.V017KeptAs},
+    {18, Whiska.Migrations.V018MergeRequestReads}
   ]
 
   @modes ~w(build sniff)
@@ -743,6 +745,21 @@ defmodule Whiska.Storage do
         |> Ecto.Changeset.change(%{merge_request_at: now(), merge_request_url: url})
         |> Repo.update()
     end
+  end
+
+  @doc "Every merge request read the owl keeps, by mouse (ADR-0087)."
+  @spec merge_request_reads() :: %{String.t() => MergeRequestRead.t()}
+  def merge_request_reads,
+    do: MergeRequestRead |> Repo.all() |> Map.new(&{&1.mouse_id, &1})
+
+  @doc "Write a mouse's merge request read over its row, or as its first."
+  @spec save_merge_request_read(map()) ::
+          {:ok, MergeRequestRead.t()} | {:error, Ecto.Changeset.t()}
+  def save_merge_request_read(%{mouse_id: mouse_id} = attrs) do
+    (Repo.get(MergeRequestRead, mouse_id) || %MergeRequestRead{mouse_id: mouse_id})
+    |> Ecto.Changeset.cast(attrs, MergeRequestRead.fields())
+    |> Ecto.Changeset.validate_required([:url])
+    |> Repo.insert_or_update()
   end
 
   @doc """
