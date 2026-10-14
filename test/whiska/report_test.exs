@@ -68,4 +68,37 @@ defmodule Whiska.ReportTest do
   test "a document is kept without its marker line" do
     assert Report.text(@document <> "\n⁣⁣⁣") == @document
   end
+
+  describe "outcome/1" do
+    @ledger "Agent usage this session\nmouse (whole session) · claude-opus-5-5\n⁣⁣⁣"
+
+    test "is the first line of the summary, not the ledger" do
+      assert Report.outcome("# T\n\n## Summary\nMerged; 31 pass.\nMore.\n\n" <> @ledger) ==
+               "Merged; 31 pass."
+    end
+
+    test "a summary line starting with # is still the outcome" do
+      assert Report.outcome("## Summary\n#471 merged.\n\n" <> @ledger) == "#471 merged."
+    end
+
+    test "a heading inside a code block is not the summary" do
+      text = "```\n## Summary\nfoo\n```\n## Summary\nReal outcome\n" <> @ledger
+      assert Report.outcome(text) == "Real outcome"
+    end
+
+    test "prose mentioning the ledger heading does not cut the summary" do
+      text = "## Summary\nCut the Agent usage this session block.\n\n" <> @ledger
+      assert Report.outcome(text) == "Cut the Agent usage this session block."
+    end
+
+    test "an empty summary falls back to the last line before the ledger" do
+      assert Report.outcome("## Summary\n\n## Done\nAll green.\n\n---\n" <> @ledger) ==
+               "All green."
+    end
+
+    test "no summary: the last line before the ledger" do
+      assert Report.outcome("Merged.\n\nAll 31 tests pass.\n\n" <> @ledger) ==
+               "All 31 tests pass."
+    end
+  end
 end

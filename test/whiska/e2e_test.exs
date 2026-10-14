@@ -175,11 +175,11 @@ defmodule Whiska.E2ETest do
     )
 
     # The mouse's own workspace carries the question it is waiting on.
-    assert %{"whiska" => "❓ #" <> said, "whiska_q" => "Which colour for the badge?"} =
+    assert %{"whiska" => "❓ " <> said, "whiska_q" => "Which colour for the badge?"} =
              sidebar(c)["mouse"],
            diagnostics(c)
 
-    assert said =~ ~r/^\d+ · waiting on you$/
+    assert said == "waiting on you"
 
     assert received(main) == []
 

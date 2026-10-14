@@ -193,11 +193,10 @@ defmodule Whiska.Sidebar do
 
   defp gauged(said, @lost, _context), do: said
 
-  defp gauged(said, rank, context) do
+  defp gauged(said, _rank, context) do
     case Context.gauge(context) do
       nil -> said
-      gauge when rank == @working -> insert_after_symbol(said, gauge)
-      gauge -> "#{said} · #{gauge}"
+      gauge -> insert_after_symbol(said, gauge)
     end
   end
 
@@ -216,15 +215,11 @@ defmodule Whiska.Sidebar do
   # First match wins: a hold is the person's own word on the mouse, a question
   # is what they are asked, and only then does herdr's view of the pane, and
   # what the mouse is doing, get a say.
-  defp state(%{held?: true, question_id: id}, _now, _frame) when is_integer(id),
-    do: {@held, "⏸ ##{id} · held", nil}
-
   defp state(%{held?: true}, _now, _frame), do: {@held, "⏸ held", nil}
 
-  defp state(%{not_taken?: true, question_id: id}, _now, _frame),
-    do: {@next, "❓ ##{id} · answer not taken", nil}
+  defp state(%{not_taken?: true}, _now, _frame), do: {@next, "❓ answer not taken", nil}
 
-  defp state(%{asked: %{} = asked, question_id: id}, now, _frame), do: asked(id, asked, now)
+  defp state(%{asked: %{} = asked}, now, _frame), do: asked(asked, now)
 
   defp state(%{pane: :none}, _now, _frame), do: {@lost, "✖ no pane", nil}
   defp state(%{pane: :many}, _now, _frame), do: {@lost, "⚠ many panes", nil}
@@ -242,24 +237,23 @@ defmodule Whiska.Sidebar do
 
   defp state(_idle, _now, _frame), do: {@idle, "○ idle", nil}
 
-  defp asked(id, %{waits: :away}, _now), do: {@away, "💤 ##{id} · waits: away", nil}
+  defp asked(%{waits: :away}, _now), do: {@away, "💤 waits: away", nil}
 
-  defp asked(id, %{waits: {:focus, branch}}, _now),
-    do: {@focus, "🎯 ##{id} · waits: focus on #{branch}", nil}
+  defp asked(%{waits: {:focus, branch}}, _now),
+    do: {@focus, "🎯 waits: focus on #{branch}", nil}
 
-  defp asked(_id, %{behind: behind, finished?: true}, _now) when is_integer(behind),
-    do: {@finished_queued, "✅ finished · queued behind ##{behind}", nil}
+  defp asked(%{behind: behind, finished?: true}, _now) when is_integer(behind),
+    do: {@finished_queued, "✅ finished · queued", nil}
 
-  defp asked(_id, %{behind: behind} = asked, _now) when is_integer(behind),
-    do: {@queued, "⏳ queued behind ##{behind}", asked.pointer}
+  defp asked(%{behind: behind} = asked, _now) when is_integer(behind),
+    do: {@queued, "⏳ queued", asked.pointer}
 
-  defp asked(id, %{finished?: true} = asked, _now),
-    do: {@finished, "✅ ##{id} · finished", asked.pointer}
+  defp asked(%{finished?: true} = asked, _now), do: {@finished, "✅ finished", asked.pointer}
 
-  defp asked(id, %{sent_at: %DateTime{} = at} = asked, now),
-    do: {@sent, "❓ ##{id} · waiting on you · #{age(at, now)}", asked.pointer}
+  defp asked(%{sent_at: %DateTime{} = at} = asked, now),
+    do: {@sent, "❓ waiting on you · #{age(at, now)}", asked.pointer}
 
-  defp asked(id, asked, _now), do: {@next, "❓ ##{id} · waiting on you", asked.pointer}
+  defp asked(asked, _now), do: {@next, "❓ waiting on you", asked.pointer}
 
   defp stuck(nil), do: "✖ stuck"
   defp stuck(silent_for), do: "✖ stuck #{minutes(silent_for)}"

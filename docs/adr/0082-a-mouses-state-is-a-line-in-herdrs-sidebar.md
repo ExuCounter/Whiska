@@ -18,19 +18,19 @@ sort (which one a mouse is in is decided as the paragraph under the table says):
 
 | # | line | carries |
 |---|------|---------|
-| 1 | `❓ #13 · waiting on you · 14m` — sent, unanswered | the question |
-| 2 | `❓ #12 · waiting on you` — next to go; `❓ #12 · answer not taken` | the question |
-| 3 | `✅ #14 · finished` — a report holding the slot | its closing line |
+| 1 | `❓ waiting on you · 14m` — sent, unanswered | the question |
+| 2 | `❓ waiting on you` — next to go; `❓ answer not taken` | the question |
+| 3 | `✅ finished` — a report holding the slot | the first line of its `## Summary` |
 | 4 | `✖ stuck 6m` — blocked, or working with no subagent out and silent two minutes in a tool or five waiting on the model | its last action |
-| 5 | `⏳ queued behind #12` | the question |
-| 6 | `✅ finished · queued behind #12` | |
+| 5 | `⏳ queued` | the question |
+| 6 | `✅ finished · queued` | |
 | 7 | `↩ picked up 2m ago` | |
 | 8 | `◐ <topic, else last action>` | |
 | 9 | `✖ no pane`, `⚠ many panes`, `? herdr can't say` | |
 | 10 | `○ idle` | |
-| 11 | `🎯 #16 · waits: focus on <branch>` | |
-| 12 | `💤 #15 · waits: away` | |
-| 13 | `⏸ #17 · held`, `⏸ held` | |
+| 11 | `🎯 waits: focus on <branch>` | |
+| 12 | `💤 waits: away` | |
+| 13 | `⏸ held` | |
 
 **The order follows the work, not the kind of mouse.** The mice the person set aside (11 to
 13) sit below idle ones. Of mice in the same state a build mouse comes before a sniff mouse,
@@ -64,14 +64,17 @@ A dead mouse (ADR-0026) has no line; what it left is counted on the main checkou
 free string, a topic or a branch, is stripped to one line with no control characters before
 it reaches herdr.
 
-**The line ends in the mouse's context gauge**, `· 142K`: the input, cache-read and
+**The line carries the mouse's context gauge, straight after the symbol**, `◐ 142K · <topic>`: the input, cache-read and
 cache-creation tokens of the last assistant message in its transcript, read the same way
 as the last action (ADR-0050), for every mouse with a line, since a mouse waiting on the
 person is the one whose length matters. That makes one 64 KB tail read per live mouse
 per tick, plus the `Stop` hook's 512 KB tail for a working mouse quiet two minutes, where the last action was read only for a working or blocked one; it is read
 from the tail alone, so one very large message can leave a mouse without a gauge for a
-moment. A working mouse's goes before its free text, `◐ 142K · <topic>`, so a long topic
-cannot cut it off. A line that says the pane is lost (`✖ no pane`, `⚠ many panes`,
+moment. It sits in the same place on every state (`✅ 236K · finished`, `⏸ 447K · held`), so it
+reads as a column and a long topic cannot cut it off. No line carries a question's id: it
+is not what the person acts on, and `whiska questions` has it. A finished mouse's second
+line is the first line of its report's `## Summary` (else the last line before `Agent usage
+this session`), never the agent ledger the report ends in. A line that says the pane is lost (`✖ no pane`, `⚠ many panes`,
 `? herdr can't say`) has none. With an auto-compact window the size
 is followed by a five-cell bar (`142K ▰▰▰▱▱`); no mouse has a window yet. `whiska mice`
 shows the same gauge in its own column.
@@ -171,5 +174,7 @@ deleted. `whiska doctor` names any leftover as a warning with the init that remo
 
 Changed on 2026-10-11: an idle mouse says `○ idle`, and the mice re-sort on any change of state, and when a new mouse appears in any state but idle.
 Changed on 2026-10-12: a working mouse is stuck after two minutes' silence in a tool or five waiting on the model, where it was two minutes whatever it waited on; and a subagent started further back than the short tail still counts as out.
+
+Changed on 2026-10-14: no mouse line carries a question's id; the context gauge follows the symbol on every state; a finished mouse carries its report's summary line, not its last line.
 
 Folded in on 2026-10-08: 0051, 0058, 0059, 0065 (their text is in git history).

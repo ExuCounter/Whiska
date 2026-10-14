@@ -26,6 +26,34 @@ defmodule Whiska.Report do
     end
   end
 
+  @doc """
+  The one line that says what a finished report came to: the first line of its
+  `## Summary`, else the last line before the agent ledger it ends in; `""`
+  when it has neither.
+  """
+  @spec outcome(String.t()) :: String.t()
+  def outcome(text) do
+    lines =
+      text
+      |> Marker.strip()
+      |> String.split("\n")
+      |> Enum.take_while(&(not ledger_heading?(&1)))
+
+    case section(Enum.join(lines, "\n"), "## Summary") do
+      body when body in [nil, ""] -> last_line(lines)
+      body -> body |> String.split("\n") |> Enum.find("", &prose?/1) |> String.trim()
+    end
+  end
+
+  defp ledger_heading?(line),
+    do: String.trim(line, "#") |> String.trim("*") |> String.trim() == "Agent usage this session"
+
+  defp prose?(line),
+    do: String.trim(line) != "" and not String.starts_with?(String.trim(line), "```")
+
+  defp last_line(lines),
+    do: lines |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 in ["", "---"])) |> List.last("")
+
   @doc "The document as Whiska keeps it: the marker line gone, one newline at the end."
   @spec text(String.t()) :: String.t()
   def text(message), do: (message |> Marker.strip() |> String.trim_trailing()) <> "\n"

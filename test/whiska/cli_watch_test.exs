@@ -131,7 +131,7 @@ defmodule Whiska.CLIWatchTest do
 
       out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
-      assert out =~ "feat-a\n  ❓ ##{q.id} · waiting on you\n  which db?"
+      assert out =~ "feat-a\n  ❓ waiting on you\n  which db?"
     end
 
     test "a dead mouse has no lines, and what it left is counted as orphaned", %{main: main} do

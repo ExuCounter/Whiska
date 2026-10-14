@@ -111,14 +111,14 @@ defmodule Whiska.SidebarTest do
       assert tokens([mouse("feat-a")],
                questions: [question(13, "feat-a", sent_at: sent_at)],
                bare_panes: [pane("feat-a", "idle")]
-             ) == %{"whiska" => "❓ #13 · waiting on you · 14m", "whiska_q" => "which db?"}
+             ) == %{"whiska" => "❓ waiting on you · 14m", "whiska_q" => "which db?"}
     end
 
     test "next to go and not sent yet, it is waiting on the person without an age" do
       assert tokens([mouse("feat-a")],
                questions: [question(12, "feat-a", status: "open")],
                bare_panes: [pane("feat-a", "idle")]
-             ) == %{"whiska" => "❓ #12 · waiting on you", "whiska_q" => "which db?"}
+             ) == %{"whiska" => "❓ waiting on you", "whiska_q" => "which db?"}
     end
 
     test "an age under a minute is still an age, and an hour is spelled like `whiska mice`" do
@@ -128,7 +128,7 @@ defmodule Whiska.SidebarTest do
         assert said([mouse("feat-a")],
                  questions: [question(13, "feat-a", sent_at: sent_at)],
                  bare_panes: [pane("feat-a", "idle")]
-               ) == "❓ #13 · waiting on you · #{age}"
+               ) == "❓ waiting on you · #{age}"
       end
     end
 
@@ -137,7 +137,7 @@ defmodule Whiska.SidebarTest do
                questions: [question(52, "feat-a", status: "open")],
                bare_panes: [pane("feat-a", "working", title: "Order builder")],
                action: fn _ -> {:tool, "Edit lib/auth.ex"} end
-             ) == "❓ #52 · waiting on you"
+             ) == "❓ waiting on you"
     end
 
     test "the question wraps onto two lines of 31, and the rest is cut" do
@@ -187,7 +187,7 @@ defmodule Whiska.SidebarTest do
                questions: [question(7, "feat-a", status: "answered")],
                bare_panes: [pane("feat-a", "idle")],
                picked_up: %{"m-feat-a" => DateTime.add(@now, -180, :second)}
-             ) == %{"whiska" => "❓ #7 · answer not taken"}
+             ) == %{"whiska" => "❓ answer not taken"}
     end
   end
 
@@ -198,7 +198,37 @@ defmodule Whiska.SidebarTest do
       assert tokens([mouse("feat-a")],
                questions: [question(14, "feat-a", kind: "done", text: text)],
                bare_panes: [pane("feat-a", "idle")]
-             ) == %{"whiska" => "✅ #14 · finished", "whiska_q" => "All 31 tests pass."}
+             ) == %{"whiska" => "✅ finished", "whiska_q" => "All 31 tests pass."}
+    end
+
+    test "carries its summary's first line, never the ledger it ends in" do
+      text = """
+      # Merged the importer
+      ## Summary
+      Importer merged; 31 tests pass.
+      Agent usage this session
+      mouse (whole session) · claude-opus-5-5 · xhigh
+      ⁣⁣⁣
+      """
+
+      assert tokens([mouse("feat-a")],
+               questions: [question(14, "feat-a", kind: "done", text: text)],
+               bare_panes: [pane("feat-a", "idle")],
+               context: 236_000
+             ) == %{
+               "whiska" => "✅ 236K · finished",
+               "whiska_q" => "Importer merged; 31 tests pass."
+             }
+    end
+
+    test "with no summary, carries the last line before the ledger" do
+      text =
+        "Merged.\n\nAll 31 tests pass.\n\nAgent usage this session\nmouse (whole session)\n⁣⁣⁣"
+
+      assert tokens([mouse("feat-a")],
+               questions: [question(14, "feat-a", kind: "done", text: text)],
+               bare_panes: [pane("feat-a", "idle")]
+             )["whiska_q"] == "All 31 tests pass."
     end
 
     test "behind another question, it says so and nothing more" do
@@ -215,7 +245,7 @@ defmodule Whiska.SidebarTest do
           bare_panes: [pane("feat-a", "idle"), pane("feat-b", "idle")]
         )
 
-      assert tokens == %{"whiska" => "✅ finished · queued behind #12"}
+      assert tokens == %{"whiska" => "✅ finished · queued"}
     end
   end
 
@@ -227,8 +257,8 @@ defmodule Whiska.SidebarTest do
           bare_panes: [pane("feat-a", "idle"), pane("feat-b", "idle")]
         )
 
-      assert sent.tokens["whiska"] =~ "❓ #12 · waiting on you"
-      assert queued.tokens == %{"whiska" => "⏳ queued behind #12", "whiska_q" => "which db?"}
+      assert sent.tokens["whiska"] =~ "❓ waiting on you"
+      assert queued.tokens == %{"whiska" => "⏳ queued", "whiska_q" => "which db?"}
     end
   end
 
@@ -238,7 +268,7 @@ defmodule Whiska.SidebarTest do
                questions: [question(15, "feat-a", status: "open")],
                bare_panes: [pane("feat-a", "idle")],
                mode: mode(away?: true)
-             ) == %{"whiska" => "💤 #15 · waits: away"}
+             ) == %{"whiska" => "💤 waits: away"}
     end
 
     test "a question behind a focus names the focused branch" do
@@ -249,7 +279,7 @@ defmodule Whiska.SidebarTest do
           mode: mode(focus: "m-feat-b")
         )
 
-      assert tokens == %{"whiska" => "🎯 #16 · waits: focus on feat-b"}
+      assert tokens == %{"whiska" => "🎯 waits: focus on feat-b"}
     end
 
     test "the focused branch is made safe before it reaches herdr" do
@@ -266,14 +296,14 @@ defmodule Whiska.SidebarTest do
       refute tokens["whiska"] =~ "\a"
     end
 
-    test "a held mouse says held, with its question's number" do
+    test "a held mouse with a question says held" do
       held = mouse("feat-a", held_at: @now)
 
       assert tokens([held],
                questions: [question(17, "feat-a", status: "open", mouse: held)],
                bare_panes: [pane("feat-a", "working")],
                mode: mode(held: MapSet.new(["m-feat-a"]))
-             ) == %{"whiska" => "⏸ #17 · held"}
+             ) == %{"whiska" => "⏸ held"}
     end
 
     test "a held mouse with nothing waiting still says held" do
@@ -332,7 +362,7 @@ defmodule Whiska.SidebarTest do
     end
 
     test "a title that reads like a question is still a working mouse's line" do
-      forged = "❓ #99 · waiting on you"
+      forged = "❓ waiting on you"
 
       [line] = lines([mouse("feat-a")], bare_panes: [pane("feat-a", "working", title: forged)])
 
@@ -469,7 +499,7 @@ defmodule Whiska.SidebarTest do
                bare_panes: [pane("feat-a", "idle")],
                questions: [question(4, "feat-a")],
                context: 142_000
-             ) == "❓ #4 · waiting on you · 142K"
+             ) == "❓ 142K · waiting on you"
     end
 
     test "a stuck mouse carries it after how long it has been silent" do
@@ -477,12 +507,31 @@ defmodule Whiska.SidebarTest do
                bare_panes: [pane("feat-a", "blocked")],
                silent_for: 6 * 60,
                context: 142_000
-             ) == "✖ stuck 6m · 142K"
+             ) == "✖ 142K · stuck 6m"
     end
 
     test "an idle mouse carries it after saying idle" do
       assert said([mouse("feat-a")], bare_panes: [pane("feat-a", "idle")], context: 142_000) ==
-               "○ idle · 142K"
+               "○ 142K · idle"
+    end
+
+    test "a held mouse carries it right after the symbol" do
+      assert said([mouse("feat-a", held_at: @now)],
+               bare_panes: [pane("feat-a", "idle")],
+               mode: mode(held: MapSet.new(["m-feat-a"])),
+               context: 447_000
+             ) == "⏸ 447K · held"
+    end
+
+    test "a queued mouse carries it right after the symbol" do
+      [_sent, %{tokens: tokens}] =
+        lines([mouse("feat-a"), mouse("feat-b")],
+          questions: [question(12, "feat-a"), question(13, "feat-b", status: "open")],
+          bare_panes: [pane("feat-a", "idle"), pane("feat-b", "idle")],
+          context: 12_000
+        )
+
+      assert tokens["whiska"] == "⏳ 12K · queued"
     end
 
     test "a mouse with no pane has no gauge on its line" do
@@ -844,7 +893,7 @@ defmodule Whiska.SidebarTest do
                ⏳ gated: you're typing
 
                feat-a
-                 ❓ #12 · waiting on you
+                 ❓ waiting on you
                  which db?
 
                feat-idle

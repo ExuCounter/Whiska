@@ -228,17 +228,17 @@ the main checkout's for the whole repo (ADR-0082):
 myrepo
   ⏳ gated: you're typing
 feat/quiet-marker
-  ❓ #52 · waiting on you · 4m
+  ❓ 142K · waiting on you · 4m
   sqlite or a plain file?
 fix/doctor-probe
-  ✖ stuck 6m
+  ✖ 88K · stuck 6m
   Bash mix test
 feat/cache-ttl
-  ◐ Cache TTL per tenant
+  ◐ 61K · Cache TTL per tenant
 ```
 
-The first line is the state, the rest carry the question. `❓` waiting on you, `✅`
-finished, `✖ stuck`, `⏳` queued behind another question, `🎯` and `💤` waiting behind a
+The first line is the state, after the mouse's context size; the rest carry the question. `❓` waiting on you, `✅`
+finished, `✖ stuck`, `⏳` queued behind another question (the one above it), `🎯` and `💤` waiting behind a
 focus or away, `⏸` held, `↩` picked up after its turn died, `◐` working (it spins, so a
 still one means the owl stopped), `○` idle. `✖ no pane`, `⚠ many panes` and
 `? herdr can't say` mean Whiska cannot find the mouse's pane. Lines expire after 30

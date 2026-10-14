@@ -27,6 +27,7 @@ defmodule Whiska.Watch do
   alias Whiska.Layout
   alias Whiska.Question.Marker
   alias Whiska.Questions
+  alias Whiska.Report
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -95,7 +96,7 @@ defmodule Whiska.Watch do
   @typedoc """
   What a row's question is waiting on: the person, since `sent_at` when it holds
   the delivery slot, or the question that does, `behind`. `pointer` is the
-  sentence the person is asked, or for a finished report its closing line.
+  sentence the person is asked, or for a finished report the outcome line of its summary.
   """
   @type asked :: %{
           pointer: String.t(),
@@ -329,21 +330,14 @@ defmodule Whiska.Watch do
   defp asked(_no_question, _context), do: nil
 
   # A finished report has no question in it — its marker says it speaks for
-  # itself — so what it carries is its closing line.
+  # itself — so what it carries is the outcome: the first line of its
+  # `## Summary`, else the last line before the agent ledger it ends in.
   defp pointer(text, false), do: Marker.pointer(text)
 
   defp pointer(text, true) do
     case Marker.pointer(text) do
-      "" ->
-        text
-        |> Marker.strip()
-        |> String.split("\n")
-        |> Enum.map(&String.trim/1)
-        |> Enum.reject(&(&1 == ""))
-        |> List.last("")
-
-      pointer ->
-        pointer
+      "" -> Report.outcome(text)
+      pointer -> pointer
     end
   end
 
