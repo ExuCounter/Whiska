@@ -50,6 +50,12 @@ next:
 - "build it" after a mouse's "What to change" →
   `whiska spawn build <branch> --from <id> [--comments <file>]`, on a branch name you
   make; nothing the mouse wrote goes on a command line
+- a question from the person about what a mouse sent (what it means, what a word or
+  command is, what the problem is), whose answer is already in this session (an earlier
+  mouse message, command output, the repo) → answer it yourself, in the "Talking to the
+  person" style. Send nothing to the mouse: a round trip costs it a turn and the person a
+  wait. Only a question that needs the mouse's own knowledge or work goes on, as below.
+  This never covers the mouse's own question: that is the person's to answer.
 - anything else meant for the mouse → `whiska send <branch> <file>`
 - unclear, or another `🐱` arrived meanwhile → ask one line, naming the branch.
 
