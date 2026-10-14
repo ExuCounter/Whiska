@@ -156,7 +156,7 @@ defmodule Whiska.Questions do
             separator(),
             &full(
               &1,
-              who(&1.mouse, &1.mouse_id),
+              named(&1.mouse, &1.mouse_id),
               slot,
               summary.mode,
               summary.focus,
@@ -216,10 +216,10 @@ defmodule Whiska.Questions do
   end
 
   @doc """
-  One question in full: the heading, then the mouse's whole message as a
-  person reads it — the marker token stripped (`Marker.strip/1`) and no
-  `answer:` trailer, since the heading carries the id and the CLAUDE.md block
-  says how to reply. Plumbing stays out of what the person reads.
+  One question in full: its facts, one labelled line each, then the mouse's
+  message as a person reads it — the marker token stripped (`Marker.strip/1`)
+  and no `answer:` trailer. Facts only: the main brief writes the heading and
+  links the person sees from them (ADR-0089).
 
   What `whiska questions <id>` prints, and one block of `render_full/1`.
   `slot` is the id of the question holding the delivery slot, or nil; it is
@@ -239,7 +239,7 @@ defmodule Whiska.Questions do
         ) :: String.t()
   def full(
         %Question{} = q,
-        branch,
+        mouse,
         slot,
         mode \\ Mode.none(),
         focus \\ nil,
@@ -250,21 +250,31 @@ defmodule Whiska.Questions do
     held = finished_branch(q, on_branch)
     found = research_of(q, research)
     more = if is_function(documents, 1), do: documents.(q), else: []
-    heading = heading(q, title(more, found) || branch, slot, mode, focus, held)
 
-    under =
-      merge_request_line(held) ++
-        links(Enum.reject([diff_link(held), research_link(found)], &is_nil/1) ++ more)
+    facts =
+      labelled("title", title(more, found)) ++
+        ["mouse: #{mouse}", "question: ##{q.id} · #{verb(q.kind)}"] ++
+        ["state: #{state(q, slot, mode, focus)}"] ++
+        labelled("age", aged(q)) ++
+        labelled("branch", branch_state(held)) ++
+        labelled("Merge request", merge_request(held)) ++
+        Enum.map(
+          Enum.reject([diff_link(held), research_link(found)], &is_nil/1) ++ more,
+          fn link -> "#{elem(link, 0)}: #{elem(link, 1)}" end
+        )
 
     text = q.text |> Marker.strip() |> String.trim_trailing()
 
     """
-    #{Enum.join([heading | under], "\n")}
+    #{Enum.join(facts, "\n")}
 
     #{shown(q, text)}
     """
     |> String.trim_trailing()
   end
+
+  defp labelled(_label, nil), do: []
+  defp labelled(label, value), do: ["#{label}: #{value}"]
 
   # The work is named by what the person would review: the spec, else the
   # report, else the research, each by its own `# ` title.
@@ -276,37 +286,10 @@ defmodule Whiska.Questions do
     end)
   end
 
-  # The heading names the work, then where it stands, each once. A plain
-  # "waiting on you" stands alone; an age is said once a question is held or
-  # a day old. A finished one also says what its branch holds.
-  defp heading(q, title, slot, mode, focus, held) do
-    stands =
-      case {q.kind, state(q, slot, mode, focus)} do
-        {"done", "waiting on you since" <> _} -> ["✅ finished"]
-        {_kind, "waiting on you since" <> _} -> ["❓ waiting on you"]
-        {"done", "held"} -> ["✅ finished", "⏸ held"]
-        {_kind, "held"} -> ["⏸ held"]
-        {kind, other} -> [lead(kind), other]
-      end
+  defp aged(%Question{asked_at: %DateTime{} = at}),
+    do: age(DateTime.diff(DateTime.utc_now(), at))
 
-    Enum.join(["**#{title}**" | aged(stands, q)] ++ branch_state(held), " · ")
-  end
-
-  defp lead("done"), do: "✅ finished"
-  defp lead("needs-decision"), do: "❓ needs a decision"
-  defp lead(kind), do: verb(kind)
-
-  defp aged(stands, %Question{asked_at: %DateTime{} = at}) do
-    seconds = DateTime.diff(DateTime.utc_now(), at)
-
-    cond do
-      List.last(stands) == "⏸ held" -> List.replace_at(stands, -1, "⏸ held #{age(seconds)}")
-      seconds >= 86_400 -> stands ++ [age(seconds)]
-      true -> stands
-    end
-  end
-
-  defp aged(stands, _question), do: stands
+  defp aged(_question), do: nil
 
   defp age(seconds) when seconds < 3600, do: "#{max(div(seconds, 60), 1)}m"
   defp age(seconds) when seconds < 86_400, do: "#{div(seconds, 3600)}h"
@@ -352,16 +335,14 @@ defmodule Whiska.Questions do
   @named 3
 
   # Only a finished question is offered a finish, so only it says what its
-  # branch holds, in its heading.
+  # branch holds.
   defp finished_branch(%Question{kind: "done"} = q, on_branch) when is_function(on_branch, 1),
     do: on_branch.(q)
 
   defp finished_branch(_question, _on_branch), do: nil
 
-  defp merge_request_line({:ok, %{merge_request: url}}),
-    do: ["Merge request: #{printable(url)}"]
-
-  defp merge_request_line(_held), do: []
+  defp merge_request({:ok, %{merge_request: url}}), do: printable(url)
+  defp merge_request(_held), do: nil
 
   defp diff_link({:ok, %{review: link}}), do: {"Diff", link}
   defp diff_link(_held), do: nil
@@ -374,21 +355,14 @@ defmodule Whiska.Questions do
   defp research_link({path, _title}), do: {"Research", Review.file_link(path)}
   defp research_link(nil), do: nil
 
-  # One row of short labels, the diff first.
-  defp links([]), do: []
-
-  defp links(all) do
-    [Enum.map_join(all, " · ", fn link -> "[#{elem(link, 0)}](#{elem(link, 1)})" end)]
-  end
-
   defp branch_state({:ok, %{merge_request: _, not_pushed: n, uncommitted: uncommitted}}),
-    do: ["merge request opened, #{pushed(n)}, #{uncommitted(uncommitted)}"]
+    do: "merge request opened, #{pushed(n)}, #{uncommitted(uncommitted)}"
 
   defp branch_state({:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}),
-    do: ["#{committed(ahead, base)}, #{uncommitted(uncommitted)}"]
+    do: "#{committed(ahead, base)}, #{uncommitted(uncommitted)}"
 
-  defp branch_state({:error, reason}), do: ["branch unknown — #{unknown(reason)}"]
-  defp branch_state(nil), do: []
+  defp branch_state({:error, reason}), do: "branch unknown — #{unknown(reason)}"
+  defp branch_state(nil), do: nil
 
   defp committed(0, base), do: "nothing committed#{beyond(base)}"
   defp committed(1, base), do: "1 commit#{beyond(base)}"
@@ -517,11 +491,15 @@ defmodule Whiska.Questions do
   defp branch(%Question{mouse_id: mouse_id}), do: mouse_id
 
   @doc """
-  Who a question's heading names: the branch, with `(sniff)` after it for a
-  sniff mouse. Whiska's record rather than the mouse's word about
-  itself, so the finish options can tell a branch with nothing on it to merge
-  (ADR-0074).
+  The `mouse:` line of `full/8`: the branch and its mode, always both.
+  Whiska's record rather than the mouse's word about itself, so the finish
+  options can tell a branch with nothing on it to merge (ADR-0074).
   """
+  @spec named(Mouse.t() | nil, String.t()) :: String.t()
+  def named(%Mouse{branch: branch, mode: mode}, mouse_id), do: "#{branch || mouse_id} (#{mode})"
+  def named(_no_mouse, mouse_id), do: mouse_id
+
+  @doc "A focused mouse by name: the branch, with `(sniff)` after it for a sniff mouse."
   @spec who(Mouse.t() | nil, String.t()) :: String.t()
   def who(%Mouse{branch: branch, mode: mode}, mouse_id) do
     name = branch || mouse_id

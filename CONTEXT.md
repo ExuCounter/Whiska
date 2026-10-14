@@ -87,7 +87,7 @@ to include it. Each fact once, no section repeating another, in
 **build plan**, never here.
 The mouse writes it after the last grilling round, or with no round when nothing costly
 was open, asks for the person's ok on it and its build plan as one question, and builds
-only on that ok. `whiska show` links both under the **branch line** (the person opens the
+only on that ok. `whiska show` links both, `Spec:` and `Build plan:` (the person opens the
 files, wherever their `.md` files open, such as annotate; the question holds no spec text
 and no link). What changes for users is never left out: anything hidden, dropped, skipped
 or turned from an error into silence included, or "Nothing." Every task gets one but a bug, which gets a
@@ -215,15 +215,15 @@ else — what becomes of the worktree after the branch has landed, not what beco
 branch
 
 **Branch line**:
-The last part of a finished question's heading in `whiska show`: what its branch holds
+A finished question's `branch:` line in `whiska show`: what its branch holds
 as git says when it is shown — its own commits beyond the base (the base named only when
 it is not `main`), its files not committed or `clean`, or `branch unknown`; for a branch
 with a recorded **merge request**, `merge request opened`, its commits no remote has yet,
-and its files not committed, with a `Merge request:` line and its link under the heading.
+and its files not committed, with a `Merge request:` line and its link under it.
 Whiska's record of the branch, never the mouse's word, and what the person reads before
-saying a **finish** (ADR-0074). The heading is `**<title>** · ✅ finished ·
-<branch line>`: the title is the report's own, else the branch, and only a state other
-than waiting on the person is named, with an age once it is a day old (ADR-0089). Under it, one row of short links, each there only
+saying a **finish** (ADR-0074). `whiska show` prints facts, one labelled line each, and
+the main brief writes the heading the person reads from them, the branch line folded in
+(ADR-0089). Then one fact line per link, each there only
 when it has something to open: the **diff link**, `Diff`, a link to the branch's diff,
 which `whiska show` writes to one file per branch in `.whiska/reviews/`, named for the
 branch with a hash of its name, as a plain `.diff` patch, so the person reviews it
@@ -267,8 +267,8 @@ work: a bug's in the build **brief**, an investigation's in the sniff brief.
   the cold review holds the fix against it (ADR-0063).
 - **An investigation's**: the sniff mouse's final message, which writes no file — its
   **summary**, its **proposal** when something should change, the question, then what it
-  established, each fact once, in about two screens (ADR-0089). `whiska show` links it under
-  the **branch line**'s row as `Research`, and the person's comments on it are
+  established, each fact once, in about two screens (ADR-0089). `whiska show` links it on
+  its `Research:` line, and the person's comments on it are
   their own words, carried as a file: to the build (`whiska spawn --from <id> --comments
   <file>`), to the investigating mouse (`whiska send`), or not sent (ADR-0074).
 Whiska keeps one copy per branch beside the kept **spec**, overwritten each round, so

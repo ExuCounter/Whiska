@@ -116,8 +116,8 @@ What this is not:
    🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above" · 2 more open
    ```
 
-   The main session's brief tells it to run `whiska show` on that line, print the question
-   in full, and stop. You say what happens next: an answer, "land", "pr", "drop", or a
+   The main session's brief tells it to run `whiska show` on that line, write the question's
+   heading and links from the facts it prints, show its message, and stop. You say what happens next: an answer, "land", "pr", "drop", or a
    note for the mouse, and it runs the command for it.
 6. **You answer by id**: `whiska reply 12 "go with A"` (ADR-0005). The answer is saved,
    the question is answered and the delivery slot is free. Then a short 🔔 doorbell line is

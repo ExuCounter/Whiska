@@ -48,7 +48,7 @@ absence is said plainly. The cases so far:
   and `feat-x` keep a file each and no mouse can search out a name that shares another
   branch's file),
   ignored like the kept specs (ADR-0063), and prints a link to
-  it on the row under the heading, as a spec goes to the person as a link. It writes the file
+  it on a line of its own, as a spec goes to the person as a link. It writes the file
   wherever it runs, a mouse's worktree included: the main session's shell can stand in a
   worktree, and a read that wrote nothing from there dropped the link without a word. The
   folder is Whiska's own and ignored, so a write from a mouse costs nothing. No diff
@@ -59,7 +59,7 @@ absence is said plainly. The cases so far:
   own, points that file type at it in their terminal's open actions or their OS, as they
   point `.md` at their document reviewer. Whiska still names no viewer.
 - **The spec and build plan links are file links too.** `whiska show` prints them itself,
-  on the row under the heading, for the spec and the build plan the mouse's worktree
+  on a line of its own, for the spec and the build plan the mouse's worktree
   holds, as it does the diff's; the mouse pastes no link (ADR-0063). They open wherever
   the person's `.md` files open.
 

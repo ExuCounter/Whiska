@@ -18,25 +18,26 @@ whole, and `whiska show` prints its summary under the link to it.
   document's text, marker line removed, as `<the spec's name>.research.md` for a sniff
   mouse and `<the spec's name>.report.md` for any other, overwritten each round, as
   ADR-0063 keeps a spec. A message with no `## Summary` keeps nothing.
-- **`whiska show <id>` prints the summary.** The heading, one row of links
-  (the diff, research, spec, build plan and now the report), then the `## Summary`
+- **`whiska show <id>` prints the summary.** The facts, one labelled line each
+  (the links among them: the diff, research, spec, build plan and now the report), then the `## Summary`
   section and, when there is one, the first line under `## What to change`. A turn that
   ends on a decision keeps the question on the line above its marker. The rest is behind
   the link. `whiska questions --full` prints the same, from the same code. A message with
   no `## Summary`, or an empty one (a question mid-grill, a mouse started before this), is
   printed whole, and so is a turn that stopped with no marker, since it may have been cut
   off.
-- **The heading names the work, then where it stands.** `**<title>** · <state>`: the
-  title is the `# ` title of the spec, else the report, else the research document, else
-  the branch; the person decides by what the work is, and the main session routes by the
-  🐱 line, so the id, branch and time are left out. The state is `❓ waiting on you`,
-  `❓ needs a decision · <where it stands>`, `⏸ held <age>` or `✅ finished`, with an age
-  only once a question is held or a day old, and a finished one's branch state folded in
-  (`1 commit, clean`). Under it one row of labels, `Diff · Research · Full report`, each
-  only when it has something to open. `Spec` and `Build plan` link only on a question
-  that is not finished: they are what an "ok to build?" asks about, and the report
-  replaces them. `whiska questions --full` prints the same blocks, so it carries no ids
-  either; the one-line listing keeps them.
+- **`whiska show` prints facts; the main brief renders them.** One labelled line each:
+  `title:` (the `# ` title of the spec, else the report, else the research document),
+  `mouse:` (branch and mode), `question:` (id and verb), `state:`, `age:`, `branch:` (a
+  finished question's **branch line**), `Merge request:`, then one line per link, `Diff:`,
+  `Research:`, `Spec:`, `Build plan:`, `Full report:`, each only when it has something to
+  open. `Spec` and `Build plan` link only on a question that is not finished: they are
+  what an "ok to build?" asks about, and the report replaces them. Elixir gathers what only
+  it can know (git, the kept copies, the house); the main brief's "Showing a question"
+  rule writes the heading and link row the person reads, after a 🐱 line and in the recap
+  alike, so a change to what the person sees is one edit to the brief. `whiska questions
+  --full` prints the same blocks, so each now carries its id on the `question:` line; the
+  heading the person reads still leaves out the id, branch and time.
 - **A heading inside a code block is not one.** A message quoting the template is not a
   document.
 - **The heading never decides what the turn is.** Its kind is its marker's alone

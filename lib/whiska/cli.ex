@@ -118,8 +118,9 @@ defmodule Whiska.CLI do
     questions --full     delivered question, then any orphaned ones, then
                          what is still on the doorstep. With an id, that
                          question in full; with --full, every open one in
-                         full, oldest first, so there is no id to type. A
-                         report shows only its Summary, under its link.
+                         full, oldest first, so there is no id to type: its
+                         facts, one labelled line each, then the message; a
+                         report's message is only its Summary.
 
     waiting [--json]     What is waiting on you anywhere on this machine: one
                          line per question, across every house the owl has
@@ -180,8 +181,9 @@ defmodule Whiska.CLI do
                          delivered (held, away, focus: <branch>, queued
                          behind #<id>) and a first line when you are away.
                          `--all`, or outside any repo, lists every repo.
-    show [<id>]          The question delivered to you, in full, or any one by
-                         id; a report shows only its Summary, under its link.
+    show [<id>]          The question delivered to you, or any one by id: its
+                         facts, one labelled line each, then the message; a
+                         report's message is only its Summary.
                          Queued ones wait their turn: `inbox` lists them.
     reply <id> <text>    Answer it; no quotes needed around the text.
     dismiss <id>         Close it without answering (`close`).
@@ -2060,12 +2062,12 @@ defmodule Whiska.CLI do
     mode = Mode.read()
     slot = Mode.slot(Storage.questions(), mode)
     focus = if mode.focus, do: Questions.who(Storage.mouse(mode.focus), mode.focus)
-    who = Questions.who(Storage.mouse(q.mouse_id), q.mouse_id)
+    named = Questions.named(Storage.mouse(q.mouse_id), q.mouse_id)
 
     say(
       Questions.full(
         q,
-        who,
+        named,
         slot,
         mode,
         focus,
@@ -2148,7 +2150,7 @@ defmodule Whiska.CLI do
   end
 
   # The diff link is a `.diff` file, opened wherever the person's patch files
-  # open (ADR-0085). The heading stands without it when git prints no diff or
+  # open (ADR-0085). The show stands without it when git prints no diff or
   # the file cannot be written; a branch that changes nothing keeps no file.
   defp review(_main, _branch, _base, %{ahead: 0}), do: %{}
 
@@ -2512,7 +2514,7 @@ defmodule Whiska.CLI do
     end
   end
 
-  # The link is printed under the heading, where the main session reads
+  # The link is printed on its own line, where the main session reads
   # it, so it is a plain https one or nothing.
   defp record_merge_request(%Question{} = q, url) do
     with true <- Whiska.PR.link?(url) || :not_a_link,

@@ -23,7 +23,7 @@ the main checkout.
    and every round ends on the status marker. A round with nothing in it is not sent.
 3. Write the spec and the build plan and ask "ok to build?", whether or not a round went
    first, with no text of either and no link: `whiska show` adds `Spec` and
-   `Build plan` links on the row under the heading, one per document the mouse's worktree
+   `Build plan` links on a line of its own, one per document the mouse's worktree
    holds, as it adds the diff's and the research document's (ADR-0074), and only while
    the question is not finished (ADR-0089). Each link names the worktree's own file as `file://…`,
    so it works for the review, before the build, and opens wherever the person's `.md`

@@ -169,13 +169,18 @@ defmodule Whiska.QuestionsTest do
                "(waiting on you since #{pad.(h)}:#{pad.(mi)})"
     end
 
-    test "the heading names the work by its spec's title, then where it stands", %{main: main} do
-      q =
-        seed(main, fn ->
-          q = ask("m1", "Answered both.\n\nOk to build?\n⁣⁣")
-          {:ok, q} = Storage.mark_sent(q.id)
-          q
-        end)
+    test "one question in full is its facts, one labelled line each, then its message" do
+      two_days = DateTime.add(DateTime.utc_now(), -2 * 86_400, :second)
+
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "sent",
+        text: "Answered both.\n\nOk to build?\n⁣⁣",
+        asked_at: two_days,
+        sent_at: two_days
+      }
 
       documents = fn _ ->
         [
@@ -184,61 +189,51 @@ defmodule Whiska.QuestionsTest do
         ]
       end
 
-      shown = Questions.full(q, "feat-a", q.id, Mode.none(), nil, nil, nil, documents)
+      shown = Questions.full(q, "feat-a (build)", 9, Mode.none(), nil, nil, nil, documents)
 
-      assert shown =~
-               ~r/\A\*\*Bypass mode\*\* · ❓ waiting on you\n\[Spec\]\(file:\/\/\/w\/spec\.md\) · \[Build plan\]\(file:\/\/\/w\/plan\.md\)\n\nAnswered both\./
+      assert shown ==
+               String.trim_trailing("""
+               title: Bypass mode
+               mouse: feat-a (build)
+               question: #9 · needs a decision
+               state: #{Questions.state(q, 9)}
+               age: 2d
+               Spec: file:///w/spec.md
+               Build plan: file:///w/plan.md
 
-      refute shown =~ "##{q.id}"
-      refute shown =~ "feat-a"
+               Answered both.
+
+               Ok to build?
+               """)
     end
 
-    test "with no document to name it, the heading names the branch" do
+    test "with no document to name it there is no title line, and a held one says held" do
+      now = DateTime.utc_now()
+
       q = %Whiska.Schema.Question{
         id: 9,
         mouse_id: "m1",
         kind: "needs-decision",
-        status: "open",
+        status: "sent",
         text: "Which?",
-        asked_at: DateTime.utc_now()
-      }
-
-      assert Questions.full(q, "feat-a", nil) =~
-               ~r/\A\*\*feat-a\*\* · ❓ needs a decision · open\n/
-    end
-
-    test "a held question says for how long; any other says its age only after a day" do
-      five_days = DateTime.add(DateTime.utc_now(), -5 * 86_400, :second)
-      two_days = DateTime.add(DateTime.utc_now(), -2 * 86_400, :second)
-
-      base = %Whiska.Schema.Question{
-        id: 9,
-        mouse_id: "m1",
-        kind: "needs-decision",
-        text: "Which?"
+        asked_at: DateTime.add(now, -90, :second),
+        sent_at: now
       }
 
       held = %{Mode.none() | held: MapSet.new(["m1"])}
+      shown = Questions.full(q, "feat-a (build)", 9, held)
 
-      assert Questions.full(
-               %{base | status: "sent", asked_at: five_days, sent_at: five_days},
-               "feat-a",
-               9,
-               held
-             ) =~
-               ~r/\A\*\*feat-a\*\* · ⏸ held 5d\n/
+      assert shown =~ ~r/\Amouse: feat-a \(build\)\nquestion: #9 · needs a decision\n/
+      assert shown =~ "\nstate: held\nage: 1m\n"
+      refute shown =~ "title:"
+    end
 
-      assert Questions.full(
-               %{base | status: "sent", asked_at: two_days, sent_at: two_days},
-               "feat-a",
-               9
-             ) =~
-               ~r/\A\*\*feat-a\*\* · ❓ waiting on you · 2d\n/
+    test "the mouse line names its branch and mode, or its id with no record" do
+      mouse = %Whiska.Schema.Mouse{mouse_id: "m1", branch: "research/x", mode: "sniff"}
 
-      now = DateTime.utc_now()
-
-      assert Questions.full(%{base | status: "sent", asked_at: now, sent_at: now}, "feat-a", 9) =~
-               ~r/\A\*\*feat-a\*\* · ❓ waiting on you\n/
+      assert Questions.named(mouse, "m1") == "research/x (sniff)"
+      assert Questions.named(%{mouse | mode: "build"}, "m1") == "research/x (build)"
+      assert Questions.named(nil, "m1") == "m1"
     end
 
     test "at length, a queued question still says what it is behind", %{main: main} do
@@ -252,7 +247,7 @@ defmodule Whiska.QuestionsTest do
 
       {:ok, summary} = Questions.summary(main)
 
-      assert Questions.render_full(summary) =~ " · queued behind ##{sent.id}"
+      assert Questions.render_full(summary) =~ "\nstate: queued behind ##{sent.id}\n"
     end
 
     test "a report that ends on a decision shows its summary and the question it asks", %{
@@ -369,15 +364,15 @@ defmodule Whiska.QuestionsTest do
       assert [first, second] = String.split(out, Questions.separator())
 
       # Each block is exactly what `whiska questions <id>` prints today.
-      assert String.trim(first) == Questions.full(q1, "feat-a", nil)
-      assert String.trim(second) == Questions.full(q2, "feat-b", nil)
+      assert String.trim(first) == Questions.full(q1, "feat-a (build)", nil)
+      assert String.trim(second) == Questions.full(q2, "feat-b (build)", nil)
 
       # Oldest first, and the whole text is there, not a pointer.
       assert out =~ "pick a cache TTL"
       assert out =~ "name the flag"
       assert out =~ ~r/pick a cache TTL.*name the flag/s
       # Plumbing stays out of what the person reads: no marker token, no
-      # `answer:` trailer — the heading carries the id, the block in CLAUDE.md
+      # `answer:` trailer — the `question:` line carries the id, the block in CLAUDE.md
       # says how to reply.
       refute out =~ "[worktree-status"
       refute out =~ "answer: whiska reply"
@@ -420,7 +415,7 @@ defmodule Whiska.QuestionsTest do
 
       {:ok, summary} = Questions.summary(main)
       assert Questions.render(summary) =~ ~s|#1  feat-a  needs a decision · "which db?"  (held)|
-      assert Questions.render_full(summary) =~ " · ⏸ held"
+      assert Questions.render_full(summary) =~ "\nstate: held\n"
     end
 
     test "a question waiting behind a focus names the focused branch", %{main: main} do

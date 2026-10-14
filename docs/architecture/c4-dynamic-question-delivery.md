@@ -54,6 +54,6 @@ finishing steps, reading the change back, a fresh reviewer, a commit on its bran
 only then writes the marker (ADR-0049). Nothing sits in front of the stop hook, and
 nothing in Whiska knows whether those steps ran.
 
-After a delivered line, the main session runs `whiska show`, prints the question and stops;
+After a delivered line, the main session runs `whiska show`, renders the question by its brief's rule and stops;
 the person says what happens next, and the main session runs `whiska reply`, `land`, `pr`,
 `drop` or `send` for it (ADR-0088).

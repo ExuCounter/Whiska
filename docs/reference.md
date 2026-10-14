@@ -21,7 +21,7 @@ whiska jump --list [--json]     every main session `jump` can land on, for a scr
 
 ```
 inbox [--all] [--json]   what is waiting in this repo, and why each is not delivered yet
-show [<id>]              the question delivered to you, in full, or any one by id
+show [<id>]              the question delivered to you, or any one by id: its facts, one labelled line each, then its message
 reply <id> <text>        `whiska reply`
 dismiss <id>             `whiska close`
 away                     nothing is delivered to any main session until `resume`

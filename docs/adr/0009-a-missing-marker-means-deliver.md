@@ -51,7 +51,7 @@ with it uncommitted, ended on `done`, and the finish options recommended landing
 whose test would have broken CI. The two markers and the owl's reading of them do not
 move; their meaning sharpens.
 
-`whiska show` prints a branch line in a finished question's heading, read from git and
+`whiska show` prints a branch line for a finished question, read from git and
 never from the message: commits beyond the base, files not committed, or `unknown`. The
 person says land, pr or drop, and `whiska land` and `whiska pr` refuse files not committed
 and name them, so the person sees each before it is offered a commit: measured across this

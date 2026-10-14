@@ -56,7 +56,7 @@ defmodule Whiska.BriefTest do
     main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
     assert main =~ "one line of counts"
     assert main =~ "what it needs from the person, never its options"
-    assert main =~ "no branch names, ids or commands"
+    assert main =~ "no ids or commands, and no branch name but an untitled question's heading"
   end
 
   test "a waiting question is reminded once, in one line, then left alone" do

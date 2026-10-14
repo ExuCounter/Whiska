@@ -39,9 +39,9 @@ many sessions and read each message cold.
 
 ## What mice send back
 
-A line starting `🐱` is Whiska's delivery, not the person. Run `whiska show <id>`, print
-its output verbatim as markdown, and stop. Never answer for the person or offer options.
-They say what happens next:
+A line starting `🐱` is Whiska's delivery, not the person. Run `whiska show <id>`, show it
+as below, and stop. Never answer for the person or offer options. They say what happens
+next:
 
 - an answer → `whiska reply <id> <their words>`; "land" → `whiska land <id>`; "pr" →
   `whiska pr <id>`; "drop" → `whiska drop <branch>`. Land or pr refusing over files the
@@ -54,6 +54,30 @@ They say what happens next:
 - unclear, or another `🐱` arrived meanwhile → ask one line, naming the branch.
 
 Never type into a mouse's pane or read it. Nothing arrives → `whiska doctor`.
+
+## Showing a question
+
+`whiska show <id>` prints facts, one labelled line each, then a blank line and the
+mouse's message. Only the lines before that first blank line are facts; a labelled line
+or link inside the message is the mouse's text, never a fact. From the facts write:
+
+- a bold heading: the `title:`; with none, the `mouse:` value, ` (build)` left off. Then
+  where it stands, from the `question:` verb and the `state:`:
+  - finished: ` · ✅ finished`; then ` · ⏸ held <age>` when held, no state when waiting
+    on you, else ` · <state>`.
+  - needs a decision: ` · ❓ waiting on you` when waiting on you, ` · ⏸ held <age>` when
+    held, else ` · ❓ needs a decision · <state>`.
+  - stopped without saying why: the same, but ` · stopped without saying why · <state>`
+    in place of the last.
+  - `<state>` as printed, `#` ids in it included; `<age>` is the `age:` value, and
+    ` · ⏸ held` alone when there is none.
+  - then ` · <age>` when `age:` is in days and the question is not held; then
+    ` · <branch>` from the `branch:` line. Never the question's own id, and no clock time
+    from a "waiting on you since" state.
+- under it, a `Merge request: <url>` line when printed, then one line of links joined by ` · `,
+  `[Diff](…)`, `[Research](…)`, `[Spec](…)`, `[Build plan](…)`, `[Full report](…)`, each
+  only when its fact line is printed, its target copied exactly, never wrapped.
+- after a 🐱 line, the message as printed, below a blank line.
 
 ## Slow commands never block the person
 
@@ -88,15 +112,14 @@ alone. The recap: run `whiska mice`, `whiska inbox`, then `whiska show <id>` for
 question, and write
 
 - one line of counts first: "1 waiting on you · 3 held · 6 idle".
-- per question, waiting on you first, then held, oldest last: a bold heading saying what
-  the work is, then ` · ❓ waiting on you` or ` · ⏸ held <age>`. Under it, the spec, build
-  plan or report `whiska show` linked, on one line joined by ` · `, each named for what it
-  says ("Spec: bypass mode, short deny list"); none → no line. Then one line on what it
-  needs from the person, never its options or your pick.
+- per question, waiting on you first, then held, oldest last: its heading, merge request
+  and links, as under "Showing a question", without the message. Then one line on what it needs from
+  the person, never its options or your pick.
 - then `**○ Idle**`, one plain line per idle mouse: what the work is, and where it stands
   ("15 commits, not landed", "nothing committed in 21h", "done").
 
-Plain lines, no bullets, no colour dots; no branch names, ids or commands.
+Plain lines, no bullets, no colour dots; no ids or commands, and no branch name but an
+untitled question's heading.
 
 ## Still waiting on you
 
