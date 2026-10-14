@@ -6,6 +6,7 @@ defmodule Whiska.StorageDeliveryTest do
   """
   use ExUnit.Case, async: true
 
+  alias Whiska.Delivery.Mode
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -258,6 +259,151 @@ defmodule Whiska.StorageDeliveryTest do
 
     test "superseded is a status" do
       assert "superseded" in Question.statuses()
+    end
+  end
+
+  describe "supersede_for_letter/2" do
+    defp letter(mouse_id),
+      do: Storage.supersede_for_letter(mouse_id, Storage.waiting_ids(mouse_id))
+
+    test "retires the mouse's own open and sent questions, and leaves the owl's" do
+      queued = ask("m1", "queued", %{kind: "done"})
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      owl = ask("m1", "Drop?", %{asked_by: "owl"})
+      other = ask("m2", "other mouse")
+
+      assert Storage.waiting_ids("m1") == [queued.id, sent.id]
+      assert {:ok, [queued.id, sent.id]} == letter("m1")
+
+      assert Storage.question(queued.id).status == "superseded"
+      assert Storage.question(sent.id).status == "superseded"
+      assert Storage.question(owl.id).status == "open"
+      assert Storage.question(other.id).status == "open"
+    end
+
+    test "retires only what the line was decided on, not a question collected since" do
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      ids = Storage.waiting_ids("m1")
+      since = ask("m1", "collected while the line was typed")
+
+      assert {:ok, [sent.id]} == Storage.supersede_for_letter("m1", ids)
+      assert Storage.question(since.id).status == "open"
+    end
+
+    test "the mouse's next message goes next once the slot is free, once" do
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      older = ask("m2", "waiting longer")
+      {:ok, [_]} = letter("m1")
+
+      owl = ask("m1", "Drop?", %{asked_by: "owl"})
+      {:ok, 0} = Storage.supersede_earlier(owl)
+      refute Storage.question(owl.id).goes_next
+
+      reply = ask("m1", "after the letter")
+      {:ok, 0} = Storage.supersede_earlier(reply)
+      assert Storage.question(reply.id).goes_next
+      refute Storage.question(reply.id).keeps_slot
+      assert Mode.next(Storage.questions(), Mode.none()).id == reply.id
+      refute Mode.next(Storage.questions(), Mode.none()).id == older.id
+
+      {:ok, _} = Storage.answer(reply.id, "fine")
+      later = ask("m1", "a later turn")
+      {:ok, 0} = Storage.supersede_earlier(later)
+      refute Storage.question(later.id).goes_next
+    end
+
+    test "the reply waits behind another branch's heir, then goes ahead of the rest" do
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m3", path: "/w/c", branch: "c"})
+      a = ask("m1", "a's question")
+      {:ok, _} = Storage.mark_sent(a.id)
+      {:ok, [_]} = letter("m1")
+
+      oldest = ask("m3", "queued all along")
+      b = ask("m2", "b's question")
+      {:ok, _} = Storage.mark_sent(b.id)
+
+      a2 = ask("m1", "a's reply")
+      {:ok, 0} = Storage.supersede_earlier(a2)
+      b2 = ask("m2", "b moved on")
+      {:ok, 1} = Storage.supersede_earlier(b2)
+
+      assert Mode.next(Storage.questions(), Mode.none()).id == b2.id
+      {:ok, _} = Storage.mark_sent(b2.id)
+      {:ok, _} = Storage.answer(b2.id, "done with b")
+      assert Mode.next(Storage.questions(), Mode.none()).id == a2.id
+      refute Mode.next(Storage.questions(), Mode.none()).id == oldest.id
+    end
+
+    test "a reply not yet typed passes its place to the mouse's newer message, or to a letter's" do
+      a = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(a.id)
+      {:ok, [_]} = letter("m1")
+      a2 = ask("m1", "reply")
+      {:ok, 0} = Storage.supersede_earlier(a2)
+
+      a3 = ask("m1", "and another")
+      {:ok, 1} = Storage.supersede_earlier(a3)
+      assert Storage.question(a3.id).goes_next
+
+      {:ok, [_]} = letter("m1")
+      a4 = ask("m1", "after a second letter")
+      {:ok, 0} = Storage.supersede_earlier(a4)
+      assert Storage.question(a4.id).goes_next
+    end
+
+    test "a question the letter retired before the owl got to it leaves the place to the reply" do
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      # Recorded by the owl, then the letter lands before its supersede runs.
+      raced = ask("m1", "recorded")
+      {:ok, [_, _]} = letter("m1")
+      {:ok, _} = Storage.supersede_earlier(raced)
+      refute Storage.question(raced.id).goes_next
+
+      reply = ask("m1", "after the letter")
+      {:ok, 0} = Storage.supersede_earlier(reply)
+      assert Storage.question(reply.id).goes_next
+    end
+
+    test "a letter to a mouse whose question was only queued gives no place" do
+      ask("m1", "queued")
+      {:ok, [_]} = letter("m1")
+
+      reply = ask("m1", "after the letter")
+      {:ok, 0} = Storage.supersede_earlier(reply)
+      refute Storage.question(reply.id).goes_next
+    end
+
+    test "a letter to a mouse with nothing out retires nothing" do
+      assert {:ok, []} = letter("m1")
+
+      reply = ask("m1", "after the letter")
+      {:ok, 0} = Storage.supersede_earlier(reply)
+      refute Storage.question(reply.id).goes_next
+    end
+
+    test "the mouse's death takes the place its next message would have had" do
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      {:ok, [_]} = letter("m1")
+      {:ok, _} = Storage.mark_dead("m1")
+
+      refute Storage.mouse("m1").reply_goes_next
+    end
+  end
+
+  describe "waiting_ids/1" do
+    test "are the mouse's own open or sent questions, never the owl's" do
+      assert Storage.waiting_ids("m1") == []
+      ask("m1", "Drop?", %{asked_by: "owl"})
+      assert Storage.waiting_ids("m1") == []
+      q = ask("m1", "which way?")
+      assert Storage.waiting_ids("m1") == [q.id]
+      {:ok, _} = Storage.answer(q.id, "left")
+      assert Storage.waiting_ids("m1") == []
     end
   end
 

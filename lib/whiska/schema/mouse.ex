@@ -69,6 +69,9 @@ defmodule Whiska.Schema.Mouse do
     # The name its kept spec, build plan, research document and report share
     # in `.whiska/specs/`, without the kind's suffix (ADR-0063).
     field(:kept_as, :string)
+    # Set when a letter superseded a question of this mouse that held the
+    # delivery slot: its next collected message goes next (ADR-0008).
+    field(:reply_goes_next, :boolean, default: false)
   end
 
   @doc """

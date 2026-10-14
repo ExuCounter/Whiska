@@ -11,6 +11,11 @@ defmodule Whiska.Send do
 
   An answer to a question is not sent here: `whiska reply` saves it against
   the question and the mouse's own hook takes it (ADR-0080).
+
+  Once the pane takes the line, the questions the mouse was waiting on are
+  superseded and the slot is free; the mouse's next message inherits it when
+  one of them held it (ADR-0008). The line then asks the mouse to say so and
+  ask again if the letter does not answer its question.
   """
 
   alias Whiska.Letters
@@ -28,10 +33,12 @@ defmodule Whiska.Send do
          {:ok, _text} <- Letters.read(file),
          {:ok, copy} <- copy(main_checkout, mouse, file) do
       busy? = busy?(via, mouse.pane)
+      waiting = Storage.waiting_ids(mouse.mouse_id)
 
-      case via.herdr.prompt(via.socket, mouse.pane, line(copy)) do
+      case via.herdr.prompt(via.socket, mouse.pane, line(copy, waiting != [])) do
         :ok ->
-          {:ok, sent(branch, busy?)}
+          {:ok, ids} = Storage.supersede_for_letter(mouse.mouse_id, waiting)
+          {:ok, sent(branch, busy?) <> retired(ids)}
 
         {:error, reason} ->
           {:error,
@@ -41,9 +48,18 @@ defmodule Whiska.Send do
     end
   end
 
-  @doc "The one line typed into the mouse's pane."
-  @spec line(Path.t()) :: String.t()
-  def line(copy), do: "The person sent you a message. Read it in full, then act on it: #{copy}"
+  @doc """
+  The one line typed into the mouse's pane; `asked?` when the mouse was waiting
+  on a question of its own, which the letter retires.
+  """
+  @spec line(Path.t(), boolean()) :: String.t()
+  def line(copy, false),
+    do: "The person sent you a message. Read it in full, then act on it: #{copy}"
+
+  def line(copy, true) do
+    line(copy, false) <>
+      " If it does not answer the question you were waiting on, say so and ask it again."
+  end
 
   defp live_mouse(branch) do
     case Enum.find(Storage.alive_mice(), &(&1.branch == branch)) do
@@ -75,4 +91,9 @@ defmodule Whiska.Send do
     do: "Sent to #{branch}. It is working, so it reads it after its current turn."
 
   defp sent(branch, false), do: "Sent to #{branch}; it reads it now."
+
+  defp retired([]), do: ""
+
+  defp retired([id]), do: " ##{id} no longer waits on you."
+  defp retired(ids), do: " " <> Enum.map_join(ids, ", ", &"##{&1}") <> " no longer wait on you."
 end

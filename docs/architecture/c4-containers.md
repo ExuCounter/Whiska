@@ -73,6 +73,7 @@ C4Container
   Rel(owl, hooksock, "Runs the same hook modules, with the hook's environment")
   Rel(shim, cli, "Execs with the payload on stdin when the owl does not answer", "JSON")
   Rel(cli, db, "reply saves the answer first; UserPromptSubmit hands it over and stamps it taken")
+  Rel(cli, db, "send supersedes what its mouse was waiting on once the pane takes the line")
   Rel(cli, flag, "reply raises it; the take lowers it")
   Rel(cli, herdr, "reply rings the mouse's doorbell - one fixed line, never the answer")
   Rel(cli, marker, "Reads, minting one on first use")

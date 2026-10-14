@@ -48,6 +48,8 @@ gone however it went.
 - **`dismiss`** (`whiska close <id>`), by hand, for a question dealt with some other way
   from a mouse that has not spoken since. It closes an orphaned question too.
 - **A hold on the branch** (ADR-0079), and the mouse's death.
+- **A letter.** `whiska send` supersedes what its mouse was waiting on once the mouse's
+  pane takes the line, below.
 
 What the person types in the main session answers no question, so a question keeps the
 slot through it; only a finished line is let go by the next prompt, below.
@@ -69,6 +71,24 @@ heir superseded before it was typed passes the slot on in turn. Away, a focus an
 are judged first, as always, so a held or unfocused mouse's heir has no priority. While the
 heir waits to be typed, the sidebar line, `whiska questions` and the inbox show the rest
 queued behind it.
+
+A letter supersedes at once. The person read the question and chose to write to the
+mouse rather than answer it, so from then on they wait on the mouse, not the other way
+round. Seen live: a `sent` question kept the slot, its sidebar line read "waiting on you"
+and every other branch's line stayed out for the whole turn the letter started, and then
+for as long as that turn's own question waited. So once the pane takes the letter's line,
+the mouse's open and sent questions are superseded, a finished line still queued
+included, and the slot is free. A line the pane refuses supersedes nothing. When one of
+them held the slot, the mouse's next collected message goes next once the slot is free,
+ahead of every other branch's question and finished line: the mouse record keeps
+`reply_goes_next` until that message spends it, whatever it says, since nothing tells
+which message answers the letter, and the message is stored with `goes_next`. It holds
+no slot, so another branch's heir goes first: ranked with the heirs, an older reply
+would be typed into the middle of the conversation about the other branch. It passes its place down as
+an heir does, and the mouse's death takes it. The line typed asks the mouse, if the
+letter does not answer its question, to say so and ask again. The cost, accepted: a pane
+that swallows the line leaves the mouse idle with nothing out, and another branch's line
+can arrive while the person waits on the reply.
 
 Seen live: the person was discussing a sent question with the main session when its mouse
 ended another turn saying only that it was still waiting. Superseding freed the slot, the
@@ -93,9 +113,9 @@ second finished line landing before the person has written anything would make a
 "land" ambiguous. The report is left `sent`; the `UserPromptSubmit` hook (ADR-0080), which
 runs in the main session too, closes it on the person's prompt. The owl raises a flag
 file, `whiska-finish` in the main checkout's `.git`, as it types the line and the hook
-lowers it, so a main session with nothing out never starts the escript. `dismiss`, a hold
-and the mouse's death free it as they free any sent question, and the mouse's next message
-takes it over.
+lowers it, so a main session with nothing out never starts the escript. `dismiss`, a hold,
+the mouse's death and a letter to it free it as they free any sent question, and the
+mouse's next message takes it over.
 
 The cost, accepted: while a decision sits unanswered a finished branch gets no line and no
 hoot, for as long as the decision does. The mouse's sidebar line, `inbox` and
@@ -133,6 +153,11 @@ explanation.
   ADR-0009 chooses against.
 - **Time out a `sent` question.** Rejected: no timeout fits both a quick yes and a decision
   the person sits on for a day.
+- **Leave a question through a letter until the mouse's next message supersedes it.**
+  Rejected, as seen live above: the slot waits on the mouse, not the person.
+- **Answer the question with the letter**, as `resume` does with its line. Rejected: an
+  answer frees the slot but hands it to nobody, so the mouse's reply would queue oldest
+  first behind other branches.
 - **Release unanswerable questions only on reconcile.** Rejected: reconcile walks mice, and
   the wedge is a question that arrived after its mouse was walked.
 - **Refuse to record a question for a dead mouse at collection.** Rejected: the house never
@@ -158,3 +183,7 @@ Folded in on 2026-10-08: 0037, 0057 (their text is in git history).
 Changed on 2026-10-14: a question the owl asks itself waits while its worktree stands,
 whether the mouse is alive or not, and closes with the worktree. It is not its mouse's:
 it neither supersedes the mouse's questions nor is superseded by them.
+
+Changed on 2026-10-14: `whiska send` supersedes the questions its mouse was waiting on
+once its pane takes the line, rather than leaving them to the mouse's next message, and
+that message goes next, behind any heir, when one of them held the slot.

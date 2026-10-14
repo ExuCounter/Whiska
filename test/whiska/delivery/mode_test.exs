@@ -105,6 +105,20 @@ defmodule Whiska.Delivery.ModeTest do
       assert %Question{id: 3} = Mode.next(questions, mode())
     end
 
+    test "a reply to a letter goes ahead of an older report and question, behind an heir" do
+      reply = %{q(2, "ma", "open") | goes_next: true}
+      questions = [q(1, "mb", "open"), q(3, "mc", "open", "done"), reply]
+      assert %Question{id: 2} = Mode.next(questions, mode())
+
+      heir = %{q(4, "md", "open") | keeps_slot: true}
+      assert %Question{id: 4} = Mode.next([heir | questions], mode())
+    end
+
+    test "a reply to a letter holds no slot" do
+      reply = %{q(2, "ma", "open") | goes_next: true}
+      assert Mode.slot([q(1, "mb", "open"), reply], mode()) == nil
+    end
+
     test "a held mouse's heir has no priority" do
       heir = %{q(2, "ma", "open") | keeps_slot: true}
 

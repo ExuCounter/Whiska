@@ -41,7 +41,9 @@ defmodule Whiska.Storage do
     {15, Whiska.Migrations.V015MergeRequest},
     {16, Whiska.Migrations.V016BuiltFrom},
     {17, Whiska.Migrations.V017KeptAs},
-    {18, Whiska.Migrations.V018MergeRequestReads}
+    {18, Whiska.Migrations.V018MergeRequestReads},
+    {19, Whiska.Migrations.V019NextKeepsSlot},
+    {20, Whiska.Migrations.V020LetterReply}
   ]
 
   @modes ~w(build sniff)
@@ -429,6 +431,10 @@ defmodule Whiska.Storage do
       mouse ->
         Repo.transaction(fn ->
           release(mouse, :mouse)
+
+          Repo.update_all(from(m in Mouse, where: m.mouse_id == ^mouse_id),
+            set: [reply_goes_next: false]
+          )
 
           mouse
           |> Ecto.Changeset.change(%{died_at: now()})
@@ -1081,28 +1087,101 @@ defmodule Whiska.Storage do
   of them held it — sent, or an heir not yet delivered — the newer question,
   if it is open, is marked `keeps_slot` and goes next, so another branch's
   question never lands in the middle of the conversation about this one.
+  Otherwise, when one of them was a reply to a letter not yet typed, or this
+  is the reply a letter left waiting for (`supersede_for_letter/2`), it is
+  marked `goes_next`.
   """
   @spec supersede_earlier(Question.t()) :: {:ok, non_neg_integer()}
   def supersede_earlier(%Question{asked_by: "owl"}), do: {:ok, 0}
 
-  def supersede_earlier(%Question{id: id, mouse_id: mouse_id, status: status}) do
-    earlier =
-      from(q in Question,
-        where:
-          q.mouse_id == ^mouse_id and q.id < ^id and q.status in ^@waiting and
-            (is_nil(q.asked_by) or q.asked_by != "owl")
+  def supersede_earlier(%Question{id: id, mouse_id: mouse_id}) do
+    earlier = from(q in mouse_waiting(mouse_id), where: q.id < ^id)
+
+    # Immediate, as a letter's: both read, then write.
+    Repo.transaction(
+      fn ->
+        # Read again: a letter may have superseded it since it was recorded.
+        if Repo.exists?(from(q in Question, where: q.id == ^id and q.status == "open")) do
+          mark_place(id, earlier, spend_reply(mouse_id))
+        end
+
+        {n, _} = Repo.update_all(earlier, set: [status: "superseded"])
+        n
+      end,
+      mode: :immediate
+    )
+  end
+
+  defp mark_place(id, earlier, replying?) do
+    cond do
+      Repo.exists?(from(q in earlier, where: q.status == "sent" or q.keeps_slot)) ->
+        Repo.update_all(from(q in Question, where: q.id == ^id), set: [keeps_slot: true])
+
+      replying? or Repo.exists?(from(q in earlier, where: q.goes_next)) ->
+        Repo.update_all(from(q in Question, where: q.id == ^id), set: [goes_next: true])
+
+      true ->
+        :ok
+    end
+  end
+
+  defp spend_reply(mouse_id) do
+    {n, _} =
+      Repo.update_all(
+        from(m in Mouse, where: m.mouse_id == ^mouse_id and m.reply_goes_next),
+        set: [reply_goes_next: false]
       )
 
-    Repo.transaction(fn ->
-      heir? = Repo.exists?(from(q in earlier, where: q.status == "sent" or q.keeps_slot))
+    n > 0
+  end
 
-      if heir? and status == "open" do
-        Repo.update_all(from(q in Question, where: q.id == ^id), set: [keeps_slot: true])
-      end
+  @doc """
+  A letter supersedes the questions its mouse was waiting on at once
+  (ADR-0008): the person read the question and chose to write to the mouse
+  instead of answering it, so the slot no longer waits on them. When one of
+  them held the slot or was going next, the mouse's next collected message
+  goes next once the slot is free, behind any heir. Only `ids` go, as read by `waiting_ids/1` before the line was
+  typed: a question collected since was never covered by the line. Returns the
+  ids superseded.
+  """
+  @spec supersede_for_letter(String.t(), [pos_integer()]) :: {:ok, [pos_integer()]}
+  def supersede_for_letter(mouse_id, ids) do
+    waiting = from(q in mouse_waiting(mouse_id), where: q.id in ^ids)
 
-      {n, _} = Repo.update_all(earlier, set: [status: "superseded"])
-      n
-    end)
+    # Immediate: the owl may write between this read and its writes.
+    Repo.transaction(
+      fn ->
+        retired = Repo.all(from(q in waiting, order_by: q.id, select: q.id))
+
+        if Repo.exists?(
+             from(q in waiting, where: q.status == "sent" or q.keeps_slot or q.goes_next)
+           ) do
+          Repo.update_all(from(m in Mouse, where: m.mouse_id == ^mouse_id),
+            set: [reply_goes_next: true]
+          )
+        end
+
+        Repo.update_all(waiting, set: [status: "superseded"])
+        retired
+      end,
+      mode: :immediate
+    )
+  end
+
+  @doc "The ids of `mouse_id`'s own questions still open or sent, oldest first."
+  @spec waiting_ids(String.t()) :: [pos_integer()]
+  def waiting_ids(mouse_id) do
+    Repo.all(from(q in mouse_waiting(mouse_id), order_by: q.id, select: q.id))
+  end
+
+  # A mouse's own questions still open or sent: the owl's question about its
+  # worktree is not its word.
+  defp mouse_waiting(mouse_id) do
+    from(q in Question,
+      where:
+        q.mouse_id == ^mouse_id and q.status in ^@waiting and
+          (is_nil(q.asked_by) or q.asked_by != "owl")
+    )
   end
 
   @doc "Mark a question as the one whose turn left a new or revised spec."

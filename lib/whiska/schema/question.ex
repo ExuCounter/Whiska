@@ -46,6 +46,9 @@ defmodule Whiska.Schema.Question do
     field(:answered_at, :utc_datetime)
     field(:spec_sent, :boolean, default: false)
     field(:keeps_slot, :boolean, default: false)
+    # A mouse's reply to a letter that superseded what held the slot: it goes
+    # next once the slot is free, and holds none (ADR-0008).
+    field(:goes_next, :boolean, default: false)
     # `owl` on a question the owl asked itself about a merge request; nil on a
     # mouse's.
     field(:asked_by, :string)

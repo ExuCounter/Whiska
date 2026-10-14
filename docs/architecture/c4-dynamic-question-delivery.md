@@ -33,7 +33,7 @@ C4Dynamic
   Rel(herdr, collection, "Reports that mouse done or idle, unless the owl that wrote the entry has already asked")
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by its worktree-status marker")
-  Rel(delivery, db, "Release what nothing can answer; then, among what the person has not set aside (away, focus, hold), and only if the slot is free: any finished line to tell, otherwise the oldest open question")
+  Rel(delivery, db, "Release what nothing can answer; then, among what the person has not set aside (away, focus, hold), and only if the slot is free: a superseded question's heir, then a letter's reply, then any finished line to tell, otherwise the oldest open question")
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
   Rel(delivery, mainpane, "Type one line only if idle, nothing half-typed and nothing sent")
   Rel(delivery, herdr, "Hoot: one desktop notification, raised in the same breath as the line")

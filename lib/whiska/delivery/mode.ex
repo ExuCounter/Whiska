@@ -128,14 +128,16 @@ defmodule Whiska.Delivery.Mode do
   What goes next, if the main session will have it, out of the house's
   waiting questions (`Whiska.Storage.questions/0`): nothing while a
   deliverable question is sent; otherwise an heir — a mouse's newer question
-  that superseded the one holding the slot, which inherits it — then the
+  that superseded the one holding the slot, which inherits it — then a
+  mouse's reply to a letter that superseded what held the slot, then the
   oldest deliverable finished report, else the oldest deliverable open
   question. A finished report waits
   for the slot, then holds it once sent until the person writes something
   (ADR-0008). Oldest
   first otherwise; newest-first was rejected (a newer question from any mouse
-  would jump ahead, and old ones could wait forever). Only an heir goes out of
-  turn, and only the one mouse's whose question held the slot.
+  would jump ahead, and old ones could wait forever). Only an heir and a
+  letter's reply go out of turn, and an heir first: it holds the slot, which
+  the letter freed.
   """
   @spec next([Question.t()], t()) :: Question.t() | nil
   def next(questions, mode) do
@@ -145,6 +147,7 @@ defmodule Whiska.Delivery.Mode do
     cond do
       Enum.any?(deliverable, &(&1.status == "sent")) -> nil
       heir = Enum.find(open, & &1.keeps_slot) -> heir
+      reply = Enum.find(open, & &1.goes_next) -> reply
       report = Enum.find(open, &(&1.kind == "done")) -> report
       true -> List.first(open)
     end
