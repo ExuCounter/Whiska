@@ -20,7 +20,7 @@ defmodule Whiska.DenyList do
   @filename ".whiska-settings.json"
 
   @persons ~w(away hold focus resume reply dismiss close)
-  @main_sessions ~w(spawn send land pr drop)
+  @main_sessions ~w(spawn send land pr merge-request drop)
   @file_tools ~w(Edit Write NotebookEdit)
 
   @spec filename() :: String.t()
@@ -31,9 +31,9 @@ defmodule Whiska.DenyList do
 
   @doc """
   The deny rules for a mouse in `mode`. The person's commands are denied as
-  `whiska <word>`, and the one-word ones bare too; `spawn`, `send`, `land`, `pr`
-  and `drop` only with `whiska` in front, since `pr` and `send` are other
-  programs too. A trailing ` *` also matches the bare command.
+  `whiska <word>`, and the one-word ones bare too; `spawn`, `send`, `land`, `pr`,
+  `merge-request` and `drop` only with `whiska` in front, since `pr` and `send`
+  are other programs too. A trailing ` *` also matches the bare command.
   """
   @spec rules(String.t()) :: [String.t()]
   def rules("sniff"), do: persons() ++ @file_tools

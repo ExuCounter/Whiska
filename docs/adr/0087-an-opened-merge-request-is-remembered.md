@@ -20,7 +20,8 @@ pane and branch stayed until the person pulled.
 
 **The request is recorded, not inferred.** The mouse record gains `merge_request_at` and
 `merge_request_url`, stamped by `whiska pr` once `gh` or `glab` printed the link, or by
-`whiska merge-request` for one opened by hand. A second record replaces the first: a new
+`whiska merge-request` for one opened by hand, a command that is the person's and never a
+mouse's (ADR-0079). A second record replaces the first: a new
 request after a closed one. Only a plain `https://` link with a host is taken, with no
 space, quote, bracket or control character in it: it is printed under the branch line,
 where the main session reads it and hands it to the person. A merge request opened any

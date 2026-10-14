@@ -68,11 +68,11 @@ in words, and its brief names the command each runs (ADR-0088).
 
 **The person's commands are refused to a mouse.** Every shaped mouse starts with a deny
 rule for each: `away`, `hold`, `focus`, `resume`, `reply`, `dismiss` and `close`, with
-`whiska` in front or bare, and `whiska spawn`, `send`, `land`, `pr` and `drop`, only with
-`whiska` in front since `pr` and `send` are other programs too. Prose in a brief would be
-the only other thing stopping a mouse from putting the machine away, holding a sibling, or
-starting, landing or throwing away a branch; what must hold is a rule Claude Code enforces
-(ADR-0011, ADR-0090). A plain rule matches the command as
+`whiska` in front or bare, and `whiska spawn`, `send`, `land`, `pr`, `merge-request` and
+`drop`, only with `whiska` in front since `pr` and `send` are other programs too. Prose in
+a brief would be the only other thing stopping a mouse from putting the machine away,
+holding a sibling, or starting, landing or throwing away a branch; what must hold is a
+rule Claude Code enforces (ADR-0011, ADR-0090). A plain rule matches the command as
 written, so `env`, a full path or `bash -c` gets round it. Reading commands (`inbox`,
 `show`, `questions`, `waiting`, `mice`, `ledger`) are anyone's.
 
@@ -131,3 +131,7 @@ Changed on 2026-10-13: the one-word commands have no slash commands, and `spawn`
 
 Changed on 2026-10-14: the person's commands are deny rules a mouse starts with, not a
 rule in the hook (ADR-0090).
+
+Changed on 2026-10-14: `merge-request` is the person's too. The owl reads the link it
+records every minute and asks about the branch when it closes (ADR-0060), so recording one,
+for any branch, is the person's to do, as opening one with `pr` already was.

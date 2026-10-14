@@ -490,11 +490,12 @@ gated (the gate's), on ice
 **Person's command**:
 A `whiska` command only the person runs, never a mouse: `away`, `hold`, `focus`,
 `resume`, `reply`, `dismiss` and `close` — the ones that set or end what reaches them,
-which mouse stops, and what a mouse is told — and `spawn`, `send`, `land`, `pr` and
-`drop`, which start, steer, ship or throw away a branch. The main session runs them on
-the person's word. Every shaped mouse's **deny list** refuses each, `whiska` in
-front or bare, as a plain rule that `env` or a full path gets round (ADR-0079); a mouse
-that needs one says so in its report. The reading commands — `inbox`, `show`, `questions`, `waiting`, `mice`, `ledger` — are
+which mouse stops, and what a mouse is told — and `spawn`, `send`, `land`, `pr`,
+`merge-request` and `drop`, which start, steer, ship, point Whiska at or throw away a
+branch. The main session runs them on the person's word. Every shaped mouse's **deny
+list** refuses each, `whiska` in front or bare, as a plain rule that `env` or a full path
+gets round (ADR-0079); a mouse that needs one says so in its report. The reading
+commands — `inbox`, `show`, `questions`, `waiting`, `mice`, `ledger` — are
 anyone's.
 _Avoid_: admin command, privileged command (there is no privilege, only whose decision it
 is), main-session command (the person may run one from any terminal)

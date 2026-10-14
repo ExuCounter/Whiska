@@ -7,8 +7,8 @@ git ignores it, and rewrites it on every shape. It holds:
 
 - **For every mouse, the person's commands** (ADR-0079): `away`, `hold`, `focus`,
   `resume`, `reply`, `dismiss` and `close`, with `whiska` in front or bare, and
-  `whiska spawn`, `send`, `land`, `pr` and `drop`, only with `whiska` in front since `pr`
-  and `send` are other programs too. Each is a plain rule, `Bash(whiska hold *)`, which
+  `whiska spawn`, `send`, `land`, `pr`, `merge-request` and `drop`, only with `whiska` in
+  front since `pr` and `send` are other programs too. Each is a plain rule, `Bash(whiska hold *)`, which
   also matches a bare `whiska hold`. Reading commands (`inbox`, `show`, `questions`,
   `waiting`, `mice`, `ledger`) are anyone's.
 - **For a sniff mouse, also `Edit`, `Write` and `NotebookEdit`** by bare name, which takes
