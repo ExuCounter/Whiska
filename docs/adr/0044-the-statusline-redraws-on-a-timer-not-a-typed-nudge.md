@@ -6,14 +6,19 @@ in Whiska types into any other session but a mouse, into its own pane, about its
 - a pickup of its dead turn, once (ADR-0067);
 - the doorbell for an answer it has not taken, at most three times, only into an idle pane
   with an empty prompt box, never a held mouse's (ADR-0080);
-- on `whiska spawn`, once Claude has started there, "Start on the task in your Whiska
-  brief.";
+- on `whiska spawn`, once Claude has started there, the task the person gave it, as its
+  first prompt;
 - on `whiska send`, one fixed line pointing at the file the person's words were copied to
-  in the mouse's worktree.
+  in the mouse's worktree;
+- on `whiska resume`, its one fixed carry-on line (ADR-0080).
 
-The last two run on the person's word, from the main session, and type fixed text: never
-anything the person, a mouse or a forge wrote, which travels in the brief or in a file
-(ADR-0088). No other exception.
+Spawn and send run on the person's word, from the main session. A send types fixed text; a
+spawn types the text of the file the main session wrote the person's task to, after a
+fixed `Your task:` line, refused if it is not UTF-8 text or holds a control character but
+tab or a line break (ADR-0088). Whiska types nothing a mouse or a forge wrote: a task
+built from a finished investigation is fixed text naming its question, and comments
+travel in a file. What the main session writes into a task file is the person's to
+check. No other exception.
 
 ## Why
 
@@ -60,3 +65,6 @@ Folded in on 2026-10-08: 0041 (its text is in git history).
 
 Changed on 2026-10-13: `whiska spawn` and `whiska send` type one fixed line into a mouse's
 pane, where the main session typed through herdr before (ADR-0088).
+
+Changed on 2026-10-14: `whiska spawn` types the mouse's task as its first prompt, where it
+typed a fixed line pointing at the brief (ADR-0088).

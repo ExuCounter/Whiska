@@ -2,8 +2,8 @@ defmodule Whiska.Brief do
   @moduledoc """
   A session's brief: everything Whiska tells it, in one file Claude Code is
   started with (`--append-system-prompt-file`). The main session's is
-  `priv/briefs/main.md`; a mouse's is its mode's, `build.md` or `sniff.md`, with
-  its task where `{{task}}` stands.
+  `priv/briefs/main.md`; a mouse's is its mode's, `build.md` or `sniff.md`. A
+  mouse's task is not in it: the task is the session's first message.
 
   A mouse's brief is written to `.whiska-brief.md` at its worktree root, which
   git ignores like the spec (`Whiska.Spec`). The main session's is written into
@@ -20,7 +20,6 @@ defmodule Whiska.Brief do
   @briefs Map.new(@paths, fn {name, path} -> {name, File.read!(path)} end)
 
   @filename ".whiska-brief.md"
-  @no_task "The person gives you your task in their first message."
 
   @spec filename() :: String.t()
   def filename, do: @filename
@@ -28,14 +27,10 @@ defmodule Whiska.Brief do
   @spec exclude_line() :: String.t()
   def exclude_line, do: "/" <> @filename
 
-  @doc "The main session's brief."
-  @spec render(:main) :: String.t()
+  @doc "The main session's brief, or a mouse's for its mode."
+  @spec render(:main | String.t()) :: String.t()
   def render(:main), do: @briefs["main"]
-
-  @doc "A mouse's brief for `mode`, with `task` in place."
-  @spec render(String.t(), String.t() | nil) :: String.t()
-  def render(mode, task) when mode in ["build", "sniff"],
-    do: String.replace(@briefs[mode], "{{task}}", String.trim(task || @no_task))
+  def render(mode) when mode in ["build", "sniff"], do: @briefs[mode]
 
   @doc "The flags that start Claude Code with the brief at `path`."
   @spec claude_args(Path.t()) :: [String.t()]
@@ -46,9 +41,8 @@ defmodule Whiska.Brief do
   failing is said, as for the spec, and the brief is written all the same.
   Anything but a plain file at the path is refused.
   """
-  @spec write(Path.t(), Path.t(), String.t(), String.t() | nil) ::
-          {:ok, [String.t()]} | {:error, term()}
-  def write(main_checkout, worktree, mode, task) do
+  @spec write(Path.t(), Path.t(), String.t()) :: {:ok, [String.t()]} | {:error, term()}
+  def write(main_checkout, worktree, mode) do
     said =
       case Whiska.Spec.ignore(main_checkout, exclude_line()) do
         :ok ->
@@ -61,7 +55,7 @@ defmodule Whiska.Brief do
     path = Path.join(worktree, @filename)
 
     with :ok <- plain_or_absent(path),
-         :ok <- File.write(path, render(mode, task)),
+         :ok <- File.write(path, render(mode)),
          do: {:ok, said}
   end
 

@@ -5,7 +5,7 @@ The person reads your final message later, cold, from another terminal. Be conci
 
 ## The task
 
-{{task}}
+Your task is this session's first message.
 
 ## Grilling
 
@@ -39,7 +39,7 @@ Before any spec, read the code, then grill the person until you share one unders
 - **From a mouse's "What to change"**: read its research document and any comments on
   it. Its findings are fact; still grill its open choices and the design.
 - `.whiska-*` files are git-ignored: never commit or delete them. After a compaction,
-  reread them and `git status`.
+  reread the spec, plan and research document, and `git status`.
 
 ## Spec and plan
 

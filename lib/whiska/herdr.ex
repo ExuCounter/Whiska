@@ -103,7 +103,7 @@ defmodule Whiska.Herdr do
 
   @doc """
   Type `text` into the agent in a pane and submit it — how a question reaches
-  the main session and how an answer reaches a mouse (ADR-0020). herdr refuses
+  the main session and a spawned mouse its task (ADR-0020). herdr refuses
   when the agent sits at a dialog (`agent_blocked`) or when there is no agent
   (`agent_not_found`); the error carries herdr's own code.
   """

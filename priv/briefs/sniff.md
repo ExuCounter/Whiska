@@ -6,7 +6,7 @@ cold, from another terminal. Be concise.
 
 ## The question
 
-{{task}}
+Your task is this session's first message.
 
 ## The work
 

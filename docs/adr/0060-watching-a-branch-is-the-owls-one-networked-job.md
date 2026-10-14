@@ -182,7 +182,7 @@ forge CLI is sitting right there.
 
 Delivery types into one place only — the main session of the question's own house — and
 ADR-0044 lets Whiska type into a mouse's pane only about the mouse's own work, on a short
-list: a pickup, a doorbell, and the fixed line of a spawn or a send. A red build the owl
+list: a pickup, a doorbell, a spawn's task and a send's fixed line. A red build the owl
 found is on none of them.
 
 That rule was written against a nudge into a *person's* session, where the cost was a turn

@@ -5,7 +5,7 @@ starts. `whiska spawn` shapes it after herdr creates the worktree and before Cla
 there (ADR-0088); `whiska shape build|sniff [--model <name>]
 [--effort <level>]`, run inside a worktree, does the same for a mouse started by hand.
 Either mints the marker and the mouse record there and then, records the shape and
-`shaped_at`, writes the mouse's brief — its mode's, with its task in it — to
+`shaped_at`, writes the mouse's brief — its mode's — to
 `.whiska-brief.md` and its mode's deny list to `.whiska-settings.json` at the worktree
 root, both of which git ignores, and gives the flags to start Claude with,
 `--dangerously-skip-permissions --settings .whiska-settings.json

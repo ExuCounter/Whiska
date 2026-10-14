@@ -7,8 +7,8 @@ started with it: `claude --append-system-prompt-file <brief>`. Three briefs ship
 | Session | Brief | Written to | Put on the launch line by |
 | --- | --- | --- | --- |
 | Main session | `main.md` | `main.md` in the house, beside its database | `whiska start` (ADR-0066) |
-| Build mouse | `build.md`, its task where `{{task}}` stands | `.whiska-brief.md` at the worktree root | `whiska spawn`, or `whiska shape`'s flags |
-| Sniff mouse | `sniff.md`, the same way | the same | the same |
+| Build mouse | `build.md` | `.whiska-brief.md` at the worktree root | `whiska spawn`, or `whiska shape`'s flags |
+| Sniff mouse | `sniff.md` | the same | the same |
 
 Nothing else carries Whiska's words into a session: no `SessionStart` hook, no skills, no
 block in a `CLAUDE.md`, no `keep`. What `whiska init` installs is the shim and three hooks
@@ -28,7 +28,7 @@ A procedure a session followed from prose is a command with fixed steps:
 
 | Command | Does |
 | --- | --- |
-| `whiska spawn build\|sniff <branch> <task-file>` | herdr makes the worktree, the mouse is recorded and shaped (ADR-0069), its brief written with the task in it, Whiska's hooks carried where the repo never committed them, Claude started with the flags, then one fixed line typed |
+| `whiska spawn build\|sniff <branch> <task-file>` | herdr makes the worktree, the mouse is recorded and shaped (ADR-0069), its brief written, Whiska's hooks carried where the repo never committed them, Claude started with the flags, then the task typed as its first prompt |
 | `whiska spawn build <branch> --from <id> [--comments <file>]` | the same, its task fixed text naming the finished question whose What to change it builds (ADR-0074) |
 | `whiska send <branch> <file>` | the file copied into the mouse's worktree, and one fixed line pointing at it typed into its pane |
 | `whiska land <id> [--commit <file>]` | the branch's own commits copied onto the main checkout's branch, oldest first, then the repo's `checks:` |
@@ -81,8 +81,11 @@ request, about 170 lines of a skill's side file. No test reached a step of prose
 
 `--append-system-prompt-file` puts the brief in the system prompt, which Claude Code
 sends on every request and keeps across `/clear`, a resume and compaction, so a session
-never needs telling again. A mouse's task inside its brief is the first prompt it never
-had: before, it got rules from a hook and its task as a line typed after.
+never needs telling again. A mouse's task is not Whiska's words but the person's, so it
+is not in the brief: it is the mouse's first prompt, typed once Claude is up. A brief that
+held the task, with "Start on the task in your Whiska brief." typed after it, read as a
+pointer to a file: mice ran `cat .whiska-brief.md` for what their system prompt already
+held.
 
 ## Considered options
 
@@ -90,8 +93,15 @@ had: before, it got rules from a hook and its task as a line typed after.
   sources again, and the hand-started session is the one case the person can see: instead
   `whiska start` inside a session started without the brief says to restart it through
   `whiska start`, and `whiska doctor` warns of a main session running without it.
-- **Pass the task as Claude's first positional prompt**, as First Mate does. The task
-  would be a user turn, gone at `/clear`; inside the brief it stays.
+- **The task inside the brief**, which keeps it across `/clear` and compaction word for
+  word. It was built first, and needs a line typed to start on it; the line sent mice
+  back to the file. A mouse is rarely cleared, and a build mouse's spec carries the task
+  by its first compaction.
+- **The whole brief as the first prompt.** A rule in a user turn is summarised at
+  compaction and gone at `/clear`, and the end-of-turn markers must hold on every turn.
+- **The task as Claude's positional prompt on the launch line**, as First Mate does.
+  herdr types that line at a shell prompt, so a task of several lines would rest on its
+  quoting; herdr's `agent.prompt` sends a bracketed paste while Claude Code takes one.
 - **Keep a few skills** — the cold review, merge-request comments — as forked jobs. Each
   is a few lines of the build brief, and a skill is one more file in every session's list.
 - **Inline `--append-system-prompt <text>`.** A brief of forty lines on a command line
@@ -111,9 +121,20 @@ had: before, it got rules from a hook and its task as a line typed after.
   left for the person.
 - The hook socket's protocol loses `--global` and the `session-start` hook, and the shim
   its branches for them (ADR-0033, ADR-0035).
-- Whiska types into a mouse's pane when the person spawns it or sends it something: one
-  fixed line each, never text anybody wrote (ADR-0044).
+- Whiska types into a mouse's pane when the person spawns it, its task, and when they
+  send it something, one fixed line (ADR-0044). The task follows a line `Your task:`
+  and a blank one, so it never opens the prompt: Claude Code runs a prompt opening with
+  `!` as a shell command, outside every hook, and one opening with `/` as a slash
+  command. Its carriage returns become newlines. A task file that is not UTF-8 text, or
+  holds a control character but tab or a line break, is refused before anything is
+  created: such a character could end herdr's paste early and reach Claude Code as
+  keystrokes.
+- A mouse cleared with `/clear` no longer knows its task; after a compaction it has the
+  summary's version of it.
 - Changing what a session is told is editing one file. Tests pin that each brief renders
-  whole, its task in place and the marker's bytes present, and never its sentences.
+  whole and the marker's bytes present.
 
 Supersedes ADR-0081 and ADR-0022.
+
+Changed on 2026-10-14: a mouse's task is its first prompt, typed by `whiska spawn`, where
+it was written into the brief and a fixed line typed to start on it.

@@ -98,10 +98,9 @@ defmodule Whiska.SpawnTest do
 
     brief = File.read!(Path.join([ctx.repo.checkout, "worktrees/feat/csv-sort/.whiska-brief.md"]))
     assert brief =~ "# Whiska: build mouse"
-    assert brief =~ "sortable by date"
+    refute brief =~ "sortable by date"
 
-    assert_received {:prompt, prompt}
-    refute prompt =~ "sortable by date"
+    assert_received {:prompt, "Your task:\n\nMake the CSV page sortable by date."}
 
     mouse = mouse_on(ctx.repo, "feat/csv-sort")
     assert %{mode: "build", model: "opus", pane: "w9:p1", base: "main"} = mouse
@@ -185,6 +184,64 @@ defmodule Whiska.SpawnTest do
     end
   end
 
+  test "a task holding a control character is refused before herdr is asked", ctx do
+    for bad <- ["\e[201~", "\x7F", "\u009B", "\v", "\f", <<0>>] do
+      File.write!(ctx.task, "Sort it.#{bad}!touch pwned")
+
+      assert {1, _out, err} = spawn_mouse(["build", "feat/csv-sort", ctx.task], ctx.repo)
+      assert err =~ "#{ctx.task} holds a control character", inspect(bad)
+    end
+  end
+
+  test "a task that is not UTF-8 text is refused before herdr is asked", ctx do
+    File.write!(ctx.task, <<"Sort it ", 0xFF, 0xFE>>)
+
+    assert {1, _out, err} = spawn_mouse(["build", "feat/csv-sort", ctx.task], ctx.repo)
+    assert err =~ "#{ctx.task} is not UTF-8 text"
+  end
+
+  defp typed(ctx) do
+    herdr_creates(ctx.repo, "feat/csv-sort")
+    expect(Herdr, :start_agent, fn @socket, "w9:p1", _name, args -> {:ok, args} end)
+
+    expect(Herdr, :prompt, fn @socket, "w9:p1", text ->
+      send(self(), {:prompt, text})
+      :ok
+    end)
+
+    assert {0, _out, _err} = spawn_mouse(["build", "feat/csv-sort", ctx.task], ctx.repo)
+    assert_received {:prompt, prompt}
+    prompt
+  end
+
+  test "a task with tabs, Windows line endings and any language is typed with plain newlines",
+       ctx do
+    File.write!(ctx.task, "Sort it:\r\n\t- за датою ✓\r- then by name\r\n")
+    assert typed(ctx) == "Your task:\n\nSort it:\n\t- за датою ✓\n- then by name"
+  end
+
+  test "a task starting with ! or / never starts the prompt", ctx do
+    File.write!(ctx.task, "!important: /api returns 500\n")
+    assert typed(ctx) == "Your task:\n\n!important: /api returns 500"
+  end
+
+  test "a task herdr did not confirm typing says so, and how to hand it over",
+       ctx do
+    herdr_creates(ctx.repo, "feat/csv-sort")
+    expect(Herdr, :start_agent, fn @socket, "w9:p1", _name, args -> {:ok, args} end)
+
+    expect(Herdr, :prompt, fn @socket, "w9:p1", _text ->
+      {:error, {:herdr, %{"code" => "agent_blocked", "message" => "waiting at a dialog"}}}
+    end)
+
+    assert {1, _out, err} = spawn_mouse(["build", "feat/csv-sort", ctx.task], ctx.repo)
+    assert err =~ "could not hand it its task"
+    assert err =~ "If its pane does not show the task"
+    assert err =~ "whiska send feat/csv-sort #{ctx.task}"
+    assert err =~ "once anything Claude shows there is answered"
+    assert err =~ "agent_blocked"
+  end
+
   test "a branch name outside a-z, 0-9, - and / is refused before herdr is asked", ctx do
     assert {1, _out, err} = spawn_mouse(["build", "Feat/CSV", ctx.task], ctx.repo)
     assert err =~ "Feat/CSV"
@@ -217,15 +274,15 @@ defmodule Whiska.SpawnTest do
 
     worktree = Path.join(ctx.repo.checkout, "worktrees/feat/from-research")
     brief = File.read!(Path.join(worktree, ".whiska-brief.md"))
-    assert brief =~ "whiska show #{id}"
-    refute brief =~ "Keep the old flag"
-    refute brief =~ "do the thing"
+    refute brief =~ "whiska show #{id}"
 
     [copied] = Path.wildcard(Path.join(worktree, ".whiska-letters/*"))
-    assert brief =~ copied
     assert File.read!(copied) =~ "Keep the old flag"
 
     assert_received {:prompt, prompt}
+    assert String.starts_with?(prompt, "Your task:\n\nBuild what question ##{id} proposes")
+    assert prompt =~ "whiska show #{id}"
+    assert prompt =~ copied
     refute prompt =~ "Keep the old flag"
     refute prompt =~ "do the thing"
   end

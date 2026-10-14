@@ -38,8 +38,8 @@ _Avoid_: remote base, upstream (git's word for what a branch pushes to and pulls
 Everything Whiska tells a session, in one file Claude Code is started with
 (`--append-system-prompt-file`), so it sits in the system prompt for the whole session.
 The main session's is `main.md`, written into the house by `whiska start`; a mouse's is
-its mode's, `build.md` or `sniff.md`, with its **task** in it, written by `whiska shape`
-to `.whiska-brief.md` at the worktree root, which git ignores. Nothing else carries
+its mode's, `build.md` or `sniff.md`, written by `whiska shape` to `.whiska-brief.md` at
+the worktree root, which git ignores; its **task** is not in it. Nothing else carries
 Whiska's words into a session: no start-up hook, no skill, nothing in a `CLAUDE.md`
 (ADR-0088).
 _Avoid_: rules, skill, system prompt (Claude Code's own, which a brief is appended to),
@@ -48,14 +48,14 @@ instructions
 **Task**:
 What a mouse is given to build or find out — the person's own words, written to a file and
 handed over by `whiska spawn` or `whiska send`, or a **proposal** the person said to
-build, handed over by its question id alone (`whiska spawn --from`). It sits in the
-mouse's **brief**. A task is **buildable** once its **spec** and **build plan** have the
-person's ok, or for a bug its **research document** and build plan, and before that no
-**costly choice** in it may be left open, "done" and the failing test that proves it
-included; an open one gets grilled, after the mouse has read the code and before it writes
-any (ADR-0063). One of the four tasks that skip the spec is buildable as it stands: its
-words are its spec.
-_Avoid_: brief (the file it sits in), ticket
+build, handed over by its question id alone (`whiska spawn --from`). `whiska spawn` types
+it as the mouse's first prompt; `whiska send` hands one to a mouse at work as a file. A
+task is **buildable** once its **spec** and **build plan** have the person's ok, or for a
+bug its **research document** and build plan, and before that no **costly choice** in it
+may be left open, "done" and the failing test that proves it included; an open one gets
+grilled, after the mouse has read the code and before it writes any (ADR-0063). One of
+the four tasks that skip the spec is buildable as it stands: its words are its spec.
+_Avoid_: brief (the rules the mouse starts with), ticket
 
 **Grilling**:
 The rounds of questions a mouse asks before building a task that is not yet buildable:
@@ -370,8 +370,9 @@ each line counting how many more finished are behind it (ADR-0008).
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska show <id>`, which the main session's **brief** has it run when the line lands.
 Delivery only ever types into the main session of the question's own house (ADR-0044);
-the only other lines Whiska types go into a mouse's own pane — a **pickup** and a
-**doorbell**. Every delivery raises a **hoot**.
+the only other text Whiska types goes into a mouse's own pane — a **pickup**, a
+**doorbell**, its **task** on `whiska spawn`, and one fixed line each on `whiska send` and
+`whiska resume`. Every delivery raises a **hoot**.
 _Avoid_: notify, ping, relay (the old bash mechanism), push
 
 **Doorbell**:

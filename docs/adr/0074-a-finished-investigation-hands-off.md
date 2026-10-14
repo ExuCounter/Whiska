@@ -25,7 +25,7 @@ rules in `priv/models.json` price lowest. One mode per mouse removes the flip.
   (ADR-0088).
 - **The person asks for the build.** The main session shows the report with `whiska show`
   and stops. "Build it" is the person's to say, in their words; nothing is offered.
-- **The spawn is fixed text.** `whiska spawn build <branch> --from <id>` writes the new
+- **The spawn is fixed text.** `whiska spawn build <branch> --from <id>` types the new
   mouse's task as a fixed line naming the question: in the research document
   `whiska show <id>` links, its Build line is the task, Found is fact, Open is what to
   grill. The main session picks the branch, mode, model and effort, judged
@@ -87,8 +87,9 @@ in the build brief, which a bug fix is approved from before any code (ADR-0063).
   which a mouse wrote, so the main session writes it to a file outside both checkouts.
   For the build, `--comments <file>` copies it into the new worktree and the task names
   the copy; for the investigating mouse, `whiska send <branch> <file>` does the same, and
-  the mouse rechecks and sends its research document again, whole. Nothing a person
-  or a mouse wrote is typed into a pane, where a newline can send half (ADR-0080).
+  the mouse rechecks and sends its research document again, whole. Nothing a mouse
+  wrote is typed into a pane, and the review quotes one, so it travels as a file
+  (ADR-0044).
 
 ## Considered options
 
@@ -137,3 +138,6 @@ not per question, so an earlier question's link opens the latest round (ADR-0063
 Changed on 2026-10-14: `whiska mode` gives no mode, since a mode is a launch flag
 (ADR-0090), and `whiska shape` refuses another mode for a
 shaped mouse.
+
+Changed on 2026-10-14: the spawn types the task as the mouse's first prompt, and the
+comments travel as a file because a mouse wrote what they quote (ADR-0088, ADR-0044).

@@ -48,8 +48,11 @@ written into `CLAUDE.md`, and no skill is installed.
 | Session | Brief | Where it is written |
 | --- | --- | --- |
 | Main session | `priv/briefs/main.md` | `.git/whiska/main.md`, by `whiska start`, which starts Claude with it |
-| Build mouse | `priv/briefs/build.md`, the task in place | `.whiska-brief.md` at the worktree root, by `whiska spawn` or `whiska shape`; git ignores it |
-| Sniff mouse | `priv/briefs/sniff.md`, the same way | the same |
+| Build mouse | `priv/briefs/build.md` | `.whiska-brief.md` at the worktree root, by `whiska spawn` or `whiska shape`; git ignores it |
+| Sniff mouse | `priv/briefs/sniff.md` | the same |
+
+A mouse's task is not in its brief: `whiska spawn` types it as the mouse's first prompt,
+so a mouse cleared with `/clear` no longer has it.
 
 The brief sits in the session's system prompt, so `/clear` and `/compact` keep it. A Claude
 you start by hand gets none: `whiska start` in such a session says to restart it, and

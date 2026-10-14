@@ -228,7 +228,7 @@ defmodule Whiska.CLITest do
 
       brief = File.read!(Path.join(worktree, ".whiska-brief.md"))
       assert brief =~ "# Whiska: sniff mouse"
-      refute brief =~ "{{task}}"
+      assert brief =~ "this session's first message"
 
       lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
       assert Whiska.Brief.exclude_line() in lines

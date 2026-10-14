@@ -4,10 +4,10 @@ defmodule Whiska.BriefTest do
   alias Whiska.Brief
   alias Whiska.Question.Marker
 
-  test "each brief renders whole: a mouse's carries its task and the finished marker" do
+  test "each brief renders whole: a mouse's points at its first message and carries the finished marker" do
     for mode <- ["build", "sniff"] do
-      text = Brief.render(mode, "Make the CSV page sortable by date.")
-      assert text =~ "Make the CSV page sortable by date.", mode
+      text = Brief.render(mode)
+      assert text |> String.replace(~r/\s+/, " ") =~ "this session's first message", mode
       refute text =~ "{{", mode
       assert text =~ Marker.render(:done), mode
     end
@@ -16,12 +16,12 @@ defmodule Whiska.BriefTest do
   end
 
   test "a build mouse's plan shows signatures, data and the first failing test as code" do
-    assert "build" |> Brief.render("task") |> String.replace(~r/\s+/, " ") =~
+    assert "build" |> Brief.render() |> String.replace(~r/\s+/, " ") =~
              "signatures, data shapes and the first failing test as code blocks"
   end
 
   test "a build mouse's spec and plan say each fact once" do
-    build = "build" |> Brief.render("task") |> String.replace(~r/\s+/, " ")
+    build = "build" |> Brief.render() |> String.replace(~r/\s+/, " ")
     assert build =~ "Each fact appears once across the spec, plan and research document"
     assert build =~ "only choices you made yourself"
     assert build =~ "each limit the task or the person's answers set"
@@ -30,7 +30,7 @@ defmodule Whiska.BriefTest do
   end
 
   test "a sniff mouse's research document says each fact once, in about two screens" do
-    sniff = "sniff" |> Brief.render("task") |> String.replace(~r/\s+/, " ")
+    sniff = "sniff" |> Brief.render() |> String.replace(~r/\s+/, " ")
     assert sniff =~ "## Research document"
     assert sniff =~ "Each fact appears once"
     assert sniff =~ "About two screens."
@@ -40,14 +40,14 @@ defmodule Whiska.BriefTest do
 
   test "a mouse's documents keep each link on one line and use lists, not tables" do
     for mode <- ["build", "sniff"] do
-      text = mode |> Brief.render("task") |> String.replace(~r/\s+/, " ")
+      text = mode |> Brief.render() |> String.replace(~r/\s+/, " ")
       assert text =~ "Never wrap a markdown link across lines", mode
       assert text =~ "no tables", mode
     end
   end
 
   test "a build mouse writes each point as a paragraph and ends on what to review" do
-    build = "build" |> Brief.render("task") |> String.replace(~r/\s+/, " ")
+    build = "build" |> Brief.render() |> String.replace(~r/\s+/, " ")
     assert build =~ "Each point is one short paragraph: no bullets, no sub-lists."
     assert build =~ "The question line names what to review or decide"
   end
@@ -78,7 +78,7 @@ defmodule Whiska.BriefTest do
     assert main =~ "one after another"
   end
 
-  test "write/4 refuses a link at the path, and writes nothing through it" do
+  test "write/3 refuses a link at the path, and writes nothing through it" do
     root = Path.join(System.tmp_dir!(), "whiska-brief-#{System.unique_integer([:positive])}")
     on_exit(fn -> File.rm_rf!(root) end)
     main = Path.join(root, "main")
@@ -89,7 +89,7 @@ defmodule Whiska.BriefTest do
     File.write!(target, "the person's own instructions")
     File.ln_s!(target, Path.join(worktree, ".whiska-brief.md"))
 
-    assert {:error, :not_a_plain_file} = Brief.write(main, worktree, "build", "A task.")
+    assert {:error, :not_a_plain_file} = Brief.write(main, worktree, "build")
     assert File.read!(target) == "the person's own instructions"
   end
 end

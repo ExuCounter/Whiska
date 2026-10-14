@@ -8,7 +8,8 @@ defmodule Whiska.Spawn do
   mouse is recorded and shaped before Claude exists (ADR-0069), so it starts
   with its mode's deny list; Whiska's hooks are carried into a
   worktree whose repo never committed them; then Claude starts in the
-  worktree's pane with the shape's flags and is handed its task.
+  worktree's pane with the shape's flags and the brief, and its task is typed
+  there as its first prompt.
 
   `--from <id>` builds what a finished investigation proposed (ADR-0074). Its
   task is fixed text naming the question, so nothing a mouse wrote reaches the
@@ -17,7 +18,7 @@ defmodule Whiska.Spawn do
 
   Everything that can be refused is refused before herdr is asked: a branch
   name outside `a-z`, `0-9`, `-` and `/`, longer than herdr's 32-character
-  agent name, or already taken, and a task that cannot be read.
+  agent name, or already taken, and a task that cannot be read or typed.
   """
 
   alias Whiska.Brief
@@ -31,7 +32,10 @@ defmodule Whiska.Spawn do
   alias Whiska.Shape
   alias Whiska.Storage
 
-  @kickoff "Start on the task in your Whiska brief."
+  # Claude Code reads a prompt that opens with `!` as a shell command, run
+  # outside every hook, and one that opens with `/` as a slash command: no
+  # task opens the prompt.
+  @lead_in "Your task:\n\n"
 
   @branch ~r/\A[a-z][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*\z/
   @longest 32
@@ -132,13 +136,35 @@ defmodule Whiska.Spawn do
   end
 
   defp read_task({:file, file}) do
-    with {:ok, text} <- Letters.read(file), do: {:ok, {:words, text}}
+    with {:ok, text} <- Letters.read(file),
+         :ok <- typeable(text, file),
+         do: {:ok, {:words, text}}
   end
 
   defp read_task({:from, id, comments}) do
     with {:ok, question} <- question(id),
          {:ok, _} <- comments_readable(comments) do
       {:ok, {:from, question.id, comments}}
+    end
+  end
+
+  # herdr types the task as a bracketed paste while Claude Code takes one,
+  # which a control character could end early, reaching Claude Code as
+  # keystrokes rather than text.
+  @untypeable ~r/[\x{0}-\x{8}\x{B}\x{C}\x{E}-\x{1F}\x{7F}-\x{9F}]/u
+
+  defp typeable(text, file) do
+    cond do
+      not String.valid?(text) ->
+        {:error, "#{file} is not UTF-8 text."}
+
+      Regex.match?(@untypeable, text) ->
+        {:error,
+         "#{file} holds a control character, which would reach the mouse as keystrokes; " <>
+           "only tabs and line breaks can be typed."}
+
+      true ->
+        :ok
     end
   end
 
@@ -175,17 +201,32 @@ defmodule Whiska.Spawn do
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
          {:ok, _} <- record(mouse_id, layout, created.pane_id),
          {:ok, text} <- task_text(task, main_checkout, layout.worktree_root),
-         {:ok, shaped} <- shape(mouse_id, layout, request.shape, text),
+         {:ok, shaped} <- shape(mouse_id, layout, request.shape),
          :ok <- carry_hooks(main_checkout, layout.worktree_root),
-         {:ok, _argv} <- start_claude(via, created.pane_id, request.branch, shaped.flags),
-         :ok <- hand_over(via, created.pane_id, @kickoff) do
-      {:ok, report(request, shaped)}
+         {:ok, _argv} <- start_claude(via, created.pane_id, request.branch, shaped.flags) do
+      case hand_over(via, created.pane_id, @lead_in <> text) do
+        :ok -> {:ok, report(request, shaped)}
+        {:error, reason} -> {:error, untyped(request, path, reason)}
+      end
     else
       {:error, reason} ->
         {:error,
          "#{request.branch}'s worktree is at #{path}, but its mouse did not start: " <>
            "#{describe(reason)} `whiska drop #{request.branch}` takes it down."}
     end
+  end
+
+  defp untyped(%{branch: branch, task: task}, path, reason) do
+    file =
+      case task do
+        {:file, file} -> file
+        {:from, _id, _comments} -> "<file>, the task written to it,"
+      end
+
+    "#{branch}'s mouse started in #{path}, but Whiska could not hand it its task: " <>
+      "#{describe(reason)} If its pane does not show the task, once anything Claude shows " <>
+      "there is answered, `whiska send #{branch} #{file}` hands it over; " <>
+      "`whiska drop #{branch}` takes it down."
   end
 
   defp record(mouse_id, layout, pane) do
@@ -199,21 +240,20 @@ defmodule Whiska.Spawn do
 
   @doc """
   Record a mouse's shape and get its worktree ready (ADR-0069, ADR-0083): its
-  mode's brief written with `task` in it, its mode's deny list beside it
-  (ADR-0090), git ignoring Whiska's files there,
-  and the main checkout's dependencies cloned in. Answers the flags to start
-  Claude with and the lines that say what was done; a failed clone or ignore
-  is said, never a failure.
+  mode's brief written, its mode's deny list beside it (ADR-0090), git ignoring
+  Whiska's files there, and the main checkout's dependencies cloned in. Answers
+  the flags to start Claude with and the lines that say what was done; a failed
+  clone or ignore is said, never a failure.
   """
-  @spec shape(String.t(), Layout.t(), Shape.t(), String.t() | nil) ::
+  @spec shape(String.t(), Layout.t(), Shape.t()) ::
           {:ok, %{flags: [String.t()], said: [String.t()]}} | {:error, term()}
-  def shape(mouse_id, layout, shape, task) do
+  def shape(mouse_id, layout, shape) do
     base = cut_from(layout.main_checkout)
     main = layout.main_checkout
     worktree = layout.worktree_root
 
     # Recorded last, so a mouse is never shaped on record without its deny list.
-    with {:ok, brief_said} <- Brief.write(main, worktree, shape.mode, task),
+    with {:ok, brief_said} <- Brief.write(main, worktree, shape.mode),
          {:ok, deny_said} <- DenyList.write(main, worktree, shape.mode),
          {:ok, _} <- Storage.shape(mouse_id, shape.mode, shape.model, shape.effort, base) do
       said =
@@ -292,7 +332,9 @@ defmodule Whiska.Spawn do
     end
   end
 
-  defp task_text({:words, text}, _main_checkout, _worktree), do: {:ok, String.trim(text)}
+  # Outside a bracketed paste a carriage return is Enter.
+  defp task_text({:words, text}, _main_checkout, _worktree),
+    do: {:ok, text |> String.replace(~r/\r\n?/, "\n") |> String.trim()}
 
   defp task_text({:from, id, comments}, main_checkout, worktree) do
     proposal =

@@ -1256,7 +1256,7 @@ defmodule Whiska.CLI do
         keeps_its_mode(layout, mouse)
 
       _ ->
-        case Whiska.Spawn.shape(mouse_id, layout, shape, nil) do
+        case Whiska.Spawn.shape(mouse_id, layout, shape) do
           {:ok, %{flags: flags, said: said}} ->
             Enum.each(said, &IO.puts(:stderr, &1))
             say(Enum.join(flags, " "))
