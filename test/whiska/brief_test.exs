@@ -14,4 +14,16 @@ defmodule Whiska.BriefTest do
 
     refute Brief.render(:main) =~ "{{"
   end
+
+  test "a build mouse's plan shows signatures, data and the first failing test as code" do
+    assert Brief.render("build", "task") =~
+             "signatures, data shapes and the first failing test as code blocks"
+  end
+
+  test "the recap leads with counts and says what each question needs, not its options" do
+    main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
+    assert main =~ "one line of counts"
+    assert main =~ "what it needs from the person, never its options"
+    assert main =~ "no branch names, ids or commands"
+  end
 end

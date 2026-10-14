@@ -26,8 +26,9 @@ Before any spec, read the code, then grill the person until you share one unders
 1. Say what "done" is and name the failing test that proves it.
 2. Grill, as above.
 3. Write `.whiska-spec.md` (problem, what changes for users, decisions, out of scope; one
-   screen) and `.whiska-plan.md` (where it lands, interfaces and data, first failing test,
-   approach turned down). Ask "ok to build?". Paste no link: Whiska links both.
+   screen, in words) and `.whiska-plan.md` (where it lands, approach turned down, and its
+   signatures, data shapes and the first failing test as code blocks). Ask "ok to
+   build?". Paste no link: Whiska links both.
 4. On ok, build to both, test first. A costly choice or plan change mid-build → ask.
 
 - **A bug** (the fix changes nothing beyond it): failing test first, then
