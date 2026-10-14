@@ -195,12 +195,14 @@ with it. The question holds only a link, so an earlier
 revision is not readable afterwards; the copy is history, not what the person reviews.
 
 A build plan is kept the same way beside its spec, as `<the spec's file name>.plan.md`;
-with no spec, as for a bug, it takes the date and branch name itself. Only a new or revised spec marks its question as a
+with no spec, as for a bug, it takes the date and branch name itself. Only a new or
+revised spec marks its question as a
 spec sent. A research document is kept the same way, as `<the same name>.research.md`,
 and so is a mouse's report, as `<the same name>.report.md`
 (ADR-0089); neither marks its question as a spec sent. A new file
 of any of the four takes the name its mouse's record holds, so they sit side by side; a
-document from a mouse with no record is written under a fresh name and found by nothing. The research copy is what `whiska show` links (ADR-0074), so one file per branch,
+document from a mouse with no record is written under a fresh name and found by
+nothing. The research copy is what `whiska show` links (ADR-0074), so one file per branch,
 overwritten each round, is what makes an earlier question's link open the latest text.
 
 The copy is taken when the spec is sent. The `Stop` hook reads the worktree's spec, research
@@ -279,8 +281,7 @@ skip it cost none. A bug costs one when its fix is obvious and two when there is
 choice. A spec's question for an ok carries two links. A crash fix nobody had a choice about now waits on the person. The final report grows by the
 cheap choices made, each a line under what changed, outside the report's size cap. A
 doorstep entry carries optional `spec`, `research` and `plan` fields; an entry without
-them still decodes. 
-`.whiska-mouse` had the
+them still decodes. `.whiska-mouse` had the
 same untracked-file problem, and is hidden the same way, by the owl when it opens the
 house (ADR-0002).
 

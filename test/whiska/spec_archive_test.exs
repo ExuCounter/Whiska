@@ -123,6 +123,15 @@ defmodule Whiska.SpecArchiveTest do
              ]
     end
 
+    test "never takes a name another mouse holds, even with its files gone",
+         %{main: main, entry: entry} do
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "feat-a"})
+      :ok = Storage.set_kept_as("m1", "2026-10-06-feat-a")
+      :kept = SpecArchive.keep_research(main, %{entry | mouse_id: "m2"})
+
+      assert Storage.mouse("m2").kept_as == "2026-10-06-feat-a-2"
+    end
+
     test "for a mouse with no record is still written, under a name of its own",
          %{main: main, entry: entry} do
       :kept = SpecArchive.keep_research(main, entry)
@@ -150,12 +159,29 @@ defmodule Whiska.SpecArchiveTest do
       File.write!(Path.join(dir, "2026-10-05-feat-x.md"), header.("gone") <> "# Old\n")
       File.write!(Path.join(dir, "2026-10-04-plain.md"), "---\nnot: ours\n")
 
+      File.write!(
+        Path.join(dir, "2026-10-03-other.md"),
+        "---\ntitle: x\nmouse: who owns it\n---\n\n# Spec\n"
+      )
+
+      File.write!(
+        Path.join(dir, "2026-10-02-fix.report.md"),
+        "---\nbranch: fix.report\nmouse: m2\nstatus: waiting\n---\n\n# Fix\n"
+      )
+
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "fix.report"})
+
       assert :ok = SpecArchive.unhead(main)
       assert :ok = SpecArchive.unhead(main)
 
       assert File.read!(Path.join(dir, "2026-10-06-feat-a.md")) == "# Spec\n"
       assert File.read!(Path.join(dir, "2026-10-05-feat-x.md")) == "# Old\n"
       assert File.read!(Path.join(dir, "2026-10-04-plain.md")) == "---\nnot: ours\n"
+
+      assert File.read!(Path.join(dir, "2026-10-03-other.md")) ==
+               "---\ntitle: x\nmouse: who owns it\n---\n\n# Spec\n"
+
+      assert Storage.mouse("m2").kept_as == "2026-10-02-fix.report"
       assert Storage.mouse("m1").kept_as == "2026-10-06-feat-a"
       assert SpecArchive.report(main, Storage.mouse("m1")) |> File.read!() == "# Report\n"
     end

@@ -127,25 +127,31 @@ defmodule Whiska.SpecArchive do
     with {:ok, %File.Stat{type: :directory}} <- File.lstat(folder),
          {:ok, names} <- File.ls(folder) do
       for name <- Enum.sort(names),
-          {stem, _suffix} <- [split(name)],
           file = Path.join(folder, name),
           {:ok, %File.Stat{type: :regular}} <- [File.lstat(file)],
           {:ok, text} <- [File.read(file)],
-          {:ok, mouse_id, body} <- [unheader(text)],
-          {:ok, _path} <- [HouseFile.write(main_checkout, @dir, name, body)] do
-        Storage.set_kept_as(mouse_id, stem)
+          {:ok, header, body} <- [unheader(text)],
+          {:ok, _path} <- [HouseFile.write(main_checkout, @dir, name, body)],
+          stem when is_binary(stem) <- [stem(name, header["branch"])] do
+        Storage.set_kept_as(header["mouse"], stem)
       end
     end
 
     :ok
   end
 
-  # The header an older Whiska wrote: `---`, `key: value` lines, one naming
-  # the mouse, `---`, then a blank line before the text.
+  @header_keys ~w(repo branch mouse question replaced written status)
+
+  # The header an older Whiska wrote: `---`, a line per key of its own, one
+  # naming the mouse, `---`, then a blank line before the text. Front matter
+  # with any other key is the mouse's own text, and stays.
   defp unheader("---\n" <> rest) do
     with [lines, body] <- String.split(rest, "---\n\n", parts: 2),
-         [_, mouse_id] <- Regex.run(~r/^mouse: (.+)$/m, lines) do
-      {:ok, mouse_id, body}
+         pairs =
+           Enum.map(String.split(lines, "\n", trim: true), &String.split(&1, ": ", parts: 2)),
+         true <- Enum.all?(pairs, &match?([key, _] when key in @header_keys, &1)),
+         %{"mouse" => _} = header <- Map.new(pairs, &List.to_tuple/1) do
+      {:ok, header, body}
     else
       _ -> :error
     end
@@ -153,20 +159,30 @@ defmodule Whiska.SpecArchive do
 
   defp unheader(_text), do: :error
 
-  # A kept file's shared name and its kind's suffix, or nil for anything else.
-  defp split(name) do
-    with [_, rest] <- Regex.run(~r/^(\d{4}-\d{2}-\d{2}-.+)\.md$/, name) do
-      suffix = Enum.find(@suffixes -- [@spec_suffix], @spec_suffix, &String.ends_with?(rest, &1))
-      {String.replace_suffix(rest, suffix, ""), suffix}
+  # A kept file's shared name: its own, less `.md` and its kind's suffix. The
+  # branch the header names says where the name ends, so a branch that itself
+  # ends in `.report` is not read as one.
+  defp stem(name, branch) when is_binary(branch) do
+    with [_, date, rest] <- Regex.run(~r/^(\d{4}-\d{2}-\d{2})-(.+)\.md$/, name) do
+      slug = Regex.escape(slug(branch))
+
+      Enum.find_value(@suffixes, fn suffix ->
+        stem = String.replace_suffix(rest, suffix, "")
+
+        if String.ends_with?(rest, suffix) and Regex.match?(~r/^#{slug}(-\d+)?$/, stem),
+          do: "#{date}-#{stem}"
+      end)
     end
   end
+
+  defp stem(_name, _branch), do: nil
 
   defp path(main_checkout, name, suffix),
     do: Path.join(dir(main_checkout), name <> suffix <> ".md")
 
   # Two mice on one branch name on the same day keep a name each. A name is
-  # taken when any kind holds it, so a plan kept with no spec never sits
-  # beside another mouse's spec.
+  # taken when a mouse holds it or any kind of file does, so a plan kept with
+  # no spec never sits beside another mouse's spec.
   defp new_name(main_checkout, entry) do
     base = "#{DateTime.to_date(entry.stamped_at)}-#{slug(entry.branch)}"
 
@@ -176,7 +192,8 @@ defmodule Whiska.SpecArchive do
       n -> "#{base}-#{n}"
     end)
     |> Enum.find(fn name ->
-      not Enum.any?(@suffixes, &File.exists?(path(main_checkout, name, &1)))
+      not Storage.kept_as_taken?(name) and
+        not Enum.any?(@suffixes, &File.exists?(path(main_checkout, name, &1)))
     end)
   end
 

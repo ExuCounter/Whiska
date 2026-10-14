@@ -623,6 +623,10 @@ defmodule Whiska.Storage do
     end
   end
 
+  @doc "Whether any mouse's documents are kept under `name` (ADR-0063)."
+  @spec kept_as_taken?(String.t()) :: boolean()
+  def kept_as_taken?(name), do: Repo.exists?(from(m in Mouse, where: m.kept_as == ^name))
+
   @doc """
   Record that herdr has seen this mouse's pane start working (ADR-0067).
 
