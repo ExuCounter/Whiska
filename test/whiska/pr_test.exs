@@ -106,4 +106,38 @@ defmodule Whiska.PRTest do
     assert on_remote(ctx.repo, "feat-a") == GitRepo.git!(ctx.path, ["rev-parse", "HEAD"])
     refute File.exists?(ctx.calls)
   end
+
+  test "on GitLab, it opens the merge request assigned to the signed-in account, read with a GET",
+       ctx do
+    bin = Path.join(ctx.repo.root, "bin")
+    glab_calls = Path.join(ctx.repo.root, "glab-calls")
+
+    File.write!(Path.join(bin, "glab"), """
+    #!/bin/sh
+    printf '%s ' "$@" >> '#{glab_calls}'
+    printf '\\n' >> '#{glab_calls}'
+    if [ "$1" = "api" ]; then
+      printf 'HTTP/2.0 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n{"id":5,"username":"vova"}'
+      exit 0
+    fi
+    echo "https://gitlab.example.com/acme/app/-/merge_requests/9"
+    """)
+
+    File.chmod!(Path.join(bin, "glab"), 0o755)
+    origin = "git@gitlab.example.com:acme/app.git"
+    GitRepo.git!(ctx.repo.checkout, ["remote", "set-url", "origin", origin])
+    GitRepo.git!(ctx.repo.checkout, ["remote", "set-url", "--push", "origin", ctx.repo.remote])
+
+    assert {0, out, _} = pr([ctx.id], ctx.repo)
+    assert out =~ "https://gitlab.example.com/acme/app/-/merge_requests/9"
+
+    assert [read, create] = File.read!(glab_calls) |> String.split("\n", trim: true)
+    assert read == "api --method GET --include --hostname gitlab.example.com user "
+    assert create =~ ~r/^mr create --assignee vova --source-branch feat-a --target-branch main /
+
+    Storage.within(ctx.repo.checkout, fn ->
+      assert %{merge_request_url: "https://gitlab.example.com/acme/app/-/merge_requests/9"} =
+               Storage.mouse("m1")
+    end)
+  end
 end

@@ -1,7 +1,8 @@
 defmodule Whiska.PR do
   @moduledoc """
   `whiska pr`: push a finished branch by its name and open a merge request for
-  it, with `gh`, or `glab` where the remote is a GitLab one. The body is the
+  it through the forge its remote is on (`Whiska.Forge.opener/1`): `gh`, or
+  `glab` where the remote is a GitLab one. The body is the
   mouse's own message, which carries what the diff cannot; the title is the
   subject of the branch's first commit. The link is recorded on the mouse, so
   the owl watches the base for its merge and the branch's next finished line
@@ -15,6 +16,7 @@ defmodule Whiska.PR do
   missing or signed out is said, and nothing stands in for it.
   """
 
+  alias Whiska.Forge
   alias Whiska.Git
   alias Whiska.Land
   alias Whiska.Report
@@ -48,7 +50,7 @@ defmodule Whiska.PR do
   defp open(main_checkout, mouse, question) do
     with {:ok, %{base: base, commits: [first | _]}} <- own_commits(main_checkout, mouse),
          {:ok, title} <- subject(main_checkout, first),
-         {:ok, forge} <- forge(main_checkout),
+         {:ok, forge} <- Forge.opener(main_checkout),
          :ok <- push(mouse, ["-u"]),
          {:ok, url} <-
            create(forge, main_checkout, mouse.branch, base, title, Report.text(question.text)),
@@ -79,19 +81,6 @@ defmodule Whiska.PR do
     end
   end
 
-  defp forge(main_checkout) do
-    tool =
-      case git(main_checkout, ["remote", "get-url", "origin"]) do
-        {url, 0} -> if url =~ "gitlab", do: "glab", else: "gh"
-        _ -> "gh"
-      end
-
-    if System.find_executable(tool),
-      do: {:ok, tool},
-      else:
-        {:error, "#{tool} is not installed, so no merge request was opened and nothing pushed."}
-  end
-
   defp push(%Mouse{path: path, branch: branch}, flags) do
     case git(path, ["push" | flags] ++ ["origin", "refs/heads/#{branch}:refs/heads/#{branch}"]) do
       {_, 0} -> :ok
@@ -99,14 +88,14 @@ defmodule Whiska.PR do
     end
   end
 
-  defp create(tool, main_checkout, branch, base, title, body) do
+  defp create(forge, main_checkout, branch, base, title, body) do
     name = "whiska-pr-" <> Base.url_encode64(:crypto.strong_rand_bytes(12), padding: false)
     file = Path.join(System.tmp_dir!(), name <> ".md")
 
     case File.write(file, body, [:exclusive]) do
       :ok ->
         try do
-          open(tool, main_checkout, branch, base, title, file)
+          open(forge, main_checkout, branch, base, title, file)
         after
           File.rm(file)
         end
@@ -116,44 +105,15 @@ defmodule Whiska.PR do
     end
   end
 
-  defp open(tool, main_checkout, branch, base, title, file) do
-    with {:ok, args} <- args(tool, main_checkout, branch, base, title, file) do
-      case System.cmd(tool, args, cd: main_checkout, stderr_to_stdout: true) do
-        {out, 0} -> url(tool, out)
-        {out, _} -> {:error, "#{branch} is pushed, but #{tool} said: #{String.trim(out)}"}
+  defp open(forge, main_checkout, branch, base, title, file) do
+    with {:ok, args} <- forge.create_args(main_checkout, branch, base, title, file) do
+      case System.cmd(Forge.CLI.find(forge.tool()), args,
+             cd: main_checkout,
+             stderr_to_stdout: true
+           ) do
+        {out, 0} -> forge.link(out)
+        {out, _} -> {:error, "#{branch} is pushed, but #{forge.tool()} said: #{String.trim(out)}"}
       end
-    end
-  end
-
-  defp args("gh", _main_checkout, branch, base, title, file) do
-    {:ok,
-     ~w(pr create --assignee @me --head) ++
-       [branch, "--base", base, "--title", title, "--body-file", file]}
-  end
-
-  defp args("glab", main_checkout, branch, base, title, file) do
-    with {:ok, username} <- glab_user(main_checkout) do
-      {:ok,
-       ["mr", "create", "--assignee", username, "--source-branch", branch] ++
-         ["--target-branch", base, "--title", title, "--description-file", file, "--yes"]}
-    end
-  end
-
-  defp glab_user(main_checkout) do
-    with {out, 0} <-
-           System.cmd("glab", ["api", "user"], cd: main_checkout, stderr_to_stdout: true),
-         {:ok, %{"username" => username}} <- JSON.decode(out) do
-      {:ok, username}
-    else
-      _ ->
-        {:error, "glab is not signed in, so the branch is pushed but no merge request is open."}
-    end
-  end
-
-  defp url(tool, out) do
-    case Regex.scan(~r|https://\S+|, out) |> List.last() do
-      [url] -> {:ok, url}
-      nil -> {:error, "#{tool} printed no link:\n\n#{String.trim(out)}"}
     end
   end
 
