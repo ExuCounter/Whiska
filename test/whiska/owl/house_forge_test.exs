@@ -278,6 +278,43 @@ defmodule Whiska.Owl.HouseForgeTest do
     assert forged.asked_by == nil
   end
 
+  test "what was read is the merge request's row under its mouse's workspace",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, @mr, merge_request(head_pipeline: %{"id" => 5, "status" => "running"}))
+    FakeGlab.answer(forge, @discussions, [])
+    quiet_herdr(path)
+    test = self()
+
+    stub(Herdr, :list_panes, fn @socket ->
+      {:ok,
+       [
+         %{
+           pane_id: "w2:p1",
+           workspace_id: "w2",
+           cwd: path,
+           agent: "claude",
+           agent_status: "idle",
+           title: nil
+         }
+       ]}
+    end)
+
+    stub(Herdr, :workspaces, fn @socket ->
+      {:ok, [%{workspace_id: "w2", path: path, linked?: true, number: 1, tokens: %{}}]}
+    end)
+
+    stub(Herdr, :report_metadata, fn @socket, ws, sent, _ttl ->
+      send(test, {:reported, ws, sent["whiska_mr"]})
+      :ok
+    end)
+
+    capture_io(:stderr, fn ->
+      open(repo, forge, board_ms: 20, panes_ms: 20)
+      assert_receive {:reported, "w2", "⎇ !7 · pipeline ◐"}, 5_000
+    end)
+  end
+
   test "a GitHub pull request is not read", %{repo: repo, path: path, forge: forge} do
     record_merge_request(repo, "https://github.com/acme/app/pull/3")
     quiet_herdr(path)

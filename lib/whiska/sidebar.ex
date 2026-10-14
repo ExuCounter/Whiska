@@ -2,9 +2,10 @@ defmodule Whiska.Sidebar do
   @moduledoc """
   The lines herdr's sidebar draws for a house, as display tokens
   (ADR-0082): under each mouse's
-  workspace, `whiska` is its state and `whiska_q`, `whiska_q2` the question it
-  carries, wrapped; under the main checkout's workspace, what is true of the
-  whole repo.
+  workspace, `whiska` is its state, `whiska_q`, `whiska_q2` the question it
+  carries, wrapped, and `whiska_mr` the merge request its branch waits on
+  (ADR-0087); under the main checkout's workspace, what is true of the whole
+  repo.
 
   Every `whiska` line starts with a symbol Whiska chooses and nothing else
   does, so the person's herdr config can colour a line by its first symbol
@@ -14,10 +15,12 @@ defmodule Whiska.Sidebar do
   """
 
   alias Whiska.Context
+  alias Whiska.MergeRequests
   alias Whiska.Mice
   alias Whiska.Watch
 
-  @keys ["whiska", "whiska_q", "whiska_q2"]
+  @lines ["whiska", "whiska_q", "whiska_q2"]
+  @keys @lines ++ ["whiska_mr"]
   @width 31
   @frames ["◐", "◓", "◑", "◒"]
 
@@ -187,9 +190,63 @@ defmodule Whiska.Sidebar do
       rank: rank,
       sniff?: row.sniff?,
       under: nil,
-      tokens: tokens([gauged(said, rank, row.context) | wrap(carried)])
+      tokens:
+        [gauged(said, rank, row.context) | wrap(carried)]
+        |> tokens()
+        |> put_merge_request(Map.get(row, :merge_request), now)
     }
   end
+
+  defp put_merge_request(tokens, nil, _now), do: tokens
+
+  defp put_merge_request(tokens, %{label: label, read: read}, now) do
+    said =
+      read
+      |> merge_request(now)
+      |> Enum.map(&"⎇ #{label} · #{&1}")
+      |> Enum.find("⎇ #{label}", &(String.length(&1) <= @width))
+
+    Map.put(tokens, "whiska_mr", said)
+  end
+
+  # What the row says after the merge request's name, longest first: the
+  # first that fits is said. First match wins, by what wants the person most.
+  defp merge_request(nil, _now), do: []
+  defp merge_request(%{state: "merged"}, _now), do: ["merged"]
+  defp merge_request(%{state: "closed"}, _now), do: ["closed"]
+  defp merge_request(%{state: "gone"}, _now), do: ["deleted"]
+
+  defp merge_request(%{unread_since: %DateTime{} = since} = read, now) do
+    if MergeRequests.unread?(read, now),
+      do: ["unread #{age(since, now)}"],
+      else: merge_request(%{read | unread_since: nil}, now)
+  end
+
+  defp merge_request(%{state: nil}, _now), do: []
+
+  defp merge_request(%{pipeline: "failed", threads_open: open}, _now) when open > 0,
+    do: ["pipeline ✗ · #{threads(open)}", "pipeline ✗"]
+
+  defp merge_request(%{pipeline: "failed"}, _now), do: ["pipeline ✗"]
+  defp merge_request(%{ready: true}, _now), do: ["ready to merge"]
+
+  defp merge_request(%{threads_open: open, pipeline: pipeline}, _now) when open > 0 do
+    case pipeline_mark(pipeline) do
+      nil -> ["#{threads(open)} open"]
+      mark -> ["#{threads(open)} open · #{mark}", "#{threads(open)} open"]
+    end
+  end
+
+  defp merge_request(%{pipeline: "running"}, _now), do: ["pipeline ◐"]
+  defp merge_request(%{pipeline: "passed"}, _now), do: ["✓"]
+  defp merge_request(_open, _now), do: ["open"]
+
+  defp threads(1), do: "1 thread"
+  defp threads(n), do: "#{n} threads"
+
+  defp pipeline_mark("passed"), do: "✓"
+  defp pipeline_mark("running"), do: "◐"
+  defp pipeline_mark(_none), do: nil
 
   defp gauged(said, @lost, _context), do: said
 
@@ -208,7 +265,7 @@ defmodule Whiska.Sidebar do
   defp tokens(lines) do
     lines
     |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.zip(@keys)
+    |> Enum.zip(@lines)
     |> Map.new(fn {text, key} -> {key, text} end)
   end
 
@@ -322,9 +379,14 @@ defmodule Whiska.Sidebar do
       no_main_session(board, Keyword.get(opts, :main_pane?, true)),
       gated(board),
       off_sidebar(board.waiting + carried_by(board.rows, no_workspace)),
-      orphaned(Watch.orphans(board))
+      orphaned(Watch.orphans(board)),
+      unhoused(Map.get(board, :unhoused_merge_requests, 0))
     ])
   end
+
+  defp unhoused(0), do: nil
+  defp unhoused(1), do: "⎇ 1 merge request, no worktree"
+  defp unhoused(n), do: "⎇ #{n} merge requests, no worktree"
 
   # Said only while something could need delivering: a repo with nothing
   # running and nothing waiting is fine without one.
@@ -399,6 +461,7 @@ defmodule Whiska.Sidebar do
       ] }],
       [{ token = "$whiska_q", fg = "#93a1a1" }],
       [{ token = "$whiska_q2", fg = "#93a1a1" }],
+      [{ token = "$whiska_mr", fg = "#93a1a1" }],
     ]
     """
   end

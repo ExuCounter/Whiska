@@ -26,7 +26,9 @@ defmodule Whiska.SidebarTest do
       mode: "build",
       created_at: Keyword.get(opts, :created_at, @now),
       died_at: Keyword.get(opts, :died_at),
-      held_at: Keyword.get(opts, :held_at)
+      held_at: Keyword.get(opts, :held_at),
+      merge_request_url: Keyword.get(opts, :merge_request),
+      merge_request_at: if(Keyword.has_key?(opts, :merge_request), do: @now)
     }
   end
 
@@ -62,7 +64,9 @@ defmodule Whiska.SidebarTest do
       waiting_on: waiting_on(opts),
       held: Keyword.get(opts, :held),
       mode: Keyword.get(opts, :mode, Mode.none()),
-      picked_up: Keyword.get(opts, :picked_up, %{})
+      picked_up: Keyword.get(opts, :picked_up, %{}),
+      merge_requests: Keyword.get(opts, :merge_requests, %{}),
+      unhoused_merge_requests: Keyword.get(opts, :unhoused_merge_requests, 0)
     )
   end
 
@@ -701,6 +705,102 @@ defmodule Whiska.SidebarTest do
     end
   end
 
+  describe "a merge request's row" do
+    @mr "https://gitlab.example.com/acme/app/-/merge_requests/123"
+
+    defp read(fields) do
+      struct(
+        %Whiska.Schema.MergeRequestRead{
+          mouse_id: "m-feat-a",
+          url: @mr,
+          state: "open",
+          pipeline: "passed",
+          threads_open: 0,
+          ready: false,
+          read_at: @now
+        },
+        fields
+      )
+    end
+
+    defp mr_row(fields, opts \\ []) do
+      merge_request = Keyword.get(opts, :url, @mr)
+
+      reads =
+        if fields == :unread,
+          do: %{},
+          else: %{"m-feat-a" => read(Keyword.put_new(fields, :url, merge_request))}
+
+      tokens([mouse("feat-a", merge_request: merge_request)],
+        bare_panes: [pane("feat-a", "idle")],
+        merge_requests: reads,
+        now: Keyword.get(opts, :now, @now)
+      )["whiska_mr"]
+    end
+
+    test "a mouse with no merge request has no row for one" do
+      refute Map.has_key?(
+               tokens([mouse("feat-a")], bare_panes: [pane("feat-a", "idle")]),
+               "whiska_mr"
+             )
+    end
+
+    test "is named the way its forge names it, alone until it is read" do
+      assert mr_row(:unread) == "⎇ !123"
+      assert mr_row(:unread, url: "https://github.com/acme/app/pull/12") == "⎇ #12"
+    end
+
+    test "merged, closed or gone is all it says" do
+      assert mr_row(state: "merged") == "⎇ !123 · merged"
+      assert mr_row(state: "closed", pipeline: "failed") == "⎇ !123 · closed"
+      assert mr_row(state: "gone") == "⎇ !123 · deleted"
+    end
+
+    test "a failing read is said once it has failed for three minutes" do
+      since = DateTime.add(@now, -20 * 60)
+      assert mr_row(unread_since: since, threads_open: 2) == "⎇ !123 · unread 20m"
+      assert mr_row(unread_since: DateTime.add(@now, -120)) == "⎇ !123 · ✓"
+    end
+
+    test "a failed pipeline comes first, with the open threads when they fit" do
+      assert mr_row(pipeline: "failed", threads_open: 2) == "⎇ !123 · pipeline ✗ · 2 threads"
+      assert mr_row(pipeline: "failed", threads_open: 1) == "⎇ !123 · pipeline ✗ · 1 thread"
+      assert mr_row(pipeline: "failed") == "⎇ !123 · pipeline ✗"
+
+      long = "https://gitlab.example.com/acme/app/-/merge_requests/1234567"
+      row = mr_row([pipeline: "failed", threads_open: 2], url: long)
+      assert row == "⎇ !1234567 · pipeline ✗"
+    end
+
+    test "ready to merge, then open threads with the pipeline after them" do
+      assert mr_row(ready: true, threads_open: 2) == "⎇ !123 · ready to merge"
+      assert mr_row(threads_open: 2) == "⎇ !123 · 2 threads open · ✓"
+      assert mr_row(threads_open: 1, pipeline: "running") == "⎇ !123 · 1 thread open · ◐"
+      assert mr_row(threads_open: 3, pipeline: nil) == "⎇ !123 · 3 threads open"
+    end
+
+    test "with nothing open, the pipeline" do
+      assert mr_row(pipeline: "running") == "⎇ !123 · pipeline ◐"
+      assert mr_row(pipeline: "passed") == "⎇ !123 · ✓"
+      assert mr_row(pipeline: nil) == "⎇ !123 · open"
+    end
+
+    test "a read of an older link is not this one's" do
+      older = "https://gitlab.example.com/acme/app/-/merge_requests/9"
+      assert mr_row(url: older, state: "closed") == "⎇ !123"
+    end
+
+    test "every row fits the sidebar" do
+      for fields <- [
+            [pipeline: "failed", threads_open: 99],
+            [threads_open: 99, pipeline: "running"],
+            [unread_since: DateTime.add(@now, -99 * 3600)]
+          ] do
+        assert String.length(mr_row(fields)) <= 31
+      end
+    end
+  end
+
   describe "the main checkout's line" do
     defp house(board_opts, opts \\ []) do
       [] |> board(board_opts) |> Sidebar.house(Keyword.merge([main_pane?: true], opts))
@@ -708,6 +808,11 @@ defmodule Whiska.SidebarTest do
 
     test "is empty when nothing about the repo needs saying" do
       assert house([]) == %{}
+    end
+
+    test "counts merge requests still read for branches whose worktree was dropped" do
+      assert house(unhoused_merge_requests: 1) == %{"whiska" => "⎇ 1 merge request, no worktree"}
+      assert house(unhoused_merge_requests: 2) == %{"whiska" => "⎇ 2 merge requests, no worktree"}
     end
 
     test "says no main session is recorded, first, while anything runs or waits" do
@@ -902,6 +1007,15 @@ defmodule Whiska.SidebarTest do
                |> String.trim_trailing()
     end
 
+    test "a merge request's row prints under its mouse's lines" do
+      board =
+        board([mouse("feat-a", merge_request: "https://github.com/acme/app/pull/12")],
+          bare_panes: [pane("feat-a", "idle")]
+        )
+
+      assert Sidebar.render(%{}, Sidebar.mice(board, now: @now)) == "feat-a\n  ○ idle\n  ⎇ #12"
+    end
+
     test "a quiet repo prints nothing at all" do
       assert Sidebar.render(%{}, []) == ""
     end
@@ -915,6 +1029,7 @@ defmodule Whiska.SidebarTest do
       assert snippet =~ ~s(token = "$whiska")
       assert snippet =~ ~s(token = "$whiska_q")
       assert snippet =~ ~s(token = "$whiska_q2")
+      assert snippet =~ ~s(token = "$whiska_mr")
       refute snippet =~ "contains"
 
       rules = Regex.scan(~r/starts_with = "([^"]+)"/u, snippet, capture: :all_but_first)

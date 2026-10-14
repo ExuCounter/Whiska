@@ -258,7 +258,13 @@ defmodule Whiska.Owl.HouseSidebarTest do
         sidebar_refresh_ms: 150
       )
 
-      line = %{"whiska" => "? herdr can't say", "whiska_q" => nil, "whiska_q2" => nil}
+      line = %{
+        "whiska" => "? herdr can't say",
+        "whiska_q" => nil,
+        "whiska_q2" => nil,
+        "whiska_mr" => nil
+      }
+
       assert_receive {:reported, "w2", ^line, 1_000}, 1_000
       started = System.monotonic_time(:millisecond)
 

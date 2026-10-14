@@ -26,6 +26,7 @@ defmodule Whiska.MergeRequests do
   alias Whiska.Storage
 
   @gone_after 3
+  @unread_after_s 180
   @longest_wait_ms 900_000
 
   @type comment :: %{id: pos_integer(), author: String.t()}
@@ -361,6 +362,16 @@ defmodule Whiska.MergeRequests do
 
     max(wait, retry_after_ms || 0)
   end
+
+  @doc """
+  Whether `row`'s reads have failed for long enough to say so: three minutes.
+  One slow or refused read is not news.
+  """
+  @spec unread?(MergeRequestRead.t() | nil, DateTime.t()) :: boolean()
+  def unread?(%{unread_since: %DateTime{} = since}, now),
+    do: DateTime.diff(now, since) >= @unread_after_s
+
+  def unread?(_row, _now), do: false
 
   @doc "The owl's log line for `event` on `branch`'s merge request `label`."
   @spec line(event(), String.t(), String.t()) :: String.t()

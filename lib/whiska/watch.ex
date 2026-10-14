@@ -23,11 +23,14 @@ defmodule Whiska.Watch do
   """
 
   alias Whiska.Delivery.Mode
+  alias Whiska.Forge
   alias Whiska.Herdr
   alias Whiska.Layout
+  alias Whiska.MergeRequests
   alias Whiska.Question.Marker
   alias Whiska.Questions
   alias Whiska.Report
+  alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -90,8 +93,15 @@ defmodule Whiska.Watch do
           topic: String.t() | nil,
           doing: String.t() | nil,
           context: non_neg_integer() | nil,
-          picked_up_at: DateTime.t() | nil
+          picked_up_at: DateTime.t() | nil,
+          merge_request: merge_request() | nil
         }
+
+  @typedoc """
+  The merge request a mouse's branch waits on, by its forge's name for it, and
+  what the owl last read of it, nil until a read of this link (ADR-0087).
+  """
+  @type merge_request :: %{label: String.t(), read: MergeRequestRead.t() | nil}
 
   @typedoc """
   What a row's question is waiting on: the person, since `sent_at` when it holds
@@ -117,6 +127,8 @@ defmodule Whiska.Watch do
   nothing can act on any more, with `orphan_names` naming the branches those
   came off; `held` why the gate is not delivering; `away?` and `focus` what the
   person set aside — the focused mouse named by its branch.
+  `unhoused_merge_requests` counts the merge requests still read for branches
+  whose worktree is gone.
   """
   @type t :: %{
           rows: [row()],
@@ -125,7 +137,8 @@ defmodule Whiska.Watch do
           orphan_names: [orphan_name()],
           held: held(),
           away?: boolean(),
-          focus: String.t() | nil
+          focus: String.t() | nil,
+          unhoused_merge_requests: non_neg_integer()
         }
 
   @doc """
@@ -165,6 +178,10 @@ defmodule Whiska.Watch do
       opts
       |> Keyword.put(:questions, questions)
       |> Keyword.put_new_lazy(:picked_up, &Storage.picked_up/0)
+      |> Keyword.put_new_lazy(:merge_requests, &Storage.merge_request_reads/0)
+      |> Keyword.put_new_lazy(:unhoused_merge_requests, fn ->
+        Enum.count(MergeRequests.watched(), fn {mouse, _read} -> mouse.removed_at != nil end)
+      end)
       |> Keyword.put_new_lazy(:mode, fn ->
         Mode.read(away_path: Keyword.get_lazy(opts, :away_path, &Mode.away_path/0))
       end)
@@ -185,7 +202,9 @@ defmodule Whiska.Watch do
   `Whiska.Watch.Transcript.waiting_on/1` unless a test pins it; `:held`, why the
   gate is not delivering (ADR-0082); `:mode`, what the person set aside
   (`Whiska.Delivery.Mode.t/0`, nothing by default); `:picked_up`, when each
-  branch the owl picked up was picked up (ADR-0067).
+  branch the owl picked up was picked up (ADR-0067); `:merge_requests`, the
+  owl's last read of each mouse's merge request, and
+  `:unhoused_merge_requests`, how many are read with no worktree (ADR-0087).
   """
   @spec board([Mouse.t()], keyword()) :: t()
   def board(mice, opts \\ []) do
@@ -198,6 +217,7 @@ defmodule Whiska.Watch do
     }
 
     picked_up = Keyword.get(opts, :picked_up, %{})
+    reads = Keyword.get(opts, :merge_requests, %{})
     mode = Keyword.get(opts, :mode, Mode.none())
 
     {orphaned, live} = Enum.split_with(questions, &(&1.status == @orphaned))
@@ -209,6 +229,7 @@ defmodule Whiska.Watch do
       mice
       |> Enum.filter(&is_nil(&1.died_at))
       |> Enum.map(&row(&1, by_mouse[&1.mouse_id], panes, readers, picked_up, context))
+      |> Enum.map(&Map.put(&1, :merge_request, merge_request(&1, mice, reads)))
 
     %{
       rows: rows,
@@ -217,8 +238,27 @@ defmodule Whiska.Watch do
       orphan_names: orphan_names(orphaned),
       held: Keyword.get(opts, :held),
       away?: mode.away?,
-      focus: focus
+      focus: focus,
+      unhoused_merge_requests: Keyword.get(opts, :unhoused_merge_requests, 0)
     }
+  end
+
+  defp merge_request(row, mice, reads) do
+    mouse = Enum.find(mice, &(&1.mouse_id == row.mouse_id))
+
+    with %Mouse{merge_request_url: url} when is_binary(url) <- mouse,
+         true <- Mouse.merge_request_waiting?(mouse),
+         {:ok, ref} <- Forge.for_url(url) do
+      read =
+        case reads[mouse.mouse_id] do
+          %MergeRequestRead{url: ^url} = read -> read
+          _none_or_another_link -> nil
+        end
+
+      %{label: Forge.label(ref), read: read}
+    else
+      _ -> nil
+    end
   end
 
   # The focused mouse by the name the person typed; the id names nothing to them.
