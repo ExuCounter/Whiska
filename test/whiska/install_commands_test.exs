@@ -3,7 +3,9 @@ defmodule Whiska.InstallCommandsTest do
   The eight one-word commands (ADR-0079): what `whiska init --global` writes
   under the whiska home.
   """
-  use ExUnit.Case, async: true
+  # One test narrows PATH for the whole VM, which a concurrent `mix` or escript
+  # would run under.
+  use ExUnit.Case, async: false
 
   alias Whiska.Install
 
