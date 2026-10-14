@@ -110,6 +110,30 @@ defmodule Whiska.Forge.CLITest do
              CLI.get(%{run | tool: "/nowhere/glab"}, "gitlab.com", "user")
   end
 
+  test "a tool named by a relative path is no tool, wherever it is run from",
+       %{fake: fake, run: run} do
+    relative = Path.relative_to(fake.bin, File.cwd!(), force: true)
+
+    assert {:unknown, :no_tool, nil} = CLI.get(%{run | tool: relative}, "gitlab.com", "user")
+    assert FakeGlab.calls(fake) == []
+  end
+
+  test "the person's PATH comes before the places a package manager puts a tool", %{run: run} do
+    tool = Path.join(run.cwd, "echo-path")
+
+    File.write!(tool, """
+    #!/bin/sh
+    printf 'HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n"%s"' "$PATH"
+    """)
+
+    File.chmod!(tool, 0o755)
+
+    assert {:ok, path, _headers} = CLI.get(%{run | tool: tool}, "gitlab.com", "user")
+    assert [dir, first | _] = String.split(path, ":")
+    assert dir == run.cwd
+    assert first == "PATH" |> System.get_env() |> String.split(":") |> hd()
+  end
+
   test "an unsafe path never reaches the tool", %{fake: fake, run: run} do
     assert {:unknown, :unsafe_path, nil} = CLI.get(run, "gitlab.com", "-X POST")
     assert FakeGlab.calls(fake) == []

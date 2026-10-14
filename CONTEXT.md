@@ -177,7 +177,8 @@ you" for the one actually sent (ADR-0082). One kind is not a mouse's message: wh
 reads a mouse's **merge request** closed or gone from the **forge**, it asks once whether to
 drop the worktree, headed `🦉 Whiska asks`. It is answered with `whiska drop` or
 `whiska dismiss`, never `whiska reply`, and it waits while the worktree stands, whether or
-not the mouse is alive (ADR-0036, ADR-0008).
+not the mouse is alive (ADR-0036, ADR-0008). It is not the mouse's word: it supersedes
+none of the mouse's questions and is not its last word for cleanup (ADR-0061).
 _Avoid_: report (as the table/record name — the word now names how a message reads,
 see **Report**), event (as the table/record name)
 

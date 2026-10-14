@@ -78,8 +78,11 @@ defmodule Whiska.Forge.CLI do
   defp unsafe_is_unknown({:error, reason}), do: {:unknown, reason, nil}
   defp unsafe_is_unknown(ok), do: ok
 
+  # A relative path would be looked for from the checkout the tool runs in.
   defp tool(path) when is_binary(path) do
-    if executable?(path), do: {:ok, path}, else: {:unknown, :no_tool, nil}
+    if Path.type(path) == :absolute and executable?(path),
+      do: {:ok, path},
+      else: {:unknown, :no_tool, nil}
   end
 
   defp tool(_none), do: {:unknown, :no_tool, nil}
@@ -119,10 +122,11 @@ defmodule Whiska.Forge.CLI do
     end
   end
 
-  # The tool's own folder goes first on the PATH, so whatever it calls in turn
-  # is found under launchd too.
+  # The tool's own folder goes first on the PATH and the package managers'
+  # last, so whatever it calls in turn is the person's own, and is found under
+  # launchd too.
   defp env(tool) do
-    path = Enum.join([Path.dirname(tool) | @also_in] ++ [System.get_env("PATH", "")], ":")
+    path = Enum.join([Path.dirname(tool), System.get_env("PATH", "") | @also_in], ":")
 
     [
       {~c"PATH", String.to_charlist(path)},

@@ -2434,7 +2434,8 @@ defmodule Whiska.CLI do
 
     fail(
       "whiska: ##{q.id} is Whiska's own question, not #{branch}'s. " <>
-        "\"drop\" is `whiska drop #{branch}`; \"keep\" is `whiska dismiss #{q.id}`."
+        "\"drop\" is `#{Whiska.Question.FromOwl.drop_command(branch)}`; " <>
+        "\"keep\" is `whiska dismiss #{q.id}`."
     )
   end
 

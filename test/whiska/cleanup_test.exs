@@ -728,6 +728,25 @@ defmodule Whiska.CleanupTest do
       assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
     end
 
+    test "the owl's own question is not the mouse's last word, and goes with the worktree",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      {:ok, owl} =
+        Storage.record_question(%{
+          mouse_id: m.id,
+          text: "Drop?",
+          kind: "needs-decision",
+          status: "sent",
+          asked_by: "owl"
+        })
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      assert Storage.question(owl.id).status == "closed"
+    end
+
     test "a mouse whose last word was not done stays, even with nothing waiting",
          %{repo: repo} do
       m = mouse(repo, "feat-a", kind: "unmarked", status: "answered")

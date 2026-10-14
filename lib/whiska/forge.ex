@@ -42,6 +42,7 @@ defmodule Whiska.Forge do
           pipeline: pipeline() | nil,
           notes_count: non_neg_integer(),
           updated_at: String.t() | nil,
+          source_branch: String.t() | nil,
           ready?: boolean()
         }
 

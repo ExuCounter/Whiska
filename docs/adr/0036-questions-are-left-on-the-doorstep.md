@@ -21,10 +21,11 @@ removes those when it opens the house.
 forge (ADR-0060), it leaves one entry for the mouse whose branch it is, keyed by that
 mouse's `mouse_id`, asking whether to drop the worktree, and collects it at once. Its text
 is one of two fixed texts, and the entry says it is from the owl; collection records
-`asked_by: "owl"` only when both hold, so a mouse cannot pass its own message off as
-Whiska's. Such a question is headed `🦉 Whiska asks` and cannot be replied to: "drop" is
-`whiska drop <branch>`, "keep" is `whiska dismiss <id>`. It is asked once per request,
-even across restarts.
+`asked_by: "owl"` only when both hold and the owl's own stored read of that mouse's
+request says it asked, so a mouse cannot pass its own message off as Whiska's, even word
+for word. Such a question is headed `🦉 Whiska asks`, first, and cannot be replied to: "drop" is
+`whiska drop <branch>`, "keep" is `whiska dismiss <id>`. It is asked once per close,
+even across restarts, and asked again if the request reopens and closes again.
 
 ## Why a file, and why in the house
 

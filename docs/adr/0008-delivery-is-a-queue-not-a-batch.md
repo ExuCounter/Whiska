@@ -38,7 +38,8 @@ releasing it would turn the ordinary end of a mouse's life into silence.
 
 So is a question the owl asks itself (ADR-0036), while the mouse's worktree stands: it is
 about the worktree, not the mouse, so a closed pane does not take it from the person. It
-closes when the worktree is removed, by `whiska drop` or by cleanup.
+closes when the worktree is removed, by `whiska drop` or by cleanup, or once its folder is
+gone however it went.
 
 ## What frees the slot
 
@@ -155,4 +156,5 @@ explanation.
 Folded in on 2026-10-08: 0037, 0057 (their text is in git history).
 
 Changed on 2026-10-14: a question the owl asks itself waits while its worktree stands,
-whether the mouse is alive or not, and closes with the worktree.
+whether the mouse is alive or not, and closes with the worktree. It is not its mouse's:
+it neither supersedes the mouse's questions nor is superseded by them.

@@ -232,6 +232,30 @@ defmodule Whiska.StorageDeliveryTest do
       refute Storage.question(gone.id).keeps_slot
     end
 
+    test "the owl's own question neither supersedes a mouse's nor is superseded by one" do
+      sent = ask("m1", "which way?")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      owl = ask("m1", "Drop?", %{asked_by: "owl"})
+
+      assert {:ok, 0} = Storage.supersede_earlier(owl)
+      assert Storage.question(sent.id).status == "sent"
+      refute Storage.question(owl.id).keeps_slot
+
+      newest = ask("m1", "another")
+      assert {:ok, 1} = Storage.supersede_earlier(newest)
+      assert Storage.question(owl.id).status == "open"
+      assert Storage.question(sent.id).status == "superseded"
+    end
+
+    test "an answer is still handed over after the owl asks something of its mouse" do
+      q = ask("m1", "which way?")
+      {:ok, _} = Storage.answer(q.id, "left")
+      ask("m1", "Drop?", %{asked_by: "owl"})
+
+      assert [%Question{id: id}] = Storage.chased()
+      assert id == q.id
+    end
+
     test "superseded is a status" do
       assert "superseded" in Question.statuses()
     end

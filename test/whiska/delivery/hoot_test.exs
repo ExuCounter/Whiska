@@ -28,6 +28,13 @@ defmodule Whiska.Delivery.HootTest do
     assert body == ~s(#12 · "pick one")
   end
 
+  test "the owl's own question is Whiska's in the hoot too" do
+    q = question(asked_by: "owl", kind: "needs-decision")
+    assert %{title: title} = Hoot.compose(q, "whiska", "feat-a", @none)
+
+    assert title == "🦉 whiska · Whiska asks about feat-a"
+  end
+
   test "a finished branch gets the same hoot with the quieter sound" do
     q = question(kind: "done", text: "Merged and pushed.\n[worktree-status: done]")
 

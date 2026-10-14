@@ -54,7 +54,8 @@ defmodule Whiska.Cleanup do
   def sweep(%{main_checkout: checkout} = house) do
     standing = Storage.current_mice() |> Enum.reject(& &1.removed_at)
 
-    questions = Enum.group_by(Storage.all(Question), & &1.mouse_id)
+    questions =
+      Storage.all(Question) |> Enum.reject(&Question.owls?/1) |> Enum.group_by(& &1.mouse_id)
 
     local = %{
       checkout: checkout,

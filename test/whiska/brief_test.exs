@@ -71,6 +71,11 @@ defmodule Whiska.BriefTest do
     refute main =~ "**Still waiting on you:**"
   end
 
+  test "a line from Whiska's own question is a delivery like a mouse's" do
+    main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
+    assert main =~ "A line starting `🐱`, or `🦉 Whiska asks`, is Whiska's delivery"
+  end
+
   test "land and pr run in the background so the person's input is not blocked" do
     main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
     assert main =~ "run_in_background"

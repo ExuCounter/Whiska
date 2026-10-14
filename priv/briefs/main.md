@@ -39,17 +39,17 @@ many sessions and read each message cold.
 
 ## What mice send back
 
-A line starting `🐱` is Whiska's delivery, not the person. Run `whiska show <id>`, show it
-as below, and stop. Never answer for the person or offer options. They say what happens
-next:
+A line starting `🐱`, or `🦉 Whiska asks`, is Whiska's delivery, not the person. Run
+`whiska show <id>`, show it as below, and stop. Never answer for the person or offer
+options. They say what happens next:
 
 - an answer → `whiska reply <id> <their words>`; "land" → `whiska land <id>`; "pr" →
   `whiska pr <id>`; "drop" → `whiska drop <branch>`. Land or pr refusing over files the
   mouse left uncommitted → show the list; on the person's ok, add `--commit <file>`, a
   commit message you write to a file.
 - a question whose facts say `asked by: Whiska` is Whiska's own, about a merge request
-  that closed: "drop" → `whiska drop <branch>`; "keep" → `whiska dismiss <id>`. Never
-  `reply` to it.
+  that closed: "drop" → the `whiska drop` command it gives; "keep" →
+  `whiska dismiss <id>`. Never `reply` to it.
 - "build it" after a mouse's "What to change" →
   `whiska spawn build <branch> --from <id> [--comments <file>]`, on a branch name you
   make; nothing the mouse wrote goes on a command line

@@ -234,14 +234,17 @@ defmodule Whiska.DoctorTest do
       assert fix =~ "glab auth login --hostname gitlab.example.com"
     end
 
-    test "a read refused for want of a sign-in says to sign in" do
-      for reason <- ["{:http, 401}", ":no_status"] do
+    test "a read that may be refused for want of a sign-in says how to check, and to sign in" do
+      for reason <- ["{:http, 401}", ":no_status", ":project_unreadable"] do
         assert [%Check{status: :warn, detail: detail, fix: fix}] =
                  Doctor.forge(watched(failing(reason, 12)), "/bin/glab", now())
 
         assert detail =~ "!7 on feat-a"
         assert detail =~ "12 min"
-        assert fix == "glab auth login --hostname gitlab.example.com"
+
+        assert fix ==
+                 "glab auth status --hostname gitlab.example.com; if signed out, " <>
+                   "glab auth login --hostname gitlab.example.com"
       end
     end
 

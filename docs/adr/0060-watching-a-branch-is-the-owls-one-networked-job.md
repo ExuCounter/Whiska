@@ -29,7 +29,7 @@ What they share is one question — which branch does this mouse own — and not
 | | Cleanup after a merge | Watching checks |
 |---|---|---|
 | Who is asked | git: the base here, or its copy last fetched | a forge, over the network |
-| Credentials | none of Whiska's; a fetch uses git's own and never prompts | a read-only forge token |
+| Credentials | none of Whiska's; a fetch uses git's own and never prompts | the person's `glab` login, through a GET-only runner |
 | Answer | deterministic; the fetched copy only as fresh as its last fetch | three-valued, often unavailable |
 | Failure | a fetch that fails leaves the last answer standing | rate limit, outage, expired token |
 | Wants the mouse | gone — it ends the mouse's life | alive — it has work to send it |
@@ -74,8 +74,13 @@ changed on 2026-10-14, and the first design is kept below as the way back.
   it builds is fixed: `api --method GET --include --hostname <host> <path>`. The host and
   the path are each checked against a closed set of characters, with no `..`, so nothing
   read from a forge or a record can add a flag or reach another verb. A test pins the
-  argument list. The tool runs with no prompt and no update check, through a port with a
-  deadline and a kill, its stderr dropped, and its HTTP status read from `--include`.
+  argument list. The tool must be named by an absolute path. It runs with no prompt and no
+  update check, through a port with a deadline and a kill, its stderr dropped, its HTTP
+  status read from `--include`, and the person's own PATH ahead of the places a package
+  manager puts a tool.
+- **A request is read only for the branch it came from.** A merge request whose source
+  branch is not the mouse's branch reads as unknown and nothing more is asked of it, so a
+  link recorded for the wrong branch never speaks for that branch.
 
 **Why the login and not a token.** A token is one more secret the person writes and
 renews, for a boundary the first design itself admitted the operating system never
@@ -160,8 +165,9 @@ minute is three orders of magnitude under either forge's authenticated limit. Po
 not a design problem here and gets no cleverness.
 
 Each waiting GitLab request costs one `GET` a minute, and the threads are read only on the
-first read or when its notes count or last update moved. Ten waiting requests are about
-600 calls an hour.
+first read, when its notes count or last update moved, or while a thread is open, since
+resolving one may move nothing else. Ten waiting requests are about 600 to 1,200 calls an
+hour.
 
 The three real costs are below, in the order they bite.
 
@@ -193,8 +199,9 @@ adapter did not recognise what came back.
   15-minute ceiling. After three minutes the mouse's row says `unread <age>`, and the doctor
   line names it. The one failure that would destroy this feature's credibility is telling
   the person a build is broken when the truth is that a laptop was on a train.
-- **A rate-limit answer is obeyed, not retried**: GitLab's `Retry-After` on a 429. A bug
-  that retries into a limit gets the person throttled across every tool they use.
+- **A rate-limit answer is obeyed, not retried**: GitLab's `Retry-After` on a 429, up to
+  an hour, and for every request on that host in the same round. A bug that retries into a
+  limit gets the person throttled across every tool they use.
 - **A read never gives up while the request is open**: a merge request the person still
   has open is worth reading after an outage, and the row already says it is unread.
 - **A 404 is deleted only after three in a row, and only while the project itself still
@@ -217,12 +224,19 @@ adapter did not recognise what came back.
   Nothing is woken; that waits on ADR-0044 (below).
 - **Merged on the forge fetches the base at once.** The forge's word is not the landing:
   git's checks still prove it (ADR-0061).
-- **Closed on the forge, or gone, asks the person once** whether to drop the worktree.
+- **Closed on the forge, or gone, asks the person once** whether to drop the worktree:
+  once per close, so a request reopened and closed again is asked about again. The ask is
+  made from the stored read, so one that failed is made at the next read.
+- **That question is the owl's, not the mouse's.** It is stored against the mouse so it
+  goes with the worktree, but nothing that reads a mouse's questions as its words counts
+  it: it supersedes none of the mouse's questions and none supersede it, it is not the
+  mouse's last word for cleanup (ADR-0061) or pickup, and it does not stop an answer being
+  handed over. Its line and hoot open with `🦉 Whiska asks`, as its heading does.
 
 ### Cost 3: credentials
 
-Above. It is the reason the reading half is `curl` and a read-only token even though a
-forge CLI is sitting right there.
+Above. It is the reason the first design read through `curl` and a read-only token, and
+the reason the reading half now has one runner that builds nothing but a `GET`.
 
 ## Where it is blocked: typing into a mouse's pane
 
@@ -293,8 +307,6 @@ sleeping laptop, are the whole reason the feature exists.
 ## How it composes with cleanup
 
 - *Which branch does this mouse own, and is it merged* is asked by both and written once.
-- **A branch with an open watch is not cleaned up.** A build still running is a reason to
-  leave a worktree standing.
 - **A merge ends every watch on that branch**: merged is a git fact, read from the base
   here or its fetched copy, and git's answer wins whenever both are available. The forge's
   "merged" only brings the next fetch forward.
@@ -328,4 +340,7 @@ Changed on 2026-10-14: the owl reads each GitLab merge request every minute thro
 person's `glab` login and a GET-only runner, where a `curl` and a read-only token were
 proposed; the forge layer is built as read and open behaviours picked by host; a read
 never gives up while the request is open; and the owl asks its own question when a
-request is closed or deleted. Waking a mouse stays proposed.
+request is closed or deleted, a question that is not its mouse's word. A request is read
+only for its own source branch. "A branch with an open watch is not cleaned up" is
+dropped: a branch git proves merged is merged, whatever a forge still shows. Waking a
+mouse stays proposed.

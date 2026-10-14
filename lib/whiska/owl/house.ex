@@ -175,6 +175,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Pickup
   alias Whiska.Question.FromOwl
   alias Whiska.Question.Marker
+  alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.SpecArchive
@@ -1172,18 +1173,11 @@ defmodule Whiska.Owl.House do
 
         %{
           state
-          | reading: Task.async(fn -> read_all(due, context) end),
+          | reading: Task.async(fn -> MergeRequests.read_each(due, context) end),
             read_started_at: now,
             read_due: read_due
         }
     end
-  end
-
-  defp read_all(due, context) do
-    Enum.map_reduce(due, context, fn {mouse, row}, context ->
-      {result, context} = MergeRequests.read(mouse, row, context)
-      {{mouse, row, result}, context}
-    end)
   end
 
   defp have_read(state, reads) do
@@ -1191,17 +1185,22 @@ defmodule Whiska.Owl.House do
 
     Enum.reduce(reads, state, fn {mouse, row, result}, state ->
       {attrs, events} = MergeRequests.next(row, mouse, result, now)
-
-      with {:error, reason} <- MergeRequests.save(attrs) do
-        warn(
-          state,
-          "could not keep the read of #{label(mouse.mouse_id)}'s merge request (#{inspect(reason)})"
-        )
-      end
-
       wait = MergeRequests.wait_ms(attrs, retry_after(result), state.forge_ms, now)
       state = put_in(state.read_due[mouse.mouse_id], state.read_started_at + wait)
-      Enum.reduce(events, state, &happened(&1, mouse, &2))
+
+      case MergeRequests.save(attrs) do
+        :ok ->
+          state = Enum.reduce(events, state, &happened(&1, mouse, &2))
+          ask_to_drop(state, mouse, MergeRequests.reads()[mouse.mouse_id])
+
+        {:error, reason} ->
+          warn(
+            state,
+            "could not keep the read of #{label(mouse.mouse_id)}'s merge request (#{inspect(reason)})"
+          )
+
+          state
+      end
     end)
   end
 
@@ -1213,22 +1212,25 @@ defmodule Whiska.Owl.House do
     label = Whiska.Forge.label(ref)
     warn(state, MergeRequests.line(event, mouse.branch || mouse.mouse_id, label))
 
-    case event do
-      :merged -> fetch_now(state)
-      why when why in [:closed, :gone] -> ask_to_drop(state, mouse, label, why)
-      _other -> state
-    end
+    if event == :merged, do: fetch_now(state), else: state
   end
 
   # Asked once per close, of a worktree that is still there; a reopening
-  # clears the stamp. The question comes in by the doorstep like any other
-  # (ADR-0036), collected here and now.
-  defp ask_to_drop(state, %Mouse{removed_at: nil, path: path} = mouse, label, why)
-       when is_binary(path) do
+  # clears the stamp. Asked from the row rather than the read that saw the
+  # close, so an ask that failed is made at the next read. The question comes
+  # in by the doorstep like any other (ADR-0036), collected here and now.
+  defp ask_to_drop(
+         state,
+         %Mouse{removed_at: nil, path: path, merge_request_url: url} = mouse,
+         %MergeRequestRead{url: url, state: closed, asked_at: nil}
+       )
+       when is_binary(path) and closed in ["closed", "gone"] do
     now = DateTime.utc_now()
+    {:ok, ref} = Whiska.Forge.for_url(url)
+    label = Whiska.Forge.label(ref)
+    why = if closed == "closed", do: :closed, else: :gone
 
-    with %{asked_at: nil} <- MergeRequests.reads()[mouse.mouse_id],
-         true <- File.dir?(path),
+    with true <- File.dir?(path),
          {:ok, _file} <-
            Doorstep.leave(state.main_checkout, FromOwl.entry(mouse, label, why, now)),
          :ok <- MergeRequests.save(%{mouse_id: mouse.mouse_id, asked_at: now}) do
@@ -1238,12 +1240,12 @@ defmodule Whiska.Owl.House do
         warn(state, "could not ask about #{label} (#{inspect(reason)})")
         state
 
-      _asked_or_gone ->
+      false ->
         state
     end
   end
 
-  defp ask_to_drop(state, _removed, _label, _why), do: state
+  defp ask_to_drop(state, _mouse, _row), do: state
 
   # Ringing again for an answer not taken, on the same backstop as cleanup: a
   # swallowed doorbell happens inside the pane, so there is nothing to be told
@@ -1506,6 +1508,15 @@ defmodule Whiska.Owl.House do
   defp collect_entry(state, file, entry) do
     kind = Marker.classify(entry.text)
 
+    # Judged on the records as they stood before this entry rewrites the mouse.
+    asked_by =
+      if FromOwl.ours?(
+           entry,
+           Storage.mouse(entry.mouse_id),
+           MergeRequests.reads()[entry.mouse_id]
+         ),
+         do: "owl"
+
     with {:ok, mouse} <-
            Storage.record_mouse(%{
              mouse_id: entry.mouse_id,
@@ -1520,7 +1531,7 @@ defmodule Whiska.Owl.House do
              kind: kind,
              status: arriving(entry),
              asked_at: DateTime.truncate(entry.stamped_at, :second),
-             asked_by: if(FromOwl.ours?(entry), do: "owl")
+             asked_by: asked_by
            }),
          {:ok, _} <- Storage.supersede_earlier(question),
          :ok <- keep_spec(state, entry, question),

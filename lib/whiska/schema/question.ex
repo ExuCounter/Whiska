@@ -54,6 +54,10 @@ defmodule Whiska.Schema.Question do
   @doc "The statuses a question moves through."
   def statuses, do: @statuses
 
+  @doc "Whether the owl asked `question` itself, so it is not its mouse's word."
+  @spec owls?(%__MODULE__{}) :: boolean()
+  def owls?(%__MODULE__{asked_by: asked_by}), do: asked_by == "owl"
+
   @doc "A question's kind is purely the mouse's own marker (ADR-0009)."
   def kinds, do: @kinds
 end

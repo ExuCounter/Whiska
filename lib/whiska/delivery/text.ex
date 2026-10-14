@@ -13,8 +13,9 @@ defmodule Whiska.Delivery.Text do
   <id>` and `answer: whiska reply <id> "..."`, so the person could see what to
   type next; that made the line read like code, which is what the person did
   not want to see. The main session's brief carries the commands instead: its
-  Claude recognises the line by its shape — `🐱` first, `#<id>` after the
-  verb — and runs `whiska show` itself. The id stays in the line because
+  Claude recognises the line by its shape — `🐱` first, or `🦉 Whiska asks`
+  for the owl's own question, `#<id>` after the verb — and runs `whiska show`
+  itself. The id stays in the line because
   answers are keyed to it (ADR-0005) and because that read needs it. A `done` report is the same line with
   "finished" as its verb: it needs no answer, and nothing in the line says
   otherwise.
@@ -39,7 +40,10 @@ defmodule Whiska.Delivery.Text do
   @spec compose(Question.t(), String.t(), more(), [atom()]) :: String.t()
   def compose(%Question{} = q, branch, more, notes) do
     [
-      "🐱 #{branch} #{verb(q.kind)}",
+      if(Question.owls?(q),
+        do: "🦉 Whiska asks · #{branch} #{verb(q.kind)}",
+        else: "🐱 #{branch} #{verb(q.kind)}"
+      ),
       "##{q.id}",
       pointer(q.text),
       more(more)

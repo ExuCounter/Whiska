@@ -179,6 +179,13 @@ defmodule Whiska.MergeRequestsTest do
       assert events == [{:would_wake, %{comments: 1, authors: ["alice"], failed_on: "63c47262"}}]
     end
 
+    test "a log line carries only a name's plain characters" do
+      wake = %{comments: 1, authors: ["al\e[31mice\nfake line"], failed_on: nil}
+
+      assert MergeRequests.line({:would_wake, wake}, "feat-a", "!7") ==
+               "feat-a: would wake for !7 — 1 new comment by al31micefakeline"
+    end
+
     test "merged and closed are said once, as the state moves" do
       {attrs, events} =
         MergeRequests.next(
@@ -297,6 +304,10 @@ defmodule Whiska.MergeRequestsTest do
     test "and never sooner than the forge asked" do
       assert MergeRequests.wait_ms(read(unread_since: @now), 1_200_000, 60_000, @now) == 1_200_000
     end
+
+    test "up to an hour, however long the forge asked" do
+      assert MergeRequests.wait_ms(nil, 1_000_000_000_000_000, 60_000, @now) == 3_600_000
+    end
   end
 
   describe "which merge requests are read" do
@@ -329,7 +340,10 @@ defmodule Whiska.MergeRequestsTest do
     test "a dropped branch is read while its merge request was last read open" do
       record("a", @url)
       {:ok, _} = Storage.mark_removed("a")
-      assert [{%Mouse{mouse_id: "a"}, nil}] = MergeRequests.watched()
+      assert MergeRequests.watched() == []
+
+      :ok = MergeRequests.save(%{mouse_id: "a", url: @url, unread_since: @now})
+      assert MergeRequests.watched() == []
 
       :ok = MergeRequests.save(%{mouse_id: "a", url: @url, state: "open"})
       assert [{_, %MergeRequestRead{state: "open"}}] = MergeRequests.watched()
@@ -362,6 +376,7 @@ defmodule Whiska.MergeRequestsTest do
     defp gitlab_mr(notes_count, updated_at) do
       %{
         "state" => "opened",
+        "source_branch" => "feat-a",
         "sha" => @head,
         "user_notes_count" => notes_count,
         "updated_at" => updated_at,
@@ -394,11 +409,59 @@ defmodule Whiska.MergeRequestsTest do
       assert paths(ctx.fake) == [@mr, @mr <> "/discussions?per_page=100&page=1"]
     end
 
-    test "nothing moved, so the discussions are not read", ctx do
+    test "nothing moved and no thread open, so the discussions are not read", ctx do
       FakeGlab.answer(ctx.fake, @mr, gitlab_mr(3, "2026-10-14T08:59:00Z"))
 
       assert {{:ok, %{max_note_id: nil, threads_open: nil}}, _} =
-               MergeRequests.read(mouse(), read([]), ctx.context)
+               MergeRequests.read(mouse(), read(threads_open: 0), ctx.context)
+
+      assert paths(ctx.fake) == [@mr]
+    end
+
+    test "open threads are read again though nothing moved, so one resolved is seen", ctx do
+      FakeGlab.answer(ctx.fake, @mr, gitlab_mr(3, "2026-10-14T08:59:00Z"))
+      discussions(ctx.fake, [])
+
+      assert {{:ok, %{threads_open: 0}}, _} = MergeRequests.read(mouse(), read([]), ctx.context)
+    end
+
+    test "a merge request from another branch is not this mouse's, so nothing more is read",
+         ctx do
+      FakeGlab.answer(ctx.fake, @mr, Map.put(gitlab_mr(2, "t1"), "source_branch", "feat-b"))
+
+      assert {{:unknown, :other_branch, nil}, _} = MergeRequests.read(mouse(), nil, ctx.context)
+      assert paths(ctx.fake) == [@mr]
+    end
+
+    test "discussions in a shape it does not know count for nothing, and the read stands", ctx do
+      FakeGlab.answer(ctx.fake, @mr, gitlab_mr(2, "t1"))
+
+      discussions(ctx.fake, [
+        1,
+        "x",
+        %{"resolvable" => true, "notes" => [1, %{"id" => "y"}]},
+        thread([note(5, 2, "alice")])
+      ])
+
+      assert {{:ok, seen}, _} = MergeRequests.read(mouse(), nil, ctx.context)
+      assert seen.threads_open == 2
+      assert seen.max_note_id == 5
+    end
+
+    test "a forge that asks to wait is not called again in the same round", ctx do
+      FakeGlab.answer(ctx.fake, @mr, %{}, status: 429, headers: %{"Retry-After" => "120"})
+
+      other =
+        mouse(
+          mouse_id: "m2",
+          branch: "feat-b",
+          merge_request_url: "https://gitlab.example.com/acme/app/-/merge_requests/8"
+        )
+
+      waited = {:unknown, {:http, 429}, 120_000}
+
+      assert {[{_, nil, ^waited}, {%Mouse{mouse_id: "m2"}, nil, ^waited}], _} =
+               MergeRequests.read_each([{mouse(), nil}, {other, nil}], ctx.context)
 
       assert paths(ctx.fake) == [@mr]
     end

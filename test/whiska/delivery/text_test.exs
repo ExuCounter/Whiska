@@ -48,6 +48,13 @@ defmodule Whiska.Delivery.TextTest do
     end
   end
 
+  test "the owl's own question says it is Whiska's, not its mouse's" do
+    q = question(asked_by: "owl", text: "# !7 was closed\n\nDrop the worktree of feat-a?\n⁣⁣")
+
+    assert Text.compose(q, "feat-a", @none, []) =~
+             ~r/\A🦉 Whiska asks · feat-a needs a decision · #12 · /
+  end
+
   test "the order is branch and verb, then id, then pointer, then more open, then notes" do
     q = question(text: "[worktree-status: needs-decision] pick one")
     line = Text.compose(q, "b", %{finished: 0, open: 2}, [:status_unknown])

@@ -473,13 +473,15 @@ defmodule Whiska.Storage do
   defp unanswerable(waiting) do
     current = current_mice()
     alive = current |> Enum.filter(&is_nil(&1.died_at)) |> MapSet.new(& &1.mouse_id)
-    standing = current |> Enum.filter(&is_nil(&1.removed_at)) |> MapSet.new(& &1.mouse_id)
+    worktrees = current |> Enum.filter(&is_nil(&1.removed_at)) |> Map.new(&{&1.mouse_id, &1.path})
 
     Enum.reject(waiting, fn
-      %Question{asked_by: "owl", mouse_id: id} -> MapSet.member?(standing, id)
+      %Question{asked_by: "owl", mouse_id: id} -> stands?(worktrees[id])
       %Question{mouse_id: id} -> MapSet.member?(alive, id)
     end)
   end
+
+  defp stands?(path), do: is_binary(path) and File.dir?(path)
 
   defp release_all([]), do: []
 
@@ -489,7 +491,10 @@ defmodule Whiska.Storage do
       |> MapSet.new()
 
     questions
-    |> Enum.group_by(&if(MapSet.member?(landed, &1.mouse_id), do: "settled", else: "orphaned"))
+    |> Enum.group_by(fn
+      %Question{asked_by: "owl"} -> "closed"
+      q -> if MapSet.member?(landed, q.mouse_id), do: "settled", else: "orphaned"
+    end)
     |> Enum.each(fn {status, released} -> stamp(released, status) end)
 
     questions
@@ -954,7 +959,11 @@ defmodule Whiska.Storage do
   @spec chased() :: [Question.t()]
   def chased do
     latest =
-      from(q in Question, group_by: q.mouse_id, select: {q.mouse_id, max(q.id)})
+      from(q in Question,
+        where: is_nil(q.asked_by) or q.asked_by != "owl",
+        group_by: q.mouse_id,
+        select: {q.mouse_id, max(q.id)}
+      )
       |> Repo.all()
       |> Map.new()
 
@@ -1061,7 +1070,8 @@ defmodule Whiska.Storage do
   @doc """
   A newer question from a mouse supersedes its earlier open and sent ones: the
   mouse has moved past them, so an answer could no longer land. Settled history
-  is untouched. Returns how many were superseded.
+  is untouched. Returns how many were superseded. The owl's own question is
+  not its mouse's, so it supersedes nothing and nothing supersedes it.
 
   Superseding passes the slot on rather than freeing it (ADR-0008): when one
   of them held it — sent, or an heir not yet delivered — the newer question,
@@ -1069,10 +1079,14 @@ defmodule Whiska.Storage do
   question never lands in the middle of the conversation about this one.
   """
   @spec supersede_earlier(Question.t()) :: {:ok, non_neg_integer()}
+  def supersede_earlier(%Question{asked_by: "owl"}), do: {:ok, 0}
+
   def supersede_earlier(%Question{id: id, mouse_id: mouse_id, status: status}) do
     earlier =
       from(q in Question,
-        where: q.mouse_id == ^mouse_id and q.id < ^id and q.status in ^@waiting
+        where:
+          q.mouse_id == ^mouse_id and q.id < ^id and q.status in ^@waiting and
+            (is_nil(q.asked_by) or q.asked_by != "owl")
       )
 
     Repo.transaction(fn ->

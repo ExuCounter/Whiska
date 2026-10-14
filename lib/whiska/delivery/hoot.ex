@@ -84,7 +84,7 @@ defmodule Whiska.Delivery.Hoot do
   @spec compose(Question.t(), String.t(), String.t(), Text.more()) :: t()
   def compose(%Question{} = q, house, branch, more) do
     %{
-      title: "🐱 #{name(house)} · #{name(branch)} #{Text.verb(q.kind)}",
+      title: title(q, name(house), name(branch)),
       body: body(q, more),
       sound: sound(q.kind)
     }
@@ -102,6 +102,12 @@ defmodule Whiska.Delivery.Hoot do
       body: "##{id} · type anything into its pane to hand it over",
       sound: :request
     }
+  end
+
+  defp title(q, house, branch) do
+    if Question.owls?(q),
+      do: "🦉 #{house} · Whiska asks about #{branch}",
+      else: "🐱 #{house} · #{branch} #{Text.verb(q.kind)}"
   end
 
   defp name(text) do

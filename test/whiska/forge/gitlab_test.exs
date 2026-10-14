@@ -39,7 +39,9 @@ defmodule Whiska.Forge.GitLabTest do
           "https://gitlab.com/acme/app/-/merge_requests/7/diffs",
           "https://github.com/acme/app/pull/7",
           "http://gitlab.com/acme/app/-/merge_requests/7",
-          "https://gitlab.com/-/merge_requests/7"
+          "https://gitlab.com/-/merge_requests/7",
+          "https://-gitlab.com/acme/app/-/merge_requests/7",
+          "https://.gitlab.com/acme/app/-/merge_requests/7"
         ],
         do: assert(GitLab.parse(url) == :error)
   end
@@ -59,6 +61,7 @@ defmodule Whiska.Forge.GitLabTest do
              },
              notes_count: 11,
              updated_at: "2026-10-13T17:31:14.238Z",
+             source_branch: "feat-a",
              ready?: false
            }
   end
@@ -189,6 +192,7 @@ defmodule Whiska.Forge.GitLabTest do
       %{
         "iid" => 7,
         "state" => "opened",
+        "source_branch" => "feat-a",
         "sha" => "63c4726204434e1c2384eb0e3632940235b51ab4",
         "updated_at" => "2026-10-13T17:31:14.238Z",
         "user_notes_count" => 11,

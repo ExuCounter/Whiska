@@ -924,13 +924,18 @@ defmodule Whiska.Doctor do
   end
 
   # glab with no token for the host answers without an HTTP response at all.
-  defp signed_out?({_mouse, read}), do: read.unread_reason in ["{:http, 401}", ":no_status"]
+  # A private project reads as not found to a glab that is signed out.
+  defp signed_out?({_mouse, read}),
+    do: read.unread_reason in ["{:http, 401}", ":no_status", ":project_unreadable"]
 
   defp sign_in(watched) do
     watched
     |> Enum.map(fn {mouse, _read} -> elem(Forge.for_url(mouse.merge_request_url), 1).host end)
     |> Enum.uniq()
-    |> Enum.map_join(" && ", &"glab auth login --hostname #{&1}")
+    |> Enum.map_join(
+      "; ",
+      &"glab auth status --hostname #{&1}; if signed out, glab auth login --hostname #{&1}"
+    )
   end
 
   defp merge_requests(1), do: "1 merge request"

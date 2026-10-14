@@ -145,7 +145,9 @@ A **quiet** mouse is one with nothing left to do and nothing anyone is waiting o
 
 - **Its last word was `done`.** The worktree-status marker is the only thing a turn is
   classified by (ADR-0009), and a `done` report is the mouse saying it finished. A mouse
-  whose latest question is a decision, or an unmarked stop, has not said that.
+  whose latest question is a decision, or an unmarked stop, has not said that. A question
+  the owl asked itself (ADR-0036) is not the mouse's word and is left out of this and the
+  next check: it closes with the worktree.
 - **None of its questions is `open` or `sent`.** Nothing of its is waiting on the person
   (ADR-0008). A pane torn down under a question the person has not answered destroys the
   only context the answer would have gone back to.
@@ -294,3 +296,6 @@ never stamped landed (ADR-0064), so it counts as not landed. And a build `whiska
 took down before a sweep saw it land is never stamped either.
 
 Changed on 2026-10-14: a sniff mouse is taken down once its build lands (ADR-0074).
+
+Changed on 2026-10-14: a question the owl asks itself is not the mouse's last word, and does
+not hold the worktree.

@@ -27,6 +27,7 @@ defmodule Whiska.MergeRequests do
 
   @gone_after 3
   @unread_after_s 180
+  @longest_retry_ms 3_600_000
   @longest_wait_ms 900_000
 
   @type comment :: %{id: pos_integer(), author: String.t()}
@@ -86,8 +87,8 @@ defmodule Whiska.MergeRequests do
         do: {mouse, row}
   end
 
-  defp still_open?(%MergeRequestRead{url: url, state: state}, url), do: state in [nil, "open"]
-  defp still_open?(_never_read, _url), do: true
+  defp still_open?(%MergeRequestRead{url: url, state: "open"}, url), do: true
+  defp still_open?(_never_read_or_not_open, _url), do: false
 
   @doc "Every row, by mouse."
   @spec reads() :: %{String.t() => MergeRequestRead.t()}
@@ -102,14 +103,47 @@ defmodule Whiska.MergeRequests do
     end
   end
 
+  @doc """
+  Read each of `due`, a mouse with its last read, in turn. A forge that says
+  to wait is not called again this round: the rest on its host take that
+  answer as their own.
+  """
+  @spec read_each([{Mouse.t(), MergeRequestRead.t() | nil}], context()) ::
+          {[{Mouse.t(), MergeRequestRead.t() | nil, result()}], context()}
+  def read_each(due, context) do
+    {reads, {context, _waiting}} =
+      Enum.map_reduce(due, {context, %{}}, fn {mouse, row}, {context, waiting} ->
+        {:ok, %{host: host}} = Forge.for_url(mouse.merge_request_url)
+
+        case waiting do
+          %{^host => told} ->
+            {{mouse, row, told}, {context, waiting}}
+
+          _ ->
+            {result, context} = read(mouse, row, context)
+            {{mouse, row, result}, {context, wait_on(waiting, host, result)}}
+        end
+      end)
+
+    {reads, context}
+  end
+
+  defp wait_on(waiting, host, {:unknown, _reason, ms} = told) when is_integer(ms),
+    do: Map.put(waiting, host, told)
+
+  defp wait_on(waiting, _host, _result), do: waiting
+
   @doc "Read `mouse`'s merge request on its forge, against `row`, the last read."
   @spec read(Mouse.t(), MergeRequestRead.t() | nil, context()) :: {result(), context()}
-  def read(%Mouse{merge_request_url: url}, row, context) do
+  def read(%Mouse{merge_request_url: url, branch: branch}, row, context) do
     {:ok, ref} = Forge.for_url(url)
     run = run(ref, context)
     prior = prior(row, ref.url)
 
     case ref.forge.merge_request(ref, run) do
+      {:ok, %{source_branch: source}} when source != branch ->
+        {{:unknown, :other_branch, nil}, context}
+
       {:ok, snapshot} ->
         if is_nil(prior) or is_nil(prior.seen_note_id) or moved?(prior, snapshot),
           do: with_notes(ref, run, snapshot, prior, context),
@@ -136,8 +170,11 @@ defmodule Whiska.MergeRequests do
   defp prior(%MergeRequestRead{url: url} = row, url), do: row
   defp prior(_none_or_another_link, _url), do: nil
 
+  # An open thread is read again each time: resolving one may move nothing else.
   defp moved?(prior, snapshot),
-    do: prior.notes_count != snapshot.notes_count or prior.forge_updated_at != snapshot.updated_at
+    do:
+      prior.notes_count != snapshot.notes_count or prior.forge_updated_at != snapshot.updated_at or
+        (prior.threads_open || 0) > 0
 
   defp unread_notes(snapshot),
     do: %{snapshot: snapshot, threads_open: nil, max_note_id: nil, new_comments: []}
@@ -341,7 +378,8 @@ defmodule Whiska.MergeRequests do
   @doc """
   How long until `row`'s next read: `interval_ms` after one that worked; as
   long as reads have been failing, between that and 15 minutes, after one that
-  did not; and never sooner than the forge's own `retry_after_ms`.
+  did not; and never sooner than the forge's own `retry_after_ms`, up to an
+  hour.
   """
   @spec wait_ms(
           MergeRequestRead.t() | map() | nil,
@@ -360,7 +398,7 @@ defmodule Whiska.MergeRequests do
           interval_ms
       end
 
-    max(wait, retry_after_ms || 0)
+    max(wait, min(retry_after_ms || 0, @longest_retry_ms))
   end
 
   @doc """
@@ -391,14 +429,20 @@ defmodule Whiska.MergeRequests do
   def line(:readable_again, branch, label), do: "#{branch}: #{label} reads again"
 
   defp wake_reasons(%{comments: n, authors: authors, failed_on: sha}) do
+    authors = Enum.map_join(authors, ", ", &plain/1)
+
     comments =
       case n do
         0 -> nil
-        1 -> "1 new comment by #{Enum.join(authors, ", ")}"
-        n -> "#{n} new comments by #{Enum.join(authors, ", ")}"
+        1 -> "1 new comment by #{authors}"
+        n -> "#{n} new comments by #{authors}"
       end
 
-    failed = if sha, do: "pipeline failed on #{sha}"
+    failed = if sha, do: "pipeline failed on #{plain(sha)}"
     [comments, failed] |> Enum.reject(&is_nil/1) |> Enum.join("; ")
   end
+
+  # A name as the forge sent it, kept to what a username may hold, so the log
+  # carries no line or terminal control of the forge's making.
+  defp plain(name), do: String.replace(name, ~r/[^A-Za-z0-9_.-]/, "")
 end

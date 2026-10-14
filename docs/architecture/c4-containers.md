@@ -173,4 +173,4 @@ The reasoning is in the ADR each line names; this is the map.
 
 The per-repo sockets with the peer-process check (ADR-0024); `whiska stop` for one house
 (ADR-0003); push approval (ADR-0011); relaunching a stuck mouse (ADR-0026, ADR-0067);
-watching a branch after its merge request is open (ADR-0060).
+waking a mouse about what the owl read of its merge request (ADR-0060).

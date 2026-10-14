@@ -120,7 +120,8 @@ defmodule Whiska.Pickup do
     mice = Enum.reject(Storage.alive_mice(), & &1.removed_at)
 
     local = %{
-      questions: Enum.group_by(Storage.all(Question), & &1.mouse_id),
+      questions:
+        Storage.all(Question) |> Enum.reject(&Question.owls?/1) |> Enum.group_by(& &1.mouse_id),
       doorstep: doorstep(house.main_checkout)
     }
 

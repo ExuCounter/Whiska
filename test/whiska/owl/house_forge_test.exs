@@ -39,8 +39,24 @@ defmodule Whiska.Owl.HouseForgeTest do
 
     Storage.close(handle)
 
-    on_exit(fn -> File.rm_rf!(root) end)
+    on_exit(fn -> remove(root) end)
     {:ok, repo: repo, path: path, forge: FakeGlab.create(root)}
+  end
+
+  # A git fetch or a glab the stopped house started can still be writing for a
+  # moment after it, which a single rm_rf races.
+  defp remove(root, tries \\ 50) do
+    case File.rm_rf(root) do
+      {:ok, _} ->
+        :ok
+
+      {:error, _, _} when tries > 0 ->
+        Process.sleep(20)
+        remove(root, tries - 1)
+
+      {:error, reason, file} ->
+        flunk("could not remove #{file}: #{inspect(reason)}")
+    end
   end
 
   defp start_house(opts) do
@@ -108,6 +124,7 @@ defmodule Whiska.Owl.HouseForgeTest do
     Map.merge(
       %{
         "state" => "opened",
+        "source_branch" => "feat-a",
         "sha" => @head,
         "user_notes_count" => 0,
         "updated_at" => "2026-10-14T09:00:00Z",
@@ -258,6 +275,25 @@ defmodule Whiska.Owl.HouseForgeTest do
     assert asked.text =~ "!7 was closed on the forge"
     assert log =~ "feat-a: !7 closed on the forge"
     assert File.dir?(path)
+  end
+
+  test "a close the owl saw but never asked about is asked at the next read",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    :ok = MergeRequests.save(%{mouse_id: "ma", url: @url, state: "closed", seen_note_id: 0})
+    Storage.close(handle)
+    FakeGlab.answer(forge, @mr, merge_request(state: "closed"))
+    FakeGlab.answer(forge, @discussions, [])
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> Enum.any?(questions(repo), &(&1.asked_by == "owl")) end)
+      House.sync(house)
+    end)
+
+    assert %{asked_at: %DateTime{}} = row(repo)
   end
 
   test "an entry that only claims to be the owl's is a mouse's question", %{

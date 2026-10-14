@@ -181,6 +181,24 @@ defmodule Whiska.PickupTest do
       assert Storage.mouse(m.id).picked_up_at == at(@settled)
     end
 
+    test "is picked up though the owl has asked something of it since", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+
+      {:ok, _} =
+        Storage.record_question(%{
+          mouse_id: m.id,
+          text: "Drop?",
+          kind: "needs-decision",
+          status: "sent",
+          asked_by: "owl",
+          asked_at: @quiet |> at() |> DateTime.truncate(:second)
+        })
+
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+      assert {[{_, :picked_up}], _} = sweep(repo, @settled, seen)
+    end
+
     test "is picked up when the pane reports idle rather than done", %{repo: repo} do
       m = mouse(repo, "feat-a")
       seen = died(repo, m, status: "idle")

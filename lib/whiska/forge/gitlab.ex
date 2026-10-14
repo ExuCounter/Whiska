@@ -14,7 +14,7 @@ defmodule Whiska.Forge.GitLab do
   alias Whiska.Forge
   alias Whiska.Forge.CLI
 
-  @link ~r"\Ahttps://([A-Za-z0-9.-]+(?::[0-9]{1,5})?)/([A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+)/-/merge_requests/([0-9]+)/?\z"
+  @link ~r"\Ahttps://([A-Za-z0-9][A-Za-z0-9.-]*(?::[0-9]{1,5})?)/([A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+)/-/merge_requests/([0-9]+)/?\z"
 
   # A merge request's discussions are read 100 to a page; this many pages is
   # far past any review, and a forge paging forever is cut off there.
@@ -131,6 +131,7 @@ defmodule Whiska.Forge.GitLab do
        pipeline: pipeline(body["head_pipeline"]),
        notes_count: count,
        updated_at: string(body["updated_at"]),
+       source_branch: string(body["source_branch"]),
        ready?: body["detailed_merge_status"] == "mergeable"
      }}
   end
@@ -174,6 +175,8 @@ defmodule Whiska.Forge.GitLab do
   end
 
   defp threads(discussions) do
+    discussions = Enum.filter(discussions, &is_map/1)
+
     open =
       Enum.count(
         discussions,
