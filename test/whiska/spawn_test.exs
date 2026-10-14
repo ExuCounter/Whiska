@@ -285,6 +285,18 @@ defmodule Whiska.SpawnTest do
     assert prompt =~ copied
     refute prompt =~ "Keep the old flag"
     refute prompt =~ "do the thing"
+
+    assert mouse_on(ctx.repo, "feat/from-research").built_from == String.to_integer(id)
+  end
+
+  test "a sniff mouse spawned --from is no build of that question", ctx do
+    {id, _} = finished_investigation(ctx.repo)
+    herdr_creates(ctx.repo, "research/b")
+    expect(Herdr, :start_agent, fn @socket, "w9:p1", _name, args -> {:ok, args} end)
+    expect(Herdr, :prompt, fn @socket, "w9:p1", _text -> :ok end)
+
+    assert {0, _out, _err} = spawn_mouse(["sniff", "research/b", "--from", id], ctx.repo)
+    assert mouse_on(ctx.repo, "research/b").built_from == nil
   end
 
   test "--from names a question this house has", ctx do

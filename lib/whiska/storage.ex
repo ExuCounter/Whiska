@@ -37,7 +37,8 @@ defmodule Whiska.Storage do
     {12, Whiska.Migrations.V012Base},
     {13, Whiska.Migrations.V013Usage},
     {14, Whiska.Migrations.V014KeepsSlot},
-    {15, Whiska.Migrations.V015MergeRequest}
+    {15, Whiska.Migrations.V015MergeRequest},
+    {16, Whiska.Migrations.V016BuiltFrom}
   ]
 
   @modes ~w(build sniff)

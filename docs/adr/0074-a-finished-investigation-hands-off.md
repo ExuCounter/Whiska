@@ -113,8 +113,11 @@ in the build brief, which a bug fix is approved from before any code (ADR-0063).
 
 - The mice table carries `shaped_as`. A mouse recorded before it reads as shaped as
   nothing and is never flagged; a guess would be a claim.
-- The investigation's worktree is left standing after the hand-off: the person may still
-  want to talk to it, and `whiska drop` takes it down.
+- The investigation's worktree stands while its build does: the person may still want to
+  talk to it, and `whiska drop` takes it down. The build mouse's record keeps the question
+  it was built from, `built_from`, and once every build from the investigation's
+  questions is gone and one of them landed, the owl takes the investigation down too
+  (ADR-0061). Its kept research document stays.
 - What the person gives up: a small fix made by the investigating session, which already
   holds the context. They ask for the build, and a fresh mouse reads the proposal.
 - A doorstep entry carries an optional `research` field; one without it still decodes.
@@ -141,3 +144,6 @@ shaped mouse.
 
 Changed on 2026-10-14: the spawn types the task as the mouse's first prompt, and the
 comments travel as a file because a mouse wrote what they quote (ADR-0088, ADR-0044).
+
+Changed on 2026-10-14: the investigation's worktree goes once its build lands, rather
+than waiting for the person to drop it (ADR-0061).

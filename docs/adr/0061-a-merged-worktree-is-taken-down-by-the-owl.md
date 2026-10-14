@@ -80,7 +80,8 @@ skips them.
    this asks about the branch's history rather than how the base reached it
    (ADR-0064's landing stamp asks the latter, and reads a fast-forward as no landing).
    A reflog that is missing or empty is unknown, and unknown is not permission. Such a
-   worktree stays until the person drops it with `whiska drop`.
+   worktree stays until the person drops it with `whiska drop`, or, for a sniff
+   mouse, until its build lands (below).
 
    Two limits, both on the safe side. The test is "the tip moved", not "a commit of its
    own": a sniff mouse that fast-forwards its own branch (`git pull`) reads as having
@@ -274,3 +275,22 @@ A mouse the person put on hold (ADR-0079) is left exactly where it is, landed an
 or not: "stops where it is" includes its worktree. Its landing is still noted, so a
 question of its settles later rather than orphaning. This is checked before the four
 preconditions above.
+
+## A sniff mouse lands by its build
+
+A sniff mouse's branch has nothing to merge, so it never lands as a branch does. Once a
+build spawned from one of its questions (`whiska spawn --from`, ADR-0074) has landed and
+every build from its questions is gone — taken down, dropped, or its folder taken by a
+newer record — it has landed too, and the owl takes it down on a later sweep. Only a
+mouse shaped sniff, and only while its branch never moved and its worktree is clean: one
+that moved is asked as any other branch is, its builds aside, and a dirty one is left for
+`whiska drop`. It must still be quiet and not held. Its branch goes by `update-ref -d`
+only while it still points at the commit checked, as a branch landed as copies does. Its
+kept research document stays, and says dropped.
+
+Three cases leave it for `whiska drop`, all on the safe side. A build spawned before
+builds recorded their question links to nothing. A build fast-forwarded into the base is
+never stamped landed (ADR-0064), so it counts as not landed. And a build `whiska drop`
+took down before a sweep saw it land is never stamped either.
+
+Changed on 2026-10-14: a sniff mouse is taken down once its build lands (ADR-0074).

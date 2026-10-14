@@ -63,6 +63,9 @@ defmodule Whiska.Schema.Mouse do
     # the owl fetches the base so a merge on the forge is seen here.
     field(:merge_request_at, :utc_datetime)
     field(:merge_request_url, :string)
+    # The question `whiska spawn --from` built this mouse from. Its sniff mouse
+    # is taken down once every build from it is gone and one landed (ADR-0074).
+    field(:built_from, :integer)
   end
 
   @doc """

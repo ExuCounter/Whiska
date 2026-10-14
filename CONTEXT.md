@@ -705,7 +705,9 @@ branch deleted, and the mouse record stamped removed — unattended, by the owl,
 backstop (ADR-0061). It happens only to a **quiet** mouse whose branch has landed: the
 branch merged into the base, here or in the **fetched base**, and moved off the commit it
 was cut at (a sniff mouse's
-worktree stays: it has nothing to merge), the worktree clean, nothing on it unpushed.
+branch has nothing to merge: it goes, never moved, once a build `whiska spawn --from`
+made of one of its questions has landed and every such build is gone, and its kept research
+document says dropped), the worktree clean, nothing on it unpushed.
 Nothing is ever
 forced, and anything that cannot be established leaves the worktree exactly where it is.
 The mouse record survives, as every record does (ADR-0007); only the folder, the pane and

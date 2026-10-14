@@ -44,20 +44,26 @@ defmodule Whiska.CleanupTest do
         path: path,
         branch: branch,
         pane: opts[:pane],
-        base: opts[:base]
+        base: opts[:base],
+        mode: Keyword.get(opts, :mode, "build"),
+        shaped_as: Keyword.get(opts, :shaped_as, Keyword.get(opts, :mode, "build")),
+        built_from: opts[:built_from]
       })
 
-    unless opts[:silent] do
-      {:ok, _} =
-        Storage.record_question(%{
-          mouse_id: id,
-          text: "all done",
-          kind: Keyword.get(opts, :kind, "done"),
-          status: Keyword.get(opts, :status, "closed")
-        })
-    end
+    question =
+      unless opts[:silent] do
+        {:ok, question} =
+          Storage.record_question(%{
+            mouse_id: id,
+            text: "all done",
+            kind: Keyword.get(opts, :kind, "done"),
+            status: Keyword.get(opts, :status, "closed")
+          })
 
-    %{id: id, path: path, branch: branch}
+        question.id
+      end
+
+    %{id: id, path: path, branch: branch, question: question}
   end
 
   defp herdr(repo, worktrees, panes) do
@@ -410,6 +416,219 @@ defmodule Whiska.CleanupTest do
 
       assert [{"m-feat-a", {:left, :not_merged}}] = sweep(repo)
       assert File.dir?(m.path)
+    end
+  end
+
+  describe "a sniff mouse whose build has landed" do
+    defp research(repo) do
+      sniff = mouse(repo, "research-a", commit: false, mode: "sniff")
+      build = mouse(repo, "feat-a", built_from: sniff.question)
+      {sniff, build}
+    end
+
+    defp kept_research(repo, sniff) do
+      entry = %Whiska.Doorstep.Entry{
+        mouse_id: sniff.id,
+        branch: sniff.branch,
+        worktree_root: sniff.path,
+        stamped_at: ~U[2026-10-06 09:00:00Z],
+        text: "found it",
+        research: "# Found it\n"
+      }
+
+      question = %Whiska.Schema.Question{id: sniff.question}
+      :kept = Whiska.SpecArchive.keep_research(repo.checkout, entry, question)
+      Path.join(Whiska.SpecArchive.dir(repo.checkout), "2026-10-06-research-a.research.md")
+    end
+
+    # Taken down as the sweep does it: stamped landed first when it landed.
+    defp gone(repo, m, opts \\ []) do
+      if opts[:landed], do: {:ok, _} = Storage.mark_landed(m.id)
+      File.rm_rf!(m.path)
+      GitRepo.git!(repo.checkout, ["worktree", "prune"])
+      {:ok, _} = Storage.mark_removed(m.id)
+    end
+
+    test "goes on the sweep after its build is taken down, its research document kept",
+         %{repo: repo} do
+      {sniff, build} = research(repo)
+      kept = kept_research(repo, sniff)
+      GitRepo.land(repo, "feat-a")
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", {:left, :build_standing}}, {"m-feat-a", :removed}] =
+               sweep(repo)
+
+      refute File.dir?(build.path)
+
+      assert [{"m-research-a", :removed}] = sweep(repo)
+      refute File.dir?(sniff.path)
+      refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "research-a"
+      assert %{removed_at: %DateTime{}} = Storage.mouse("m-research-a")
+      assert File.read!(kept) =~ "# Found it"
+      assert File.read!(kept) =~ ~r/status: dropped \d{4}-\d{2}-\d{2}\n/
+    end
+
+    test "stays while any build from it still stands", %{repo: repo} do
+      {sniff, build} = research(repo)
+      other = mouse(repo, "feat-b", built_from: sniff.question)
+      GitRepo.land(repo, "feat-a")
+      gone(repo, build, landed: true)
+      seen(repo, other, workspace_id: nil)
+
+      assert [{"m-research-a", {:left, :build_standing}}, {"m-feat-b", {:left, :not_merged}}] =
+               sweep(repo)
+
+      assert File.dir?(sniff.path)
+    end
+
+    test "stays when every build from it was dropped unmerged", %{repo: repo} do
+      {sniff, build} = research(repo)
+      gone(repo, build)
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", {:left, :no_build_landed}}] = sweep(repo)
+      assert File.dir?(sniff.path)
+    end
+
+    test "with no build from it, stays as any branch that never moved", %{repo: repo} do
+      sniff = mouse(repo, "research-a", commit: false, mode: "sniff")
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", {:left, :no_work_of_its_own}}] = sweep(repo)
+      assert File.dir?(sniff.path)
+    end
+
+    test "with a file not committed, stays", %{repo: repo} do
+      {sniff, build} = research(repo)
+      GitRepo.land(repo, "feat-a")
+      gone(repo, build, landed: true)
+      File.write!(Path.join(sniff.path, "notes.md"), "mine")
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", {:left, :dirty}}] = sweep(repo)
+      assert File.dir?(sniff.path)
+    end
+
+    test "with a commit of its own, stays", %{repo: repo} do
+      {sniff, build} = research(repo)
+      GitRepo.commit!(sniff.path, "notes.md", "mine")
+      GitRepo.land(repo, "feat-a")
+      gone(repo, build, landed: true)
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", {:left, :not_merged}}] = sweep(repo)
+      assert File.dir?(sniff.path)
+    end
+
+    test "not quiet, stays, and goes once it is", %{repo: repo} do
+      {sniff, build} = research(repo)
+      GitRepo.land(repo, "feat-a")
+      gone(repo, build, landed: true)
+      seen(repo, sniff, pane: {"w1:p1", "working"}, workspace_id: "ws-3")
+
+      assert [{"m-research-a", {:left, :working}}] = sweep(repo)
+
+      seen(repo, sniff, pane: {"w1:p1", "idle"}, workspace_id: "ws-3")
+
+      expect(Herdr, :remove_worktree, fn _, "ws-3" ->
+        File.rm_rf!(sniff.path)
+        :ok
+      end)
+
+      assert [{"m-research-a", :removed}] = sweep(repo)
+    end
+
+    test "goes once one build landed and the other was dropped unmerged", %{repo: repo} do
+      {sniff, build} = research(repo)
+      other = mouse(repo, "feat-b", built_from: sniff.question)
+      GitRepo.land(repo, "feat-a")
+      gone(repo, build, landed: true)
+      gone(repo, other)
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", :removed}] = sweep(repo)
+    end
+
+    test "on hold, stays", %{repo: repo} do
+      {sniff, build} = research(repo)
+      GitRepo.land(repo, "feat-a")
+      gone(repo, build, landed: true)
+      {:ok, _} = Storage.hold(sniff.id)
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", {:left, :held}}] = sweep(repo)
+    end
+
+    test "flipped to sniff after it was shaped build, stays", %{repo: repo} do
+      sniff = mouse(repo, "research-a", commit: false, mode: "sniff", shaped_as: "build")
+      build = mouse(repo, "feat-a", built_from: sniff.question)
+      GitRepo.land(repo, "feat-a")
+      gone(repo, build, landed: true)
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", {:left, :no_work_of_its_own}}] = sweep(repo)
+    end
+
+    test "a build fast-forwarded into the base keeps its kept spec waiting", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      kept = kept(repo, m)
+      GitRepo.git!(repo.checkout, ["merge", "--ff-only", "feat-a"])
+      GitRepo.git!(repo.checkout, ["push", "origin", "main"])
+      herdr(repo, [], [])
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      assert File.read!(kept) =~ "status: waiting\n"
+    end
+
+    test "with work of its own landed, goes as any branch does, its builds aside",
+         %{repo: repo} do
+      {sniff, _build} = research(repo)
+      GitRepo.commit!(sniff.path, "notes.md", "mine")
+      GitRepo.git!(sniff.path, ["push", "origin", "research-a"])
+      GitRepo.land(repo, "research-a")
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", :removed}, {"m-feat-a", {:left, :not_merged}}] = sweep(repo)
+    end
+
+    test "a build record a newer one took the folder from is gone", %{repo: repo} do
+      {sniff, build} = research(repo)
+      GitRepo.land(repo, "feat-a")
+      {:ok, _} = Storage.mark_landed(build.id)
+
+      {:ok, _} =
+        Storage.record_mouse(%{mouse_id: "m-newer", path: build.path, branch: build.branch})
+
+      File.rm_rf!(build.path)
+      GitRepo.git!(repo.checkout, ["worktree", "prune"])
+      {:ok, _} = Storage.mark_removed("m-newer")
+      herdr(repo, [], [])
+
+      assert {"m-research-a", :removed} in sweep(repo)
+    end
+
+    test "a sniff mouse fast-forwarded with no build keeps its kept document waiting",
+         %{repo: repo} do
+      sniff = mouse(repo, "research-a", mode: "sniff")
+      kept = kept_research(repo, sniff)
+      GitRepo.git!(repo.checkout, ["merge", "--ff-only", "research-a"])
+      GitRepo.git!(repo.checkout, ["push", "origin", "main"])
+      herdr(repo, [], [])
+
+      assert [{"m-research-a", :removed}] = sweep(repo)
+      assert File.read!(kept) =~ "status: waiting\n"
+    end
+
+    test "a build from a build mouse's question takes nothing down with it", %{repo: repo} do
+      source = mouse(repo, "feat-src", commit: false)
+      build = mouse(repo, "feat-a", built_from: source.question)
+      GitRepo.land(repo, "feat-a")
+      gone(repo, build, landed: true)
+      herdr(repo, [], [])
+
+      assert [{"m-feat-src", {:left, :no_work_of_its_own}}] = sweep(repo)
+      assert File.dir?(source.path)
     end
   end
 

@@ -9,7 +9,8 @@ defmodule Whiska.Cleanup do
   unpushed, and the mouse is quiet — and
   the pane goes with it, through the one `worktree.remove` call herdr offers,
   which closes the workspace and removes the worktree together the way
-  `whiska drop` does.
+  `whiska drop` does. A sniff mouse's branch has nothing to merge: it lands by
+  its builds instead, and goes clean and never moved (ADR-0061).
 
   **Unknown is never permission.** Anything that cannot be established — a
   detached head, a base branch nobody can name, a herdr that will not answer, a
@@ -54,9 +55,12 @@ defmodule Whiska.Cleanup do
   def sweep(%{main_checkout: checkout} = house) do
     standing = Storage.current_mice() |> Enum.reject(& &1.removed_at)
 
+    questions = Enum.group_by(Storage.all(Question), & &1.mouse_id)
+
     local = %{
       checkout: checkout,
-      questions: Enum.group_by(Storage.all(Question), & &1.mouse_id),
+      questions: questions,
+      builds: builds(questions),
       doorstep: doorstep(checkout),
       bases: bases(checkout, standing)
     }
@@ -263,6 +267,21 @@ defmodule Whiska.Cleanup do
     end
   end
 
+  # Every mouse `whiska spawn --from` built, under the mouse that asked the
+  # question it was built from, each with whether its worktree still stands:
+  # a record a newer one took the folder from is never removed, and is gone.
+  defp builds(questions) do
+    asker = for {mouse_id, asked} <- questions, q <- asked, into: %{}, do: {q.id, mouse_id}
+    mice = Storage.all(Mouse)
+    current = mice |> Storage.current() |> MapSet.new(& &1.mouse_id)
+
+    for %Mouse{built_from: from} = build <- mice, from, reduce: %{} do
+      acc ->
+        standing? = is_nil(build.removed_at) and MapSet.member?(current, build.mouse_id)
+        Map.update(acc, asker[from], [{build, standing?}], &[{build, standing?} | &1])
+    end
+  end
+
   defp doorstep(checkout) do
     checkout
     |> Doorstep.waiting()
@@ -277,7 +296,7 @@ defmodule Whiska.Cleanup do
   worst one. Whether its pane is busy is not here: that is herdr's to say.
   """
   @spec local_verdict(Mouse.t(), map()) ::
-          {:ok, {String.t(), :merged | {:in_base, String.t()}}} | {:leave, term()}
+          {:ok, {String.t(), :merged | {:in_base | :built, String.t()}}} | {:leave, term()}
   def local_verdict(%Mouse{path: path} = mouse, local) do
     with :ok <- standing(path),
          :ok <- not_held(mouse),
@@ -310,7 +329,42 @@ defmodule Whiska.Cleanup do
   defp finished?(questions),
     do: Enum.max_by(questions, &{DateTime.to_unix(&1.asked_at), &1.id}).kind == "done"
 
-  defp landed(%Mouse{path: path} = mouse, %{checkout: checkout} = context) do
+  # A sniff mouse's branch has nothing to merge, so it lands by its builds
+  # instead (ADR-0074): every one built from its questions gone, one of them
+  # landed. Only while the branch never moved; one that did is asked as any
+  # other branch is.
+  defp landed(%Mouse{mode: "sniff", shaped_as: "sniff", mouse_id: id} = mouse, context)
+       when is_map_key(context.builds, id) do
+    with {:ok, branch} <- leave_on_error(Git.head_branch(mouse.path)),
+         {:ok, head} <- leave_on_error(Git.head(mouse.path)) do
+      case Git.own_work?(context.checkout, branch, head) do
+        {:ok, false} ->
+          with :ok <- built_landed(context.builds[id]),
+               {:ok, true} <- clean(mouse.path),
+               do: {:ok, {branch, {:built, head}}}
+
+        {:ok, true} ->
+          landed_as_branch(mouse, context)
+
+        other ->
+          leave_on_error(other)
+      end
+    end
+  end
+
+  defp landed(mouse, context), do: landed_as_branch(mouse, context)
+
+  @spec built_landed([{Mouse.t(), boolean()}]) ::
+          :ok | {:leave, :build_standing | :no_build_landed}
+  defp built_landed(builds) do
+    cond do
+      Enum.any?(builds, &elem(&1, 1)) -> {:leave, :build_standing}
+      Enum.any?(builds, fn {build, _} -> build.landed_at end) -> :ok
+      true -> {:leave, :no_build_landed}
+    end
+  end
+
+  defp landed_as_branch(%Mouse{path: path} = mouse, %{checkout: checkout} = context) do
     with {:ok, {_base, places}} <- leave_on_error(base(mouse, context)),
          {:ok, branch} <- leave_on_error(Git.head_branch(path)),
          {:ok, how} <- merged(checkout, path, places, context[:merged]),
@@ -348,8 +402,8 @@ defmodule Whiska.Cleanup do
   end
 
   # An ancestor of the base is not yet a landing: a branch that never moved —
-  # a sniff mouse's, or a build mouse that committed nothing — is one too, and
-  # its worktree is the person's to drop (ADR-0061).
+  # a sniff mouse's with no build landed, or a build mouse that committed
+  # nothing — is one too, and its worktree is the person's to drop (ADR-0061).
   defp own_work(checkout, path, branch) do
     with {:ok, head} <- leave_on_error(Git.head(path)) do
       case Git.own_work?(checkout, branch, head) do
@@ -381,12 +435,25 @@ defmodule Whiska.Cleanup do
   defp leave_on_error({:error, reason}), do: {:leave, {:unreadable, reason}}
   defp leave_on_error(ok), do: ok
 
+  defp deleted_as({:built, head}), do: {:in_base, head}
+  defp deleted_as(landing), do: landing
+
+  # A removed record is never swept again, so a sniff mouse gone with its
+  # build says dropped in its kept research document now or never.
+  defp settle_dropped(checkout, mouse) do
+    case Storage.mouse(mouse.mouse_id) do
+      %Mouse{} = removed -> SpecArchive.settle(checkout, [removed])
+      nil -> :ok
+    end
+  end
+
   defp take_down(mouse, plan, context) do
     with :ok <- remove(plan, context) do
       Git.prune_worktrees(context.checkout)
       recorded = Storage.mark_removed(mouse.mouse_id)
-      deleted = Git.delete_branch(context.checkout, plan.branch, plan.landing)
+      deleted = Git.delete_branch(context.checkout, plan.branch, deleted_as(plan.landing))
       if deleted == :ok, do: Review.remove(context.checkout, plan.branch)
+      if match?({:built, _}, plan.landing), do: settle_dropped(context.checkout, mouse)
 
       case {recorded, deleted} do
         {{:ok, _}, :ok} -> :removed

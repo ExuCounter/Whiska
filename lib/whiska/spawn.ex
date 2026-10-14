@@ -199,7 +199,7 @@ defmodule Whiska.Spawn do
   defp start(main_checkout, path, request, task, created, via) do
     with {:ok, layout} <- Layout.resolve(path),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
-         {:ok, _} <- record(mouse_id, layout, created.pane_id),
+         {:ok, _} <- record(mouse_id, layout, created.pane_id, built_from(request.shape, task)),
          {:ok, text} <- task_text(task, main_checkout, layout.worktree_root),
          {:ok, shaped} <- shape(mouse_id, layout, request.shape),
          :ok <- carry_hooks(main_checkout, layout.worktree_root),
@@ -229,14 +229,18 @@ defmodule Whiska.Spawn do
       "`whiska drop #{branch}` takes it down."
   end
 
-  defp record(mouse_id, layout, pane) do
+  defp record(mouse_id, layout, pane, built_from) do
     Storage.record_mouse(%{
       mouse_id: mouse_id,
       path: layout.worktree_root,
       branch: layout.branch_label,
-      pane: pane
+      pane: pane,
+      built_from: built_from
     })
   end
+
+  defp built_from(%{mode: "build"}, {:from, id, _comments}), do: id
+  defp built_from(_shape, _task), do: nil
 
   @doc """
   Record a mouse's shape and get its worktree ready (ADR-0069, ADR-0083): its
