@@ -50,10 +50,16 @@ defmodule Whiska.BriefTest do
     assert main =~ "no branch names, ids or commands"
   end
 
-  test "a reply about something else ends with a note on what still waits" do
+  test "a waiting question is reminded once, in one line, then left alone" do
     main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
-    assert main =~ "Still waiting on you"
+    assert main =~ "Remind it once"
+    assert main =~ "then never again"
+    assert main =~ "Only questions not yet reminded"
+    assert main =~ "Meow, still waiting on you:"
+    assert main =~ "No links"
     assert main =~ "A reply about that question, or a recap, needs none"
+    refute main =~ "per waiting question, its bold heading"
+    refute main =~ "**Still waiting on you:**"
   end
 
   test "land and pr run in the background so the person's input is not blocked" do

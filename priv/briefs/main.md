@@ -100,12 +100,15 @@ Plain lines, no bullets, no colour dots; no branch names, ids or commands.
 
 ## Still waiting on you
 
-A reply not about a question that waits on the person (not held) ends with a note, so
-they never lose it behind other talk. Check `whiska inbox` first; nothing waiting → no
-note. A reply about that question, or a recap, needs none: it already shows it. The note,
-after a blank line:
+A question that waits on the person (not held) gets one reminder, so it is not lost
+behind other talk. Remind it once, in the first reply not about it, never in the reply
+that announces it; then never again, even if the person ignored it. Keep track yourself
+of which you have reminded or shown. Check `whiska inbox` first; nothing waiting, or
+every one already reminded or shown in a recap in this conversation → no note. A reply
+about that question, or a recap, needs none: it already shows it. A question that starts
+waiting later gets its own single reminder. The note, after a blank line, is one line:
 
-- `**Still waiting on you:**` then, per waiting question, its bold heading as in the
-  recap, the spec, build plan or report links `whiska show` gave on one line joined by
-  ` · `, and one line on what input it needs. Keep it to those lines: no recap of
-  anything else.
+`Meow, still waiting on you: <what the work is> (<age>), <what the work is> (<age>).`
+
+For example: `Meow, still waiting on you: sortable CSV page (3h), login fix (1d).` Only
+questions not yet reminded. No links, no input line, no bold heading, nothing else.
