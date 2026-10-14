@@ -1,8 +1,8 @@
 # Deployment — one machine
 
-Everything runs on the person's own laptop as one OS user. There is no server, and the
-one network hop is git's own: the owl fetches a base branch from its remote while a merge
-request waits (ADR-0087). Every endpoint Whiska
+Everything runs on the person's own laptop as one OS user. There is no server. The owl
+leaves the machine only while a merge request waits: it fetches a base branch from its
+remote (ADR-0087), and reads a GitLab request through the person's `glab` (ADR-0060). Every endpoint Whiska
 serves is a Unix socket or a file.
 
 ```mermaid
@@ -36,6 +36,7 @@ C4Deployment
   }
   Deployment_Node(forge, "The forge", "off this machine") {
     Container(remote, "Git remote", "git over https or ssh", "The base branch a merge request is merged into")
+    Container(forgeapi, "Forge API", "https", "A merge request's state, pipeline and threads")
   }
 
   Rel(plist, wrapper, "The service manager runs the wrapper, which execs the owl")
@@ -44,7 +45,8 @@ C4Deployment
   Rel(owl, sock, "Listens, one per open house")
   Rel(owl, globalsock, "Listens, one per machine")
   Rel(owl, hooksock, "Listens, one per machine")
-  Rel(owl, remote, "Fetches the base alone while a merge request waits, never prompting", "git fetch")
+  Rel(owl, remote, "Fetches the base alone every minute while a merge request waits, never prompting", "git fetch")
+  Rel(owl, forgeapi, "Reads a recorded GitLab merge request every minute, GET only", "glab api")
   Rel(mousepane, globalinstall, "Runs its hooks where the repo wires none")
   Rel(mousepane, hooksock, "Every hook asks the owl first, with nc")
   Rel(mousepane, doorstep, "Stop hook writes an entry when the owl does not answer")

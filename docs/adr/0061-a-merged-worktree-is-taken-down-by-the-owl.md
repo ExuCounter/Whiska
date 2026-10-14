@@ -235,8 +235,8 @@ record. Anything able to write that file already runs as the person.
   nothing on the board or in `whiska mice` changes.
 - **Cleanup rides the house's existing 60 s backstop.** It is local git and one herdr call
   for a handful of dead branches; it needs no timer of its own and no event. While a merge
-  request waits, the same backstop starts the base's fetch every 5 minutes, in a task of
-  its own.
+  request waits, the same backstop starts the base's fetch every minute, in a task of its
+  own (ADR-0087).
 - **`whiska cleanup` as a command is not built.** ADR-0007 named it, the spec lists it, and
   it was always the human trigger this ADR removes. If it comes back it is a *now, not in a
   minute* convenience, not the only way in.

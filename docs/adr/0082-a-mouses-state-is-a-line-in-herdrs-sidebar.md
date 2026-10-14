@@ -64,6 +64,24 @@ A dead mouse (ADR-0026) has no line; what it left is counted on the main checkou
 free string, a topic or a branch, is stripped to one line with no control characters before
 it reaches herdr.
 
+**A fourth token, `whiska_mr`, is the merge request the mouse's branch waits on**
+(ADR-0087), its own row under the question, so neither the state nor the question gives
+way to it. It is named the way its forge names it, `⎇ !123` or `⎇ #12`, and after it what
+the owl last read (ADR-0060), the first of these that holds:
+
+| read | row |
+|------|-----|
+| merged, closed, or gone from the forge | `⎇ !123 · merged`, `· closed`, `· deleted` |
+| reads failing for three minutes or more | `⎇ !123 · unread 20m` |
+| head pipeline failed | `⎇ !123 · pipeline ✗ · 2 threads` |
+| ready to merge | `⎇ !123 · ready to merge` |
+| threads open | `⎇ !123 · 2 threads open · ✓` (`◐` while the pipeline runs) |
+| pipeline running, passed, or none | `⎇ !123 · pipeline ◐`, `· ✓`, `· open` |
+
+What does not fit 31 characters drops from its end, down to the name alone, which is
+also the row before the first read and for a forge the owl does not read. The row has no
+colour rule: its symbol is the same on every row, so there is nothing to key on.
+
 **The line carries the mouse's context gauge, straight after the symbol**, `◐ 142K · <topic>`: the input, cache-read and
 cache-creation tokens of the last assistant message in its transcript, read the same way
 as the last action (ADR-0050), for every mouse with a line, since a mouse waiting on the
@@ -109,6 +127,8 @@ The same three tokens, most urgent first:
 - `❓ n more: whiska questions`, questions no mouse's line can show.
 - `◌ n orphaned (branches)`, named by branch, since the branch survives on the record
   (ADR-0007) and is what `whiska questions` prints; `#id` when there is none.
+- `⎇ n merge requests, no worktree`, requests the owl still reads for a branch that was
+  dropped while they were open (ADR-0087): no mouse line is left to show them.
 
 ## Keeping the lines true
 
@@ -116,7 +136,7 @@ The same three tokens, most urgent first:
 every pane list (every two seconds) the house also lists its workspaces, which carry the
 tokens herdr holds, and sends each line whose tokens differ. Every line has a TTL of thirty
 seconds and is sent again twenty seconds after its last send, so a dead owl's lines expire
-rather than lie. Every send names all three tokens, an absent one as `null`, so a line that
+rather than lie. Every send names all four tokens, an absent one as `null`, so a line that
 got shorter clears what it no longer says.
 
 **A house speaks only for its own workspaces** and never touches another repo's lines.
@@ -176,5 +196,7 @@ Changed on 2026-10-11: an idle mouse says `○ idle`, and the mice re-sort on an
 Changed on 2026-10-12: a working mouse is stuck after two minutes' silence in a tool or five waiting on the model, where it was two minutes whatever it waited on; and a subagent started further back than the short tail still counts as out.
 
 Changed on 2026-10-14: no mouse line carries a question's id; the context gauge follows the symbol on every state; a finished mouse carries its report's summary line, not its last line.
+
+Changed on 2026-10-14: a fourth token, `whiska_mr`, is a mouse's merge request row, and the main checkout's line counts open requests with no worktree.
 
 Folded in on 2026-10-08: 0051, 0058, 0059, 0065 (their text is in git history).

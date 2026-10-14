@@ -16,3 +16,7 @@ herdr's socket API — `pane.agent_status_changed` gates delivery (ADR-0008) and
 part of the same boundary and is faked the same way. Tests drive those events directly
 instead of waiting on a real terminal, which is what makes event-driven collection
 (ADR-0036) testable at all.
+
+A forge (ADR-0060) is faked without a mock: tests hand the house a `glab` script on disk,
+which answers what the test set, and `config/test.exs` names no tool, so no test reaches
+a real forge.

@@ -1,17 +1,15 @@
----
-status: proposed
----
-
 # Watching a branch is the owl's one networked job, and it only ever reads
 
-One slice is built: the merge, seen through git rather than the forge
-([ADR-0087](0087-an-opened-merge-request-is-remembered.md)).
-While a merge request Whiska opened waits, the owl fetches its base branch, and cleanup
-reads a landing from that fetched copy. The rest is not built. It is recorded so it is not
-redesigned from scratch. An earlier
-draft worked the same idea out for GitHub alone, through `gh`, with Whiska running
-`gh pr merge` itself; two things in it did not survive contact: the forge is not always
-GitHub, and Whiska reads but never writes.
+Two slices are built. The merge, seen through git
+([ADR-0087](0087-an-opened-merge-request-is-remembered.md)): while a merge request Whiska
+recorded waits, the owl fetches its base branch, and cleanup reads a landing from that
+fetched copy. And the reading of a GitLab merge request every minute, through the forge
+layer below: its state, its head pipeline, its open threads and its new comments, shown
+on the mouse's sidebar row (ADR-0082) and logged as what would wake the mouse. Waking it
+is not built: typing into a mouse's pane is still gated (below). An earlier draft worked
+the same idea out for GitHub alone, through `gh`, with Whiska running `gh pr merge`
+itself; two things in it did not survive contact: the forge is not always GitHub, and
+Whiska reads but never writes.
 
 ## The question this starts from
 
@@ -57,23 +55,38 @@ This is the design, and it is a security boundary before it is a convenience.
 - **The mouse pushes and opens the merge request**, with `gh` or `glab`, under its own
   `PreToolUse` rules and the existing push approval. Write credentials stay exactly where
   they are today and Whiska never acquires one.
-- **The owl only reads status.** It cannot push, merge, comment, close or re-run, because
-  the credential it holds cannot do those things — not because the code does not call
-  them.
+- **The owl only reads status.** It cannot push, merge, comment, close or re-run: the one
+  runner it reads through builds a `GET` and nothing else (below).
 - **On red**, the failure goes to the mouse that owns the branch while that mouse is
   alive, and becomes a question for the person when it is dead. Same ladder as everything
   else in ADR-0026: cheap fixes before bothering the person.
 
-That the owl's credential is *read-only* is the part doing the work. A token that can only
-read is the enforcement; everything else is a promise.
+## Credentials: the person's own login, read through one GET-only runner
 
-## Credentials: the CLI writes, `curl` reads
+This repo is GitHub and the work repo is GitLab, so any version of this needs both forges
+reachable. The first design gave each half its own credential; the reading half was
+changed on 2026-10-14, and the first design is kept below as the way back.
 
-`gh` 2.102.0 and `glab` 1.120.0 are both installed on this machine, neither authenticated
-yet; `curl` and `jq` are there as always. This repo is GitHub and the work repo is GitLab,
-so any version of this needs both forges reachable. **Each half uses the tool that fits
-what it is allowed to do**, and that is the decision rather than a consequence of what
-happens to be installed:
+- **The mouse writes through `gh` / `glab`,** as it always did, and `whiska pr` opens
+  through the same login (ADR-0088).
+- **The owl reads through the same `glab` login, through one runner.**
+  `Whiska.Forge.CLI` is the only place the owl runs a forge's tool, and the argument list
+  it builds is fixed: `api --method GET --include --hostname <host> <path>`. The host and
+  the path are each checked against a closed set of characters, with no `..`, so nothing
+  read from a forge or a record can add a flag or reach another verb. A test pins the
+  argument list. The tool runs with no prompt and no update check, through a port with a
+  deadline and a kill, its stderr dropped, and its HTTP status read from `--include`.
+
+**Why the login and not a token.** A token is one more secret the person writes and
+renews, for a boundary the first design itself admitted the operating system never
+enforced (its honest limit, below): the person's `glab` is on the same machine either
+way. What carries the weight now is that the owl's only way to a forge builds a `GET`.
+That is weaker than a token that cannot write, and stronger than a promise about which
+subcommands the code calls: a bug elsewhere in the owl has no runner that writes.
+
+### The first design, kept as the way back
+
+**Each half used the tool that fits what it is allowed to do:**
 
 - **The mouse writes through `gh` / `glab`.** Opening a merge request means a title, a
   body, a base and a head, and reading back a number — `gh pr create` and `glab mr create`
@@ -82,13 +95,13 @@ happens to be installed:
   access. The person authenticates each CLI once, with `gh auth login` and `glab auth
   login`, and that credential stays where that forge's own tooling expects it. Whiska
   neither stores it nor reads it.
-- **The owl reads through `curl` and a read-only token.** A status check is one `GET` per
+- **The owl read through `curl` and a read-only token.** A status check is one `GET` per
   branch, parsed with the `jq` that is already there or in Elixir. The token is a
   fine-grained GitHub PAT scoped to read Checks and Pull requests, and a GitLab personal
   token with `read_api`, each in `~/.whiska/forge/<host>` at `0600`, written by the person
   and never by Whiska.
 
-**The reason the owl does not simply reuse the CLI is the split, not the install.** `gh
+**Its reason for not reusing the CLI was the split, not the install.** `gh
 auth login` mints a credential that can push, merge, comment and delete. Polling through
 it would hand the always-awake half a write-capable credential and reduce the read-only
 boundary to a promise about which subcommands the code happens to call. A token that can
@@ -110,22 +123,34 @@ The token is passed to `curl` in a header read from a file (`--config` or `@-`),
 a command line and never in the environment Whiska builds, so it cannot reach a process
 listing, the owl's log, a crash dump, or a mouse's transcript.
 
-`whiska doctor` gains a line per watched repo: the token file exists, its mode is `0600`,
-and one cheap authenticated call succeeds. The write side gets a line of its own — the
-forge CLI is present and `gh auth status` / `glab auth status` says it is logged in —
-since neither is authenticated today and a mouse that cannot open a merge request is the
-first thing anyone would notice. Missing or expired is a `warn`, never a `fail` (ADR-0038):
-nothing is lost when a branch is not watched.
+A reader with a token would be one more module behind the same interface, should the
+login ever prove the wrong trade.
+
+`whiska doctor` gains a forge line while a GitLab merge request waits: `glab` not found,
+or reads failing for three minutes or more, each named with why, with `glab auth login
+--hostname <host>` when the forge refused for want of a sign-in. It reads what the owl
+stored and makes no call to the forge. Missing or failing is a `warn`, never a `fail`
+(ADR-0038): nothing is lost when a branch is not read.
 
 ## The forge is a port
 
-A `Whiska.Forge` behaviour with two callbacks — `merge_request(repo, branch)` and
-`checks(repo, ref)` — and two adapters, `Forge.GitHub` and `Forge.GitLab`, each one a
-`curl` invocation and a parse. Nothing outside an adapter knows which forge a repo has.
-Which adapter is a per-repo fact: a `forge:` line in `.whiska/dispatch.yml`, defaulting to
-what the `origin` remote's host says, and `none` is a supported answer. Watching is
-opt-in per repo, and a repo that never opts in keeps today's owl
-exactly.
+`Whiska.Forge` is the behaviour, and an adapter per forge knows everything about it:
+parsing its links, naming a request (`!7`, `#12`), and the reads. The reads are
+`merge_request` (its state, head commit, head pipeline, ready to merge, notes count and
+last update), `notes` (the open threads and the comments past a cursor, a page of 100 at a
+time, at most 20 pages, following `X-Next-Page`), `member?`, `me` and `project_readable?`.
+`whiska pr`'s half is a separate behaviour, `Whiska.Forge.Opener`, which only `whiska pr`
+calls, in the CLI process, never the owl.
+
+- **`Forge.GitLab`** reads and opens. **`Forge.GitHub`** opens only; a GitHub link is not
+  read yet, and its row shows its name alone. Its threads' resolution exists only in
+  GraphQL, which is always a `POST`, so reading it is a decision for when it is built.
+- **Which adapter is picked by the recorded link's host**, and for opening by the `origin`
+  remote's. There is no `dispatch.yml` and no opt-in: ADR-0085 has no settings place, and a
+  repo with no recorded GitLab link makes no forge call at all.
+- **Tests fake the tool, not the module**: a `glab` script on disk, handed to the house as
+  its `:forge_tools`, and `config/test.exs` names no tool, so no test reaches a real forge
+  (ADR-0031).
 
 ## Polling is the cheap part
 
@@ -134,25 +159,28 @@ timer: it renders the board every two seconds. One branch per live mouse at abou
 minute is three orders of magnitude under either forge's authenticated limit. Polling is
 not a design problem here and gets no cleverness.
 
+Each waiting GitLab request costs one `GET` a minute, and the threads are read only on the
+first read or when its notes count or last update moved. Ten waiting requests are about
+600 calls an hour.
+
 The three real costs are below, in the order they bite.
 
 ### Cost 1: the owl gains a dependency it has never had
 
-The owl touches its own files, herdr's socket, the process table, and one git remote: the
-built slice's fetch of a base branch, through git, with git's own credentials and no
-prompt. It makes no connection to a forge. That is the change, and everything here exists
-to keep it from spreading. The fetch already follows the first two rules below, with a
-60 s deadline.
+The owl touches its own files, herdr's socket, the process table, one git remote for the
+fetch of a base branch, and the forge for each GitLab request recorded. Everything here
+exists to keep that from spreading.
 
 - **Every forge call is a short-lived `Task` under the house, never the house's own
-  process**, with a hard timeout (10 s) and the result delivered as a message. A forge
-  that hangs must not delay a collection or a delivery by one millisecond.
-- **Watching rides the existing 60 s backstop** rather than adding a timer — but unlike
-  collection, the backstop is this feature's *working* trigger, not its last resort,
-  because nothing tells the owl a build turned red. The house's existing backstop warning
-  (ADR-0036) must stay about collection, or the signal it was built to give is lost.
-- **A `curl` that cannot be run at all is an answer**, not a crash: the branch goes
-  unknown and backs off.
+  process**, with a 30 s deadline per call and the result delivered as a message. A forge
+  that hangs must not delay a collection or a delivery by one millisecond. The task does
+  the network only: the house reads the stored reads before and writes them after.
+- **Reading rides the existing 60 s backstop** rather than adding a timer, each request
+  due 60 s after its last read started — but unlike collection, the backstop is this
+  feature's *working* trigger, not its last resort, because nothing tells the owl a build
+  turned red. The house's existing backstop warning (ADR-0036) stays about collection.
+- **A tool that cannot be run at all is an answer**, not a crash: the read goes unknown
+  and backs off.
 
 ### Cost 2: network failure must not become a false alarm
 
@@ -160,18 +188,36 @@ A check run is **green**, **red**, or **unknown**. Unknown is a first-class answ
 started yet, the network is down, the token expired, the forge is rate-limiting, or the
 adapter did not recognise what came back.
 
-- **Unknown never produces a question, ever.** It backs off — starting at the backstop
-  interval, doubling to a 15-minute ceiling — and is reported on the mouse's board row and
-  a doctor line. The one failure that would destroy this feature's credibility is telling
+- **Unknown never produces a question, ever.** The last read stands, the owl's log says so
+  once, and the next read waits as long as reads have been failing, between 60 s and a
+  15-minute ceiling. After three minutes the mouse's row says `unread <age>`, and the doctor
+  line names it. The one failure that would destroy this feature's credibility is telling
   the person a build is broken when the truth is that a laptop was on a train.
-- **A rate-limit answer is obeyed, not retried**: GitHub's reset time on a 403, GitLab's
-  `Retry-After` on a 429. A bug that retries into a limit gets the person throttled across
-  every tool they use, not just this one.
-- **A watch gives up** after a ceiling of consecutive unknowns, and says so. It is never
-  resumed silently.
-- **The owl being offline costs nothing.** A watch is state on a row, not a held
-  connection, so a laptop that slept through a CI run reads the final result when it
-  wakes.
+- **A rate-limit answer is obeyed, not retried**: GitLab's `Retry-After` on a 429. A bug
+  that retries into a limit gets the person throttled across every tool they use.
+- **A read never gives up while the request is open**: a merge request the person still
+  has open is worth reading after an outage, and the row already says it is unread.
+- **A 404 is deleted only after three in a row, and only while the project itself still
+  reads.** A project that does not read is a sign-in or access problem, which is unknown.
+- **The owl being offline costs nothing.** A read is a row, not a held connection, so a
+  laptop that slept through a CI run reads the final result when it wakes. What the owl
+  last read is kept in the house, with the newest comment it has seen, so a restart never
+  counts the same comment twice.
+
+## What counts, and what is said
+
+- **A new comment** is one past the cursor, not a system note, not by the signed-in
+  account, and by a member of the project; membership is asked once per author and
+  remembered while the owl runs. Nothing that existed when the owl first reads a request
+  counts.
+- **A failed pipeline** counts once per pipeline, and only when it ran on the request's
+  head commit.
+- **Either is logged at the read that sees it**, as what would wake the mouse: `feat/x:
+  would wake for !123 — 2 new comments by alice, bob; pipeline failed on 63c47262`.
+  Nothing is woken; that waits on ADR-0044 (below).
+- **Merged on the forge fetches the base at once.** The forge's word is not the landing:
+  git's checks still prove it (ADR-0061).
+- **Closed on the forge, or gone, asks the person once** whether to drop the worktree.
 
 ### Cost 3: credentials
 
@@ -194,10 +240,10 @@ stepping over it. **Building this half means widening ADR-0044 first**, delibera
 
 Two things follow if it is reopened:
 
-- **A question the owl originates is new.** Every question today is a mouse's own message,
-  collected from the doorstep (ADR-0036). A red build is Whiska speaking. It needs its own
-  kind, it is keyed by `mouse_id` like everything else, and `CONTEXT.md`'s **Question**
-  entry has to say that one kind of question is not a mouse's.
+- **A question the owl originates exists now**, for a closed or deleted request: two
+  fixed texts, left on the doorstep like a mouse's (ADR-0036), keyed by the mouse's
+  `mouse_id` and recorded with `asked_by: "owl"` only when the text is one of them. A red
+  build would be a third.
 - **A dead mouse escalates to the person**, through the ordinary delivery path — the one
   case where a red build reaches the person at all, and the same thing ADR-0026 already
   does with everything a dead mouse leaves behind.
@@ -249,9 +295,9 @@ sleeping laptop, are the whole reason the feature exists.
 - *Which branch does this mouse own, and is it merged* is asked by both and written once.
 - **A branch with an open watch is not cleaned up.** A build still running is a reason to
   leave a worktree standing.
-- **A merge ends every watch on that branch**, with no further forge call: merged is a
-  git fact, read from the base here or its fetched copy, and git's answer wins whenever
-  both are available.
+- **A merge ends every watch on that branch**: merged is a git fact, read from the base
+  here or its fetched copy, and git's answer wins whenever both are available. The forge's
+  "merged" only brings the next fetch forward.
 - Cleanup is the owl's and unattended (ADR-0061); a watch that ends merged simply hands
   the branch to it.
 
@@ -262,8 +308,13 @@ tunnel, a far larger change to a daemon that listens on nothing, for latency mea
 against a timer nobody is watching.
 
 **`gh pr checks --watch`**, holding the connection until the run finishes. Rejected: a held
-process per branch, no GitLab equivalent of the same shape, and it would put the polling
-back on the write-capable credential.
+process per branch, and no GitLab equivalent of the same shape.
+
+**`curl` or Erlang's `:httpc` with a read-only token**, the first design. Kept as the way
+back (above): each needs a token Whiska must hold, and `:httpc` a TLS setup in the owl.
+
+**`glab api --paginate`.** It joins pages and drops the headers the runner reads its
+status from, so the adapter follows `X-Next-Page` itself.
 
 **Whiska running the merge itself**, as the first draft had it. Rejected: it is the one
 write that would force a write-capable credential into the owl, and it buys a keystroke.
@@ -272,3 +323,9 @@ write that would force a write-capable credential into the owl, and it buys a ke
 behaviour, and the second adapter is written when the work repo needs it.
 
 Folded in on 2026-10-08: 0032 (its text is in git history).
+
+Changed on 2026-10-14: the owl reads each GitLab merge request every minute through the
+person's `glab` login and a GET-only runner, where a `curl` and a read-only token were
+proposed; the forge layer is built as read and open behaviours picked by host; a read
+never gives up while the request is open; and the owl asks its own question when a
+request is closed or deleted. Waking a mouse stays proposed.

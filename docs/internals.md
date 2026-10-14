@@ -320,6 +320,8 @@ Pre-1.0 (`v0.0.1`). Every ADR is built except those under "Proposed, not built" 
 - `whiska reopen` (ADR-0005) and `whiska cleanup` (ADR-0061) as commands.
 - Push approval (ADR-0011).
 - Relaunching a stuck mouse, then telling you (ADR-0026, ADR-0067).
+- Waking a mouse for its merge request's review or failed pipeline, and reading a GitHub
+  pull request (ADR-0060).
 
 ## Speed and size
 

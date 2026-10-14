@@ -36,6 +36,10 @@ settled status, which is a larger decision.
 A `done` report is outside this sweep. Nothing is waiting on the person in one, and
 releasing it would turn the ordinary end of a mouse's life into silence.
 
+So is a question the owl asks itself (ADR-0036), while the mouse's worktree stands: it is
+about the worktree, not the mouse, so a closed pane does not take it from the person. It
+closes when the worktree is removed, by `whiska drop` or by cleanup.
+
 ## What frees the slot
 
 - **An answer.** `whiska reply` saves it; the question is `answered` and the slot is free
@@ -149,3 +153,6 @@ explanation.
   `whiska init` rewrites it.
 
 Folded in on 2026-10-08: 0037, 0057 (their text is in git history).
+
+Changed on 2026-10-14: a question the owl asks itself waits while its worktree stands,
+whether the mouse is alive or not, and closes with the worktree.

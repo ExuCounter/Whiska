@@ -13,6 +13,7 @@ C4Container
   System_Ext(claude, "Claude Code", "The main session and the mice, in herdr's panes")
   System_Ext(nc, "Desktop notifications", "osascript on macOS, notify-send on Linux")
   System_Ext(remote, "Git remote", "The forge's copy of the repo, where a merge request is merged")
+  System_Ext(forge, "Forge API", "GitLab or GitHub: a merge request's state, pipeline and threads")
 
   Container_Boundary(built, "Built") {
     Container(shim, "whiska.sh", "bash", "Hook shim in the repo or in ~/.claude; asks the owl first, else resolves the runtime at fire time; fails open, with a visible hook error in a worktree. The global copy stands down where the repo has its own")
@@ -58,7 +59,8 @@ C4Container
   Rel(cli, brief, "start writes the main session's; spawn and shape write a mouse's")
   Rel(cli, herdr, "spawn creates the worktree and starts Claude in its pane with the brief, the deny list and the shape flags; spawn then types its task there as the first prompt, and send one fixed line")
   Rel(cli, herdr, "drop removes a worktree and its workspace together")
-  Rel(cli, remote, "pr pushes a finished branch by name, then opens its merge request with gh or glab", "git push")
+  Rel(cli, remote, "pr pushes a finished branch by name", "git push")
+  Rel(cli, forge, "pr opens the merge request with gh or glab")
   Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
   Rel(claude, brief, "Reads it once, at start, as part of its system prompt")
   Rel(claude, denylist, "Reads it once, at start, and denies what it lists")
@@ -98,7 +100,9 @@ C4Container
   Rel(house, db, "Records each collected turn's usage, read from the transcript its entry names")
   Rel(cli, db, "metrics reads usage, waits and spec timing")
   Rel(cli, db, "pr and merge-request record the link the forge's tool printed for a finished branch")
-  Rel(house, remote, "Fetches the base alone every 5 minutes while a merge request waits, in a task, never prompting", "git fetch")
+  Rel(house, remote, "Fetches the base alone every minute while a merge request waits, and at once when the forge says merged, in a task, never prompting", "git fetch")
+  Rel(house, forge, "Reads each recorded GitLab merge request every minute, in a task, GET only", "glab api")
+  Rel(house, doorstep, "Leaves its own question when the forge says closed or gone, then collects it")
   Rel(house, herdr, "Removes a landed worktree, here or in the fetched base, and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
   Rel(house, herdr, "Rings a mouse's doorbell again, at most three times, while its answer is not taken")
@@ -158,10 +162,12 @@ The reasoning is in the ADR each line names; this is the map.
 - **One owl, many houses**, each supervised independently (ADR-0001). Delivery lives in the
   house, and nothing types across houses (ADR-0008, ADR-0044).
 - **herdr is the one boundary with a fake behind it** (ADR-0031).
-- **The git remote is the one thing off the machine the owl reaches**, through git alone,
-  for the base branch alone, and only while a merge request waits; no forge is asked
-  (ADR-0087, ADR-0060). `whiska pr` reaches it too, on the person's word: a push by the
-  branch's name, and the forge's own `gh` or `glab` to open the merge request (ADR-0085).
+- **Off the machine, the owl reaches two things, and only while a merge request waits**:
+  the git remote, through git alone, for the base branch alone (ADR-0087); and for a
+  GitLab request the forge's API, through the person's `glab` login and one runner that
+  builds only a `GET` (ADR-0060). `whiska pr` reaches both too, on the person's word: a
+  push by the branch's name, and the forge's own `gh` or `glab` to open the merge request
+  (ADR-0085).
 
 ## Designed only
 

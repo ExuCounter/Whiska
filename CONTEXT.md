@@ -29,9 +29,9 @@ _Avoid_: main, trunk, target
 **Fetched base**:
 The copy of a **base** last fetched from its remote: where a **merge request** merged on
 the forge shows before anyone pulls. Work it holds has landed as surely as work the base
-here holds. The owl fetches it while a merge request waits, and a fetch the person runs
-moves it too; it is only as fresh as its last fetch, and it never moves the local base branch
-(ADR-0087).
+here holds. The owl fetches it every minute while a merge request waits, and at once when
+it reads the request merged on the **forge**; a fetch the person runs moves it too. It is
+only as fresh as its last fetch, and it never moves the local base branch (ADR-0087).
 _Avoid_: remote base, upstream (git's word for what a branch pushes to and pulls from)
 
 **Brief**:
@@ -173,7 +173,11 @@ mouse's branch landed and there is nothing left to answer to — the merge was t
 house) with the work still not landed. An open question is **queued behind** the sent one while
 another holds the slot, a `done` report included; the **sidebar line**, `whiska questions`
 and the **inbox** say that — `finished · queued behind #n` for a report — and keep "waiting on
-you" for the one actually sent (ADR-0082).
+you" for the one actually sent (ADR-0082). One kind is not a mouse's message: when the owl
+reads a mouse's **merge request** closed or gone from the **forge**, it asks once whether to
+drop the worktree, headed `🦉 Whiska asks`. It is answered with `whiska drop` or
+`whiska dismiss`, never `whiska reply`, and it waits while the worktree stands, whether or
+not the mouse is alive (ADR-0036, ADR-0008).
 _Avoid_: report (as the table/record name — the word now names how a message reads,
 see **Report**), event (as the table/record name)
 
@@ -239,10 +243,22 @@ A branch's request, on its forge, to merge into the base. Whiska knows of one on
 `whiska pr` opened it, or `whiska merge-request` recorded one opened by hand: the link is
 kept on the mouse, its **branch line** says so and `whiska pr` pushes to it until it
 lands, and while it waits the owl fetches the base, so its merge on the forge reaches the
-**fetched base** and **cleanup** takes the worktree down. One opened elsewhere, or closed
-on the forge, is not seen (ADR-0087).
+**fetched base** and **cleanup** takes the worktree down. On GitLab the owl also reads it
+every minute through the **forge**: its state, head pipeline, open threads and new
+comments, shown on its own **sidebar line** row; closed or gone, it asks whether to drop
+the worktree. A request still open when its branch is dropped is read until it merges or
+closes. One opened elsewhere is not seen, nor is a GitHub one closed (ADR-0087, ADR-0060).
 _Avoid_: PR, pull request (GitHub's words; both forges are meant), review (what happens
 on it)
+
+**Forge**:
+Where a repo's merge requests live, GitLab or GitHub, and Whiska's one layer for talking
+to it (ADR-0060): an adapter per forge, picked by a link's host, reads through the
+person's own `glab` or `gh` login with `GET` requests only, through one runner, and
+`whiska pr` opens through the same adapter. The owl reads only a **merge request** Whiska
+recorded, and only on GitLab so far.
+_Avoid_: host (the forge's address, one part of a link), provider, remote (git's word for
+where a branch is pushed)
 
 **Proposal**:
 The section of a finished investigation's **research document** when it changed nothing
@@ -327,7 +343,9 @@ carries wrapped on up to two lines beneath (a finished report's is the first lin
 `## Summary`), each carrying the mouse's **context gauge** straight after the symbol
 (`❓ 142K · waiting on you · 14m`, `◐ 142K · <topic>`; a line saying the pane is lost has none); under the main checkout's workspace, what is
 true of the whole repo: no **main session**, delivery **gated**, questions waiting with
-no line of their own, orphans. Every line starts with a symbol only Whiska writes, which
+no line of their own, orphans, **merge requests** still read with no worktree. A mouse
+whose branch waits on a merge request has one more row, `⎇ !123 · 2 threads open · ✓`,
+saying what the owl last read of it (ADR-0082). Every line starts with a symbol only Whiska writes, which
 is how the person's own herdr config colours it; a working mouse's symbol turns once a
 second, so a still one means the owl has stopped. A line nobody keeps current goes away by itself, and one herdr has lost is sent
 again. The mice re-sort only when one changes state, starts or stops queueing behind another, or appears in any state but idle.

@@ -41,10 +41,13 @@ open (ADR-0088). Once the branch is seen landed, its lines are an
 ordinary branch's again: new commits on it land, or go into a request of their own, which
 waits until it lands in turn and moves the landing date (ADR-0064). A commit in the
 fetched base is not beyond it, so a request merged on the forge leaves nothing to land. A
-request closed on the forge is invisible here, so `whiska drop` stays the way out.
+GitLab request closed on the forge is seen by the owl's read of it, which asks the person
+once whether to drop the worktree (ADR-0060); `whiska drop` is the way out either way.
 
-**While a request waits, the owl fetches its base.** Every 5 minutes on the house's
-backstop, in a task of its own with a 60 s deadline, the base branch alone is fetched into
+**While a request waits, the owl fetches its base.** Every 60 s on the house's backstop,
+measured from when the last fetch started, and at once when the owl reads the request
+merged on the forge (ADR-0060), in a task of its own with a 60 s deadline, the base branch
+alone is fetched into
 its remote-tracking branch: from the remote the base tracks, else `origin`, with no tags,
 no submodules and no `FETCH_HEAD`. Nothing else in the checkout moves. A fetch that fails
 waits twice as long before the next, up to an hour, and the owl's log says so once until
@@ -74,28 +77,38 @@ from what a fetch brings back, by the git checks cleanup already trusts.
 
 ## Consequences
 
-- **The owl makes its first outbound call**, and it is git's, not a forge's: no token, no
-  forge CLI, git's own credentials, and only while a request waits. ADR-0060's networked
-  half is otherwise still proposed.
-- **A merge request merged on the forge is taken down within minutes**, by ADR-0061's
-  preconditions, read against the fetched base.
+- **The owl calls out only while a request waits**: git's fetch, with git's own
+  credentials, and for a GitLab request a read through the person's `glab` login
+  (ADR-0060).
+- **A merge request merged on the forge is taken down within about a minute**, by
+  ADR-0061's preconditions, read against the fetched base.
 - **`origin/<base>` moves in the main checkout by itself** while a request waits. The
   local base branch never does.
-- **A closed request is not seen.** Its branch reads as a merge request's, and
-  `whiska land` refuses it, until the person drops it.
+- **A closed GitHub request is not seen.** Its branch reads as a merge request's, and
+  `whiska land` refuses it, until the person drops it. A closed GitLab request is asked
+  about once.
+- **A branch dropped while its request is still open stays read** until the request
+  merges or closes, and the main checkout's sidebar line counts such requests.
 
 ## Considered options
 
-- **Ask the forge with `gh` or `glab`**, as other tools do. It sees a closed request too,
-  but it polls through a write-capable login, which ADR-0060 rejects for the owl, and it
-  calls a tool ADR-0085 keeps to what the person asked of a merge request.
+- **Ask the forge with `gh` or `glab` whether it merged**, as other tools do. Rejected as
+  the proof: the forge's word does not move the base here, and cleanup trusts git
+  (ADR-0061). The owl reads the forge since 2026-10-14 (ADR-0060), and a "merged" it reads
+  only fetches the base at once.
 - **Opt in per repo.** Rejected: there is no settings place to switch it in (ADR-0085), and
   the fetch cannot prompt, so on is safe everywhere.
 - **Offer Drop it on a merge request's lines, last.** Rejected by the task: Drop beside an
   open request throws away what the request still shows. `whiska drop` covers a closed
   one.
-- **An "in review" state in the sidebar.** Left out: the finished line already says it.
+- **An "in review" state in the sidebar.** Left out at first, as the finished line
+  already said it; the request's own row says more since (ADR-0082).
 
 Changed on 2026-10-13: `whiska pr` opens and records the request, pushes to it once open,
 and `whiska land` refuses a branch with one open, where finish options did that before
 (ADR-0088).
+
+Changed on 2026-10-14: the base is fetched every 60 s from the fetch's start, where it was
+every 5 minutes from its end, and at once on a merge the owl reads; a closed GitLab
+request is seen and asked about; and a dropped branch's open request stays read
+(ADR-0060).

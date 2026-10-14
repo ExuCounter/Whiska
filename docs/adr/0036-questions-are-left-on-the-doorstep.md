@@ -17,6 +17,15 @@ the row is the history. So the doorstep is exactly what is still waiting, answer
 no database and no owl. Older owls renamed entries `.collected` and kept them; an owl
 removes those when it opens the house.
 
+**The owl writes to it too.** When it reads a GitLab merge request closed or gone from the
+forge (ADR-0060), it leaves one entry for the mouse whose branch it is, keyed by that
+mouse's `mouse_id`, asking whether to drop the worktree, and collects it at once. Its text
+is one of two fixed texts, and the entry says it is from the owl; collection records
+`asked_by: "owl"` only when both hold, so a mouse cannot pass its own message off as
+Whiska's. Such a question is headed `🦉 Whiska asks` and cannot be replied to: "drop" is
+`whiska drop <branch>`, "keep" is `whiska dismiss <id>`. It is asked once per request,
+even across restarts.
+
 ## Why a file, and why in the house
 
 A hook that connected to a socket would have to answer what to do when nothing is

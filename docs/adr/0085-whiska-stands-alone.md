@@ -21,6 +21,10 @@ absence is said plainly. The cases so far:
 - **Opening one:** the person says "pr", and the main session runs `whiska pr`, which
   pushes the branch by its name and opens the request. It is assigned to the account the
   tool is signed in as, the account that is also its author.
+- **Reading one Whiska recorded:** while a GitLab merge request the person had opened
+  waits, the owl reads it every minute through `glab api`, `GET` only, to show it on the
+  mouse's row and to see it merge or close (ADR-0060). Without `glab`, nothing is read and
+  `whiska doctor` says so.
 - **Handling its review:** the person asks a mouse to handle the review on its merge
   request (the build brief's section on merge request comments). The mouse reads every
   open thread, fixes or disputes each, pushes, replies on the thread and resolves a bot's,
@@ -148,3 +152,7 @@ diff is a `.diff` patch that opens wherever the person's `.diff` files open.
 `WHISKA_DIFF_LINK` and `WHISKA_SPEC_LINK` went: only a process that had read the person's
 shell profile saw them, so the main session printed the file link instead. A branch's
 diff file now goes with the branch.
+
+Changed on 2026-10-14: the owl reads a recorded GitLab merge request through `glab`, the
+one call to a forge the person did not ask for each time; opening it is what asked
+(ADR-0060).
