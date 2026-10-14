@@ -46,6 +46,9 @@ defmodule Whiska.Schema.Question do
     field(:answered_at, :utc_datetime)
     field(:spec_sent, :boolean, default: false)
     field(:keeps_slot, :boolean, default: false)
+    # `owl` on a question the owl asked itself about a merge request; nil on a
+    # mouse's.
+    field(:asked_by, :string)
   end
 
   @doc "The statuses a question moves through."

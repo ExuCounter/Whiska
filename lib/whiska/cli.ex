@@ -2427,6 +2427,17 @@ defmodule Whiska.CLI do
     end
   end
 
+  # The owl's own question is answered by what it asks for, never typed into
+  # the mouse's pane: the mouse did not ask it.
+  defp reply(%Question{asked_by: "owl"} = q, _text) do
+    branch = name_of(q.mouse_id)
+
+    fail(
+      "whiska: ##{q.id} is Whiska's own question, not #{branch}'s. " <>
+        "\"drop\" is `whiska drop #{branch}`; \"keep\" is `whiska dismiss #{q.id}`."
+    )
+  end
+
   defp reply(%Question{status: status} = q, _text) when status not in ["open", "sent"] do
     fail("whiska: ##{q.id} is already #{status}; there is nothing to answer.")
   end

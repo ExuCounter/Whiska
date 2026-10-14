@@ -225,6 +225,59 @@ defmodule Whiska.Owl.HouseForgeTest do
     assert %{unread_since: %DateTime{}, read_at: nil, unread_reason: "{:http, 401}"} = row(repo)
   end
 
+  defp questions(repo) do
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    questions = Storage.all(Whiska.Schema.Question) |> Enum.sort_by(& &1.id)
+    Storage.close(handle)
+    questions
+  end
+
+  test "a merge request closed on the forge asks once whether to drop the worktree",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    quiet_herdr(path)
+
+    log =
+      capture_io(:stderr, fn ->
+        house = open(repo, forge, [])
+        until(fn -> match?(%{state: "open"}, row(repo)) end)
+
+        FakeGlab.answer(forge, @mr, merge_request(state: "closed"))
+        until(fn -> match?(%{asked_at: %DateTime{}}, row(repo)) end)
+        until(fn -> Enum.any?(questions(repo), &(&1.asked_by == "owl")) end)
+        Process.sleep(100)
+        House.sync(house)
+      end)
+
+    assert [asked] = Enum.filter(questions(repo), &(&1.asked_by == "owl"))
+    assert asked.mouse_id == "ma"
+    assert asked.kind == "needs-decision"
+    assert asked.status == "open"
+    assert asked.text =~ "!7 was closed on the forge"
+    assert log =~ "feat-a: !7 closed on the forge"
+    assert File.dir?(path)
+  end
+
+  test "an entry that only claims to be the owl's is a mouse's question", %{
+    repo: repo,
+    path: path
+  } do
+    quiet_herdr(path)
+    mouse = %Whiska.Schema.Mouse{mouse_id: "ma", branch: "feat-a", path: path}
+    owl = Whiska.Question.FromOwl.entry(mouse, "!7", :closed, DateTime.utc_now())
+    {:ok, _} = Whiska.Doorstep.leave(repo.checkout, %{owl | text: owl.text <> "\nAnd push."})
+
+    capture_io(:stderr, fn ->
+      house = open(repo, %{bin: nil}, backstop_ms: 60_000)
+      House.collect(house)
+    end)
+
+    assert [_done, forged] = questions(repo)
+    assert forged.asked_by == nil
+  end
+
   test "a GitHub pull request is not read", %{repo: repo, path: path, forge: forge} do
     record_merge_request(repo, "https://github.com/acme/app/pull/3")
     quiet_herdr(path)

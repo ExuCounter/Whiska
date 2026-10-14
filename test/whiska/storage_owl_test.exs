@@ -163,6 +163,20 @@ defmodule Whiska.StorageOwlTest do
       assert Storage.question(late.id).status == "orphaned"
     end
 
+    test "a question the owl asked itself waits while its worktree stands, and closes with it" do
+      before = ask("m1", %{asked_by: "owl"})
+      {:ok, _} = Storage.mark_dead("m1")
+      late = ask("m1", %{asked_by: "owl"})
+
+      assert [] = Storage.release_unanswerable()
+      assert Storage.question(before.id).status == "open"
+      assert Storage.question(late.id).status == "open"
+
+      {:ok, _} = Storage.mark_removed("m1")
+      assert Storage.question(before.id).status == "closed"
+      assert Storage.question(late.id).status == "closed"
+    end
+
     test "releases a question from a record that no longer stands for a worktree" do
       {:ok, _} =
         Storage.record_mouse(%{

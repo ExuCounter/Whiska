@@ -173,6 +173,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Ledger
   alias Whiska.MergeRequests
   alias Whiska.Pickup
+  alias Whiska.Question.FromOwl
   alias Whiska.Question.Marker
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -1209,14 +1210,40 @@ defmodule Whiska.Owl.House do
 
   defp happened(event, mouse, state) do
     {:ok, ref} = Whiska.Forge.for_url(mouse.merge_request_url)
+    label = Whiska.Forge.label(ref)
+    warn(state, MergeRequests.line(event, mouse.branch || mouse.mouse_id, label))
 
-    warn(
-      state,
-      MergeRequests.line(event, mouse.branch || mouse.mouse_id, Whiska.Forge.label(ref))
-    )
-
-    if event == :merged, do: fetch_now(state), else: state
+    case event do
+      :merged -> fetch_now(state)
+      why when why in [:closed, :gone] -> ask_to_drop(state, mouse, label, why)
+      _other -> state
+    end
   end
+
+  # Asked once per close, of a worktree that is still there; a reopening
+  # clears the stamp. The question comes in by the doorstep like any other
+  # (ADR-0036), collected here and now.
+  defp ask_to_drop(state, %Mouse{removed_at: nil, path: path} = mouse, label, why)
+       when is_binary(path) do
+    now = DateTime.utc_now()
+
+    with %{asked_at: nil} <- MergeRequests.reads()[mouse.mouse_id],
+         true <- File.dir?(path),
+         {:ok, _file} <-
+           Doorstep.leave(state.main_checkout, FromOwl.entry(mouse, label, why, now)),
+         :ok <- MergeRequests.save(%{mouse_id: mouse.mouse_id, asked_at: now}) do
+      collect_now(state)
+    else
+      {:error, reason} ->
+        warn(state, "could not ask about #{label} (#{inspect(reason)})")
+        state
+
+      _asked_or_gone ->
+        state
+    end
+  end
+
+  defp ask_to_drop(state, _removed, _label, _why), do: state
 
   # Ringing again for an answer not taken, on the same backstop as cleanup: a
   # swallowed doorbell happens inside the pane, so there is nothing to be told
@@ -1492,7 +1519,8 @@ defmodule Whiska.Owl.House do
              text: entry.text,
              kind: kind,
              status: arriving(entry),
-             asked_at: DateTime.truncate(entry.stamped_at, :second)
+             asked_at: DateTime.truncate(entry.stamped_at, :second),
+             asked_by: if(FromOwl.ours?(entry), do: "owl")
            }),
          {:ok, _} <- Storage.supersede_earlier(question),
          :ok <- keep_spec(state, entry, question),

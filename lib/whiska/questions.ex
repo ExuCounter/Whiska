@@ -253,7 +253,9 @@ defmodule Whiska.Questions do
 
     facts =
       labelled("title", title(more, found)) ++
-        ["mouse: #{mouse}", "question: ##{q.id} · #{verb(q.kind)}"] ++
+        ["mouse: #{mouse}"] ++
+        labelled("asked by", asker(q)) ++
+        ["question: ##{q.id} · #{verb(q.kind)}"] ++
         ["state: #{state(q, slot, mode, focus)}"] ++
         labelled("age", aged(q)) ++
         labelled("branch", branch_state(held)) ++
@@ -285,6 +287,9 @@ defmodule Whiska.Questions do
       _ -> nil
     end)
   end
+
+  defp asker(%Question{asked_by: "owl"}), do: "Whiska"
+  defp asker(_q), do: nil
 
   defp aged(%Question{asked_at: %DateTime{} = at}),
     do: age(DateTime.diff(DateTime.utc_now(), at))

@@ -423,12 +423,12 @@ defmodule Whiska.Storage do
         {:error, :no_such_mouse}
 
       %Mouse{died_at: %DateTime{}} = mouse ->
-        release(mouse)
+        release(mouse, :mouse)
         {:ok, mouse}
 
       mouse ->
         Repo.transaction(fn ->
-          release(mouse)
+          release(mouse, :mouse)
 
           mouse
           |> Ecto.Changeset.change(%{died_at: now()})
@@ -455,7 +455,9 @@ defmodule Whiska.Storage do
 
   A `done` report is outside it: a branch whose mouse is gone is exactly the
   one the person still wants to hear finished, and one already told holds the
-  slot only until the person writes something (ADR-0008).
+  slot only until the person writes something (ADR-0008). So is a question the
+  owl asked itself while its worktree stands: the main session answers it with
+  `drop` or `dismiss`, and the mouse has no part in that (ADR-0087).
   """
   @spec release_unanswerable() :: [Question.t()]
   def release_unanswerable do
@@ -469,12 +471,14 @@ defmodule Whiska.Storage do
   end
 
   defp unanswerable(waiting) do
-    answerable =
-      current_mice()
-      |> Enum.filter(&is_nil(&1.died_at))
-      |> MapSet.new(& &1.mouse_id)
+    current = current_mice()
+    alive = current |> Enum.filter(&is_nil(&1.died_at)) |> MapSet.new(& &1.mouse_id)
+    standing = current |> Enum.filter(&is_nil(&1.removed_at)) |> MapSet.new(& &1.mouse_id)
 
-    Enum.reject(waiting, &MapSet.member?(answerable, &1.mouse_id))
+    Enum.reject(waiting, fn
+      %Question{asked_by: "owl", mouse_id: id} -> MapSet.member?(standing, id)
+      %Question{mouse_id: id} -> MapSet.member?(alive, id)
+    end)
   end
 
   defp release_all([]), do: []
@@ -506,11 +510,25 @@ defmodule Whiska.Storage do
 
   # Everything one mouse left waiting, out of the slot and into its terminal
   # status. Anything already answered, closed or superseded is history and is
-  # left alone.
-  defp release(%Mouse{mouse_id: mouse_id} = mouse) do
+  # left alone. The owl's own question goes with the worktree, not the mouse,
+  # and closes: taking the worktree down is what it asked about.
+  defp release(%Mouse{mouse_id: mouse_id} = mouse, :mouse) do
     Repo.update_all(
-      from(q in Question, where: q.mouse_id == ^mouse_id and q.status in ^@waiting),
+      from(q in Question,
+        where:
+          q.mouse_id == ^mouse_id and q.status in ^@waiting and
+            (is_nil(q.asked_by) or q.asked_by != "owl")
+      ),
       set: [status: terminal_for(mouse)]
+    )
+  end
+
+  defp release(%Mouse{mouse_id: mouse_id}, :worktree) do
+    Repo.update_all(
+      from(q in Question,
+        where: q.mouse_id == ^mouse_id and q.status in ^@waiting and q.asked_by == "owl"
+      ),
+      set: [status: "closed"]
     )
   end
 
@@ -597,7 +615,9 @@ defmodule Whiska.Storage do
         {:ok, mouse}
 
       _ ->
-        with {:ok, _} <- mark_dead(mouse_id) do
+        with {:ok, mouse} <- mark_dead(mouse_id) do
+          release(mouse, :worktree)
+
           Mouse
           |> Repo.get(mouse_id)
           |> Ecto.Changeset.change(%{removed_at: now()})
@@ -692,7 +712,7 @@ defmodule Whiska.Storage do
   @spec record_question(map()) :: {:ok, Question.t()} | {:error, Ecto.Changeset.t()}
   def record_question(attrs) do
     %Question{}
-    |> Ecto.Changeset.cast(attrs, [:mouse_id, :text, :kind, :status, :asked_at])
+    |> Ecto.Changeset.cast(attrs, [:mouse_id, :text, :kind, :status, :asked_at, :asked_by])
     |> Ecto.Changeset.put_change(:asked_at, Map.get(attrs, :asked_at) || now())
     |> Ecto.Changeset.validate_required([:mouse_id, :text, :kind, :status])
     |> Ecto.Changeset.validate_inclusion(:kind, Question.kinds())

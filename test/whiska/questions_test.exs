@@ -228,6 +228,23 @@ defmodule Whiska.QuestionsTest do
       refute shown =~ "title:"
     end
 
+    test "a question Whiska asked itself says so in its facts, and no other does" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "open",
+        text: "Drop?",
+        asked_at: DateTime.utc_now(),
+        asked_by: "owl"
+      }
+
+      assert Questions.full(q, "feat-a (build)", nil) =~
+               ~r/\Amouse: feat-a \(build\)\nasked by: Whiska\nquestion: #9/
+
+      refute Questions.full(%{q | asked_by: nil}, "feat-a (build)", nil) =~ "asked by:"
+    end
+
     test "the mouse line names its branch and mode, or its id with no record" do
       mouse = %Whiska.Schema.Mouse{mouse_id: "m1", branch: "research/x", mode: "sniff"}
 

@@ -522,6 +522,16 @@ defmodule Whiska.CLIDeliveryTest do
       assert err =~ "9"
     end
 
+    test "refuses a question the owl asked itself, and says what answers it", %{main: main} do
+      seed(main, fn -> ask("Drop?", %{asked_by: "owl"}) end)
+
+      {1, _, err} = run(["reply", "1", "drop"], main)
+      assert err =~ "Whiska's own"
+      assert err =~ "whiska drop feat-a"
+      assert err =~ "whiska dismiss 1"
+      in_house(main, fn -> assert Storage.question(1).status == "open" end)
+    end
+
     test "needs an answer", %{main: main} do
       {1, _, err} = run(["reply", "1"], main)
       assert err =~ "usage" or err =~ "Usage"

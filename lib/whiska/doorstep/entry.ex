@@ -23,6 +23,10 @@ defmodule Whiska.Doorstep.Entry do
   `Stop` payload, nil when the payload named none and on an entry written before
   it travelled. The owl reads the turn's usage from it at collection
   (ADR-0086).
+
+  `from` is `owl` on an entry the owl itself leaves about a merge request
+  (`Whiska.Question.FromOwl`), nil on a mouse's. It is a claim, not a proof:
+  collection takes it only with the owl's own words (ADR-0036).
   """
 
   @enforce_keys [:mouse_id, :branch, :worktree_root, :stamped_at, :text]
@@ -36,7 +40,8 @@ defmodule Whiska.Doorstep.Entry do
     spec: nil,
     research: nil,
     plan: nil,
-    transcript: nil
+    transcript: nil,
+    from: nil
   ]
 
   @type t :: %__MODULE__{
@@ -49,7 +54,8 @@ defmodule Whiska.Doorstep.Entry do
           spec: String.t() | nil,
           research: String.t() | nil,
           plan: String.t() | nil,
-          transcript: Path.t() | nil
+          transcript: Path.t() | nil,
+          from: String.t() | nil
         }
 
   @doc "The on-disk form: plain JSON, one object."
@@ -65,7 +71,8 @@ defmodule Whiska.Doorstep.Entry do
       "spec" => entry.spec,
       "research" => entry.research,
       "plan" => entry.plan,
-      "transcript" => entry.transcript
+      "transcript" => entry.transcript,
+      "from" => entry.from
     })
   end
 
@@ -94,7 +101,8 @@ defmodule Whiska.Doorstep.Entry do
          spec: if(is_binary(fields["spec"]), do: fields["spec"]),
          research: if(is_binary(fields["research"]), do: fields["research"]),
          plan: if(is_binary(fields["plan"]), do: fields["plan"]),
-         transcript: if(is_binary(fields["transcript"]), do: fields["transcript"])
+         transcript: if(is_binary(fields["transcript"]), do: fields["transcript"]),
+         from: if(is_binary(fields["from"]), do: fields["from"])
        }}
     else
       _ -> :error
