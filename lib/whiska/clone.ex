@@ -5,8 +5,9 @@ defmodule Whiska.Clone do
 
   A worktree holds only committed files, so a fresh mouse has no `deps`, `_build`
   or `node_modules`, and none of the person's untracked files. The folders are
-  cloned copy-on-write — `cp -c` on macOS, `cp --reflink=auto` on Linux — never
-  symlinked, so each mouse owns its copy and a change in one reaches no other.
+  cloned copy-on-write — one `clonefile(2)` call per folder on macOS, else
+  `cp -c`; `cp --reflink=auto` on Linux — never symlinked, so each mouse owns
+  its copy and a change in one reaches no other.
 
   **What is cloned.** The marker defaults: `mix.exs` gives `deps` and `_build`,
   `package.json` gives `node_modules`. They are cloned only when the worktree's
@@ -138,7 +139,7 @@ defmodule Whiska.Clone do
           [{:missing, path}]
 
         {{:ok, _}, {:error, _}} ->
-          [clone_entry(src, dest, path)]
+          clone_entries([{src, dest, path}])
 
         {{:ok, %{type: :directory}}, {:ok, %{type: :directory}}} ->
           merge_missing(src, dest, path)
@@ -168,20 +169,92 @@ defmodule Whiska.Clone do
     |> File.ls!()
     |> Enum.sort()
     |> Enum.reject(&match?({:ok, _}, File.lstat(Path.join(dest, &1))))
-    |> Enum.map(&clone_entry(Path.join(src, &1), Path.join(dest, &1), Path.join(path, &1)))
+    |> Enum.map(&{Path.join(src, &1), Path.join(dest, &1), Path.join(path, &1)})
+    |> clone_entries()
   end
 
-  defp clone_entry(src, dest, path) do
-    if String.contains?(path, ["\n", "\r"]) do
-      {:failed, inspect(path), "its name has a line break"}
-    else
-      File.mkdir_p!(Path.dirname(dest))
+  # Each `dest` is absent: both callers check first.
+  defp clone_entries(entries) do
+    {refused, entries} =
+      Enum.split_with(entries, fn {_, _, path} -> String.contains?(path, ["\n", "\r"]) end)
 
-      case System.cmd("cp", cp_args(src, dest), stderr_to_stdout: true) do
-        {_, 0} -> {:cloned, [path]}
-        {out, _} -> {:failed, path, String.trim(out)}
-      end
+    Enum.each(entries, fn {_, dest, _} -> File.mkdir_p!(Path.dirname(dest)) end)
+    cloned = clonefile(entries)
+
+    Enum.map(refused, fn {_, _, path} -> {:failed, inspect(path), "its name has a line break"} end) ++
+      Enum.map(entries, fn {src, dest, path} = entry ->
+        if entry in cloned, do: {:cloned, [path]}, else: cp(src, dest, path)
+      end)
+  end
+
+  defp cp(src, dest, path) do
+    case System.cmd("cp", cp_args(src, dest), stderr_to_stdout: true) do
+      {_, 0} -> {:cloned, [path]}
+      {out, _} -> {:failed, path, String.trim(out)}
     end
+  end
+
+  # `cp -c` clones one file at a time: 7.5s for a Phoenix app's `deps` and
+  # `_build`. One `clonefile(2)` call clones a whole folder in about 0.3s.
+  # Elixir cannot call it, so osascript's JavaScript does, by name, in one
+  # osascript run for all the entries. Symlinks are cloned as symlinks
+  # (CLONE_NOFOLLOW), as `cp -R` does. It returns the entries cloned; any other
+  # falls back to `cp`, after whatever a failed call left at its `dest` is
+  # removed, or `cp` would copy into it.
+  @clonefile_script """
+  function run(argv) {
+    ObjC.bindFunction('clonefile', ['int', ['char *', 'char *', 'unsigned int']]);
+    const cloned = [];
+    for (let i = 0; i < argv.length; i += 2) {
+      if ($.clonefile(argv[i], argv[i + 1], 1) === 0) cloned.push(i / 2);
+    }
+    return 'cloned:' + cloned.join(' ');
+  }
+  """
+
+  defp clonefile([]), do: []
+
+  defp clonefile(entries) do
+    osascript = Application.get_env(:whiska, :osascript, "/usr/bin/osascript")
+    pairs = Enum.flat_map(entries, fn {src, dest, _} -> [src, dest] end)
+
+    cloned =
+      with {:unix, :darwin} <- :os.type(),
+           true <- File.regular?(osascript),
+           {out, 0} <-
+             System.cmd(osascript, ["-l", "JavaScript", "-e", @clonefile_script, "--" | pairs],
+               stderr_to_stdout: true
+             ) do
+        indices = cloned_indices(out)
+
+        entries
+        |> Enum.with_index()
+        |> Enum.filter(&(elem(&1, 1) in indices))
+        |> Enum.map(&elem(&1, 0))
+      else
+        _ -> []
+      end
+
+    for {_, dest, _} = entry <- entries, entry not in cloned, do: File.rm_rf(dest)
+    cloned
+  end
+
+  # osascript's stderr is merged in, so a warning it prints may surround the
+  # one line the script returns.
+  defp cloned_indices(out) do
+    out
+    |> String.split("\n")
+    |> Enum.find_value(
+      "",
+      &(String.starts_with?(&1, "cloned:") && String.trim_leading(&1, "cloned:"))
+    )
+    |> String.split()
+    |> Enum.flat_map(fn word ->
+      case Integer.parse(word) do
+        {i, ""} -> [i]
+        _ -> []
+      end
+    end)
   end
 
   defp cp_args(src, dest) do

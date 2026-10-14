@@ -21,11 +21,15 @@ many sessions and read each message cold.
 
 ## Routing a task
 
-- Run `whiska worktrees` first, before reading code or asking anything.
+- Run `whiska worktrees; whiska shape --rules` in one call first, before reading code or
+  asking anything.
 - It continues a branch a mouse is building → `whiska send <branch> <file>`.
 - It ships on its own → `whiska spawn build|sniff <branch> <file>`, a fresh worktree.
   Earlier research that bears on it → name its document in the task, so the mouse reads it.
 - Unclear which → ask the person one line. Do not guess.
+- Several mice at once → one background Bash call (`run_in_background: true`),
+  `whiska spawn … &` each, then `wait`: they start side by side, not one after another.
+  `wait` hides a failure, so report each spawn from its own lines in the output.
 - Write the task, or the person's comments, to a file outside the repo first, in their
   own words, full detail. Only the file's path goes on the command line.
 - Mode: `sniff` when the outcome is an answer, `build` when it is a change.

@@ -190,9 +190,9 @@ defmodule Whiska.Herdr.Socket do
     end
   end
 
-  # Starting an agent waits for it to be ready, which takes longer than any
-  # other reply here: the request carries its own deadline, and the reply is
-  # read for that long and a little more.
+  # The request carries its own deadline, and the reply is read for that long
+  # and a little more. herdr answers at once, before claude is ready for a
+  # prompt: the spawn's kickoff waits for that, not this.
   @start_timeout 15_000
 
   @impl true

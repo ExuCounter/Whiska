@@ -80,7 +80,17 @@ defmodule Whiska.BriefTest do
     main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
     assert main =~ "run_in_background"
     assert main =~ "one line saying it is running"
-    assert main =~ "one after another"
+    assert main =~ "one background call running them one after another with `;`"
+  end
+
+  test "several spawns start side by side, and routing opens with one call" do
+    main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
+    assert main =~ "`whiska worktrees; whiska shape --rules`"
+
+    assert main =~
+             "one background Bash call (`run_in_background: true`), `whiska spawn … &` each, then `wait`"
+
+    assert main =~ "`wait` hides a failure"
   end
 
   test "write/3 refuses a link at the path, and writes nothing through it" do

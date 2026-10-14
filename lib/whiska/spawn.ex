@@ -363,15 +363,15 @@ defmodule Whiska.Spawn do
   defp start_claude(via, pane, branch, flags),
     do: via.herdr.start_agent(via.socket, pane, agent_name(branch), flags)
 
-  # herdr answers agent.start a moment before it lists the new claude under
-  # its name, and refuses a prompt in between: the kickoff waits that out.
-  @kickoff_tries 20
-  @kickoff_pause 250
+  # herdr answers agent.start before the new claude has booted and refuses a
+  # prompt until it has: the kickoff waits that out. One boot takes about 4s;
+  # several mice starting at once boot side by side, so the wait allows 15s.
+  @kickoff_tries 60
 
   defp hand_over(via, pane, text, tries \\ @kickoff_tries) do
     case via.herdr.prompt(via.socket, pane, text) do
       {:error, {:herdr, %{"code" => "agent_not_ready"}}} when tries > 1 ->
-        Process.sleep(@kickoff_pause)
+        Process.sleep(Application.get_env(:whiska, :kickoff_pause, 250))
         hand_over(via, pane, text, tries - 1)
 
       answer ->

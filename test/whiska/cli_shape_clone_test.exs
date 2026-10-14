@@ -83,6 +83,113 @@ defmodule Whiska.CLIShapeCloneTest do
     assert File.read!(Path.join(main, "deps/foo/foo.ex")) == "foo"
   end
 
+  describe "on macOS each folder is cloned in one call" do
+    @describetag :macos
+
+    # PATH holding only git, so `cp` cannot be found.
+    defp git_only_path(main) do
+      bin = Path.join(main, ".git/test-bin")
+      File.mkdir_p!(bin)
+      File.ln_s!(System.find_executable("git"), Path.join(bin, "git"))
+      old = System.get_env("PATH")
+      System.put_env("PATH", bin)
+      on_exit(fn -> System.put_env("PATH", old) end)
+    end
+
+    test "with no cp on the PATH, deps and _build still clone", %{main: main} do
+      elixir_project(main)
+      File.ln_s!("foo.ex", Path.join(main, "deps/foo/link.ex"))
+      worktree = worktree(main, "feat-o")
+      git_only_path(main)
+
+      {0, _out, stderr} = shape(worktree)
+
+      assert stderr =~ "cloned deps, _build"
+      assert File.read!(Path.join(worktree, "_build/dev/beam")) == "beam"
+      assert {:ok, "foo.ex"} = File.read_link(Path.join(worktree, "deps/foo/link.ex"))
+      refute exclude(main) |> Enum.any?(&String.contains?(&1, "test-bin"))
+    end
+
+    # An osascript stand-in: logs each call, then runs `body` with the clone's
+    # src and dest pairs as its arguments.
+    defp fake_osascript(main, body) do
+      path = Path.join(main, ".git/fake-osascript")
+      log = Path.join(main, ".git/fake-osascript.log")
+
+      File.write!(path, """
+      #!/bin/sh
+      echo call >> '#{log}'
+      while [ "$1" != "--" ]; do shift; done; shift
+      #{body}
+      """)
+
+      File.chmod!(path, 0o755)
+      Application.put_env(:whiska, :osascript, path)
+      on_exit(fn -> Application.delete_env(:whiska, :osascript) end)
+      log
+    end
+
+    test "a clone that fails partway is cleared, then cp clones it whole", %{main: main} do
+      elixir_project(main)
+      worktree = worktree(main, "feat-q")
+
+      fake_osascript(main, ~S"""
+      while [ $# -gt 0 ]; do mkdir -p "$2/half"; shift 2; done
+      exit 1
+      """)
+
+      {0, _out, stderr} = shape(worktree)
+
+      assert stderr =~ "cloned deps, _build"
+      assert File.ls!(Path.join(worktree, "deps")) == ["foo"]
+      assert File.read!(Path.join(worktree, "_build/dev/beam")) == "beam"
+    end
+
+    test "a warning osascript prints beside its answer is ignored", %{main: main} do
+      elixir_project(main)
+      worktree = worktree(main, "feat-s")
+
+      fake_osascript(main, ~S"""
+      echo "osascript: scripting addition cannot be used" >&2
+      mkdir "$2" && touch "$2/by-osascript" && echo "cloned:0"
+      """)
+
+      {0, _out, stderr} = shape(worktree)
+
+      assert stderr =~ "cloned deps, _build"
+      assert File.exists?(Path.join(worktree, "deps/by-osascript"))
+      assert File.exists?(Path.join(worktree, "_build/by-osascript"))
+    end
+
+    test "the missing entries of a folder the worktree has are cloned in one call", %{
+      main: main
+    } do
+      File.mkdir_p!(Path.join(main, "assets"))
+      GitRepo.commit!(main, "assets/keep.txt", "tracked")
+      for name <- ~w(a b c), do: File.write!(Path.join(main, "assets/#{name}"), name)
+      override(main, "assets\n")
+      worktree = worktree(main, "feat-r")
+      log = fake_osascript(main, "exit 1")
+
+      {0, _out, stderr} = shape(worktree)
+
+      assert stderr =~ "cloned assets/a, assets/b, assets/c"
+      assert File.read!(log) == "call\n"
+    end
+
+    test "when the one-call clone cannot run, cp clones instead", %{main: main} do
+      elixir_project(main)
+      worktree = worktree(main, "feat-p")
+      Application.put_env(:whiska, :osascript, "/nonexistent/osascript")
+      on_exit(fn -> Application.delete_env(:whiska, :osascript) end)
+
+      {0, _out, stderr} = shape(worktree)
+
+      assert stderr =~ "cloned deps, _build"
+      assert File.read!(Path.join(worktree, "deps/foo/foo.ex")) == "foo"
+    end
+  end
+
   test "clones node_modules for a package.json project", %{main: main} do
     GitRepo.commit!(main, "package.json", "{}")
     GitRepo.commit!(main, "package-lock.json", "{}")

@@ -2,8 +2,10 @@
 
 `whiska shape` (ADR-0069) also clones the main checkout's untracked folders into the new
 worktree before Claude starts: `deps` and `_build` for a `mix.exs` project, `node_modules`
-for a `package.json` one. The clone is copy-on-write (`cp -c` on macOS, `cp --reflink=auto`
-on Linux), never a symlink, so each mouse owns its copy. The marker folders are cloned
+for a `package.json` one. The clone is copy-on-write, never a symlink, so each mouse owns
+its copy. On macOS each folder is one `clonefile(2)` call, made by name through
+`/usr/bin/osascript`'s JavaScript; when it fails, `cp -c` clones that entry instead. On
+Linux it is `cp --reflink=auto`. The marker folders are cloned
 only when the worktree's lockfile equals the main checkout's. A failed clone never fails
 the shape: it becomes the one stderr line the spawn reports.
 
@@ -31,6 +33,12 @@ folder, so a file a mouse really adds beside it still shows. Lines are never rem
 - A separate `whiska clone` command: one more step to forget, where `whiska shape`
   already runs in the worktree before Claude and cannot be skipped. Cost: the Shape term
   now covers stocking too.
+- `cp -c` alone on macOS: it clones one file at a time, 7.5s for a Phoenix app's `deps` and
+  `_build` against 0.3s for one `clonefile(2)` per folder. `ditto --clone`, `copyfile(3)`
+  and Foundation's `copyItem` are as slow. Apple discourages `clonefile(2)` on a folder;
+  it gave the same files.
+- `clonefile(2)` by syscall number through Perl, or a bundled NIF: the number can change
+  under us (the first one tried was wrong), and a NIF needs a C build step.
 - Symlinks: one mouse's `mix deps.update` would change every other mouse's deps.
 - `.venv`: a virtualenv holds absolute paths into the main checkout.
 - The override in the repo: every contributor would get the person's untracked paths.

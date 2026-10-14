@@ -124,6 +124,35 @@ defmodule Whiska.SpawnTest do
     assert {0, _out, _err} = spawn_mouse(["build", "feat/csv-sort", ctx.task], ctx.repo)
   end
 
+  test "a kickoff waits out a claude still booting for up to 15s, as two booting at once may",
+       ctx do
+    Application.put_env(:whiska, :kickoff_pause, 0)
+    on_exit(fn -> Application.delete_env(:whiska, :kickoff_pause) end)
+    herdr_creates(ctx.repo, "feat/csv-sort")
+    expect(Herdr, :start_agent, fn @socket, "w9:p1", _name, args -> {:ok, args} end)
+
+    not_ready = {:error, {:herdr, %{"code" => "agent_not_ready", "message" => "not yet"}}}
+
+    Herdr
+    |> expect(:prompt, 59, fn @socket, "w9:p1", _text -> not_ready end)
+    |> expect(:prompt, fn @socket, "w9:p1", _text -> :ok end)
+
+    assert {0, _out, _err} = spawn_mouse(["build", "feat/csv-sort", ctx.task], ctx.repo)
+  end
+
+  test "a kickoff gives up after 60 refusals", ctx do
+    Application.put_env(:whiska, :kickoff_pause, 0)
+    on_exit(fn -> Application.delete_env(:whiska, :kickoff_pause) end)
+    herdr_creates(ctx.repo, "feat/csv-sort")
+    expect(Herdr, :start_agent, fn @socket, "w9:p1", _name, args -> {:ok, args} end)
+
+    not_ready = {:error, {:herdr, %{"code" => "agent_not_ready", "message" => "not yet"}}}
+    expect(Herdr, :prompt, 60, fn @socket, "w9:p1", _text -> not_ready end)
+
+    assert {code, _out, _err} = spawn_mouse(["build", "feat/csv-sort", ctx.task], ctx.repo)
+    assert code != 0
+  end
+
   describe "the mouse starts in bypass mode with its deny list" do
     defp started_args(ctx, mode, branch) do
       herdr_creates(ctx.repo, branch)
