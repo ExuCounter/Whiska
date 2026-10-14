@@ -14,9 +14,6 @@ defmodule Whiska.Rule.Held do
   commands. A read passes until the next of those, or until the turn ends on
   its own; widening the matcher to every tool would charge every read of every
   mouse the hook's startup, which is a trade for the person to make.
-
-  Runs before `Whiska.Rule.Sniff`: a held mouse is refused for the hold, not
-  for its mode, since the hold is the thing the person just did.
   """
 
   @type decision :: :allow | {:deny, String.t()}

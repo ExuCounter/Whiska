@@ -228,14 +228,8 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  This mouse's mode, as the rules read it.
-
-  Read by the sniff rule on every invocation (ADR-0069). A mouse nobody shaped
-  is `"unshaped"` whatever its stored mode, and may read but not write
-  (ADR-0069). Returns
-  `{:error, :no_such_mouse}` rather than guessing, so the caller decides what an
-  unreadable mode means — see `Whiska.Hook.PreToolUse`, which treats it as
-  `build` and says so loudly.
+  This mouse's mode: `"unshaped"` for a mouse nobody shaped, whatever its stored
+  mode (ADR-0069). `{:error, :no_such_mouse}` rather than a guess.
   """
   @spec mode(String.t()) :: {:ok, String.t()} | {:error, :no_such_mouse}
   def mode(mouse_id) do
@@ -251,43 +245,11 @@ defmodule Whiska.Storage do
   def mode_of(%Mouse{mode: mode}), do: mode
 
   @doc """
-  Give a mouse nobody shaped its mode.
-
-  The mode lives here rather than in the marker file so it stays keyed to
-  `mouse_id` — a renamed branch or a moved worktree does not disturb it — and so
-  the marker stays the bare opaque id ADR-0002 describes.
-
-  A mode somebody chose is a shape: this stamps `shaped_at`, so
-  `whiska mode build` is what lets a mouse nobody shaped write (ADR-0069). A mouse
-  that has a shape keeps its mode for good (ADR-0074).
-  """
-  @spec set_mode(String.t(), String.t()) ::
-          {:ok, Mouse.t()}
-          | {:error, :invalid_mode | :no_such_mouse | :already_shaped | Ecto.Changeset.t()}
-  def set_mode(_mouse_id, mode) when mode not in @modes, do: {:error, :invalid_mode}
-
-  def set_mode(mouse_id, mode) do
-    case Repo.get(Mouse, mouse_id) do
-      nil ->
-        {:error, :no_such_mouse}
-
-      %Mouse{shaped_at: %DateTime{}} ->
-        {:error, :already_shaped}
-
-      mouse ->
-        mouse
-        |> Ecto.Changeset.change(%{mode: mode, shaped_at: now()})
-        |> Repo.update()
-    end
-  end
-
-  @doc """
   Give a mouse its shape: the mode, and the model and effort it was started on
   (ADR-0069).
 
-  Run by the spawn, in the new worktree, before Claude starts — so the first
-  tool call a sniff mouse makes is already judged as sniff. `shaped_at` is what
-  tells this mouse apart from one nobody shaped, which may not write.
+  Run by the spawn, in the new worktree, before Claude starts. `shaped_at` is
+  what tells this mouse apart from one nobody shaped.
   `shaped_as` keeps the mode the model and effort were chosen with, and `base`
   the branch the worktree was cut from.
   """

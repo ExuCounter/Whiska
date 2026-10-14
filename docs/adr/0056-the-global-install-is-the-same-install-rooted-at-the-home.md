@@ -31,7 +31,7 @@ finished turn, the same question delivered twice. So the global shim exits befor
 resolving anything when the repo both **has** `.claude/hooks/whiska.sh` and **wires** it
 in its own `settings.json` or `settings.local.json`. Both halves are required, and that is
 the security of it: a settings file is text the repo ships, so checking only for the
-string would let any cloned repo switch Whiska's containment off inside itself. A repo
+string would let any cloned repo switch Whiska's hooks off inside itself. A repo
 that has the shim and wires it is a repo that ran `whiska init`. The check greps rather
 than parsing, since a hook cannot assume `jq`, and tests `-f` rather than `-r`, because
 `-r` is true of a FIFO and grep on one with no writer waits for ever.

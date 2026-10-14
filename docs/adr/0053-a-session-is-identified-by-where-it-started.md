@@ -3,7 +3,7 @@
 Both hooks used to ask one question to find out whose session they were in: what working
 directory did Claude Code pass? `Layout.resolve/1` turned that into a worktree root, a
 branch label and a main checkout, and everything downstream — the marker file, the mouse
-record, the containment rule, the doorstep entry — followed from it.
+record, the hook's rules, the doorstep entry — followed from it.
 
 That directory is not an identity. It follows every `cd` the session runs, because Claude
 Code's Bash tool keeps its working directory between calls. Seen in a real repo on
@@ -42,14 +42,13 @@ into a worktree (ADR-0030); what changed is which directory it is handed.
 
 ## Consequences
 
-The main session can stand wherever it likes. Its stops leave nothing behind, and
-`Rule.MainCheckout` no longer blocks it from editing its own checkout after a `cd` — a
-second symptom of the same bug, which would have read as Whiska denying the person's own
-work for no stated reason.
+The main session can stand wherever it likes. Its stops leave nothing behind, and no
+rule meant for a mouse stops it editing its own checkout after a `cd`, which would read
+as Whiska denying the person's own work for no stated reason.
 
 A mouse can stand wherever it likes too. It is still the mouse of the worktree it started
-in, still held to that worktree by the containment rule, and its message still reaches
-that worktree's house.
+in, still held when the person holds it, and its message still reaches that worktree's
+house.
 
 The `Stop` hook now opens the house, where before it only wrote a file — opening migrates
 it, so this is a write and not only a read. ADR-0036 still holds, and carries a note
@@ -77,9 +76,8 @@ there would answer "started nowhere" for a session that plainly did. Without the
 a transcript of fat entries cost 100 ms on every matched tool call.
 
 Two limits are worth writing down rather than discovering. **The start directory is read
-from a file the containment rule permits writing.** A mouse may edit its own transcript —
-`~/.claude/projects/` is outside both its worktree and the main checkout, and ADR-0013's
-rule allows it — and so make itself look like it started somewhere else. This is not a new
+from a file a mouse can write.** A mouse may edit its own transcript under
+`~/.claude/projects/`, and so make itself look like it started somewhere else. This is not a new
 hole so much as a new shape of the old one: a mouse can already disable the hook outright
 by editing `.claude/settings.json` inside its own worktree, and ADR-0024 records the honest
 limit that everything here runs as one OS user with no sandboxing. **And a herdr pane id is
@@ -108,3 +106,6 @@ case where silence costs a whole message.
 **Record the worktree root in the marker file.** The marker sits in the worktree, so
 finding it still means starting from a directory. It also breaks ADR-0002's "no parsing
 involved" for no gain here.
+
+Changed on 2026-10-14: no rule holds a mouse to its worktree, and its transcript is one
+more file it can write (ADR-next-a-mouse-starts-in-bypass-mode).

@@ -426,7 +426,7 @@ defmodule Whiska.Owl.HouseTest do
 
     test "a sniff mouse's final message with a Summary is its research document, and the next one replaces it",
          %{main: main, a: a, house: house} do
-      in_house(house, fn -> Storage.set_mode("ma", "sniff") end)
+      in_house(house, fn -> Storage.shape("ma", "sniff", nil, nil) end)
 
       for {title, at} <- [
             {"Draft", ~U[2026-10-06 09:00:00Z]},
@@ -455,7 +455,7 @@ defmodule Whiska.Owl.HouseTest do
       b: b,
       house: house
     } do
-      in_house(house, fn -> Storage.set_mode("mb", "build") end)
+      in_house(house, fn -> Storage.shape("mb", "build", nil, nil) end)
       leave_at(main, "mb", b, ~U[2026-10-06 09:00:00Z], "# Built\n\n## Summary\nDone.\n⁣⁣⁣")
       House.collect(house)
 

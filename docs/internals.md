@@ -30,7 +30,7 @@ git add .claude && git commit -m "chore: enable whiska"
 
 | Hook | What it does |
 | --- | --- |
-| `PreToolUse` | Enforces the rules [below](#what-is-enforced). Fires only for `Write`, `Edit`, `MultiEdit`, `NotebookEdit` and `Bash`. |
+| `PreToolUse` | Stops a held mouse ([below](#what-is-enforced)). Fires only for `Write`, `Edit`, `MultiEdit`, `NotebookEdit` and `Bash`. |
 | `Stop` | Leaves a mouse's finished turn on the doorstep. |
 | `UserPromptSubmit` | Hands a mouse the answer you gave it (ADR-0080). |
 
@@ -61,35 +61,30 @@ Claude Code loads it.
 
 ## What is enforced
 
-Four rules, all through the `PreToolUse` hook, all denied at once (ADR-0011):
+A shaped mouse starts in Claude Code's bypass mode, with a deny list in
+`.whiska-settings.json` at its worktree root (ADR-next-a-mouse-starts-in-bypass-mode). Claude
+Code enforces it; nothing else asks before a tool call.
 
-- **A held mouse may do nothing** that the hook sees, until `resume <branch>`
-  (ADR-0079). It stops at its next write or shell command and says where it stopped.
 - **A mouse may not run your commands**: `away`, `focus`, `hold`, `resume`, `reply`,
   `dismiss` and `close`, as a word or as `whiska <word>`, nor the main session's `whiska
   spawn`, `send`, `land`, `pr` and `drop` (ADR-0079).
-- **A build mouse may not change the main checkout**, nor the other worktrees under it
-  (ADR-0013). `Write`, `Edit`, `MultiEdit` and `NotebookEdit` are judged by their target
-  path. `Bash` is denied when a command both changes something and names a path in the
-  main checkout: `sed -i`, a redirect or `git -C <main> commit` are denied; `cat` and
-  `grep` are not.
-- **A sniff mouse may change nothing.** Its research document is its final message,
-  which Whiska keeps (ADR-0069, ADR-0089).
+- **A sniff mouse has no `Edit`, `Write` or `NotebookEdit`.** Its research document is
+  its final message, which Whiska keeps (ADR-0069, ADR-0089).
+- **A held mouse may do nothing** the `PreToolUse` hook sees, until `resume <branch>`
+  (ADR-0079). It stops at its next write or shell command and says where it stopped.
+  This is the hook's one rule, since you set it while the mouse runs.
 
 What this is not:
 
-- **Not a sandbox, and not a security boundary.** Reads are never checked. A path outside
-  the worktree and the main checkout, such as `~/.ssh` or another repo, is allowed. The
-  rules keep parallel sessions out of each other's work; they do not contain code you do
-  not trust.
-- **Only those five tools are checked.** `Read`, `Grep` and `Glob` never run the hook, and
-  neither does an MCP server that writes files.
-- A shell command counts as changing something unless a read-only allowlist says
-  otherwise. Anything it cannot read (`eval`, a substitution, a nested `bash -c`, an
-  unknown program) counts as changing (ADR-0034).
+- **Not a sandbox, and not a security boundary.** A mouse can write anywhere you can,
+  the main checkout included; its brief tells it to stay in its worktree. The deny rules
+  match the command as written, so `env`, a full path, `bash -c` or a nested `claude -p`
+  gets round them.
+- **A mouse started by hand without `whiska shape` has no deny list.** Run `whiska shape`
+  in its worktree and restart Claude with the flags it prints.
 - **A broken Whiska never blocks you.** If the binary is missing, the shim says so on
-  stderr and allows the call. If the house will not open, a sniff mouse is treated as a
-  build mouse, with a warning.
+  stderr and allows the call. If the house will not open, the mouse is taken as not held,
+  with a warning.
 
 ## How a question reaches you
 

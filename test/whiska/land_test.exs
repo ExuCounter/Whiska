@@ -86,6 +86,20 @@ defmodule Whiska.LandTest do
     assert ["feat: keep the scratch", "add second.md" | _] = subjects(ctx.repo)
   end
 
+  test "Whiska's own files git was not told to ignore are never committed", ctx do
+    GitRepo.dirty!(ctx.path)
+
+    for file <- [".whiska-brief.md", ".whiska-settings.json"],
+        do: File.write!(Path.join(ctx.path, file), "whiska's\n")
+
+    message = Path.join(ctx.root, "message.txt")
+    File.write!(message, "feat: keep the scratch\n")
+
+    assert {0, _, _} = land([ctx.id, "--commit", message], ctx.repo)
+    assert GitRepo.git!(ctx.repo.checkout, ["ls-files", ".whiska-brief.md"]) == ""
+    assert GitRepo.git!(ctx.repo.checkout, ["ls-files", ".whiska-settings.json"]) == ""
+  end
+
   test "the hooks spawn carried in from an uncommitted install are neither named nor committed",
        ctx do
     for root <- [ctx.repo.checkout, ctx.path] do

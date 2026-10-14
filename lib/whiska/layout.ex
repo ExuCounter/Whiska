@@ -23,9 +23,6 @@ defmodule Whiska.Layout do
   (ADR-0030). git answers the question directly, and
   the answer does not change as the folder's children come and go, so a session
   sitting in `worktrees/feat` is nobody rather than a mouse called `feat`.
-  `unplaced/1` is that same folder read for containment alone: it carries the main
-  checkout, and `Whiska.Rule.MainCheckout` denies a write into it from there
-  (ADR-0013). Identity is never minted from it.
 
   Re-derived on every invocation rather than recorded anywhere. That keeps the
   marker file a bare opaque id exactly as ADR-0002 describes it ("no parsing
@@ -73,33 +70,6 @@ defmodule Whiska.Layout do
     cwd
     |> ancestors()
     |> Enum.find(&(&1 |> Path.dirname() |> Path.basename() == @container))
-  end
-
-  @doc """
-  The folder a directory sits in when it is under a `worktrees/` container but
-  in no worktree of it.
-
-  For containment only (ADR-0013): `worktree_root` is that folder, so a write
-  below it is left alone and one into the main checkout is denied, and
-  `branch_label` is `nil` because there is no branch and no mouse here. A
-  directory that resolves to a real worktree is not this, and neither is the
-  container itself or anywhere outside one.
-  """
-  @spec unplaced(Path.t()) :: {:ok, t()} | {:error, :not_in_worktree}
-  def unplaced(cwd) do
-    cwd = Path.expand(cwd)
-
-    with {:error, :not_in_worktree} <- resolve(cwd),
-         candidate when is_binary(candidate) <- innermost_candidate(cwd) do
-      {:ok,
-       %__MODULE__{
-         worktree_root: candidate,
-         main_checkout: candidate |> Path.dirname() |> Path.dirname(),
-         branch_label: nil
-       }}
-    else
-      _ -> {:error, :not_in_worktree}
-    end
   end
 
   # Every path from `path` up to the filesystem root, innermost first. Innermost

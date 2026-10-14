@@ -33,33 +33,32 @@ defmodule Whiska.Hook.PreToolUseTest do
 
   defp run(fields), do: PreToolUse.run(payload(fields))
 
-  # A mouse a spawn shaped as build, the way every real one starts (ADR-0069).
-  defp shaped_build(main, worktree) do
+  # A mouse a spawn shaped, the way every real one starts (ADR-0069).
+  defp shaped(main, worktree, mode) do
     {:ok, mouse_id} = Marker.read_or_mint(worktree)
     {:ok, handle} = Storage.open(main)
     Storage.record_mouse(%{mouse_id: mouse_id, path: worktree, branch: "feat-thing"})
-    {:ok, _} = Storage.shape(mouse_id, "build", nil, nil)
+    {:ok, _} = Storage.shape(mouse_id, mode, nil, nil)
     Storage.close(handle)
   end
 
-  describe "denying" do
-    test "returns a PreToolUse deny decision for a main-checkout write", %{
-      main: main,
-      worktree: worktree
-    } do
-      shaped_build(main, worktree)
+  defp held(main, worktree) do
+    shaped(main, worktree, "build")
+    {:ok, mouse_id} = Marker.read_or_mint(worktree)
+    {:ok, handle} = Storage.open(main)
+    {:ok, _} = Storage.hold(mouse_id)
+    Storage.close(handle)
+    mouse_id
+  end
 
-      assert {:deny, reason} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-               })
+  defp write(cwd, path),
+    do: run(%{"cwd" => cwd, "tool_name" => "Write", "tool_input" => %{"file_path" => path}})
 
-      assert reason =~ "ADR-0013"
-    end
+  defp bash(cwd, command),
+    do: run(%{"cwd" => cwd, "tool_name" => "Bash", "tool_input" => %{"command" => command}})
 
-    test "encodes the decision in the shape Claude Code expects" do
+  describe "the decision's output" do
+    test "encodes a deny in the shape Claude Code expects" do
       json = PreToolUse.encode({:deny, "nope"})
 
       assert %{
@@ -76,98 +75,68 @@ defmodule Whiska.Hook.PreToolUseTest do
     end
   end
 
-  # A folder under `worktrees/` that is no checkout of its own is nobody — no
-  # mouse, no mode, no marker (ADR-0030). Containment does not go with
-  # identity: a session there still cannot write into the main checkout
-  # (ADR-0013).
-  describe "a folder under worktrees that is no worktree" do
-    test "cannot write into the main checkout", %{main: main} do
-      folder = Path.join(main, "worktrees/quality")
-      File.mkdir_p!(Path.join(folder, "QUAL-350"))
+  # The mode's limits and the person's commands are the deny list a mouse starts
+  # with (ADR-next-a-mouse-starts-in-bypass-mode); the hook holds only the hold.
+  describe "a mouse that is not held is left to its deny list" do
+    test "a build mouse may write anywhere, the main checkout included", %{
+      main: main,
+      worktree: worktree
+    } do
+      shaped(main, worktree, "build")
 
-      assert {:deny, reason} =
-               run(%{
-                 "cwd" => folder,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-               })
-
-      assert reason =~ "ADR-0013"
+      assert :allow = write(worktree, Path.join(worktree, "lib/fine.ex"))
+      assert :allow = write(worktree, Path.join(main, "CONTEXT.md"))
+      assert :allow = bash(worktree, "sed -i '' s/a/b/ #{main}/CONTEXT.md")
     end
 
-    test "mints no mouse and no marker file", %{main: main} do
+    test "a sniff mouse's edits and shell commands pass the hook", %{
+      main: main,
+      worktree: worktree
+    } do
+      shaped(main, worktree, "sniff")
+
+      assert :allow = write(worktree, Path.join(worktree, "lib/x.ex"))
+      assert :allow = bash(worktree, "rm -rf lib")
+      assert :allow = bash(worktree, "ls nope 2>/dev/null | xargs wc -l")
+    end
+
+    test "the person's commands pass the hook", %{main: main, worktree: worktree} do
+      shaped(main, worktree, "build")
+
+      assert :allow = bash(worktree, "whiska hold feat-other")
+      assert :allow = bash(worktree, "away")
+    end
+
+    test "a mouse nobody shaped is not limited either", %{worktree: worktree} do
+      assert :allow = write(worktree, Path.join(worktree, "lib/x.ex"))
+      assert :allow = bash(worktree, "git commit -am wip")
+    end
+  end
+
+  describe "allowing" do
+    test "any tool call made from the main checkout itself", %{main: main} do
+      assert :allow = write(main, Path.join(main, "CONTEXT.md"))
+    end
+
+    test "a directory with no worktrees ancestor at all", %{root: root} do
+      assert :allow = write(root, Path.join(root, "x.ex"))
+    end
+  end
+
+  # A folder under `worktrees/` that is no checkout of its own is nobody — no
+  # mouse, no mode, no marker (ADR-0030).
+  describe "a folder under worktrees that is no worktree" do
+    test "may write, and mints no mouse and no marker file", %{main: main} do
       folder = Path.join(main, "worktrees/quality")
       File.mkdir_p!(folder)
 
-      run(%{
-        "cwd" => folder,
-        "tool_name" => "Write",
-        "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-      })
+      assert :allow = write(folder, Path.join(main, "CONTEXT.md"))
 
       refute File.exists?(Marker.path(folder))
 
       {:ok, handle} = Storage.open(main)
       on_exit(fn -> Storage.close(handle) end)
       assert Storage.all(Mouse) == []
-    end
-
-    test "a mutating bash command into the main checkout is denied too", %{main: main} do
-      folder = Path.join(main, "worktrees/quality")
-      File.mkdir_p!(folder)
-
-      assert {:deny, _} =
-               run(%{
-                 "cwd" => folder,
-                 "tool_name" => "Bash",
-                 "tool_input" => %{"command" => "rm -rf #{main}/lib"}
-               })
-    end
-  end
-
-  describe "allowing" do
-    test "a write inside the mouse's own worktree", %{main: main, worktree: worktree} do
-      shaped_build(main, worktree)
-
-      assert :allow =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/fine.ex")}
-               })
-    end
-
-    test "any tool call made from the main checkout itself", %{main: main} do
-      # The hook is installed repo-wide, so it fires in the main checkout too.
-      # Protecting the main session from itself needs a different vantage point
-      # and is out of scope for this slice (ADR-0030).
-      assert :allow =
-               run(%{
-                 "cwd" => main,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-               })
-    end
-
-    test "a write below a folder under worktrees that is no worktree", %{main: main} do
-      folder = Path.join(main, "worktrees/quality")
-      File.mkdir_p!(folder)
-
-      assert :allow =
-               run(%{
-                 "cwd" => folder,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(folder, "notes.md")}
-               })
-    end
-
-    test "a directory with no worktrees ancestor at all", %{root: root} do
-      assert :allow =
-               run(%{
-                 "cwd" => root,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(root, "x.ex")}
-               })
     end
   end
 
@@ -209,16 +178,6 @@ defmodule Whiska.Hook.PreToolUseTest do
 
       assert first == second
     end
-
-    test "mints identity even when the call is denied", %{main: main, worktree: worktree} do
-      run(%{
-        "cwd" => worktree,
-        "tool_name" => "Write",
-        "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-      })
-
-      assert File.exists?(Marker.path(worktree))
-    end
   end
 
   describe "robustness" do
@@ -232,22 +191,16 @@ defmodule Whiska.Hook.PreToolUseTest do
       assert :allow = PreToolUse.run(JSON.encode!(%{"something" => "else"}))
     end
 
-    test "still enforces the rule when the house cannot be opened", %{
+    test "a house that will not open allows, loudly: the mouse is taken as not held", %{
       main: main,
       worktree: worktree
     } do
-      # Storage is bookkeeping; the decision must not depend on it.
       File.rm_rf!(Path.join(main, ".git"))
       File.write!(Path.join(main, ".git"), "gitdir: nowhere")
 
       stderr =
         capture_io(:stderr, fn ->
-          assert {:deny, _} =
-                   run(%{
-                     "cwd" => worktree,
-                     "tool_name" => "Write",
-                     "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-                   })
+          assert :allow = write(worktree, Path.join(worktree, "lib/x.ex"))
         end)
 
       assert stderr =~ "whiska"
@@ -268,66 +221,7 @@ defmodule Whiska.Hook.PreToolUseTest do
     end
   end
 
-  describe "a mouse nobody shaped reads but does not write (ADR-0069)" do
-    test "its first edit is denied, and the reason sends it to the person", %{worktree: worktree} do
-      assert {:deny, reason} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
-               })
-
-      assert reason =~ "never given a shape"
-      assert reason =~ "whiska mode build"
-    end
-
-    test "it may still read", %{worktree: worktree} do
-      assert :allow =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Bash",
-                 "tool_input" => %{"command" => "git log"}
-               })
-    end
-
-    test "it may not shape itself", %{worktree: worktree} do
-      assert {:deny, _} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Bash",
-                 "tool_input" => %{"command" => "whiska mode build"}
-               })
-    end
-
-    test "the person choosing build with whiska mode lets it write", %{
-      main: main,
-      worktree: worktree
-    } do
-      run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
-      {:ok, mouse_id} = Marker.read_or_mint(worktree)
-      {:ok, handle} = Storage.open(main)
-      {:ok, _} = Storage.set_mode(mouse_id, "build")
-      Storage.close(handle)
-
-      assert :allow =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
-               })
-    end
-  end
-
   describe "a mouse on hold (ADR-0079)" do
-    defp held(main, worktree) do
-      shaped_build(main, worktree)
-      {:ok, mouse_id} = Marker.read_or_mint(worktree)
-      {:ok, handle} = Storage.open(main)
-      {:ok, _} = Storage.hold(mouse_id)
-      Storage.close(handle)
-      mouse_id
-    end
-
     test "the rule refuses whatever the hook asks it about, a read included, and says to end the turn",
          %{
            main: main,
@@ -343,26 +237,6 @@ defmodule Whiska.Hook.PreToolUseTest do
       assert reason =~ "resume feat-thing"
     end
 
-    test "a write in its own worktree is refused for the hold, not for the mode", %{
-      main: main,
-      worktree: worktree
-    } do
-      mouse_id = held(main, worktree)
-      {:ok, handle} = Storage.open(main)
-      {:ok, _} = Storage.shape(mouse_id, "sniff", nil, nil)
-      Storage.close(handle)
-
-      assert {:deny, reason} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
-               })
-
-      assert reason =~ "on hold"
-      refute reason =~ "sniff"
-    end
-
     test "lifting the hold lets it work again", %{main: main, worktree: worktree} do
       mouse_id = held(main, worktree)
       {:ok, handle} = Storage.open(main)
@@ -373,269 +247,8 @@ defmodule Whiska.Hook.PreToolUseTest do
     end
 
     test "a mouse that is not held is unchanged", %{main: main, worktree: worktree} do
-      shaped_build(main, worktree)
+      shaped(main, worktree, "build")
       assert :allow = run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
-    end
-  end
-
-  describe "the person's commands are not a mouse's (ADR-0079)" do
-    defp bash(worktree, command),
-      do:
-        run(%{"cwd" => worktree, "tool_name" => "Bash", "tool_input" => %{"command" => command}})
-
-    test "a build mouse may not put the machine away, hold or focus, or answer", %{
-      main: main,
-      worktree: worktree
-    } do
-      shaped_build(main, worktree)
-
-      for command <- [
-            "whiska away",
-            "whiska hold feat-other",
-            "whiska focus feat-thing",
-            "whiska resume feat-thing",
-            ~s(whiska reply 12 "yes"),
-            "whiska dismiss 12",
-            "whiska close 12",
-            "away",
-            "hold feat-other",
-            "cd lib && resume feat-thing",
-            "git status; whiska away"
-          ] do
-        assert {:deny, reason} = bash(worktree, command), command
-        assert reason =~ "the person's command", command
-      end
-    end
-
-    test "a mouse may not spawn, send to, land, open a merge request for or drop a branch", %{
-      main: main,
-      worktree: worktree
-    } do
-      shaped_build(main, worktree)
-
-      for command <- [
-            "whiska spawn build feat/x /tmp/task.md",
-            "whiska send feat-other /tmp/note.md",
-            "whiska land 12",
-            "whiska pr 12",
-            "whiska drop feat-other --force"
-          ] do
-        assert {:deny, reason} = bash(worktree, command), command
-        assert reason =~ "the person's command", command
-      end
-    end
-
-    test "reading commands, and other programs' words, pass", %{main: main, worktree: worktree} do
-      shaped_build(main, worktree)
-
-      for command <- [
-            "whiska inbox",
-            "whiska show 12",
-            "whiska questions --full",
-            "whiska waiting",
-            "whiska mice",
-            "git show HEAD",
-            "grep -n hold lib/x.ex",
-            "echo focus",
-            "pr -2 notes.txt",
-            "drop"
-          ] do
-        assert :allow = bash(worktree, command), command
-      end
-    end
-  end
-
-  describe "mode drives which rule applies (ADR-0069)" do
-    defp set_mode(main, worktree, mode) do
-      # The hook itself mints the id on first run; reuse it.
-      run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
-      {:ok, mouse_id} = Marker.read_or_mint(worktree)
-      {:ok, handle} = Storage.open(main)
-      {:ok, _} = Storage.set_mode(mouse_id, mode)
-      Storage.close(handle)
-      mouse_id
-    end
-
-    test "a build mouse may edit inside its own worktree", %{main: main, worktree: worktree} do
-      set_mode(main, worktree, "build")
-
-      assert :allow =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
-               })
-    end
-
-    test "a sniff mouse may not edit even inside its own worktree", %{
-      main: main,
-      worktree: worktree
-    } do
-      set_mode(main, worktree, "sniff")
-
-      assert {:deny, reason} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
-               })
-
-      assert reason =~ "sniff"
-    end
-
-    test "a sniff mouse may not write even a research document", %{
-      main: main,
-      worktree: worktree
-    } do
-      set_mode(main, worktree, "sniff")
-
-      for tool <- ~w(Write Edit) do
-        assert {:deny, reason} =
-                 run(%{
-                   "cwd" => worktree,
-                   "tool_name" => tool,
-                   "tool_input" => %{"file_path" => Path.join(worktree, ".whiska-research.md")}
-                 })
-
-        assert reason =~ "sniff"
-      end
-    end
-
-    test "a research document cannot then be run as a program or a config", %{
-      main: main,
-      worktree: worktree
-    } do
-      set_mode(main, worktree, "sniff")
-
-      for command <- [
-            "GIT_CONFIG_GLOBAL=.whiska-research.md git diff",
-            "awk -f .whiska-research.md README.md",
-            "sed -f .whiska-research.md README.md",
-            "RIPGREP_CONFIG_PATH=.whiska-research.md rg foo",
-            "env GIT_CONFIG_GLOBAL=.whiska-research.md git diff",
-            "PAGER='awk -f .whiska-research.md' git log",
-            "find . -name x -exec sed -f .whiska-research.md {} ;"
-          ] do
-        assert {:deny, _} =
-                 run(%{
-                   "cwd" => worktree,
-                   "tool_name" => "Bash",
-                   "tool_input" => %{"command" => command}
-                 }),
-               command
-      end
-    end
-
-    test "a build mouse may still load a program or a config from a file to read the main checkout",
-         %{main: main, worktree: worktree} do
-      set_mode(main, worktree, "build")
-
-      for command <- [
-            "GIT_CONFIG_GLOBAL=#{worktree}/g git -C #{main} log",
-            "awk -f prog.awk #{main}/README.md",
-            "sed -f script.sed #{main}/README.md"
-          ] do
-        assert :allow =
-                 run(%{
-                   "cwd" => worktree,
-                   "tool_name" => "Bash",
-                   "tool_input" => %{"command" => command}
-                 }),
-               command
-      end
-    end
-
-    test "a mouse nobody shaped may not write a research document either", %{
-      main: main,
-      worktree: worktree
-    } do
-      run(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}})
-
-      assert {:deny, reason} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(worktree, ".whiska-research.md")}
-               })
-
-      assert reason =~ "never given a shape"
-      assert main
-    end
-
-    test "a sniff mouse may still read and run read-only commands", %{
-      main: main,
-      worktree: worktree
-    } do
-      set_mode(main, worktree, "sniff")
-
-      assert :allow =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Read",
-                 "tool_input" => %{"file_path" => "x"}
-               })
-
-      assert :allow =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Bash",
-                 "tool_input" => %{"command" => "git log"}
-               })
-    end
-
-    test "a sniff mouse is denied a mutating command", %{main: main, worktree: worktree} do
-      set_mode(main, worktree, "sniff")
-
-      assert {:deny, _} =
-               run(%{
-                 "cwd" => worktree,
-                 "tool_name" => "Bash",
-                 "tool_input" => %{"command" => "rm -rf lib"}
-               })
-    end
-
-    test "sniff is checked before worktree containment, so its reason is the one shown",
-         %{main: main, worktree: worktree} do
-      set_mode(main, worktree, "sniff")
-
-      {:deny, reason} =
-        run(%{
-          "cwd" => worktree,
-          "tool_name" => "Write",
-          "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-        })
-
-      # Both rules would deny this. The sniff one explains the real reason.
-      assert reason =~ "sniff"
-    end
-
-    test "an unreadable mode degrades to build, loudly, and containment still holds",
-         %{main: main, worktree: worktree} do
-      File.rm_rf!(Path.join(main, ".git"))
-      File.write!(Path.join(main, ".git"), "gitdir: nowhere")
-
-      stderr =
-        capture_io(:stderr, fn ->
-          # Containment is pure path arithmetic and needs no database.
-          assert {:deny, reason} =
-                   run(%{
-                     "cwd" => worktree,
-                     "tool_name" => "Write",
-                     "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-                   })
-
-          refute reason =~ "sniff"
-
-          # ...and an edit inside the worktree is allowed rather than blocked.
-          assert :allow =
-                   run(%{
-                     "cwd" => worktree,
-                     "tool_name" => "Write",
-                     "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
-                   })
-        end)
-
-      assert stderr =~ "whiska"
     end
   end
 
@@ -646,51 +259,10 @@ defmodule Whiska.Hook.PreToolUseTest do
       path
     end
 
-    test "the main session may still edit its own checkout after a cd", %{
+    test "the main session that cd'd into a worktree is recorded as no mouse at all", %{
       main: main,
       worktree: worktree
     } do
-      assert :allow =
-               run(%{
-                 "cwd" => worktree,
-                 "transcript_path" => started_in(main),
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-               })
-    end
-
-    test "a mouse that cd'd into the main checkout cannot write there by a bare name", %{
-      main: main,
-      worktree: worktree
-    } do
-      set_mode(main, worktree, "build")
-
-      assert {:deny, reason} =
-               run(%{
-                 "cwd" => main,
-                 "transcript_path" => started_in(worktree),
-                 "tool_name" => "Bash",
-                 "tool_input" => %{"command" => "rm CONTEXT.md"}
-               })
-
-      assert reason =~ "ADR-0013"
-    end
-
-    test "a relative cwd is no position at all", %{main: main, worktree: worktree} do
-      set_mode(main, worktree, "build")
-
-      File.cd!(main, fn ->
-        assert :allow =
-                 run(%{
-                   "cwd" => ".",
-                   "transcript_path" => started_in(worktree),
-                   "tool_name" => "Bash",
-                   "tool_input" => %{"command" => "touch x"}
-                 })
-      end)
-    end
-
-    test "and is recorded as no mouse at all", %{main: main, worktree: worktree} do
       run(%{
         "cwd" => worktree,
         "transcript_path" => started_in(main),
@@ -701,17 +273,21 @@ defmodule Whiska.Hook.PreToolUseTest do
       refute File.exists?(Marker.path(worktree))
     end
 
-    test "a mouse that cd'd out is still held to its own worktree", %{
+    test "a held mouse that cd'd out is still the held mouse", %{
       main: main,
       worktree: worktree
     } do
-      assert {:deny, _} =
+      held(main, worktree)
+
+      assert {:deny, reason} =
                run(%{
                  "cwd" => main,
                  "transcript_path" => started_in(worktree),
-                 "tool_name" => "Write",
-                 "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+                 "tool_name" => "Bash",
+                 "tool_input" => %{"command" => "git status"}
                })
+
+      assert reason =~ "on hold"
     end
 
     test "the pane the house calls its main session is never a mouse, whatever it started in",

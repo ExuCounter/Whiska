@@ -165,13 +165,13 @@ Finishing reads the change back against the spec (ADR-0049).
 
 The spec is a file git ignores, never committed. Untracked is not enough: the owl takes a
 landed worktree down only when `git status --porcelain` reads clean (ADR-0061). So
-`whiska shape` and `whiska mode` add `/.whiska-spec.md` to the main checkout's
-`.git/info/exclude`, which every worktree of the repo reads and which is never committed
-(ADR-0056). That write is Whiska's own process; a mouse never edits the main checkout
-(ADR-0013), and its brief tells it only that these files are ignored and never to commit
-or delete them. The build plan, the research document and the mouse's own brief are
-ignored the same way: `whiska shape`, `whiska mode` and the owl's house opening add their
-lines to the exclude file.
+`whiska shape` adds `/.whiska-spec.md` to the main checkout's `.git/info/exclude`, which
+every worktree of the repo reads and which is never committed (ADR-0056). That write is
+Whiska's own process, not the mouse's, and its brief tells it only that these files are
+ignored and never to commit or delete them. The build plan, the research document, the
+mouse's own brief and its deny list are ignored the same way: `whiska shape` adds their
+lines to the exclude file, and the owl's house opening adds the research document's and
+the build plan's again.
 
 Grilling, the spec, the build plan and the research document are a few lines each of the
 build brief, and the research document and its questions of the sniff brief
@@ -304,3 +304,6 @@ question's link, commented, and found their comments on a copy a later round had
 replaced. Earlier rounds are not kept, as for specs.
 
 Folded in on 2026-10-08: 0076, 0085 (their text is in git history).
+
+Changed on 2026-10-14: `whiska mode` writes no exclude line, since it gives no mode
+(ADR-next-a-mouse-starts-in-bypass-mode).

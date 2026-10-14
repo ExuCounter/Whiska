@@ -77,4 +77,19 @@ defmodule Whiska.BriefTest do
     assert main =~ "one line saying it is running"
     assert main =~ "one after another"
   end
+
+  test "write/4 refuses a link at the path, and writes nothing through it" do
+    root = Path.join(System.tmp_dir!(), "whiska-brief-#{System.unique_integer([:positive])}")
+    on_exit(fn -> File.rm_rf!(root) end)
+    main = Path.join(root, "main")
+    worktree = Path.join(root, "wt")
+    File.mkdir_p!(Path.join(main, ".git"))
+    File.mkdir_p!(worktree)
+    target = Path.join(root, "CLAUDE.md")
+    File.write!(target, "the person's own instructions")
+    File.ln_s!(target, Path.join(worktree, ".whiska-brief.md"))
+
+    assert {:error, :not_a_plain_file} = Brief.write(main, worktree, "build", "A task.")
+    assert File.read!(target) == "the person's own instructions"
+  end
 end

@@ -61,14 +61,15 @@ stacking a second entry beside it.
 **The shim fails open, and says so where it costs something.** If no Whiska binary is
 found, or the one found will not run, it writes to stderr and allows the call. Denying
 would brick every tool call in a session over a missing install — the same trade
-`Whiska.Hook.PreToolUse` makes on a malformed payload, and again when it cannot read a
-mouse's mode. The shim cannot read the mode either, so it cannot deny only a sniff mouse.
+`Whiska.Hook.PreToolUse` makes on a malformed payload, and again when it cannot read
+whether a mouse is held. The shim cannot read that either, so it cannot deny only a held
+mouse.
 
 It exits 1 when the session is in a worktree and Whiska is set up for this repo on this
 machine — the repo's house exists, or the binary was found. Everywhere else it exits 0.
 Measured on Claude Code 2.1.285: an exit-0 hook's stderr is filed as a success and never
-shown, so a shim that always exited 0 failed open in silence — sniff mode and containment
-off, and a mouse's last message never reaching the doorstep. Exit 1 is shown as a hook
+shown, so a shim that always exited 0 failed open in silence — a hold stopping nothing, and
+a mouse's last message never reaching the doorstep. Exit 1 is shown as a hook
 error, still lets the call through, and on `Stop` ends the turn without looping. Exit 2
 was rejected: on `PreToolUse` it denies, on `Stop` it keeps the turn going. The exit-0
 cases are the ones where nothing is lost — a session outside a worktree, where both hooks

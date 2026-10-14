@@ -1,7 +1,9 @@
 # Dynamic — one `PreToolUse` decision (built)
 
 A mouse in a worktree tries to edit something; Whiska decides and either says nothing
-(allow) or prints a deny. The owl decides it in about 16 ms when it answers its hook
+(allow) or prints a deny. The one rule here is the hold (ADR-0079); what a mouse's mode
+forbids and the person's commands are the deny list Claude Code enforces whatever the
+hook says (ADR-next-a-mouse-starts-in-bypass-mode). The owl decides it in about 16 ms when it answers its hook
 socket, and the escript in about 245 ms when it does not (ADR-0033). Both run the same
 modules, so the steps below are the same either way.
 
@@ -22,16 +24,16 @@ C4Dynamic
     Component(layout, "Layout", "path arithmetic", "Worktree root, main checkout")
     Component(markerm, "Marker", "identity", "mouse_id")
     Component(storage, "Storage", "Ecto", "House, best-effort")
-    Component(rules, "Rule.Held, Persons, Sniff, MainCheckout", "rules", "Allow or deny, in that order")
+    Component(rules, "Rule.Held", "rule", "Deny a held mouse, allow the rest")
   }
 
   Rel(mouse, shim, "Fires the hook", "JSON on stdin")
   Rel(shim, hook, "Asks the owl over hook.sock with nc; else resolves the escript and execs")
   Rel(hook, session, "Whose session is this?")
   Rel(session, layout, "Resolve the start directory to a worktree")
-  Rel(hook, storage, "Read the recorded main pane; upsert the mouse, read its mode and hold")
+  Rel(hook, storage, "Read the recorded main pane; upsert the mouse, read its hold")
   Rel(hook, markerm, "Read or mint mouse_id")
-  Rel(hook, rules, "Decide on tool name and input")
+  Rel(hook, rules, "Decide on the hold")
   Rel(hook, mouse, "Silence, or a deny as JSON on stdout")
 
   UpdateRelStyle(hook, mouse, $textColor="red", $lineColor="red", $offsetY="-20")
@@ -59,23 +61,18 @@ can fail, and that is usually an allow: a start directory outside `worktrees/<br
 the main checkout itself included — returns `{:error, :not_a_mouse}` and the call goes
 through.
 
-**One failure is not an allow.** A start directory *under* the `worktrees/` container
-that is no checkout of its own — the ordinary folder a slashed branch nests under — is
-nobody: no mouse, no mode, no marker minted (ADR-0030). Containment does not go
-with identity. `Layout.unplaced/1` reads the same folder for the main-checkout rule
-alone, and a write into the main checkout from there is denied like any other
-(ADR-0013). A folder Whiska cannot identify is where it can vouch for least, so it fails
-closed on the one path that bypasses every other guard.
+A start directory *under* the `worktrees/` container that is no checkout of its own —
+the ordinary folder a slashed branch nests under — is nobody: no mouse, no mode, no
+marker minted, and the call is allowed (ADR-0030).
 
-**Step 5 settles whose pane this is, then reads the mode and whether it is held.** A tool call firing in the pane
+**Step 5 settles whose pane this is, then reads whether the mouse is held.** A tool call firing in the pane
 `whiska start` recorded is the person's own session: no mouse, no rules, nothing recorded,
 and the call is allowed. The pane is the hook's own `HERDR_PANE_ID`, the one the shim
 sent, never the owl's: an owl started by hand in the main session's pane would otherwise
 take every mouse for the main session. Inside the owl the house is opened on a
 connection of the hook's own, so hooks for two repos at once never collide. Both answers come out of the one house opening, so nothing opens
-twice. The mode half is best-effort and step 7 does not depend on it — if it cannot be
-read, Whiska assumes `build` and says so on stderr, and worktree containment is pure path
-arithmetic that keeps working regardless.
+twice. If the house cannot be read, the mouse is taken as not held and Whiska says so on
+stderr.
 
 **Step 8 always exits 0.** The decision travels in the JSON body. A non-zero exit would
 read to Claude Code as the hook itself having failed, which is a different and worse
@@ -94,4 +91,4 @@ Of the 16 ms, bash starting is about 2, `nc` itself about 7, and the owl's own w
 3 — most of that opening the house's database for the request. Nothing inside the escript
 can remove its first 126 ms, which is why the owl answers when it can. That is why the installed matcher is
 `Write|Edit|MultiEdit|NotebookEdit|Bash` and not `*`: `Read`, `Grep` and `Glob` are a
-large share of all tool calls, can never be denied, and never pay the cost.
+large share of all tool calls, a hold lets them pass, and they never pay the cost.

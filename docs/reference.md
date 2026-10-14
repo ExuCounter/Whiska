@@ -34,7 +34,7 @@ Each is also `whiska <word>`, and your main session runs it when you ask in your
 words ("what's waiting?", "I'm away"). `whiska init --global` also writes them as shell
 commands to `~/.whiska/bin`: put it on your `PATH`. A word another program already
 answers to is skipped. A mouse cannot run `away`, `focus`, `hold`, `resume`, `reply`,
-`dismiss` or `close`, nor the commands for a branch below: the hook refuses them
+`dismiss` or `close`, nor the commands for a branch below: its deny list refuses them
 (ADR-0079).
 
 ### A branch
@@ -82,10 +82,11 @@ whiska --version
 whiska hook <name>              pre-tool-use, stop, user-prompt-submit
 whiska where                    where this directory is, as JSON (below)
 whiska worktrees                linked worktrees with their herdr workspace and pane, tab-separated
-whiska shape build|sniff        give a mouse started by hand its mode, model, effort and brief,
-      [--model <name>] [--effort <level>]   and print the flags to start Claude with
+whiska shape build|sniff        give a mouse started by hand its mode, model, effort, brief and
+      [--model <name>] [--effort <level>]   deny list, and print the flags to start Claude with,
+                                            bypass mode among them
 whiska shape --rules            the rules a spawn picks a model and an effort by
-whiska mode [build|sniff]       this mouse's mode; or give one to a mouse nobody shaped
+whiska mode                     this mouse's mode
 whiska ledger [--json]          the agent ledger a finished report ends with
 whiska base                     the branch this worktree was cut from
 ```

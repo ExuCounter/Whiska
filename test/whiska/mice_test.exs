@@ -78,7 +78,7 @@ defmodule Whiska.MiceTest do
          ]}
 
       assert [
-               %{branch: "feat-a", mode: "never shaped, reads only", status: "working"},
+               %{branch: "feat-a", mode: "never shaped", status: "working"},
                %{branch: "feat-b", mode: "sniff", status: "idle"}
              ] = Mice.rows(mice, panes, @now)
     end
@@ -189,7 +189,7 @@ defmodule Whiska.MiceTest do
       assert [%{context: ""}] = rows
 
       assert Mice.render(rows) ==
-               "feat-a  never shaped, reads only  no pane  0s"
+               "feat-a  never shaped  no pane  0s"
     end
   end
 end

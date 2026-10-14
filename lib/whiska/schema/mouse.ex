@@ -19,7 +19,7 @@ defmodule Whiska.Schema.Mouse do
     field(:pane, :string)
     field(:path, :string)
     field(:branch, :string)
-    # Read by the sniff rule on every tool call (ADR-0069).
+    # Which deny list `whiska shape` starts it with (ADR-0069).
     field(:mode, :string, default: "build")
     # The model and effort the spawn asked for; nil is the person's own
     # default (ADR-0069).
@@ -28,8 +28,8 @@ defmodule Whiska.Schema.Mouse do
     # The model id its latest turn actually ran on, read from its transcript:
     # what the alias resolved to, or what Claude Code fell back to.
     field(:ran_on, :string)
-    # When somebody chose this mouse's mode — `whiska shape`, or `whiska mode`.
-    # Nil means nobody did, and the mouse may read but not write (ADR-0069).
+    # When `whiska shape` gave this mouse its mode. Nil means nobody did, and
+    # it started with no deny list (ADR-0069).
     field(:shaped_at, :utc_datetime)
     # The mode `whiska shape` recorded, which the model and effort were chosen
     # with; nil when no spawn ever shaped it. A mouse flipped before ADR-0074

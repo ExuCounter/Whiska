@@ -65,6 +65,12 @@ defmodule Whiska.Owl.HookSocketTest do
     mouse_id
   end
 
+  defp hold(main, mouse_id) do
+    {:ok, handle} = Storage.open(main)
+    {:ok, _} = Storage.hold(mouse_id)
+    Storage.close(handle)
+  end
+
   defp main_pane(main, pane) do
     {:ok, handle} = Storage.open(main)
     :ok = Storage.set_main_pane(pane)
@@ -76,14 +82,22 @@ defmodule Whiska.Owl.HookSocketTest do
     # id. Read from the owl's own environment, every mouse would look like the
     # main session: every edit allowed, every question dropped.
     setup %{main: main, worktree: worktree, sockets: sockets} do
-      sniff_mouse(main, worktree)
+      mouse_id = sniff_mouse(main, worktree)
       main_pane(main, "w1:p2")
       System.put_env("HERDR_PANE_ID", "w1:p2")
       start_owl(sockets)
-      :ok
+      {:ok, mouse_id: mouse_id}
     end
 
-    test "a sniff mouse's write is denied", %{root: root, worktree: worktree, sockets: sockets} do
+    test "a held mouse's write is denied", %{
+      root: root,
+      main: main,
+      worktree: worktree,
+      sockets: sockets,
+      mouse_id: mouse_id
+    } do
+      hold(main, mouse_id)
+
       result =
         shim(root, sockets, "pre-tool-use", worktree, %{
           "cwd" => worktree,
@@ -153,7 +167,7 @@ defmodule Whiska.Owl.HookSocketTest do
       worktree: worktree,
       sockets: sockets
     } do
-      sniff_mouse(main, worktree)
+      hold(main, sniff_mouse(main, worktree))
       start_owl(sockets)
 
       other = Path.join(root, "other")

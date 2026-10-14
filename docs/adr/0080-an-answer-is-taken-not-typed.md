@@ -79,7 +79,7 @@ removes it.
 - The flag's place comes from the worktree's `.git` file, which the mouse there can
   rewrite, and the owl and `reply` act on it. So `.git` is read only when it is a plain
   file, since a named pipe would hang the owl, and the flag is created exclusively, never
-  written through whatever a mouse left at its path (ADR-0013).
+  written through whatever a mouse left at its path.
 - The owl does not lower the flag itself: a sweep that read "nothing chased" just before
   `reply` saved an answer would lower the flag `reply` had just raised. The hook lowers it
   on the next prompt, which costs one escript start.
@@ -87,10 +87,7 @@ removes it.
 ## Considered options
 
 - **The mouse acknowledges by moving a file to `handled/`** (firstmate's way). Rejected:
-  the hook refuses it in every case. A sniff or unshaped mouse is refused any shell command
-  that changes a file (ADR-0069), even a `whiska ack`; a build mouse is refused a write
-  under the house in the main checkout (ADR-0013). Carving those out would weaken both
-  rules for a step the model may still skip; what must happen goes in a hook (ADR-0011).
+  it is a step the model may skip, and what must happen goes in a hook (ADR-0011).
   firstmate needs it because it drives agents with no hooks; Whiska only drives Claude
   Code (ADR-0020).
 - **An answer file beside the hook.** A second copy of what the database already holds

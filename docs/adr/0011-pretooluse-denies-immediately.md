@@ -1,14 +1,15 @@
-# Hard rules are a PreToolUse hook that denies at once
+# Hard rules are enforced by Claude Code before a tool call, and deny at once
 
-A rule that must hold whatever the model decides is enforced by the `PreToolUse` hook,
-which runs before a tool call and can block it. A line in a session's brief is a
-suggestion, followed only if the mouse chooses to. The split is deliberate: the brief
-carries everything that takes judgment (ADR-0088), and the hook
-carries the short list that
-must hold regardless — containment in the worktree (ADR-0013), sniff mode, the read-only
-allowlist for shell commands (ADR-0034), the person's own commands and a hold
-(ADR-0079). The same principle is applied wherever it matters: cleanup checks that a
-branch is merged rather than trusting a session to remember (ADR-0061).
+A rule that must hold whatever the model decides is enforced before a tool call, where
+it can block it: by a deny rule a mouse is started with, or by the `PreToolUse` hook. A
+line in a session's brief is a suggestion, followed only if the mouse chooses to. The
+split is deliberate: the brief carries everything that takes judgment (ADR-0088), and the
+short list that must hold regardless is enforced. What a mouse's mode forbids and the
+person's own commands are deny rules in the settings file it starts with, which Claude
+Code applies whatever the hook says (ADR-next-a-mouse-starts-in-bypass-mode). The hook
+carries what changes while a mouse runs: a hold (ADR-0079). The same principle is applied
+wherever it matters: cleanup checks that a branch is merged rather than trusting a session
+to remember (ADR-0061).
 
 The hook never waits. It answers in milliseconds — it cannot stay open while a test suite
 runs, and certainly not while a human decides — so it denies the attempt on the spot, with
@@ -34,8 +35,8 @@ the original tool call is long gone and the push must not depend on the mouse's 
 idle whenever the person gets round to answering; running it is mechanical and needs no
 reasoning. A push that fails for a real reason comes back into the mouse's own pane like
 any failing command, with bounded escalation: two failures in a row on the same push turn
-the next into a real question carrying the output. None of this is built; the hook today
-denies a push and the mouse says so in its report.
+the next into a real question carrying the output. None of this is built, and nothing
+detects a push: a mouse's brief says never to push.
 
 ## Considered options
 
@@ -46,3 +47,6 @@ denies a push and the mouse says so in its report.
   rules; judgment belongs to the model reading its brief.
 
 Folded in on 2026-10-08: 0010, 0012 (their text is in git history).
+
+Changed on 2026-10-14: the hook holds only the hold; the rest is the deny list a mouse
+starts with, and no push is detected (ADR-next-a-mouse-starts-in-bypass-mode).

@@ -22,6 +22,7 @@ C4Deployment
       Container(sock, "repo socket - NOT BUILT", "Unix socket, .git/whiska/", "Push approval, mouse identity")
       Container(markerf, ".whiska-mouse", "file, worktree root", "The opaque mouse_id")
       Container(briefs, "Briefs", "main.md in .git/whiska/, .whiska-brief.md at a worktree root", "Everything Whiska tells each session")
+      Container(denylist, ".whiska-settings.json", "file, worktree root", "The deny list a shaped mouse starts with")
     }
     Deployment_Node(home, "Home directory", "~") {
       Container(globalsock, "owl.sock", "Unix socket, ~/.whiska/", "Read-only, cross-repo: waiting, show, jump, questions, the tab bar line")

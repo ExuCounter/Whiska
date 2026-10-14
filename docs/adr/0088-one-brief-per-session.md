@@ -12,7 +12,7 @@ started with it: `claude --append-system-prompt-file <brief>`. Three briefs ship
 
 Nothing else carries Whiska's words into a session: no `SessionStart` hook, no skills, no
 block in a `CLAUDE.md`, no `keep`. What `whiska init` installs is the shim and three hooks
-— `PreToolUse` for the hard rules (ADR-0011), `Stop` for the doorstep (ADR-0036),
+— `PreToolUse` for the hold (ADR-0011), `Stop` for the doorstep (ADR-0036),
 `UserPromptSubmit` for answers (ADR-0080) — and, globally, the person's one-word shell
 commands (ADR-0079). The repo's own `CLAUDE.md` loads as Claude Code loads it, and
 Whiska writes nothing in it.
@@ -58,7 +58,8 @@ offered.
   nothing by reading prose: no scoring, and a turn's kind is its marker's alone
   (ADR-0009). A `## Summary` heading decides only what Whiska keeps and how much
   `whiska show` prints (ADR-0089). What takes judgment is in a brief, which a capable model reads; what must
-  hold whatever the model decides is a `PreToolUse` deny (ADR-0011).
+  hold whatever the model decides is a deny rule a mouse starts with, or the
+  `PreToolUse` hook's hold (ADR-0011).
 - **An answer goes through `whiska reply`, as the person's words.** It is saved against the
   question and the mouse's own hook takes it (ADR-0080). The main session never types into
   a mouse's pane: text typed there reaches the mouse but leaves the question holding the

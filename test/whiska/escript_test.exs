@@ -52,18 +52,15 @@ defmodule Whiska.EscriptTest do
     {out, status}
   end
 
-  test "denies a main-checkout write, end to end", %{main: main, worktree: worktree} do
+  test "denies a held mouse's call, end to end", %{main: main, worktree: worktree} do
     {_, 0} = System.cmd(@binary, ["shape", "build"], cd: worktree, stderr_to_stdout: true)
+    {:ok, mouse_id} = Whiska.Marker.read_or_mint(worktree)
+    {:ok, handle} = Whiska.Storage.open(main, name: nil)
+    {:ok, _} = Whiska.Storage.hold(mouse_id)
+    Whiska.Storage.close(handle)
 
     {out, status} =
-      hook(
-        %{
-          "cwd" => worktree,
-          "tool_name" => "Write",
-          "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-        },
-        worktree
-      )
+      hook(%{"cwd" => worktree, "tool_name" => "Read", "tool_input" => %{}}, worktree)
 
     assert status == 0
 
@@ -75,7 +72,7 @@ defmodule Whiska.EscriptTest do
              }
            } = JSON.decode!(out)
 
-    assert reason =~ "ADR-0013"
+    assert reason =~ "on hold"
   end
 
   test "allows a write inside the worktree, silently", %{worktree: worktree} do
@@ -110,23 +107,34 @@ defmodule Whiska.EscriptTest do
     assert File.read!(Path.join(worktree, ".whiska-mouse")) == first
   end
 
-  test "a broken house does not stop the rule from being enforced", %{
+  test "a house that will not open allows the call, and says so", %{
     main: main,
     worktree: worktree
   } do
-    # This is the live situation today, not a contrived one — see the :needs_nif
-    # test below. Storage is bookkeeping; the decision must not depend on it.
+    File.mkdir_p!(Whiska.Storage.database_path(main))
+    payload_file = Path.join(worktree, "payload.json")
+
+    File.write!(
+      payload_file,
+      JSON.encode!(%{
+        "cwd" => worktree,
+        "tool_name" => "Write",
+        "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
+      })
+    )
+
     {out, 0} =
-      hook(
-        %{
-          "cwd" => worktree,
-          "tool_name" => "Write",
-          "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-        },
-        worktree
+      System.cmd("sh", ["-c", "#{@binary} hook pre-tool-use < #{payload_file} 2>/dev/null"],
+        cd: worktree
       )
 
-    assert out =~ ~s("permissionDecision":"deny")
+    {err, 0} =
+      System.cmd("sh", ["-c", "#{@binary} hook pre-tool-use < #{payload_file} 2>&1 >/dev/null"],
+        cd: worktree
+      )
+
+    assert out == ""
+    assert err =~ "assuming not"
   end
 
   test "opens a real SQLite house from the single-file binary", %{main: main, worktree: worktree} do
@@ -159,9 +167,9 @@ defmodule Whiska.EscriptTest do
     assert String.trim(out) == "0.0.1"
   end
 
-  # The order ADR-0069 is about: the shape is in the house before Claude starts,
-  # so the very first tool call a sniff mouse makes is already a sniff call.
-  test "a mouse shaped as sniff before it starts gets no free edit", %{worktree: worktree} do
+  # The deny list is on disk before Claude starts, so the first tool call a
+  # sniff mouse makes is already under it (ADR-0069).
+  test "a mouse shaped as sniff starts with its deny list", %{worktree: worktree} do
     {out, 0} =
       System.cmd(@binary, ["shape", "sniff", "--model", "m1", "--effort", "high"],
         cd: worktree,
@@ -169,6 +177,10 @@ defmodule Whiska.EscriptTest do
       )
 
     assert out =~ ~r/\A--model m1 --effort high/
+    assert out =~ "--dangerously-skip-permissions --settings .whiska-settings.json"
+
+    settings = worktree |> Path.join(".whiska-settings.json") |> File.read!() |> JSON.decode!()
+    assert "Write" in settings["permissions"]["deny"]
 
     {out, 0} =
       hook(
@@ -180,70 +192,18 @@ defmodule Whiska.EscriptTest do
         worktree
       )
 
-    assert out =~ ~s("permissionDecision":"deny")
-    # Denied as sniff, not as a mouse nobody shaped.
-    assert out =~ "sniff mode"
+    assert out == ""
   end
 
-  test "whiska mode refuses a shaped mouse, and its enforcement does not move", %{
+  test "whiska mode refuses a shaped mouse, and its deny list does not move", %{
     worktree: worktree
   } do
     {_, 0} = System.cmd(@binary, ["shape", "build"], cd: worktree, stderr_to_stdout: true)
 
-    # build mouse: an edit inside its own worktree is fine
-    {out, 0} =
-      hook(
-        %{
-          "cwd" => worktree,
-          "tool_name" => "Write",
-          "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
-        },
-        worktree
-      )
-
-    assert out == ""
-
     {msg, 1} = System.cmd(@binary, ["mode", "sniff"], cd: worktree, stderr_to_stdout: true)
     assert msg =~ "shaped as build"
 
-    {out, 0} =
-      hook(
-        %{
-          "cwd" => worktree,
-          "tool_name" => "Write",
-          "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
-        },
-        worktree
-      )
-
-    assert out == ""
-  end
-
-  test "a build mouse cannot sed into the main checkout", %{main: main, worktree: worktree} do
-    {out, 0} =
-      hook(
-        %{
-          "cwd" => worktree,
-          "tool_name" => "Bash",
-          "tool_input" => %{"command" => "sed -i '' s/a/b/ #{main}/CONTEXT.md"}
-        },
-        worktree
-      )
-
-    assert out =~ ~s("permissionDecision":"deny")
-  end
-
-  test "but it can still read the main checkout", %{main: main, worktree: worktree} do
-    {out, 0} =
-      hook(
-        %{
-          "cwd" => worktree,
-          "tool_name" => "Bash",
-          "tool_input" => %{"command" => "cat #{main}/CONTEXT.md"}
-        },
-        worktree
-      )
-
-    assert out == ""
+    assert File.read!(Path.join(worktree, ".whiska-settings.json")) ==
+             Whiska.DenyList.render("build")
   end
 end

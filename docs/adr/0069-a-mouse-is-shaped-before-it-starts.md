@@ -6,47 +6,36 @@ there (ADR-0088); `whiska shape build|sniff [--model <name>]
 [--effort <level>]`, run inside a worktree, does the same for a mouse started by hand.
 Either mints the marker and the mouse record there and then, records the shape and
 `shaped_at`, writes the mouse's brief — its mode's, with its task in it — to
-`.whiska-brief.md` at the worktree root, which git ignores, and gives the flags to start
-Claude with, `--append-system-prompt-file .whiska-brief.md` among them. The three axes are
-chosen apart: the mode says what the mouse may do, the model and the effort say what the
+`.whiska-brief.md` and its mode's deny list to `.whiska-settings.json` at the worktree
+root, both of which git ignores, and gives the flags to start Claude with,
+`--dangerously-skip-permissions --settings .whiska-settings.json
+--append-system-prompt-file .whiska-brief.md` among them
+(ADR-next-a-mouse-starts-in-bypass-mode). The three axes are chosen apart: the mode says what the mouse may do, the model and the effort say what the
 work needs. There is no default mode. A mouse keeps the mode it was shaped with.
 
 ## Why before Claude starts
 
-A mouse record is otherwise minted on the first hook call, and the first hook call is a
-`PreToolUse`, the very call sniff has to deny. A mode set by `mouse_id` once Claude is
-running hands a sniff mouse its first edits as a build mouse. With the shape in the house
-before any process exists that could make a tool call, the order is right by
-construction. Lazy minting stays as the fallback for a mouse nobody shaped.
+A mode reaches Claude as its launch flags, the deny list among them, and a running
+session cannot take new ones. With the shape written before any process exists that could
+make a tool call, the order is right by construction. Lazy minting on the first hook call
+stays as the fallback for a mouse nobody shaped.
 
 ## Two modes, no default
 
-**build** produces a real change: edits confined to its own worktree, push needs
-approval. **sniff** is investigation only: it writes a report, never a PR, and
-`PreToolUse` denies every edit, not only the ones outside the worktree. Its **research
+**build** produces a real change, in its own worktree as its brief says; push approval
+is designed, not built (ADR-0011). **sniff** is investigation only: it writes a report, never a PR, and
+its deny list takes away `Edit`, `Write` and `NotebookEdit`. Its **research
 document** is its final message, which Whiska keeps (ADR-0089),
-so there is no file for it to write. The shell rules still deny a sniff mouse loading a
-program or a config from a file, `/dev/null` aside (ADR-0034): a Markdown heading is a
-comment line to git, awk and sed, so a research document a build mouse left can be read
-as one. A build mouse is not held to that.
+so there is no file for it to write.
 Both are the same kind of mouse. The names are deliberately not firstmate's Ship and Scout; no firstmate
 vocabulary leaks into this project's language.
 
-A mouse with no `shaped_at` is held to sniff's rules: every edit tool and every shell
-command `Whiska.Shell` cannot read as harmless is denied, with a reason that says it was
-never given a shape and to ask the person. It cannot shape itself: of `whiska`, only
-`whiska ledger` is on the read-only list (ADR-0086), and
-`env` and `command` are judged by the command they run, so `env whiska mode build` is
-caught too. The person runs `whiska mode build|sniff` in its
-worktree, which stamps `shaped_at`. `whiska mode` gives a mode only to a mouse nobody
-shaped and refuses a shaped one (ADR-0074): its model and effort were chosen for the
-mode's work, so a sniff mouse denied an edit is told to finish with a What to change
-block, not to ask for `whiska mode build`. `whiska mice` shows an unshaped mouse as `never shaped,
-reads only`.
-
-This hold exists for a mouse nothing shaped: one started by hand, or by an older Whiska.
-When spawning was a skill of prose and build the default, a skipped `whiska shape` left a
-mouse asked for as sniff with write access, and nothing said so.
+A mouse with no `shaped_at` starts with no deny list and is not limited: one started by
+hand, or by an older Whiska. `whiska mode` gives it no mode, since a mode is a launch
+flag; the person runs `whiska shape <mode>` in its worktree and restarts Claude with the
+flags it prints. `whiska mode` refuses a shaped mouse (ADR-0074): its model and effort
+were chosen for the mode's work, so a sniff mouse that finds something to change ends on
+a What to change block. `whiska mice` shows an unshaped mouse as `never shaped`.
 
 ## Model and effort are chosen by ordered rules
 
@@ -79,9 +68,10 @@ dashes. The catch-all alone may be null, for the person's own default. Nothing c
 that a word names a model Claude Code has; a misspelt name passes Whiska and fails in
 Claude Code, which is the cost of not keeping a list of models. The plain word is also
 what makes the output safe: `whiska shape` prints one line, `--model opus --effort xhigh
---fallback-model sonnet --append-system-prompt-file .whiska-brief.md`, every word checked,
-so a mouse started by hand can split it with `eval "set -- $flags"` and it can do nothing
-but pass flags. `whiska spawn` hands herdr the same flags as separate words.
+--fallback-model sonnet --dangerously-skip-permissions --settings .whiska-settings.json
+--append-system-prompt-file .whiska-brief.md`, every word checked, so a mouse started by
+hand can split it with `eval "set -- $flags"` and it can do nothing but pass flags.
+`whiska spawn` hands herdr the same flags as separate words.
 
 `model.fallback` becomes `--fallback-model`, which Claude Code walks inside the session
 when the model is overloaded or not available, retrying the primary each turn. The chain
@@ -146,16 +136,13 @@ arguments before minting; `whiska spawn` stops on that and does not start Claude
 what it recorded, "feat/x is a sniff mouse on opus, xhigh effort", and `whiska spawn`'s
 report carries that line: Whiska's record, not the main session's intent.
 
-Sniff and the hold on an unshaped mouse are not a security boundary. A house that will
-not open degrades both to build, loudly, and a missing `whiska` binary allows every call.
-Some commands on the read-only list write through a flag (`sort -o`, `rg --pre`, `yq
--i`), and only the four edit tools are denied by name, so an MCP tool that writes is
-not. The hold is for a mouse that follows its instructions, not one that fights.
+Sniff is not a security boundary. Only the edit tools are denied by name, so a shell
+command or an MCP tool that writes is not. It is for a mouse that follows its
+instructions, not one that fights (ADR-next-a-mouse-starts-in-bypass-mode).
 
 A reviewer in the finish pipeline (ADR-0049) is a third kind of work but not a third
 shape: a subagent inside a mouse's session, with no worktree, no marker and no record,
-whose model is set in its own agent definition. A mouse started by hand without
-`whiska shape` reads but does not write until the person answers.
+whose model is set in its own agent definition.
 
 Folded in on 2026-10-08: 0018, 0019, 0073 (their text is in git history).
 
@@ -164,3 +151,6 @@ adds it to the flags (ADR-0088).
 
 Changed on 2026-10-13: a sniff mouse writes no file; its final message is the research
 document, and every edit is denied (ADR-0089).
+
+Changed on 2026-10-14: a mode is the deny list a mouse starts with, in bypass mode, and a
+mouse nobody shaped is not limited (ADR-next-a-mouse-starts-in-bypass-mode).

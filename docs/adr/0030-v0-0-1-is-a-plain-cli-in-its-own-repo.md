@@ -28,12 +28,11 @@ day both branches under it were dropped.
 
 ## Consequences
 
-**Identity goes; containment does not.** A session whose start directory is such a folder
-is still denied a write into the main checkout (ADR-0013), through `Layout.unplaced/1`,
-which reads the folder for that rule alone and carries no branch. A folder Whiska cannot
-identify is the one it can vouch for least, so the one path that bypasses every other
-guard fails closed there.
+**A session started in such a folder is nobody:** no marker, no record, and no hold.
 
 A `mouse_id` is minted by `whiska shape` when the spawn shapes the mouse (ADR-0069), and
 lazily on the first hook call for a mouse nobody shaped; either way the marker is written
 by Whiska, never by the model (ADR-0002).
+
+Changed on 2026-10-14: no rule keeps such a session out of the main checkout
+(ADR-next-a-mouse-starts-in-bypass-mode).

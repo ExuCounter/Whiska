@@ -26,6 +26,7 @@ C4Container
     Container(finishflag, "Finish flag", "empty file, whiska-finish in the main checkout's .git", "A finished line is out and the person has not written since; the shim reads it so a main-session prompt with nothing to settle starts nothing")
     Container(flag, "Answer flag", "empty file, whiska-answer in the worktree's git admin directory", "This worktree's mouse has an answer not yet taken; the shim reads it so a prompt with nothing waiting starts nothing")
     Container(brief, "Brief", ".whiska-brief.md file, or main.md in .git/whiska/", "Everything Whiska tells one session, which Claude Code starts with: a mouse's at its worktree root, its task inside, git ignores it; the main session's in the house")
+    Container(denylist, "Deny list", ".whiska-settings.json file", "A shaped mouse's deny rules, which Claude Code starts with in bypass mode and enforces: the person's commands, and the edit tools for sniff; at its worktree root, git ignores it")
     Container(spec, "Spec", ".whiska-spec.md file", "What a task will build, at the worktree root; the mouse writes it, git ignores it")
     Container(plan, "Build plan", ".whiska-plan.md file", "How a change will be built, beside its spec or a bug's research document; the cold review never reads it, git ignores it")
     Container(kept, "Kept specs", "directory, .whiska/specs/ in the main checkout", "One copy per branch of its spec, build plan, research document and report, each under a header: its question, the ones it replaced, landed or dropped; overwritten each round, the research and report copies linked from whiska show; git ignores it")
@@ -43,8 +44,8 @@ C4Container
     Container(sockets, "Repo sockets", "Unix, per-repo", "Push approval, mouse identity")
   }
 
-  Rel(person, cli, "Runs whiska init / init --global / uninstall / mode / owl / questions")
-  Rel(claude, cli, "The main session runs spawn, send, land, pr and drop on the person's word; a mouse is refused them")
+  Rel(person, cli, "Runs whiska init / init --global / uninstall / shape / owl / questions")
+  Rel(claude, cli, "The main session runs spawn, send, land, pr and drop on the person's word; a mouse's deny list refuses them")
   Rel(herdr, statusline, "Tab bar runs it every 5 seconds and shows its last line")
   Rel(statusline, owlsock, "Asks for the line with nc; owl down when nothing answers")
   Rel(owl, owlsock, "Answers waiting, show, jump, questions and line from every recorded house")
@@ -55,11 +56,12 @@ C4Container
   Rel(house, nc, "Raises a hoot herdr will not show; doctor probes the same path")
   Rel(cli, herdr, "start types claude, with the main session's brief, at this pane's shell prompt when nothing runs there")
   Rel(cli, brief, "start writes the main session's; spawn and shape write a mouse's, its task inside")
-  Rel(cli, herdr, "spawn creates the worktree and starts Claude in its pane with the brief and shape flags; spawn and send then type one fixed line there")
+  Rel(cli, herdr, "spawn creates the worktree and starts Claude in its pane with the brief, the deny list and the shape flags; spawn and send then type one fixed line there")
   Rel(cli, herdr, "drop removes a worktree and its workspace together")
   Rel(cli, remote, "pr pushes a finished branch by name, then opens its merge request with gh or glab", "git push")
   Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
   Rel(claude, brief, "Reads it once, at start, as part of its system prompt")
+  Rel(claude, denylist, "Reads it once, at start, and denies what it lists")
   Rel(claude, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session, UserPromptSubmit in the main session too")
   Rel(shim, flag, "user-prompt-submit in a mouse exits at once unless it is there")
   Rel(shim, finishflag, "user-prompt-submit in the main session exits at once unless it is there")
@@ -72,9 +74,10 @@ C4Container
   Rel(cli, herdr, "reply rings the mouse's doorbell - one fixed line, never the answer")
   Rel(cli, marker, "Reads, minting one on first use")
   Rel(cli, db, "shape records a new mouse's mode, model, effort and base branch before Claude starts")
-  Rel(cli, spec, "shape and mode make git ignore it, through the main checkout's info/exclude")
-  Rel(cli, research, "shape and mode make git ignore it, as the spec")
-  Rel(cli, plan, "shape and mode make git ignore it, as the spec")
+  Rel(cli, spec, "shape makes git ignore it, through the main checkout's info/exclude")
+  Rel(cli, research, "shape makes git ignore it, as the spec")
+  Rel(cli, plan, "shape makes git ignore it, as the spec")
+  Rel(cli, denylist, "shape writes a mouse's, for its mode, and makes git ignore it")
   Rel(cli, doorstep, "Stop hook writes one entry when the owl does not answer")
   Rel(owl, doorstep, "Stop over the hook socket writes the entry; the open house collects it at once")
   Rel(cli, owl, "whiska owl boots it in the foreground")
@@ -136,6 +139,10 @@ The reasoning is in the ADR each line names; this is the map.
   launch line, so it is in the system prompt from the first turn and stays there; a
   mouse's is git-ignored at its worktree root, the main session's sits in the house so a
   checkout holds no file of Whiska's (ADR-0088).
+- **Deny list, one file per mouse**: what a mouse's mode forbids and the person's commands,
+  on Claude Code's launch line, so Claude Code enforces it from the first tool call; it is
+  read once, which is why the hold, set while a mouse runs, stays in the hook
+  (ADR-next-a-mouse-starts-in-bypass-mode).
 - **Answer flag and finish flag**: hints for the shim, never the answer or the slot, which
   are in the house database (ADR-0080, ADR-0008).
 - **Spec and build plan in the worktree, kept copies in the main checkout**: both live and

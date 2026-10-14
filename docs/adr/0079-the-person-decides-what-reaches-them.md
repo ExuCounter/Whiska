@@ -66,15 +66,15 @@ on PATH is skipped and named, never shadowed, and `whiska doctor` warns where a 
 resolves to anything but Whiska's own wrapper. In the main session the person says them
 in words, and its brief names the command each runs (ADR-0088).
 
-**The person's commands are refused to a mouse.** `Whiska.Rule.Persons` runs in the hook
-beside the held rule: a mouse's shell command whose head word is `away`, `hold`, `focus`,
-`resume`, `reply`, `dismiss` or `close`, with `whiska` in front or bare, or `whiska spawn`,
-`send`, `land`, `pr` or `drop`, judged only with `whiska` in front since `pr` and `send`
-are other programs too, is refused with the reason that those are the person's to run.
-Prose in a brief would be the only other thing stopping a mouse from putting the machine
-away, holding a sibling, or starting, landing or throwing away a branch; what must hold
-goes in the hook (ADR-0011). Reading
-commands (`inbox`, `show`, `questions`, `waiting`, `mice`) are anyone's.
+**The person's commands are refused to a mouse.** Every shaped mouse starts with a deny
+rule for each: `away`, `hold`, `focus`, `resume`, `reply`, `dismiss` and `close`, with
+`whiska` in front or bare, and `whiska spawn`, `send`, `land`, `pr` and `drop`, only with
+`whiska` in front since `pr` and `send` are other programs too. Prose in a brief would be
+the only other thing stopping a mouse from putting the machine away, holding a sibling, or
+starting, landing or throwing away a branch; what must hold is a rule Claude Code enforces
+(ADR-0011, ADR-next-a-mouse-starts-in-bypass-mode). A plain rule matches the command as
+written, so `env`, a full path or `bash -c` gets round it. Reading commands (`inbox`,
+`show`, `questions`, `waiting`, `mice`, `ledger`) are anyone's.
 
 ## What is said where
 
@@ -96,8 +96,8 @@ commands (`inbox`, `show`, `questions`, `waiting`, `mice`) are anyone's.
 - `Whiska.Delivery.Mode` is the one place that says what may be delivered and why a
   question waits; the house, the sidebar lines, `whiska questions`, `inbox` and the tab bar
   all read it, so they cannot disagree.
-- `Whiska.Rule.Held` runs before the sniff rule in the hook, and a database that will not
-  open falls back to not held, the direction every fallback there takes.
+- `Whiska.Rule.Held` is the one rule the hook runs, and a database that will not open
+  falls back to not held.
 - `whiska doctor` warns about any file in the commands directory that is not one of
   Whiska's own wrappers, and `whiska init --global` and `away` refuse to write through a
   symlink where their file would go, since a build mouse may write under the whiska home.
@@ -128,3 +128,6 @@ commands (`inbox`, `show`, `questions`, `waiting`, `mice`) are anyone's.
 
 Changed on 2026-10-13: the one-word commands have no slash commands, and `spawn`, `send`,
 `land`, `pr` and `drop` are the person's too (ADR-0088).
+
+Changed on 2026-10-14: the person's commands are deny rules a mouse starts with, not a
+rule in the hook (ADR-next-a-mouse-starts-in-bypass-mode).

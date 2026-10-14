@@ -62,7 +62,8 @@ mouse's. Change what a session is told by editing one of them.
 Words: a **mouse** is a task session, the **owl** is the background process watching every
 repo. [`CONTEXT.md`](CONTEXT.md) has the rest.
 
-Mice cannot write into the main checkout or each other's worktrees. This is a guard, not a
+Mice run without permission prompts. Each starts with a deny list: a mouse cannot run your
+commands, and one that only investigates has no tools to edit files. It is not a
 sandbox ([details](docs/internals.md#what-is-enforced)). No question or record is ever
 deleted, Whiska takes a worktree down only once its branch has landed, and a broken
 Whiska never blocks your session.

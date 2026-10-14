@@ -67,7 +67,7 @@ silent version is.
    When the binary or runtime is missing, the shim prints to stderr and exits 0
    (`install.ex`, `@shim_fail_open`, `@shim_exec`). Claude Code's hook docs say it
    shows stderr for a non-zero, non-2 exit, and only in verbose mode for exit 0. So
-   "fail open, loudly" is quiet in practice: the containment rules turn off and, worse,
+   "fail open, loudly" is quiet in practice: a hold stops nothing and, worse,
    the `Stop` hook leaves nothing on the doorstep, so a mouse's question vanishes.
    **Fix:** exit 1 instead of 0 on those two paths. Exit 1 still allows the call (only
    2 blocks) and shows the message. **Done:** it exits 1 inside a worktree of a repo
@@ -90,10 +90,10 @@ silent version is.
    questions are held with a reason that sends the person looking in the wrong place.
    **Fix:** a separate hold reason for a status outside herdr's five, worded as
    "herdr said `ready`, which Whiska does not know". About an hour.
-5. **A new or renamed editing tool skips both rules without a sound.** The hook matcher
-   is `Write|Edit|MultiEdit|NotebookEdit|Bash` (`install.ex`), and sniff mode lists
-   the same four edit tools (`rule/sniff.ex`). A tool outside that list never reaches
-   the hook, so no rule fires and nothing is logged. MCP tools that write files are
+5. **A new or renamed editing tool passes a hold and sniff without a sound.** The hook
+   matcher is `Write|Edit|MultiEdit|NotebookEdit|Bash` (`install.ex`), and a sniff mouse's
+   deny list names `Edit`, `Write` and `NotebookEdit` (`deny_list.ex`). A tool outside
+   those is allowed, and nothing is logged. MCP tools that write files are
    already in this hole today. **Fix:** the doctor reads the tool names in recent
    transcripts and warns about any it has never classified. Half a day. A narrower
    option is to log tool names the hook sees but has no rule for, but the matcher means
@@ -168,10 +168,11 @@ Every row is someone else's UI or file format, and can change in any release.
 | --- | --- | --- |
 | `PreToolUse`, `Stop` and `UserPromptSubmit` hook names, `matcher`, `{"type": "command"}` layout in `settings.json` | `install.ex`, `doctor.ex` | Hooks stop firing. Doctor reads the file and probes the shim, so it would see a missing entry but not a renamed event. Half-loud |
 | `$CLAUDE_PROJECT_DIR` in the hook command | `install.ex` | Shim path fails, Claude Code shows a hook error. Loud |
-| Payload: `tool_name`, `tool_input.file_path` / `notebook_path` / `command`, `cwd`, `transcript_path` | `hook/pre_tool_use.ex`, `rule/*.ex`, `session.ex` | A renamed path key means no path, so containment allows the call. A renamed `command` reads as an empty, harmless command, so sniff mode allows it too. **Silent** |
+| Payload: `cwd`, `transcript_path` | `hook/pre_tool_use.ex`, `session.ex` | A renamed key means no start directory, so the call is allowed and a hold stops nothing. **Silent** |
 | Payload: `last_assistant_message` on `Stop` | `hook/stop.ex` | Empty question delivered. Loud |
 | Deny output: `hookSpecificOutput.permissionDecision = "deny"` | `hook/pre_tool_use.ex` | Denials ignored, every call allowed. **Silent**. The doctor's probe runs with an outside-worktree payload, so it never sees a deny |
-| Tool names `Write` `Edit` `MultiEdit` `NotebookEdit` `Bash` | matcher in `install.ex`, `rule/sniff.ex`, `rule/main_checkout.ex` | New or renamed editing tool bypasses both rules. **Silent** (fix 5) |
+| Tool names `Write` `Edit` `MultiEdit` `NotebookEdit` `Bash` | matcher in `install.ex`, sniff's deny list in `deny_list.ex` | New or renamed editing tool passes a hold and a sniff mouse's deny list. **Silent** (fix 5) |
+| `--dangerously-skip-permissions`, `--settings <file>`, and `permissions.deny` rules as `Bash(<command> *)` and bare tool names, holding in bypass mode | `deny_list.ex` (ADR-next-a-mouse-starts-in-bypass-mode) | A renamed flag stops the launch: loud. A changed rule syntax lets a mouse run the person's commands, or a sniff mouse edit. **Silent** |
 | Global and project hook arrays merge | the global shim's stand-down | Double denials and double doorstep entries. Visible |
 | `settings.json` read once at startup | doctor's session-wiring check | Doctor gives a wrong "restart" hint. Cosmetic |
 | Transcript at `~/.claude/projects/<slug>/<session>.jsonl`, slug = every non-alphanumeric to `-` | `transcript.ex`, `watch/transcript.ex` | No last action on a stuck mouse's sidebar line. Benign. `CLAUDE_CONFIG_DIR` is ignored (fix 6) |

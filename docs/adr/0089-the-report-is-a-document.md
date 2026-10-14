@@ -9,8 +9,8 @@ whole, and `whiska show` prints its summary under the link to it.
 - **A sniff mouse writes no file.** Its final message is the research document, in this
   order: a `# ` title naming what was investigated, `## Summary` (3-5 lines), `## What to
   change` only when something should change (Found, Build, Why, Cost, Open, ADR-0074),
-  `## Question`, `## Found`. `PreToolUse` denies it every edit, with no exception
-  (ADR-0069). After the person's comments, it sends the whole document again.
+  `## Question`, `## Found`. Its deny list takes away the file tools, and its brief
+  says it changes nothing (ADR-0069). After the person's comments, it sends the whole document again.
 - **A build mouse's report** starts the same way: a `# ` title saying what is true now,
   then `## Summary`, then the rest the build brief lists (ADR-0049).
 - **Whiska keeps it once per branch, beside the spec.** The `Stop` hook already carries
@@ -51,8 +51,9 @@ document, kept by Whiska, read in full from its link and in brief from `whiska s
 one source.
 
 The sniff mouse's single write exception existed only so it could write that document.
-With the message as the document, sniff denies every edit, which also lets the guard move
-to Claude Code's own launch flags one day, since those take no exception.
+With the message as the document, sniff takes no edit exception, which let its limit move
+to Claude Code's own launch flags (ADR-next-a-mouse-starts-in-bypass-mode), since those
+take none.
 
 ## Considered options
 

@@ -145,8 +145,7 @@ handed: that one follows every `cd` the session runs, so a main session that ste
 a worktree read as that branch's mouse and a mouse that stepped out read as nobody
 (ADR-0053). A start directory under `worktrees/` that is no checkout of its own — the
 ordinary folder a slashed branch nests under — is **nobody**: no mouse, no mode, no
-marker (ADR-0030). It keeps containment all the same, and a write into the main
-checkout from there is denied (ADR-0013).
+marker (ADR-0030).
 _Avoid_: cwd, working directory (both name the thing that moves)
 
 **Nested session**:
@@ -155,8 +154,8 @@ a test script or a `claude -p` a mouse starts in its own worktree. It starts whe
 mouse started and runs in the mouse's pane, so neither the start directory nor the pane
 tells it apart. The process tree does. It speaks for nobody: nothing it ends a turn with
 reaches the doorstep, and it is handed no answer. It is still
-held to the containment rules of the worktree it runs in
-(ADR-0084).
+stopped by the **hold** on the mouse whose worktree it runs in, but starts without that
+mouse's **deny list** (ADR-0084).
 _Avoid_: child session, subsession (a subagent is neither, and is no session of its own)
 
 **Question**:
@@ -475,10 +474,9 @@ A `whiska` command only the person runs, never a mouse: `away`, `hold`, `focus`,
 `resume`, `reply`, `dismiss` and `close` — the ones that set or end what reaches them,
 which mouse stops, and what a mouse is told — and `spawn`, `send`, `land`, `pr` and
 `drop`, which start, steer, ship or throw away a branch. The main session runs them on
-the person's word. The hook refuses a mouse's shell command that
-is one of them, by its head word, `whiska` in front or bare (`Whiska.Rule.Persons`,
-ADR-0079); a mouse that needs one says so in its
-report. The reading commands — `inbox`, `show`, `questions`, `waiting`, `mice` — are
+the person's word. Every shaped mouse's **deny list** refuses each, `whiska` in
+front or bare, as a plain rule that `env` or a full path gets round (ADR-0079); a mouse
+that needs one says so in its report. The reading commands — `inbox`, `show`, `questions`, `waiting`, `mice`, `ledger` — are
 anyone's.
 _Avoid_: admin command, privileged command (there is no privilege, only whose decision it
 is), main-session command (the person may run one from any terminal)
@@ -501,10 +499,8 @@ question — see that entry), waiting list (**Waiting** is the state, this is th
 **Unplaced**:
 A directory under a house's `worktrees/` container that is no checkout of its own — the
 ordinary folder a slashed branch nests under, or a worktree laid out by hand. It is
-**nobody**: no mouse, no `mouse_id`, no mode, and nothing it leaves is a question. It is
-not nowhere, though — the main checkout is still above it, and a session sitting there is
-denied a write into it exactly as a mouse would be (ADR-0013). Reading such a folder as a
-mouse is what minted a mouse called `quality` for `quality/QUAL-350-lnkd-emails` and let
+**nobody**: no mouse, no `mouse_id`, no mode, and nothing it leaves is a question.
+Reading such a folder as a mouse is what minted a mouse called `quality` for `quality/QUAL-350-lnkd-emails` and let
 its question wedge a queue (ADR-0030, ADR-0008).
 _Avoid_: phantom mouse (it is no mouse), ghost, orphan (a question's status), the
 container (the `worktrees/` folder itself, which is not this)
@@ -576,28 +572,39 @@ neither is a jump), switch, attach, take over
 What a mouse is spawned as: its mode, the model it runs on and the effort it runs at,
 each chosen on its own — a hard investigation is sniff on the heaviest model at the
 highest effort. Given by `whiska spawn`, through `whiska shape`, before Claude starts, so
-the mouse's first tool call is already judged by its mode; shaping also writes the mouse's
-**brief**, and its flags start Claude with it. The spawning session picks the
+its mode's **deny list** holds from its first tool call; shaping also writes the mouse's
+**brief**, and its flags start Claude with both. The spawning session picks the
 model and the effort by the ordered rules in `priv/models.json`; one it leaves unnamed
 is the last rule's. A build mouse also starts with an auto-compact window for its model,
 from the same file; a sniff mouse keeps Claude Code's own. The record also keeps the model the mouse actually ran on, read from
 its transcript. Shaping also stocks the worktree: the main checkout's `deps`, `_build` or
 `node_modules`, and any path listed in the house's `clone` file, are cloned in
-copy-on-write, never symlinked. There is no default mode: a mouse **never shaped** may read but not
-write until the person runs `whiska mode` in its worktree. That gives a mode to a mouse
-nobody shaped and to no other: a shaped mouse keeps its mode, since its model and effort
-were chosen for that work, and `whiska mode` refuses it, pointing to What to change and a
-fresh mouse. The record keeps what the mouse was **shaped as** — the mode its model and
+copy-on-write, never symlinked. There is no default mode: a mouse **never shaped** starts
+with no deny list and is not limited; the person shapes it with `whiska shape` in its
+worktree and restarts Claude there. A shaped mouse keeps its mode, since its model and
+effort were chosen for that work: `whiska mode`, and `whiska shape` in another mode,
+refuse it, pointing to What to change and a fresh mouse. The record keeps what the mouse was **shaped as** — the mode its model and
 effort were chosen with — and `whiska mice` says so for a mouse flipped before that rule.
 _Avoid_: profile, preset, role
 
+**Deny list**:
+The deny rules a shaped mouse starts with, in `.whiska-settings.json` at its worktree
+root, which git ignores: the **person's commands** for every mouse, and `Edit`, `Write`
+and `NotebookEdit` for a sniff mouse. Claude Code enforces them. The mouse runs in bypass
+mode, so nothing else asks before a tool call, and the hook's one rule is the **hold**.
+Written by `whiska shape` on every shape and read once, at launch, so a running mouse's
+list cannot change (ADR-next-a-mouse-starts-in-bypass-mode).
+_Avoid_: permissions (Claude Code's whole system), allowlist (there is none), sandbox (it
+is not one), guard
+
 **Build mode**:
-A mouse mode that produces a real code change. Edits confined to its own worktree,
-push needs approval.
+A mouse mode that produces a real code change, in its own worktree as its brief says. Its
+**deny list** holds only the person's commands.
 
 **Sniff mode**:
 A mouse mode for investigation only. Never writes code or any file, never pushes —
-produces a report instead, which is its **research document**. Says nothing
+produces a report instead, which is its **research document**. Its **deny list** takes
+away the edit tools; its brief says the rest. Says nothing
 about the model or the effort: those are chosen apart.
 _Avoid_: research mode, research mouse (`research/` is the prefix a sniff mouse's branch
 carries, not the mode's name)

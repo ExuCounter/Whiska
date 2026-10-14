@@ -4,12 +4,9 @@ defmodule Whiska.InstallTest do
   alias Whiska.Install
 
   describe "matcher/0" do
-    test "covers every tool the rules can actually deny" do
+    test "covers every tool a held mouse is stopped at" do
       matcher = Install.matcher()
 
-      # Bash matters as much as the edit tools now: sniff mode denies mutating
-      # commands, and containment denies ones reaching into the main checkout.
-      # A matcher without it would silently never fire those rules.
       for tool <- ~w(Write Edit MultiEdit NotebookEdit Bash) do
         assert matcher =~ tool, "#{tool} is enforced but not matched"
       end

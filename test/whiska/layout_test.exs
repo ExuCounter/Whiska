@@ -208,43 +208,10 @@ defmodule Whiska.LayoutTest do
 
   describe "resolve/1 never escapes the container it found" do
     test "a folder under an inner container is not the outer worktree", %{root: root} do
-      inner_main = checkout(root, "myrepo/worktrees/fix/deliv")
+      checkout(root, "myrepo/worktrees/fix/deliv")
       folder = make(root, "myrepo/worktrees/fix/deliv/worktrees/feat")
 
       assert {:error, :not_in_worktree} = Layout.resolve(folder)
-
-      assert {:ok, layout} = Layout.unplaced(folder)
-      assert layout.worktree_root == folder
-      assert layout.main_checkout == inner_main
-    end
-  end
-
-  describe "unplaced/1 — a folder under worktrees that is no worktree" do
-    test "names the folder and the main checkout, for containment alone", %{root: root} do
-      main = make(root, "myrepo")
-      parent = make(root, "myrepo/worktrees/quality")
-      checkout(root, "myrepo/worktrees/quality/QUAL-350")
-
-      assert {:ok, layout} = Layout.unplaced(Path.join(parent, "notes"))
-      assert layout.worktree_root == parent
-      assert layout.main_checkout == main
-      assert layout.branch_label == nil
-    end
-
-    test "a real worktree is placed, so it is not this", %{root: root} do
-      worktree = checkout(root, "myrepo/worktrees/feat-thing")
-
-      assert {:error, :not_in_worktree} = Layout.unplaced(worktree)
-    end
-
-    test "anywhere with no worktrees container above it is not this", %{root: root} do
-      assert {:error, :not_in_worktree} = Layout.unplaced(make(root, "somewhere/else"))
-    end
-
-    test "the container itself is not this", %{root: root} do
-      make(root, "myrepo")
-
-      assert {:error, :not_in_worktree} = Layout.unplaced(make(root, "myrepo/worktrees"))
     end
   end
 

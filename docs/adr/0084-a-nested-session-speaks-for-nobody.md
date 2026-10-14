@@ -21,9 +21,9 @@ some `claude`'s shell does not make every mouse inside it nested.
 - `Stop` leaves nothing on the doorstep.
 - `UserPromptSubmit` hands over no answer and stamps nothing taken. In the main checkout,
   a `claude` the main session started settles no finished line: it is not the person.
-- `PreToolUse` is unchanged: a nested session in a mouse's worktree is still held to that
-  mouse's rules (ADR-0011, ADR-0013). Containment protects the person's checkout, whoever
-  is writing.
+- `PreToolUse` is unchanged: a nested session in a mouse's worktree is stopped by that
+  mouse's hold (ADR-0079). It does not carry the mouse's deny list, which is a launch flag
+  (ADR-next-a-mouse-starts-in-bypass-mode).
 
 When the walk cannot be made — no `CLAUDE_PID`, `ps` failing or taking over a second, a
 process gone mid-walk —
@@ -73,3 +73,6 @@ hooks. Nothing the nested hook sees points back to the parent.
 
 Changed on 2026-10-13: there is no `SessionStart` hook to silence
 (ADR-0088).
+
+Changed on 2026-10-14: a nested session starts without the mouse's deny list, which is a
+launch flag (ADR-next-a-mouse-starts-in-bypass-mode).

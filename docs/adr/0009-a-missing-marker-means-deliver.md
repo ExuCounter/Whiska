@@ -14,8 +14,8 @@ the mouse and to the person, not to the router.
 A marker is required to be quiet, not to be heard. A model cannot be relied on to emit an
 exact marker every time, so the question is which way that failure breaks: under a scheme
 where absence meant nothing, a forgotten marker meant a mouse sat waiting and nobody was
-told. Forgetting is now the safe direction, as push detection errs broad (ADR-0011) and
-the shell allowlist refuses what it cannot read (ADR-0034).
+told. Forgetting is now the safe direction, as push detection is designed to err broad
+(ADR-0011).
 
 ## The marker
 

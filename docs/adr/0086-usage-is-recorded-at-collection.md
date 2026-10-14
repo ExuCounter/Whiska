@@ -37,13 +37,8 @@ the entry's stamp, and stores one **usage** row per ledger line, keyed by the qu
   second entry for that turn, which carries the spec unchanged.
 - **No backfill.** Older questions name no transcript, and matching one by folder and time
   can land a turn on the wrong question.
-- **`whiska ledger` is on the read-only list** (ADR-0034), so a sniff mouse's report ends
-  with its ledger like any other. No other `whiska` command is: every one that opens the
-  house can migrate it, and the rest change something. Nor is the ledger with any variable
-  set in front of it, since it needs none. The Erlang VM takes code from `ERL_AFLAGS`,
-  `ERL_FLAGS` and `ERL_ZFLAGS` and another emulator from `ESCRIPT_EMULATOR`, so setting any
-  of them counts as a write wherever it happens: in front of a wrapper such as `env` or
-  `find -exec`, in an earlier part of the line, or through `printf -v`.
+- **A sniff mouse runs `whiska ledger`**, so its report ends with its ledger like any
+  other.
 
 ## Why at collection, from the transcript
 
@@ -73,3 +68,6 @@ the metrics put cost beside waits and spec timing.
 - A turn that never reaches a stop, cut off by hand or dead, leaves no row.
 - What a reviewer found is not recorded here. That is a record the mouse would write, and
   a decision of its own.
+
+Changed on 2026-10-14: no read-only list remains; a sniff mouse runs `whiska ledger` as
+any mouse does (ADR-next-a-mouse-starts-in-bypass-mode).

@@ -84,10 +84,9 @@ defmodule Whiska.Mice do
     end)
   end
 
-  # A mouse nobody shaped may read but not write until the person chooses its
-  # mode, and the listing says so: it is also what a spawn that skipped
-  # `whiska shape` looks like (ADR-0069).
-  defp mode(%Mouse{shaped_at: nil}), do: "never shaped, reads only"
+  # Also what a spawn that skipped `whiska shape` looks like (ADR-0069): a
+  # mouse started with no deny list at all.
+  defp mode(%Mouse{shaped_at: nil}), do: "never shaped"
 
   defp mode(%Mouse{} = mouse) do
     Shape.label(%{mode: mouse.mode, model: mouse.ran_on || mouse.model, effort: mouse.effort}) <>

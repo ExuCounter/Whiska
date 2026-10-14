@@ -17,7 +17,7 @@ defmodule Whiska.AnswerFlag do
   read only when it is a plain file — a named pipe there would never answer and
   hang the owl — and the flag is created, never written through: whatever a
   mouse put at the flag's path, a link to one of the person's files included,
-  is refused rather than emptied (ADR-0013).
+  is refused rather than emptied.
   """
 
   @filename "whiska-answer"

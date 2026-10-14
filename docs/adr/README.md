@@ -51,9 +51,8 @@ in git history.
 
 ## Enforcement and finishing
 
-- [0011](0011-pretooluse-denies-immediately.md) — Hard rules are a PreToolUse hook that denies at once
-- [0013](0013-main-checkout-edits-are-blocked.md) — Edits in the main checkout are blocked, including anything the main session spawns
-- [0034](0034-shell-commands-are-judged-by-a-read-only-allowlist.md) — Shell commands are judged by a read-only allowlist, not a mutating denylist
+- [0011](0011-pretooluse-denies-immediately.md) — Hard rules are enforced by Claude Code before a tool call, and deny at once
+- [next-a-mouse-starts-in-bypass-mode](next-a-mouse-starts-in-bypass-mode.md) — A mouse starts in bypass mode, with its mode's deny list
 - [0049](0049-finishing-is-a-pipeline-the-mouse-runs.md) — Finishing is a pipeline the mouse runs, not a hook that blocks it
 
 ## Mice
@@ -92,4 +91,6 @@ Kept for the citations that reach them; each names its successor, and its old te
 git history.
 
 - [0081](0081-rules-arrive-by-role.md) — A session's rules arrive at session start, by its role, as rules not prose
+- [0013](0013-main-checkout-edits-are-blocked.md) — Edits in the main checkout are blocked, including anything the main session spawns
+- [0034](0034-shell-commands-are-judged-by-a-read-only-allowlist.md) — Shell commands are judged by a read-only allowlist, not a mutating denylist
 - [0022](0022-each-command-gets-a-slash-command-skill.md) — Each command gets a slash-command skill, not model-composed bash

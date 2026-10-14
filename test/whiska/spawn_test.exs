@@ -125,6 +125,66 @@ defmodule Whiska.SpawnTest do
     assert {0, _out, _err} = spawn_mouse(["build", "feat/csv-sort", ctx.task], ctx.repo)
   end
 
+  describe "the mouse starts in bypass mode with its deny list" do
+    defp started_args(ctx, mode, branch) do
+      herdr_creates(ctx.repo, branch)
+
+      expect(Herdr, :start_agent, fn @socket, "w9:p1", _name, args ->
+        send(self(), {:args, args})
+        {:ok, args}
+      end)
+
+      expect(Herdr, :prompt, fn @socket, "w9:p1", _text -> :ok end)
+
+      assert {0, _out, _err} = spawn_mouse([mode, branch, ctx.task], ctx.repo)
+      assert_received {:args, args}
+      args
+    end
+
+    defp deny_list(ctx, branch) do
+      ctx.repo.checkout
+      |> Path.join("worktrees/#{branch}/.whiska-settings.json")
+      |> File.read!()
+      |> JSON.decode!()
+      |> get_in(["permissions", "deny"])
+    end
+
+    defp pairs(args), do: Enum.chunk_every(args, 2, 1)
+
+    test "a build mouse is denied the person's commands, and keeps its file tools", ctx do
+      args = started_args(ctx, "build", "feat/denied")
+
+      assert "--dangerously-skip-permissions" in args
+      assert ["--settings", ".whiska-settings.json"] in pairs(args)
+      assert Enum.take(args, -2) == ["--append-system-prompt-file", ".whiska-brief.md"]
+
+      deny = deny_list(ctx, "feat/denied")
+      assert "Bash(whiska hold *)" in deny
+      assert "Bash(hold *)" in deny
+      refute "Edit" in deny
+    end
+
+    test "a sniff mouse is denied the file tools as well", ctx do
+      args = started_args(ctx, "sniff", "research/denied")
+
+      assert "--dangerously-skip-permissions" in args
+      assert ["--settings", ".whiska-settings.json"] in pairs(args)
+
+      deny = deny_list(ctx, "research/denied")
+      assert "Bash(whiska land *)" in deny
+      for tool <- ~w(Edit Write NotebookEdit), do: assert(tool in deny)
+    end
+
+    test "git ignores the settings file", ctx do
+      started_args(ctx, "build", "feat/ignored")
+      worktree = Path.join(ctx.repo.checkout, "worktrees/feat/ignored")
+
+      assert File.regular?(Path.join(worktree, ".whiska-settings.json"))
+      {status, 0} = System.cmd("git", ["status", "--porcelain"], cd: worktree)
+      refute status =~ ".whiska-settings.json"
+    end
+  end
+
   test "a branch name outside a-z, 0-9, - and / is refused before herdr is asked", ctx do
     assert {1, _out, err} = spawn_mouse(["build", "Feat/CSV", ctx.task], ctx.repo)
     assert err =~ "Feat/CSV"

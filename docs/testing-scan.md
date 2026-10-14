@@ -16,6 +16,8 @@ behaviour is still unprotected and would hurt if it broke?
   `CLAUDE.md` block any more (ADR-0081), and the board-file half of #8, because the board
   is no longer written to a file: the owl sends it to herdr's sidebar (ADR-0082).
 - **Still open:** #2, #5, #6, #7, #8 (two foreground owls), #9 and #10.
+- **Gone on 2026-10-14:** #1's rule and its tests, with `Whiska.Shell` and the
+  main-checkout rule (ADR-next-a-mouse-starts-in-bypass-mode).
 - **Dropped with what they pinned:** the skills, the `SessionStart` hook and `keep` are
   gone (ADR-0088), and every test of them with them, their length
   caps included. So are 16 tests that checked only wording: usage-text listings, `init`'s

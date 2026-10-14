@@ -6,8 +6,8 @@ to change** section, which the person reviews line by line
 (ADR-0089). When the
 person says to build it, the main session runs `whiska spawn build <branch> --from <id>`,
 a fresh mouse shaped for that build, with `--comments <file>` when the person commented on
-the research document. A mouse's mode is never flipped in place: `whiska mode` gives a
-mode only to a mouse nobody shaped and refuses a shaped one.
+the research document. A mouse's mode is never flipped in place: `whiska mode` gives no
+mode, and refuses a shaped mouse.
 
 ## Why a hand-off, not a flip
 
@@ -30,10 +30,12 @@ rules in `priv/models.json` price lowest. One mode per mouse removes the flip.
   `whiska show <id>` links, its Build line is the task, Found is fact, Open is what to
   grill. The main session picks the branch, mode, model and effort, judged
   against the Build line by the ordered rules (ADR-0069), and passes each as an argument.
-- **`whiska mode build|sniff` gives a mode only to a mouse nobody shaped**: a hand-made
-  worktree, or one from an older spawn (ADR-0069). It stamps `shaped_at`. On a mouse that
-  has a shape it refuses, exits 1, changes nothing, and points to What to change and a
-  fresh mouse. `whiska mode` with no argument prints the mode. `whiska shape` records
+- **`whiska mode build|sniff` gives no mode.** A mode is the deny list Claude starts
+  with (ADR-next-a-mouse-starts-in-bypass-mode), so a mouse nobody shaped is shaped by
+  `whiska shape` in its worktree and restarted. On a mouse that has a shape it refuses,
+  exits 1, changes nothing, and points to What to change and a fresh mouse. `whiska shape`
+  in another mode refuses a shaped mouse the same way, so a sniff mouse cannot shape
+  itself to build. `whiska mode` with no argument prints the mode. `whiska shape` records
   `shaped_as`, the mode the model and effort were chosen with; `whiska mice` shows
   `build on … (shaped as sniff)` for a mouse flipped before this rule, until it ends.
 
@@ -131,3 +133,7 @@ from the branch (ADR-0088).
 
 Changed on 2026-10-12: the research document is kept once per branch beside the kept spec,
 not per question, so an earlier question's link opens the latest round (ADR-0063).
+
+Changed on 2026-10-14: `whiska mode` gives no mode, since a mode is a launch flag
+(ADR-next-a-mouse-starts-in-bypass-mode), and `whiska shape` refuses another mode for a
+shaped mouse.

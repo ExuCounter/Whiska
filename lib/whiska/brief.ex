@@ -44,6 +44,7 @@ defmodule Whiska.Brief do
   @doc """
   Write a mouse's brief into `worktree`. Git is told to ignore it first; that
   failing is said, as for the spec, and the brief is written all the same.
+  Anything but a plain file at the path is refused.
   """
   @spec write(Path.t(), Path.t(), String.t(), String.t() | nil) ::
           {:ok, [String.t()]} | {:error, term()}
@@ -57,7 +58,22 @@ defmodule Whiska.Brief do
           ["whiska: could not make git ignore #{@filename} (#{inspect(reason)})."]
       end
 
-    with :ok <- File.write(Path.join(worktree, @filename), render(mode, task)), do: {:ok, said}
+    path = Path.join(worktree, @filename)
+
+    with :ok <- plain_or_absent(path),
+         :ok <- File.write(path, render(mode, task)),
+         do: {:ok, said}
+  end
+
+  # A worktree holds whatever the repo committed, a link included, and a write
+  # through one would land in whatever it points at.
+  defp plain_or_absent(path) do
+    case File.lstat(path) do
+      {:ok, %File.Stat{type: :regular}} -> :ok
+      {:ok, %File.Stat{}} -> {:error, :not_a_plain_file}
+      {:error, :enoent} -> :ok
+      {:error, _} = error -> error
+    end
   end
 
   @doc "Whether any of `processes` is a Claude started with the brief at `path`."

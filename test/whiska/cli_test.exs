@@ -18,13 +18,23 @@ defmodule Whiska.CLITest do
     {:ok, main: main, worktree: worktree}
   end
 
+  defp held(main, worktree) do
+    with_io(:stderr, fn -> capture_io(fn -> CLI.run(["shape", "build"], worktree) end) end)
+    {:ok, mouse_id} = Whiska.Marker.read_or_mint(worktree)
+    {:ok, handle} = Whiska.Storage.open(main, name: nil)
+    {:ok, _} = Whiska.Storage.hold(mouse_id)
+    Whiska.Storage.close(handle)
+  end
+
   describe "whiska hook pre-tool-use" do
     test "prints a deny decision to stdout", %{main: main, worktree: worktree} do
+      held(main, worktree)
+
       payload =
         JSON.encode!(%{
           "cwd" => worktree,
           "tool_name" => "Write",
-          "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+          "tool_input" => %{"file_path" => Path.join(worktree, "lib/x.ex")}
         })
 
       out = capture_io(payload, fn -> assert CLI.run(["hook", "pre-tool-use"]) == 0 end)
@@ -33,8 +43,6 @@ defmodule Whiska.CLITest do
     end
 
     test "prints nothing at all for an allowed call", %{worktree: worktree} do
-      capture_io(fn -> CLI.run(["mode", "build"], worktree) end)
-
       payload =
         JSON.encode!(%{
           "cwd" => worktree,
@@ -51,11 +59,13 @@ defmodule Whiska.CLITest do
       main: main,
       worktree: worktree
     } do
+      held(main, worktree)
+
       payload =
         JSON.encode!(%{
           "cwd" => worktree,
-          "tool_name" => "Write",
-          "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
+          "tool_name" => "Bash",
+          "tool_input" => %{"command" => "git status"}
         })
 
       capture_io(payload, fn -> assert CLI.run(["hook", "pre-tool-use"]) == 0 end)
@@ -87,30 +97,15 @@ defmodule Whiska.CLITest do
       assert out =~ "unshaped"
     end
 
-    test "gives a mouse nobody shaped its mode, once", %{worktree: worktree} do
-      capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)
+    test "gives no mode to a running mouse: it points to whiska shape and a restart", %{
+      worktree: worktree
+    } do
+      stderr = capture_io(:stderr, fn -> assert CLI.run(["mode", "sniff"], worktree) == 1 end)
+      assert stderr =~ "whiska shape sniff"
+      assert stderr =~ "restart"
+
       out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
-      assert out =~ "sniff"
-
-      stderr = capture_io(:stderr, fn -> assert CLI.run(["mode", "build"], worktree) == 1 end)
-      assert stderr =~ "already has its mode"
-      out = capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
-      assert out =~ "sniff"
-    end
-
-    # A mouse nobody shaped can write nothing until the person sets its mode, so
-    # this is the first moment it could write a spec.
-    test "setting the mode makes git ignore the spec and the research document, as shaping does",
-         %{
-           main: main,
-           worktree: worktree
-         } do
-      capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)
-
-      lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
-      assert Whiska.Spec.exclude_line() in lines
-      assert Whiska.Research.exclude_line() in lines
-      assert Whiska.BuildPlan.exclude_line() in lines
+      assert out =~ "unshaped"
     end
 
     test "refuses a shaped mouse and points to What to change and a fresh mouse", %{
@@ -133,7 +128,7 @@ defmodule Whiska.CLITest do
 
     test "mints the mouse if it has never been seen", %{worktree: worktree} do
       refute File.exists?(Whiska.Marker.path(worktree))
-      capture_io(fn -> assert CLI.run(["mode", "sniff"], worktree) == 0 end)
+      capture_io(fn -> assert CLI.run(["mode"], worktree) == 0 end)
       assert File.exists?(Whiska.Marker.path(worktree))
     end
 
@@ -165,7 +160,8 @@ defmodule Whiska.CLITest do
                       model: @rules["model"]["choose"] |> List.last() |> Map.fetch!("use"),
                       effort: @rules["effort"]["choose"] |> List.last() |> Map.fetch!("use")
                     })
-    @brief_args ["--append-system-prompt-file", ".whiska-brief.md"]
+    @brief_args Whiska.DenyList.claude_args() ++
+                  ["--append-system-prompt-file", ".whiska-brief.md"]
 
     test "records the mode and prints the catch-all's flags to start Claude with", %{
       worktree: worktree
@@ -238,6 +234,52 @@ defmodule Whiska.CLITest do
       assert Whiska.Brief.exclude_line() in lines
     end
 
+    test "refuses a mode other than the one a mouse was shaped with, and changes nothing (ADR-0074)",
+         %{worktree: worktree} do
+      shape_stdout(["sniff"], worktree)
+
+      stderr =
+        capture_io(:stderr, fn ->
+          capture_io(fn -> assert CLI.run(["shape", "build"], worktree) == 1 end)
+        end)
+
+      assert stderr =~ "shaped as sniff"
+      assert stderr =~ "fresh mouse"
+
+      assert File.read!(Path.join(worktree, ".whiska-settings.json")) ==
+               Whiska.DenyList.render("sniff")
+
+      assert capture_io(fn -> CLI.run(["mode"], worktree) end) =~ "sniff"
+    end
+
+    test "a deny list it cannot write fails the shape, and records none", %{
+      main: main,
+      worktree: worktree
+    } do
+      File.ln_s!(Path.join(main, "elsewhere.json"), Path.join(worktree, ".whiska-settings.json"))
+
+      stderr =
+        capture_io(:stderr, fn ->
+          capture_io(fn -> assert CLI.run(["shape", "sniff"], worktree) == 1 end)
+        end)
+
+      assert stderr =~ "not_a_plain_file"
+      assert capture_io(fn -> CLI.run(["mode"], worktree) end) =~ "unshaped"
+    end
+
+    test "writes the mode's deny list into the worktree, where git ignores it", %{
+      main: main,
+      worktree: worktree
+    } do
+      shape_stdout(["sniff"], worktree)
+
+      assert File.read!(Path.join(worktree, ".whiska-settings.json")) ==
+               Whiska.DenyList.render("sniff")
+
+      lines = main |> Path.join(".git/info/exclude") |> File.read!() |> String.split("\n")
+      assert Whiska.DenyList.exclude_line() in lines
+    end
+
     test "a spec git cannot be told to ignore warns, and the spawn still gets its flags", %{
       main: main,
       worktree: worktree
@@ -300,38 +342,7 @@ defmodule Whiska.CLITest do
       refute File.exists?(Whiska.Marker.path(Path.join(main, "worktrees/feat")))
     end
 
-    test "denies a write into a sibling branch's worktree", %{main: main, nested: nested} do
-      sibling = Path.join(main, "worktrees/feat/other-page")
-      File.mkdir_p!(sibling)
-
-      payload =
-        JSON.encode!(%{
-          "cwd" => nested,
-          "tool_name" => "Write",
-          "tool_input" => %{"file_path" => Path.join(sibling, "app.ex")}
-        })
-
-      out = capture_io(payload, fn -> assert CLI.run(["hook", "pre-tool-use"]) == 0 end)
-
-      assert %{"hookSpecificOutput" => %{"permissionDecision" => "deny"}} = JSON.decode!(out)
-    end
-
-    test "still denies a write into the main checkout", %{main: main, nested: nested} do
-      payload =
-        JSON.encode!(%{
-          "cwd" => nested,
-          "tool_name" => "Write",
-          "tool_input" => %{"file_path" => Path.join(main, "CONTEXT.md")}
-        })
-
-      out = capture_io(payload, fn -> assert CLI.run(["hook", "pre-tool-use"]) == 0 end)
-
-      assert %{"hookSpecificOutput" => %{"permissionDecision" => "deny"}} = JSON.decode!(out)
-    end
-
     test "allows a write inside its own worktree", %{nested: nested} do
-      capture_io(fn -> CLI.run(["mode", "build"], nested) end)
-
       payload =
         JSON.encode!(%{
           "cwd" => nested,

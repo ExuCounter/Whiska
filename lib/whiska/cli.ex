@@ -329,33 +329,33 @@ defmodule Whiska.CLI do
                          four are null. Read one with
                          jq -r '.main_workspace // empty'.
 
-    mode                 Print this mouse's mode.
-    mode build|sniff     Give a mouse nobody shaped its mode. A build mouse
-                         makes changes, confined to its own worktree. A sniff
-                         mouse investigates and reports, and writes nothing
-                         but its research document. Refuses a mouse that has
-                         a mode: it keeps it, and a build for what it found
-                         goes to a fresh mouse, from its What to change. Like
-                         shape, makes git ignore the worktree's
-                         .whiska-spec.md, .whiska-research.md and
-                         .whiska-plan.md.
+    mode                 Print this mouse's mode. A mode reaches Claude only
+                         as its launch flags: to give one to a mouse nobody
+                         shaped, run `shape` in its worktree and restart
+                         Claude there with the flags it prints.
 
     shape build|sniff [--model <name>] [--effort <level>]
                          Give a fresh mouse its shape, before Claude starts
                          (ADR-0069): record its mode, model and effort, write
-                         its mode's brief to .whiska-brief.md, and print the
-                         flags to start Claude with, the brief's among them. A
+                         its mode's brief to .whiska-brief.md and its deny
+                         list to .whiska-settings.json, and print the flags
+                         to start Claude with: both files, and
+                         --dangerously-skip-permissions, so Claude asks for
+                         nothing the deny list allows. A
                          build mouse also gets --autocompact, its model's
                          window from priv/models.json. `spawn` does all this
                          itself; this is for a mouse started by hand.
                          Also makes git ignore the worktree's .whiska-spec.md,
-                         .whiska-research.md and .whiska-plan.md, and clones
+                         .whiska-research.md, .whiska-plan.md, the brief and
+                         the deny list, and clones
                          deps, _build and node_modules (plus the paths in
                          .git/whiska/clone, or nothing for a lone `off`) from
                          the main checkout copy-on-write, saying on stderr
                          what it did; that never fails the shape.
                          Fails rather than guess, so a spawn stops before
-                         Claude. A model or effort left out is the last rule's
+                         Claude. A mouse already shaped keeps its mode: another
+                         mode is refused (ADR-0074), as is a link at either
+                         file's path. A model or effort left out is the last rule's
                          in priv/models.json: #{@catch_all}.
     shape --rules        Print priv/models.json as this build carries it: the
                          modes, the ordered rules a spawn chooses a model and
@@ -515,7 +515,7 @@ defmodule Whiska.CLI do
   def run(["base"], cwd), do: with_mouse(cwd, &show_base/2)
 
   def run(["mode", mode], cwd) when mode in ["build", "sniff"],
-    do: with_mouse(cwd, &set_mode(&1, &2, mode))
+    do: with_mouse(cwd, &refuse_mode(&1, &2, mode))
 
   def run(["mode", other], _cwd) do
     IO.puts(:stderr, "whiska: #{other} is not a mode — expected build or sniff.")
@@ -1210,24 +1210,26 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp set_mode(mouse_id, layout, mode) do
-    case Storage.set_mode(mouse_id, mode) do
-      {:ok, _mouse} ->
-        ignore_spec(layout)
-        say("#{layout.branch_label} is now a #{mode} mouse.")
+  # A mode is the deny list Claude starts with (ADR-next-a-mouse-starts-in-bypass-mode),
+  # which a running session cannot take.
+  defp refuse_mode(mouse_id, layout, mode) do
+    case Storage.mouse(mouse_id) do
+      %Mouse{shaped_at: %DateTime{}} = mouse ->
+        keeps_its_mode(layout, mouse)
 
-      {:error, :already_shaped} ->
-        refuse_mode(mouse_id, layout)
+      _never_shaped ->
+        IO.puts(
+          :stderr,
+          "whiska: #{layout.branch_label} was never shaped, and a mode reaches Claude only " <>
+            "as its launch flags. Run `whiska shape #{mode}` in this worktree, then restart " <>
+            "Claude there with the flags it prints."
+        )
 
-      {:error, reason} ->
-        IO.puts(:stderr, "whiska: could not set the mode (#{inspect(reason)}).")
         1
     end
   end
 
-  defp refuse_mode(mouse_id, layout) do
-    mouse = Storage.mouse(mouse_id)
-
+  defp keeps_its_mode(layout, mouse) do
     had =
       if mouse.shaped_as,
         do: "was shaped as #{mouse.shaped_as}",
@@ -1236,8 +1238,8 @@ defmodule Whiska.CLI do
     IO.puts(
       :stderr,
       "whiska: #{layout.branch_label} #{had}, and a mouse keeps its mode (ADR-0074). " <>
-        "Its model and effort were chosen for that work. To build what it found, end its " <>
-        "report on What to change and have a fresh mouse shaped for the build."
+        "Its model and effort were chosen for that work. To build what it found, end " <>
+        "its report on What to change and have a fresh mouse shaped for the build."
     )
 
     1
@@ -1246,23 +1248,24 @@ defmodule Whiska.CLI do
   # stdout is the flags to start Claude with — plain words only, or nothing —
   # so a spawn by hand can split them straight into `claude`'s arguments; what
   # was recorded goes to stderr, for the person.
-  defp shape(mouse_id, layout, shape) do
-    case Whiska.Spawn.shape(mouse_id, layout, shape, nil) do
-      {:ok, %{flags: flags, said: said}} ->
-        Enum.each(said, &IO.puts(:stderr, &1))
-        say(Enum.join(flags, " "))
+  # Another mode would flip the mouse in place (ADR-0074), a sniff mouse to
+  # build by its own hand among them.
+  defp shape(mouse_id, layout, %{mode: wanted} = shape) do
+    case Storage.mouse(mouse_id) do
+      %Mouse{shaped_at: %DateTime{}, mode: mode} = mouse when mode != wanted ->
+        keeps_its_mode(layout, mouse)
 
-      {:error, reason} ->
-        IO.puts(:stderr, "whiska: could not shape this mouse (#{inspect(reason)}).")
-        1
+      _ ->
+        case Whiska.Spawn.shape(mouse_id, layout, shape, nil) do
+          {:ok, %{flags: flags, said: said}} ->
+            Enum.each(said, &IO.puts(:stderr, &1))
+            say(Enum.join(flags, " "))
+
+          {:error, reason} ->
+            IO.puts(:stderr, "whiska: could not shape this mouse (#{inspect(reason)}).")
+            1
+        end
     end
-  end
-
-  # Setting the mode of a mouse nobody shaped comes before it can write a
-  # spec or a research document. A failure stops neither: the mouse says so
-  # under its spec, and until then the owl only leaves the worktree standing.
-  defp ignore_spec(layout) do
-    layout.main_checkout |> Whiska.Spawn.ignore_files() |> Enum.each(&IO.puts(:stderr, &1))
   end
 
   defp spawn(cwd, args) do

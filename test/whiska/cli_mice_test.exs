@@ -62,7 +62,7 @@ defmodule Whiska.CLIMiceTest do
     test "shows branch, mode, status and uptime", %{main: main} do
       seed(main, [{"ma", "feat-a", false}])
       {:ok, handle} = Storage.open(main, name: :seed)
-      {:ok, _} = Storage.set_mode("ma", "sniff")
+      {:ok, _} = Storage.shape("ma", "sniff", nil, nil)
       Storage.close(handle)
 
       stub(Herdr, :list_panes, fn _ ->
@@ -92,7 +92,7 @@ defmodule Whiska.CLIMiceTest do
       out = capture_io(fn -> assert CLI.run(["mice"], main) == 0 end)
 
       assert out =~ ~r/feat-a\s+sniff on m-light, xhigh effort\s/
-      assert out =~ ~r/feat-b\s+never shaped, reads only\s/
+      assert out =~ ~r/feat-b\s+never shaped\s/
     end
 
     test "says when a mouse flipped before ADR-0074 is off what it was shaped as", %{main: main} do

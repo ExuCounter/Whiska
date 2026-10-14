@@ -3,8 +3,8 @@ defmodule Whiska.InstallShimCannotRunTest do
   The shim when Whiska is set up here and cannot run.
 
   Claude Code files an exit-0 hook's stderr as a success and never shows it, so
-  a shim that fails open with exit 0 fails open in silence: sniff mode and
-  containment switch off, and a mouse's last message never reaches the doorstep.
+  a shim that fails open with exit 0 fails open in silence: a hold stops nothing,
+  and a mouse's last message never reaches the doorstep.
   Exit 1 is shown as a hook error and still lets the call through — measured on
   Claude Code 2.1.285, where a Stop hook exiting 1 also ends the turn without
   looping.
@@ -46,7 +46,7 @@ defmodule Whiska.InstallShimCannotRunTest do
         assert result.status == 1
         assert result.out == ""
         assert result.err =~ "whiska: not found"
-        assert result.err =~ "sniff mode"
+        assert result.err =~ "hold"
       end
 
       test "stop says this turn's message was not delivered", ctx do

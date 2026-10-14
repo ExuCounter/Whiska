@@ -34,11 +34,7 @@ defmodule Whiska.Install do
   touching a filesystem.
   """
 
-  # Every tool that a rule can actually deny, and no others.
-  #
-  # `Bash` earns its place: sniff mode denies mutating commands (ADR-0069) and
-  # containment denies ones reaching into the main checkout (ADR-0013), so a
-  # matcher without it would leave both rules silently never firing.
+  # The tools a held mouse is stopped at (ADR-0079): writes and shell commands.
   #
   # `Read`, `Grep` and `Glob` are deliberately absent. They are a large share of
   # all tool calls and can never be denied, and ADR-0033 is blunt about it: not
@@ -177,8 +173,8 @@ defmodule Whiska.Install do
   @shim_fail_open """
   # Fail open, loudly. A missing Whiska must never brick every tool call in a
   # session - the same trade Whiska.Hook.PreToolUse makes on a bad payload, and
-  # the one it makes again when it cannot read a mouse's mode. The shim cannot
-  # read the mode either, so it cannot deny only a sniff mouse.
+  # the one it makes again when it cannot read whether a mouse is held. The shim
+  # cannot read that either, so it cannot deny only a held mouse.
   #
   # Loud means exit 1. Claude Code files an exit-0 hook's stderr as a success
   # and never shows it; exit 1 is shown as a hook error and still lets the call
@@ -214,7 +210,7 @@ defmodule Whiska.Install do
     elif [ "${2:-}" = "user-prompt-submit" ]; then
       echo "whiska: the answer waiting here was not handed over - run whiska doctor" >&2
     else
-      echo "whiska: sniff mode and worktree containment are off - run whiska doctor" >&2
+      echo "whiska: a hold on this mouse is not enforced - run whiska doctor" >&2
     fi
     exit 1
   }

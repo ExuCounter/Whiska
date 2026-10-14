@@ -5,8 +5,8 @@ defmodule Whiska.Spawn do
   The main session names the mode, the branch and a file holding the task, and
   Whiska does the rest in a fixed order: herdr creates the worktree at
   `worktrees/<branch>` and opens it without moving the person's view; the
-  mouse is recorded and shaped before Claude exists (ADR-0069), so its first
-  tool call is already judged by its mode; Whiska's hooks are carried into a
+  mouse is recorded and shaped before Claude exists (ADR-0069), so it starts
+  with its mode's deny list; Whiska's hooks are carried into a
   worktree whose repo never committed them; then Claude starts in the
   worktree's pane with the shape's flags and is handed its task.
 
@@ -22,6 +22,7 @@ defmodule Whiska.Spawn do
 
   alias Whiska.Brief
   alias Whiska.Clone
+  alias Whiska.DenyList
   alias Whiska.Git
   alias Whiska.Letters
   alias Whiska.Layout
@@ -198,7 +199,8 @@ defmodule Whiska.Spawn do
 
   @doc """
   Record a mouse's shape and get its worktree ready (ADR-0069, ADR-0083): its
-  mode's brief written with `task` in it, git ignoring Whiska's files there,
+  mode's brief written with `task` in it, its mode's deny list beside it
+  (ADR-next-a-mouse-starts-in-bypass-mode), git ignoring Whiska's files there,
   and the main checkout's dependencies cloned in. Answers the flags to start
   Claude with and the lines that say what was done; a failed clone or ignore
   is said, never a failure.
@@ -208,16 +210,21 @@ defmodule Whiska.Spawn do
   def shape(mouse_id, layout, shape, task) do
     base = cut_from(layout.main_checkout)
     main = layout.main_checkout
+    worktree = layout.worktree_root
 
-    with {:ok, _} <- Storage.shape(mouse_id, shape.mode, shape.model, shape.effort, base),
-         {:ok, brief_said} <- Brief.write(main, layout.worktree_root, shape.mode, task) do
+    # Recorded last, so a mouse is never shaped on record without its deny list.
+    with {:ok, brief_said} <- Brief.write(main, worktree, shape.mode, task),
+         {:ok, deny_said} <- DenyList.write(main, worktree, shape.mode),
+         {:ok, _} <- Storage.shape(mouse_id, shape.mode, shape.model, shape.effort, base) do
       said =
         ["#{layout.branch_label} is #{Shape.describe(shape)}."] ++
           ignore_files(main) ++
           brief_said ++
-          ["whiska: #{Clone.run(main, layout.worktree_root)}."]
+          deny_said ++
+          ["whiska: #{Clone.run(main, worktree)}."]
 
-      {:ok, %{flags: Shape.claude_args(shape) ++ Brief.claude_args(), said: said}}
+      flags = Shape.claude_args(shape) ++ DenyList.claude_args() ++ Brief.claude_args()
+      {:ok, %{flags: flags, said: said}}
     end
   end
 
@@ -231,12 +238,9 @@ defmodule Whiska.Spawn do
     end
   end
 
-  @doc """
-  Make git ignore, in every worktree of this checkout, the files a mouse writes
-  that are never committed. Answers a line for each that could not be.
-  """
-  @spec ignore_files(Path.t()) :: [String.t()]
-  def ignore_files(main_checkout) do
+  # Makes git ignore, in every worktree of this checkout, the files a mouse
+  # writes that are never committed. Answers a line for each that could not be.
+  defp ignore_files(main_checkout) do
     for {name, line} <- [
           {Whiska.Spec.filename(), Whiska.Spec.exclude_line()},
           {Whiska.Research.filename(), Whiska.Research.exclude_line()},
@@ -336,7 +340,7 @@ defmodule Whiska.Spawn do
   defp report(%{branch: branch, shape: shape}, %{said: said}) do
     can =
       if shape.mode == "sniff",
-        do: "it can only look, not change files",
+        do: "it is told only to look, and has no tools to edit files",
         else: "it can change files"
 
     cloned = said |> List.last() |> String.replace_prefix("whiska: ", "")

@@ -33,7 +33,7 @@ repo-scoped.
   allowed, every question dropped (ADR-0053).
 - **Each hook gets its own connection to its house**, never the one VM-wide `Whiska.Repo`
   name. The owl answers hooks for several repos at once, and a shared name turns the
-  second into "could not read this mouse's mode, assuming build". Borrowing the open
+  second into "could not read whether this mouse is held, assuming not". Borrowing the open
   house's own connection would save 2.6 ms of the 16 and queue every hook behind the
   house's delivery work on a single-connection pool, so it is not done.
 - **A house the owl cannot reach is left to the escript.** When the owl cannot open a
@@ -124,8 +124,8 @@ spike at `docs/spikes/2026-09-25-hook-latency/` measured the native binary not t
 **A native binary**, in C or Zig, about 2 ms. Dropped: one more toolchain in the project
 and the brew formula, for a cost 16 ms already removes almost all of.
 
-**Socket only, no escript behind it.** Fails open when the owl is down: no sniff mode, no
-containment, no hold, every finished turn lost. Rejected.
+**Socket only, no escript behind it.** Fails open when the owl is down: no hold, every
+finished turn lost. Rejected.
 
 **Keep `Stop` off the socket**, bash writing the raw payload to the doorstep for the owl to
 parse later. The check for a subagent still out (ADR-0052) would read the transcript

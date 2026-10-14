@@ -24,7 +24,7 @@ defmodule Whiska.Land do
   alias Whiska.Schema.Mouse
 
   @whiska_files ~w(.whiska-mouse .whiska-spec.md .whiska-research.md .whiska-plan.md
-                   .whiska-brief.md .whiska-letters)
+                   .whiska-brief.md .whiska-settings.json .whiska-letters)
 
   @doc "Land `mouse`'s branch onto `main_checkout`, committing first with the message in `commit`."
   @spec run(Path.t(), Mouse.t(), Path.t() | nil) :: {:ok, String.t()} | {:error, String.t()}
