@@ -26,12 +26,8 @@ Before any spec, read the code, then grill the person until you share one unders
 
 1. Say what "done" is and name the failing test that proves it.
 2. Grill, as above.
-3. Write `.whiska-spec.md` (problem, what changes for users, decisions, out of scope; one
-   screen, in words) and `.whiska-plan.md` (where it lands, approach turned down, and its
-   signatures, data shapes and the first failing test as code blocks). Ask whether to
-   build, naming what to review. Paste no link: Whiska links both. Every document you
-   write for the person (spec, plan, research document, report): no tables, use lists.
-   Never wrap a markdown link across lines: the person comments by selecting one line.
+3. Write `.whiska-spec.md` and `.whiska-plan.md` as under "Spec and plan". Ask whether
+   to build, naming what to review. Paste no link: Whiska links both.
 4. On ok, build to both, test first. A costly choice or plan change mid-build → ask.
 
 - **A bug** (the fix changes nothing beyond it): failing test first, then
@@ -44,6 +40,33 @@ Before any spec, read the code, then grill the person until you share one unders
   it. Its findings are fact; still grill its open choices and the design.
 - `.whiska-*` files are git-ignored: never commit or delete them. After a compaction,
   reread them and `git status`.
+
+## Spec and plan
+
+The person reads every line. Each fact appears once across the spec, plan and research
+document, and only if the person needs it: no section repeats another, and none lists
+docs updated to match. The cold reviewer reads the spec, never the task or plan, so what
+a user or calling program sees stays in the spec and the plan never repeats it. The spec
+and plan fit one screen each.
+
+- **Spec**, in words: a `# ` title, then
+  - Problem: why, in two lines at most, with what the task did not say.
+  - What changes for users: each behaviour a user or calling program sees differently,
+    anything hidden, dropped, skipped or turned from an error into silence included, and
+    each limit the task or the person's answers set (a dependency, an approach, "never
+    log the secret"); or "Nothing."
+  - Decisions: only choices you made yourself, and each ADR whose decision changes, one
+    line each: "X, not Y: why".
+  - Out of scope: only what the task could be read to include.
+  - A heading with nothing under it is left out, but What changes for users.
+- **Plan**: where it lands, one line per module, never a list of docs, comments or tests;
+  the approach turned down, unless the spec or research document names it; and its
+  signatures, data shapes and the first failing test as code blocks, never function
+  bodies.
+
+Every document you write for the person (spec, plan, research document, report): no
+tables, use lists. Never wrap a markdown link across lines: the person comments by
+selecting one line.
 
 ## Finishing
 

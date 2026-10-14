@@ -42,8 +42,10 @@ The spec says what the change does for the person's users; it never showed how t
 would be built, so the person first saw the approach in the diff, and on a big change a
 wrong approach cost a rebuild. The build plan is that approach, written the way a senior
 engineer would before starting: where the change lives in the system, the interfaces,
-file formats and stored data it adds or changes, how it will be tested, and the approach
-turned down and why. It is the shape of the change, not a step-by-step plan.
+file formats and stored data it adds or changes, the first failing test, and the approach
+turned down and why, unless the spec or research document already names it. It is the
+shape of the change, not a step-by-step plan: where it lands is one line per module,
+never a list of the docs, comments or tests it touches.
 
 - **Every task that gets a spec gets one**: a few lines for a small change, one screen at
   most. It is not kept for big changes, since whether a change is big is the mouse's
@@ -53,8 +55,9 @@ turned down and why. It is the shape of the change, not a step-by-step plan.
   function bodies or step-by-step code. A diagram only when the change moves data across
   three or more parts.
 - **The spec gives up what moved there**: test seams, the first failing test, where the
-  code lives, internal interfaces and the rejected approach. The spec keeps behaviour and
-  the choices a user or a calling program sees.
+  code lives, internal interfaces and an approach turned down that no user sees. The spec
+  keeps behaviour, the limits the task and the person set, and the choices a user or a
+  calling program sees.
 - **A separate file**, `.whiska-plan.md`, ignored like the spec. The cold review holds
   the diff against the spec and the repo's decisions and never reads the build plan
   (ADR-0049): a reviewer handed the builder's plan judges the diff against it, which is
@@ -140,14 +143,25 @@ thought of. The dependency test closes that gap.
 
 ## The spec
 
-The spec has four headings — the problem, what changes for users, the decisions, what is
-out of scope — on one screen: one line per decision naming the alternative passed over,
-and anything beyond the task as one line under out of scope. The first ten real specs ran
-986 to 3,463 words, were approved unchanged, and held stories whose actor was a mouse,
-docs upkeep and byte-level detail; nobody reads that. What changes for users is never
-left out: every behaviour a user or a calling program sees differently, anything hidden,
-dropped, skipped or turned from an error into silence included, or "Nothing." Finishing
-reads the change back against the spec (ADR-0049).
+The spec has a title and up to four headings — the problem, what changes for users, the
+decisions, what is out of scope — on one screen, and each fact appears once across the
+spec, the build plan and the research document; no section repeats another, and none
+lists docs updated to match. The problem is why, in two lines at most, with what the task
+did not say. The decisions are the choices the mouse made itself, and each ADR whose
+decision changes, one line each naming the alternative passed over. The person's
+grilling answers, and the limits the task sets, appear once under what changes, as
+behaviour or as a limit (a dependency, an approach, a secret never logged), so the cold
+review, which reads neither the task nor the plan, still holds the diff against them. Out
+of scope holds only what the task could be read to include. A heading with nothing under
+it is left out, but what changes for users. The first ten real specs ran 986 to 3,463
+words, were approved unchanged, and held stories whose actor was a mouse, docs upkeep and
+byte-level detail; nobody reads that. With four headings, the last three before
+2026-10-14 still ran 650 to 1,100 words with their plans, much of it the task, the
+person's answers or another section retold. A line cap was turned down: a needed line is
+never cut to fit, and a repeat is the thing to cut. What changes for users
+is never left out: every behaviour a user or a calling program sees differently, anything
+hidden, dropped, skipped or turned from an error into silence included, or "Nothing."
+Finishing reads the change back against the spec (ADR-0049).
 
 The spec is a file git ignores, never committed. Untracked is not enough: the owl takes a
 landed worktree down only when `git status --porcelain` reads clean (ADR-0061). So
@@ -268,6 +282,11 @@ house (ADR-0002).
 
 The link names the worktree's file, so an answer given after the worktree is gone finds a
 dead link; the text is then in the kept copy, whose `question:` header names the question.
+
+Changed on 2026-10-14: each fact appears once across the spec, build plan and research
+document; the problem is at most two lines, the decisions are the mouse's own, the
+person's answers and the task's limits sit under what changes, an empty heading is left
+out, and the plan names one line per module and the first failing test.
 
 Changed on 2026-10-13: a mouse's report and a sniff mouse's research document are its
 final message, kept beside the spec (ADR-0089).

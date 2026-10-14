@@ -79,9 +79,12 @@ one (ADR-0063).
 _Avoid_: big decision, one-way door
 
 **Spec**:
-A task, written down on one screen: its problem, what changes for users, the decisions a
-user or a calling program sees, and what is out of scope, in `.whiska-spec.md` at the
-worktree root, which git ignores. How it is built is in its **build plan**, never here.
+A task, written down on one screen: why, in two lines at most; what changes for users,
+the person's answers and the task's limits included; the choices the mouse made itself,
+and each ADR whose decision changes; and what is out of scope when the task could be read
+to include it. Each fact once, no section repeating another, in
+`.whiska-spec.md` at the worktree root, which git ignores. How it is built is in its
+**build plan**, never here.
 The mouse writes it after the last grilling round, or with no round when nothing costly
 was open, asks for the person's ok on it and its build plan as one question, and builds
 only on that ok. `whiska show` links both under the **branch line** (the person opens the
@@ -100,17 +103,19 @@ _Avoid_: plan, design doc, ticket
 
 **Build plan**:
 How a change will be built, as a senior engineer would put it before starting: where it
-lives in the system, the interfaces, file formats and stored data it adds or changes, how
-it will be tested, and the approach turned down and why. The shape of the change, never a
-step-by-step plan: text, with code only for interfaces, data shapes and output the user
-sees, and a diagram only when data moves across three or more parts; a few lines for a
-small change, one screen at most. In `.whiska-plan.md` at the worktree root, which git
-ignores, written beside every spec, or for a bug beside its research
-document or after the person's pick, and approved with it. The cold review never reads it
-(ADR-0049), so the diff is judged against what the person wanted, not against the plan;
-neither the spec nor the research document names it. A costly change to it mid-build is
-a decision for the person. Kept beside its spec in `.whiska/specs/` (ADR-0063). Not the
-main session's 2–4 line plan before work it does in place.
+lives in the system, one line per module, the interfaces, file formats and stored data it
+adds or changes, the first failing test, and the approach turned down and why unless the
+spec or research document names it. The shape of the change, never a step-by-step plan
+or a list of the docs, comments and tests it touches: text, with code only for
+interfaces, data shapes and output the user sees, and a diagram only when data moves
+across three or more parts; a few lines for a small change, one screen at most. In
+`.whiska-plan.md` at the worktree root, which git ignores, written beside every spec, or
+for a bug beside its research document or after the person's pick, and approved with it.
+The cold review never reads it (ADR-0049), so the diff is judged against what the person
+wanted, not against the plan; neither the spec nor the research document names it. A
+costly change to it mid-build is a decision for the person. Kept beside its spec in
+`.whiska/specs/` (ADR-0063). Not the main session's 2–4 line plan before work it does in
+place.
 _Avoid_: plan (bare), design, design doc, implementation plan
 
 **Mouse record**:
@@ -260,9 +265,9 @@ work: a bug's in the build **brief**, an investigation's in the sniff brief.
 - **A bug's**: `.whiska-research.md` at the worktree root, which git ignores, written
   after a failing test reproduces it — before and after, the root
   cause, what else the fix affects, and fix options with a recommendation only when there
-  is a real choice. It stands in for the spec: the person oks it or picks an option, the
-  pick is written into it, its **build plan** follows, and the cold review holds the fix
-  against it (ADR-0063).
+  is a real choice, each fact once, as in the spec. It stands in for the spec: the person
+  oks it or picks an option, the pick is written into it, its **build plan** follows, and
+  the cold review holds the fix against it (ADR-0063).
 - **An investigation's**: the sniff mouse's final message, which writes no file — its
   **summary**, its **proposal** when something should change, the question, then what it
   established, in full (ADR-0089). `whiska show` links it under

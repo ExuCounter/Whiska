@@ -16,8 +16,17 @@ defmodule Whiska.BriefTest do
   end
 
   test "a build mouse's plan shows signatures, data and the first failing test as code" do
-    assert Brief.render("build", "task") =~
+    assert "build" |> Brief.render("task") |> String.replace(~r/\s+/, " ") =~
              "signatures, data shapes and the first failing test as code blocks"
+  end
+
+  test "a build mouse's spec and plan say each fact once" do
+    build = "build" |> Brief.render("task") |> String.replace(~r/\s+/, " ")
+    assert build =~ "Each fact appears once across the spec, plan and research document"
+    assert build =~ "only choices you made yourself"
+    assert build =~ "each limit the task or the person's answers set"
+    assert build =~ "The cold reviewer reads the spec, never the task or plan"
+    assert build =~ "never function bodies"
   end
 
   test "a mouse's documents keep each link on one line and use lists, not tables" do
