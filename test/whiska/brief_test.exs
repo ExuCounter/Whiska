@@ -20,6 +20,14 @@ defmodule Whiska.BriefTest do
              "signatures, data shapes and the first failing test as code blocks"
   end
 
+  test "a mouse's documents keep each link on one line and use lists, not tables" do
+    for mode <- ["build", "sniff"] do
+      text = mode |> Brief.render("task") |> String.replace(~r/\s+/, " ")
+      assert text =~ "Never wrap a markdown link across lines", mode
+      assert text =~ "no tables", mode
+    end
+  end
+
   test "a build mouse writes each point as a paragraph and ends on what to review" do
     build = "build" |> Brief.render("task") |> String.replace(~r/\s+/, " ")
     assert build =~ "Each point is one short paragraph: no bullets, no sub-lists."

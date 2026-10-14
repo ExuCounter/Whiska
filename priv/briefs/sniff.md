@@ -35,6 +35,9 @@ cold, from another terminal. Be concise.
    ## Found
    ```
 
+   The person comments by selecting one line: no tables, use lists. Never wrap a
+   markdown link across lines.
+
    What to change only when something should change, these labels exactly. Found holds
    the findings in full. Then, under `Agent usage this session`, the lines `whiska ledger`
    prints.

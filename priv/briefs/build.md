@@ -29,7 +29,9 @@ Before any spec, read the code, then grill the person until you share one unders
 3. Write `.whiska-spec.md` (problem, what changes for users, decisions, out of scope; one
    screen, in words) and `.whiska-plan.md` (where it lands, approach turned down, and its
    signatures, data shapes and the first failing test as code blocks). Ask whether to
-   build, naming what to review. Paste no link: Whiska links both.
+   build, naming what to review. Paste no link: Whiska links both. Every document you
+   write for the person (spec, plan, research document, report): no tables, use lists.
+   Never wrap a markdown link across lines: the person comments by selecting one line.
 4. On ok, build to both, test first. A costly choice or plan change mid-build → ask.
 
 - **A bug** (the fix changes nothing beyond it): failing test first, then
