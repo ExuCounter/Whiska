@@ -92,6 +92,30 @@ defmodule Whiska.DropTest do
     end)
   end
 
+  test "the branch's diff file goes with the branch", ctx do
+    path = mouse(ctx.repo, "feat-a", [])
+    {:ok, diff} = Whiska.Review.write(ctx.repo.checkout, "feat-a", "+a\n")
+    {:ok, other} = Whiska.Review.write(ctx.repo.checkout, "feat-z", "+z\n")
+    herdr_removes(ctx.repo, path, :remove_worktree)
+
+    assert {0, _, _} = drop(["feat-a"], ctx.repo)
+    refute File.exists?(diff)
+    assert File.exists?(other)
+  end
+
+  test "a diff file it cannot remove does not stop the drop", ctx do
+    path = mouse(ctx.repo, "feat-a", [])
+    elsewhere = Path.join(ctx.repo.root, "elsewhere")
+    File.mkdir_p!(elsewhere)
+    File.mkdir_p!(Path.join(ctx.repo.checkout, ".whiska"))
+    File.ln_s!(elsewhere, Path.join(ctx.repo.checkout, ".whiska/reviews"))
+    herdr_removes(ctx.repo, path, :remove_worktree)
+
+    assert {0, out, _} = drop(["feat-a"], ctx.repo)
+    assert out =~ "branch are gone"
+    refute branch?(ctx.repo, "feat-a")
+  end
+
   test "work that would be lost is named, and nothing goes without --force", ctx do
     path = mouse(ctx.repo, "feat-b", push: false)
     GitRepo.dirty!(path)

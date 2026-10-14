@@ -533,9 +533,27 @@ defmodule Whiska.GitTest do
     test "is the branch's change from where it left the base", %{repo: repo} do
       GitRepo.worktree(repo, "feat-d", push: false)
 
-      assert {:ok, %{base: "main", diff: diff}} = Git.branch_diff(repo.checkout, "feat-d")
+      assert {:ok, diff} = Git.branch_diff(repo.checkout, "feat-d")
       assert diff =~ "+++ b/feat-d.md"
       assert diff =~ "+work"
+    end
+
+    test "never fetches what a partial clone left out", %{repo: repo} do
+      GitRepo.git!(repo.remote, ["config", "uploadpack.allowFilter", "true"])
+      GitRepo.git!(repo.remote, ["config", "uploadpack.allowAnySHA1InWant", "true"])
+      partial = Path.join(repo.root, "partial")
+      remote = "file://" <> repo.remote
+      GitRepo.git!(repo.root, ["clone", "--quiet", "--filter=blob:none", remote, partial])
+      GitRepo.worktree(repo, "feat-l")
+      GitRepo.git!(partial, ["fetch", "--quiet", "origin", "feat-l"])
+      GitRepo.git!(partial, ["branch", "feat-l", "FETCH_HEAD"])
+      missing = ["rev-list", "--objects", "--missing=print", "refs/heads/feat-l"]
+      left_out = GitRepo.git!(partial, missing)
+      assert left_out =~ "?"
+
+      assert {:error, _} = Git.branch_diff(partial, "feat-l", "main")
+
+      assert GitRepo.git!(partial, missing) == left_out
     end
 
     test "runs no diff program or text conversion that git's config names", %{repo: repo} do
@@ -545,7 +563,7 @@ defmodule Whiska.GitTest do
       GitRepo.git!(repo.checkout, ["config", "diff.conv.textconv", script])
       File.write!(Path.join(repo.checkout, ".git/info/attributes"), "* diff=conv\n")
 
-      assert {:ok, %{diff: diff}} = Git.branch_diff(repo.checkout, "feat-e")
+      assert {:ok, diff} = Git.branch_diff(repo.checkout, "feat-e")
       assert diff =~ "+work"
       refute File.exists?(ran)
     end
@@ -577,7 +595,7 @@ defmodule Whiska.GitTest do
       GitRepo.git!(repo.checkout, ["config", "diff.submodule", "diff"])
       GitRepo.git!(Path.join(repo.checkout, "sub"), ["config", "diff.external", script])
 
-      assert {:ok, %{diff: diff}} = Git.branch_diff(repo.checkout, "feat-s")
+      assert {:ok, diff} = Git.branch_diff(repo.checkout, "feat-s")
       assert diff =~ "sub"
       refute File.exists?(ran)
     end

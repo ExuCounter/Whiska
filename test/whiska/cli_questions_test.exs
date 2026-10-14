@@ -263,28 +263,32 @@ defmodule Whiska.CLIQuestionsTest do
                ~r/^\*\*feat-y\*\* · ✅ finished · closed · \d+d · 1 commit, clean\n/
     end
 
-    test "its diff is a file beside the kept specs, linked on the row under the heading", %{
-      repo: repo
-    } do
+    test "its diff is a patch file beside the kept specs, linked on the row under the heading",
+         %{repo: repo} do
       q = finished(repo, "feat-d")
       review = review_file(repo, "feat-d")
 
-      assert show_one(repo, q) =~
-               "\n[Diff](file://#{review})\n"
+      assert Path.extname(review) == ".diff"
+      assert show_one(repo, q) =~ "\n[Diff](file://#{review})\n"
 
-      text = File.read!(review)
-      assert text =~ "git diff main...feat-d"
-      assert text =~ ~r/^```diff\n.*^\+/ms
+      assert File.read!(review) ==
+               GitRepo.git!(repo.checkout, [
+                 "diff",
+                 "--no-color",
+                 "main...refs/heads/feat-d",
+                 "--"
+               ])
+
       assert File.read!(Path.join(repo.checkout, ".git/info/exclude")) =~ "/.whiska/"
     end
 
-    # The person's own diff viewer, named only in their environment (ADR-0085).
-    defp with_diff_link(pattern, fun) do
+    test "WHISKA_DIFF_LINK set makes no difference: the link is the file's", %{repo: repo} do
+      q = finished(repo, "feat-d")
       previous = System.get_env("WHISKA_DIFF_LINK")
-      System.put_env("WHISKA_DIFF_LINK", pattern)
+      System.put_env("WHISKA_DIFF_LINK", "hunk-review://{base}..{branch}")
 
       try do
-        fun.()
+        assert show_one(repo, q) =~ "\n[Diff](file://#{review_file(repo, "feat-d")})\n"
       after
         if previous,
           do: System.put_env("WHISKA_DIFF_LINK", previous),
@@ -292,56 +296,29 @@ defmodule Whiska.CLIQuestionsTest do
       end
     end
 
-    test "WHISKA_DIFF_LINK points the link at the person's viewer, and no file is written",
-         %{repo: repo} do
-      q = finished(repo, "feat-d")
-
-      out = with_diff_link("hunk-review://{base}..{branch}", fn -> show_one(repo, q) end)
-
-      assert out =~ "\n[Diff](hunk-review://main..feat-d)\n"
-      refute File.exists?(review_file(repo, "feat-d"))
-    end
-
-    test "a base the main checkout holds only from origin reaches the pattern as git names it",
+    test "a base the main checkout holds only from origin is diffed from there",
          %{repo: repo} do
       GitRepo.git!(repo.checkout, ["checkout", "-b", "staging"])
       GitRepo.commit!(repo.checkout, "s1.md", "staging work")
       GitRepo.git!(repo.checkout, ["push", "-u", "origin", "staging"])
+      q = finished(repo, "feat-o", base: "staging")
       GitRepo.git!(repo.checkout, ["checkout", "main"])
       GitRepo.git!(repo.checkout, ["branch", "-D", "staging"])
-      q = finished(repo, "feat-o", base: "staging")
 
-      out = with_diff_link("hunk-review://{base}..{branch}", fn -> show_one(repo, q) end)
-
-      assert out =~ "[Diff](hunk-review://origin/staging..feat-o)\n"
+      assert show_one(repo, q) =~ "[Diff](file://#{review_file(repo, "feat-o")})\n"
+      diff = File.read!(review_file(repo, "feat-o"))
+      assert diff =~ "+++ b/feat-o.md"
+      refute diff =~ "s1.md"
     end
 
-    test "a branch name that would break the link reaches the pattern encoded", %{repo: repo} do
-      q = finished(repo, "feat/a(b)")
-
-      out = with_diff_link("hunk-review://{base}..{branch}", fn -> show_one(repo, q) end)
-
-      assert out =~ "(hunk-review://main..feat/a%28b%29)\n"
-    end
-
-    test "an empty WHISKA_DIFF_LINK, or one that could break the link, keeps the file link",
+    test "commits that change nothing between them leave no diff to link, and no old one",
          %{repo: repo} do
-      q = finished(repo, "feat-e")
-      file_link = "(file://#{review_file(repo, "feat-e")})\n"
+      q = finished(repo, "feat-n")
+      assert show_one(repo, q) =~ "[Diff]"
+      GitRepo.git!(Path.join(repo.root, "worktrees/feat-n"), ["revert", "--no-edit", "HEAD"])
 
-      for pattern <- [
-            "",
-            "hunk-review//{base}..{branch}",
-            "hunk-review://{base} {branch}",
-            "hunk-review://{base}..{branch})",
-            "hunk-review://{base}..{branch}\n",
-            "hunk-review://{base}..{branch}\\",
-            "hunk-review://{base}..{branch}\u202E",
-            "hunk-review://{base}..{branch}\u009B"
-          ] do
-        assert with_diff_link(pattern, fn -> show_one(repo, q) end) =~ file_link,
-               "pattern #{inspect(pattern)}"
-      end
+      refute show_one(repo, q) =~ "Diff"
+      refute File.exists?(review_file(repo, "feat-n"))
     end
 
     test "read from another mouse's worktree, a finished branch still links its diff",
@@ -355,8 +332,7 @@ defmodule Whiska.CLIQuestionsTest do
       assert out =~
                "\n[Diff](file://#{review_file(repo, "feat-w")})\n"
 
-      assert File.read!(review_file(repo, "feat-w")) =~
-               "git diff main...feat-w"
+      assert File.read!(review_file(repo, "feat-w")) =~ "+++ b/feat-w.md"
     end
 
     test "a kept research document is linked on the row under the heading", %{repo: repo} do
@@ -919,8 +895,7 @@ defmodule Whiska.CLIQuestionsTest do
   end
 
   # The documents a mouse asks the person to review (ADR-0063), linked by
-  # `whiska show` itself; the person's own viewer is named only in their
-  # environment (ADR-0085).
+  # `whiska show` itself as file links (ADR-0085).
   describe "whiska show — the spec and build plan in the mouse's worktree" do
     setup do
       root = Path.join(System.tmp_dir!(), "whiska-speclink-#{System.unique_integer([:positive])}")
@@ -995,26 +970,13 @@ defmodule Whiska.CLIQuestionsTest do
       refute show_with(ctx, nil) =~ "["
     end
 
-    test "WHISKA_SPEC_LINK takes each document's path and the branch", %{path: path} = ctx do
-      write_documents(path)
-      encoded = &URI.encode(path <> "/" <> &1, fn c -> URI.char_unreserved?(c) or c == ?/ end)
-
-      out = show_with(ctx, "myviewer://open?file={path}&branch={branch}")
-
-      assert out =~
-               "[Spec](myviewer://open?file=#{encoded.(".whiska-spec.md")}&branch=feat/spec-w) · "
-
-      assert out =~
-               "[Build plan](myviewer://open?file=#{encoded.(".whiska-plan.md")}&branch=feat/spec-w)\n"
-    end
-
-    test "a pattern that could break the link keeps the file link", %{path: path} = ctx do
+    test "WHISKA_SPEC_LINK set makes no difference: each link is the file's",
+         %{path: path} = ctx do
       write_documents(path)
 
-      for pattern <- ["", "myviewer//{path}", "myviewer://{path} x", "myviewer://{path})"] do
-        assert show_with(ctx, pattern) =~ "(file://#{path}/.whiska-spec.md) · ",
-               "pattern #{inspect(pattern)}"
-      end
+      assert show_with(ctx, "myviewer://open?file={path}&branch={branch}") =~
+               "\n[Spec](file://#{path}/.whiska-spec.md) · " <>
+                 "[Build plan](file://#{path}/.whiska-plan.md)\n"
     end
 
     test "a document that is a link is not offered for review", %{path: path} = ctx do

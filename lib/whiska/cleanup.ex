@@ -28,6 +28,7 @@ defmodule Whiska.Cleanup do
   alias Whiska.Doorstep
   alias Whiska.Git
   alias Whiska.Layout
+  alias Whiska.Review
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.SpecArchive
@@ -384,8 +385,10 @@ defmodule Whiska.Cleanup do
     with :ok <- remove(plan, context) do
       Git.prune_worktrees(context.checkout)
       recorded = Storage.mark_removed(mouse.mouse_id)
+      deleted = Git.delete_branch(context.checkout, plan.branch, plan.landing)
+      if deleted == :ok, do: Review.remove(context.checkout, plan.branch)
 
-      case {recorded, Git.delete_branch(context.checkout, plan.branch, plan.landing)} do
+      case {recorded, deleted} do
         {{:ok, _}, :ok} -> :removed
         {{:error, reason}, _} -> {:removed, {:unrecorded, reason}}
         {_, {:error, reason}} -> {:removed, {:branch_kept, reason}}

@@ -17,6 +17,7 @@ defmodule Whiska.Drop do
   """
 
   alias Whiska.Git
+  alias Whiska.Review
   alias Whiska.Schema.Mouse
   alias Whiska.Storage
 
@@ -33,6 +34,7 @@ defmodule Whiska.Drop do
          :ok <- allowed(branch, lost, force?),
          :ok <- remove(main_checkout, tree, lost, via),
          :ok <- delete_branch(main_checkout, branch) do
+      Review.remove(main_checkout, branch)
       mark_removed(branch)
       {:ok, "Dropped #{branch}: its worktree, workspace and branch are gone."}
     end

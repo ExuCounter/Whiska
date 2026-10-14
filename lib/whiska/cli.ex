@@ -2090,9 +2090,8 @@ defmodule Whiska.CLI do
   defp ahead_of_build(_question, mouse), do: in_worktree(mouse)
 
   # The spec and build plan a mouse asks the person to review, linked where
-  # they stand in its worktree (ADR-0063). A viewer the person names in
-  # WHISKA_SPEC_LINK takes each; otherwise the file link annotate opens
-  # (ADR-0085).
+  # they stand in its worktree (ADR-0063), as file links that open wherever the
+  # person's `.md` files open (ADR-0085).
   defp in_worktree(%Mouse{path: path, branch: branch})
        when is_binary(path) and is_binary(branch) do
     for {label, name} <- [
@@ -2100,7 +2099,7 @@ defmodule Whiska.CLI do
           {"Build plan", Whiska.BuildPlan.filename()}
         ],
         {file, title} <- [Whiska.Research.document(Path.join(path, name), nil)],
-        do: {label, document_link(file, branch), title}
+        do: {label, Review.file_link(file), title}
   end
 
   defp in_worktree(_mouse), do: []
@@ -2117,13 +2116,6 @@ defmodule Whiska.CLI do
   end
 
   defp report(_main, _mouse), do: []
-
-  defp document_link(file, branch) do
-    case Review.spec_link(System.get_env("WHISKA_SPEC_LINK"), file, branch) do
-      {:ok, link} -> link
-      :error -> Review.file_link(file)
-    end
-  end
 
   defp mouse_of(%Question{mouse: %Mouse{} = mouse}), do: mouse
   defp mouse_of(%Question{mouse: nil}), do: nil
@@ -2155,24 +2147,25 @@ defmodule Whiska.CLI do
     end
   end
 
-  # A diff viewer the person names in WHISKA_DIFF_LINK takes the link, and
-  # no file is written (ADR-0085). The heading stands without the diff
-  # link when the file cannot be written.
+  # The diff link is a `.diff` file, opened wherever the person's patch files
+  # open (ADR-0085). The heading stands without it when git prints no diff or
+  # the file cannot be written; a branch that changes nothing keeps no file.
   defp review(_main, _branch, _base, %{ahead: 0}), do: %{}
 
-  defp review(main, branch, base, held) do
-    case Review.link(System.get_env("WHISKA_DIFF_LINK"), held.base_ref, branch) do
-      {:ok, link} -> %{review: link}
-      :error -> review_file(main, branch, base, held.ahead)
-    end
-  end
+  defp review(main, branch, base, _held) do
+    case Git.branch_diff(main, branch, base) do
+      {:ok, ""} ->
+        Review.remove(main, branch)
+        %{}
 
-  defp review_file(main, branch, base, ahead) do
-    with {:ok, %{base: base_name, diff: diff}} <- Git.branch_diff(main, branch, base),
-         {:ok, path} <- Review.write(main, base_name, branch, ahead, diff) do
-      %{review: Review.file_link(path)}
-    else
-      _ -> %{}
+      {:ok, diff} ->
+        case Review.write(main, branch, diff) do
+          {:ok, path} -> %{review: Review.file_link(path)}
+          {:error, _} -> %{}
+        end
+
+      {:error, _} ->
+        %{}
     end
   end
 

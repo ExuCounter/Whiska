@@ -10,10 +10,11 @@ catch.
 
 Opting in goes through text the person or the repo already owns: the person's own
 `CLAUDE.md`, a reviewer named there included, and a repo's `.claude/agents/*-reviewer.md`
-and its `reviewers:` line under `## Finish` (ADR-0049). What Whiska itself prints, which no
-`CLAUDE.md` line can change, is opted into through the person's environment instead: so
-far only `WHISKA_DIFF_LINK` and `WHISKA_SPEC_LINK`, the diff link's and the spec and build
-plan links' patterns (below). A forge's command-line tool,
+and its `reviewers:` line under `## Finish` (ADR-0049). What Whiska itself prints for the
+person to review, which no `CLAUDE.md` line can change, is a link to a file, and the person
+opts in where every file's viewer is chosen: their terminal's open actions, or their OS's
+app for that file type, `.md` for a document and `.diff` for a diff (below). No link
+Whiska prints for review reads the environment. A forge's command-line tool,
 `gh` or `glab`, runs only for something the person asked of a merge request, and its
 absence is said plainly. The cases so far:
 
@@ -41,28 +42,26 @@ absence is said plainly. The cases so far:
   review Whiska's work. The mouse now writes its reviewers' prompts for Claude Code's
   `general-purpose` agent.
 - **`hunk diff`**, printed above a finished branch's options. In its place `whiska show`
-  writes the branch's diff, `git diff <base>...<branch>`, to
-  `.whiska/reviews/<branch>-<hash>.md`, one file per branch (the name made safe for a
-  file, and a short hash of the whole name, so `feat/x` and `feat-x` keep a file each),
+  writes the branch's diff, `git diff <base>...<branch>` exactly as git prints it, to
+  `.whiska/reviews/<branch>-<hash>.diff`, one file per branch (the name made safe for a
+  file and cut to 100 characters, and 128 bits of a hash of the whole name, so `feat/x`
+  and `feat-x` keep a file each and no mouse can search out a name that shares another
+  branch's file),
   ignored like the kept specs (ADR-0063), and prints a link to
   it on the row under the heading, as a spec goes to the person as a link. It writes the file
   wherever it runs, a mouse's worktree included: the main session's shell can stand in a
   worktree, and a read that wrote nothing from there dropped the link without a word. The
-  folder is Whiska's own and ignored, so a write from a mouse costs nothing. The file is
-  Markdown, so it opens in whatever the person's links open in. No diff program, text
-  conversion or submodule diff that git's config names runs, and the write never follows a
-  link. A person who wants hunk, or any diff viewer of their own, sets `WHISKA_DIFF_LINK` to a
-  link pattern their terminal opens in it, such as `hunk-review://{base}..{branch}`: the
-  diff link is that pattern with the base and branch filled in, percent-encoded so no
-  branch name can break the link, and no file is written. A pattern that does not start
-  with a scheme, or holds a space, a parenthesis, a backslash, or a control or format
-  character, is ignored and the file link stands. Whiska still names no viewer; the person's pattern does.
-- **The spec link has its own variable, `WHISKA_SPEC_LINK`,** with `{path}` (the
-  file's absolute path) and `{branch}` filled in, percent-encoded, under the same rules
-  and fallback. Two variables rather than one because the diff needs a base and a branch
-  and the spec a file path, so no one pattern serves both. `whiska show` prints the link
-  itself, on the row under the heading, for the spec and the build plan the mouse's worktree
-  holds, as it does the diff's; the mouse pastes no link (ADR-0063).
+  folder is Whiska's own and ignored, so a write from a mouse costs nothing. No diff
+  program, text conversion or submodule diff that git's config names runs, and the write
+  never follows a link. The file goes when Whiska deletes the branch, on `whiska drop` or
+  on cleanup once the branch has landed. The file is a plain patch, so it opens wherever
+  the person's `.diff` files open: a person who wants hunk, or any diff viewer of their
+  own, points that file type at it in their terminal's open actions or their OS, as they
+  point `.md` at their document reviewer. Whiska still names no viewer.
+- **The spec and build plan links are file links too.** `whiska show` prints them itself,
+  on the row under the heading, for the spec and the build plan the mouse's worktree
+  holds, as it does the diff's; the mouse pastes no link (ADR-0063). They open wherever
+  the person's `.md` files open.
 
 The one older call, `terminal-notifier` for the owl's desktop notification, was dropped on
 2026-10-11 (ADR-0062): the hoot uses `osascript` on macOS and `notify-send` on Linux.
@@ -81,30 +80,44 @@ the person's side.
   fallback is a line each session reads, for a tool most never have.
 - **A `.whiska.json` for global and per-repo settings,** naming the outside tools to call.
   Not ruled out: how opting in should look beyond `CLAUDE.md` is an open question for its
-  own research. ADR-0081 turned down a `~/.whiska` config for voice rules alone. The diff
-  link's one setting did not wait for it: an environment variable holding a link pattern
-  is how tools usually answer "open this where I like" (`EDITOR`, `BROWSER`, and in Elixir
-  `PLUG_EDITOR`), and a settings file can come later with the variable still overriding it.
-- **The diff link's pattern in git's config,** `whiska.diffLink`, global with a per-repo
-  override. Turned down as more to set up than one line in the shell's profile, for a
-  setting that is the person's and never the repo's.
+  own research. ADR-0081 turned down a `~/.whiska` config for voice rules alone. Choosing a
+  viewer did not wait for it, and needs no setting of Whiska's: the file type is the
+  setting.
+- **Link patterns in the environment, `WHISKA_DIFF_LINK` and `WHISKA_SPEC_LINK`,** tried
+  from 2026-10-11 to 2026-10-14. A variable reaches only a process that read the person's
+  shell profile, and the main session's shell, which runs `whiska show`, had not: the link
+  fell back to the file without a word. And a pattern's own scheme, such as
+  `hunk-review://`, opens only in a terminal the person has taught it to, so the setting
+  served one machine.
+- **The same pattern in git's config,** `whiska.diffLink`. It reaches every process, but
+  its scheme still opens only where the person taught their terminal it.
+- **A `whiska://` scheme Whiska registers with the OS,** its handler opening a live diff in
+  a herdr tab. Install code for each platform (a generated macOS app, a Linux `.desktop`
+  entry), and a handler any web page can ask to open.
+- **`whiska diff`, opening the diff in a herdr tab through git's pager on a word to the
+  main session.** The person reviews from a link, not a word.
+- **A Markdown copy of the diff,** what the file was until 2026-10-14. It opened in the
+  document reviewer, a poor place to read a diff.
 - **A tests axis on a prompt Whiska writes.** One more agent on every turn that touches a
   test, where the cold review already asks what each hunk promises that no test asserts.
 - **A plain `git diff` command in place of the link.** A command has to be typed; a link
-  opens where the person already reviews a spec.
+  opens with one click, wherever the person's files of its type open.
 
 ## Consequences
 
 - No mouse scouts before a build, and finishing has no tests axis.
 - Showing a finished question with commits writes its diff file, from wherever it runs,
-  rewritten on each show, unless `WHISKA_DIFF_LINK` names a viewer. Nothing removes the
-  folder: it holds one file per branch shown, and a secret a branch once committed stays
-  in its file after the branch is dropped.
-- `WHISKA_DIFF_LINK` is read by the process that runs `whiska show`, so a Claude Code
-  session started before the person set it keeps printing the file link until it is
-  restarted. Whether a link with the person's scheme reaches them clickable is up to
-  Claude Code and their terminal, not Whiska. `WHISKA_SPEC_LINK` is read the same way, by
-  the process that runs `whiska show`.
+  rewritten on each show, so the file is the branch as it stood when last shown. Whiska
+  removes a branch's file when it deletes the branch; a branch deleted by hand, a removal
+  that fails (a linked folder is refused), or a show still writing as the branch goes
+  leaves its file, and with it any secret the branch once committed. A failed removal
+  never fails the drop or the cleanup: the branch is gone either way. A branch whose
+  commits add up to no change shows no diff link and keeps no file, and neither does a
+  diff git cannot print, such as one that needs a blob a partial clone left out: Whiska
+  never fetches for a show.
+- A person who has pointed `.diff` at nothing reads the patch in whatever their OS opens
+  it with. Whether a file link reaches them clickable is up to Claude Code and their
+  terminal, not Whiska.
 - A brief that names an outside tool is caught by review, not by a test.
 
 Changed on 2026-10-11: the diff link can point at the person's own diff viewer through
@@ -129,3 +142,9 @@ Folded in on 2026-10-11: 0075 (its text is in git history).
 Changed on 2026-10-13: `whiska pr` opens a merge request on the person's word, the build
 brief handles its review, `whiska show` prints the spec and build plan links itself, and no
 test scans the briefs for names (ADR-0088).
+
+Changed on 2026-10-14: every review link `whiska show` prints is a file link, and the
+diff is a `.diff` patch that opens wherever the person's `.diff` files open.
+`WHISKA_DIFF_LINK` and `WHISKA_SPEC_LINK` went: only a process that had read the person's
+shell profile saw them, so the main session printed the file link instead. A branch's
+diff file now goes with the branch.

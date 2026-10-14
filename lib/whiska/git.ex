@@ -559,15 +559,11 @@ defmodule Whiska.Git do
   worktree that is not there (`:no_worktree`), one moved off `branch`
   (`:off_branch`), a base whose name is not plain (`:unsafe_base`), or output
   with a warning in it. The finish options take nothing for "nothing to land".
-
-  `base_ref` is the base as git names it in this checkout: `origin/<base>`
-  when no local branch of that name is there.
   """
   @spec on_branch(Path.t(), Path.t(), branch(), branch() | nil) ::
           {:ok,
            %{
              base: branch(),
-             base_ref: String.t(),
              ahead: non_neg_integer(),
              uncommitted: [String.t()]
            }}
@@ -577,18 +573,12 @@ defmodule Whiska.Git do
          {:ok, ^branch} <- head_branch(worktree) |> off_branch(),
          {:ok, base} <- base_of(checkout, recorded_base),
          true <- plain_name?(base) || {:error, :unsafe_base},
-         {:ok, [{:local, base_ref} | _] = places} <- landing_refs(checkout, base),
+         {:ok, [{:local, _base_ref} | _] = places} <- landing_refs(checkout, base),
          beyond = ["refs/heads/#{branch}", "--not" | Enum.map(places, &elem(&1, 1))],
          {:ok, count} <- git(checkout, ["rev-list", "--count", "--no-merges" | beyond]),
          {ahead, ""} <- Integer.parse(count),
          {:ok, uncommitted} <- uncommitted(worktree) do
-      {:ok,
-       %{
-         base: base,
-         base_ref: short_ref(base_ref),
-         ahead: ahead,
-         uncommitted: uncommitted
-       }}
+      {:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}
     else
       {:ok, _other_branch} -> {:error, :off_branch}
       {:error, _} = error -> error
@@ -601,10 +591,11 @@ defmodule Whiska.Git do
   from where it left the base to its tip, the base read as `on_branch/4` reads
   it. No external diff program or text conversion runs, whatever git's config
   names, and no diff is started inside a submodule, where those flags would not
-  reach. Git's warnings stay out of the diff.
+  reach. Nothing a partial clone left out is fetched, so no transport git's
+  config names runs either. Git's warnings stay out of the diff.
   """
   @spec branch_diff(Path.t(), branch(), branch() | nil) ::
-          {:ok, %{base: branch(), diff: String.t()}} | {:error, term()}
+          {:ok, String.t()} | {:error, term()}
   def branch_diff(checkout, branch, recorded_base \\ nil) do
     args = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--submodule=short"]
 
@@ -613,16 +604,17 @@ defmodule Whiska.Git do
          {:ok, base_ref} <- base_ref(checkout, base),
          range = "#{base_ref}...refs/heads/#{branch}",
          {diff, 0} <-
-           System.cmd("git", args ++ [range, "--"], cd: checkout, stderr_to_stdout: false) do
-      {:ok, %{base: base, diff: diff}}
+           System.cmd("git", args ++ [range, "--"],
+             cd: checkout,
+             stderr_to_stdout: false,
+             env: [{"GIT_NO_LAZY_FETCH", "1"}]
+           ) do
+      {:ok, diff}
     else
       {out, code} when is_integer(code) -> {:error, {code, String.trim(out)}}
       {:error, _} = error -> error
     end
   end
-
-  defp short_ref("refs/heads/" <> name), do: name
-  defp short_ref("refs/remotes/" <> name), do: name
 
   defp off_branch({:error, :detached}), do: {:error, :off_branch}
   defp off_branch(head), do: head

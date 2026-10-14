@@ -106,6 +106,16 @@ defmodule Whiska.CleanupTest do
       assert %{removed_at: %DateTime{}, died_at: %DateTime{}} = Storage.mouse("m-feat-a")
     end
 
+    test "takes the branch's diff file with the branch", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {:ok, diff} = Whiska.Review.write(repo.checkout, "feat-a", "+a\n")
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      refute File.exists?(diff)
+    end
+
     test "a pane herdr calls done is ready for input too", %{repo: repo} do
       m = mouse(repo, "feat-a", pane: "w1:p1")
       GitRepo.land(repo, "feat-a")
@@ -907,6 +917,18 @@ defmodule Whiska.CleanupTest do
       assert [{"m-feat-a", {:removed, {:branch_kept, _}}}] = sweep(repo)
       refute File.dir?(m.path)
       assert %{removed_at: %DateTime{}} = Storage.mouse("m-feat-a")
+    end
+
+    test "a kept branch keeps its diff file", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      {:ok, diff} = Whiska.Review.write(repo.checkout, "feat-a", "+a\n")
+      GitRepo.land(repo, "feat-a")
+      seen(repo, m, workspace_id: nil)
+      elsewhere = Path.join(repo.root, "elsewhere")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "--force", elsewhere, "feat-a"])
+
+      assert [{"m-feat-a", {:removed, {:branch_kept, _}}}] = sweep(repo)
+      assert File.exists?(diff)
     end
   end
 

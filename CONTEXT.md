@@ -88,10 +88,9 @@ to include it. Each fact once, no section repeating another, in
 The mouse writes it after the last grilling round, or with no round when nothing costly
 was open, asks for the person's ok on it and its build plan as one question, and builds
 only on that ok. `whiska show` links both under the **branch line** (the person opens the
-files, in annotate or, when their `WHISKA_SPEC_LINK` holds a link pattern with `{path}`
-and `{branch}`, in their own viewer; the question holds no spec text and no link). What
-changes for users is never left out: anything hidden, dropped, skipped or turned from an
-error into silence included, or "Nothing." Every task gets one but a bug, which gets a
+files, wherever their `.md` files open, such as annotate; the question holds no spec text
+and no link). What changes for users is never left out: anything hidden, dropped, skipped
+or turned from an error into silence included, or "Nothing." Every task gets one but a bug, which gets a
 **research document**, and four named by what the change touches: a typo or a comment or
 doc no program reads, a formatting or lint fix, a test-only change, and a task that spells
 out the exact change, whose words are its spec. A change that hides, drops or skips anything, or touches secrets, access or a
@@ -227,10 +226,9 @@ saying a **finish** (ADR-0074). The heading is `**<title>** · ✅ finished ·
 than waiting on the person is named, with an age once it is a day old (ADR-0089). Under it, one row of short links, each there only
 when it has something to open: the **diff link**, `Diff`, a link to the branch's diff,
 which `whiska show` writes to one file per branch in `.whiska/reviews/`, named for the
-branch with a short hash of its name, as Markdown, so the person reviews it from a link as
-they review a **spec** — or, when the person's `WHISKA_DIFF_LINK` holds a link pattern,
-that pattern with `{base}` and `{branch}` filled in, pointing at a diff viewer of their own,
-and no file is written (ADR-0085); the **research document**, `Research` (ADR-0074); the
+branch with a hash of its name, as a plain `.diff` patch, so the person reviews it
+from a link as they review a **spec**, in whatever their `.diff` files open in, and which
+goes when Whiska deletes the branch (ADR-0085); the **research document**, `Research` (ADR-0074); the
 **spec** and **build plan**, `Spec` and `Build plan`, links to the worktree's files,
 only on a question that is not finished, since they are what an "ok to build?" asks
 about (ADR-0063); and the **report**, `Full report` (ADR-0089).

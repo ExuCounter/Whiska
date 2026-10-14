@@ -26,8 +26,8 @@ the main checkout.
    `Build plan` links on the row under the heading, one per document the mouse's worktree
    holds, as it adds the diff's and the research document's (ADR-0074), and only while
    the question is not finished (ADR-0089). Each link names the worktree's own file as `file://…`,
-   so it works for the review, before the build, or the viewer the person's
-   `WHISKA_SPEC_LINK` names (ADR-0085). The person opens the files.
+   so it works for the review, before the build, and opens wherever the person's `.md`
+   files open (ADR-0085). The person opens the files.
 4. Build to both. A costly choice found mid-build is a real decision and stops the mouse
    the same way, and so is a costly change to the build plan; neither is a quiet edit to
    a file.

@@ -4,10 +4,10 @@ defmodule Whiska.HouseFile do
   ignored through `.git/info/exclude`, so no committed file changes, and
   replaced whole by a rename.
 
-  A link in the folder would carry the write anywhere the person can write,
-  such as a folder Claude Code reads as instructions, so a folder that is a
-  link refuses the write. A link at the file itself is replaced by the rename,
-  never followed.
+  A link in the folder would carry a write or a removal anywhere the person
+  can write, such as a folder Claude Code reads as instructions, so a folder
+  that is a link refuses both. A link at the file itself is replaced by the
+  rename, or removed, never followed.
   """
 
   alias Whiska.Spec
@@ -28,6 +28,21 @@ defmodule Whiska.HouseFile do
          :ok <- File.write(temp, text, [:exclusive]),
          :ok <- rename(temp, path) do
       {:ok, path}
+    end
+  end
+
+  @doc """
+  Remove `name` from `dir`, refusing a folder that is a link as `write/4`
+  does. A link at the file is removed, never followed; a file already gone is
+  done.
+  """
+  @spec remove(Path.t(), String.t(), String.t()) :: :ok | {:error, term()}
+  def remove(main_checkout, dir, name) do
+    with :ok <- no_link(main_checkout, dir) do
+      case File.rm(Path.join([main_checkout, dir, name])) do
+        {:error, :enoent} -> :ok
+        result -> result
+      end
     end
   end
 
