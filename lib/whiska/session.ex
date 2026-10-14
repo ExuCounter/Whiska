@@ -53,19 +53,6 @@ defmodule Whiska.Session do
   end
 
   @doc """
-  The main checkout this session started in: a folder whose `.git` is a
-  directory. `{:error, :not_a_main_checkout}` anywhere else.
-  """
-  @spec main_checkout(map(), map()) :: {:ok, Path.t()} | {:error, :not_a_main_checkout}
-  def main_checkout(payload, env \\ System.get_env()) do
-    dir = started_in(payload, env)
-
-    if File.dir?(Path.join(dir, ".git")),
-      do: {:ok, dir},
-      else: {:error, :not_a_main_checkout}
-  end
-
-  @doc """
   Is this hook firing in the pane the house calls its main session?
 
   For a caller that has the house open already and can read the pane itself.

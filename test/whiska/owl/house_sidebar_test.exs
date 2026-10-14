@@ -227,6 +227,36 @@ defmodule Whiska.Owl.HouseSidebarTest do
       said = "❓ answer not taken"
       assert_receive {:reported, "w2", %{"whiska" => ^said}}, 1_000
     end
+
+    test "says a finished branch is finished, and counts it as waiting nowhere", %{
+      main: main,
+      worktree: worktree
+    } do
+      {:ok, handle} = Storage.open(main, name: nil)
+
+      {:ok, _} =
+        Storage.record_question(%{
+          mouse_id: "ma",
+          text: "## Summary\nImporter merged.\n\u2063\u2063\u2063",
+          kind: "done",
+          status: "closed"
+        })
+
+      Storage.close(handle)
+
+      stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(worktree, "idle", "w2")]} end)
+      stub(Herdr, :subscribe, fn @socket, _subs, _listener -> fake_subscription() end)
+      fake_herdr([main_ws(main), mouse_ws("w2", worktree)])
+
+      open(main, [])
+
+      assert_receive {:reported, "w2",
+                      %{"whiska" => "✅ finished", "whiska_q" => "Importer merged."}},
+                     1_000
+
+      assert_receive {:reported, "w1", main_line}, 1_000
+      refute inspect(main_line) =~ "❓"
+    end
   end
 
   describe "a line that does not change" do

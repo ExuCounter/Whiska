@@ -269,7 +269,7 @@ defmodule Whiska.CLI do
     merge-request <id> <url>
                          Record the merge request just opened for the branch
                          of finished question <id>, by its https link. Its
-                         later finished lines then say "merge request opened"
+                         later finished reports then say "merge request opened"
                          and offer pushing to it, and the owl fetches the base
                          branch until it lands. `whiska pr` records the one it
                          opens; this is for one opened by hand.
@@ -2223,23 +2223,25 @@ defmodule Whiska.CLI do
 
   # -- away, focus, hold and resume (ADR-0079)
 
+  # Finished branches are listed after what waits, never in the JSON: none of
+  # them waits on the person (ADR-0009).
   defp inbox(shape, scope, cwd) do
-    entries = inbox_entries(scope, cwd)
+    {entries, finished} = inbox_entries(scope, cwd)
 
     case shape do
       :json -> say(Waiting.json(entries))
-      :text -> say(Waiting.render(entries, away?: Mode.away?()))
+      :text -> say(Waiting.render(entries, away?: Mode.away?(), finished: finished.()))
     end
   end
 
   defp inbox_entries(:here, cwd) do
     case main_checkout(cwd || File.cwd!()) do
-      {:ok, main} -> Waiting.house(main)
-      :error -> Waiting.list()
+      {:ok, main} -> {Waiting.house(main), fn -> Waiting.finished_in(main) end}
+      :error -> inbox_entries(:all, cwd)
     end
   end
 
-  defp inbox_entries(:all, _cwd), do: Waiting.list()
+  defp inbox_entries(:all, _cwd), do: {Waiting.list(), &Waiting.finished/0}
 
   defp away do
     was_away = Mode.away?()
@@ -2380,18 +2382,14 @@ defmodule Whiska.CLI do
 
   # A question asked after the stamp is the stop the hold caused: the carry-on
   # line answers it, so it is never delivered as a decision once the hold is
-  # gone. A `done` after the stamp is a mouse that finished anyway, and its
-  # finished line is what the person hears next, once nothing is out waiting
-  # on them (ADR-0008). Anything older was there before
+  # gone. A `done` after the stamp is a mouse that finished anyway, and waits
+  # on nobody (ADR-0009). Anything older was there before
   # the hold and is the person's to answer.
   defp carry_on(mouse, branch, held_at, %Question{asked_at: asked_at} = latest)
        when is_struct(asked_at, DateTime) do
     cond do
       DateTime.compare(asked_at, held_at) == :gt and latest.kind == "done" ->
-        say(
-          "Hold on #{branch} lifted. It had finished; its finished line is told " <>
-            "once nothing else is out waiting on you."
-        )
+        say("Hold on #{branch} lifted. It had finished.")
 
       DateTime.compare(asked_at, held_at) == :gt ->
         type_carry_on(mouse, branch, latest)

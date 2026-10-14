@@ -520,18 +520,18 @@ defmodule Whiska.DoctorTest do
   # -- doorstep ----------------------------------------------------------------
 
   describe "doorstep/2" do
-    test "nothing waiting is ok" do
-      assert %Check{status: :ok, detail: "nothing waiting"} = Doctor.doorstep([], now())
+    test "an empty doorstep is ok" do
+      assert %Check{status: :ok, detail: "nothing uncollected"} = Doctor.doorstep([], now())
     end
 
-    test "waiting entries warn with the count and the oldest age" do
+    test "uncollected entries, a finished report's included, warn with the count and the oldest age" do
       now = now()
       entries = [entry(DateTime.add(now, -40 * 60)), entry(DateTime.add(now, -5 * 60))]
 
       assert %Check{status: :warn, detail: detail, fix: "whiska owl"} =
                Doctor.doorstep(entries, now)
 
-      assert detail =~ "2 waiting"
+      assert detail =~ "2 not collected yet"
       assert detail =~ "oldest 40 min"
     end
   end
@@ -1493,7 +1493,7 @@ defmodule Whiska.DoctorTest do
       report = Doctor.run(main, env: env, owl_pids: fn -> [] end)
 
       assert %Check{status: :warn, detail: detail} = find(report.checks, "doorstep")
-      assert detail =~ "1 waiting"
+      assert detail =~ "1 not collected yet"
       assert [%Check{status: :warn}] = Enum.filter(report.checks, &(&1.name == "mice"))
     end
 

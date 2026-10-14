@@ -94,15 +94,13 @@ defmodule Whiska.Delivery.ModeTest do
   end
 
   describe "next/2 — what goes next, if the main session will have it" do
-    test "a finished report first, then the oldest open question" do
-      questions = [q(1, "ma", "open"), q(2, "mb", "open", "done")]
-      assert %Question{id: 2} = Mode.next(questions, mode())
+    test "the oldest open question" do
+      assert %Question{id: 1} = Mode.next([q(2, "mb", "open"), q(1, "ma", "open")], mode())
     end
 
-    test "an heir goes ahead of an older finished report and an older open question" do
+    test "an heir goes ahead of an older open question" do
       heir = %{q(3, "ma", "open") | keeps_slot: true}
-      questions = [q(1, "mb", "open"), q(2, "mc", "open", "done"), heir]
-      assert %Question{id: 3} = Mode.next(questions, mode())
+      assert %Question{id: 3} = Mode.next([q(1, "mb", "open"), heir], mode())
     end
 
     test "a reply to a letter goes ahead of an older report and question, behind an heir" do
@@ -130,24 +128,19 @@ defmodule Whiska.Delivery.ModeTest do
       assert Mode.next([q(1, "ma", "sent"), q(2, "mb", "open")], mode()) == nil
     end
 
-    test "a finished report waits for the slot like any question" do
-      assert Mode.next([q(1, "ma", "sent"), q(2, "mb", "open", "done")], mode()) == nil
+    test "a stop that said nothing holds the slot like a decision" do
+      assert Mode.next([q(1, "ma", "sent", "unmarked"), q(2, "mb", "open")], mode()) == nil
     end
 
-    test "a stop that said nothing holds a finished report back like a decision" do
-      assert Mode.next([q(1, "ma", "sent", "unmarked"), q(2, "mb", "open", "done")], mode()) ==
-               nil
-    end
-
-    test "a held or unfocused mouse's sent question does not hold a finished report back" do
-      questions = [q(1, "ma", "sent"), q(2, "mb", "open", "done")]
+    test "a held or unfocused mouse's sent question does not hold the next one back" do
+      questions = [q(1, "ma", "sent"), q(2, "mb", "open")]
 
       assert %Question{id: 2} = Mode.next(questions, mode(held: MapSet.new(["ma"])))
       assert %Question{id: 2} = Mode.next(questions, mode(focus: "mb"))
     end
 
-    test "nothing at all while away, a finished report included" do
-      refute Mode.next([q(1, "ma", "open"), q(2, "mb", "open", "done")], mode(away?: true))
+    test "nothing at all while away" do
+      refute Mode.next([q(1, "ma", "open"), q(2, "mb", "open")], mode(away?: true))
     end
 
     test "a held mouse's question is skipped, and its sent one frees the slot" do
@@ -186,23 +179,12 @@ defmodule Whiska.Delivery.ModeTest do
       assert Mode.open_count(questions, mode(away?: true)) == 0
     end
 
-    test "more counts what could be delivered behind a question, finished reports apart" do
-      going = q(1, "ma", "open", "done")
+    test "more counts the open questions that could be delivered behind a question" do
+      going = q(1, "ma", "open")
+      questions = [going, q(2, "mb", "open"), q(3, "mc", "open"), q(4, "md", "sent")]
 
-      questions = [
-        going,
-        q(2, "mb", "open", "done"),
-        q(3, "mc", "open"),
-        q(4, "md", "open", "done"),
-        q(5, "me", "sent")
-      ]
-
-      assert Mode.more(questions, mode(), going) == %{finished: 2, open: 1}
-
-      assert Mode.more(questions, mode(held: MapSet.new(["md"])), going) == %{
-               finished: 1,
-               open: 1
-             }
+      assert Mode.more(questions, mode(), going) == %{open: 2}
+      assert Mode.more(questions, mode(held: MapSet.new(["mc"])), going) == %{open: 1}
     end
   end
 

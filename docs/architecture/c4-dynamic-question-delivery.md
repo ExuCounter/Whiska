@@ -2,10 +2,10 @@
 
 All of this is built. The doorstep and collection are ADR-0036, classification ADR-0009,
 the hook's reading of the transcript before it writes ADR-0052, the queue and its hold
-while the person is typing ADR-0008 and ADR-0047, the hoot ADR-0062, the reply keyed to a
-question id ADR-0005, and the answer taken by the mouse's own hook ADR-0080. Shown as a
-dynamic diagram because the ordering is the design. Nothing here crosses into another
-repo (ADR-0044).
+while the person is typing ADR-0008 and ADR-0047, the hoot and the reminder ADR-0062,
+the reply keyed to a question id ADR-0005, and the answer taken by the mouse's own hook
+ADR-0080. Shown as a dynamic diagram because the ordering is the design. Nothing here
+crosses into another repo (ADR-0044).
 
 > Mermaid numbers a `C4Dynamic` diagram's relationships itself, in declaration
 > order — so the order of the `Rel` lines below is the flow.
@@ -23,7 +23,7 @@ C4Dynamic
   Container_Boundary(owl, "Owl") {
     Component(doorstep, "Doorstep", "directory", "Uncollected entries")
     Component(collection, "Collection", "per house", "Reads and marks, never deletes")
-    Component(delivery, "Delivery", "per house, a queue", "One question at a time, when idle; a finished line first once the slot is free")
+    Component(delivery, "Delivery", "per house, a queue", "One question at a time, when idle; a done report never enters it")
   }
 
   ContainerDb(db, "House database", "SQLite", "questions")
@@ -32,8 +32,9 @@ C4Dynamic
   Rel(mousepane, doorstep, "Otherwise the turn is over: one entry lands, written by the owl over its hook socket, or by the escript when the owl does not answer")
   Rel(herdr, collection, "Reports that mouse done or idle, unless the owl that wrote the entry has already asked")
   Rel(collection, doorstep, "Collect what is there")
-  Rel(collection, db, "Record as a question, classified by its worktree-status marker")
-  Rel(delivery, db, "Release what nothing can answer; then, among what the person has not set aside (away, focus, hold), and only if the slot is free: a superseded question's heir, then a letter's reply, then any finished line to tell, otherwise the oldest open question")
+  Rel(collection, db, "Record as a question, classified by its worktree-status marker; a done report is recorded closed")
+  Rel(collection, herdr, "A done report: one hoot now, then a reminder every two hours while its branch has work to land")
+  Rel(delivery, db, "Release what nothing can answer; then, among what the person has not set aside (away, focus, hold), and only if the slot is free: a superseded question's heir, then a letter's reply, otherwise the oldest open question")
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
   Rel(delivery, mainpane, "Type one line only if idle, nothing half-typed and nothing sent")
   Rel(delivery, herdr, "Hoot: one desktop notification, raised in the same breath as the line")
@@ -43,7 +44,6 @@ C4Dynamic
   Rel(person, mousepane, "Then rings its doorbell through herdr: one fixed line, never the answer")
   Rel(mousepane, db, "Its UserPromptSubmit hook reads the answer, hands it over as context, stamps it taken")
   Rel(delivery, mousepane, "Not taken: rings again on the backstop, at most three times, then tells the person")
-  Rel(mainpane, db, "After a finished line: the person's next prompt there, through its UserPromptSubmit hook, settles it and frees the slot")
 
   UpdateRelStyle(mousepane, doorstep, $textColor="blue", $lineColor="blue", $offsetY="-20")
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")

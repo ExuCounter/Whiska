@@ -589,7 +589,7 @@ defmodule Whiska.Owl.HouseTest do
       assert length(Doorstep.waiting(main)) == 1
     end
 
-    test "a done report is left open to be delivered, like any other (ADR-0009)", %{
+    test "a done report is recorded closed, never delivered (ADR-0009)", %{
       main: main,
       a: a,
       house: house
@@ -598,7 +598,7 @@ defmodule Whiska.Owl.HouseTest do
       House.collect(house)
 
       in_house(house, fn ->
-        assert [%Question{kind: "done", status: "open"}] = Storage.all(Question)
+        assert [%Question{kind: "done", status: "closed"}] = Storage.all(Question)
       end)
     end
 

@@ -229,15 +229,12 @@ defmodule Whiska.StorageOwlTest do
       assert Storage.question(theirs.id).status == "open"
     end
 
-    # A finished line never takes the slot and never holds it (ADR-0008), so it is not
-    # this sweep's business: releasing it would be the
-    # branch finishing silently.
-    test "leaves a done report alone when it arrives after its mouse died" do
+    test "leaves a finished report closed when its mouse died, so its branch is still finished" do
       {:ok, _} = Storage.mark_dead("m1")
-      report = ask("m1", %{kind: "done"})
+      report = ask("m1", %{kind: "done", status: "closed"})
 
       assert [] = Storage.release_unanswerable()
-      assert Storage.question(report.id).status == "open"
+      assert Storage.question(report.id).status == "closed"
     end
 
     test "leaves a live mouse's questions and everything already settled alone" do

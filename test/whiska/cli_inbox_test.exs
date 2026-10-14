@@ -169,6 +169,38 @@ defmodule Whiska.CLIInboxTest do
       assert b =~ ~r/#2 .*held$/
     end
 
+    test "lists finished branches in a block of their own after what waits, never in --json",
+         %{main: main} do
+      report = "# Importer\n## Summary\nImporter merged; 31 tests pass.\n\u2063\u2063\u2063"
+
+      seed(main, fn ->
+        ask("mb", "[worktree-status: needs-decision] b?")
+        ask("ma", report, %{kind: "done", status: "closed"})
+      end)
+
+      for argv <- [["inbox"], ["inbox", "--all"]] do
+        {0, out, _} = run(argv, main)
+        [waiting, finished] = String.split(out, "✅ Finished, not landed:\n")
+        assert waiting =~ "b?"
+        refute waiting =~ "feat-a"
+        assert finished =~ ~r/feat-a .*Importer merged; 31 tests pass\. .*#2/
+      end
+
+      {0, json, _} = run(["inbox", "--json"], main)
+      assert {:ok, [%{"id" => 1}]} = JSON.decode(json)
+    end
+
+    test "with nothing waiting, still lists what finished, and its hold", %{main: main} do
+      seed(main, fn ->
+        ask("ma", "Done.\n\u2063\u2063\u2063", %{kind: "done", status: "closed"})
+        {:ok, _} = Storage.hold("ma")
+      end)
+
+      {0, out, _} = run(["inbox"], main)
+      assert out =~ "Nothing needs you"
+      assert out =~ ~r/✅ Finished, not landed:\n.*feat-a.*held$/m
+    end
+
     test "--json carries the same rows", %{main: main} do
       seed(main, fn ->
         ask("ma", "[worktree-status: needs-decision] a?")
@@ -411,20 +443,21 @@ defmodule Whiska.CLIInboxTest do
       end)
     end
 
-    test "a mouse that finished after being held gets no line, and its finished line is told",
+    test "a mouse that finished after being held gets no line, and is said to have finished",
          %{main: main} do
       seed(main, fn ->
         {:ok, _} = Storage.hold("ma")
         Process.sleep(1_100)
-        ask("ma", "all done\n[worktree-status: done]", %{kind: "done"})
+        ask("ma", "all done\n[worktree-status: done]", %{kind: "done", status: "closed"})
       end)
 
       {0, out, _} = run(["resume", "feat-a"], main)
-      assert out =~ "finished line is told once nothing else is out waiting on you"
+      assert out =~ "Hold on feat-a lifted. It had finished."
+      refute out =~ "waiting on you"
 
       in_house(main, fn ->
         assert Storage.mouse("ma").held_at == nil
-        assert Storage.question(1).status == "open"
+        assert Storage.question(1).status == "closed"
       end)
     end
 

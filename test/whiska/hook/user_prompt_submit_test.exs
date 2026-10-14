@@ -11,7 +11,6 @@ defmodule Whiska.Hook.UserPromptSubmitTest do
   import ExUnit.CaptureIO
 
   alias Whiska.AnswerFlag
-  alias Whiska.FinishFlag
   alias Whiska.Hook.UserPromptSubmit
   alias Whiska.Marker
   alias Whiska.Storage
@@ -250,70 +249,22 @@ defmodule Whiska.Hook.UserPromptSubmitTest do
     assert context(output) =~ "yes"
   end
 
-  describe "in the main session, after a finished line (ADR-0008)" do
-    setup %{main: main, worktree: worktree, mouse_id: mouse_id} do
-      seed(main, worktree, mouse_id, fn ->
-        Storage.set_main_pane("w1:p7")
-        {:ok, q} = Storage.record_question(%{mouse_id: mouse_id, text: "Done.", kind: "done"})
-        {:ok, _} = Storage.mark_sent(q.id)
-      end)
+  # A finished report is closed as it is collected (ADR-0009), so nothing in
+  # the main session waits on the person's next prompt.
+  test "a prompt in the main session changes nothing", %{
+    main: main,
+    worktree: worktree,
+    mouse_id: mouse_id
+  } do
+    seed(main, worktree, mouse_id, fn ->
+      Storage.set_main_pane("w1:p7")
+      {:ok, _} = Storage.record_question(%{mouse_id: mouse_id, text: "?", kind: "needs-decision"})
+      {:ok, _} = Storage.mark_sent(1)
+    end)
 
-      :ok = FinishFlag.set(main)
-      :ok
-    end
-
-    defp said(cwd, words), do: JSON.encode!(%{"cwd" => cwd, "prompt" => words})
-
-    test "the person's next prompt settles the finished line and lowers the flag", %{main: main} do
-      in_house(main, fn ->
-        {:ok, _} = Storage.record_mouse(%{mouse_id: "held", path: "/elsewhere", branch: "b"})
-        {:ok, q} = Storage.record_question(%{mouse_id: "held", text: "?", kind: "needs-decision"})
-        {:ok, _} = Storage.mark_sent(q.id)
-      end)
-
-      assert UserPromptSubmit.run(said(main, "A")) == :none
-
-      in_house(main, fn ->
-        assert Storage.question(1).status == "closed"
-        assert Storage.question(2).status == "sent"
-      end)
-
-      refute FinishFlag.set?(main)
-    end
-
-    test "a flag with nothing left out is lowered from any pane", %{main: main} do
-      in_house(main, fn -> {:ok, _} = Storage.close_question(1) end)
-      System.put_env("HERDR_PANE_ID", "w9:p9")
-
-      assert UserPromptSubmit.run(said(main, "A")) == :none
-      refute FinishFlag.set?(main)
-    end
-
-    test "the owl's own line settles nothing", %{main: main} do
-      assert UserPromptSubmit.run(said(main, "🐱 feat-thing finished · #1")) == :none
-
-      in_house(main, fn -> assert Storage.question(1).status == "sent" end)
-      assert FinishFlag.set?(main)
-    end
-
-    test "a prompt in another pane settles nothing", %{main: main} do
-      System.put_env("HERDR_PANE_ID", "w9:p9")
-
-      assert UserPromptSubmit.run(said(main, "A")) == :none
-
-      in_house(main, fn -> assert Storage.question(1).status == "sent" end)
-      assert FinishFlag.set?(main)
-    end
-
-    test "a claude the main session started settles nothing", %{main: main} do
-      pid = Whiska.Test.ClaudeTree.nested(Path.join(main, "procs"))
-      env = Map.put(System.get_env(), "CLAUDE_PID", pid)
-
-      assert UserPromptSubmit.run(said(main, "A"), env) == :none
-
-      in_house(main, fn -> assert Storage.question(1).status == "sent" end)
-      assert FinishFlag.set?(main)
-    end
+    payload = JSON.encode!(%{"cwd" => main, "prompt" => "A"})
+    assert UserPromptSubmit.run(payload) == :none
+    in_house(main, fn -> assert Storage.question(1).status == "sent" end)
   end
 
   test "a malformed payload is a no-op, never a crash" do

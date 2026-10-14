@@ -123,7 +123,7 @@ defmodule Whiska.E2ETest do
     {:ok, dir: dir, main: main, worktree: worktree, env: env, home: home}
   end
 
-  test "a finished turn reaches the main session through the real owl, in a house built by an older Whiska",
+  test "a finished turn hoots through the real owl and is never typed, in a house built by an older Whiska",
        c do
     # The house as the last release left it: schema 6, before ADR-0069, with
     # mice in it. Whatever opens it first under this binary runs migration 7.
@@ -135,12 +135,18 @@ defmodule Whiska.E2ETest do
 
     finish_turn(c, mouse, "The search box filters as you type.\n#{@done_marker}")
 
-    line = await_line(c, main, &String.starts_with?(&1, "🐱 feat-x finished"), 40_000)
-    assert line =~ ~r/^🐱 feat-x finished · #\d+$/
-    assert query(c.main, "select count(*) from questions") == ["1"], diagnostics(c)
+    hoots = Path.join(c.home, "hoots")
 
-    assert File.read!(Path.join(c.home, "hoots")) =~ "feat-x",
-           "no hoot went out with the line (ADR-0062)"
+    await(
+      fn -> File.exists?(hoots) and File.read!(hoots) =~ "feat-x finished" end,
+      40_000,
+      fn -> "no hoot went out for the finished turn (ADR-0062).\n" <> diagnostics(c) end
+    )
+
+    assert query(c.main, "select status from questions") == ["closed"], diagnostics(c)
+
+    refute Enum.any?(received(main), &String.starts_with?(&1, "🐱")),
+           "a finished report was typed into the main session (ADR-0009)"
 
     assert shaped_at(c.main, older) == [
              "2026-09-01T10:00:00Z",

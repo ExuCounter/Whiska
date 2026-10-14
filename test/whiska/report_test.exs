@@ -96,6 +96,11 @@ defmodule Whiska.ReportTest do
                "All green."
     end
 
+    test "the pointer after its own marker comes first" do
+      assert Report.outcome("## Summary\nMerged.\n[worktree-status: done] shipped it") ==
+               "shipped it"
+    end
+
     test "no summary: the last line before the ledger" do
       assert Report.outcome("Merged.\n\nAll 31 tests pass.\n\n" <> @ledger) ==
                "All 31 tests pass."

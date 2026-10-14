@@ -35,18 +35,21 @@ defmodule Whiska.Waiting do
   alias Whiska.Mice
   alias Whiska.OpenHouses
   alias Whiska.Question.Marker
+  alias Whiska.Report
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
+  alias Whiska.Watch.Text
 
   # What a listing line has room for, and what a statusline segment would.
   @pointer_max 60
+  @branch_max 60
 
   @typedoc """
   One thing waiting on the person. `id` is the question id, or `nil` for
   something still on the doorstep — it has no id until the owl collects it.
   `status` is `open`, `sent`, `not_taken` (an answer its mouse never took) or
-  `doorstep`; `kind` is the mouse's own marker (ADR-0009). `pane` is `nil` when
+  `doorstep`, or `finished` for an entry of `finished/1`, which waits on nobody; `kind` is the mouse's own marker (ADR-0009). `pane` is `nil` when
   the house has no pane recorded for the mouse. `waits` is why it is not being
   delivered, in the listing's words — `held`, `away`, `focus: <branch>`,
   `queued behind #<id>`, `not taken` — or nil, and `held?` says whether its mouse is on
@@ -85,15 +88,33 @@ defmodule Whiska.Waiting do
   end
 
   @doc """
+  How long the oldest entry on any recorded house's doorstep has sat there, in
+  seconds, a finished report's included: nil when every doorstep is empty.
+  Options as `list/1`'s.
+  """
+  @spec oldest_uncollected_s(keyword()) :: non_neg_integer() | nil
+  def oldest_uncollected_s(opts \\ []) do
+    now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
+
+    opts
+    |> houses()
+    |> Enum.flat_map(&Doorstep.waiting/1)
+    |> Enum.map(fn {_file, e} -> max(DateTime.diff(now, e.stamped_at, :second), 0) end)
+    |> Enum.max(fn -> nil end)
+  end
+
+  @doc """
   One house's waiting entries: its open and sent questions, then whatever is
-  still on its doorstep. Oldest first within the house.
+  still on its doorstep but a finished report. Oldest first within the house.
   """
   @spec house(Path.t(), keyword()) :: [entry()]
   def house(main_checkout, opts \\ []) do
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
     away_path = Keyword.get_lazy(opts, :away_path, &Mode.away_path/0)
     main = Path.expand(main_checkout)
-    doorstep = Doorstep.waiting(main)
+
+    doorstep =
+      Enum.reject(Doorstep.waiting(main), fn {_file, e} -> Marker.classify(e.text) == "done" end)
 
     entries =
       if File.exists?(Storage.database_path(main)) do
@@ -131,6 +152,40 @@ defmodule Whiska.Waiting do
     case Storage.mouse(mouse_id) do
       %Mouse{branch: branch} when is_binary(branch) -> branch
       _ -> mouse_id
+    end
+  end
+
+  @doc """
+  Every finished branch across every recorded house, oldest first: what
+  `Whiska.Storage.finished/0` holds in each. Not waiting — a finished report
+  waits on nobody (ADR-0009) — so never counted with `list/1`; the inbox lists
+  them apart. Takes `list/1`'s options.
+  """
+  @spec finished(keyword()) :: [entry()]
+  def finished(opts \\ []) do
+    opts
+    |> houses()
+    |> Enum.flat_map(&finished_in(&1, opts))
+    |> Enum.sort_by(& &1.age_s, :desc)
+  end
+
+  @doc "One house's finished branches, oldest first. Takes `list/1`'s options."
+  @spec finished_in(Path.t(), keyword()) :: [entry()]
+  def finished_in(main_checkout, opts \\ []) do
+    now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
+    away_path = Keyword.get_lazy(opts, :away_path, &Mode.away_path/0)
+    main = Path.expand(main_checkout)
+
+    if File.exists?(Storage.database_path(main)) do
+      case with_house(main, fn ->
+             context = %{main: main, now: now, mode: Mode.read(away_path: away_path)}
+             Enum.map(Storage.finished(), &from_finished(&1, context))
+           end) do
+        list when is_list(list) -> Enum.sort_by(list, & &1.age_s, :desc)
+        :unreadable -> []
+      end
+    else
+      []
     end
   end
 
@@ -373,6 +428,26 @@ defmodule Whiska.Waiting do
     }
   end
 
+  # Its pointer is the report's outcome, as on its sidebar line, and the only
+  # note it can carry is a hold: nothing else stands between it and the person.
+  defp from_finished(%Question{} = q, %{main: main, now: now} = context) do
+    held? = held?(q, context)
+
+    %{
+      repo: Path.basename(main),
+      main_checkout: main,
+      branch: branch(q),
+      id: q.id,
+      kind: q.kind,
+      status: "finished",
+      pointer: Report.outcome(q.text),
+      age_s: max(DateTime.diff(now, q.asked_at, :second), 0),
+      pane: pane_of(q.mouse),
+      waits: if(held?, do: "held"),
+      held?: held?
+    }
+  end
+
   # The person answered and the owl gave up ringing for it, so it is theirs
   # again: typing anything into the mouse's pane hands it over
   # (ADR-0080).
@@ -434,15 +509,24 @@ defmodule Whiska.Waiting do
   before deciding where to go, and ADR-0048's "a count for many" is about a
   statusline segment, not about a command whose whole job is the list.
 
+  Finished branches (`finished/1`) follow in a block of their own, since none
+  of them waits on the person.
+
   Options: `:away?`, whether the person is away (not read here, since the
-  entries may have come from anywhere).
+  entries may have come from anywhere); `:finished`, the finished branches to
+  list after them.
   """
   @spec render([entry()], keyword()) :: String.t()
-  def render(entries, opts \\ [])
+  def render(entries, opts \\ []) do
+    waiting = if entries == [], do: nothing_waiting(), else: lines(entries)
 
-  def render([], opts), do: away_line(opts) <> nothing_waiting()
+    case Keyword.get(opts, :finished, []) do
+      [] -> away_line(opts) <> waiting
+      finished -> away_line(opts) <> waiting <> "\n\n✅ Finished, not landed:\n" <> lines(finished)
+    end
+  end
 
-  def render(entries, opts) do
+  defp lines(entries) do
     rows = Enum.map(entries, &row/1)
     columns = [:repo, :branch, :what, :age, :ref, :pane, :note]
 
@@ -451,12 +535,11 @@ defmodule Whiska.Waiting do
         {c, rows |> Enum.map(&String.length(Map.fetch!(&1, c))) |> Enum.max()}
       end)
 
-    away_line(opts) <>
-      Enum.map_join(rows, "\n", fn row ->
-        columns
-        |> Enum.map_join("  ", &String.pad_trailing(Map.fetch!(row, &1), widths[&1]))
-        |> String.trim_trailing()
-      end)
+    Enum.map_join(rows, "\n", fn row ->
+      columns
+      |> Enum.map_join("  ", &String.pad_trailing(Map.fetch!(row, &1), widths[&1]))
+      |> String.trim_trailing()
+    end)
   end
 
   defp nothing_waiting, do: "🦉 Nothing needs you · the owl delivers when something does"
@@ -470,7 +553,7 @@ defmodule Whiska.Waiting do
   defp row(entry) do
     %{
       repo: entry.repo,
-      branch: entry.branch,
+      branch: Text.plain(entry.branch || "", @branch_max),
       what: what(entry),
       age: Mice.format_uptime(entry.age_s),
       ref: if(entry.id, do: "##{entry.id}", else: "doorstep"),
@@ -482,16 +565,10 @@ defmodule Whiska.Waiting do
   # The words `whiska questions` already uses for a kind, plus the pointer the
   # mouse wrote after its own marker when there is one.
   defp what(%{kind: kind, pointer: pointer}) do
-    case String.trim(pointer) do
+    case Text.plain(pointer, @pointer_max) do
       "" -> Whiska.Questions.verb(kind)
-      p -> "#{Whiska.Questions.verb(kind)}: #{clip(p)}"
+      p -> "#{Whiska.Questions.verb(kind)}: #{p}"
     end
-  end
-
-  defp clip(text) do
-    if String.length(text) > @pointer_max,
-      do: String.slice(text, 0, @pointer_max - 1) <> "…",
-      else: text
   end
 
   @doc """

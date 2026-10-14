@@ -24,7 +24,6 @@ C4Container
     Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, removed once collected")
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records, questions and each collected turn's usage, one per repo")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
-    Container(finishflag, "Finish flag", "empty file, whiska-finish in the main checkout's .git", "A finished line is out and the person has not written since; the shim reads it so a main-session prompt with nothing to settle starts nothing")
     Container(flag, "Answer flag", "empty file, whiska-answer in the worktree's git admin directory", "This worktree's mouse has an answer not yet taken; the shim reads it so a prompt with nothing waiting starts nothing")
     Container(brief, "Brief", ".whiska-brief.md file, or main.md in .git/whiska/", "Everything Whiska tells one session, which Claude Code starts with: a mouse's at its worktree root, git ignores it; the main session's in the house")
     Container(denylist, "Deny list", ".whiska-settings.json file", "A shaped mouse's deny rules, which Claude Code starts with in bypass mode and enforces: the person's commands, and the edit tools for sniff; at its worktree root, git ignores it")
@@ -65,10 +64,8 @@ C4Container
   Rel(cli, hooksock, "start asks the owl running to open this repo", "open 1 <main checkout>")
   Rel(claude, brief, "Reads it once, at start, as part of its system prompt")
   Rel(claude, denylist, "Reads it once, at start, and denies what it lists")
-  Rel(claude, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session, UserPromptSubmit in the main session too")
+  Rel(claude, shim, "PreToolUse, Stop and UserPromptSubmit fire in every session; the shim leaves a main checkout's UserPromptSubmit at once")
   Rel(shim, flag, "user-prompt-submit in a mouse exits at once unless it is there")
-  Rel(shim, finishflag, "user-prompt-submit in the main session exits at once unless it is there")
-  Rel(house, finishflag, "Raises it when it delivers a finished line; the person's next prompt lowers it")
   Rel(shim, hooksock, "Asks first, with nc", "hook name, environment, payload")
   Rel(owl, hooksock, "Runs the same hook modules, with the hook's environment")
   Rel(shim, cli, "Execs with the payload on stdin when the owl does not answer", "JSON")
@@ -150,8 +147,8 @@ The reasoning is in the ADR each line names; this is the map.
   on Claude Code's launch line, so Claude Code enforces it from the first tool call; it is
   read once, which is why the hold, set while a mouse runs, stays in the hook
   (ADR-0090).
-- **Answer flag and finish flag**: hints for the shim, never the answer or the slot, which
-  are in the house database (ADR-0080, ADR-0008).
+- **Answer flag**: a hint for the shim, never the answer, which is in the house database
+  (ADR-0080).
 - **Spec and build plan in the worktree, kept copies in the main checkout**: both live and
   die with their mouse; the copies, side by side, are the archive (ADR-0063). The build
   plan is a separate file so the cold review can be kept from it (ADR-0049).

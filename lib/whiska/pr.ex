@@ -5,7 +5,7 @@ defmodule Whiska.PR do
   `glab` where the remote is a GitLab one. The body is the
   mouse's own message, which carries what the diff cannot; the title is the
   subject of the branch's first commit. The link is recorded on the mouse, so
-  the owl watches the base for its merge and the branch's next finished line
+  the owl watches the base for its merge and the branch's next finished report
   reads as one with a merge request open.
 
   A branch whose merge request is already open gets its new commits pushed to

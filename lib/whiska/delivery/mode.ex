@@ -129,11 +129,9 @@ defmodule Whiska.Delivery.Mode do
   waiting questions (`Whiska.Storage.questions/0`): nothing while a
   deliverable question is sent; otherwise an heir — a mouse's newer question
   that superseded the one holding the slot, which inherits it — then a
-  mouse's reply to a letter that superseded what held the slot, then the
-  oldest deliverable finished report, else the oldest deliverable open
-  question. A finished report waits
-  for the slot, then holds it once sent until the person writes something
-  (ADR-0008). Oldest
+  mouse's reply to a letter that superseded what held the slot, else the
+  oldest deliverable open question. A finished report is never among them:
+  it is closed as it is collected (ADR-0009). Oldest
   first otherwise; newest-first was rejected (a newer question from any mouse
   would jump ahead, and old ones could wait forever). Only an heir and a
   letter's reply go out of turn, and an heir first: it holds the slot, which
@@ -148,7 +146,6 @@ defmodule Whiska.Delivery.Mode do
       Enum.any?(deliverable, &(&1.status == "sent")) -> nil
       heir = Enum.find(open, & &1.keeps_slot) -> heir
       reply = Enum.find(open, & &1.goes_next) -> reply
-      report = Enum.find(open, &(&1.kind == "done")) -> report
       true -> List.first(open)
     end
   end
@@ -186,17 +183,12 @@ defmodule Whiska.Delivery.Mode do
     Enum.count(questions, &(&1.status == "open" and deliverable?(&1, mode)))
   end
 
-  @doc """
-  What could be delivered behind `question`, finished reports counted apart:
-  what a line's `n more finished` and `n more open` say.
-  """
+  @doc "What could be delivered behind `question`: what a line's `n more open` says."
   @spec more([Question.t()], t(), Question.t()) :: Text.more()
   def more(questions, mode, %Question{id: id}) do
-    {finished, open} =
-      questions
-      |> Enum.filter(&(&1.status == "open" and &1.id != id and deliverable?(&1, mode)))
-      |> Enum.split_with(&(&1.kind == "done"))
-
-    %{finished: length(finished), open: length(open)}
+    %{
+      open:
+        Enum.count(questions, &(&1.status == "open" and &1.id != id and deliverable?(&1, mode)))
+    }
   end
 end

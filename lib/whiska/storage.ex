@@ -13,7 +13,7 @@ defmodule Whiska.Storage do
   Being inside `.git/` also means it is gitignored by construction.
   """
 
-  import Ecto.Query, only: [from: 2]
+  import Ecto.Query, only: [from: 2, subquery: 1]
 
   alias Whiska.Layout
   alias Whiska.Repo
@@ -43,7 +43,8 @@ defmodule Whiska.Storage do
     {17, Whiska.Migrations.V017KeptAs},
     {18, Whiska.Migrations.V018MergeRequestReads},
     {19, Whiska.Migrations.V019NextKeepsSlot},
-    {20, Whiska.Migrations.V020LetterReply}
+    {20, Whiska.Migrations.V020LetterReply},
+    {21, Whiska.Migrations.V021ReportHooted}
   ]
 
   @modes ~w(build sniff)
@@ -459,10 +460,8 @@ defmodule Whiska.Storage do
   sweep that catches what arrived after it, and it is run before every delivery
   so the slot is judged by what is alive now. Returns what it released.
 
-  A `done` report is outside it: a branch whose mouse is gone is exactly the
-  one the person still wants to hear finished, and one already told holds the
-  slot only until the person writes something (ADR-0008). So is a question the
-  owl asked itself while its worktree stands: the main session answers it with
+  A `done` report never reaches it: it is closed as it is collected
+  (ADR-0009). A question the owl asked itself is outside it while its worktree stands: the main session answers it with
   `drop` or `dismiss`, and the mouse has no part in that (ADR-0087).
   """
   @spec release_unanswerable() :: [Question.t()]
@@ -470,7 +469,7 @@ defmodule Whiska.Storage do
     # The waiting questions are an indexed read of a handful of rows; working
     # out which records are current walks every record's path. A house with
     # nothing waiting is the common case and pays only the first.
-    case Enum.reject(questions(), &(&1.kind == "done")) do
+    case questions() do
       [] -> []
       waiting -> release_all(unanswerable(waiting))
     end
@@ -719,8 +718,9 @@ defmodule Whiska.Storage do
   @doc """
   Record a question the owl collected from the doorstep (ADR-0036).
 
-  An entry whose worktree is gone passes `orphaned`; everything else, a `done`
-  report included, arrives `open` and is told in its turn (ADR-0009). Kind and
+  An entry whose worktree is gone passes `orphaned`; a `done` report passes
+  `closed`, since it is never delivered (ADR-0009); everything else arrives
+  `open` and is told in its turn. Kind and
   status are checked against the lists on `Whiska.Schema.Question`, so nothing
   unclassifiable is stored.
   """
@@ -872,24 +872,6 @@ defmodule Whiska.Storage do
   @spec next_open() :: Question.t() | nil
   def next_open do
     Repo.one(from(q in Question, where: q.status == "open", order_by: q.id, limit: 1))
-  end
-
-  @doc """
-  The oldest `done` report still waiting to be told, or nil.
-
-  A finished line goes ahead of the queue once the one delivery slot is free
-  (ADR-0008). It is read apart from
-  `next_open/0` for that reason.
-  """
-  @spec next_done() :: Question.t() | nil
-  def next_done do
-    Repo.one(
-      from(q in Question,
-        where: q.status == "open" and q.kind == "done",
-        order_by: q.id,
-        limit: 1
-      )
-    )
   end
 
   @doc """
@@ -1062,20 +1044,77 @@ defmodule Whiska.Storage do
   end
 
   @doc """
-  Close every finished report already told: the person has written something
-  in the main session since, so the slot it held is free (ADR-0008). Returns how many were closed.
+  Every finished report that is still its branch's last word, oldest first,
+  with its mouse: closed as it was collected (ADR-0009), with no question of
+  its mouse's own asked after it and no turn started since, on a branch not
+  landed, with no merge request recorded, whose record still stands for a
+  worktree of this house and whose folder is still there. Dead mice included:
+  the work is what has not landed, pane or not.
+
+  What the sidebar line calls `✅ finished`, the inbox lists apart from what
+  waits, and the owl reminds the person of (ADR-0062).
   """
-  @spec settle_reports() :: non_neg_integer()
-  def settle_reports do
-    {n, _} = Repo.update_all(reports_out(), set: [status: "closed"])
-    n
+  @spec finished() :: [Question.t()]
+  def finished do
+    from([mouse: m] in last_words(),
+      where: is_nil(m.removed_at) and is_nil(m.landed_at) and is_nil(m.merge_request_at)
+    )
+    |> Repo.all()
+    |> standing()
   end
 
-  @doc "Is a finished report told and not yet settled?"
-  @spec reports_out?() :: boolean()
-  def reports_out?, do: Repo.exists?(reports_out())
+  @doc """
+  Every finished report still its branch's last word and owed its finish hoot
+  (ADR-0062), oldest first, with its mouse, whatever became of the branch.
+  """
+  @spec unhooted() :: [Question.t()]
+  def unhooted do
+    Repo.all(from([report: q] in last_words(), where: is_nil(q.hooted_at)))
+  end
 
-  defp reports_out, do: from(q in Question, where: q.kind == "done" and q.status == "sent")
+  defp last_words do
+    later =
+      from(l in Question,
+        where:
+          l.mouse_id == parent_as(:report).mouse_id and l.id != parent_as(:report).id and
+            (l.asked_at > parent_as(:report).asked_at or
+               (l.asked_at == parent_as(:report).asked_at and l.id > parent_as(:report).id)) and
+            (is_nil(l.asked_by) or l.asked_by != "owl"),
+        select: 1
+      )
+
+    from(q in Question,
+      as: :report,
+      join: m in assoc(q, :mouse),
+      as: :mouse,
+      where:
+        q.kind == "done" and q.status == "closed" and
+          (is_nil(q.asked_by) or q.asked_by != "owl") and
+          (is_nil(m.worked_at) or m.worked_at <= q.asked_at) and
+          not exists(subquery(later)),
+      order_by: q.id,
+      preload: [mouse: m]
+    )
+  end
+
+  defp standing([]), do: []
+
+  defp standing(reports) do
+    current = MapSet.new(current_mice(), & &1.mouse_id)
+    Enum.filter(reports, &(MapSet.member?(current, &1.mouse_id) and File.dir?(&1.mouse.path)))
+  end
+
+  @doc "Stamp finished reports hooted about at `at`: their finish hoot, or a reminder (ADR-0062)."
+  @spec hooted([pos_integer()], DateTime.t()) :: :ok
+  def hooted([], _at), do: :ok
+
+  def hooted(ids, at) do
+    Repo.update_all(from(q in Question, where: q.id in ^ids),
+      set: [hooted_at: DateTime.truncate(at, :second)]
+    )
+
+    :ok
+  end
 
   @doc """
   A newer question from a mouse supersedes its earlier open and sent ones: the
@@ -1089,7 +1128,8 @@ defmodule Whiska.Storage do
   question never lands in the middle of the conversation about this one.
   Otherwise, when one of them was a reply to a letter not yet typed, or this
   is the reply a letter left waiting for (`supersede_for_letter/2`), it is
-  marked `goes_next`.
+  marked `goes_next`. A finished report, closed as it is collected, takes no
+  place but still spends the one a letter left waiting.
   """
   @spec supersede_earlier(Question.t()) :: {:ok, non_neg_integer()}
   def supersede_earlier(%Question{asked_by: "owl"}), do: {:ok, 0}
@@ -1101,8 +1141,10 @@ defmodule Whiska.Storage do
     Repo.transaction(
       fn ->
         # Read again: a letter may have superseded it since it was recorded.
-        if Repo.exists?(from(q in Question, where: q.id == ^id and q.status == "open")) do
-          mark_place(id, earlier, spend_reply(mouse_id))
+        case Repo.one(from(q in Question, where: q.id == ^id, select: {q.status, q.kind})) do
+          {"open", _kind} -> mark_place(id, earlier, spend_reply(mouse_id))
+          {"closed", "done"} -> spend_reply(mouse_id)
+          _superseded -> :ok
         end
 
         {n, _} = Repo.update_all(earlier, set: [status: "superseded"])

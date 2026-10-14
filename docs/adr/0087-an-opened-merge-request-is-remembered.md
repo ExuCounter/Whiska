@@ -1,16 +1,16 @@
 # An opened merge request is remembered, and its base is fetched until it lands
 
-When the person says "pr" after a finished line, `whiska pr` opens the merge request and
+When the person says "pr" after a finished report, `whiska pr` opens the merge request and
 records its link on the mouse record; `whiska merge-request <id> <url>` records one opened
 by hand. From then on
-that branch's finished lines are a merge request's, and while it waits the owl fetches the
+that branch's finished reports are a merge request's, and while it waits the owl fetches the
 branch it was opened against, so a merge on the forge lands it for cleanup with nobody
 pulling.
 
 ## The problem, from the ordinary flow
 
 Before this, Whiska forgot the pick the moment it was made. The mouse handled review, sent
-a new finished line, and that line offered Land here (recommended), Open and Drop again,
+a new finished report, and its finish offered Land here (recommended), Open and Drop again,
 read from git alone. Land here beside an open merge request copies its work onto the base
 and leaves the request open with its work duplicated. And when the request merged on the
 forge, nothing on this machine noticed: the base here had not moved, so the worktree,
@@ -27,12 +27,12 @@ space, quote, bracket or control character in it: it is printed under the branch
 where the main session reads it and hands it to the person. A merge request opened any
 other way and never recorded is not known, and its branch reads as an ordinary one.
 
-**The request targets the mouse's base**, the branch its finished line names, not the
+**The request targets the mouse's base**, the branch its finished report names, not the
 forge's default branch. The owl watches that base for the merge, so a request into any
 other branch would never be seen landed and its worktree would stay. A line that names no
 base leaves the target to the forge.
 
-**Its finished lines read as an open request's.** The branch line reads `merge request
+**Its finished reports read as an open request's.** The branch line reads `merge request
 opened, <N> commits not pushed, …`, with `Merge request: <link>` under it. Not pushed
 counts the branch's commits that no remote and no base holds. On "pr" again, `whiska pr`
 pushes the new commits to the open request, never forced, refusing files not committed
@@ -103,7 +103,7 @@ from what a fetch brings back, by the git checks cleanup already trusts.
 - **Offer Drop it on a merge request's lines, last.** Rejected by the task: Drop beside an
   open request throws away what the request still shows. `whiska drop` covers a closed
   one.
-- **An "in review" state in the sidebar.** Left out at first, as the finished line
+- **An "in review" state in the sidebar.** Left out at first, as the finished report
   already said it; the request's own row says more since (ADR-0082).
 
 Changed on 2026-10-13: `whiska pr` opens and records the request, pushes to it once open,

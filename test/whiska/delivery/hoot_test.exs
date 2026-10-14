@@ -10,7 +10,7 @@ defmodule Whiska.Delivery.HootTest do
   alias Whiska.Delivery.Text
   alias Whiska.Schema.Question
 
-  @none %{finished: 0, open: 0}
+  @none %{open: 0}
 
   defp question(attrs) do
     struct(
@@ -35,12 +35,12 @@ defmodule Whiska.Delivery.HootTest do
     assert title == "🦉 whiska · Whiska asks about feat-a"
   end
 
-  test "a finished branch gets the same hoot with the quieter sound" do
-    q = question(kind: "done", text: "Merged and pushed.\n[worktree-status: done]")
+  test "a finished branch gets the same hoot with the quieter sound, saying what it came to" do
+    q = question(kind: "done", text: "## Summary\nImporter \e[1mmerged.\n\u2063\u2063\u2063")
 
     assert Hoot.compose(q, "whiska", "feat-a", @none) == %{
              title: "🐱 whiska · feat-a finished",
-             body: "#12",
+             body: ~s(#12 · "Importer [1mmerged."),
              sound: :done
            }
   end
@@ -65,7 +65,7 @@ defmodule Whiska.Delivery.HootTest do
   test "says how many more are waiting behind it, in the line's own words" do
     q = question(text: "[worktree-status: needs-decision] pick one")
 
-    assert %{body: body} = Hoot.compose(q, "whiska", "feat-a", %{finished: 0, open: 2})
+    assert %{body: body} = Hoot.compose(q, "whiska", "feat-a", %{open: 2})
     assert body == ~s(#12 · "pick one" · 2 more open)
   end
 
@@ -89,6 +89,65 @@ defmodule Whiska.Delivery.HootTest do
 
     assert String.length(title) < 120
     refute title =~ "\n"
+  end
+
+  describe "reminder/3 (ADR-0062)" do
+    defp report(branch, asked_at) do
+      question(
+        mouse_id: branch,
+        kind: "done",
+        status: "closed",
+        asked_at: asked_at,
+        mouse: %Whiska.Schema.Mouse{mouse_id: branch, branch: branch}
+      )
+    end
+
+    test "names every finished branch in one hoot, each with how long ago it finished" do
+      now = ~U[2026-10-14 12:00:00Z]
+
+      reports = [
+        report("feat/a", ~U[2026-10-14 07:00:00Z]),
+        report("fix/b", ~U[2026-10-14 11:20:00Z]),
+        report("feat/c", ~U[2026-10-11 12:00:00Z])
+      ]
+
+      assert Hoot.reminder(reports, "whiska", now) == %{
+               title: "🐱 whiska · 3 finished, not landed",
+               body: "no merge request: feat/a (5h), fix/b (40m), feat/c (3d)",
+               sound: :done
+             }
+    end
+
+    test "a branch is one plain line: no control or invisible characters" do
+      reports = [
+        report("feat/\e[31ma\u202E", ~U[2026-10-14 11:00:00Z]),
+        report("fix/\u200Bb", ~U[2026-10-14 11:00:00Z])
+      ]
+
+      assert %{body: "no merge request: feat/[31ma (1h), fix/b (1h)"} =
+               Hoot.reminder(reports, "whiska", ~U[2026-10-14 12:00:00Z])
+    end
+
+    test "names eight branches at most, and counts the rest" do
+      reports = for i <- 1..10, do: report("b#{i}", ~U[2026-10-14 11:00:00Z])
+
+      assert %{title: "🐱 whiska · 10 finished, not landed", body: body} =
+               Hoot.reminder(reports, "whiska", ~U[2026-10-14 12:00:00Z])
+
+      assert String.ends_with?(body, "b8 (1h), and 2 more")
+    end
+
+    test "a branch is flattened and cut as in any other hoot" do
+      reports = [
+        report("feat/a\nSECOND " <> String.duplicate("b", 400), ~U[2026-10-14 11:00:00Z])
+      ]
+
+      %{body: body} = Hoot.reminder(reports, "whiska", ~U[2026-10-14 12:00:00Z])
+
+      refute body =~ "\n"
+      assert body =~ "…"
+      assert String.ends_with?(body, "(1h)")
+    end
   end
 
   test "a long pointer is cut, so the hoot stays one glance" do

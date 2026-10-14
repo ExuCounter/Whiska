@@ -10,7 +10,6 @@ defmodule Whiska.InstallShimPromptTest do
   use ExUnit.Case, async: true
 
   alias Whiska.AnswerFlag
-  alias Whiska.FinishFlag
   alias Whiska.Install
 
   setup do
@@ -48,12 +47,13 @@ defmodule Whiska.InstallShimPromptTest do
                  run(sandbox(root, unquote(scope)), Path.join(root, "repo"))
       end
 
-      test "a main checkout with a finished line out reaches Whiska", %{root: root} do
+      # A finished report is never typed there, so nothing waits on a prompt
+      # (ADR-0009); an older owl's flag left behind is no reason to start.
+      test "a main checkout never reaches Whiska, an old finish flag or not", %{root: root} do
         main = Path.join(root, "repo")
-        :ok = FinishFlag.set(main)
+        File.write!(Path.join(main, ".git/whiska-finish"), "")
 
-        assert %{status: 0, called: [call]} = run(sandbox(root, unquote(scope)), main)
-        assert call.args == ["hook", "user-prompt-submit"]
+        assert %{status: 0, called: []} = run(sandbox(root, unquote(scope)), main)
       end
 
       test "a worktree with no answer waiting never reaches Whiska", %{

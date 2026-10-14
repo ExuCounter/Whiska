@@ -1781,7 +1781,7 @@ defmodule Whiska.Doctor do
 
   @doc "Uncollected entries: none is ok; any is a warning carrying the count and the oldest age."
   @spec doorstep([{Path.t(), Entry.t()} | Entry.t()], DateTime.t()) :: Check.t()
-  def doorstep([], _now), do: Check.ok("doorstep", "nothing waiting")
+  def doorstep([], _now), do: Check.ok("doorstep", "nothing uncollected")
 
   def doorstep(entries, now) do
     stamps =
@@ -1791,7 +1791,7 @@ defmodule Whiska.Doctor do
       end)
 
     oldest = stamps |> Enum.min(DateTime) |> then(&DateTime.diff(now, &1, :second))
-    Check.warn("doorstep", "#{length(entries)} waiting, oldest #{age(oldest)}", @owl)
+    Check.warn("doorstep", "#{length(entries)} not collected yet, oldest #{age(oldest)}", @owl)
   end
 
   @doc """

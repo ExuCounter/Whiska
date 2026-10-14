@@ -1,15 +1,41 @@
 # The owl hoots when it delivers
 
 The owl raises one desktop notification, a hoot, at the moment it delivers a question,
-from the same branch of the same function that types the line. herdr shows it from the
-person's own `[ui.toast]` and `[ui.sound]` settings; when herdr says it will not, the same
-hoot is raised on the desktop instead.
+from the same branch of the same function that types the line. A finished report, which is
+never delivered (ADR-0009), gets a hoot of its own, and a finished branch nobody landed is
+reminded now and then. herdr shows each from the person's own `[ui.toast]` and
+`[ui.sound]` settings; when herdr says it will not, the same hoot is raised on the desktop
+instead.
 
 ## Decision
 
 **Delivery, never collection.** A question collected and then gated, or set aside by
 `away`, a focus or a hold (ADR-0079), is not on the person's screen; a hoot then would
 announce something they cannot go and read. It hoots when the line lands, once.
+
+**A finished report hoots as it is collected**, once, since no line will ever land for
+it: the branch, `finished`, its id and its pointer, with the `done` sound. Away, a focus
+on another branch or a hold on its own holds that hoot until it lifts. It goes whatever
+became of the branch meanwhile, a merge request or a landing included: the report is news
+either way. Each report stores when it last hooted, so an owl restarted does not hoot it
+again.
+
+**A finished branch is reminded.** At most once per house every two hours, one hoot names
+each finished branch whose last hoot is two hours old or more, with how long ago it
+finished: `🐱 whiska · 2 finished, not landed`, then `no merge request: feat/a (5h),
+fix/b (2h)`. A branch is named while its report is still its last word (no later
+question of its mouse's, no turn started since), no merge request is recorded, it has not
+landed, its worktree stands, and it has commits beyond its base, read from the main
+checkout. A branch git cannot read counts as having some, since a reminder too many costs
+less than work forgotten. Files a worktree has not committed are not counted: reading
+them means running git in a folder the mouse writes, whose config and filters can name
+programs that the owl would then run every two hours. A dead mouse's branch is still named
+while its worktree stands: what waits is the work, not the mouse. Eight branches are
+named at most, and the rest counted. Away silences the reminder, and one that came due
+meanwhile goes on the first sweep after the person is back, within a minute. A focus
+elsewhere or a hold leaves that branch out, to be named in the house's next reminder:
+lifting a hold already says the branch had finished. The house's reminder clock starts
+when the owl does, so a restart never reminds at once.
 
 **It says what the line says**, sharing `Whiska.Delivery.Text`'s verb, pointer and count
 rather than copying them, plus the house: the line is read inside a house, a notification
@@ -45,8 +71,9 @@ swallowed. Delivery is the job and the hoot is a courtesy.
 doorstep file anything in the repo can write. The notifier runs with an argument list and
 no shell; `osascript` runs a fixed script reading title and body from `argv` after a `--`
 (it keeps reading options after its last `-e`, so a title of `-e` would otherwise compile
-as script); `notify-send`'s arguments follow a `--` too. A NUL byte is dropped. The title is flattened
-to one line and cut. The desktop sits behind `Whiska.Desktop`, so the suite runs against a
+as script); `notify-send`'s arguments follow a `--` too. A NUL byte is dropped. Each branch
+and house name is made one plain line, with no control or invisible character, and cut.
+The reminder never runs git in a mouse's worktree, only in the main checkout. The desktop sits behind `Whiska.Desktop`, so the suite runs against a
 stand-in; one test tagged `live_desktop` reaches the real one when asked.
 
 **`whiska doctor` probes rather than reads.** It sends a hoot down the same function and
@@ -72,9 +99,16 @@ appears the doctor points at the desktop's own settings or a missing notificatio
 
 ## Considered options
 
-- **Hoot on collection.** Announces what cannot yet be read, and would need un-announcing.
-- **No hoot for a finished branch.** A branch that is done would sit silent behind an
-  unrelated question.
+- **Hoot a question on collection.** Announces what cannot yet be read, and would need
+  un-announcing.
+- **No hoot for a finished branch.** A branch that is done would sit silent until someone
+  looked at its sidebar line.
+- **Remind every finished branch, one that changed nothing included.** A branch with
+  nothing to land needs no finish, and an investigation would be reminded forever.
+- **One reminder hoot per branch.** Five unlanded branches would hoot five times every two
+  hours.
+- **Keep every hoot's time in memory.** A restarted owl would hoot every finished report
+  again.
 - **`hoot: true` in a repo's config.** A second switch disagreeing with herdr's.
 - **Desktop notifiers only, never herdr.** A second notification style for everyone, and
   one more program to install, where herdr's own works for most.
@@ -85,3 +119,6 @@ appears the doctor points at the desktop's own settings or a missing notificatio
   Editor's, is not worth a dependency on one machine's setup.
 
 Folded in on 2026-10-08: 0071 (its text is in git history).
+
+Changed on 2026-10-14: a finished report hoots as it is collected, never on delivery, and
+a finished branch with work to land is reminded every two hours.

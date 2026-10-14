@@ -78,29 +78,24 @@ defmodule Whiska.Install do
   # none has an answer waiting, so that case leaves here before the binary or
   # the runtime is looked for (ADR-0080). Shell
   # builtins only: the worktree's `.git` file names its git admin directory,
-  # and the answer flag sits there. A main checkout goes on only while a
-  # finished line is out, flagged in its own `.git` (ADR-0008). With no project directory to decide on, Whiska decides - an
+  # and the answer flag sits there. A main checkout never goes on: nothing
+  # there waits on a prompt (ADR-0009). With no project directory to decide on, Whiska decides - an
   # answer not handed over is worse than a prompt slowed.
   @prompt_fast_path """
   if [ "${1:-}" = "user-prompt-submit" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
     case "$CLAUDE_PROJECT_DIR" in
       */worktrees/*) ;;
-      *)
-        [ -f "$CLAUDE_PROJECT_DIR/.git/whiska-finish" ] || exit 0
-        whiska_main=1
-        ;;
+      *) exit 0 ;;
     esac
-    if [ -z "${whiska_main:-}" ]; then
-      [ -f "$CLAUDE_PROJECT_DIR/.git" ] || exit 0
-      whiska_gitdir=""
-      IFS= read -r whiska_gitdir < "$CLAUDE_PROJECT_DIR/.git" || [ -n "$whiska_gitdir" ] || exit 0
-      whiska_gitdir="${whiska_gitdir#gitdir: }"
-      case "$whiska_gitdir" in
-        /*) ;;
-        *) whiska_gitdir="$CLAUDE_PROJECT_DIR/$whiska_gitdir" ;;
-      esac
-      [ -e "$whiska_gitdir/whiska-answer" ] || exit 0
-    fi
+    [ -f "$CLAUDE_PROJECT_DIR/.git" ] || exit 0
+    whiska_gitdir=""
+    IFS= read -r whiska_gitdir < "$CLAUDE_PROJECT_DIR/.git" || [ -n "$whiska_gitdir" ] || exit 0
+    whiska_gitdir="${whiska_gitdir#gitdir: }"
+    case "$whiska_gitdir" in
+      /*) ;;
+      *) whiska_gitdir="$CLAUDE_PROJECT_DIR/$whiska_gitdir" ;;
+    esac
+    [ -e "$whiska_gitdir/whiska-answer" ] || exit 0
   fi
 
   """

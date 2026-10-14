@@ -161,20 +161,18 @@ _Avoid_: child session, subsession (a subagent is neither, and is no session of 
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
 **unmarked** question: delivered like any other, recorded as having arrived unmarked. A
-`done` report is told as "finished", and the person says its **finish** in place of a reply. It is
-never answered: once sent it holds the delivery slot until the person writes anything in
-the main session, and is closed then. A question is **open** while it waits to be told, **sent** once
+`done` report is never delivered: it is recorded closed and **hooted**, waits on nobody,
+and the person says its **finish** in place of a reply once they read it (ADR-0009). A question is **open** while it waits to be told, **sent** once
 delivered and waiting for its answer, then **answered** once `whiska reply` saved the
 answer — which frees the slot whether or not the mouse has **taken** it yet; **superseded** when its own mouse asked a
 newer one, which takes over the slot the superseded one held and goes next, or at once
-when the person sent its mouse a **letter**, whose reply then goes next once the slot is free if the superseded one held it (ADR-0008), **closed** by hand or as a `done` report once the person wrote something after it, **settled** when its
+when the person sent its mouse a **letter**, whose reply then goes next once the slot is free if the superseded one held it (ADR-0008), **closed** by hand, or as a `done` report from the moment it is collected, **settled** when its
 mouse's branch landed and there is nothing left to answer to — the merge was the answer
 (ADR-0064) — and **orphaned** when nothing can act on it and nothing ever answered it
 (its mouse died, its worktree is gone, its record no longer stands for a worktree of this
 house) with the work still not landed. An open question is **queued behind** the sent one while
-another holds the slot, a `done` report included; the **sidebar line**, `whiska questions`
-and the **inbox** say that — `finished · queued behind #n` for a report — and keep "waiting on
-you" for the one actually sent (ADR-0082). One kind is not a mouse's message: when the owl
+another holds the slot; the **sidebar line**, `whiska questions` and the **inbox** say
+that, and keep "waiting on you" for the one actually sent (ADR-0082). One kind is not a mouse's message: when the owl
 reads a mouse's **merge request** closed or gone from the **forge**, it asks once whether to
 drop the worktree, headed `🦉 Whiska asks`. It is answered with `whiska drop` or
 `whiska dismiss`, never `whiska reply`, and it waits while the worktree stands, whether or
@@ -303,9 +301,9 @@ _Avoid_: inbox (the person's own list of what waits on them), message (a mouse's
 
 **Waiting**:
 Everything a house holds that still wants the person: its open and sent questions,
-and the entries still sitting uncollected on its doorstep. A `done` report is waiting
-until the person has been told, and a doorstep entry is waiting although no question
-exists for it yet. It is a state of the house, not a status on a row: the statusline
+and the entries still sitting uncollected on its doorstep. A `done` report never is: it
+waits on nobody (ADR-0009), on the doorstep or recorded. Any other doorstep entry is
+waiting although no question exists for it yet, since it says the owl has not collected it. It is a state of the house, not a status on a row: the statusline
 and `whiska waiting` both ask exactly this, so the two cannot disagree about it. A house is quiet when nothing is waiting; there is no other
 word for the state, and **Quiet** is that same word said of one mouse. A **held**
 mouse's questions are listed by the **inbox** but are not waiting on the person — they
@@ -339,13 +337,14 @@ surface; the board is drawn on none, only the **sidebar lines** written from it 
 **Sidebar line**:
 What herdr's sidebar shows under one workspace, which the owl reports and herdr draws
 (ADR-0082): under each mouse's workspace, its state — `❓ waiting on you · 14m`,
-`✅ finished`, `✖ stuck 6m`, `⏳ queued`, `🎯`/`💤` waiting behind a
+`✅ finished` (its report is still its last word, and the branch has neither landed nor a
+merge request), `✖ stuck 6m`, `⏳ queued`, `🎯`/`💤` waiting behind a
 **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `◐ <topic>`, `○ idle` — with the question it
 carries wrapped on up to two lines beneath (a finished report's is the first line of its
 `## Summary`), each carrying the mouse's **context gauge** straight after the symbol
 (`❓ 142K · waiting on you · 14m`, `◐ 142K · <topic>`; a line saying the pane is lost has none); under the main checkout's workspace, what is
 true of the whole repo: no **main session**, delivery **gated**, questions waiting with
-no line of their own, orphans, **merge requests** still read with no worktree. A mouse
+no line of their own (a finished report is never one), orphans, **merge requests** still read with no worktree. A mouse
 whose branch waits on a merge request has one more row, `⎇ !123 · 2 threads open · ✓`,
 saying what the owl last read of it (ADR-0082). Every line starts with a symbol only Whiska writes, which
 is how the person's own herdr config colours it; a working mouse's symbol turns once a
@@ -384,11 +383,8 @@ aside (ADR-0079): nothing goes while they are
 sent question of a held or unfocused mouse does not hold the slot. Oldest first, always.
 While the gate holds — the session mid-turn, a
 draft in its box, or no box on its screen — the queue is **gated**, and the main checkout's **sidebar line** says so once the hold has lasted
-ten seconds (ADR-0082). A finished line waits for the
-slot like any question, so it never lands over one the person is reading, and once the
-slot is free it goes ahead of whatever is queued, after an heir or a letter's reply. Once typed it holds the slot until the
-person's next prompt in the main session, whatever it says. Several go one per prompt,
-each line counting how many more finished are behind it (ADR-0008).
+ten seconds (ADR-0082). A `done` report is never delivered: it never waits for the slot, holds
+it or inherits it (ADR-0008).
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska show <id>`, which the main session's **brief** has it run when the line lands.
 Delivery only ever types into the main session of the question's own house (ADR-0044);
@@ -423,11 +419,14 @@ worker moves)
 
 **Hoot**:
 The desktop notification the owl raises as it delivers a question — one per delivered
-question, sent in the same breath as the line so the two can never disagree (ADR-0062).
+question, sent in the same breath as the line so the two can never disagree (ADR-0062) —
+and once for each `done` report, as it is collected, since none is ever delivered; and
+as a **reminder**.
 It carries the house, the mouse's branch, the verb and the id, in the line's own words,
 because the line only reaches somebody already looking at the main session and the point
 of leaving a question is that they are not. A question that is only collected, or gated,
-or set aside by **away**, a **focus** or a **hold**, has not hooted yet. herdr is asked to show it, from the person's own `[ui.toast]` and
+or set aside by **away**, a **focus** or a **hold**, has not hooted yet; a `done`
+report set aside the same way hoots once that lifts. herdr is asked to show it, from the person's own `[ui.toast]` and
 `[ui.sound]` settings, and says whether it drew anything; `request` is its sound when a
 decision is waiting and `done` when a branch finished. When herdr says its popups are off
 or nobody is attached, the same hoot is raised on the desktop with `osascript` on macOS,
@@ -436,6 +435,20 @@ delivery is the job and the hoot is a courtesy — so `whiska doctor` is where t
 asks, by sending a hoot of its own down the same path and reporting what showed it.
 _Avoid_: toast, alert, desktop notification as a term of its own (it is herdr's word for
 how a hoot is shown, not for the thing)
+
+**Reminder**:
+The one **hoot** a house raises at most every two hours naming each finished branch
+nobody has dealt with, and how long ago it finished: `🐱 whiska · 2 finished, not
+landed`, `no merge request: feat/a (5h), fix/b (2h)` (ADR-0062). A branch is named while
+its `done` report is still its last word, no **merge request** is recorded, it has not
+landed, its worktree stands, its last hoot is two hours old, and it has commits beyond
+its **base**; one git cannot read counts as having some. Files not committed are not
+counted. A finished branch that changed nothing gets its one hoot and no reminder. **Away**
+silences it, and what came due meanwhile goes within a minute of the person's return; a
+**focus** elsewhere or a **hold** leaves that branch for the house's next reminder. Each report keeps when it last hooted, and the house's clock
+starts with the owl, so a restart neither repeats nor rushes one. The main session's
+"still waiting on you" note is its **brief**'s, about a question, and not this.
+_Avoid_: nudge (retired), nag, ping, follow-up, digest
 
 **Gated**:
 What delivery is while the gate says no and something deliverable is queued behind it:
@@ -483,7 +496,7 @@ shell command — a read passes until then, or until the turn ends — with a re
 says to end the turn here and say where it stopped
 (`Whiska.Rule.Held`); the message it ends on sits in the inbox marked `held`, never
 delivered, and never counted as waiting on the person — they parked it. A held mouse's
-finished line is never told; it is never taken down by
+finished report is not **hooted** or **reminded** until the hold lifts; it is never taken down by
 cleanup (ADR-0061); never picked up (ADR-0067). Its **sidebar line** says `⏸ held`, and
 `whiska mice` says `held` where herdr's status would go. The word this entry took from the gate on
 2026-10-06 — see **Gated**.
@@ -510,7 +523,9 @@ outside any repo, reads every repo on the machine — with a last column
 saying why a row is not being delivered (`held`, `away`, `focus: <branch>`, `queued
 behind #n` for one waiting on the question that is out, or `not taken` for an answer its
 mouse has not **taken**) and a first
-line when they are away. It is a listing, not a place: a question sits in a house, an
+line when they are away. As text, and never in `--json`, it then lists the finished
+branches apart, under `✅ Finished, not landed:` — the same branches the sidebar calls
+`✅ finished`, none of them waiting on the person. It is a listing, not a place: a question sits in a house, an
 uncollected entry on a doorstep, and the inbox reads both. `show`, `reply` and `dismiss`
 act on this repo's rows only; ids repeat across repos. `show` with no id is not the inbox:
 it prints only the question delivered to the person, so a queued one waits its turn

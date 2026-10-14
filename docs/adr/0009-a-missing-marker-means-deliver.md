@@ -1,4 +1,4 @@
-# A missing marker means deliver; `done` is delivered too, and never waits for an answer
+# A missing marker means deliver; `done` is hooted, never delivered
 
 When a mouse finishes a turn, Whiska classifies the message by the marker the mouse itself
 wrote and by nothing else: no heuristics, no model reading the text. Judgment belongs to
@@ -7,8 +7,9 @@ the mouse and to the person, not to the router.
 - **No marker → deliver.** The mouse stopped and did not say why; that is worth
   interrupting for. The question arrives like any other, carrying the whole final message,
   flagged as having arrived unmarked.
-- **`done` → delivered**, told as "finished" with no reply offered, and closed once the
-  person writes anything in the main session after it (ADR-0008).
+- **`done` → recorded closed and hooted, never delivered** (ADR-0008, ADR-0062). The
+  sidebar line says `✅ finished`, `whiska inbox` lists it apart from what waits, and the
+  owl reminds the person while its branch has work to land.
 - **`needs-decision` → delivered.** Valid, and redundant, since absence says the same.
 
 A marker is required to be quiet, not to be heard. A model cannot be relied on to emit an
@@ -80,8 +81,12 @@ same direction as this one.
   is wrong and leaves the person to find the mouse; a question gives a reply channel
   straight into its pane, which is what a mouse that stopped for an unstated reason needs.
   It also keeps one code path rather than two delivery kinds.
-- **Record `done` and never deliver it.** Rejected after it ran: a finished mouse vanished,
-  its report readable only by someone who already knew to run `whiska questions <id>`.
+- **Deliver `done` as a finished line.** The decision until 2026-10-14. Rejected: a report
+  that needs no answer took the one delivery slot ahead of real questions (ADR-0008). It
+  had replaced recording `done` without delivering it, under which a finished mouse
+  vanished, its report readable only by someone who already knew to run
+  `whiska questions <id>`. The sidebar's `✅ finished` line, the inbox's finished block and
+  the reminder (ADR-0062) are what keep it from vanishing now.
 - **A third marker for "stopped short".** Rejected: it changes the parser, the line, the
   hoot and the sidebar, and still needs a way to say "carry on".
 - **Recording the branch in the `Stop` hook.** Rejected: landing needs the branch as it
@@ -92,11 +97,14 @@ same direction as this one.
 - An unmarked question occupies the delivery slot like any other, which is the gate
   serialising as designed: a mouse that stopped without explaining itself is more likely
   to need attention than one that asked politely.
-- A `done` report is a question in storage and in delivery, differing only in the verb and
-  in what happens after it is sent.
+- A `done` report is a question in storage, closed from the moment it is recorded: it
+  supersedes its mouse's earlier questions and is never in the queue.
 - Recording that an entry arrived unmarked is deliberate evidence of which mice forget and
   how often.
 
 Changed on 2026-10-13: a finished branch is landed, opened as a merge request or dropped by
 `whiska land`, `whiska pr` or `whiska drop` on the person's word, with no options offered
 (ADR-0088).
+
+Changed on 2026-10-14: `done` is recorded closed and hooted, never delivered (ADR-0008,
+ADR-0062).

@@ -3,7 +3,7 @@ defmodule Whiska.Migrations.V015MergeRequest do
   The merge request the person opened for a mouse's branch, and when.
 
   Stamped by `whiska merge-request` once "Open a merge request / PR" has
-  succeeded, so a later finished line offers what fits an open merge request,
+  succeeded, so a later finished report offers what fits an open merge request,
   and the owl knows which bases to fetch. Nil for every mouse already in the
   house: which of them had one opened is not known.
   """

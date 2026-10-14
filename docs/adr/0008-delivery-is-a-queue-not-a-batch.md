@@ -33,10 +33,10 @@ collection stop mattering. A mouse that was only momentarily dead keeps the orph
 is reversible, orphaning is not, and un-orphaning on revival would let a question leave a
 settled status, which is a larger decision.
 
-A `done` report is outside this sweep. Nothing is waiting on the person in one, and
-releasing it would turn the ordinary end of a mouse's life into silence.
+A finished report never reaches this sweep: it is closed as it is collected (ADR-0009),
+so a dead mouse's finished branch stays finished.
 
-So is a question the owl asks itself (ADR-0036), while the mouse's worktree stands: it is
+A question the owl asks itself is outside it (ADR-0036), while the mouse's worktree stands: it is
 about the worktree, not the mouse, so a closed pane does not take it from the person. It
 closes when the worktree is removed, by `whiska drop` or by cleanup, or once its folder is
 gone however it went.
@@ -52,7 +52,7 @@ gone however it went.
   pane takes the line, below.
 
 What the person types in the main session answers no question, so a question keeps the
-slot through it; only a finished line is let go by the next prompt, below.
+slot through it.
 
 ## A mouse's newer question takes the slot over
 
@@ -62,11 +62,12 @@ become **superseded**. A delivered question does not always get its answer throu
 another turn. The mouse has moved past the question, and an answer could no longer land in
 the conversation it was asked in, which is why answers are keyed to a question id
 (ADR-0005). Settled history is untouched. A `done` report supersedes an earlier open
-question too: the mouse declared itself finished.
+question too: the mouse declared itself finished, and the report, closed, takes nothing
+over, so the slot is free.
 
 Superseding passes the slot on rather than freeing it. When a superseded question held the
 slot, the newer one inherits it: it is stored with `keeps_slot`, goes next ahead of every
-other branch's question and finished line, and is typed once the gate lets it through. An
+other branch's question, and is typed once the gate lets it through. An
 heir superseded before it was typed passes the slot on in turn. Away, a focus and a hold
 are judged first, as always, so a held or unfocused mouse's heir has no priority. While the
 heir waits to be typed, the sidebar line, `whiska questions` and the inbox show the rest
@@ -77,11 +78,10 @@ mouse rather than answer it, so from then on they wait on the mouse, not the oth
 round. Seen live: a `sent` question kept the slot, its sidebar line read "waiting on you"
 and every other branch's line stayed out for the whole turn the letter started, and then
 for as long as that turn's own question waited. So once the pane takes the letter's line,
-the mouse's open and sent questions are superseded, a finished line still queued
-included, and the slot is free. A line the pane refuses supersedes nothing. When one of
+the mouse's open and sent questions are superseded, and the slot is free. A line the pane refuses supersedes nothing. When one of
 them held the slot, the mouse's next collected message goes next once the slot is free,
-ahead of every other branch's question and finished line: the mouse record keeps
-`reply_goes_next` until that message spends it, whatever it says, since nothing tells
+ahead of every other branch's question: the mouse record keeps `reply_goes_next` until
+that message spends it, whatever it says (a finished report spends it and goes nowhere), since nothing tells
 which message answers the letter, and the message is stored with `goes_next`. It holds
 no slot, so another branch's heir goes first: ranked with the heirs, an older reply
 would be typed into the middle of the conversation about the other branch. It passes its place down as
@@ -97,31 +97,22 @@ conversation, and the mouse's own follow-up queued behind it. The cost, accepted
 follow-up that adds nothing still gets its own line, on the branch already being
 discussed.
 
-## A finished line waits for the slot, goes first, and then holds it
+## A finished report never takes the slot
 
-A finished line is a report, not a question, but typing it makes the main session take a
-turn that prints the report over whatever the person was reading. Seen
-live: a spec waiting for the person's ok was sent, and while they were still reading it the
-owl typed the next branch's finished line on top. So a finished line waits while any
-question is out, goes ahead of every merely queued question once the slot is free (oldest
-report first), and several that piled up go one per prompt, each line counting the rest
-apart from other questions. The gates apply to it as to any line.
+A finished report is a report, not a question: nothing in it waits on the person. It is
+closed as it is collected (ADR-0009) and hooted (ADR-0062), never typed, so it never waits
+for the slot, holds it or inherits it, and questions go as if it were not there. The main
+session shows one only when the person asks, from `whiska inbox`.
 
-Once typed, it holds the slot until the person's next prompt in the main session, whatever
-that prompt says. The main session reads each prompt against the branch last shown, so a
-second finished line landing before the person has written anything would make a bare
-"land" ambiguous. The report is left `sent`; the `UserPromptSubmit` hook (ADR-0080), which
-runs in the main session too, closes it on the person's prompt. The owl raises a flag
-file, `whiska-finish` in the main checkout's `.git`, as it types the line and the hook
-lowers it, so a main session with nothing out never starts the escript. `dismiss`, a hold,
-the mouse's death and a letter to it free it as they free any sent question, and the
-mouse's next message takes it over.
+Seen live: a finished line held the slot until the person next wrote in the main session,
+and a real question from another branch queued behind a report that needed no answer.
+Typed, a finished line also made the main session print the report over whatever the
+person was reading.
 
-The cost, accepted: while a decision sits unanswered a finished branch gets no line and no
-hoot, for as long as the decision does. The mouse's sidebar line, `inbox` and
-`whiska questions` say `finished · queued behind #n`, and `dismiss` frees the slot. The
-orphan window grows with it: a finished mouse whose pane closes before its line arrives is
-never told, and shows only on the orphaned line.
+The cost, accepted: nothing about a finished branch is typed into the main session, so a
+person reading only that session hears of it from a recap or `whiska inbox`. The hoot,
+the reminder (ADR-0062) and the sidebar's `✅ finished` line (ADR-0082) are what reach
+them.
 
 ## When the idle signal is unavailable, deliver anyway
 
@@ -163,20 +154,21 @@ explanation.
 - **Refuse to record a question for a dead mouse at collection.** Rejected: the house never
   judges liveness on collection, because a pane list a moment stale would cost the question
   just collected (ADR-0026).
-- **One line for several finished branches.** Rejected: it changes the line the main
-  session reads, and puts several finishes into one reply.
-- **A time cap on a waiting finished line.** Rejected: it brings back the interruption.
-- **No hold after a finished line, every answer keyed to its question** (firstmate's way).
-  Rejected: firstmate lists decisions and waits to be asked, while Whiska types into the
-  person's prompt box, so a second report prints over the one being read.
+- **A finished line that waits for the slot, goes first, and holds it until the person's
+  next prompt.** The decision until 2026-10-14. Rejected: a report that needs no answer
+  held the slot ahead of real questions, and a flag file and a prompt hook in the main
+  session existed only to let it go.
+- **Keep reports `open`, and skip them in the queue.** Rejected: every reader that takes
+  `open` as waiting would need a kind filter, and cleanup's quiet check would never take a
+  landed worktree down.
 
 ## Consequences
 
 - The slot's occupant is always something alive. `whiska doctor`'s line about a dead mouse
   holding the slot reports something that no longer persists.
-- A repo whose hook shim predates the main-session prompt hook holds a finished line until
-  `dismiss`, a hold or the branch's next message; `whiska doctor` fails such a shim, and
-  `whiska init` rewrites it.
+- The main session's prompt hook has nothing to do, so the hook shim leaves a main
+  checkout at once. `whiska doctor` fails a shim from before that, and `whiska init
+  --global` rewrites it.
 
 Folded in on 2026-10-08: 0037, 0057 (their text is in git history).
 
@@ -187,3 +179,7 @@ it neither supersedes the mouse's questions nor is superseded by them.
 Changed on 2026-10-14: `whiska send` supersedes the questions its mouse was waiting on
 once its pane takes the line, rather than leaving them to the mouse's next message, and
 that message goes next, behind any heir, when one of them held the slot.
+
+Changed on 2026-10-14: a finished report never takes, holds or inherits the slot. It is
+closed as it is collected and hooted, never typed; the finish flag and the main session's
+prompt hook went with the line.

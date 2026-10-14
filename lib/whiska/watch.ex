@@ -70,8 +70,10 @@ defmodule Whiska.Watch do
   One live mouse, as facts.
 
   `question_id` is the question this row stands for — one waiting on the
-  person, or an answer its mouse never took (`not_taken?`). `asked` is set only
-  for a waiting one. `status` is herdr's word for the pane, `done` read as
+  person, or an answer its mouse never took (`not_taken?`). `asked` is set
+  for a waiting one, and for a finished report that is still its branch's
+  last word (`Whiska.Storage.finished/0`), which has no `question_id`: it waits
+  on nobody (ADR-0009). `status` is herdr's word for the pane, `done` read as
   `idle`. `topic` and `doing` are read only when nothing about a question or a
   pane already decides what the row says.
   """
@@ -106,7 +108,9 @@ defmodule Whiska.Watch do
   @typedoc """
   What a row's question is waiting on: the person, since `sent_at` when it holds
   the delivery slot, or the question that does, `behind`. `pointer` is the
-  sentence the person is asked, or for a finished report the outcome line of its summary.
+  sentence the person is asked, or for a finished report the outcome line of
+  its summary. A finished report waits on nothing, so `finished?` is all it
+  says.
   """
   @type asked :: %{
           pointer: String.t(),
@@ -177,6 +181,7 @@ defmodule Whiska.Watch do
       Storage.alive_mice(),
       opts
       |> Keyword.put(:questions, questions)
+      |> Keyword.put_new_lazy(:finished, &Storage.finished/0)
       |> Keyword.put_new_lazy(:picked_up, &Storage.picked_up/0)
       |> Keyword.put_new_lazy(:merge_requests, &Storage.merge_request_reads/0)
       |> Keyword.put_new_lazy(:unhoused_merge_requests, fn ->
@@ -195,6 +200,8 @@ defmodule Whiska.Watch do
   The board for a house's mice.
 
   Options: `:questions`, its waiting and orphaned questions, counted apart;
+  `:finished`, the finished reports still their branch's last word, which a
+  row stands for when its mouse has nothing waiting;
   `:panes`, herdr's answer in `Whiska.Herdr.list_panes/1` form; `:activity`,
   what a mouse is doing and how long it has been silent,
   `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:waiting_on`, what
@@ -221,7 +228,14 @@ defmodule Whiska.Watch do
     mode = Keyword.get(opts, :mode, Mode.none())
 
     {orphaned, live} = Enum.split_with(questions, &(&1.status == @orphaned))
-    by_mouse = live |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1})
+
+    by_mouse =
+      opts
+      |> Keyword.get(:finished, [])
+      |> Enum.reduce(live |> Enum.reverse() |> Map.new(&{&1.mouse_id, &1}), fn report, rows ->
+        Map.put_new(rows, report.mouse_id, report)
+      end)
+
     focus = focus_name(mice, mode)
     context = %{slot: Mode.slot(live, mode), mode: mode, focus: focus}
 
@@ -356,30 +370,26 @@ defmodule Whiska.Watch do
   # queued behind the slot's holder (ADR-0008), or waits behind what the person
   # set aside.
   defp asked(%Question{status: status} = question, context) when status in @waiting do
-    finished? = question.kind == "done"
-
     %{
-      pointer: Text.plain(pointer(question.text, finished?), @pointer_max),
+      pointer: Text.plain(Marker.pointer(question.text), @pointer_max),
       sent_at: if(status == "sent", do: question.sent_at),
       behind: Questions.behind(question, context.slot),
-      finished?: finished?,
+      finished?: false,
       waits: waits(question, context)
     }
   end
 
-  defp asked(_no_question, _context), do: nil
-
-  # A finished report has no question in it — its marker says it speaks for
-  # itself — so what it carries is the outcome: the first line of its
-  # `## Summary`, else the last line before the agent ledger it ends in.
-  defp pointer(text, false), do: Marker.pointer(text)
-
-  defp pointer(text, true) do
-    case Marker.pointer(text) do
-      "" -> Report.outcome(text)
-      pointer -> pointer
-    end
+  defp asked(%Question{kind: "done", status: "closed"} = report, _context) do
+    %{
+      pointer: Text.plain(Report.outcome(report.text), @pointer_max),
+      sent_at: nil,
+      behind: nil,
+      finished?: true,
+      waits: nil
+    }
   end
+
+  defp asked(_no_question, _context), do: nil
 
   # Only an open question waits behind the mode: a sent one was delivered, and
   # is waiting on the person whatever they set aside since.

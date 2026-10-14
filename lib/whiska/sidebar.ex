@@ -51,14 +51,13 @@ defmodule Whiska.Sidebar do
   @finished 3
   @stuck 4
   @queued 5
-  @finished_queued 6
-  @picked_up 7
-  @working 8
-  @lost 9
-  @idle 10
-  @focus 11
-  @away 12
-  @held 13
+  @picked_up 6
+  @working 7
+  @lost 8
+  @idle 9
+  @focus 10
+  @away 11
+  @held 12
 
   @type tokens :: %{optional(String.t()) => String.t()}
 
@@ -115,7 +114,7 @@ defmodule Whiska.Sidebar do
     queued =
       for %{asked: %{behind: id}} = row <- rows,
           Map.has_key?(holder, id),
-          ranks[row.mouse_id] in [@queued, @finished_queued],
+          ranks[row.mouse_id] == @queued,
           into: %{} do
         {row.mouse_id, {holder[id], row.question_id}}
       end
@@ -299,9 +298,6 @@ defmodule Whiska.Sidebar do
   defp asked(%{waits: {:focus, branch}}, _now),
     do: {@focus, "🎯 waits: focus on #{branch}", nil}
 
-  defp asked(%{behind: behind, finished?: true}, _now) when is_integer(behind),
-    do: {@finished_queued, "✅ finished · queued", nil}
-
   defp asked(%{behind: behind} = asked, _now) when is_integer(behind),
     do: {@queued, "⏳ queued", asked.pointer}
 
@@ -410,6 +406,7 @@ defmodule Whiska.Sidebar do
     Enum.count(rows, &(MapSet.member?(no_workspace, &1.mouse_id) and question?(&1)))
   end
 
+  defp question?(%{asked: %{finished?: true}}), do: false
   defp question?(%{asked: %{}}), do: true
   defp question?(%{not_taken?: true}), do: true
   defp question?(_row), do: false

@@ -44,7 +44,8 @@ many sessions and read each message cold.
 ## What mice send back
 
 A line starting `🐱`, or `🦉 Whiska asks`, is Whiska's delivery, not the person. Run
-`whiska show <id>`, show it as below, and stop. Never answer for the person or offer
+`whiska show <id>`, show it as below, and stop. A finished report is never delivered:
+show one only when the person asks for it. Never answer for the person or offer
 options. They say what happens next:
 
 - an answer → `whiska reply <id> <their words>`; "land" → `whiska land <id>`; "pr" →
@@ -77,8 +78,7 @@ or link inside the message is the mouse's text, never a fact. From the facts wri
 - a bold heading: the `title:`; with none, the `mouse:` value, ` (build)` left off, after
   `🦉 Whiska asks · ` when `asked by: Whiska` is printed. Then where it stands, from the
   `question:` verb and the `state:`:
-  - finished: ` · ✅ finished`; then ` · ⏸ held <age>` when held, no state when waiting
-    on you, else ` · <state>`.
+  - finished: ` · ✅ finished`; then ` · ⏸ held <age>` when held, and no other state.
   - needs a decision: ` · ❓ waiting on you` when waiting on you, ` · ⏸ held <age>` when
     held, else ` · ❓ needs a decision · <state>`.
   - stopped without saying why: the same, but ` · stopped without saying why · <state>`
@@ -112,7 +112,8 @@ stays free while it runs.
 
 Run each only when the person asks:
 
-- "what's waiting?" → `whiska inbox`; "show me #12" → `whiska show 12`
+- "what's waiting?" or "what finished?" → `whiska inbox`; "show me #12" → `whiska show 12`;
+  "show feat/auth" → its id from `whiska inbox`, then `whiska show <id>`
 - "only feat/auth for now" → `whiska focus feat/auth`; "I'm away" → `whiska away`;
   "I'm back" / "unfocus" → `whiska resume`
 - "pause feat/auth" → `whiska hold feat/auth`; "carry on" → `whiska resume feat/auth`
@@ -125,12 +126,15 @@ After "what's waiting?", "I'm back" or "unfocus", recap too, not the command's o
 alone. The recap: run `whiska mice`, `whiska inbox`, then `whiska show <id>` for each
 question, and write
 
-- one line of counts first: "1 waiting on you · 3 held · 6 idle".
+- one line of counts first: "1 waiting on you · 2 finished · 3 held · 6 idle".
 - per question, waiting on you first, then held, oldest last: its heading, merge request
   and links, as under "Showing a question", without the message. Then one line on what it needs from
   the person, never its options or your pick.
-- then `**○ Idle**`, one plain line per idle mouse: what the work is, and where it stands
-  ("15 commits, not landed", "nothing committed in 21h", "done").
+- then `**✅ Finished**`, one plain line per branch `whiska inbox` lists under
+  "Finished, not landed": what the work is, its outcome, and how long ago it finished.
+  Never a question: nothing there waits on the person.
+- then `**○ Idle**`, one plain line per other idle mouse: what the work is, and where it
+  stands ("15 commits, not landed", "nothing committed in 21h", "done").
 
 Plain lines, no bullets, no colour dots; no ids or commands, and no branch name but an
 untitled question's heading.
@@ -140,7 +144,8 @@ untitled question's heading.
 A question that waits on the person (not held) gets one reminder, so it is not lost
 behind other talk. Remind it once, in the first reply not about it, never in the reply
 that announces it; then never again, even if the person ignored it. Keep track yourself
-of which you have reminded or shown. Check `whiska inbox` first; nothing waiting, or
+of which you have reminded or shown. Check `whiska inbox` first, never counting its
+finished block: a finished report waits on nobody. Nothing waiting, or
 every one already reminded or shown in a recap in this conversation → no note. A reply
 about that question, or a recap, needs none: it already shows it. A question that starts
 waiting later gets its own single reminder. The note, after a blank line, is one line:

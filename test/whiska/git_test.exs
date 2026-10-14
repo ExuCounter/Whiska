@@ -364,6 +364,25 @@ defmodule Whiska.GitTest do
     end
   end
 
+  describe "ahead/3" do
+    test "counts a branch's own commits beyond its base", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a", push: false)
+      assert {:ok, 1} = Git.ahead(repo.checkout, "feat-a", "main")
+    end
+
+    test "nothing beyond a base the branch landed in", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a")
+      :ok = GitRepo.land(repo, "feat-a")
+      assert {:ok, 0} = Git.ahead(repo.checkout, "feat-a")
+    end
+
+    test "a name that is no branch of the repo is an error, never a range", %{repo: repo} do
+      GitRepo.worktree(repo, "feat-a", push: false)
+      assert {:error, _} = Git.ahead(repo.checkout, "feat-a..main", "main")
+      assert {:error, _} = Git.ahead(repo.checkout, "nowhere", "main")
+    end
+  end
+
   describe "head_branch/1" do
     test "names the branch a worktree is on", %{repo: repo} do
       path = GitRepo.worktree(repo, "feat-a")

@@ -20,22 +20,21 @@ sort (which one a mouse is in is decided as the paragraph under the table says):
 |---|------|---------|
 | 1 | `❓ waiting on you · 14m` — sent, unanswered | the question |
 | 2 | `❓ waiting on you` — next to go; `❓ answer not taken` | the question |
-| 3 | `✅ finished` — a report holding the slot | the first line of its `## Summary` |
+| 3 | `✅ finished` — its report is still its last word, and its branch has neither landed nor a merge request | the first line of its `## Summary` |
 | 4 | `✖ stuck 6m` — blocked, or working with no subagent out and silent two minutes in a tool or five waiting on the model | its last action |
 | 5 | `⏳ queued` | the question |
-| 6 | `✅ finished · queued` | |
-| 7 | `↩ picked up 2m ago` | |
-| 8 | `◐ <topic, else last action>` | |
-| 9 | `✖ no pane`, `⚠ many panes`, `? herdr can't say` | |
-| 10 | `○ idle` | |
-| 11 | `🎯 waits: focus on <branch>` | |
-| 12 | `💤 waits: away` | |
-| 13 | `⏸ held` | |
+| 6 | `↩ picked up 2m ago` | |
+| 7 | `◐ <topic, else last action>` | |
+| 8 | `✖ no pane`, `⚠ many panes`, `? herdr can't say` | |
+| 9 | `○ idle` | |
+| 10 | `🎯 waits: focus on <branch>` | |
+| 11 | `💤 waits: away` | |
+| 12 | `⏸ held` | |
 
-**The order follows the work, not the kind of mouse.** The mice the person set aside (11 to
-13) sit below idle ones. Of mice in the same state a build mouse comes before a sniff mouse,
+**The order follows the work, not the kind of mouse.** The mice the person set aside (10 to
+12) sit below idle ones. Of mice in the same state a build mouse comes before a sniff mouse,
 so a sniff mouse waiting on the person still sits among those that need them. A mouse queued
-behind a question (5 and 6) sits right under the mouse that holds that question, queued
+behind a question (5) sits right under the mouse that holds that question, queued
 mice in question order, whatever the mode of either; one whose holder is not on the board
 keeps its own state's place.
 
@@ -200,3 +199,5 @@ Changed on 2026-10-14: no mouse line carries a question's id; the context gauge 
 Changed on 2026-10-14: a fourth token, `whiska_mr`, is a mouse's merge request row, and the main checkout's line counts open requests with no worktree.
 
 Folded in on 2026-10-08: 0051, 0058, 0059, 0065 (their text is in git history).
+
+Changed on 2026-10-14: `✅ finished` means finished and not landed: it stays until the branch lands, gets a merge request or is dropped, or its mouse asks or works again, and it waits on nobody, so the main checkout's line never counts it. `✅ finished · queued` is gone, since a finished report never queues (ADR-0008).

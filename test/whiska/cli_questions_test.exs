@@ -740,7 +740,7 @@ defmodule Whiska.CLIQuestionsTest do
     end
   end
 
-  describe "whiska merge-request — the finished line remembers it" do
+  describe "whiska merge-request — the finished report remembers it" do
     setup do
       root = Path.join(System.tmp_dir!(), "whiska-mr-#{System.unique_integer([:positive])}")
       File.mkdir_p!(root)

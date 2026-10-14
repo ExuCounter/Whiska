@@ -33,13 +33,13 @@ deletes the branch, and marks the mouse record removed.
 when staging has its work, and "N commits beyond main" would count staging's own commits as
 the mouse's. `whiska shape` records, in the mouse's record, the branch the main checkout is
 on when it runs in the new worktree, and every question about the base — this ADR's
-landed check, ADR-0064's landing stamp, the finished line's commit count, the cold
+landed check, ADR-0064's landing stamp, a finished branch's commit count, the cold
 review's diff — is asked against that branch.
 
 A mouse with no recorded base (spawned before it was kept, or from a detached main
 checkout) is read against the default branch: `origin/HEAD`, else exactly one local `main`
 or `master`. A recorded base that no longer resolves is unknown, never the default branch:
-the worktree stays, and the finished line says its base is gone. The reflog was rejected as
+the worktree stays, and `whiska show` says its base is gone. The reflog was rejected as
 the source: it keeps the commit a branch was cut at but not the branch's name, so any
 answer from it is a guess among every branch that holds that commit.
 

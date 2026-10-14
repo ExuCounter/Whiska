@@ -62,8 +62,9 @@ defmodule Whiska.Questions do
 
   `open` (open and sent), `orphaned` and `not_taken` (answers the owl gave up
   ringing for) come from the database; `doorstep`
-  counts entries the owl has not collected yet, and `doorstep_stale` says
-  whether any has waited past the backstop; `mode` is what the person set
+  counts entries the owl has not collected yet, a finished report's left out,
+  and `doorstep_stale` says whether any, a finished report's included, has
+  waited past the backstop; `mode` is what the person set
   aside, with `focus` the focused mouse's branch. A house with no database yet
   is simply empty — it is not created. Options: `:away_path`.
   """
@@ -83,7 +84,7 @@ defmodule Whiska.Questions do
          open: open,
          orphaned: orphaned,
          not_taken: not_taken,
-         doorstep: length(waiting),
+         doorstep: Enum.count(waiting, fn {_file, e} -> Marker.classify(e.text) != "done" end),
          doorstep_stale: stale,
          mode: mode,
          focus: focus
@@ -434,7 +435,8 @@ defmodule Whiska.Questions do
   @doc """
   Where a question stands, in the words `whiska questions` prints: held, with its
   mouse; waiting on the person since it was delivered; waiting behind away or
-  a focus; queued behind the question holding the slot; or its bare status.
+  a focus, or queued behind the question holding the slot, while it is open;
+  or its bare status.
   """
   @spec state(Question.t(), pos_integer() | nil, Mode.t(), String.t() | nil) :: String.t()
   def state(question, slot, mode \\ Mode.none(), focus \\ nil)
@@ -454,6 +456,7 @@ defmodule Whiska.Questions do
   def state(%Question{status: status} = q, slot, mode, focus) do
     case {Mode.waits(q, mode), behind(q, slot)} do
       {:held, _} -> "held"
+      {_, _} when status != "open" -> status
       {:away, _} -> "waits: away"
       {{:focus, mouse_id}, _} -> "waits: focus on #{focus || mouse_id}"
       {nil, nil} -> status
@@ -478,7 +481,7 @@ defmodule Whiska.Questions do
 
   One question holds the delivery slot at a time and the rest wait for it to
   be answered (ADR-0008), so an open question is waiting on that one, not on
-  the person — a finished report included (ADR-0008). The
+  the person. The
   one rule the sidebar, `whiska questions` and `inbox` all use, so none of them
   can spell the state apart.
   """

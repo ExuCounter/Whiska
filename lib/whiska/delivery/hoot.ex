@@ -1,6 +1,8 @@
 defmodule Whiska.Delivery.Hoot do
   @moduledoc """
-  The desktop notification the owl raises as it delivers a question.
+  The desktop notification the owl raises as it delivers a question, as a
+  finished report arrives, and to remind the person of finished branches
+  nobody landed (ADR-0062).
 
   Delivery types a line into the main session's prompt box. That line only
   helps the person who is looking at that terminal; the whole point of leaving
@@ -33,22 +35,31 @@ defmodule Whiska.Delivery.Hoot do
 
   The sound is the one judgement here. A question that needs a decision is the
   one that must not be missed, so it takes herdr's `request` sound; a finished
-  branch takes `done`. Both hoot — the line alone reaches only someone looking
-  at that terminal — but they are told apart without looking.
+  branch takes `done`. Both hoot, but they are told apart without looking.
+
+  A finished report is never typed (ADR-0009), so its hoot has no line to
+  match: it says the verb, the id and the pointer, as a delivered line would,
+  with nothing waiting behind it. A reminder names every finished branch it is
+  about, with how long ago each finished, in one hoot per house.
   """
 
   alias Whiska.Delivery.Text
   alias Whiska.Herdr
+  alias Whiska.Report
   alias Whiska.Schema.Question
 
   @typedoc "A notification, in herdr's own terms (`Whiska.Herdr.notification/0`)."
   @type t :: %{title: String.t(), body: String.t(), sound: :done | :request}
 
   # A branch and a house name are somebody else's text — a branch arrives in
-  # the doorstep entry a mouse's own hook wrote — so the title is flattened and
-  # cut rather than trusted to be one short line. `Whiska.Delivery.Text` does
+  # the doorstep entry a mouse's own hook wrote — so each is made one plain
+  # line and cut rather than trusted to be one short line. `Whiska.Delivery.Text` does
   # the same to the line it composes, for the same reason.
   @name_max 40
+
+  @pointer_max 120
+
+  @reminder_names 8
 
   @falls_back ["disabled", "no_foreground_client"]
 
@@ -104,24 +115,59 @@ defmodule Whiska.Delivery.Hoot do
     }
   end
 
+  @doc """
+  The reminder for finished branches nobody landed or opened a merge request
+  for (ADR-0062), each reported with how long ago it finished, as of `now`.
+  Eight are named at most, and the rest counted, so it stays one glance.
+  """
+  @spec reminder([Question.t()], String.t(), DateTime.t()) :: t()
+  def reminder(reports, house, now) do
+    {named, rest} = Enum.split(reports, @reminder_names)
+    more = if rest == [], do: "", else: ", and #{length(rest)} more"
+
+    %{
+      title: "🐱 #{name(house)} · #{length(reports)} finished, not landed",
+      body: "no merge request: " <> Enum.map_join(named, ", ", &aged(&1, now)) <> more,
+      sound: :done
+    }
+  end
+
+  defp aged(%Question{mouse: mouse, mouse_id: mouse_id, asked_at: asked_at}, now) do
+    branch =
+      case mouse do
+        %Whiska.Schema.Mouse{branch: branch} when is_binary(branch) -> branch
+        _ -> mouse_id
+      end
+
+    "#{name(branch)} (#{age(DateTime.diff(now, asked_at))})"
+  end
+
+  defp age(seconds) when seconds < 3600, do: "#{max(div(seconds, 60), 0)}m"
+  defp age(seconds) when seconds < 86_400, do: "#{div(seconds, 3600)}h"
+  defp age(seconds), do: "#{div(seconds, 86_400)}d"
+
   defp title(q, house, branch) do
     if Question.owls?(q),
       do: "🦉 #{house} · Whiska asks about #{branch}",
       else: "🐱 #{house} · #{branch} #{Text.verb(q.kind)}"
   end
 
-  defp name(text) do
-    case String.replace(text, ~r/\s+/, " ") do
-      flat when byte_size(flat) > @name_max -> String.slice(flat, 0, @name_max) <> "…"
-      flat -> flat
-    end
-  end
+  defp name(text), do: Whiska.Watch.Text.plain(text, @name_max)
 
   defp body(q, more) do
-    ["##{q.id}", Text.pointer(q.text), Text.more(more)]
+    ["##{q.id}", pointer(q), Text.more(more)]
     |> Enum.reject(&(&1 in [nil, ""]))
     |> Enum.join(" · ")
   end
+
+  defp pointer(%Question{kind: "done", text: text}) do
+    case Whiska.Watch.Text.plain(Report.outcome(text), @pointer_max) do
+      "" -> nil
+      outcome -> ~s("#{outcome}")
+    end
+  end
+
+  defp pointer(%Question{text: text}), do: Text.pointer(text)
 
   defp sound("done"), do: :done
   defp sound(_), do: :request

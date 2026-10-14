@@ -78,6 +78,15 @@ defmodule Whiska.QuestionsTest do
     end
   end
 
+  describe "summary/1 and a finished report on the doorstep" do
+    test "is not counted as waiting, yet still says the owl stopped collecting", %{main: main} do
+      leave(main, "shipped\n\u2063\u2063\u2063", Questions.backstop_s() + 30)
+
+      assert {:ok, %{doorstep: 0, doorstep_stale: true} = summary} = Questions.summary(main)
+      assert Questions.owl_segment(summary) == "🦉 owl down · 0 waiting"
+    end
+  end
+
   describe "render/1 — what `whiska questions` prints" do
     test "says plainly when nothing is waiting", %{main: main} do
       {:ok, summary} = Questions.summary(main)
@@ -479,6 +488,28 @@ defmodule Whiska.QuestionsTest do
       assert listing =~ "#1  feat-a  needs a decision · \"a?\"  (waiting on you since"
       assert listing =~ ~s|#2  feat-b  needs a decision · "b?"  (open)|
       refute listing =~ "queued behind"
+    end
+
+    test "a finished report waits on nothing: away or a focus elsewhere leaves it closed, a hold says so",
+         %{main: main} do
+      seed(main, fn ->
+        {:ok, _} =
+          Storage.record_question(%{
+            mouse_id: "m1",
+            text: "Done.",
+            kind: "done",
+            status: "closed"
+          })
+
+        :ok = Storage.set_focus("m2")
+      end)
+
+      seed(main, fn ->
+        report = Storage.question(1)
+        assert Questions.state(report, nil, Mode.read(away_path: "/nonexistent")) == "closed"
+        assert Questions.state(report, nil, %{Mode.none() | away?: true}) == "closed"
+        assert Questions.state(report, nil, %{Mode.none() | held: MapSet.new(["m1"])}) == "held"
+      end)
     end
 
     test "while away every open question says so", %{main: main} do

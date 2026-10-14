@@ -27,12 +27,20 @@ defmodule Whiska.Report do
   end
 
   @doc """
-  The one line that says what a finished report came to: the first line of its
-  `## Summary`, else the last line before the agent ledger it ends in; `""`
-  when it has neither.
+  The one line that says what a finished report came to: the pointer after its
+  marker when it wrote one, else the first line of its `## Summary`, else the
+  last line before the agent ledger it ends in; `""` when it has none.
   """
   @spec outcome(String.t()) :: String.t()
   def outcome(text) do
+    case {Marker.classify(text), Marker.pointer(text)} do
+      {"unmarked", _first_line} -> summary_line(text)
+      {_kind, ""} -> summary_line(text)
+      {_kind, pointer} -> pointer
+    end
+  end
+
+  defp summary_line(text) do
     lines =
       text
       |> Marker.strip()

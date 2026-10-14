@@ -16,9 +16,9 @@ defmodule Whiska.Delivery.Text do
   Claude recognises the line by its shape — `🐱` first, or `🦉 Whiska asks`
   for the owl's own question, `#<id>` after the verb — and runs `whiska show`
   itself. The id stays in the line because
-  answers are keyed to it (ADR-0005) and because that read needs it. A `done` report is the same line with
-  "finished" as its verb: it needs no answer, and nothing in the line says
-  otherwise.
+  answers are keyed to it (ADR-0005) and because that read needs it. A `done`
+  report is never typed (ADR-0009); its verb, "finished", is still said by
+  its hoot.
 
   One line, no newline anywhere: `agent.prompt` types into a prompt box, and an
   embedded newline would submit half a notification.
@@ -29,8 +29,8 @@ defmodule Whiska.Delivery.Text do
 
   @pointer_max 120
 
-  @typedoc "What is still waiting behind a line: finished reports, and every other open question."
-  @type more :: %{finished: non_neg_integer(), open: non_neg_integer()}
+  @typedoc "What is still waiting behind a line: every other open question."
+  @type more :: %{open: non_neg_integer()}
 
   @doc """
   Compose the line for a question from the mouse on `branch`, with `more`
@@ -82,15 +82,8 @@ defmodule Whiska.Delivery.Text do
 
   @doc "What is still waiting behind this one, or `nil` for nothing."
   @spec more(more()) :: String.t() | nil
-  def more(%{finished: finished, open: open}) do
-    case Enum.reject([counted(finished, "finished"), counted(open, "open")], &is_nil/1) do
-      [] -> nil
-      said -> Enum.join(said, " · ")
-    end
-  end
-
-  defp counted(0, _what), do: nil
-  defp counted(n, what), do: "#{n} more #{what}"
+  def more(%{open: 0}), do: nil
+  def more(%{open: n}), do: "#{n} more open"
 
   defp note(:status_unknown),
     do: "delivered blind: herdr cannot tell whether you are idle, so this may interrupt"

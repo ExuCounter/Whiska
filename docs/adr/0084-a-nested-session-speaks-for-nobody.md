@@ -19,8 +19,7 @@ at a process named `herdr`: a pane is where a session begins, so a herdr started
 some `claude`'s shell does not make every mouse inside it nested.
 
 - `Stop` leaves nothing on the doorstep.
-- `UserPromptSubmit` hands over no answer and stamps nothing taken. In the main checkout,
-  a `claude` the main session started settles no finished line: it is not the person.
+- `UserPromptSubmit` hands over no answer and stamps nothing taken.
 - `PreToolUse` is unchanged: a nested session in a mouse's worktree is stopped by that
   mouse's hold (ADR-0079). It does not carry the mouse's deny list, which is a launch flag
   (ADR-0090).
@@ -41,8 +40,8 @@ what that lets through.
 Nothing is stored, so nothing has to be kept in step: a mouse that restarts, resumes,
 `/clear`s or compacts is still the mouse, because it still runs under no other `claude`.
 
-It costs one `ps -A` per finished `Stop`, and per `UserPromptSubmit` that has an answer or
-a finished line waiting: about 28 ms on a machine
+It costs one `ps -A` per finished `Stop`, and per `UserPromptSubmit` that has an answer
+waiting: about 28 ms on a machine
 with 800 processes, measured 2026-10-10. It grows with the machine's process count, not
 with the number of mice. `PreToolUse` does not pay it.
 

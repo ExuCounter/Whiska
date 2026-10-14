@@ -56,9 +56,14 @@ defmodule Whiska.SidebarTest do
     }
   end
 
+  defp report(id, branch, text) do
+    %{question(id, branch, kind: "done", text: text) | status: "closed"}
+  end
+
   defp board(mice, opts) do
     Watch.board(mice,
       questions: Keyword.get(opts, :questions, []),
+      finished: Keyword.get(opts, :finished, []),
       panes: Keyword.get(opts, :panes, {:ok, Keyword.get(opts, :bare_panes, [])}),
       activity: activity(opts),
       waiting_on: waiting_on(opts),
@@ -196,11 +201,11 @@ defmodule Whiska.SidebarTest do
   end
 
   describe "a finished report" do
-    test "holding the slot, it says finished, with its closing line underneath" do
+    test "it says finished, with its closing line underneath" do
       text = "Merged the importer.\n\nAll 31 tests pass.\n\u2063\u2063\u2063"
 
       assert tokens([mouse("feat-a")],
-               questions: [question(14, "feat-a", kind: "done", text: text)],
+               finished: [report(14, "feat-a", text)],
                bare_panes: [pane("feat-a", "idle")]
              ) == %{"whiska" => "✅ finished", "whiska_q" => "All 31 tests pass."}
     end
@@ -216,7 +221,7 @@ defmodule Whiska.SidebarTest do
       """
 
       assert tokens([mouse("feat-a")],
-               questions: [question(14, "feat-a", kind: "done", text: text)],
+               finished: [report(14, "feat-a", text)],
                bare_panes: [pane("feat-a", "idle")],
                context: 236_000
              ) == %{
@@ -230,26 +235,39 @@ defmodule Whiska.SidebarTest do
         "Merged.\n\nAll 31 tests pass.\n\nAgent usage this session\nmouse (whole session)\n⁣⁣⁣"
 
       assert tokens([mouse("feat-a")],
-               questions: [question(14, "feat-a", kind: "done", text: text)],
+               finished: [report(14, "feat-a", text)],
                bare_panes: [pane("feat-a", "idle")]
              )["whiska_q"] == "All 31 tests pass."
     end
 
-    test "behind another question, it says so and nothing more" do
+    test "while another branch's question is out, it still says finished, never queued" do
       [_sent, %{tokens: tokens}] =
         lines([mouse("feat-a"), mouse("feat-b")],
-          questions: [
-            question(12, "feat-a"),
-            question(15, "feat-b",
-              status: "open",
-              kind: "done",
-              text: "Merged.\n\u2063\u2063\u2063"
-            )
-          ],
+          questions: [question(12, "feat-a")],
+          finished: [report(15, "feat-b", "Merged.\n\u2063\u2063\u2063")],
           bare_panes: [pane("feat-a", "idle"), pane("feat-b", "idle")]
         )
 
-      assert tokens == %{"whiska" => "✅ finished · queued"}
+      assert tokens == %{"whiska" => "✅ finished", "whiska_q" => "Merged."}
+    end
+
+    test "a question its mouse asked since stands for the row instead" do
+      assert tokens([mouse("feat-a")],
+               questions: [question(16, "feat-a", status: "open")],
+               finished: [report(14, "feat-a", "Merged.\n\u2063\u2063\u2063")],
+               bare_panes: [pane("feat-a", "idle")]
+             )["whiska"] =~ "waiting on you"
+    end
+
+    test "with no workspace of its own, it is not counted as waiting on the main checkout's line" do
+      board =
+        board([mouse("feat-a")],
+          finished: [report(14, "feat-a", "Merged.\n\u2063\u2063\u2063")],
+          bare_panes: [pane("feat-a", "idle")]
+        )
+
+      assert Sidebar.house(board, main_pane?: true, no_workspace: MapSet.new(["m-feat-a"])) ==
+               %{}
     end
   end
 

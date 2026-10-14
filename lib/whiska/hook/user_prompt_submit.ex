@@ -25,20 +25,16 @@ defmodule Whiska.Hook.UserPromptSubmit do
   the same worktree and the same pane, and is handed nothing: an answer taken
   there never reaches the mouse (ADR-0084).
 
-  In the main session it does one other thing: the person's first prompt
-  after a finished line settles that line, freeing the slot it holds
-  (ADR-0008). A `claude` the main session started is not the person, and
-  settles nothing.
+  In the main session it does nothing: a finished report is never typed there,
+  so a prompt has nothing to settle (ADR-0009).
 
   The hook shim exits before this runs unless the worktree's answer flag is
-  set (`Whiska.AnswerFlag`), or in a main checkout its finish flag
-  (`Whiska.FinishFlag`), so a session with nothing waiting never starts the
+  set (`Whiska.AnswerFlag`), so a session with nothing waiting never starts the
   escript.
   """
 
   alias Whiska.AnswerFlag
   alias Whiska.Delivery.Text
-  alias Whiska.FinishFlag
   alias Whiska.Isolated
   alias Whiska.Layout
   alias Whiska.Marker
@@ -76,7 +72,7 @@ defmodule Whiska.Hook.UserPromptSubmit do
     with {:ok, payload} <- decode(raw_payload) do
       case Session.worktree(payload, env) do
         {:ok, layout} -> if Session.nested?(env), do: :none, else: mouse(layout, env)
-        {:error, :not_a_mouse} -> settle_finished(payload, env)
+        {:error, :not_a_mouse} -> :none
       end
     else
       {:error, reason} = error ->
@@ -95,46 +91,6 @@ defmodule Whiska.Hook.UserPromptSubmit do
         error
     end
   end
-
-  # The person writing anything in the main session after a finished line —
-  # an option, their own words, "hold" — frees the slot that line holds
-  # (ADR-0008). The owl's own 🐱 line is not the person.
-  defp settle_finished(payload, env) do
-    with {:ok, main} <- Session.main_checkout(payload, env),
-         true <- FinishFlag.set?(main),
-         false <- owl_line?(payload["prompt"]),
-         false <- Session.nested?(env),
-         {:ok, true} <- Isolated.run(fn -> Storage.within(main, fn -> settle(env) end) end) do
-      FinishFlag.clear(main)
-      :none
-    else
-      {:error, reason} when reason != :not_a_main_checkout ->
-        warn("could not settle the finished line (#{inspect(reason)})")
-        :none
-
-      _nothing ->
-        :none
-    end
-  end
-
-  # The flag also comes down once nothing is out — a `dismiss`, a hold or the
-  # branch's next message freed it — so a stale one costs one escript start.
-  defp settle(env) do
-    cond do
-      Session.main_pane?(Storage.main_pane(), env) ->
-        Storage.settle_reports()
-        {:ok, true}
-
-      Storage.reports_out?() ->
-        {:ok, false}
-
-      true ->
-        {:ok, true}
-    end
-  end
-
-  defp owl_line?("🐱" <> _), do: true
-  defp owl_line?(_prompt), do: false
 
   defp waiting(layout, env) do
     if Session.main_pane?(Storage.main_pane(), env),

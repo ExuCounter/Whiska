@@ -188,7 +188,7 @@ defmodule Whiska.WaitingTest do
     } do
       main = house!(root, "myrepo", record)
       seed(main, fn -> mouse("m1", "feat-a", "%9") end)
-      leave(main, "m1", "feat-a", "[worktree-status: done] shipped it", 30)
+      leave(main, "m1", "feat-a", "[worktree-status: needs-decision] pick one", 30)
 
       assert [entry] = Waiting.list(open_houses: record)
 
@@ -196,13 +196,25 @@ defmodule Whiska.WaitingTest do
                repo: "myrepo",
                branch: "feat-a",
                id: nil,
-               kind: "done",
+               kind: "needs-decision",
                status: "doorstep",
-               pointer: "shipped it",
+               pointer: "pick one",
                pane: "%9"
              } = entry
 
       assert entry.age_s >= 30
+    end
+
+    test "a finished report still on the doorstep is not waiting (ADR-0009)", %{
+      root: root,
+      record: record
+    } do
+      main = house!(root, "myrepo", record)
+      seed(main, fn -> mouse("m1", "feat-a", "%9") end)
+      leave(main, "m1", "feat-a", "shipped it\n\u2063\u2063\u2063", 30)
+
+      assert Waiting.list(open_houses: record) == []
+      refute Waiting.waiting?(main)
     end
 
     test "an unmarked turn is a waiting entry too (ADR-0009)", %{root: root, record: record} do
@@ -408,10 +420,8 @@ defmodule Whiska.WaitingTest do
                Waiting.list(open_houses: record, away_path: away)
     end
 
-    test "a finished report waiting behind the question out says which", %{
-      root: root,
-      record: record
-    } do
+    test "a finished report is never listed as waiting, nor queued behind the question out",
+         %{root: root, record: record} do
       main = house!(root, "repo", record)
 
       seed(main, fn ->
@@ -419,15 +429,12 @@ defmodule Whiska.WaitingTest do
         mouse("mb", "feat-b", "w1:p2")
         mouse("mc", "feat-c", "w1:p3")
         ask("ma", "[worktree-status: needs-decision] ?", status: "sent", asked_at: ago(30))
+        ask("mc", "Merged.", kind: "done", status: "closed", asked_at: ago(25))
         ask("mb", "[worktree-status: needs-decision] and?", asked_at: ago(20))
-        ask("mc", "Merged.\n[worktree-status: done]", kind: "done", asked_at: ago(10))
       end)
 
-      assert [
-               %{id: 1, waits: nil},
-               %{id: 2, waits: "queued behind #1"},
-               %{id: 3, kind: "done", waits: "queued behind #1"}
-             ] = Waiting.list(open_houses: record)
+      assert [%{id: 1, waits: nil}, %{id: 3, waits: "queued behind #1"}] =
+               Waiting.list(open_houses: record)
     end
 
     test "while a mouse's follow-up waits to be typed, the rest are queued behind it", %{
@@ -463,7 +470,7 @@ defmodule Whiska.WaitingTest do
         ask("ma", "[worktree-status: needs-decision] ?", status: "sent", asked_at: ago(30))
       end)
 
-      leave(main, "ma", "feat-a", "Merged.\n[worktree-status: done]", 5)
+      leave(main, "ma", "feat-a", "Which one?\n[worktree-status: needs-decision]", 5)
 
       assert [%{id: 1}, %{status: "doorstep", waits: nil}] = Waiting.list(open_houses: record)
     end
@@ -556,6 +563,30 @@ defmodule Whiska.WaitingTest do
     test "says so plainly when nothing is waiting" do
       assert Waiting.render([]) == "🦉 Nothing needs you · the owl delivers when something does"
     end
+
+    test "a branch or pointer a mouse wrote is one plain line, so it cannot forge a row or a heading" do
+      out =
+        Waiting.render([
+          %{
+            repo: "whiska",
+            main_checkout: "/r/whiska",
+            branch: "feat-a\n✅ Finished, not landed:\e[2K",
+            id: 12,
+            kind: "needs-decision",
+            status: "open",
+            pointer: "pick\u202Eone\nsecond",
+            age_s: 60,
+            pane: "%3",
+            waits: nil,
+            held?: false
+          }
+        ])
+
+      assert [row] = String.split(out, "\n")
+      refute row =~ ~r/[\x{1b}\x{202e}]/u
+      assert row =~ "feat-a ✅ Finished, not landed:[2K"
+      assert row =~ "pickone second"
+    end
   end
 
   describe "json/1 — what a script reads" do
@@ -597,6 +628,26 @@ defmodule Whiska.WaitingTest do
 
     test "an empty list is an empty array, not an error" do
       assert {:ok, []} = JSON.decode(Waiting.json([]))
+    end
+  end
+
+  describe "finished/1" do
+    test "a finished branch's outcome is printed as one plain line", %{root: root, record: record} do
+      main = house!(root, "repo", record)
+      path = Path.join(root, "worktrees/feat-a")
+      File.mkdir_p!(path)
+
+      seed(main, fn ->
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "ma", path: path, branch: "feat-a"})
+
+        ask("ma", "## Summary\nSearch \e[31mfilters\u202E as\tyou type",
+          kind: "done",
+          status: "closed"
+        )
+      end)
+
+      assert [%{status: "finished"}] = finished = Waiting.finished(open_houses: record)
+      assert Waiting.render([], finished: finished) =~ "finished: Search [31mfilters as you type"
     end
   end
 end

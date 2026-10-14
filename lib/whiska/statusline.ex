@@ -66,16 +66,18 @@ defmodule Whiska.Statusline do
     waiting = Waiting.list(Keyword.delete(opts, :owl_pids))
     away? = Mode.away?(Keyword.get_lazy(opts, :away_path, &Mode.away_path/0))
 
-    %{owl: owl_state(owl_pids.(), waiting), away?: away?, waiting: waiting}
+    oldest = Waiting.oldest_uncollected_s(Keyword.delete(opts, :owl_pids))
+    %{owl: owl_state(owl_pids.(), oldest), away?: away?, waiting: waiting}
   end
 
   # Up means in the process table and collecting: an entry left on a doorstep
-  # past the backstop is still "down", whatever pgrep says (ADR-0048). Anything
-  # younger may just be the normal race between the two Stop hooks (ADR-0036).
-  defp owl_state([], _waiting), do: :down
+  # past the backstop, a finished report's too, is still "down", whatever
+  # pgrep says (ADR-0048). Anything younger may just be the normal race
+  # between the two Stop hooks (ADR-0036).
+  defp owl_state([], _oldest), do: :down
 
-  defp owl_state(_pids, waiting) do
-    if Enum.any?(waiting, &(&1.status == "doorstep" and &1.age_s > Questions.backstop_s())),
+  defp owl_state(_pids, oldest) do
+    if oldest != nil and oldest > Questions.backstop_s(),
       do: :down,
       else: :watching
   end

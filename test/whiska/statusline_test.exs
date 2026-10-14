@@ -110,6 +110,13 @@ defmodule Whiska.StatuslineTest do
       assert line([], record) == "🦉 owl down · 🐱 myrepo"
     end
 
+    test "a finished report left on the doorstep past the backstop is an outage, not waiting",
+         %{main: main, record: record} do
+      leave(main, "feat-a", "shipped\n\u2063\u2063\u2063", 120)
+
+      assert line([], record) == "🦉 owl down"
+    end
+
     test "a doorstep entry younger than the backstop is the normal race, not an outage", %{
       main: main,
       record: record

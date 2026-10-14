@@ -2,8 +2,8 @@ defmodule Whiska.Schema.Question do
   @moduledoc """
   A message a mouse sends when it finishes a turn.
 
-  Most enter the delivery queue and wait for an answer; a `done` report is
-  delivered too, then closed at once instead of waiting (see CONTEXT.md). Answers are keyed to a
+  Most enter the delivery queue and wait for an answer; a `done` report never
+  does: it is closed as it is collected, and hooted (see CONTEXT.md). Answers are keyed to a
   question's id rather than a branch (ADR-0005), which is what stops an answer
   landing on whichever question Whiska happened to guess.
 
@@ -14,8 +14,8 @@ defmodule Whiska.Schema.Question do
   use Ecto.Schema
 
   # `open` waits in the queue; `sent` has been delivered and waits for its
-  # answer (ADR-0008). `closed` is a `done` report closed once sent (ADR-0009),
-  # or a question closed by hand. `settled` is one its mouse's branch landed on
+  # answer (ADR-0008). `closed` is a `done` report, closed as it is collected
+  # (ADR-0009), or a question closed by hand. `settled` is one its mouse's branch landed on
   # with nothing left alive to answer to: the merge was the answer (ADR-0064).
   # `orphaned` is a question nothing can act on any more and nothing answered
   # either — its mouse died (ADR-0026) or its worktree is gone (ADR-0036) with
@@ -49,6 +49,9 @@ defmodule Whiska.Schema.Question do
     # A mouse's reply to a letter that superseded what held the slot: it goes
     # next once the slot is free, and holds none (ADR-0008).
     field(:goes_next, :boolean, default: false)
+    # When the owl last hooted about a finished report: its finish hoot, then
+    # each reminder (ADR-0062). Nil while the finish hoot is still owed.
+    field(:hooted_at, :utc_datetime)
     # `owl` on a question the owl asked itself about a merge request; nil on a
     # mouse's.
     field(:asked_by, :string)

@@ -282,7 +282,7 @@ whiska doctor — myrepo (/Users/me/projects/myrepo)
   FAIL  Stop                     not wired — mice here cannot leave questions
                                  fix: whiska init
   ok    house                    /Users/me/projects/myrepo/.git/whiska/whiska.db, schema v14
-  ok    doorstep                 nothing waiting
+  ok    doorstep                 nothing uncollected
   warn  main session             not recorded — nothing is delivered until it is
                                  fix: whiska start  (from the main checkout's pane)
   ok    mice                     feat-thing: live pane w1:p3

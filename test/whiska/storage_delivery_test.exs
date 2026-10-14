@@ -20,7 +20,7 @@ defmodule Whiska.StorageDeliveryTest do
     on_exit(fn -> Storage.close(handle) end)
     {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
     {:ok, _} = Storage.record_mouse(%{mouse_id: "m2", path: "/w/b", branch: "b"})
-    {:ok, main: main}
+    {:ok, main: main, root: root}
   end
 
   defp ask(mouse_id, text \\ "?", attrs \\ %{}) do
@@ -30,6 +30,104 @@ defmodule Whiska.StorageDeliveryTest do
       )
 
     q
+  end
+
+  describe "finished branches (ADR-0062)" do
+    setup %{root: root} do
+      for {id, branch} <- [{"f1", "feat-a"}, {"f2", "feat-b"}] do
+        path = Path.join([root, "myrepo", "worktrees", branch])
+        File.mkdir_p!(path)
+        {:ok, _} = Storage.record_mouse(%{mouse_id: id, path: path, branch: branch})
+      end
+
+      :ok
+    end
+
+    defp finish(mouse_id) do
+      ask(mouse_id, "All done.", %{kind: "done", status: "closed"})
+    end
+
+    defp finished_ids, do: Enum.map(Storage.finished(), & &1.id)
+
+    test "finished/0 is each closed report still its branch's last word, oldest first, with its mouse" do
+      a = finish("f1")
+      b = finish("f2")
+      _waiting = ask("m1", "?")
+
+      assert [%Question{mouse: %Mouse{branch: "feat-a"}}, _] = Storage.finished()
+      assert finished_ids() == [a.id, b.id]
+    end
+
+    test "finished/0 drops a report its mouse asked past, or started a turn after" do
+      finish("f1")
+      later = finish("f2")
+      ask("f1", "one more thing?")
+      {:ok, _} = Storage.set_working("f2", DateTime.add(later.asked_at, 1))
+
+      assert finished_ids() == []
+    end
+
+    test "finished/0 drops a branch landed, with a merge request, taken down, or whose folder is gone",
+         %{root: root} do
+      for id <- ["f1", "f2"], do: finish(id)
+      {:ok, _} = Storage.mark_landed("f1")
+      assert [%{mouse_id: "f2"}] = Storage.finished()
+
+      {:ok, _} = Storage.record_merge_request("f2", "https://gitlab.example/mr/1")
+      assert Storage.finished() == []
+
+      {:ok, _} =
+        Storage.record_mouse(%{mouse_id: "f3", path: Path.join(root, "gone"), branch: "c"})
+
+      finish("f3")
+      assert Storage.finished() == []
+
+      taken_down = Path.join([root, "myrepo", "worktrees", "feat-d"])
+      File.mkdir_p!(taken_down)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "f4", path: taken_down, branch: "feat-d"})
+      finish("f4")
+      assert [%{mouse_id: "f4"}] = Storage.finished()
+      {:ok, _} = Storage.mark_removed("f4")
+      assert Storage.finished() == []
+    end
+
+    test "finished/0 leaves out a report still open or sent, and anything not a report" do
+      ask("f1", "All done.", %{kind: "done"})
+      ask("f2", "All done.", %{kind: "done", status: "sent"})
+      ask("f2", "?", %{kind: "unmarked", status: "closed"})
+
+      assert Storage.finished() == []
+    end
+
+    test "finished/0 goes by when each was asked: a question asked before the report stays behind it" do
+      report = finish("f1")
+      ask("f1", "an older question?", %{asked_at: DateTime.add(report.asked_at, -60)})
+
+      assert finished_ids() == [report.id]
+    end
+
+    test "unhooted/0 is each report still its branch's last word and owed its finish hoot, merge request or landed" do
+      a = finish("f1")
+      b = finish("f2")
+      {:ok, _} = Storage.record_merge_request("f1", "https://gitlab.example/mr/1")
+      {:ok, _} = Storage.mark_landed("f2")
+      assert Enum.map(Storage.unhooted(), & &1.id) == [a.id, b.id]
+
+      :ok = Storage.hooted([a.id], DateTime.utc_now())
+      ask("f2", "one more thing?")
+      assert Storage.unhooted() == []
+    end
+
+    test "hooted/2 stamps each report, to the second" do
+      a = finish("f1")
+      b = finish("f2")
+      at = ~U[2026-10-14 10:00:00.123456Z]
+
+      assert :ok = Storage.hooted([a.id], at)
+      assert Storage.question(a.id).hooted_at == ~U[2026-10-14 10:00:00Z]
+      assert Storage.question(b.id).hooted_at == nil
+      assert :ok = Storage.hooted([], at)
+    end
   end
 
   describe "the main session (ADR-0020)" do
@@ -64,23 +162,6 @@ defmodule Whiska.StorageDeliveryTest do
       sent = ask("m1", "sent")
       {:ok, _} = Storage.mark_sent(sent.id)
       assert Storage.next_open() == nil
-    end
-
-    test "next_done/0 is the oldest done report still waiting to be told, or nil" do
-      assert Storage.next_done() == nil
-      _decision = ask("m1", "first")
-      report = ask("m2", "finished", %{kind: "done"})
-      assert %Question{id: id} = Storage.next_done()
-      assert id == report.id
-    end
-
-    test "next_done/0 skips a report already told, and anything that is not a report" do
-      told = ask("m1", "told", %{kind: "done"})
-      {:ok, _} = Storage.mark_sent(told.id)
-      {:ok, _} = Storage.close_question(told.id)
-      ask("m2", "unmarked", %{kind: "unmarked"})
-      ask("m2", "worktree gone", %{kind: "done", status: "orphaned"})
-      assert Storage.next_done() == nil
     end
 
     test "sent/0 is the question waiting for an answer, or nil" do
@@ -366,6 +447,20 @@ defmodule Whiska.StorageDeliveryTest do
       reply = ask("m1", "after the letter")
       {:ok, 0} = Storage.supersede_earlier(reply)
       assert Storage.question(reply.id).goes_next
+    end
+
+    test "a finished report is the reply: it spends the place, so a later question waits its turn" do
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      {:ok, [_]} = letter("m1")
+
+      report = ask("m1", "## Summary\nDone.", %{kind: "done", status: "closed"})
+      {:ok, 0} = Storage.supersede_earlier(report)
+      refute Storage.mouse("m1").reply_goes_next
+
+      later = ask("m1", "a later turn")
+      {:ok, 0} = Storage.supersede_earlier(later)
+      refute Storage.question(later.id).goes_next
     end
 
     test "a letter to a mouse whose question was only queued gives no place" do

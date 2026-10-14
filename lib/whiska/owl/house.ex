@@ -63,12 +63,13 @@ defmodule Whiska.Owl.House do
   earlier. Collecting at open does not count; that is the designed "what landed
   while the owl was down" path.
 
-  A `done` report waits for the slot, goes ahead of the queue once it is free,
-  and holds the slot once sent until the person writes something; an entry whose worktree is no longer on disk is recorded as
-  orphaned rather than delivered. Whatever a mouse
+  A `done` report is never delivered: it is recorded closed, and hooted
+  (ADR-0009, ADR-0062); an entry whose worktree is no longer on disk is
+  recorded as orphaned rather than delivered. Whatever a mouse
   leaves supersedes its own earlier open or sent questions: it has moved past
   them, and an answer could no longer land. One that held the slot hands it to
-  the newer question, which goes next.
+  the newer question, which goes next — unless that is a report, which takes
+  no part in the queue, so the slot is free.
 
   ## Delivery (ADR-0008)
 
@@ -84,15 +85,6 @@ defmodule Whiska.Owl.House do
   carries an accurate count of what landed just behind it. Delivery is attempted
   at open, after every collection, whenever herdr reports the main pane idle,
   and on the backstop.
-
-  A finished line waits for the slot like any question, so it never lands over
-  one the person is reading (ADR-0008), and once typed it
-  holds the slot until the person's next prompt in the main session settles it.
-  The house raises `Whiska.FinishFlag` as it types one,
-  so that prompt reaches the hook. Once the slot is free a finished line goes
-  ahead of whatever is queued. A round's wait only ever gathers a count for a
-  house that was quiet, so a finished line arriving while something is out
-  starts no round; it waits for the slot and nothing else.
 
   herdr's word is taken fresh at each attempt (`pane.get`), not from the last
   event: `claude` + `idle` delivers; `working` or `blocked` holds; `claude` +
@@ -122,6 +114,18 @@ defmodule Whiska.Owl.House do
   question stays delivered. When herdr says it will not draw the hoot because
   its popups are off or nobody is attached, the same hoot is raised on the
   desktop instead (ADR-0062).
+
+  ## Finished branches (ADR-0062)
+
+  A finished report is hooted once instead, as soon as it is collected and
+  nothing the person set aside stands in its way, and its branch is reminded
+  while it waits to be finished: at most one hoot per house every `remind_ms`
+  (2 h), naming each finished branch with work of its own to land whose last
+  hoot is at least that old (`Whiska.Reminder`). Judged after every collection
+  and on the backstop, after cleanup has taken down what landed. Each report's
+  last hoot is stored, so an owl that restarts owes nothing twice; the house's
+  own clock starts when it opens, so a restart reminds no sooner than an owl
+  that kept running would have.
 
   A house tells no other house anything, and nothing is ever typed into
   another repo's session (ADR-0044): herdr's tab bar redraws on its own timer
@@ -166,7 +170,6 @@ defmodule Whiska.Owl.House do
   alias Whiska.Delivery.Text
   alias Whiska.Doorbell
   alias Whiska.Doorstep
-  alias Whiska.FinishFlag
   alias Whiska.Git
   alias Whiska.Herdr
   alias Whiska.Layout
@@ -175,6 +178,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Pickup
   alias Whiska.Question.FromOwl
   alias Whiska.Question.Marker
+  alias Whiska.Reminder
   alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -223,6 +227,9 @@ defmodule Whiska.Owl.House do
   @default_forge_timeout_ms 30_000
   @default_fetch_max_ms 3_600_000
   @default_fetch_timeout_ms 60_000
+  # How far apart a house's reminders about finished branches are, and how old
+  # a branch's last hoot must be before one names it (ADR-0062).
+  @default_remind_ms 7_200_000
 
   defstruct [
     :main_checkout,
@@ -246,8 +253,11 @@ defmodule Whiska.Owl.House do
     :fetch_max_ms,
     :fetch_timeout_ms,
     :forge_ms,
+    :remind_ms,
+    :reminded_at,
     :away_path,
     :forge_context,
+    nothing_to_land: %{},
     fetching: nil,
     fetch_started_at: nil,
     fetch_soon: false,
@@ -306,7 +316,8 @@ defmodule Whiska.Owl.House do
   still running is killed), `:forge_ms` (how often each merge request is read
   on its forge), `:forge_timeout_ms` (when one forge call still running is
   killed), `:forge_tools` (a forge tool's path by its name, where it is not
-  the one installed), `:desktop` (where a hoot
+  the one installed), `:remind_ms` (how far apart reminders about finished
+  branches are, ADR-0062), `:desktop` (where a hoot
   herdr will not show is raised, `Whiska.Desktop.impl/0` by default),
   `:away_path` (the file that says the person is away, the real one by
   default), `:name`.
@@ -383,6 +394,8 @@ defmodule Whiska.Owl.House do
           fetch_max_ms: Keyword.get(opts, :fetch_max_ms, @default_fetch_max_ms),
           fetch_timeout_ms: Keyword.get(opts, :fetch_timeout_ms, @default_fetch_timeout_ms),
           forge_ms: Keyword.get(opts, :forge_ms, @default_forge_ms),
+          remind_ms: Keyword.get(opts, :remind_ms, @default_remind_ms),
+          reminded_at: DateTime.utc_now(),
           forge_context:
             MergeRequests.context(
               main,
@@ -493,6 +506,7 @@ defmodule Whiska.Owl.House do
       |> collect_on_backstop()
       |> deliver()
       |> clean_up()
+      |> remind()
       |> fetch_base()
       |> read_forge()
       |> ring()
@@ -821,13 +835,14 @@ defmodule Whiska.Owl.House do
 
   # The person sets away, a focus or a hold from a CLI process that cannot
   # reach this one, so the tick that already rebuilds the board is where a
-  # change is noticed, and a lifted mode delivers within `panes_ms` rather
-  # than at the next backstop.
+  # change is noticed, and a lifted mode delivers — and hoots what it held
+  # back about finished branches (ADR-0062) — within `panes_ms` rather than at
+  # the next backstop.
   defp notice_mode(state) do
     mode = mode(state)
 
     if state.last_mode != nil and state.last_mode != mode,
-      do: deliver(state),
+      do: state |> remind() |> deliver(),
       else: %{state | last_mode: mode}
   end
 
@@ -1465,13 +1480,17 @@ defmodule Whiska.Owl.House do
     state =
       cond do
         collected == 0 -> state
-        state.round_timer != nil -> stop_retries(state)
-        fresh_round? -> state |> stop_retries() |> start_round()
-        true -> state |> stop_retries() |> deliver()
+        state.round_timer != nil -> state |> stop_retries() |> remind()
+        fresh_round? and opened?(mode) -> state |> stop_retries() |> remind() |> start_round()
+        true -> state |> stop_retries() |> remind() |> deliver()
       end
 
     {collected, state}
   end
+
+  # A finished report is closed as it is collected, so a collection of reports
+  # alone opens no round.
+  defp opened?(mode), do: Mode.open_count(Storage.questions(), mode) > 0
 
   # A collection is the first the house hears of a mouse that has never been
   # matched to a pane — `collect_entry/3` records the mouse from the entry
@@ -1506,14 +1525,15 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  # A done report is open like any other and delivered in its turn (ADR-0009);
-  # once sent it holds the slot until the person writes something. An entry whose
+  # A done report is never delivered, so it arrives closed and waits on nobody
+  # (ADR-0009); its hoot is `remind/1`'s. An entry whose
   # worktree has already gone has nowhere to reply to, so it arrives where the
   # rest of that mouse's questions went — settled if its branch landed,
   # orphaned if it did not (ADR-0064). The mouse is recorded first, so the
   # question of a mouse nobody had heard of is asked of a row that exists.
-  defp arriving(entry, asked_by) do
+  defp arriving(entry, kind, asked_by) do
     cond do
+      File.dir?(entry.worktree_root) and kind == "done" -> "closed"
       File.dir?(entry.worktree_root) -> "open"
       asked_by == "owl" -> "closed"
       true -> Storage.terminal_status(entry.mouse_id)
@@ -1548,7 +1568,7 @@ defmodule Whiska.Owl.House do
              mouse_id: entry.mouse_id,
              text: entry.text,
              kind: kind,
-             status: arriving(entry, asked_by),
+             status: arriving(entry, kind, asked_by),
              asked_at: DateTime.truncate(entry.stamped_at, :second),
              asked_by: asked_by
            }),
@@ -1774,8 +1794,7 @@ defmodule Whiska.Owl.House do
   end
 
   # What goes next, if the main session will have it: judged against what the
-  # person set aside first, then the slot (`Whiska.Delivery.Mode`). A finished
-  # line waits for the slot, goes first once it is free, and holds it once sent.
+  # person set aside first, then the slot (`Whiska.Delivery.Mode`).
   defp next_to_deliver(mode), do: Mode.next(Storage.questions(), mode)
 
   defp main_session_free?(%{socket: nil} = state) do
@@ -1874,7 +1893,6 @@ defmodule Whiska.Owl.House do
     case state.herdr.prompt(state.socket, state.main_pane, line) do
       :ok ->
         {:ok, _} = Storage.mark_sent(question.id)
-        flag_report(state, question)
         hoot(state, question, branch, more)
         %{release_hold(state) | warned: MapSet.new()}
 
@@ -1906,19 +1924,56 @@ defmodule Whiska.Owl.House do
     _kind, _reason -> :ok
   end
 
-  # Best effort: a flag that cannot be raised leaves the report holding the
-  # slot until `dismiss`, a hold, or its branch's next message.
-  defp flag_report(state, %Question{kind: "done", id: id}) do
-    case FinishFlag.set(state.main_checkout) do
-      :ok ->
-        :ok
+  # Finished branches (ADR-0062): each report's finish hoot once nothing the
+  # person set aside stands in its way, and a reminder at most every
+  # `remind_ms`. Stamped before the hoot goes, as a delivery is recorded sent
+  # before its hoot: a hoot that fails is not owed again. With no herdr socket
+  # nothing is hooted or stamped, so nothing owed is lost.
+  defp remind(%{socket: nil} = state), do: state
 
-      {:error, reason} ->
-        warn(state, "##{id} told, but the finish flag failed (#{inspect(reason)})")
+  defp remind(state) do
+    now = DateTime.utc_now()
+
+    finished = Storage.finished()
+
+    due =
+      Reminder.due(Enum.uniq_by(Storage.unhooted() ++ finished, & &1.id), %{
+        mode: mode(state),
+        now: now,
+        remind_ms: state.remind_ms,
+        reminded_at: state.reminded_at,
+        nothing_to_land: state.nothing_to_land,
+        work?: &Reminder.work?(state.main_checkout, &1.mouse)
+      })
+
+    nothing_to_land =
+      state.nothing_to_land
+      |> Map.take(Enum.map(finished, & &1.id))
+      |> Map.merge(Map.new(due.nothing_to_land, &{&1.id, now}))
+
+    state = %{state | nothing_to_land: nothing_to_land}
+
+    :ok = Storage.hooted(Enum.map(due.finish, & &1.id), now)
+    Enum.each(due.finish, &hoot(state, &1, branch_of(&1.mouse_id), %{open: 0}))
+
+    case due.remind do
+      [] ->
+        state
+
+      named ->
+        :ok = Storage.hooted(Enum.map(named, & &1.id), now)
+        reminder_hoot(state, named, now)
+        %{state | reminded_at: now}
     end
   end
 
-  defp flag_report(_state, _question), do: :ok
+  # A courtesy, as every hoot is.
+  defp reminder_hoot(state, reports, now) do
+    notification = Hoot.reminder(reports, Path.basename(state.main_checkout), now)
+    Hoot.send_out(state.herdr, state.socket, state.desktop, notification)
+  catch
+    _kind, _reason -> :ok
+  end
 
   defp branch_of(mouse_id) do
     case Storage.mouse(mouse_id) do

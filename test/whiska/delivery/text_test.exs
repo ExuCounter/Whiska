@@ -9,7 +9,7 @@ defmodule Whiska.Delivery.TextTest do
   alias Whiska.Delivery.Text
   alias Whiska.Schema.Question
 
-  @none %{finished: 0, open: 0}
+  @none %{open: 0}
 
   defp question(attrs) do
     struct(
@@ -37,7 +37,7 @@ defmodule Whiska.Delivery.TextTest do
     q = question(text: "[worktree-status: needs-decision] pick one")
 
     for line <- [
-          Text.compose(q, "b", %{finished: 0, open: 3}, [:status_unknown]),
+          Text.compose(q, "b", %{open: 3}, [:status_unknown]),
           Text.compose(question(kind: "done"), "b", @none, [])
         ] do
       refute line =~ "whiska"
@@ -57,7 +57,7 @@ defmodule Whiska.Delivery.TextTest do
 
   test "the order is branch and verb, then id, then pointer, then more open, then notes" do
     q = question(text: "[worktree-status: needs-decision] pick one")
-    line = Text.compose(q, "b", %{finished: 0, open: 2}, [:status_unknown])
+    line = Text.compose(q, "b", %{open: 2}, [:status_unknown])
 
     assert line ==
              ~s(🐱 b needs a decision · #12 · "pick one" · 2 more open · ) <>
@@ -66,19 +66,9 @@ defmodule Whiska.Delivery.TextTest do
 
   test "says how many more are open, and nothing when there are none" do
     q = question(text: "[worktree-status: needs-decision] pick one")
-    assert Text.compose(q, "b", %{finished: 0, open: 2}, []) =~ "2 more open"
-    assert Text.compose(q, "b", %{finished: 0, open: 1}, []) =~ "1 more open"
+    assert Text.compose(q, "b", %{open: 2}, []) =~ "2 more open"
+    assert Text.compose(q, "b", %{open: 1}, []) =~ "1 more open"
     refute Text.compose(q, "b", @none, []) =~ "more open"
-  end
-
-  test "counts the finished reports behind it apart from the open questions" do
-    q = question(kind: "done", text: "[worktree-status: done]")
-
-    assert Text.compose(q, "b", %{finished: 2, open: 1}, []) ==
-             "🐱 b finished · #12 · 2 more finished · 1 more open"
-
-    assert Text.compose(q, "b", %{finished: 1, open: 0}, []) ==
-             "🐱 b finished · #12 · 1 more finished"
   end
 
   test "an unmarked question says the mouse stopped without saying why (ADR-0009)" do
