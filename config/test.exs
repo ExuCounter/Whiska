@@ -17,3 +17,7 @@ config :whiska, :systemd, &Whiska.Test.NoSystemctl.run/1
 # No notifier, so a hoot herdr refuses never reaches the real desktop
 # (ADR-0062).
 config :whiska, :desktop, Whiska.Test.NoDesktop
+
+# No forge tool, so no test reads a real forge through the person's own login;
+# a test that reads one hands the house its fake as `:forge_tools`.
+config :whiska, :forge_tools, %{"glab" => nil, "gh" => nil}

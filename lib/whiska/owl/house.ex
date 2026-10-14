@@ -139,10 +139,21 @@ defmodule Whiska.Owl.House do
   ## Fetching the base (ADR-0087)
 
   While a mouse's merge request waits, the backstop fetches its base every
-  `fetch_ms` (5 min), so a merge on the forge reaches the fetched copy cleanup
-  reads. The fetch runs in a task, one at a time, never in the house's own
-  process; a failure waits twice as long before the next, up to `fetch_max_ms`
-  (an hour), and is said in the log once until a fetch works again.
+  `fetch_ms` (60 s) from when the last fetch started, so a merge on the forge
+  reaches the fetched copy cleanup reads. A read that finds the merge request
+  merged fetches at once. The fetch runs in a task, one at a time, never in the
+  house's own process; a failure waits twice as long before the next, up to
+  `fetch_max_ms` (an hour), and is said in the log once until a fetch works
+  again.
+
+  ## Reading the forge (ADR-0087)
+
+  The backstop also reads each watched merge request (`Whiska.MergeRequests`)
+  every `forge_ms` (60 s) from when its last read started, in a task of its
+  own, one at a time. The house keeps each read's row and acts on what it says
+  happened: the log says what would wake a mouse, a merge fetches the base. A
+  read that fails backs off and is said once. The tools default to the
+  application's `:forge_tools`, else the ones installed.
   """
 
   use GenServer
@@ -160,6 +171,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Herdr
   alias Whiska.Layout
   alias Whiska.Ledger
+  alias Whiska.MergeRequests
   alias Whiska.Pickup
   alias Whiska.Question.Marker
   alias Whiska.Schema.Mouse
@@ -204,7 +216,9 @@ defmodule Whiska.Owl.House do
   # (ADR-0080). Checked on the backstop, so the
   # real spacing is this to this plus one backstop.
   @default_ring_ms 90_000
-  @default_fetch_ms 300_000
+  @default_fetch_ms 60_000
+  @default_forge_ms 60_000
+  @default_forge_timeout_ms 30_000
   @default_fetch_max_ms 3_600_000
   @default_fetch_timeout_ms 60_000
 
@@ -229,8 +243,15 @@ defmodule Whiska.Owl.House do
     :fetch_ms,
     :fetch_max_ms,
     :fetch_timeout_ms,
+    :forge_ms,
     :away_path,
+    :forge_context,
     fetching: nil,
+    fetch_started_at: nil,
+    fetch_soon: false,
+    reading: nil,
+    read_started_at: nil,
+    read_due: %{},
     fetch_due_at: nil,
     fetch_wait_ms: nil,
     fetch_failing: false,
@@ -280,7 +301,10 @@ defmodule Whiska.Owl.House do
   after a doorbell an answer not taken is rung again), `:fetch_ms` (how often
   the base is fetched while a merge request waits), `:fetch_max_ms` (the
   longest wait a failing fetch backs off to), `:fetch_timeout_ms` (when a fetch
-  still running is killed), `:desktop` (where a hoot
+  still running is killed), `:forge_ms` (how often each merge request is read
+  on its forge), `:forge_timeout_ms` (when one forge call still running is
+  killed), `:forge_tools` (a forge tool's path by its name, where it is not
+  the one installed), `:desktop` (where a hoot
   herdr will not show is raised, `Whiska.Desktop.impl/0` by default),
   `:away_path` (the file that says the person is away, the real one by
   default), `:name`.
@@ -356,6 +380,15 @@ defmodule Whiska.Owl.House do
           fetch_ms: Keyword.get(opts, :fetch_ms, @default_fetch_ms),
           fetch_max_ms: Keyword.get(opts, :fetch_max_ms, @default_fetch_max_ms),
           fetch_timeout_ms: Keyword.get(opts, :fetch_timeout_ms, @default_fetch_timeout_ms),
+          forge_ms: Keyword.get(opts, :forge_ms, @default_forge_ms),
+          forge_context:
+            MergeRequests.context(
+              main,
+              Keyword.get(opts, :forge_timeout_ms, @default_forge_timeout_ms),
+              Keyword.get_lazy(opts, :forge_tools, fn ->
+                Application.get_env(:whiska, :forge_tools, %{})
+              end)
+            ),
           away_path: Keyword.get_lazy(opts, :away_path, &Mode.away_path/0),
           main_pane: Storage.main_pane()
         }
@@ -459,6 +492,7 @@ defmodule Whiska.Owl.House do
       |> deliver()
       |> clean_up()
       |> fetch_base()
+      |> read_forge()
       |> ring()
       |> pick_up()
 
@@ -473,6 +507,16 @@ defmodule Whiska.Owl.House do
 
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{fetching: %Task{ref: ref}} = state) do
     {:noreply, fetched(%{state | fetching: nil}, [{"the base", {:error, {:crashed, reason}}}])}
+  end
+
+  def handle_info({ref, {reads, context}}, %{reading: %Task{ref: ref}} = state) do
+    Process.demonitor(ref, [:flush])
+    {:noreply, have_read(%{state | reading: nil, forge_context: context}, reads)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, reason}, %{reading: %Task{ref: ref}} = state) do
+    warn(state, "reading the forge crashed (#{inspect(reason)}) — trying again next minute")
+    {:noreply, %{state | reading: nil}}
   end
 
   def handle_info(:board, state) do
@@ -1048,8 +1092,19 @@ defmodule Whiska.Owl.House do
   defp start_fetch(state, recorded) do
     checkout = state.main_checkout
     timeout = state.fetch_timeout_ms
-    %{state | fetching: Task.async(fn -> fetch_bases(checkout, recorded, timeout) end)}
+
+    %{
+      state
+      | fetching: Task.async(fn -> fetch_bases(checkout, recorded, timeout) end),
+        fetch_started_at: System.monotonic_time(:millisecond),
+        fetch_soon: false
+    }
   end
+
+  # A fetch already running may have started before the merge, so the one the
+  # merge asked for follows it.
+  defp fetch_now(%{fetching: %Task{}} = state), do: %{state | fetch_soon: true}
+  defp fetch_now(state), do: fetch_base(%{state | fetch_due_at: nil})
 
   defp merge_requests_waiting do
     for %Mouse{removed_at: nil} = mouse <- Storage.current_mice(),
@@ -1070,8 +1125,11 @@ defmodule Whiska.Owl.House do
     |> Enum.map(&{&1, Git.fetch_base(checkout, &1, timeout)})
   end
 
+  defp fetched(%{fetch_soon: true} = state, results),
+    do: %{fetched(%{state | fetch_soon: false}, results) | fetch_due_at: nil} |> fetch_base()
+
   defp fetched(state, results) do
-    due = System.monotonic_time(:millisecond)
+    due = state.fetch_started_at
 
     case Enum.find(results, &match?({_base, {:error, _}}, &1)) do
       nil ->
@@ -1090,6 +1148,74 @@ defmodule Whiska.Owl.House do
 
         %{state | fetch_due_at: due + wait, fetch_wait_ms: wait, fetch_failing: true}
     end
+  end
+
+  # Each read runs in a task, never the house's own process, and talks to the
+  # forge only: the rows are read before and written after, here (ADR-0060).
+  defp read_forge(%{reading: %Task{}} = state), do: state
+
+  defp read_forge(state) do
+    now = System.monotonic_time(:millisecond)
+    watched = MergeRequests.watched()
+    read_due = Map.take(state.read_due, Enum.map(watched, fn {mouse, _row} -> mouse.mouse_id end))
+
+    due =
+      Enum.filter(watched, fn {mouse, _row} -> now >= Map.get(read_due, mouse.mouse_id, now) end)
+
+    case due do
+      [] ->
+        %{state | read_due: read_due}
+
+      due ->
+        context = state.forge_context
+
+        %{
+          state
+          | reading: Task.async(fn -> read_all(due, context) end),
+            read_started_at: now,
+            read_due: read_due
+        }
+    end
+  end
+
+  defp read_all(due, context) do
+    Enum.map_reduce(due, context, fn {mouse, row}, context ->
+      {result, context} = MergeRequests.read(mouse, row, context)
+      {{mouse, row, result}, context}
+    end)
+  end
+
+  defp have_read(state, reads) do
+    now = DateTime.utc_now()
+
+    Enum.reduce(reads, state, fn {mouse, row, result}, state ->
+      {attrs, events} = MergeRequests.next(row, mouse, result, now)
+
+      with {:error, reason} <- MergeRequests.save(attrs) do
+        warn(
+          state,
+          "could not keep the read of #{label(mouse.mouse_id)}'s merge request (#{inspect(reason)})"
+        )
+      end
+
+      wait = MergeRequests.wait_ms(attrs, retry_after(result), state.forge_ms, now)
+      state = put_in(state.read_due[mouse.mouse_id], state.read_started_at + wait)
+      Enum.reduce(events, state, &happened(&1, mouse, &2))
+    end)
+  end
+
+  defp retry_after({:unknown, _reason, retry_after_ms}), do: retry_after_ms
+  defp retry_after(_read), do: nil
+
+  defp happened(event, mouse, state) do
+    {:ok, ref} = Whiska.Forge.for_url(mouse.merge_request_url)
+
+    warn(
+      state,
+      MergeRequests.line(event, mouse.branch || mouse.mouse_id, Whiska.Forge.label(ref))
+    )
+
+    if event == :merged, do: fetch_now(state), else: state
   end
 
   # Ringing again for an answer not taken, on the same backstop as cleanup: a
