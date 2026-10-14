@@ -1212,7 +1212,17 @@ defmodule Whiska.Owl.House do
     label = Whiska.Forge.label(ref)
     warn(state, MergeRequests.line(event, mouse.branch || mouse.mouse_id, label))
 
-    if event == :merged, do: fetch_now(state), else: state
+    case event do
+      :merged ->
+        fetch_now(state)
+
+      :reopened ->
+        Storage.close_owls_questions(mouse.mouse_id)
+        state
+
+      _other ->
+        state
+    end
   end
 
   # Asked once per close, of a worktree that is still there; a reopening
@@ -1225,15 +1235,15 @@ defmodule Whiska.Owl.House do
          %MergeRequestRead{url: url, state: closed, asked_at: nil}
        )
        when is_binary(path) and closed in ["closed", "gone"] do
-    now = DateTime.utc_now()
+    now = DateTime.truncate(DateTime.utc_now(), :second)
     {:ok, ref} = Whiska.Forge.for_url(url)
     label = Whiska.Forge.label(ref)
     why = if closed == "closed", do: :closed, else: :gone
 
-    with true <- File.dir?(path),
-         {:ok, _file} <-
-           Doorstep.leave(state.main_checkout, FromOwl.entry(mouse, label, why, now)),
-         :ok <- MergeRequests.save(%{mouse_id: mouse.mouse_id, asked_at: now}) do
+    # Stamped before it is left, so collection finds the owl's own word for it.
+    with true <- File.dir?(path) and FromOwl.askable?(mouse),
+         :ok <- MergeRequests.save(%{mouse_id: mouse.mouse_id, asked_at: now}),
+         {:ok, _file} <- leave_or_unstamp(state, mouse, FromOwl.entry(mouse, label, why, now)) do
       collect_now(state)
     else
       {:error, reason} ->
@@ -1246,6 +1256,13 @@ defmodule Whiska.Owl.House do
   end
 
   defp ask_to_drop(state, _mouse, _row), do: state
+
+  defp leave_or_unstamp(state, mouse, entry) do
+    with {:error, _} = error <- Doorstep.leave(state.main_checkout, entry) do
+      MergeRequests.save(%{mouse_id: mouse.mouse_id, asked_at: nil})
+      error
+    end
+  end
 
   # Ringing again for an answer not taken, on the same backstop as cleanup: a
   # swallowed doorbell happens inside the pane, so there is nothing to be told
@@ -1495,10 +1512,12 @@ defmodule Whiska.Owl.House do
   # rest of that mouse's questions went — settled if its branch landed,
   # orphaned if it did not (ADR-0064). The mouse is recorded first, so the
   # question of a mouse nobody had heard of is asked of a row that exists.
-  defp arriving(entry) do
-    if File.dir?(entry.worktree_root),
-      do: "open",
-      else: Storage.terminal_status(entry.mouse_id)
+  defp arriving(entry, asked_by) do
+    cond do
+      File.dir?(entry.worktree_root) -> "open"
+      asked_by == "owl" -> "closed"
+      true -> Storage.terminal_status(entry.mouse_id)
+    end
   end
 
   defp start_round(state) do
@@ -1529,7 +1548,7 @@ defmodule Whiska.Owl.House do
              mouse_id: entry.mouse_id,
              text: entry.text,
              kind: kind,
-             status: arriving(entry),
+             status: arriving(entry, asked_by),
              asked_at: DateTime.truncate(entry.stamped_at, :second),
              asked_by: asked_by
            }),

@@ -444,6 +444,21 @@ defmodule Whiska.CLIInboxTest do
       in_house(main, fn -> assert Storage.mouse("ma").held_at == nil end)
     end
 
+    test "the owl's own question is not the stop the hold caused", %{main: main} do
+      seed(main, fn ->
+        q = ask("ma", "[worktree-status: needs-decision] which db?")
+        {:ok, _} = Storage.mark_sent(q.id)
+        Process.sleep(1_100)
+        {:ok, _} = Storage.hold("ma")
+        Process.sleep(1_100)
+        ask("ma", "Drop the worktree of feat-a?", %{asked_by: "owl"})
+      end)
+
+      {0, out, _} = run(["resume", "feat-a"], main)
+      assert out =~ "reply 1"
+      in_house(main, fn -> assert Storage.question(2).status == "open" end)
+    end
+
     test "a mouse that is not on hold is said so, and nothing else happens", %{main: main} do
       seed(main, fn -> :ok end)
       {0, out, _} = run(["resume", "feat-a"], main)

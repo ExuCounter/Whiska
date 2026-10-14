@@ -108,6 +108,29 @@ defmodule Whiska.Forge.GitLabTest do
     assert {:unknown, :unreadable_merge_request, nil} = GitLab.merge_request(ctx.ref, ctx.run)
   end
 
+  test "a number past what the house can store is unreadable, never kept", %{fake: fake} = ctx do
+    FakeGlab.answer(fake, @mr, merge_request(%{"user_notes_count" => 2 ** 70}))
+    assert {:unknown, :unreadable_merge_request, nil} = GitLab.merge_request(ctx.ref, ctx.run)
+
+    FakeGlab.answer(
+      fake,
+      @mr,
+      merge_request(%{"head_pipeline" => %{pipeline("failed") | "id" => 2 ** 70}})
+    )
+
+    assert {:ok, %{pipeline: nil}} = GitLab.merge_request(ctx.ref, ctx.run)
+
+    FakeGlab.answer(fake, @mr <> "/discussions?per_page=100&page=1", [
+      discussion("d1", true, false, [
+        note(2 ** 70, 2, "alice"),
+        note(11, 2 ** 70, "bob"),
+        note(12, 2, "alice")
+      ])
+    ])
+
+    assert {:ok, %{notes: [%{id: 12}]}} = GitLab.notes(ctx.ref, ctx.run)
+  end
+
   test "the discussions are read page by page into open threads and notes", %{fake: fake} = ctx do
     FakeGlab.answer(
       fake,
@@ -215,9 +238,8 @@ defmodule Whiska.Forge.GitLabTest do
     %{
       "id" => id,
       "individual_note" => false,
-      "resolvable" => resolvable,
-      "resolved" => resolved,
-      "notes" => notes
+      "notes" =>
+        Enum.map(notes, &Map.merge(&1, %{"resolvable" => resolvable, "resolved" => resolved}))
     }
   end
 

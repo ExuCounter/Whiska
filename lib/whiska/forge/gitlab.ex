@@ -20,6 +20,12 @@ defmodule Whiska.Forge.GitLab do
   # far past any review, and a forge paging forever is cut off there.
   @pages 20
 
+  # The largest integer the house's SQLite stores; a forge's number past it
+  # would stop the read from being kept.
+  @largest 9_223_372_036_854_775_807
+
+  defguardp number?(n) when is_integer(n) and n >= 0 and n <= @largest
+
   @running ~w(created waiting_for_resource preparing pending running scheduled)
 
   @impl true
@@ -109,7 +115,7 @@ defmodule Whiska.Forge.GitLab do
   defp user(run, host) do
     with {:ok, body, _headers} <- CLI.get(run, host, "user") do
       case body do
-        %{"id" => id, "username" => username} when is_integer(id) and is_binary(username) ->
+        %{"id" => id, "username" => username} when number?(id) and is_binary(username) ->
           {:ok, %{id: id, username: username}}
 
         _ ->
@@ -123,7 +129,7 @@ defmodule Whiska.Forge.GitLab do
   defp merge_request_path(ref), do: "#{project_path(ref)}/merge_requests/#{ref.number}"
 
   defp snapshot(%{"state" => state, "user_notes_count" => count} = body)
-       when is_binary(state) and is_integer(count) do
+       when is_binary(state) and number?(count) do
     {:ok,
      %{
        state: state(state),
@@ -143,7 +149,7 @@ defmodule Whiska.Forge.GitLab do
   defp state("closed"), do: :closed
   defp state(_opened_or_locked), do: :open
 
-  defp pipeline(%{"id" => id, "status" => status} = pipeline) when is_integer(id) do
+  defp pipeline(%{"id" => id, "status" => status} = pipeline) when number?(id) do
     %{id: id, status: pipeline_status(status), sha: string(pipeline["sha"])}
   end
 
@@ -177,17 +183,20 @@ defmodule Whiska.Forge.GitLab do
   defp threads(discussions) do
     discussions = Enum.filter(discussions, &is_map/1)
 
+    # GitLab says whether a thread is resolved on each of its notes.
     open =
-      Enum.count(
-        discussions,
-        &(Map.get(&1, "resolvable") == true and Map.get(&1, "resolved") != true)
-      )
+      Enum.count(discussions, fn discussion ->
+        Enum.any?(
+          List.wrap(discussion["notes"]),
+          &(is_map(&1) and &1["resolvable"] == true and &1["resolved"] != true)
+        )
+      end)
 
     notes =
       for discussion <- discussions,
           %{"id" => id, "author" => %{"id" => author_id, "username" => author}} = note <-
             List.wrap(discussion["notes"]),
-          is_integer(id) and is_integer(author_id) and is_binary(author),
+          number?(id) and number?(author_id) and is_binary(author),
           do: %{id: id, author_id: author_id, author: author, system?: note["system"] == true}
 
     {:ok, %{threads_open: open, notes: notes}}

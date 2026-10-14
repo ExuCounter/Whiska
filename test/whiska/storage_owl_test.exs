@@ -145,6 +145,13 @@ defmodule Whiska.StorageOwlTest do
   # Nothing that cannot be answered may hold the one delivery slot (ADR-0008):
   # a dead mouse's sent question, and a question from a record that no longer
   # stands for a worktree of this house.
+  test "a mouse's latest question is never the owl's own" do
+    mine = ask("m1")
+    _owl = ask("m1", %{asked_by: "owl"})
+
+    assert Storage.latest_question("m1").id == mine.id
+  end
+
   describe "release_unanswerable/0 (ADR-0008)" do
     test "releases a dead mouse's open and sent questions" do
       open = ask("m1")

@@ -38,6 +38,9 @@ defmodule Whiska.Forge.CLI do
   # `$@`, so nothing of theirs is ever read as shell.
   @quiet "exec \"$0\" \"$@\" 2>/dev/null"
 
+  # Far past any page of 100 discussions; a reply past it is not one.
+  @longest_reply 16_000_000
+
   @doc """
   The arguments a read of `path` on `host` runs with: always
   `api --method GET --include --hostname <host> <path>`.
@@ -115,10 +118,10 @@ defmodule Whiska.Forge.CLI do
       {:exit, _code, out} ->
         {:ok, out}
 
-      :timeout ->
+      stopped ->
         with {:os_pid, os_pid} <- Port.info(port, :os_pid), do: kill(os_pid)
-        await(port, System.monotonic_time(:millisecond) + 1_000, "")
-        {:unknown, :timeout, nil}
+        drain(port, System.monotonic_time(:millisecond) + 1_000)
+        {:unknown, stopped, nil}
     end
   end
 
@@ -138,12 +141,23 @@ defmodule Whiska.Forge.CLI do
     ]
   end
 
+  defp await(_port, _deadline, out) when byte_size(out) > @longest_reply, do: :too_long
+
   defp await(port, deadline, out) do
     receive do
       {^port, {:data, data}} -> await(port, deadline, out <> data)
       {^port, {:exit_status, code}} -> {:exit, code, out}
     after
       max(deadline - System.monotonic_time(:millisecond), 0) -> :timeout
+    end
+  end
+
+  defp drain(port, deadline) do
+    receive do
+      {^port, {:data, _data}} -> drain(port, deadline)
+      {^port, {:exit_status, _code}} -> :ok
+    after
+      max(deadline - System.monotonic_time(:millisecond), 0) -> :ok
     end
   end
 

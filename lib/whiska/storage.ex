@@ -304,7 +304,7 @@ defmodule Whiska.Storage do
   def latest_question(mouse_id) do
     Repo.one(
       from(q in Question,
-        where: q.mouse_id == ^mouse_id,
+        where: q.mouse_id == ^mouse_id and (is_nil(q.asked_by) or q.asked_by != "owl"),
         order_by: [desc: q.asked_at, desc: q.id],
         limit: 1
       )
@@ -528,7 +528,11 @@ defmodule Whiska.Storage do
     )
   end
 
-  defp release(%Mouse{mouse_id: mouse_id}, :worktree) do
+  defp release(%Mouse{mouse_id: mouse_id}, :worktree), do: close_owls_questions(mouse_id)
+
+  @doc "Close what the owl asked of `mouse_id` that still waits: it no longer applies."
+  @spec close_owls_questions(String.t()) :: {non_neg_integer(), nil}
+  def close_owls_questions(mouse_id) do
     Repo.update_all(
       from(q in Question,
         where: q.mouse_id == ^mouse_id and q.status in ^@waiting and q.asked_by == "owl"

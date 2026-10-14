@@ -248,7 +248,7 @@ lands, and while it waits the owl fetches the base, so its merge on the forge re
 every minute through the **forge**: its state, head pipeline, open threads and new
 comments, shown on its own **sidebar line** row; closed or gone, it asks whether to drop
 the worktree. A request still open when its branch is dropped is read until it merges or
-closes. One opened elsewhere is not seen, nor is a GitHub one closed (ADR-0087, ADR-0060).
+closes; one never read is read once to find out. One opened elsewhere is not seen, nor is a GitHub one closed (ADR-0087, ADR-0060).
 _Avoid_: PR, pull request (GitHub's words; both forges are meant), review (what happens
 on it)
 

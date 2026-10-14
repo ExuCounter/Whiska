@@ -134,6 +134,20 @@ defmodule Whiska.Forge.CLITest do
     assert first == "PATH" |> System.get_env() |> String.split(":") |> hd()
   end
 
+  test "a reply too long to be one is unknown", %{run: run} do
+    tool = Path.join(run.cwd, "endless")
+
+    File.write!(tool, """
+    #!/bin/sh
+    printf 'HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n'
+    exec head -c 20000000 /dev/zero
+    """)
+
+    File.chmod!(tool, 0o755)
+
+    assert {:unknown, :too_long, nil} = CLI.get(%{run | tool: tool}, "gitlab.com", "user")
+  end
+
   test "an unsafe path never reaches the tool", %{fake: fake, run: run} do
     assert {:unknown, :unsafe_path, nil} = CLI.get(run, "gitlab.com", "-X POST")
     assert FakeGlab.calls(fake) == []

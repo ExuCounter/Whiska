@@ -149,6 +149,18 @@ defmodule Whiska.CLIMetricsTest do
     end)
   end
 
+  test "the owl's own questions are no mouse's decisions", %{main: main} do
+    four_mice(main)
+
+    seed(main, fn ->
+      for _ <- 1..3,
+          do: ask("m2", "needs-decision", status: "closed", asked_by: "owl")
+    end)
+
+    out = capture_io(fn -> assert CLI.run(["metrics", "--json"], main) == 0 end)
+    assert [%{"mode" => "build", "decisions" => 2} | _] = JSON.decode!(out)["shapes"]
+  end
+
   test "--json prints the four views from what the house holds", %{main: main} do
     four_mice(main)
 

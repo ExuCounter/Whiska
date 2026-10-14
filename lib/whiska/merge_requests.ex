@@ -87,8 +87,9 @@ defmodule Whiska.MergeRequests do
         do: {mouse, row}
   end
 
+  defp still_open?(nil, _url), do: true
   defp still_open?(%MergeRequestRead{url: url, state: "open"}, url), do: true
-  defp still_open?(_never_read_or_not_open, _url), do: false
+  defp still_open?(_not_read_open, _url), do: false
 
   @doc "Every row, by mouse."
   @spec reads() :: %{String.t() => MergeRequestRead.t()}
@@ -333,7 +334,9 @@ defmodule Whiska.MergeRequests do
   defp advance({:missing, true}, prior, base, now) do
     count = ((prior && prior.missing_reads) || 0) + 1
     was = prior && prior.state
-    gone? = count >= @gone_after
+    # Only a request once read as this mouse's can go: a link to one that was
+    # never there says nothing about the branch.
+    gone? = count >= @gone_after and not is_nil(was)
 
     attrs =
       Map.merge(base, %{

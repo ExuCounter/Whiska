@@ -88,7 +88,8 @@ from what a fetch brings back, by the git checks cleanup already trusts.
   `whiska land` refuses it, until the person drops it. A closed GitLab request is asked
   about once.
 - **A branch dropped while its request is still open stays read** until the request
-  merges or closes, and the main checkout's sidebar line counts such requests.
+  merges or closes, and the main checkout's sidebar line counts such requests. One never
+  read yet is read once to find out; one whose reads have only ever failed is let go.
 
 ## Considered options
 

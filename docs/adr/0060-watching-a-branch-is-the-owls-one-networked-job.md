@@ -204,8 +204,13 @@ adapter did not recognise what came back.
   limit gets the person throttled across every tool they use.
 - **A read never gives up while the request is open**: a merge request the person still
   has open is worth reading after an outage, and the row already says it is unread.
-- **A 404 is deleted only after three in a row, and only while the project itself still
-  reads.** A project that does not read is a sign-in or access problem, which is unknown.
+- **A 404 is deleted only after three in a row, only while the project itself still
+  reads, and only for a request once read as the mouse's.** A project that does not read
+  is a sign-in or access problem, which is unknown; a link that never read says nothing
+  about the branch.
+- **What cannot be kept is unknown**: a reply past 16 MB, or a number past what the
+  house's SQLite stores. An open thread is one with a note still to resolve, as GitLab
+  marks resolution on each note.
 - **The owl being offline costs nothing.** A read is a row, not a held connection, so a
   laptop that slept through a CI run reads the final result when it wakes. What the owl
   last read is kept in the house, with the newest comment it has seen, so a restart never
@@ -225,13 +230,18 @@ adapter did not recognise what came back.
 - **Merged on the forge fetches the base at once.** The forge's word is not the landing:
   git's checks still prove it (ADR-0061).
 - **Closed on the forge, or gone, asks the person once** whether to drop the worktree:
-  once per close, so a request reopened and closed again is asked about again. The ask is
-  made from the stored read, so one that failed is made at the next read.
+  once per close, so a request reopened and closed again is asked about again, and a
+  reopening takes back a question still waiting. The ask is made from the stored read,
+  stamped before the question is left, so one that failed is made at the next read. A
+  branch whose name holds a space, a control character or a backtick is not asked about:
+  its name would be words of its own in the question.
 - **That question is the owl's, not the mouse's.** It is stored against the mouse so it
   goes with the worktree, but nothing that reads a mouse's questions as its words counts
   it: it supersedes none of the mouse's questions and none supersede it, it is not the
   mouse's last word for cleanup (ADR-0061) or pickup, and it does not stop an answer being
-  handed over. Its line and hoot open with `🦉 Whiska asks`, as its heading does.
+  handed over, chosen as the stop a hold caused, or counted in metrics. Its line and hoot
+  open with `🦉 Whiska asks`, as the heading the main session writes for it does. Collection takes it as the owl's only
+  when it is stamped the second the owl's stored read says it asked.
 
 ### Cost 3: credentials
 

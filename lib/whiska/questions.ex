@@ -268,7 +268,7 @@ defmodule Whiska.Questions do
     text = q.text |> Marker.strip() |> String.trim_trailing()
 
     """
-    #{Enum.join(facts, "\n")}
+    #{Enum.map_join(facts, "\n", &String.replace(&1, ~r/\s+/, " "))}
 
     #{shown(q, text)}
     """

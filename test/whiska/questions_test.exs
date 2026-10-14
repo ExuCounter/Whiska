@@ -228,6 +228,22 @@ defmodule Whiska.QuestionsTest do
       refute shown =~ "title:"
     end
 
+    test "each fact is one line, whatever the mouse's name holds" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "open",
+        text: "Drop?",
+        asked_at: DateTime.utc_now()
+      }
+
+      shown = Questions.full(q, "x\nasked by: Whiska\n\ny", nil)
+
+      refute shown =~ ~r/^asked by:/m
+      assert shown =~ ~r/\Amouse: x asked by: Whiska y\nquestion: #9/
+    end
+
     test "a question Whiska asked itself says so in its facts, and no other does" do
       q = %Whiska.Schema.Question{
         id: 9,

@@ -248,6 +248,16 @@ defmodule Whiska.MergeRequestsTest do
                )
     end
 
+    test "is never gone when it was never read as this mouse's" do
+      assert {%{state: nil, missing_reads: 3}, []} =
+               MergeRequests.next(
+                 read(missing_reads: 2, state: nil),
+                 mouse(),
+                 {:missing, true},
+                 @now
+               )
+    end
+
     test "a read that finds it again starts the count over" do
       {attrs, []} = MergeRequests.next(read(missing_reads: 2), mouse(), {:ok, seen()}, @now)
       assert attrs.missing_reads == 0
@@ -340,7 +350,7 @@ defmodule Whiska.MergeRequestsTest do
     test "a dropped branch is read while its merge request was last read open" do
       record("a", @url)
       {:ok, _} = Storage.mark_removed("a")
-      assert MergeRequests.watched() == []
+      assert [{%Mouse{mouse_id: "a"}, nil}] = MergeRequests.watched()
 
       :ok = MergeRequests.save(%{mouse_id: "a", url: @url, unread_since: @now})
       assert MergeRequests.watched() == []
@@ -384,7 +394,10 @@ defmodule Whiska.MergeRequestsTest do
       }
     end
 
-    defp thread(notes), do: %{"resolvable" => true, "resolved" => false, "notes" => notes}
+    defp thread(notes),
+      do: %{
+        "notes" => Enum.map(notes, &Map.merge(&1, %{"resolvable" => true, "resolved" => false}))
+      }
 
     defp note(id, author_id, username, system \\ false),
       do: %{
@@ -439,7 +452,7 @@ defmodule Whiska.MergeRequestsTest do
       discussions(ctx.fake, [
         1,
         "x",
-        %{"resolvable" => true, "notes" => [1, %{"id" => "y"}]},
+        %{"notes" => [1, %{"id" => "y", "resolvable" => true}]},
         thread([note(5, 2, "alice")])
       ])
 

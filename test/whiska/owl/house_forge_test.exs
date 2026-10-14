@@ -136,10 +136,14 @@ defmodule Whiska.Owl.HouseForgeTest do
 
   defp thread(id, {author_id, username}) do
     %{
-      "resolvable" => true,
-      "resolved" => false,
       "notes" => [
-        %{"id" => id, "system" => false, "author" => %{"id" => author_id, "username" => username}}
+        %{
+          "id" => id,
+          "system" => false,
+          "resolvable" => true,
+          "resolved" => false,
+          "author" => %{"id" => author_id, "username" => username}
+        }
       ]
     }
   end
@@ -294,6 +298,58 @@ defmodule Whiska.Owl.HouseForgeTest do
     end)
 
     assert %{asked_at: %DateTime{}} = row(repo)
+  end
+
+  test "a merge request reopened takes back the question the owl asked",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    quiet_herdr(path)
+
+    log =
+      capture_io(:stderr, fn ->
+        house = open(repo, forge, [])
+        until(fn -> match?(%{state: "open"}, row(repo)) end)
+        FakeGlab.answer(forge, @mr, merge_request(state: "closed"))
+        until(fn -> Enum.any?(questions(repo), &(&1.asked_by == "owl")) end)
+        FakeGlab.answer(forge, @mr, merge_request(state: "opened"))
+
+        until(fn ->
+          Enum.any?(questions(repo), &(&1.asked_by == "owl" and &1.status == "closed"))
+        end)
+
+        House.sync(house)
+      end)
+
+    assert log =~ "feat-a: !7 open again"
+    assert File.dir?(path)
+  end
+
+  test "the owl's question collected after its worktree went is closed, not orphaned",
+       %{repo: repo, path: path} do
+    record_merge_request(repo)
+    now = DateTime.truncate(DateTime.utc_now(), :second)
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    :ok = MergeRequests.save(%{mouse_id: "ma", url: @url, state: "closed", asked_at: now})
+    mouse = Storage.mouse("ma")
+    Storage.close(handle)
+
+    {:ok, _} =
+      Whiska.Doorstep.leave(
+        repo.checkout,
+        Whiska.Question.FromOwl.entry(mouse, "!7", :closed, now)
+      )
+
+    GitRepo.git!(repo.checkout, ["worktree", "remove", "--force", path])
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, %{bin: nil}, backstop_ms: 60_000)
+      House.collect(house)
+    end)
+
+    assert [_done, %{asked_by: "owl", status: "closed"}] = questions(repo)
   end
 
   test "an entry that only claims to be the owl's is a mouse's question", %{

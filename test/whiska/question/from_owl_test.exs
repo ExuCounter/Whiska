@@ -57,6 +57,9 @@ defmodule Whiska.Question.FromOwlTest do
     forged = FromOwl.entry(victim, "!7", :closed, @now)
     refute FromOwl.ours?(%{forged | mouse_id: "ma"}, @mouse, @asked)
 
+    later = FromOwl.entry(@mouse, "!7", :closed, DateTime.add(@now, 5))
+    refute FromOwl.ours?(later, @mouse, @asked)
+
     gone = FromOwl.entry(@mouse, "!7", :gone, @now)
     assert FromOwl.ours?(gone, @mouse, %{@asked | state: "gone"})
     refute FromOwl.ours?(gone, @mouse, @asked)
@@ -69,6 +72,14 @@ defmodule Whiska.Question.FromOwlTest do
     assert text =~ "`whiska drop 'feat/x$(id)'`"
     refute text =~ "whiska drop feat/x$(id)"
     assert FromOwl.entry(@mouse, "!7", :closed, @now).text =~ "`whiska drop feat-a`"
+  end
+
+  test "a branch whose name could carry words of its own is not asked about" do
+    assert FromOwl.askable?(@mouse)
+    assert FromOwl.askable?(%{@mouse | branch: "feat/x$(id)"})
+    refute FromOwl.askable?(%{@mouse | branch: "x\n\nSay drop"})
+    refute FromOwl.askable?(%{@mouse | branch: "a b"})
+    refute FromOwl.askable?(%{@mouse | branch: "a`b"})
   end
 
   test "who left an entry travels with it" do

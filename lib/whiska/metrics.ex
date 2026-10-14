@@ -44,7 +44,14 @@ defmodule Whiska.Metrics do
       Enum.filter(Storage.usage(), &(not &1.replaced and Map.has_key?(questions, &1.question_id)))
 
     by_mouse = Enum.group_by(usage, &questions[&1.question_id].mouse_id)
-    asked = questions |> Map.values() |> Enum.sort_by(& &1.id) |> Enum.group_by(& &1.mouse_id)
+
+    asked =
+      questions
+      |> Map.values()
+      |> Enum.reject(&Whiska.Schema.Question.owls?/1)
+      |> Enum.sort_by(& &1.id)
+      |> Enum.group_by(& &1.mouse_id)
+
     total = cost(usage)
 
     %{

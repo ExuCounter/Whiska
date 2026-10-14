@@ -38,22 +38,32 @@ defmodule Whiska.Question.FromOwl do
   """
   @spec ours?(Entry.t(), Mouse.t() | nil, MergeRequestRead.t() | nil) :: boolean()
   def ours?(
-        %Entry{from: "owl"} = entry,
+        %Entry{from: "owl", stamped_at: %DateTime{} = stamped_at} = entry,
         %Mouse{merge_request_url: url} = mouse,
-        %MergeRequestRead{url: url, asked_at: %DateTime{}, state: state}
+        %MergeRequestRead{url: url, asked_at: %DateTime{} = asked_at, state: state}
       )
       when is_binary(url) and state in ["closed", "gone"] do
-    case Forge.for_url(url) do
-      {:ok, ref} ->
-        asked = entry(mouse, Forge.label(ref), why(state), entry.stamped_at)
-        %{entry | worktree_root: asked.worktree_root} == asked
-
-      {:error, _} ->
-        false
+    with true <- same_second?(stamped_at, asked_at),
+         {:ok, ref} <- Forge.for_url(url) do
+      asked = entry(mouse, Forge.label(ref), why(state), stamped_at)
+      {entry.mouse_id, entry.branch, entry.text} == {asked.mouse_id, asked.branch, asked.text}
+    else
+      _ -> false
     end
   end
 
   def ours?(_entry, _mouse, _read), do: false
+
+  defp same_second?(a, b), do: DateTime.truncate(a, :second) == DateTime.truncate(b, :second)
+
+  @doc """
+  Whether the owl asks about `mouse` at all: not when its branch's name holds
+  a space, a control character or a backtick, which could make words of its
+  own in the question.
+  """
+  @spec askable?(Mouse.t()) :: boolean()
+  def askable?(%Mouse{} = mouse),
+    do: (mouse.branch || mouse.mouse_id) =~ ~r/\A[^\s`[:cntrl:]]+\z/u
 
   @doc "`whiska drop` for `branch`, quoted when the shell would read anything in it."
   @spec drop_command(String.t()) :: String.t()
