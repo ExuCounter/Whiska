@@ -3,7 +3,7 @@
 A mouse in a worktree tries to edit something; Whiska decides and either says nothing
 (allow) or prints a deny. The one rule here is the hold (ADR-0079); what a mouse's mode
 forbids and the person's commands are the deny list Claude Code enforces whatever the
-hook says (ADR-next-a-mouse-starts-in-bypass-mode). The owl decides it in about 16 ms when it answers its hook
+hook says (ADR-0090). The owl decides it in about 16 ms when it answers its hook
 socket, and the escript in about 245 ms when it does not (ADR-0033). Both run the same
 modules, so the steps below are the same either way.
 

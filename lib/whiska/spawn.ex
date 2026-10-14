@@ -200,7 +200,7 @@ defmodule Whiska.Spawn do
   @doc """
   Record a mouse's shape and get its worktree ready (ADR-0069, ADR-0083): its
   mode's brief written with `task` in it, its mode's deny list beside it
-  (ADR-next-a-mouse-starts-in-bypass-mode), git ignoring Whiska's files there,
+  (ADR-0090), git ignoring Whiska's files there,
   and the main checkout's dependencies cloned in. Answers the flags to start
   Claude with and the lines that say what was done; a failed clone or ignore
   is said, never a failure.

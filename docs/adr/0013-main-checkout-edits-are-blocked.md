@@ -1,7 +1,7 @@
 # Edits in the main checkout are blocked, including anything the main session spawns
 
 Superseded on 2026-10-14 by
-[ADR-next-a-mouse-starts-in-bypass-mode](next-a-mouse-starts-in-bypass-mode.md): a mouse starts in bypass mode with
+[ADR-0090](0090-a-mouse-starts-in-bypass-mode.md): a mouse starts in bypass mode with
 its mode's deny list, and no rule keeps it out of the main checkout.
 
 What it decided that still holds: setup is something the person does in the main

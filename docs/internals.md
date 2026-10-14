@@ -62,7 +62,7 @@ Claude Code loads it.
 ## What is enforced
 
 A shaped mouse starts in Claude Code's bypass mode, with a deny list in
-`.whiska-settings.json` at its worktree root (ADR-next-a-mouse-starts-in-bypass-mode). Claude
+`.whiska-settings.json` at its worktree root (ADR-0090). Claude
 Code enforces it; nothing else asks before a tool call.
 
 - **A mouse may not run your commands**: `away`, `focus`, `hold`, `resume`, `reply`,

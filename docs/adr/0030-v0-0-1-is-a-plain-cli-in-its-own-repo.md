@@ -35,4 +35,4 @@ lazily on the first hook call for a mouse nobody shaped; either way the marker i
 by Whiska, never by the model (ADR-0002).
 
 Changed on 2026-10-14: no rule keeps such a session out of the main checkout
-(ADR-next-a-mouse-starts-in-bypass-mode).
+(ADR-0090).

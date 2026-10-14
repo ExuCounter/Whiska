@@ -52,7 +52,7 @@ in git history.
 ## Enforcement and finishing
 
 - [0011](0011-pretooluse-denies-immediately.md) — Hard rules are enforced by Claude Code before a tool call, and deny at once
-- [next-a-mouse-starts-in-bypass-mode](next-a-mouse-starts-in-bypass-mode.md) — A mouse starts in bypass mode, with its mode's deny list
+- [0090](0090-a-mouse-starts-in-bypass-mode.md) — A mouse starts in bypass mode, with its mode's deny list
 - [0049](0049-finishing-is-a-pipeline-the-mouse-runs.md) — Finishing is a pipeline the mouse runs, not a hook that blocks it
 
 ## Mice

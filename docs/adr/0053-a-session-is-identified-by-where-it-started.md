@@ -108,4 +108,4 @@ finding it still means starting from a directory. It also breaks ADR-0002's "no 
 involved" for no gain here.
 
 Changed on 2026-10-14: no rule holds a mouse to its worktree, and its transcript is one
-more file it can write (ADR-next-a-mouse-starts-in-bypass-mode).
+more file it can write (ADR-0090).

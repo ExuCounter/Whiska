@@ -52,7 +52,7 @@ one source.
 
 The sniff mouse's single write exception existed only so it could write that document.
 With the message as the document, sniff takes no edit exception, which let its limit move
-to Claude Code's own launch flags (ADR-next-a-mouse-starts-in-bypass-mode), since those
+to Claude Code's own launch flags (ADR-0090), since those
 take none.
 
 ## Considered options

@@ -306,4 +306,4 @@ replaced. Earlier rounds are not kept, as for specs.
 Folded in on 2026-10-08: 0076, 0085 (their text is in git history).
 
 Changed on 2026-10-14: `whiska mode` writes no exclude line, since it gives no mode
-(ADR-next-a-mouse-starts-in-bypass-mode).
+(ADR-0090).

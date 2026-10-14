@@ -23,7 +23,7 @@ some `claude`'s shell does not make every mouse inside it nested.
   a `claude` the main session started settles no finished line: it is not the person.
 - `PreToolUse` is unchanged: a nested session in a mouse's worktree is stopped by that
   mouse's hold (ADR-0079). It does not carry the mouse's deny list, which is a launch flag
-  (ADR-next-a-mouse-starts-in-bypass-mode).
+  (ADR-0090).
 
 When the walk cannot be made — no `CLAUDE_PID`, `ps` failing or taking over a second, a
 process gone mid-walk —
@@ -75,4 +75,4 @@ Changed on 2026-10-13: there is no `SessionStart` hook to silence
 (ADR-0088).
 
 Changed on 2026-10-14: a nested session starts without the mouse's deny list, which is a
-launch flag (ADR-next-a-mouse-starts-in-bypass-mode).
+launch flag (ADR-0090).

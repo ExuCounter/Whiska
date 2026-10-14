@@ -1210,7 +1210,7 @@ defmodule Whiska.CLI do
     end
   end
 
-  # A mode is the deny list Claude starts with (ADR-next-a-mouse-starts-in-bypass-mode),
+  # A mode is the deny list Claude starts with (ADR-0090),
   # which a running session cannot take.
   defp refuse_mode(mouse_id, layout, mode) do
     case Storage.mouse(mouse_id) do

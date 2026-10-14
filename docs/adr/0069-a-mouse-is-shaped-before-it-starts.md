@@ -10,7 +10,7 @@ Either mints the marker and the mouse record there and then, records the shape a
 root, both of which git ignores, and gives the flags to start Claude with,
 `--dangerously-skip-permissions --settings .whiska-settings.json
 --append-system-prompt-file .whiska-brief.md` among them
-(ADR-next-a-mouse-starts-in-bypass-mode). The three axes are chosen apart: the mode says what the mouse may do, the model and the effort say what the
+(ADR-0090). The three axes are chosen apart: the mode says what the mouse may do, the model and the effort say what the
 work needs. There is no default mode. A mouse keeps the mode it was shaped with.
 
 ## Why before Claude starts
@@ -138,7 +138,7 @@ report carries that line: Whiska's record, not the main session's intent.
 
 Sniff is not a security boundary. Only the edit tools are denied by name, so a shell
 command or an MCP tool that writes is not. It is for a mouse that follows its
-instructions, not one that fights (ADR-next-a-mouse-starts-in-bypass-mode).
+instructions, not one that fights (ADR-0090).
 
 A reviewer in the finish pipeline (ADR-0049) is a third kind of work but not a third
 shape: a subagent inside a mouse's session, with no worktree, no marker and no record,
@@ -153,4 +153,4 @@ Changed on 2026-10-13: a sniff mouse writes no file; its final message is the re
 document, and every edit is denied (ADR-0089).
 
 Changed on 2026-10-14: a mode is the deny list a mouse starts with, in bypass mode, and a
-mouse nobody shaped is not limited (ADR-next-a-mouse-starts-in-bypass-mode).
+mouse nobody shaped is not limited (ADR-0090).

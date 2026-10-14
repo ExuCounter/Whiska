@@ -1,7 +1,7 @@
 defmodule Whiska.DenyList do
   @moduledoc """
   What a mouse may not do, as Claude Code's own deny rules, in a settings file it
-  is started with (ADR-next-a-mouse-starts-in-bypass-mode).
+  is started with (ADR-0090).
 
   A mouse starts in bypass mode, so nothing prompts and no classifier judges its
   calls; deny rules still hold there. Every mouse is denied the person's

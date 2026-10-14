@@ -6,7 +6,7 @@ line in a session's brief is a suggestion, followed only if the mouse chooses to
 split is deliberate: the brief carries everything that takes judgment (ADR-0088), and the
 short list that must hold regardless is enforced. What a mouse's mode forbids and the
 person's own commands are deny rules in the settings file it starts with, which Claude
-Code applies whatever the hook says (ADR-next-a-mouse-starts-in-bypass-mode). The hook
+Code applies whatever the hook says (ADR-0090). The hook
 carries what changes while a mouse runs: a hold (ADR-0079). The same principle is applied
 wherever it matters: cleanup checks that a branch is merged rather than trusting a session
 to remember (ADR-0061).
@@ -49,4 +49,4 @@ detects a push: a mouse's brief says never to push.
 Folded in on 2026-10-08: 0010, 0012 (their text is in git history).
 
 Changed on 2026-10-14: the hook holds only the hold; the rest is the deny list a mouse
-starts with, and no push is detected (ADR-next-a-mouse-starts-in-bypass-mode).
+starts with, and no push is detected (ADR-0090).

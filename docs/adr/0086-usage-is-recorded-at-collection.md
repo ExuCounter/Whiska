@@ -70,4 +70,4 @@ the metrics put cost beside waits and spec timing.
   a decision of its own.
 
 Changed on 2026-10-14: no read-only list remains; a sniff mouse runs `whiska ledger` as
-any mouse does (ADR-next-a-mouse-starts-in-bypass-mode).
+any mouse does (ADR-0090).

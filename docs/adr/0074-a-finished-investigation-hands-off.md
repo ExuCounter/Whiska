@@ -31,7 +31,7 @@ rules in `priv/models.json` price lowest. One mode per mouse removes the flip.
   grill. The main session picks the branch, mode, model and effort, judged
   against the Build line by the ordered rules (ADR-0069), and passes each as an argument.
 - **`whiska mode build|sniff` gives no mode.** A mode is the deny list Claude starts
-  with (ADR-next-a-mouse-starts-in-bypass-mode), so a mouse nobody shaped is shaped by
+  with (ADR-0090), so a mouse nobody shaped is shaped by
   `whiska shape` in its worktree and restarted. On a mouse that has a shape it refuses,
   exits 1, changes nothing, and points to What to change and a fresh mouse. `whiska shape`
   in another mode refuses a shaped mouse the same way, so a sniff mouse cannot shape
@@ -135,5 +135,5 @@ Changed on 2026-10-12: the research document is kept once per branch beside the 
 not per question, so an earlier question's link opens the latest round (ADR-0063).
 
 Changed on 2026-10-14: `whiska mode` gives no mode, since a mode is a launch flag
-(ADR-next-a-mouse-starts-in-bypass-mode), and `whiska shape` refuses another mode for a
+(ADR-0090), and `whiska shape` refuses another mode for a
 shaped mouse.

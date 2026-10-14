@@ -19,7 +19,7 @@ defmodule Whiska.Hook.PreToolUse do
   The hold is the one rule here, since the person sets it while the mouse runs
   (ADR-0079). What a mouse's mode forbids, and the person's commands, are the
   deny list it is started with, which Claude Code enforces itself
-  (ADR-next-a-mouse-starts-in-bypass-mode).
+  (ADR-0090).
   """
 
   alias Whiska.Isolated

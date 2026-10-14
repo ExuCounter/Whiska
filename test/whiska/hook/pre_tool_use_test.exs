@@ -76,7 +76,7 @@ defmodule Whiska.Hook.PreToolUseTest do
   end
 
   # The mode's limits and the person's commands are the deny list a mouse starts
-  # with (ADR-next-a-mouse-starts-in-bypass-mode); the hook holds only the hold.
+  # with (ADR-0090); the hook holds only the hold.
   describe "a mouse that is not held is left to its deny list" do
     test "a build mouse may write anywhere, the main checkout included", %{
       main: main,

@@ -142,7 +142,7 @@ The reasoning is in the ADR each line names; this is the map.
 - **Deny list, one file per mouse**: what a mouse's mode forbids and the person's commands,
   on Claude Code's launch line, so Claude Code enforces it from the first tool call; it is
   read once, which is why the hold, set while a mouse runs, stays in the hook
-  (ADR-next-a-mouse-starts-in-bypass-mode).
+  (ADR-0090).
 - **Answer flag and finish flag**: hints for the shim, never the answer or the slot, which
   are in the house database (ADR-0080, ADR-0008).
 - **Spec and build plan in the worktree, kept copies in the main checkout**: both live and

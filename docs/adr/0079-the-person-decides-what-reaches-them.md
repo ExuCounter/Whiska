@@ -72,7 +72,7 @@ rule for each: `away`, `hold`, `focus`, `resume`, `reply`, `dismiss` and `close`
 `whiska` in front since `pr` and `send` are other programs too. Prose in a brief would be
 the only other thing stopping a mouse from putting the machine away, holding a sibling, or
 starting, landing or throwing away a branch; what must hold is a rule Claude Code enforces
-(ADR-0011, ADR-next-a-mouse-starts-in-bypass-mode). A plain rule matches the command as
+(ADR-0011, ADR-0090). A plain rule matches the command as
 written, so `env`, a full path or `bash -c` gets round it. Reading commands (`inbox`,
 `show`, `questions`, `waiting`, `mice`, `ledger`) are anyone's.
 
@@ -130,4 +130,4 @@ Changed on 2026-10-13: the one-word commands have no slash commands, and `spawn`
 `land`, `pr` and `drop` are the person's too (ADR-0088).
 
 Changed on 2026-10-14: the person's commands are deny rules a mouse starts with, not a
-rule in the hook (ADR-next-a-mouse-starts-in-bypass-mode).
+rule in the hook (ADR-0090).

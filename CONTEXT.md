@@ -593,7 +593,7 @@ root, which git ignores: the **person's commands** for every mouse, and `Edit`, 
 and `NotebookEdit` for a sniff mouse. Claude Code enforces them. The mouse runs in bypass
 mode, so nothing else asks before a tool call, and the hook's one rule is the **hold**.
 Written by `whiska shape` on every shape and read once, at launch, so a running mouse's
-list cannot change (ADR-next-a-mouse-starts-in-bypass-mode).
+list cannot change (ADR-0090).
 _Avoid_: permissions (Claude Code's whole system), allowlist (there is none), sandbox (it
 is not one), guard
 
