@@ -16,7 +16,9 @@ defmodule Whiska.Drop do
   readable (ADR-0007).
   """
 
+  alias Whiska.Forge
   alias Whiska.Git
+  alias Whiska.MergeRequests
   alias Whiska.Review
   alias Whiska.Schema.Mouse
   alias Whiska.Storage
@@ -36,8 +38,23 @@ defmodule Whiska.Drop do
          :ok <- delete_branch(main_checkout, branch) do
       Review.remove(main_checkout, branch)
       mark_removed(branch)
-      {:ok, "Dropped #{branch}: its worktree, workspace and branch are gone."}
+
+      {:ok,
+       "Dropped #{branch}: its worktree, workspace and branch are gone." <> still_read(branch)}
     end
+  end
+
+  # The owl reads a merge request until the forge merges or closes it, worktree
+  # or no worktree (ADR-0087).
+  defp still_read(branch) do
+    MergeRequests.watched()
+    |> Enum.filter(fn {mouse, _read} -> mouse.branch == branch end)
+    |> Enum.map_join(fn {mouse, _read} ->
+      {:ok, ref} = Forge.for_url(mouse.merge_request_url)
+
+      "\n#{Forge.label(ref)} is still open on the forge: Whiska keeps reading it " <>
+        "until it merges or closes."
+    end)
   end
 
   defp worktree(main_checkout, branch, via) do

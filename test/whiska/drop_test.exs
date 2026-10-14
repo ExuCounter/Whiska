@@ -116,6 +116,36 @@ defmodule Whiska.DropTest do
     refute branch?(ctx.repo, "feat-a")
   end
 
+  describe "a branch with a merge request" do
+    @mr "https://gitlab.example.com/acme/app/-/merge_requests/7"
+
+    defp merge_request(repo, state) do
+      Storage.within(repo.checkout, fn ->
+        {:ok, _} = Storage.record_merge_request("m1", @mr)
+        :ok = Whiska.MergeRequests.save(%{mouse_id: "m1", url: @mr, state: state})
+      end)
+    end
+
+    test "one still open is said to stay read until it merges or closes", ctx do
+      path = mouse(ctx.repo, "feat-a", [])
+      merge_request(ctx.repo, "open")
+      herdr_removes(ctx.repo, path, :remove_worktree)
+
+      assert {0, out, _} = drop(["feat-a"], ctx.repo)
+      assert out =~ "!7 is still open on the forge"
+      assert out =~ "until it merges or closes"
+    end
+
+    test "one the forge already closed is not mentioned", ctx do
+      path = mouse(ctx.repo, "feat-a", [])
+      merge_request(ctx.repo, "closed")
+      herdr_removes(ctx.repo, path, :remove_worktree)
+
+      assert {0, out, _} = drop(["feat-a"], ctx.repo)
+      refute out =~ "!7"
+    end
+  end
+
   test "work that would be lost is named, and nothing goes without --force", ctx do
     path = mouse(ctx.repo, "feat-b", push: false)
     GitRepo.dirty!(path)

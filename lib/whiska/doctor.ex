@@ -38,12 +38,15 @@ defmodule Whiska.Doctor do
   alias Whiska.Doctor.Report
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
+  alias Whiska.Forge
   alias Whiska.Herdr
   alias Whiska.Install
   alias Whiska.Layout
   alias Whiska.Marker
+  alias Whiska.MergeRequests
   alias Whiska.OpenHouses
   alias Whiska.Owl
+  alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.ServiceManager
@@ -79,7 +82,8 @@ defmodule Whiska.Doctor do
   answer by default), `:owl_started_at`
   (a function giving when a pid started, `ps` by default), `:desktop` (where a
   hoot herdr will not show is raised, `Whiska.Desktop.impl/0` by default),
-  `:socket_paths` (the owl's two sockets, `Whiska.Owl.socket_paths/0` by default).
+  `:socket_paths` (the owl's two sockets, `Whiska.Owl.socket_paths/0` by default),
+  `:forge_tools` (a tool's path by name, as the owl takes it).
   """
   @spec run(Path.t(), keyword()) :: Report.t()
   def run(main_checkout, opts \\ []) do
@@ -94,6 +98,12 @@ defmodule Whiska.Doctor do
     owl_started_at = Keyword.get(opts, :owl_started_at, &Whiska.Owl.started_at/1)
     desktop = Keyword.get(opts, :desktop, Whiska.Desktop.impl())
     socket_paths = Keyword.get_lazy(opts, :socket_paths, &Owl.socket_paths/0)
+
+    glab =
+      opts
+      |> Keyword.get_lazy(:forge_tools, fn -> Application.get_env(:whiska, :forge_tools, %{}) end)
+      |> Map.get_lazy("glab", fn -> Forge.CLI.find("glab") end)
+
     now = DateTime.utc_now()
     pids = owl_pids.()
     {installed?, agent} = supervision.()
@@ -117,7 +127,7 @@ defmodule Whiska.Doctor do
         else: []
 
     {house, in_house} =
-      house(main_checkout, panes, herdr, env["HERDR_SOCKET_PATH"], now, env)
+      house(main_checkout, panes, herdr, env["HERDR_SOCKET_PATH"], now, env, glab)
 
     checks =
       [binary] ++
@@ -834,6 +844,13 @@ defmodule Whiska.Doctor do
           snippet(config)
         )
 
+      not String.contains?(config, "$whiska_mr") ->
+        Check.warn(
+          "sidebar",
+          "nothing in herdr's config draws each branch's merge request row",
+          snippet(config)
+        )
+
       uncoloured != [] ->
         Check.warn(
           "sidebar",
@@ -859,6 +876,65 @@ defmodule Whiska.Doctor do
 
     how <> ":\n" <> Whiska.Sidebar.snippet()
   end
+
+  @doc """
+  Whether the owl can read the merge requests it reads (ADR-0087), from what
+  it stored of each: the doctor makes no call to the forge. `watched` is
+  `Whiska.MergeRequests.watched/0`; `glab` is where glab is, nil when it is
+  nowhere. Nothing to read says nothing.
+  """
+  @spec forge([{Mouse.t(), MergeRequestRead.t() | nil}], Path.t() | nil, DateTime.t()) ::
+          [Check.t()]
+  def forge([], _glab, _now), do: []
+
+  def forge(watched, nil, _now) do
+    [
+      Check.warn(
+        "forge",
+        "glab is not installed, so #{Enum.map_join(watched, ", ", &named/1)} cannot be read",
+        "install glab, then " <> sign_in(watched)
+      )
+    ]
+  end
+
+  def forge(watched, _glab, now) do
+    case Enum.filter(watched, fn {_mouse, read} -> MergeRequests.unread?(read, now) end) do
+      [] ->
+        [Check.ok("forge", "reads #{merge_requests(length(watched))} every minute")]
+
+      failing ->
+        [
+          Check.warn(
+            "forge",
+            Enum.map_join(failing, "; ", &unread(&1, now)),
+            if(Enum.any?(failing, &signed_out?/1), do: sign_in(failing))
+          )
+        ]
+    end
+  end
+
+  defp named({mouse, _read}) do
+    {:ok, ref} = Forge.for_url(mouse.merge_request_url)
+    "#{Forge.label(ref)} on #{branch_of(mouse)}"
+  end
+
+  defp unread({_mouse, read} = watched, now) do
+    minutes = div(DateTime.diff(now, read.unread_since), 60)
+    "#{named(watched)} unread for #{minutes} min (#{read.unread_reason})"
+  end
+
+  # glab with no token for the host answers without an HTTP response at all.
+  defp signed_out?({_mouse, read}), do: read.unread_reason in ["{:http, 401}", ":no_status"]
+
+  defp sign_in(watched) do
+    watched
+    |> Enum.map(fn {mouse, _read} -> elem(Forge.for_url(mouse.merge_request_url), 1).host end)
+    |> Enum.uniq()
+    |> Enum.map_join(" && ", &"glab auth login --hostname #{&1}")
+  end
+
+  defp merge_requests(1), do: "1 merge request"
+  defp merge_requests(n), do: "#{n} merge requests"
 
   @doc """
   Whether herdr is new enough for the sidebar: `workspace.report_metadata` and
@@ -1293,7 +1369,7 @@ defmodule Whiska.Doctor do
 
   # -- this repo's house -------------------------------------------------------
 
-  defp house(main_checkout, panes, herdr, socket, now, env) do
+  defp house(main_checkout, panes, herdr, socket, now, env, glab) do
     path = Storage.database_path(main_checkout)
 
     # Unnamed: the doctor only reads the house from this process, so it needs
@@ -1325,7 +1401,9 @@ defmodule Whiska.Doctor do
                   prompt_box(box, scroll_offset(word)),
                   questions(open, sent, main_pane != nil, box, now),
                   set_aside(mode, focus_name(mode), held_names(mode))
-                ] ++ mice(Storage.all(Mouse), panes, MapSet.new(Storage.chased(), & &1.mouse_id))
+                ] ++
+                mice(Storage.all(Mouse), panes, MapSet.new(Storage.chased(), & &1.mouse_id)) ++
+                forge(MergeRequests.watched(), glab, now)
 
             {Check.ok("house", "#{path}, schema v#{version}"), in_house}
           after

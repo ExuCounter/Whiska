@@ -177,6 +177,18 @@ defmodule Whiska.DoctorTest do
       assert check.fix =~ "replace the [ui.sidebar.spaces] table"
     end
 
+    test "no merge request row warns, and prints the snippet that has one" do
+      row = ~s(  [{ token = "$whiska_mr", fg = "#93a1a1" }],\n)
+      config = String.replace(Whiska.Sidebar.snippet(), row, "")
+      refute config =~ "$whiska_mr"
+
+      check = Doctor.sidebar(config)
+
+      assert %Check{status: :warn} = check
+      assert check.detail =~ "merge request"
+      assert check.fix =~ ~s(token = "$whiska_mr")
+    end
+
     test "colours matched on words in the line are a warning: free text can trip them" do
       config = """
       [ui.sidebar.spaces]
@@ -190,6 +202,68 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :warn} = check
       assert check.detail =~ "first symbol"
       assert check.fix =~ "starts_with"
+    end
+  end
+
+  describe "forge/3 — can the owl read the merge requests recorded (ADR-0087)" do
+    @mr_url "https://gitlab.example.com/acme/app/-/merge_requests/7"
+
+    defp watched(fields) do
+      mouse = %Mouse{mouse_id: "ma", branch: "feat-a", merge_request_url: @mr_url}
+
+      read =
+        if fields,
+          do: struct(%Whiska.Schema.MergeRequestRead{mouse_id: "ma", url: @mr_url}, fields)
+
+      [{mouse, read}]
+    end
+
+    defp failing(reason, minutes),
+      do: [unread_since: DateTime.add(now(), -minutes * 60), unread_reason: reason]
+
+    test "nothing to read says nothing" do
+      assert Doctor.forge([], nil, now()) == []
+    end
+
+    test "no glab while a GitLab merge request waits warns, with how to get one" do
+      assert [%Check{status: :warn, detail: detail, fix: fix}] =
+               Doctor.forge(watched(nil), nil, now())
+
+      assert detail =~ "glab"
+      assert detail =~ "!7 on feat-a"
+      assert fix =~ "glab auth login --hostname gitlab.example.com"
+    end
+
+    test "a read refused for want of a sign-in says to sign in" do
+      for reason <- ["{:http, 401}", ":no_status"] do
+        assert [%Check{status: :warn, detail: detail, fix: fix}] =
+                 Doctor.forge(watched(failing(reason, 12)), "/bin/glab", now())
+
+        assert detail =~ "!7 on feat-a"
+        assert detail =~ "12 min"
+        assert fix == "glab auth login --hostname gitlab.example.com"
+      end
+    end
+
+    test "any other failing read is named with why" do
+      assert [%Check{status: :warn, detail: detail, fix: nil}] =
+               Doctor.forge(watched(failing(":timeout", 5)), "/bin/glab", now())
+
+      assert detail =~ ":timeout"
+    end
+
+    test "a read failing for under three minutes is not news yet" do
+      fields = [state: "open", read_at: now()] ++ failing(":timeout", 1)
+
+      assert [%Check{status: :ok}] = Doctor.forge(watched(fields), "/bin/glab", now())
+    end
+
+    test "reading says how many, and how often" do
+      assert [%Check{status: :ok, detail: detail}] =
+               Doctor.forge(watched(state: "open", read_at: now()), "/bin/glab", now())
+
+      assert detail =~ "1 merge request"
+      assert detail =~ "every minute"
     end
   end
 
@@ -1414,6 +1488,24 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :warn, detail: detail} = find(report.checks, "doorstep")
       assert detail =~ "1 waiting"
       assert [%Check{status: :warn}] = Enum.filter(report.checks, &(&1.name == "mice"))
+    end
+
+    test "a GitLab merge request recorded with no glab to read it shows up", %{
+      main: main,
+      env: env
+    } do
+      init(main)
+      path = Path.join(main, "worktrees/feat-a")
+      {:ok, handle} = Storage.open(main, name: nil)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "ma", path: path, branch: "feat-a"})
+      {:ok, _} = Storage.record_merge_request("ma", @mr_url)
+      Storage.close(handle)
+      stub(Herdr, :list_panes, fn _ -> {:ok, []} end)
+
+      report = Doctor.run(main, env: env, owl_pids: fn -> [] end, forge_tools: %{"glab" => nil})
+
+      assert %Check{status: :warn, detail: detail} = find(report.checks, "forge")
+      assert detail =~ "!7 on feat-a"
     end
 
     test "an owl that predates the installed binary is warned about, pid and all", %{
