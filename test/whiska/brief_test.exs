@@ -29,6 +29,15 @@ defmodule Whiska.BriefTest do
     assert build =~ "never function bodies"
   end
 
+  test "a sniff mouse's research document says each fact once, in about two screens" do
+    sniff = "sniff" |> Brief.render("task") |> String.replace(~r/\s+/, " ")
+    assert sniff =~ "## Research document"
+    assert sniff =~ "Each fact appears once"
+    assert sniff =~ "About two screens."
+    assert sniff =~ "Findings, not design"
+    refute sniff =~ "in full"
+  end
+
   test "a mouse's documents keep each link on one line and use lists, not tables" do
     for mode <- ["build", "sniff"] do
       text = mode |> Brief.render("task") |> String.replace(~r/\s+/, " ")

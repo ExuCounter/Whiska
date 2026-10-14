@@ -270,7 +270,7 @@ work: a bug's in the build **brief**, an investigation's in the sniff brief.
   the cold review holds the fix against it (ADR-0063).
 - **An investigation's**: the sniff mouse's final message, which writes no file — its
   **summary**, its **proposal** when something should change, the question, then what it
-  established, in full (ADR-0089). `whiska show` links it under
+  established, each fact once, in about two screens (ADR-0089). `whiska show` links it under
   the **branch line**'s row as `Research`, and the person's comments on it are
   their own words, carried as a file: to the build (`whiska spawn --from <id> --comments
   <file>`), to the investigating mouse (`whiska send`), or not sent (ADR-0074).
