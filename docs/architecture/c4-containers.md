@@ -37,7 +37,7 @@ C4Container
     Container(clonelist, "Clone list", "text file, .git/whiska/clone", "Per-repo paths to clone into a new worktree beside the marker defaults, or a lone off; the person writes it")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")
     Container(owlsock, "owl.sock", "Unix socket, ~/.whiska/", "Read-only and documented: waiting, show one question, the jump list, a house's questions, the tab bar line")
-    Container(hooksock, "hook.sock", "Unix socket, ~/.whiska/", "Private: the shim asks it first, and the owl runs the hook's own code")
+    Container(hooksock, "hook.sock", "Unix socket, ~/.whiska/", "Private: the shim asks it first, and the owl runs the hook's own code; whiska start asks it to open a house")
     Container(svc, "Owl's job", "launchd com.whiska.owl, or systemd whiska-owl.service", "Starts the owl at login, restarts a crash; runs the owl.sh wrapper")
   }
 
@@ -61,7 +61,8 @@ C4Container
   Rel(cli, herdr, "drop removes a worktree and its workspace together")
   Rel(cli, remote, "pr pushes a finished branch by name", "git push")
   Rel(cli, forge, "pr opens the merge request with gh or glab")
-  Rel(cli, record, "owl reopens from it; statusline, waiting and doctor read it")
+  Rel(cli, record, "owl reopens from it; start adds this repo when no owl answers; statusline, waiting and doctor read it")
+  Rel(cli, hooksock, "start asks the owl running to open this repo", "open 1 <main checkout>")
   Rel(claude, brief, "Reads it once, at start, as part of its system prompt")
   Rel(claude, denylist, "Reads it once, at start, and denies what it lists")
   Rel(claude, shim, "PreToolUse, Stop and UserPromptSubmit fire in a mouse's session, UserPromptSubmit in the main session too")
@@ -126,7 +127,7 @@ The reasoning is in the ADR each line names; this is the map.
   its line is machine-wide; it asks `owl.sock` and starts nothing (ADR-0048). No script runs per repo:
   each mouse's state is a sidebar line the house reports to herdr directly (ADR-0082).
 - **`owl.sock` and `hook.sock`**: one read-only and documented, for scripts and the tab
-  bar; one private, for the hooks. Neither is the per-repo socket still designed only
+  bar; one private, for the hooks and `whiska start`'s request to open its house. Neither is the per-repo socket still designed only
   (ADR-0033, ADR-0024).
 - **Open-houses record**: the one machine-level file; which houses the owl has open, not
   which exist (ADR-0039, ADR-0003).

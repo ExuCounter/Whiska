@@ -683,7 +683,8 @@ API, endpoint, server
 The owl's private Unix socket for Whiska's own hooks, `~/.whiska/hook.sock` (ADR-0033).
 The hook shim sends the hook's name, its environment and its payload; the owl runs the
 same hook code the escript would and answers. Anything but an answer sends the shim to
-the escript, so it makes hooks fast and never makes them depend on the owl.
+the escript, so it makes hooks fast and never makes them depend on the owl. `whiska start`
+asks it too, to open its house in the owl already running.
 _Avoid_: owl socket (the read-only one), daemon socket, RPC
 
 **Statusline**:

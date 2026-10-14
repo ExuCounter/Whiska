@@ -57,6 +57,7 @@ defmodule Whiska.Doctor do
   @init "whiska init"
   @init_global "whiska init --global"
   @owl "whiska owl"
+  @start "whiska start"
   @install "whiska owl install"
   # Where Homebrew puts escript on Apple silicon, on Intel, and on Linux.
   @homebrew_escripts [
@@ -610,8 +611,11 @@ defmodule Whiska.Doctor do
   cannot explain and this line does.
   """
   @spec open_houses([Path.t()], Path.t(), [pos_integer()]) :: Check.t()
-  def open_houses([], _main, _pids),
+  def open_houses([], _main, []),
     do: Check.warn("open houses", "none recorded — the owl has not opened a house yet", @owl)
+
+  def open_houses([], _main, _pids),
+    do: Check.warn("open houses", "none recorded — the owl has not opened a house yet", @start)
 
   def open_houses(record, _main, []) do
     Check.warn(
@@ -629,7 +633,7 @@ defmodule Whiska.Doctor do
         Check.warn(
           "open houses",
           "this repo is not open — the owl has #{names(record)}; it is not a whiska and its doorstep is not collected",
-          "#{@owl} #{main}  (restart the owl with this repo added)"
+          @start
         )
 
       [] ->

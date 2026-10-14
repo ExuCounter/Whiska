@@ -1527,15 +1527,18 @@ defmodule Whiska.CLI do
         case Storage.main_pane() do
           ^pane ->
             say("#{pane} is already the main session for #{Path.basename(main)}.")
+            open_here(main)
             start_claude(main, pane, claude?)
 
           nil ->
             record_main(main, pane)
+            open_here(main)
             start_claude(main, pane, claude?)
 
           other ->
             if force? or not running_claude?(other) do
               record_main(main, pane)
+              open_here(main)
               start_claude(main, pane, claude?)
             else
               refuse_to_replace(other)
@@ -1566,10 +1569,57 @@ defmodule Whiska.CLI do
   defp record_main(main, pane) do
     :ok = Storage.set_main_pane(pane)
 
-    say(
-      "Recorded #{pane} as the main session for #{Path.basename(main)}. " <>
-        "Questions from its mice will be delivered here."
-    )
+    say("Recorded #{pane} as the main session for #{Path.basename(main)}.")
+  end
+
+  # `whiska start` opens its house in the owl already running (ADR-0033), so
+  # the first start in a new repo needs nothing else: its sidebar lines show
+  # and its doorstep is collected. With no owl to ask, or one that cannot be
+  # asked, the repo goes in the open-houses record for the next owl to open
+  # (ADR-0039). Either way the session still starts: this only warns.
+  defp open_here(main) do
+    case Whiska.Owl.ask_open(main) do
+      :ok ->
+        say("Questions from its mice will be delivered here.")
+
+      {:error, :no_owl} ->
+        record_for_next_owl(
+          main,
+          "the owl is not running, so nothing collects this repo's questions yet",
+          "the owl opens it when it starts"
+        )
+
+      {:error, :not_understood} ->
+        record_for_next_owl(
+          main,
+          "the owl running is too old to open this repo",
+          "restart the owl to open it: whiska owl stop && whiska owl start"
+        )
+
+      {:error, :no_answer} ->
+        IO.puts(
+          :stderr,
+          "whiska: the owl took the request to open this repo and has not answered yet; " <>
+            "`whiska doctor` says whether it is open."
+        )
+
+      {:error, {:refused, reason}} ->
+        IO.puts(:stderr, "whiska: the owl did not open this repo (#{reason}).")
+    end
+  end
+
+  defp record_for_next_owl(main, why, then) do
+    case OpenHouses.add(main) do
+      :ok ->
+        IO.puts(:stderr, "whiska: #{why}. It is in #{OpenHouses.path()}; #{then}.")
+
+      {:error, reason} ->
+        IO.puts(
+          :stderr,
+          "whiska: #{why}, and it could not be added to #{OpenHouses.path()} " <>
+            "(#{inspect(reason)}): whiska owl stop && whiska owl #{main}"
+        )
+    end
   end
 
   # The second half of `whiska start` (ADR-0066): the pane is recorded, and a

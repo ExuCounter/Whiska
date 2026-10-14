@@ -1,4 +1,4 @@
-# The owl answers on two sockets: `hook.sock` for the hooks, `owl.sock` read-only for scripts
+# The owl answers on two sockets: `hook.sock` for the hooks and `whiska start`, `owl.sock` read-only for scripts
 
 Whiska's hooks are a committed bash shim that asks the running owl over a private Unix
 socket, `~/.whiska/hook.sock`, and runs the escript only when the owl does not answer. A
@@ -48,6 +48,23 @@ repo-scoped.
   what a request can *approve*; a hook request approves nothing. Its format is versioned
   (`hook 1 …`) because committed shims outlive the owl they were written against, and it is
   not documented for anyone else.
+
+## `whiska start` opens its house over the hook socket
+
+`whiska start` asks the owl already running to open its repo's house, so the first start
+in a new repo needs no restart before its sidebar lines show and its doorstep is
+collected. The request is one line, `open 1 <main_checkout>`, answered `ok 0` or
+`error <reason>`. The owl opens only an absolute path whose house database is already
+there, so the request never creates a house on disk.
+
+It goes on `hook.sock` because that socket already writes and is already private: the
+same owner-only account could run `whiska owl <repo>`. On `owl.sock` it would end that
+socket's one property. Restarting the supervised owl with the repo added was turned
+down: it interrupts every other house for the sake of one.
+
+An owl that hangs up without an answer is one too old to know `open`; an owl that is not
+listening is down. Either way `whiska start` writes the repo into the open-houses record
+itself (ADR-0039), says which it was, and still starts the session.
 
 ## The owl socket
 
@@ -139,3 +156,6 @@ Folded in on 2026-10-08: 0025 (its text is in git history).
 Changed on 2026-10-13: there is no `session-start` hook, so the shim has no exit for it and
 the owl no answer; a request is `hook 1 <name> <bytes>`, with no `--global`
 (ADR-0088).
+
+Changed on 2026-10-14: `hook.sock` also takes `whiska start`'s `open` request, so a new
+repo is open in the owl from its first start.

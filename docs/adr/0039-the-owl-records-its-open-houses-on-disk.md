@@ -27,6 +27,12 @@ start restores from.
   in the record from then on. Arguments add; they never replace, so the record never
   lists a house the owl does not have open. Until `whiska stop` exists, taking a house
   out means shutting it or editing the file by hand — it is plain text for that reason.
+- **`whiska start` opens its house in the owl already running** (ADR-0033), which
+  records it as any open does. With no owl listening it writes the line itself, so the
+  next owl opens it; the record is trusted only while an owl is alive, so that line says
+  nothing false. With an owl too old to know the request it writes the line too, and
+  then the record does list a house that owl does not have open, until the restart
+  `whiska start` names: a line ahead of the owl, never one behind it.
 - **A whiska is a house in the open-houses record with a live agent pane in its repo
   root.** That is the definition the statusline's `🐈` headcount and its `⚡ … waiting
   elsewhere` segment now count, replacing "any live pane in a repo root that has a house
@@ -78,3 +84,6 @@ pane list is the honest source for liveness. This record is different in both re
   runs; the file stays, since the socket cannot survive the owl either.
 - The house still persists on disk regardless (ADR-0003). The record is about lights on
   or off, never about existence; dropping a checkout from it destroys nothing.
+
+Changed on 2026-10-14: `whiska start` opens its house in the running owl, and writes the
+record itself when no owl answers.

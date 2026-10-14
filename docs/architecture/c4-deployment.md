@@ -26,7 +26,7 @@ C4Deployment
     }
     Deployment_Node(home, "Home directory", "~") {
       Container(globalsock, "owl.sock", "Unix socket, ~/.whiska/", "Read-only, cross-repo: waiting, show, jump, questions, the tab bar line")
-      Container(hooksock, "hook.sock", "Unix socket, ~/.whiska/", "Private: the hook shim asks it before the escript")
+      Container(hooksock, "hook.sock", "Unix socket, ~/.whiska/", "Private: the hook shim asks it before the escript, and whiska start asks it to open a house")
       Container(tabbar, "herdr-status.sh", "bash, ~/.whiska/", "herdr's tab bar runs it; asks owl.sock with nc")
       Container(plist, "The owl's job", "~/Library/LaunchAgents/ or ~/.config/systemd/user/", "The plist or the unit: runs owl.sh, restarts on a crash only")
       Container(wrapper, "owl.sh + owl.log", "~/.whiska/", "Resolves binary and runtime at launch; the owl's stdout and stderr")

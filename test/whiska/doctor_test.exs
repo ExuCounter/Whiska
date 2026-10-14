@@ -707,18 +707,22 @@ defmodule Whiska.DoctorTest do
       refute detail =~ "myrepo"
     end
 
-    test "this repo missing from the record warns and says how to add it" do
+    test "this repo missing from the record warns, and `whiska start` opens it in the owl up" do
       assert %Check{status: :warn, detail: detail, fix: fix} =
                Doctor.open_houses(["/r/dotfiles"], "/r/myrepo", [4242])
 
       assert detail =~ "not open"
       assert detail =~ "dotfiles"
-      assert fix =~ "whiska owl /r/myrepo"
+      assert fix == "whiska start"
     end
 
-    test "an empty record warns" do
-      assert %Check{status: :warn, fix: "whiska owl"} =
+    test "an empty record with the owl up warns, and `whiska start` opens this repo" do
+      assert %Check{status: :warn, fix: "whiska start"} =
                Doctor.open_houses([], "/r/myrepo", [4242])
+    end
+
+    test "an empty record with no owl warns, and starting the owl is the fix" do
+      assert %Check{status: :warn, fix: "whiska owl"} = Doctor.open_houses([], "/r/myrepo", [])
     end
 
     test "with no owl alive the record is shown but not in force" do

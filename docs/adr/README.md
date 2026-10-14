@@ -14,7 +14,7 @@ in git history.
 - [0020](0020-mice-stay-herdr-panes.md) — Mice stay herdr panes; Whiska never owns Claude Code directly
 - [0040](0040-the-owl-is-supervised-by-a-launchagent.md) — The owl is kept running by the platform's service manager: launchd on macOS, systemd on Linux
 - [0039](0039-the-owl-records-its-open-houses-on-disk.md) — The owl records its open houses on disk, and that record is what makes a whiska
-- [0033](0033-the-hook-asks-the-owl-over-a-socket.md) — The owl answers on two sockets: `hook.sock` for the hooks, `owl.sock` read-only for scripts
+- [0033](0033-the-hook-asks-the-owl-over-a-socket.md) — The owl answers on two sockets: `hook.sock` for the hooks and `whiska start`, `owl.sock` read-only for scripts
 - [0035](0035-the-committed-hook-command-names-only-a-shim.md) — The committed hook command names only a shim
 - [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The install is per-repo by default, and the global install is the same install rooted at the home
 - [0088](0088-one-brief-per-session.md) — Each session starts with one brief, on its launch line

@@ -19,6 +19,15 @@ defmodule Whiska.Owl.Hooks do
 
   The answer is `ok <exit-status>` on its own line, then the hook's stdout.
 
+  The one command beside the hooks is `whiska start`'s, opening its house in
+  this owl (ADR-0033):
+
+      open 1 <main-checkout>
+
+  answered `ok 0` once the house is open, or `error <reason>`. It opens only
+  an absolute path whose house database is already there, so the request never
+  creates a house on disk; `whiska start` has just made it.
+
   The environment is the hook's, never the owl's. An owl started by hand in the
   main session's pane carries that pane's id, and read from there every mouse
   would be the main session (ADR-0053). Only the variables the hooks read are
@@ -34,6 +43,7 @@ defmodule Whiska.Owl.Hooks do
   alias Whiska.Hook.UserPromptSubmit
   alias Whiska.Owl
   alias Whiska.Owl.House
+  alias Whiska.Storage
 
   @version "1"
   @env ~w(HERDR_ENV HERDR_PANE_ID CLAUDE_PROJECT_DIR CLAUDE_PID HOME PWD)
@@ -44,7 +54,14 @@ defmodule Whiska.Owl.Hooks do
   def handle(socket, _opts) do
     deadline = System.monotonic_time(:millisecond) + @timeout
 
-    with {:ok, hook, bytes} <- header(socket, deadline),
+    case header(socket, deadline) do
+      {:ok, :open, main} -> open(socket, main)
+      header -> run_hook(socket, header, deadline)
+    end
+  end
+
+  defp run_hook(socket, header, deadline) do
+    with {:ok, hook, bytes} <- header,
          {:ok, env} <- env(socket, %{}, deadline),
          {:ok, payload} <- payload(socket, bytes, deadline) do
       answer(socket, hook, payload, env)
@@ -54,8 +71,14 @@ defmodule Whiska.Owl.Hooks do
   defp header(socket, deadline) do
     with {:ok, line} <- line(socket, deadline) do
       case String.split(line, " ") do
-        ["hook", @version, name, bytes | flags] -> hook(name, flags, bytes)
-        _ -> {:error, :not_a_request}
+        ["hook", @version, name, bytes | flags] ->
+          hook(name, flags, bytes)
+
+        ["open", @version, _ | _] ->
+          {:ok, :open, line |> String.split(" ", parts: 3) |> List.last()}
+
+        _ ->
+          {:error, :not_a_request}
       end
     end
   end
@@ -150,6 +173,25 @@ defmodule Whiska.Owl.Hooks do
       {output, take} ->
         if reply(printed(output), socket) == :ok, do: take.()
     end
+  end
+
+  defp open(socket, main) do
+    answer =
+      cond do
+        Path.type(main) != :absolute or Path.expand(main) != main ->
+          "error not an absolute path: #{main}"
+
+        not File.exists?(Storage.database_path(main)) ->
+          "error no house at #{main}"
+
+        true ->
+          case Owl.open_house(main) do
+            {:ok, _house} -> "ok 0"
+            {:error, reason} -> "error could not open #{main} (#{inspect(reason)})"
+          end
+      end
+
+    :gen_tcp.send(socket, answer <> "\n")
   end
 
   defp collect({:left, main}) do

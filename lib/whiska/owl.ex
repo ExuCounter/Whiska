@@ -26,7 +26,8 @@ defmodule Whiska.Owl do
   Beside the houses it answers on two Unix sockets in the whiska home
   (`Whiska.Owl.Listener`): `owl.sock`, read-only, for the person's scripts and
   herdr's tab bar (`Whiska.Owl.Answers`, ADR-0033), and `hook.sock`, for
-  Whiska's own hooks (`Whiska.Owl.Hooks`, ADR-0033). `:sockets` names another
+  Whiska's own hooks and `whiska start`'s request to open its house
+  (`Whiska.Owl.Hooks`, ADR-0033). `:sockets` names another
   folder for them, or `false` for none; `:answers` pins what the read-only one
   reads, for a test.
   """
@@ -79,6 +80,62 @@ defmodule Whiska.Owl do
   def socket_paths do
     home = OpenHouses.home()
     %{owl: Path.join(home, "owl.sock"), hook: Path.join(home, "hook.sock")}
+  end
+
+  @doc """
+  The hook socket as a command on this machine reaches it: `WHISKA_HOOK_SOCKET`
+  when set and not empty, as the hook shim reads it, otherwise `hook.sock` in
+  the whiska home.
+  """
+  @spec hook_socket() :: Path.t()
+  def hook_socket do
+    case System.get_env("WHISKA_HOOK_SOCKET") do
+      set when set not in [nil, ""] -> set
+      _unset -> socket_paths().hook
+    end
+  end
+
+  @doc """
+  Ask the owl already running to open a house, over the hook socket's `open`
+  request (ADR-0033) — how `whiska start` opens its repo without a restart.
+
+  `:no_owl` when nothing listens there, a socket file a crashed owl left and a
+  path no socket can have included; `:not_understood` when an owl hung up
+  without a word, as one too old to know `open` does; `:no_answer` when it took
+  the request and was still opening at `timeout`; `{:refused, reason}` when it
+  said why not.
+  """
+  @spec ask_open(Path.t(), Path.t(), timeout()) ::
+          :ok | {:error, :no_owl | :not_understood | :no_answer | {:refused, String.t()}}
+  def ask_open(main_checkout, hook_socket \\ hook_socket(), timeout \\ 5_000) do
+    case connect(hook_socket) do
+      {:ok, socket} ->
+        try do
+          with :ok <- :gen_tcp.send(socket, "open 1 #{main_checkout}\n"),
+               {:ok, line} <- :gen_tcp.recv(socket, 0, timeout) do
+            case String.trim_trailing(line, "\n") do
+              "ok 0" -> :ok
+              "error " <> reason -> {:error, {:refused, reason}}
+              _ -> {:error, :not_understood}
+            end
+          else
+            {:error, :timeout} -> {:error, :no_answer}
+            _ -> {:error, :not_understood}
+          end
+        after
+          :gen_tcp.close(socket)
+        end
+
+      {:error, _} ->
+        {:error, :no_owl}
+    end
+  end
+
+  # A path longer than the platform allows a socket exits rather than errs.
+  defp connect(path) do
+    :gen_tcp.connect({:local, path}, 0, [:binary, packet: :line, active: false], 1_000)
+  catch
+    :exit, _badarg -> {:error, :badarg}
   end
 
   @doc """
