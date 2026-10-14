@@ -66,6 +66,9 @@ defmodule Whiska.Schema.Mouse do
     # The question `whiska spawn --from` built this mouse from. Its sniff mouse
     # is taken down once every build from it is gone and one landed (ADR-0074).
     field(:built_from, :integer)
+    # The name its kept spec, build plan, research document and report share
+    # in `.whiska/specs/`, without the kind's suffix (ADR-0063).
+    field(:kept_as, :string)
   end
 
   @doc """

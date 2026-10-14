@@ -54,8 +54,7 @@ defmodule Whiska.Research do
     end
   end
 
-  defp kept(main_checkout, %Mouse{mouse_id: mouse_id, branch: branch}) when is_binary(branch),
-    do: SpecArchive.research(main_checkout, mouse_id, branch)
+  defp kept(main_checkout, %Mouse{} = mouse), do: SpecArchive.research(main_checkout, mouse)
 
   defp kept(_main_checkout, _mouse), do: nil
 

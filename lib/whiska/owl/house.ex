@@ -379,6 +379,10 @@ defmodule Whiska.Owl.House do
 
     hide_own_files(state)
 
+    # Kept files an older owl wrote under a header lose it, and their mouse
+    # learns their name (ADR-0063).
+    SpecArchive.unhead(state.main_checkout)
+
     # Entries an older owl renamed `.collected` are a second copy of rows.
     Doorstep.sweep_collected(state.main_checkout)
 
@@ -1383,7 +1387,7 @@ defmodule Whiska.Owl.House do
   # The question is already recorded, so a copy that cannot be written is said
   # and passed over: holding the entry back would record the question twice.
   defp keep_spec(state, entry, question) do
-    case SpecArchive.keep(state.main_checkout, entry, question) do
+    case SpecArchive.keep(state.main_checkout, entry) do
       :kept ->
         Storage.mark_spec_sent(question.id)
 
@@ -1394,7 +1398,7 @@ defmodule Whiska.Owl.House do
         warn(state, "could not keep the spec of question #{question.id} (#{inspect(reason)})")
     end
 
-    with {:error, reason} <- SpecArchive.keep_plan(state.main_checkout, entry, question) do
+    with {:error, reason} <- SpecArchive.keep_plan(state.main_checkout, entry) do
       warn(
         state,
         "could not keep the build plan of question #{question.id} (#{inspect(reason)})"
@@ -1406,7 +1410,7 @@ defmodule Whiska.Owl.House do
 
   # Like the spec, a research document that cannot be kept is said and passed over.
   defp keep_research(state, entry, question) do
-    with {:error, reason} <- SpecArchive.keep_research(state.main_checkout, entry, question) do
+    with {:error, reason} <- SpecArchive.keep_research(state.main_checkout, entry) do
       warn(
         state,
         "could not keep the research document of question #{question.id} (#{inspect(reason)})"
@@ -1419,7 +1423,7 @@ defmodule Whiska.Owl.House do
   # The message itself, when it is a document, is a research document or a
   # report, and is kept the same way (ADR-0089).
   defp keep_document(state, entry, question, mode) do
-    with {:error, reason} <- SpecArchive.keep_document(state.main_checkout, entry, question, mode) do
+    with {:error, reason} <- SpecArchive.keep_document(state.main_checkout, entry, mode) do
       warn(state, "could not keep the report of question #{question.id} (#{inspect(reason)})")
     end
 

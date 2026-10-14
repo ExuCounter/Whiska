@@ -188,21 +188,19 @@ fact, and still grills its open choices and the design of the build (ADR-0074).
 `git worktree remove` deletes ignored files, and a dropped branch has no commits to hold
 the outcome. So every spec a mouse sends is kept in `.whiska/specs/` in the main
 checkout, one file per spec, named `<date first written>-<branch, with / as ->.md`; a
-second mouse on the same branch name the same day gets `-2`. A header says the repo,
-branch and mouse, the question it was last sent as, the questions earlier revisions were
-sent as (`replaced:`), when it was written, and its status: `waiting`, `landed <date>,
-branch head <commit>` or `dropped <date>`. A revision overwrites its file, and review
-comments on the earlier text go with it. The question holds only a link, so an earlier
+second mouse on the same branch name the same day gets `-2`. The file holds the text as
+sent and nothing else; the mouse's record names the file (`kept_as`), which is how it is
+found again. A revision overwrites its file, and review comments on the earlier text go
+with it. The question holds only a link, so an earlier
 revision is not readable afterwards; the copy is history, not what the person reviews.
 
-A build plan is kept the same way beside its spec, as `<the spec's file name>.plan.md`,
-with the same header and the same landed or dropped status; with no spec, as for a bug, it
-takes the date and branch name itself. Only a new or revised spec marks its question as a
+A build plan is kept the same way beside its spec, as `<the spec's file name>.plan.md`;
+with no spec, as for a bug, it takes the date and branch name itself. Only a new or revised spec marks its question as a
 spec sent. A research document is kept the same way, as `<the same name>.research.md`,
-with the same header and status, and so is a mouse's report, as `<the same name>.report.md`
+and so is a mouse's report, as `<the same name>.report.md`
 (ADR-0089); neither marks its question as a spec sent. A new file
-of any of the four takes the name of one already kept for its mouse, so they sit side by
-side. The research copy is what `whiska show` links (ADR-0074), so one file per branch,
+of any of the four takes the name its mouse's record holds, so they sit side by side; a
+document from a mouse with no record is written under a fresh name and found by nothing. The research copy is what `whiska show` links (ADR-0074), so one file per branch,
 overwritten each round, is what makes an earlier question's link open the latest text.
 
 The copy is taken when the spec is sent. The `Stop` hook reads the worktree's spec, research
@@ -213,12 +211,15 @@ document, any other's as its report. An entry whose spec matches the
 kept copy writes nothing. Only a regular UTF-8 file of at most 256 KB travels; anything
 else is left out so the message itself still reaches the doorstep.
 
-The cleanup sweep sets the status after it notes landings (ADR-0064). A mouse stamped
-landed gets `landed` with its branch's last commit; a mouse whose worktree is gone with no
-landing gets `dropped`. A dropped spec is kept (ADR-0007) and can still become landed;
-landed is final. A branch landed by cherry-pick is not an ancestor of the base, so until
-the landing check learns cherry-picks such a spec reads `dropped`. The owl writes
-`/.whiska/` into the same exclude file the first time it keeps a spec.
+Whether the branch landed or was dropped stays on the mouse's record (ADR-0064,
+ADR-0061), not in the file, and the cleanup sweep never rewrites a kept file. The owl
+writes `/.whiska/` into the same exclude file the first time it keeps a spec.
+
+The files once opened on a header: repo, branch, mouse, the question last sent and the
+ones it replaced, when written, and a status the sweep turned from `waiting` into
+`landed` or `dropped`. Nothing but the sweep read any of it, and the person reading the
+kept files found it noise; the one line code needed, the mouse, moved to the record. The
+house strips a header it finds when it opens, naming the file on its mouse's record.
 
 ## Considered options
 
@@ -261,6 +262,9 @@ the landing check learns cherry-picks such a spec reads `dropped`. The owl write
   each have to remember, and a worktree removed by hand would still lose it. **The mouse
   copies it**: a mouse never writes to the main checkout.
 - **A folder per branch with one file per revision**: specs are overwritten anyway.
+- **Find a kept file by its name alone**: two mice on one branch the same day get `-2`,
+  and nothing in the name says which is whose. **The mouse id in the file name**: no
+  stored field, but a name nobody can read. **The header**: the first version; see above.
 - **Paste the whole spec into the question**: the first version; the person reads the
   file by its link instead, and the question stays one line.
 - **Link to the kept copy in the main checkout**, as the research document is: it
@@ -275,13 +279,16 @@ skip it cost none. A bug costs one when its fix is obvious and two when there is
 choice. A spec's question for an ok carries two links. A crash fix nobody had a choice about now waits on the person. The final report grows by the
 cheap choices made, each a line under what changed, outside the report's size cap. A
 doorstep entry carries optional `spec`, `research` and `plan` fields; an entry without
-them still decodes. A
-house without a herdr socket leaves every kept spec at `waiting`. `.whiska-mouse` had the
+them still decodes. 
+`.whiska-mouse` had the
 same untracked-file problem, and is hidden the same way, by the owl when it opens the
 house (ADR-0002).
 
 The link names the worktree's file, so an answer given after the worktree is gone finds a
-dead link; the text is then in the kept copy, whose `question:` header names the question.
+dead link; the text is then in the kept copy, beside the mouse's other documents.
+
+Changed on 2026-10-14: kept files hold the text alone; the mouse's record names them,
+and the sweep no longer writes a landed or dropped status into them.
 
 Changed on 2026-10-14: each fact appears once across the spec, build plan and research
 document; the problem is at most two lines, the decisions are the mouse's own, the

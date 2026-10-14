@@ -286,7 +286,7 @@ mouse shaped sniff, and only while its branch never moved and its worktree is cl
 that moved is asked as any other branch is, its builds aside, and a dirty one is left for
 `whiska drop`. It must still be quiet and not held. Its branch goes by `update-ref -d`
 only while it still points at the commit checked, as a branch landed as copies does. Its
-kept research document stays, and says dropped.
+kept research document stays.
 
 Three cases leave it for `whiska drop`, all on the safe side. A build spawned before
 builds recorded their question links to nothing. A build fast-forwarded into the base is

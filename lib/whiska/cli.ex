@@ -2108,8 +2108,8 @@ defmodule Whiska.CLI do
 
   # Whiska's own copy, linked like the research document, so it opens after the
   # worktree is gone (ADR-0089).
-  defp report(main, %Mouse{mouse_id: mouse_id, branch: branch}) when is_binary(branch) do
-    with file when is_binary(file) <- Whiska.SpecArchive.report(main, mouse_id, branch),
+  defp report(main, %Mouse{} = mouse) do
+    with file when is_binary(file) <- Whiska.SpecArchive.report(main, mouse),
          {file, title} <- Whiska.Research.document(file, nil) do
       [{"Full report", Review.file_link(file), title}]
     else

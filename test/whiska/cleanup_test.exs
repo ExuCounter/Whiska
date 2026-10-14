@@ -436,8 +436,7 @@ defmodule Whiska.CleanupTest do
         research: "# Found it\n"
       }
 
-      question = %Whiska.Schema.Question{id: sniff.question}
-      :kept = Whiska.SpecArchive.keep_research(repo.checkout, entry, question)
+      :kept = Whiska.SpecArchive.keep_research(repo.checkout, entry)
       Path.join(Whiska.SpecArchive.dir(repo.checkout), "2026-10-06-research-a.research.md")
     end
 
@@ -465,8 +464,7 @@ defmodule Whiska.CleanupTest do
       refute File.dir?(sniff.path)
       refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "research-a"
       assert %{removed_at: %DateTime{}} = Storage.mouse("m-research-a")
-      assert File.read!(kept) =~ "# Found it"
-      assert File.read!(kept) =~ ~r/status: dropped \d{4}-\d{2}-\d{2}\n/
+      assert File.read!(kept) == "# Found it\n"
     end
 
     test "stays while any build from it still stands", %{repo: repo} do
@@ -570,15 +568,13 @@ defmodule Whiska.CleanupTest do
       assert [{"m-research-a", {:left, :no_work_of_its_own}}] = sweep(repo)
     end
 
-    test "a build fast-forwarded into the base keeps its kept spec waiting", %{repo: repo} do
-      m = mouse(repo, "feat-a")
-      kept = kept(repo, m)
+    test "a build fast-forwarded into the base goes as any branch does", %{repo: repo} do
+      mouse(repo, "feat-a")
       GitRepo.git!(repo.checkout, ["merge", "--ff-only", "feat-a"])
       GitRepo.git!(repo.checkout, ["push", "origin", "main"])
       herdr(repo, [], [])
 
       assert [{"m-feat-a", :removed}] = sweep(repo)
-      assert File.read!(kept) =~ "status: waiting\n"
     end
 
     test "with work of its own landed, goes as any branch does, its builds aside",
@@ -608,16 +604,14 @@ defmodule Whiska.CleanupTest do
       assert {"m-research-a", :removed} in sweep(repo)
     end
 
-    test "a sniff mouse fast-forwarded with no build keeps its kept document waiting",
+    test "a sniff mouse fast-forwarded with no build goes as any branch does",
          %{repo: repo} do
-      sniff = mouse(repo, "research-a", mode: "sniff")
-      kept = kept_research(repo, sniff)
+      mouse(repo, "research-a", mode: "sniff")
       GitRepo.git!(repo.checkout, ["merge", "--ff-only", "research-a"])
       GitRepo.git!(repo.checkout, ["push", "origin", "main"])
       herdr(repo, [], [])
 
       assert [{"m-research-a", :removed}] = sweep(repo)
-      assert File.read!(kept) =~ "status: waiting\n"
     end
 
     test "a build from a build mouse's question takes nothing down with it", %{repo: repo} do
@@ -629,180 +623,6 @@ defmodule Whiska.CleanupTest do
 
       assert [{"m-feat-src", {:left, :no_work_of_its_own}}] = sweep(repo)
       assert File.dir?(source.path)
-    end
-  end
-
-  describe "a kept spec" do
-    defp kept(repo, m) do
-      entry = %Whiska.Doorstep.Entry{
-        mouse_id: m.id,
-        branch: m.branch,
-        worktree_root: m.path,
-        stamped_at: ~U[2026-10-06 09:00:00Z],
-        text: "ok to build?",
-        spec: "# Spec\n"
-      }
-
-      :kept = Whiska.SpecArchive.keep(repo.checkout, entry, %Whiska.Schema.Question{id: 7})
-      [file] = Path.wildcard(Path.join(Whiska.SpecArchive.dir(repo.checkout), "*.md"))
-      file
-    end
-
-    test "says landed, with the branch's last commit, once the branch lands", %{repo: repo} do
-      m = mouse(repo, "feat-a")
-      file = kept(repo, m)
-      head = GitRepo.git!(m.path, ["rev-parse", "--short=7", "HEAD"]) |> String.trim()
-      GitRepo.land(repo, "feat-a")
-      seen(repo, m, workspace_id: nil)
-
-      assert [{"m-feat-a", :removed}] = sweep(repo)
-      assert File.read!(file) =~ ~r/status: landed \d{4}-\d{2}-\d{2}, branch head #{head}\n/
-      assert File.read!(file) =~ "# Spec\n"
-    end
-
-    test "says dropped once its worktree is gone with no landing", %{repo: repo} do
-      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
-      file = kept(repo, m)
-      GitRepo.git!(repo.checkout, ["worktree", "remove", m.path])
-      herdr(repo, [], [])
-
-      sweep(repo)
-
-      assert File.read!(file) =~ ~r/status: dropped \d{4}-\d{2}-\d{2}\n/
-    end
-
-    test "says dropped once a newer mouse takes its folder", %{repo: repo} do
-      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
-      file = kept(repo, m)
-      {:ok, _} = Storage.record_mouse(%{mouse_id: "m-feat-a-new", path: m.path, branch: m.branch})
-      seen(repo, m, workspace_id: nil)
-
-      sweep(repo)
-
-      assert File.read!(file) =~ ~r/status: dropped \d{4}-\d{2}-\d{2}\n/
-    end
-
-    test "says landed after dropped, when the branch lands once its worktree is gone",
-         %{repo: repo} do
-      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
-      file = kept(repo, m)
-      head = String.trim(GitRepo.git!(m.path, ["rev-parse", "--short=7", "HEAD"]))
-      GitRepo.git!(repo.checkout, ["worktree", "remove", m.path])
-      herdr(repo, [], [])
-      sweep(repo)
-      GitRepo.land(repo, "feat-a")
-
-      sweep(repo)
-
-      assert File.read!(file) =~ ~r/status: landed \d{4}-\d{2}-\d{2}, branch head #{head}\n/
-    end
-
-    test "its build plan says landed beside it", %{repo: repo} do
-      m = mouse(repo, "feat-a")
-
-      entry = %Whiska.Doorstep.Entry{
-        mouse_id: m.id,
-        branch: m.branch,
-        worktree_root: m.path,
-        stamped_at: ~U[2026-10-06 09:00:00Z],
-        text: "ok to build?",
-        spec: "# Spec\n",
-        plan: "# Build plan\n"
-      }
-
-      question = %Whiska.Schema.Question{id: 7}
-      :kept = Whiska.SpecArchive.keep(repo.checkout, entry, question)
-      :kept = Whiska.SpecArchive.keep_plan(repo.checkout, entry, question)
-      [plan] = Path.wildcard(Path.join(Whiska.SpecArchive.dir(repo.checkout), "*.plan.md"))
-      GitRepo.land(repo, "feat-a")
-      seen(repo, m, workspace_id: nil)
-
-      assert [{"m-feat-a", :removed}] = sweep(repo)
-      assert File.read!(plan) =~ ~r/status: landed \d{4}-\d{2}-\d{2}, branch head \w{7}\n/
-      assert File.read!(plan) =~ "# Build plan\n"
-    end
-
-    test "a bug's research document sits beside its build plan and says landed with it",
-         %{repo: repo} do
-      m = mouse(repo, "feat-a")
-
-      entry = %Whiska.Doorstep.Entry{
-        mouse_id: m.id,
-        branch: m.branch,
-        worktree_root: m.path,
-        stamped_at: ~U[2026-10-06 09:00:00Z],
-        text: "ok to build?",
-        research: "# A bug\n",
-        plan: "# Build plan\n"
-      }
-
-      question = %Whiska.Schema.Question{id: 7}
-      :kept = Whiska.SpecArchive.keep_research(repo.checkout, entry, question)
-      :kept = Whiska.SpecArchive.keep_plan(repo.checkout, entry, question)
-      dir = Whiska.SpecArchive.dir(repo.checkout)
-
-      assert File.ls!(dir) |> Enum.sort() == [
-               "2026-10-06-feat-a.plan.md",
-               "2026-10-06-feat-a.research.md"
-             ]
-
-      GitRepo.land(repo, "feat-a")
-      seen(repo, m, workspace_id: nil)
-
-      assert [{"m-feat-a", :removed}] = sweep(repo)
-      research = File.read!(Path.join(dir, "2026-10-06-feat-a.research.md"))
-      assert research =~ ~r/status: landed \d{4}-\d{2}-\d{2}, branch head \w{7}\n/
-      assert research =~ "# A bug\n"
-    end
-
-    test "a bug's build plan, kept with no spec, never pairs with a later mouse's spec",
-         %{repo: repo} do
-      keep = fn id, fields ->
-        entry =
-          struct(
-            %Whiska.Doorstep.Entry{
-              mouse_id: id,
-              branch: "feat/a",
-              worktree_root: "/w/#{id}",
-              stamped_at: ~U[2026-10-06 09:00:00Z],
-              text: "ok to build?"
-            },
-            fields
-          )
-
-        question = %Whiska.Schema.Question{id: 7}
-        Whiska.SpecArchive.keep(repo.checkout, entry, question)
-        Whiska.SpecArchive.keep_plan(repo.checkout, entry, question)
-      end
-
-      keep.("m-bug", plan: "# Bug plan\n")
-      keep.("m-feature", spec: "# Spec\n", plan: "# Feature plan\n")
-
-      names =
-        repo.checkout
-        |> Whiska.SpecArchive.dir()
-        |> File.ls!()
-        |> Enum.sort()
-
-      assert names == [
-               "2026-10-06-feat-a-2.md",
-               "2026-10-06-feat-a-2.plan.md",
-               "2026-10-06-feat-a.plan.md"
-             ]
-
-      dir = Whiska.SpecArchive.dir(repo.checkout)
-      assert File.read!(Path.join(dir, "2026-10-06-feat-a.plan.md")) =~ "# Bug plan"
-      assert File.read!(Path.join(dir, "2026-10-06-feat-a-2.plan.md")) =~ "# Feature plan"
-    end
-
-    test "says waiting while the worktree stands unlanded", %{repo: repo} do
-      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
-      file = kept(repo, m)
-      seen(repo, m, workspace_id: nil)
-
-      sweep(repo)
-
-      assert File.read!(file) =~ "status: waiting\n"
     end
   end
 

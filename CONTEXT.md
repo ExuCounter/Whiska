@@ -96,8 +96,8 @@ doc no program reads, a formatting or lint fix, a test-only change, and a task t
 out the exact change, whose words are its spec. A change that hides, drops or skips anything, or touches secrets, access or a
 security check, is never one of the four. A task's size never skips it, and neither does
 having nothing to grill (ADR-0063). A copy of every spec sent is kept in `.whiska/specs/` in the main checkout,
-named by date and branch, with a header saying its question and whether the branch
-landed or was dropped (ADR-0063).
+named by date and branch, holding its text alone; the mouse's record names the file
+(ADR-0063).
 _Avoid_: plan, design doc, ticket
 
 **Build plan**:
@@ -707,7 +707,7 @@ branch merged into the base, here or in the **fetched base**, and moved off the 
 was cut at (a sniff mouse's
 branch has nothing to merge: it goes, never moved, once a build `whiska spawn --from`
 made of one of its questions has landed and every such build is gone, and its kept research
-document says dropped), the worktree clean, nothing on it unpushed.
+document stays), the worktree clean, nothing on it unpushed.
 Nothing is ever
 forced, and anything that cannot be established leaves the worktree exactly where it is.
 The mouse record survives, as every record does (ADR-0007); only the folder, the pane and

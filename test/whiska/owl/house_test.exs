@@ -230,6 +230,27 @@ defmodule Whiska.Owl.HouseTest do
       end)
     end
 
+    test "strips the header an older owl wrote on a kept file, and its mouse finds it again",
+         %{main: main, a: a} do
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+      file = Path.join(main, ".whiska/specs/2026-10-06-feat-a.report.md")
+      File.mkdir_p!(Path.dirname(file))
+
+      File.write!(
+        file,
+        "---\nrepo: myrepo\nbranch: feat-a\nmouse: ma\nquestion: 3\n" <>
+          "written: 2026-10-06 09:00 UTC\nstatus: waiting\n---\n\n# Built\n"
+      )
+
+      house = open(main)
+
+      assert File.read!(file) == "# Built\n"
+
+      assert in_house(house, fn -> Whiska.SpecArchive.report(main, Storage.mouse("ma")) end) ==
+               file
+    end
+
     test "removes `.collected` files an older owl left when the house opens", %{
       main: main,
       a: a
@@ -287,14 +308,7 @@ defmodule Whiska.Owl.HouseTest do
 
       assert [file] = Path.wildcard(Path.join(main, ".whiska/specs/*.md"))
       assert Path.basename(file) == "2026-10-06-feat-a.md"
-      saved = File.read!(file)
-      assert saved =~ "second"
-      refute saved =~ "first"
-      assert saved =~ "repo: myrepo\n"
-      assert saved =~ "branch: feat-a\n"
-      assert saved =~ "question: #{second.id}\n"
-      assert saved =~ "replaced: #{first.id}\n"
-      assert saved =~ "status: waiting\n"
+      assert File.read!(file) == "# Spec\n\nsecond\n"
       assert first.spec_sent and second.spec_sent
 
       exclude = File.read!(Path.join(main, ".git/info/exclude"))
@@ -313,8 +327,7 @@ defmodule Whiska.Owl.HouseTest do
 
       [first, again] = in_house(house, fn -> Enum.sort_by(Storage.all(Question), & &1.id) end)
       [file] = Path.wildcard(Path.join(main, ".whiska/specs/*.md"))
-      assert File.read!(file) =~ "question: #{first.id}\n"
-      refute File.read!(file) =~ "replaced:"
+      assert File.read!(file) == "# Spec\n"
       assert first.spec_sent
       refute again.spec_sent
     end
@@ -348,11 +361,8 @@ defmodule Whiska.Owl.HouseTest do
       assert Enum.sort(names) == ["2026-10-06-feat-a.md", "2026-10-06-feat-a.plan.md"]
 
       plan = File.read!(Path.join(main, ".whiska/specs/2026-10-06-feat-a.plan.md"))
-      assert plan =~ "second"
-      assert plan =~ "question: #{second.id}\n"
-      assert plan =~ "replaced: #{first.id}\n"
-      assert plan =~ "status: waiting\n"
-      assert File.read!(Path.join(main, ".whiska/specs/2026-10-06-feat-a.md")) =~ "# Spec\n"
+      assert plan == "# Build plan\n\nsecond\n"
+      assert File.read!(Path.join(main, ".whiska/specs/2026-10-06-feat-a.md")) == "# Spec\n"
 
       assert first.spec_sent
       refute second.spec_sent
@@ -381,9 +391,7 @@ defmodule Whiska.Owl.HouseTest do
 
       [q] = in_house(house, fn -> Storage.all(Question) end)
       text = File.read!(Path.join(main, ".whiska/specs/2026-10-06-feat-a.research.md"))
-      assert text =~ "question: #{q.id}\n"
-      assert text =~ "status: waiting\n"
-      assert String.ends_with?(text, "\n\n# Why it hangs\n\nFound.\n")
+      assert text == "# Why it hangs\n\nFound.\n"
       refute q.spec_sent
       refute File.exists?(Path.join(main, ".whiska/research"))
 
@@ -413,10 +421,7 @@ defmodule Whiska.Owl.HouseTest do
       [first, second] = in_house(house, fn -> Storage.all(Question) end) |> Enum.sort_by(& &1.id)
       assert [file] = Path.wildcard(Path.join(main, ".whiska/specs/*.md"))
       assert Path.basename(file) == "2026-10-06-feat-a.research.md"
-      text = File.read!(file)
-      assert String.ends_with?(text, "# Final\n")
-      assert text =~ "question: #{second.id}\n"
-      assert text =~ "replaced: #{first.id}\n"
+      assert File.read!(file) == "# Final\n"
 
       for q <- [first, second] do
         assert {^file, "Final"} =
@@ -439,10 +444,7 @@ defmodule Whiska.Owl.HouseTest do
       assert [file] = Path.wildcard(Path.join(main, ".whiska/specs/*.md"))
       assert Path.basename(file) == "2026-10-06-feat-a.research.md"
 
-      assert String.ends_with?(
-               File.read!(file),
-               "\n\n# Final\n\n## Summary\nIt hangs.\n\n## Found\nx\n"
-             )
+      assert File.read!(file) == "# Final\n\n## Summary\nIt hangs.\n\n## Found\nx\n"
 
       for q <- in_house(house, fn -> Storage.all(Question) end) do
         assert {^file, "Final"} =
@@ -460,9 +462,10 @@ defmodule Whiska.Owl.HouseTest do
       House.collect(house)
 
       file = Path.join(main, ".whiska/specs/2026-10-06-feat-b.report.md")
-      assert String.ends_with?(File.read!(file), "\n\n# Built\n\n## Summary\nDone.\n")
-      assert Whiska.SpecArchive.report(main, "mb", "feat-b") == file
-      assert Whiska.SpecArchive.research(main, "mb", "feat-b") == nil
+      assert File.read!(file) == "# Built\n\n## Summary\nDone.\n"
+      mouse = in_house(house, fn -> Storage.mouse("mb") end)
+      assert Whiska.SpecArchive.report(main, mouse) == file
+      assert Whiska.SpecArchive.research(main, mouse) == nil
     end
 
     test "a turn with no spec keeps nothing and ignores nothing", %{

@@ -216,7 +216,13 @@ defmodule Whiska.CLIQuestionsTest do
         research: text
       }
 
-      :kept = Whiska.SpecArchive.keep_research(repo.checkout, entry, q)
+      {:ok, handle} = Storage.open(repo.checkout)
+
+      try do
+        :kept = Whiska.SpecArchive.keep_research(repo.checkout, entry)
+      after
+        Storage.close(handle)
+      end
     end
 
     defp review_file(repo, branch), do: Whiska.Review.file(repo.checkout, branch)
@@ -999,9 +1005,8 @@ defmodule Whiska.CLIQuestionsTest do
       }
 
       {:ok, handle} = Storage.open(ctx.repo.checkout)
-      q = Storage.question(String.to_integer(ctx.id))
+      :kept = Whiska.SpecArchive.keep_research(ctx.repo.checkout, entry)
       Storage.close(handle)
-      :kept = Whiska.SpecArchive.keep_research(ctx.repo.checkout, entry, q)
 
       assert show_with(ctx, nil) =~ "\nResearch: file://"
     end
@@ -1021,7 +1026,7 @@ defmodule Whiska.CLIQuestionsTest do
           text: text
         }
 
-        :kept = Whiska.SpecArchive.keep_document(ctx.repo.checkout, entry, q, mode)
+        :kept = Whiska.SpecArchive.keep_document(ctx.repo.checkout, entry, mode)
         %{ctx | id: to_string(q.id)}
       after
         Storage.close(handle)

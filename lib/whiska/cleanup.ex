@@ -32,7 +32,6 @@ defmodule Whiska.Cleanup do
   alias Whiska.Review
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
-  alias Whiska.SpecArchive
   alias Whiska.Storage
 
   @ready ~w(idle done)
@@ -65,11 +64,8 @@ defmodule Whiska.Cleanup do
       bases: bases(checkout, standing)
     }
 
-    noted = Enum.map(standing, &note_landing(&1, local))
-
-    settle_specs(checkout, Enum.map(noted, &elem(&1, 0)))
-
-    noted
+    standing
+    |> Enum.map(&note_landing(&1, local))
     |> Enum.map(fn {mouse, asked} ->
       {mouse, local_verdict(mouse, Map.put(local, :merged, asked))}
     end)
@@ -163,19 +159,6 @@ defmodule Whiska.Cleanup do
       {:ok, stamped} -> stamped
       {:error, _} -> mouse
     end
-  end
-
-  # A record a newer one took the folder from is never swept again, so this is
-  # the one place its kept spec can learn the worktree went.
-  defp settle_specs(checkout, noted) do
-    current = MapSet.new(noted, & &1.mouse_id)
-
-    superseded =
-      Mouse
-      |> Storage.all()
-      |> Enum.reject(&(&1.removed_at || &1.landed_at || MapSet.member?(current, &1.mouse_id)))
-
-    SpecArchive.settle(checkout, noted ++ superseded, MapSet.new(superseded, & &1.mouse_id))
   end
 
   # While the worktree stands its own head is the authority, the same one the
@@ -438,22 +421,12 @@ defmodule Whiska.Cleanup do
   defp deleted_as({:built, head}), do: {:in_base, head}
   defp deleted_as(landing), do: landing
 
-  # A removed record is never swept again, so a sniff mouse gone with its
-  # build says dropped in its kept research document now or never.
-  defp settle_dropped(checkout, mouse) do
-    case Storage.mouse(mouse.mouse_id) do
-      %Mouse{} = removed -> SpecArchive.settle(checkout, [removed])
-      nil -> :ok
-    end
-  end
-
   defp take_down(mouse, plan, context) do
     with :ok <- remove(plan, context) do
       Git.prune_worktrees(context.checkout)
       recorded = Storage.mark_removed(mouse.mouse_id)
       deleted = Git.delete_branch(context.checkout, plan.branch, deleted_as(plan.landing))
       if deleted == :ok, do: Review.remove(context.checkout, plan.branch)
-      if match?({:built, _}, plan.landing), do: settle_dropped(context.checkout, mouse)
 
       case {recorded, deleted} do
         {{:ok, _}, :ok} -> :removed

@@ -38,7 +38,8 @@ defmodule Whiska.Storage do
     {13, Whiska.Migrations.V013Usage},
     {14, Whiska.Migrations.V014KeepsSlot},
     {15, Whiska.Migrations.V015MergeRequest},
-    {16, Whiska.Migrations.V016BuiltFrom}
+    {16, Whiska.Migrations.V016BuiltFrom},
+    {17, Whiska.Migrations.V017KeptAs}
   ]
 
   @modes ~w(build sniff)
@@ -600,6 +601,25 @@ defmodule Whiska.Storage do
           |> Ecto.Changeset.change(%{removed_at: now()})
           |> Repo.update()
         end
+    end
+  end
+
+  @doc """
+  Name the files this mouse's documents are kept under (ADR-0063). The first
+  name stands: a mouse already named keeps its name.
+  """
+  @spec set_kept_as(String.t(), String.t()) :: :ok | {:error, term()}
+  def set_kept_as(mouse_id, name) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      %Mouse{kept_as: kept} when is_binary(kept) ->
+        :ok
+
+      mouse ->
+        with {:ok, _} <- mouse |> Ecto.Changeset.change(%{kept_as: name}) |> Repo.update(),
+             do: :ok
     end
   end
 
