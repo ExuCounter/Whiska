@@ -46,4 +46,11 @@ defmodule Whiska.BriefTest do
     assert main =~ "Still waiting on you"
     assert main =~ "A reply about that question, or a recap, needs none"
   end
+
+  test "land and pr run in the background so the person's input is not blocked" do
+    main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
+    assert main =~ "run_in_background"
+    assert main =~ "one line saying it is running"
+    assert main =~ "one after another"
+  end
 end

@@ -55,6 +55,21 @@ They say what happens next:
 
 Never type into a mouse's pane or read it. Nothing arrives → `whiska doctor`.
 
+## Slow commands never block the person
+
+`whiska land` and `whiska pr` run the repo's checks and can take minutes. Run each as a
+Bash call with `run_in_background: true`, never in the foreground: the person's input
+stays free while it runs.
+
+- Right after starting it, send one line saying it is running: "Meow, landing
+  feat/auth in the background." Then stop; the person may talk about anything else.
+- Several at once ("land 478 and 476") → one background call running them one after
+  another with `;`, not parallel calls: two lands race for the same main.
+- When it finishes, report the outcome in a line or two: landed, or the refusal it
+  printed (uncommitted files, failing checks), with the output a failure needs. A
+  refusal over uncommitted files is handled as above.
+- Any other command that may run for more than a few seconds gets the same treatment.
+
 ## The person's commands
 
 Run each only when the person asks:
