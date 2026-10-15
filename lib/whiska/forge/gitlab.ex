@@ -93,6 +93,10 @@ defmodule Whiska.Forge.GitLab do
   end
 
   @impl Whiska.Forge.Opener
+  def browse_args(%{host: host, project: project, number: number}),
+    do: ["mr", "view", Integer.to_string(number), "--web", "--repo", "https://#{host}/#{project}"]
+
+  @impl Whiska.Forge.Opener
   def link(out) do
     case Regex.scan(~r|https://\S+|, out) |> List.last() do
       [url] -> {:ok, url}

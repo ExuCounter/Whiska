@@ -1,32 +1,42 @@
 defmodule Whiska.Sidebar do
   @moduledoc """
   The lines herdr's sidebar draws for a house, as display tokens
-  (ADR-0082): under each mouse's
-  workspace, `whiska` is its state, `whiska_q`, `whiska_q2` the question it
-  carries, wrapped, and `whiska_mr` the merge request its branch waits on
-  (ADR-0087); under the main checkout's workspace, what is true of the whole
-  repo.
+  (ADR-0082). Under each mouse's workspace: its context size in one of
+  `whiska_ctx`, `whiska_ctx_warn` or `whiska_ctx_full`, by how near its
+  auto-compact window it is; `whiska`, its state, for a state herdr's own icon
+  does not show; `whiska_topic`, what a working mouse is on; and `whiska_mr`,
+  `whiska_ci`, `whiska_review`, the merge request its branch waits on
+  (ADR-0087). Under the main checkout's workspace, `whiska`, `whiska_q` and
+  `whiska_q2` say what is true of the whole repo.
 
-  Every `whiska` line starts with a symbol Whiska chooses and nothing else
-  does, so the person's herdr config can colour a line by its first symbol
-  (`snippet/0`) and free text after it — a topic, a branch — can never pass for
-  another state. herdr colours a token only by its own text, so the symbol is
-  the state.
+  herdr colours a token only by its own text, so a colour is chosen by which
+  token a value goes in, or by a rule on text only Whiska writes: every
+  `whiska` line starts with a symbol nothing else does, and free text — a
+  topic, a branch — never starts one.
   """
 
   alias Whiska.Context
   alias Whiska.MergeRequests
   alias Whiska.Mice
+  alias Whiska.Shape
   alias Whiska.Watch
 
   @lines ["whiska", "whiska_q", "whiska_q2"]
-  @keys @lines ++ ["whiska_mr"]
-  @width 31
-  @frames ["◐", "◓", "◑", "◒"]
+  @sizes %{ok: "whiska_ctx", warn: "whiska_ctx_warn", full: "whiska_ctx_full"}
+  @keys ["whiska_ctx", "whiska_ctx_warn", "whiska_ctx_full", "whiska", "whiska_topic"] ++
+          tl(@lines) ++ ["whiska_mr", "whiska_ci", "whiska_review"]
+  @rows [
+    ["whiska_ctx", "whiska_ctx_warn", "whiska_ctx_full", "whiska", "whiska_topic"],
+    ["whiska_q"],
+    ["whiska_q2"],
+    ["whiska_mr", "whiska_ci"],
+    ["whiska_review"]
+  ]
 
   # The colour key: the person's herdr config colours a line by its first
   # symbol, so every symbol a line can start with has a rule, in Solarized
-  # shades the person is free to change.
+  # shades the person is free to change. Plain working and idle have none:
+  # herdr's own icon says those.
   @colours [
     {"❓", "#2aa198"},
     {"⚠", "#dc322f"},
@@ -35,20 +45,26 @@ defmodule Whiska.Sidebar do
     {"✅", "#859900"},
     {"⏳", "#b58900"},
     {"🎯", "#6c71c4"},
-    {"○", "#93a1a1"},
     {"💤", "#6c71c4"},
     {"⏸", "#6c71c4"},
     {"↩", "#268bd2"},
-    {"◐", "#268bd2"},
-    {"◓", "#268bd2"},
-    {"◑", "#268bd2"},
-    {"◒", "#268bd2"}
+    {"◐", "#268bd2"}
   ]
 
-  # The order of the brief: what wants the person most comes first.
+  # The merge request's pipeline and review, coloured by their own words.
+  @pipeline_colours [{"✓", "#859900"}, {"◐", "#268bd2"}, {"✗", "#dc322f"}]
+  @review_colours [
+    {"ready", "#859900"},
+    {"merged", "#859900"},
+    {"closed", "#dc322f"},
+    {"deleted", "#dc322f"},
+    {"unread", "#93a1a1"}
+  ]
+
+  # The order of the brief: what wants the person most comes first, and a
+  # finished mouse, which waits on nobody, last.
   @sent 1
   @next 2
-  @finished 3
   @stuck 4
   @queued 5
   @picked_up 6
@@ -58,6 +74,7 @@ defmodule Whiska.Sidebar do
   @focus 10
   @away 11
   @held 12
+  @finished 13
 
   @type tokens :: %{optional(String.t()) => String.t()}
 
@@ -81,18 +98,16 @@ defmodule Whiska.Sidebar do
   the order they came. A mouse queued behind a question sits right under the
   mouse that holds it, queued mice in question order (ADR-0082).
 
-  Options: `:now`, what ages are measured to; `:frame`, the working spinner's
-  frame, counted in writes so it moves only when a line is actually sent.
+  Options: `:now`, what ages are measured to.
   """
   @spec mice(Watch.t(), keyword()) :: [line()]
   def mice(board, opts \\ []) do
     now = Keyword.get_lazy(opts, :now, &DateTime.utc_now/0)
-    frame = Keyword.get(opts, :frame, 0)
 
     rows = Enum.sort_by(board.rows, &if(&1.sniff?, do: 1, else: 0))
 
     rows
-    |> Enum.map(&line(&1, now, frame))
+    |> Enum.map(&line(&1, now))
     |> Enum.sort_by(& &1.rank)
     |> under_holders(rows)
   end
@@ -180,8 +195,8 @@ defmodule Whiska.Sidebar do
   @spec rank(line()) :: pos_integer()
   def rank(%{rank: rank}), do: rank
 
-  defp line(row, now, frame) do
-    {rank, said, carried} = state(row, now, frame)
+  defp line(row, now) do
+    {rank, said, topic} = state(row, now)
 
     %{
       mouse_id: row.mouse_id,
@@ -190,129 +205,104 @@ defmodule Whiska.Sidebar do
       sniff?: row.sniff?,
       under: nil,
       tokens:
-        [gauged(said, rank, row.context) | wrap(carried)]
-        |> tokens()
-        |> put_merge_request(Map.get(row, :merge_request), now)
+        [{"whiska", said}, {"whiska_topic", topic}, size(rank, row)]
+        |> Enum.reject(&(elem(&1, 1) in [nil, ""]))
+        |> Map.new()
+        |> Map.merge(merge_request(Map.get(row, :merge_request), now))
     }
   end
 
-  defp put_merge_request(tokens, nil, _now), do: tokens
+  # A line that says the pane is lost has no size: it is not about the mouse.
+  defp size(@lost, _row), do: {"whiska_ctx", nil}
 
-  defp put_merge_request(tokens, %{label: label, read: read}, now) do
-    said =
-      read
-      |> merge_request(now)
-      |> Enum.map(&"⎇ #{label} · #{&1}")
-      |> Enum.find("⎇ #{label}", &(String.length(&1) <= @width))
-
-    Map.put(tokens, "whiska_mr", said)
+  defp size(_rank, %{context: tokens} = row) when is_integer(tokens) do
+    {@sizes[Context.band(tokens, Map.get(row, :window) || Shape.window(nil))],
+     Context.size(tokens)}
   end
 
-  # What the row says after the merge request's name, longest first: the
-  # first that fits is said. First match wins, by what wants the person most.
-  defp merge_request(nil, _now), do: []
-  defp merge_request(%{state: "merged"}, _now), do: ["merged"]
-  defp merge_request(%{state: "closed"}, _now), do: ["closed"]
-  defp merge_request(%{state: "gone"}, _now), do: ["deleted"]
+  defp size(_rank, _row), do: {"whiska_ctx", nil}
 
-  defp merge_request(%{unread_since: %DateTime{} = since} = read, now) do
+  # The request's name, its pipeline, and what its review says, each a token of
+  # its own so each takes its own colour; one with nothing to say is left out.
+  defp merge_request(nil, _now), do: %{}
+
+  defp merge_request(%{label: label, read: read}, now) do
+    {pipeline, review} = read(read, now)
+
+    [{"whiska_mr", "⎇ #{label}"}, {"whiska_ci", pipeline}, {"whiska_review", review}]
+    |> Enum.reject(&is_nil(elem(&1, 1)))
+    |> Map.new()
+  end
+
+  defp read(nil, _now), do: {nil, nil}
+  defp read(%{state: "merged"}, _now), do: {nil, "merged"}
+  defp read(%{state: "closed"}, _now), do: {nil, "closed"}
+  defp read(%{state: "gone"}, _now), do: {nil, "deleted"}
+
+  defp read(%{unread_since: %DateTime{} = since} = read, now) do
     if MergeRequests.unread?(read, now),
-      do: ["unread #{age(since, now)}"],
-      else: merge_request(%{read | unread_since: nil}, now)
+      do: {nil, "unread #{age(since, now)}"},
+      else: read(%{read | unread_since: nil}, now)
   end
 
-  defp merge_request(%{state: nil}, _now), do: []
+  defp read(%{state: nil}, _now), do: {nil, nil}
+  defp read(read, _now), do: {pipeline(read.pipeline), review(read)}
 
-  defp merge_request(%{pipeline: "failed", threads_open: open}, _now) when open > 0,
-    do: ["pipeline ✗ · #{threads(open)}", "pipeline ✗"]
+  defp pipeline("failed"), do: "✗"
+  defp pipeline("running"), do: "◐"
+  defp pipeline("passed"), do: "✓"
+  defp pipeline(_none), do: nil
 
-  defp merge_request(%{pipeline: "failed"}, _now), do: ["pipeline ✗"]
-  defp merge_request(%{ready: true}, _now), do: ["ready to merge"]
-
-  defp merge_request(%{threads_open: open, pipeline: pipeline}, _now) when open > 0 do
-    case pipeline_mark(pipeline) do
-      nil -> ["#{threads(open)} open"]
-      mark -> ["#{threads(open)} open · #{mark}", "#{threads(open)} open"]
-    end
-  end
-
-  defp merge_request(%{pipeline: "running"}, _now), do: ["pipeline ◐"]
-  defp merge_request(%{pipeline: "passed"}, _now), do: ["✓"]
-  defp merge_request(_open, _now), do: ["open"]
-
-  defp threads(1), do: "1 thread"
-  defp threads(n), do: "#{n} threads"
-
-  defp pipeline_mark("passed"), do: "✓"
-  defp pipeline_mark("running"), do: "◐"
-  defp pipeline_mark(_none), do: nil
-
-  defp gauged(said, @lost, _context), do: said
-
-  defp gauged(said, _rank, context) do
-    case Context.gauge(context) do
-      nil -> said
-      gauge -> insert_after_symbol(said, gauge)
-    end
-  end
-
-  defp insert_after_symbol(said, gauge) do
-    {symbol, free_text} = String.split_at(said, 1)
-    "#{symbol} #{gauge} ·#{free_text}"
-  end
-
-  defp tokens(lines) do
-    lines
-    |> Enum.reject(&(&1 in [nil, ""]))
-    |> Enum.zip(@lines)
-    |> Map.new(fn {text, key} -> {key, text} end)
-  end
+  defp review(%{ready: true}), do: "ready to merge"
+  defp review(%{threads_open: 1}), do: "1 thread open"
+  defp review(%{threads_open: open}) when open > 1, do: "#{open} threads open"
+  defp review(_quiet), do: nil
 
   # First match wins: a hold is the person's own word on the mouse, a question
   # is what they are asked, and only then does herdr's view of the pane, and
-  # what the mouse is doing, get a say.
-  defp state(%{held?: true}, _now, _frame), do: {@held, "⏸ held", nil}
+  # what the mouse is doing, get a say. Working and idle say nothing of their
+  # own: herdr's icon beside the workspace already does.
+  defp state(%{held?: true}, _now), do: {@held, "⏸ held", nil}
 
-  defp state(%{not_taken?: true}, _now, _frame), do: {@next, "❓ answer not taken", nil}
+  defp state(%{not_taken?: true}, _now), do: {@next, "❓ answer not taken", nil}
 
-  defp state(%{asked: %{} = asked}, now, _frame), do: asked(asked, now)
+  defp state(%{asked: %{} = asked}, now), do: asked(asked, now)
 
-  defp state(%{pane: :none}, _now, _frame), do: {@lost, "✖ no pane", nil}
-  defp state(%{pane: :many}, _now, _frame), do: {@lost, "⚠ many panes", nil}
-  defp state(%{pane: :unreachable}, _now, _frame), do: {@lost, "? herdr can't say", nil}
-  defp state(%{status: "unknown"}, _now, _frame), do: {@lost, "? herdr can't say", nil}
+  defp state(%{pane: :none}, _now), do: {@lost, "✖ no pane", nil}
+  defp state(%{pane: :many}, _now), do: {@lost, "⚠ many panes", nil}
+  defp state(%{pane: :unreachable}, _now), do: {@lost, "? herdr can't say", nil}
+  defp state(%{status: "unknown"}, _now), do: {@lost, "? herdr can't say", nil}
 
-  defp state(%{stuck?: true} = row, _now, _frame),
-    do: {@stuck, stuck(row.silent_for), row.doing || row.topic}
+  defp state(%{stuck?: true} = row, _now), do: {@stuck, stuck(row.silent_for), nil}
 
-  defp state(%{picked_up_at: %DateTime{} = at}, now, _frame),
+  defp state(%{picked_up_at: %DateTime{} = at}, now),
     do: {@picked_up, "↩ picked up #{age(at, now)} ago", nil}
 
-  defp state(%{status: status, in_flight?: in_flight?} = row, _now, frame)
-       when status == "working" or in_flight?,
-       do: {@working, "#{spinner(frame)} #{row.topic || row.doing || "working"}", nil}
+  defp state(%{status: "working"} = row, _now),
+    do: {@working, nil, row.topic || row.doing || "working"}
 
-  defp state(_idle, _now, _frame), do: {@idle, "○ idle", nil}
+  # herdr's icon calls this pane idle, so the line says what it cannot.
+  defp state(%{in_flight?: true} = row, _now),
+    do: {@working, "◐ background", row.topic || row.doing}
+
+  defp state(_idle, _now), do: {@idle, nil, nil}
 
   defp asked(%{waits: :away}, _now), do: {@away, "💤 waits: away", nil}
 
   defp asked(%{waits: {:focus, branch}}, _now),
     do: {@focus, "🎯 waits: focus on #{branch}", nil}
 
-  defp asked(%{behind: behind} = asked, _now) when is_integer(behind),
-    do: {@queued, "⏳ queued", asked.pointer}
+  defp asked(%{behind: behind}, _now) when is_integer(behind), do: {@queued, "⏳ queued", nil}
 
-  defp asked(%{finished?: true} = asked, _now), do: {@finished, "✅ finished", asked.pointer}
+  defp asked(%{finished?: true}, _now), do: {@finished, "✅ finished", nil}
 
-  defp asked(%{sent_at: %DateTime{} = at} = asked, now),
-    do: {@sent, "❓ waiting on you · #{age(at, now)}", asked.pointer}
+  defp asked(%{sent_at: %DateTime{} = at}, now),
+    do: {@sent, "❓ waiting on you · #{age(at, now)}", nil}
 
-  defp asked(asked, _now), do: {@next, "❓ waiting on you", asked.pointer}
+  defp asked(_asked, _now), do: {@next, "❓ waiting on you", nil}
 
   defp stuck(nil), do: "✖ stuck"
   defp stuck(silent_for), do: "✖ stuck #{minutes(silent_for)}"
-
-  defp spinner(frame), do: Enum.at(@frames, Integer.mod(frame, length(@frames)))
 
   defp age(at, now), do: minutes(DateTime.diff(now, at))
 
@@ -322,42 +312,11 @@ defmodule Whiska.Sidebar do
   defp minutes(seconds) when seconds < 3600, do: "#{div(seconds, 60)}m"
   defp minutes(seconds), do: Mice.format_uptime(seconds)
 
-  @doc """
-  `text` on at most two lines of 31 characters, broken between words; a word
-  longer than a line is broken inside it, and whatever does not fit ends the
-  second line with `…`.
-  """
-  @spec wrap(String.t() | nil) :: [String.t()]
-  def wrap(nil), do: []
-
-  def wrap(text) do
-    text
-    |> String.split(" ", trim: true)
-    |> Enum.flat_map(&chunks/1)
-    |> fill([])
-    |> cut()
-  end
-
-  defp chunks(word) do
-    word |> String.graphemes() |> Enum.chunk_every(@width) |> Enum.map(&Enum.join/1)
-  end
-
-  defp fill([], lines), do: Enum.reverse(lines)
-  defp fill([word | words], []), do: fill(words, [word])
-
-  defp fill([word | words], [line | done]) do
-    if String.length(line) + 1 + String.length(word) <= @width,
-      do: fill(words, [line <> " " <> word | done]),
-      else: fill(words, [word, line | done])
-  end
-
-  defp cut([first, second, _ | _]), do: [first, ellipsis(second)]
-  defp cut(lines), do: lines
-
-  defp ellipsis(line) do
-    if String.length(line) < @width,
-      do: line <> "…",
-      else: String.slice(line, 0, @width - 1) <> "…"
+  defp tokens(lines) do
+    lines
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.zip(@lines)
+    |> Map.new(fn {text, key} -> {key, text} end)
   end
 
   @doc """
@@ -435,36 +394,48 @@ defmodule Whiska.Sidebar do
 
   defp lines_of(tokens), do: tokens |> said() |> Enum.join("\n")
 
-  defp said(tokens), do: for(key <- @keys, Map.has_key?(tokens, key), do: tokens[key])
+  # The rows `snippet/0` draws, each joined the way herdr joins a row's tokens.
+  defp said(tokens) do
+    for row <- @rows,
+        words = for(key <- row, Map.has_key?(tokens, key), do: tokens[key]),
+        words != [],
+        do: Enum.join(words, " · ")
+  end
 
   @doc """
-  The rows for the person's herdr config that draw these lines, coloured by
-  each line's first symbol. Whiska never writes that file (ADR-0048); the
-  doctor prints this.
+  The rows for the person's herdr config that draw every token in `keys/0`,
+  coloured by which token a value is in or by its first symbol. Whiska never
+  writes that file (ADR-0048); the doctor prints this.
   """
   @spec snippet() :: String.t()
   def snippet do
-    rules =
-      Enum.map_join(@colours, "\n", fn {symbol, fg} ->
-        ~s(    { starts_with = "#{symbol}", fg = "#{fg}" },)
-      end)
-
     """
     [ui.sidebar.spaces]
     rows = [
       ["state_icon", { token = "workspace", fg = "#586e75", dim = false }],
       ["branch", "git_status"],
-      [{ token = "$whiska", fg = "#657b83", dim = false, rules = [
-    #{rules}
-      ] }],
+      [{ token = "$whiska_ctx", fg = "#93a1a1" }, { token = "$whiska_ctx_warn", fg = "#b58900" }, { token = "$whiska_ctx_full", fg = "#dc322f", bold = true }, { token = "$whiska", fg = "#657b83", dim = false, rules = [
+    #{rules(@colours)}
+      ] }, { token = "$whiska_topic", fg = "#657b83" }],
       [{ token = "$whiska_q", fg = "#93a1a1" }],
       [{ token = "$whiska_q2", fg = "#93a1a1" }],
-      [{ token = "$whiska_mr", fg = "#93a1a1" }],
+      [{ token = "$whiska_mr", fg = "#93a1a1" }, { token = "$whiska_ci", fg = "#93a1a1", rules = [
+    #{rules(@pipeline_colours)}
+      ] }],
+      [{ token = "$whiska_review", fg = "#b58900", rules = [
+    #{rules(@review_colours)}
+      ] }],
     ]
     """
   end
 
-  @doc "Every symbol a line can start with that `snippet/0` colours."
+  defp rules(colours) do
+    Enum.map_join(colours, "\n", fn {start, fg} ->
+      ~s(    { starts_with = "#{start}", fg = "#{fg}" },)
+    end)
+  end
+
+  @doc "Every start of a token's text that `snippet/0` colours by a rule."
   @spec symbols() :: [String.t()]
-  def symbols, do: Enum.map(@colours, &elem(&1, 0))
+  def symbols, do: Enum.map(@colours ++ @pipeline_colours ++ @review_colours, &elem(&1, 0))
 end

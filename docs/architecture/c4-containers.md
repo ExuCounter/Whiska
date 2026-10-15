@@ -59,7 +59,7 @@ C4Container
   Rel(cli, herdr, "spawn creates the worktree and starts Claude in its pane with the brief, the deny list and the shape flags; spawn then types its task there as the first prompt, and send one fixed line")
   Rel(cli, herdr, "drop removes a worktree and its workspace together")
   Rel(cli, remote, "pr pushes a finished branch by name", "git push")
-  Rel(cli, forge, "pr opens the merge request with gh or glab")
+  Rel(cli, forge, "pr opens the merge request with gh or glab; merge-request open shows it in the browser")
   Rel(cli, record, "owl reopens from it; start adds this repo when no owl answers; statusline, waiting and doctor read it")
   Rel(cli, hooksock, "start asks the owl running to open this repo", "open 1 <main checkout>")
   Rel(claude, brief, "Reads it once, at start, as part of its system prompt")

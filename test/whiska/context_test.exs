@@ -12,22 +12,28 @@ defmodule Whiska.ContextTest do
     end
   end
 
-  describe "gauge/2" do
-    test "with no window it is the plain size" do
-      assert Context.gauge(142_000, nil) == "142K"
-    end
-
-    test "with a window it adds a five-cell bar of how much is used" do
-      assert Context.gauge(142_000, 200_000) == "142K ▰▰▰▰▱"
-      assert Context.gauge(10_000, 200_000) == "10K ▱▱▱▱▱"
-    end
-
-    test "past the window the bar is full, never longer" do
-      assert Context.gauge(250_000, 200_000) == "250K ▰▰▰▰▰"
+  describe "gauge/1" do
+    test "is the plain size" do
+      assert Context.gauge(142_000) == "142K"
     end
 
     test "nothing read is nothing shown" do
-      assert Context.gauge(nil, 200_000) == nil
+      assert Context.gauge(nil) == nil
+    end
+  end
+
+  describe "band/2, how near the auto-compact window a context is" do
+    test "under two thirds is fine, from two thirds a warning, from nine tenths full" do
+      assert Context.band(199_999, 300_000) == :ok
+      assert Context.band(200_000, 300_000) == :warn
+      assert Context.band(269_999, 300_000) == :warn
+      assert Context.band(270_000, 300_000) == :full
+      assert Context.band(400_000, 300_000) == :full
+    end
+
+    test "follows the window, so a smaller one warns sooner" do
+      assert Context.band(70_000, 100_000) == :warn
+      assert Context.band(90_000, 100_000) == :full
     end
   end
 

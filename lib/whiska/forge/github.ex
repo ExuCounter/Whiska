@@ -42,6 +42,9 @@ defmodule Whiska.Forge.GitHub do
   end
 
   @impl Whiska.Forge.Opener
+  def browse_args(%{url: url}), do: ["pr", "view", url, "--web"]
+
+  @impl Whiska.Forge.Opener
   def link(out) do
     case Regex.scan(~r|https://\S+|, out) |> List.last() do
       [url] -> {:ok, url}

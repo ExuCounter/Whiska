@@ -711,13 +711,13 @@ defmodule Whiska.Owl.HouseForgeTest do
     end)
 
     stub(Herdr, :report_metadata, fn @socket, ws, sent, _ttl ->
-      send(test, {:reported, ws, sent["whiska_mr"]})
+      send(test, {:reported, ws, {sent["whiska_mr"], sent["whiska_ci"]}})
       :ok
     end)
 
     capture_io(:stderr, fn ->
       open(repo, forge, board_ms: 20, panes_ms: 20)
-      assert_receive {:reported, "w2", "⎇ !7 · pipeline ◐"}, 5_000
+      assert_receive {:reported, "w2", {"⎇ !7", "◐"}}, 5_000
     end)
   end
 

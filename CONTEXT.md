@@ -346,9 +346,9 @@ pane's title. The last action is the tool call it is in the middle of or the las
 said, read from its own Claude Code transcript and never asked for (ADR-0050), and only
 when nothing about a question, a hold or its pane already decides what is said.
 Its **context gauge** is how full the mouse's context is — the input, cache-read and
-cache-creation tokens of the last assistant message in the transcript, `142K` — with a
-five-cell bar against the window when the mouse has an auto-compact window, and the plain
-size when it has none. It is read for every live mouse, whatever its line says.
+cache-creation tokens of the last assistant message in the transcript, `142K` — and its
+band against the auto-compact window its model gets, which the sidebar colours it by. It
+is read for every live mouse, whatever its line says.
 A mouse is **stuck** when herdr says it is blocked, or it is working with no subagent **in
 flight** and has written nothing to its transcript for two minutes while in a tool, or five
 while waiting on the model (a subagent writes to its own file and the model writes nothing
@@ -362,20 +362,21 @@ surface; the board is drawn on none, only the **sidebar lines** written from it 
 
 **Sidebar line**:
 What herdr's sidebar shows under one workspace, which the owl reports and herdr draws
-(ADR-0082): under each mouse's workspace, its state — `❓ waiting on you · 14m`,
-`✅ finished` (its report is still its last word, and the branch has neither landed nor a
-merge request), `✖ stuck 6m`, `⏳ queued`, `🎯`/`💤` waiting behind a
-**focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `◐ <topic>`, `○ idle` — with the question it
-carries wrapped on up to two lines beneath (a finished report's is the first line of its
-`## Summary`), each carrying the mouse's **context gauge** straight after the symbol
-(`❓ 142K · waiting on you · 14m`, `◐ 142K · <topic>`; a line saying the pane is lost has none); under the main checkout's workspace, what is
-true of the whole repo: no **main session**, delivery **gated**, questions waiting with
-no line of their own (a finished report is never one), orphans, **merge requests** still read with no worktree. A mouse
-whose branch waits on a merge request has one more row, `⎇ !123 · 2 threads open · ✓`,
-saying what the owl last read of it (ADR-0082). Every line starts with a symbol only Whiska writes, which
-is how the person's own herdr config colours it; a working mouse's symbol turns once a
-second, so a still one means the owl has stopped. A line nobody keeps current goes away by itself, and one herdr has lost is sent
-again. The mice re-sort only when one changes state, starts or stops queueing behind another, or appears in any state but idle.
+(ADR-0082): under each mouse's workspace, its **context gauge** first, coloured by how near
+compaction it is, then its state — `❓ waiting on you · 14m`, `✖ stuck 6m`, `⏳ queued`,
+`🎯`/`💤` waiting behind a **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `✅ finished`
+(its report is still its last word, and the branch has neither landed nor a merge request;
+it sorts last) — or, working, its topic, after `◐ background` when herdr calls the pane
+idle while its own background work runs; idle, nothing more, since herdr's own icon says
+working and idle (`142K · ❓ waiting on you`, `163K · <topic>`; a line saying the pane is
+lost has no gauge). Nothing of a question or report is excerpted under it. Under the main
+checkout's workspace, what is true of the whole repo: no **main session**, delivery
+**gated**, questions waiting with no line of their own (a finished report is never one),
+orphans, **merge requests** still read with no worktree. A mouse whose branch waits on a
+merge request has two more rows, `⎇ !123 · ✓` and `2 threads open`, each part in its own
+colour, saying what the owl last read of it (ADR-0082). A state's words start with a
+symbol only Whiska writes, which is how the person's own herdr config colours it. A line
+nobody keeps current goes away by itself, and one herdr has lost is sent again. The mice re-sort only when one changes state, starts or stops queueing behind another, or appears in any state but idle.
 _Avoid_: row (the board's; a line is what herdr draws), badge, status (the tab bar's),
 the board (the facts a line is written from)
 

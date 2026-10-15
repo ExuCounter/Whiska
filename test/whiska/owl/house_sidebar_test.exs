@@ -140,7 +140,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
 
       open(main, [])
 
-      assert_receive {:reported, "w2", %{"whiska" => ^line, "whiska_q" => "which db?"}}, 1_000
+      assert_receive {:reported, "w2", %{"whiska" => ^line}}, 1_000
 
       # herdr still holds it: nothing to send, however many times the house looks.
       refute_receive {:reported, "w2", _}, 200
@@ -162,20 +162,17 @@ defmodule Whiska.Owl.HouseSidebarTest do
       :ok
     end
 
-    test "turns its spinner a step every write, so a still one means the owl stopped", %{
+    test "says its topic and no state, and is not sent again while that holds", %{
       main: main,
       worktree: worktree
     } do
       fake_herdr([main_ws(main), mouse_ws("w2", worktree)])
-      open(main, [])
+      open(main, board_ms: 20)
 
-      spun =
-        for _ <- 1..3 do
-          assert_receive {:reported, "w2", %{"whiska" => said}}, 1_000
-          said
-        end
+      assert_receive {:reported, "w2", %{"whiska" => nil, "whiska_topic" => "Order builder"}},
+                     1_000
 
-      assert spun == ["◐ Order builder", "◓ Order builder", "◑ Order builder"]
+      refute_receive {:reported, "w2", _}, 300
     end
   end
 
@@ -195,13 +192,12 @@ defmodule Whiska.Owl.HouseSidebarTest do
       fake_herdr([main_ws(main), mouse_ws("w2", worktree)])
 
       house = open(main, board_ms: 60_000, panes_ms: 60_000)
-      assert_receive {:reported, "w2", %{"whiska" => "◐ Orders"}}, 1_000
+      assert_receive {:reported, "w2", %{"whiska_topic" => "Orders"}}, 1_000
       before = :counters.get(asked, 1)
 
       send(house, :board)
       assert House.sync(house) == :ok
 
-      assert_received {:reported, "w2", %{"whiska" => "◓ Orders"}}
       assert :counters.get(asked, 1) == before
     end
 
@@ -250,9 +246,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
 
       open(main, [])
 
-      assert_receive {:reported, "w2",
-                      %{"whiska" => "✅ finished", "whiska_q" => "Importer merged."}},
-                     1_000
+      assert_receive {:reported, "w2", %{"whiska" => "✅ finished"}}, 1_000
 
       assert_receive {:reported, "w1", main_line}, 1_000
       refute inspect(main_line) =~ "❓"
@@ -288,12 +282,10 @@ defmodule Whiska.Owl.HouseSidebarTest do
         sidebar_refresh_ms: 150
       )
 
-      line = %{
-        "whiska" => "? herdr can't say",
-        "whiska_q" => nil,
-        "whiska_q2" => nil,
-        "whiska_mr" => nil
-      }
+      line =
+        Whiska.Sidebar.keys()
+        |> Map.new(&{&1, nil})
+        |> Map.put("whiska", "? herdr can't say")
 
       assert_receive {:reported, "w2", ^line, 1_000}, 1_000
       started = System.monotonic_time(:millisecond)
@@ -540,7 +532,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
   end
 
   describe "a mouse that stops working" do
-    test "has its line turned to idle, not left to expire", %{main: main, worktree: worktree} do
+    test "has its line cleared at once, not left to expire", %{main: main, worktree: worktree} do
       status = :counters.new(1, [])
 
       stub(Herdr, :list_panes, fn @socket ->
@@ -552,11 +544,11 @@ defmodule Whiska.Owl.HouseSidebarTest do
       fake_herdr([main_ws(main), mouse_ws("w2", worktree)])
 
       open(main, [])
-      assert_receive {:reported, "w2", %{"whiska" => "◐" <> _}}, 1_000
+      assert_receive {:reported, "w2", %{"whiska_topic" => "working"}}, 1_000
 
       :counters.put(status, 1, 1)
 
-      assert_receive {:reported, "w2", %{"whiska" => "○ idle", "whiska_q" => nil}}, 1_000
+      assert_receive {:reported, "w2", %{"whiska" => nil, "whiska_topic" => nil}}, 1_000
     end
   end
 
@@ -658,7 +650,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
       flush_reports()
       :counters.put(down, 1, 0)
 
-      assert_receive {:reported, "w2", %{"whiska" => "◐" <> _}}, 500
+      assert_receive {:reported, "w2", %{"whiska_topic" => "Orders"}}, 500
     end
   end
 

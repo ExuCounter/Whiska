@@ -13,7 +13,6 @@ defmodule Whiska.Context do
   """
 
   @input_keys ["input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"]
-  @bar_cells 5
 
   @doc "The size alone: `850`, `142K`, `1.2M`."
   @spec size(non_neg_integer()) :: String.t()
@@ -21,17 +20,19 @@ defmodule Whiska.Context do
   def size(tokens) when tokens < 1_000_000, do: "#{div(tokens, 1_000)}K"
   def size(tokens), do: "#{div(tokens, 100_000) / 10}M"
 
-  @doc "The size, with a bar against `window` when there is one. `nil` when nothing was read."
-  @spec gauge(non_neg_integer() | nil, pos_integer() | nil) :: String.t() | nil
-  def gauge(tokens, window \\ nil)
-  def gauge(nil, _window), do: nil
-  def gauge(tokens, nil), do: size(tokens)
-  def gauge(tokens, window), do: "#{size(tokens)} #{bar(tokens, window)}"
+  @doc "The size, or `nil` when nothing was read."
+  @spec gauge(non_neg_integer() | nil) :: String.t() | nil
+  def gauge(nil), do: nil
+  def gauge(tokens), do: size(tokens)
 
-  defp bar(tokens, window) do
-    filled = (tokens * @bar_cells / window) |> round() |> min(@bar_cells)
-    String.duplicate("▰", filled) <> String.duplicate("▱", @bar_cells - filled)
-  end
+  @doc """
+  How near `window`, the auto-compact window, a context of `tokens` is: `:ok`
+  under two thirds, `:warn` from there, `:full` from nine tenths (ADR-0082).
+  """
+  @spec band(non_neg_integer(), pos_integer()) :: :ok | :warn | :full
+  def band(tokens, window) when tokens * 10 >= window * 9, do: :full
+  def band(tokens, window) when tokens * 3 >= window * 2, do: :warn
+  def band(_tokens, _window), do: :ok
 
   @doc "The context size at the last assistant message in a transcript's text, or `nil`."
   @spec tokens(String.t()) :: non_neg_integer() | nil

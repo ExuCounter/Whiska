@@ -134,8 +134,8 @@ defmodule Whiska.Forge.Opener do
   @moduledoc """
   Opening a merge request: the one thing Whiska asks of a forge that writes,
   run by `whiska pr` in the person's own command and never by the owl
-  (ADR-0085). A module that opens one is also a `Whiska.Forge`, whose
-  `tool/0` it runs.
+  (ADR-0085); and showing one in the browser, on the person's key. A module
+  that opens one is also a `Whiska.Forge`, whose `tool/0` it runs.
   """
 
   @callback create_args(
@@ -146,4 +146,5 @@ defmodule Whiska.Forge.Opener do
               body_file :: Path.t()
             ) :: {:ok, [String.t()]} | {:error, String.t()}
   @callback link(output :: String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  @callback browse_args(Whiska.Forge.ref()) :: [String.t()]
 end

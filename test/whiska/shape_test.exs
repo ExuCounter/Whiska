@@ -134,7 +134,17 @@ defmodule Whiska.ShapeTest do
       assert Shape.claude_args(shape("build", "opus", nil), []) ==
                ~w(--model opus --autocompact 300000)
     end
+  end
 
+  describe "window/1, the auto-compact window a mouse's context is measured against" do
+    test "is its model's, else the default's, whatever its mode" do
+      assert Shape.window("haiku") == 100_000
+      assert Shape.window("opus") == 300_000
+      assert Shape.window(nil) == 300_000
+    end
+  end
+
+  describe "claude_args/1, plain words" do
     test "is only ever plain words, so splitting it in any shell is safe" do
       for mode <- ~w(build sniff), {:ok, shape} <- [Shape.parse([mode])] do
         line = Enum.join(Shape.claude_args(shape), " ")

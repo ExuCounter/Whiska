@@ -825,16 +825,18 @@ defmodule Whiska.Doctor do
   The rows in the person's herdr config that draw each mouse's line
   (`Whiska.Sidebar.snippet/0`).
 
-  `config` is herdr's `config.toml`, or `nil` when there is none. A config
-  that colours the line by words in it is warned about too: a working mouse's
-  line is its own free text, so a word can colour it as a state it is not, and
-  the snippet colours by the first symbol, which only Whiska writes. The config
-  is the person's, so this prints and never writes (ADR-0048).
+  `config` is herdr's `config.toml`, or `nil` when there is none. A token
+  Whiska reports that nothing draws is named. A config that colours the line by
+  words in it is warned about too: a word in a topic could colour it as a state
+  it is not, and the snippet colours by the first symbol, which only Whiska
+  writes. The config is the person's, so this prints and never writes
+  (ADR-0048).
   """
   @spec sidebar(String.t() | nil) :: Check.t()
   def sidebar(config) do
     config = config || ""
     uncoloured = Enum.reject(Whiska.Sidebar.symbols(), &coloured?(config, &1))
+    undrawn = for key <- Whiska.Sidebar.keys(), not drawn?(config, key), do: "$" <> key
 
     cond do
       not String.contains?(config, "$whiska") ->
@@ -848,10 +850,10 @@ defmodule Whiska.Doctor do
           snippet(config)
         )
 
-      not String.contains?(config, "$whiska_mr") ->
+      undrawn != [] ->
         Check.warn(
           "sidebar",
-          "nothing in herdr's config draws each branch's merge request row",
+          "nothing in herdr's config draws #{Enum.join(undrawn, " ")}",
           snippet(config)
         )
 
@@ -866,6 +868,8 @@ defmodule Whiska.Doctor do
         Check.ok("sidebar", "herdr draws each mouse's line under its workspace")
     end
   end
+
+  defp drawn?(config, key), do: String.contains?(config, ~s("$#{key}"))
 
   defp coloured?(config, symbol),
     do: Regex.match?(~r/starts_with\s*=\s*"#{Regex.escape(symbol)}"/u, config)

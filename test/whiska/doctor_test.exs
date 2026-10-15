@@ -177,16 +177,50 @@ defmodule Whiska.DoctorTest do
       assert check.fix =~ "replace the [ui.sidebar.spaces] table"
     end
 
-    test "no merge request row warns, and prints the snippet that has one" do
-      row = ~s(  [{ token = "$whiska_mr", fg = "#93a1a1" }],\n)
-      config = String.replace(Whiska.Sidebar.snippet(), row, "")
-      refute config =~ "$whiska_mr"
+    test "a token Whiska reports that nothing draws is named, with the snippet that draws it" do
+      for key <- ~w(whiska_ctx_full whiska_topic whiska_mr whiska_ci whiska_review) do
+        config = String.replace(Whiska.Sidebar.snippet(), ~s("$#{key}"), ~s("$gone"))
+
+        check = Doctor.sidebar(config)
+
+        assert %Check{status: :warn} = check
+        assert check.detail =~ "$#{key}"
+        assert check.fix =~ ~s(token = "$#{key}")
+      end
+    end
+
+    test "a merge request's pipeline or review word with no rule is named" do
+      for word <- ~w(✗ closed) do
+        config =
+          String.replace(
+            Whiska.Sidebar.snippet(),
+            ~s(starts_with = "#{word}"),
+            ~s(starts_with = "!")
+          )
+
+        check = Doctor.sidebar(config)
+
+        assert %Check{status: :warn} = check
+        assert check.detail =~ word
+      end
+    end
+
+    test "the rows an older Whiska printed are a warning: working and idle lines would be blank" do
+      config = """
+      [ui.sidebar.spaces]
+      rows = [
+        [{ token = "$whiska", rules = [{ starts_with = "❓", fg = "#2aa198" }] }],
+        [{ token = "$whiska_q" }],
+        [{ token = "$whiska_q2" }],
+        [{ token = "$whiska_mr" }],
+      ]
+      """
 
       check = Doctor.sidebar(config)
 
       assert %Check{status: :warn} = check
-      assert check.detail =~ "merge request"
-      assert check.fix =~ ~s(token = "$whiska_mr")
+      assert check.detail =~ "$whiska_ctx"
+      assert check.fix =~ "replace the [ui.sidebar.spaces] table"
     end
 
     test "colours matched on words in the line are a warning: free text can trip them" do

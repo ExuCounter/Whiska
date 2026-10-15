@@ -20,6 +20,7 @@ defmodule Whiska.CLI do
   alias Whiska.Doorbell
   alias Whiska.Doctor.Report
   alias Whiska.Ledger
+  alias Whiska.Forge
   alias Whiska.Git
   alias Whiska.Herdr
   alias Whiska.Install
@@ -274,6 +275,11 @@ defmodule Whiska.CLI do
                          branch until it lands. `whiska pr` records the one it
                          opens; this is for one opened by hand.
 
+    merge-request open   Open in the browser the merge request of the mouse
+                         whose worktree holds this directory, with gh or glab.
+                         Meant for a herdr key, which runs it in the focused
+                         pane's directory.
+
     ledger [--json]      Print the agent ledger a finished report ends with,
                          read from this Claude Code session's transcripts: one
                          line per agent sent this turn, then the mouse's whole
@@ -473,6 +479,8 @@ defmodule Whiska.CLI do
     do: with_question(cwd, id, &reply(&1, Enum.join([first | rest], " ")))
 
   def run(["close", id], cwd), do: with_question(cwd, id, &close/1)
+
+  def run(["merge-request", "open"], cwd), do: with_house(cwd, fn -> browse(cwd) end)
 
   def run(["merge-request", id, url], cwd),
     do: with_question(cwd, id, &record_merge_request(&1, url))
@@ -2573,6 +2581,45 @@ defmodule Whiska.CLI do
       {:error, reason} -> fail("whiska: could not close ##{q.id} (#{inspect(reason)}).")
     end
   end
+
+  # The person pressed a key for it, so the forge's tool runs (ADR-0085).
+  defp browse(cwd) do
+    here = Layout.canonical(cwd || File.cwd!())
+
+    with %Mouse{} = mouse <- Enum.find(Storage.current_mice(), &holds?(&1, here)) || :no_mouse,
+         {:ok, ref} <- Forge.for_url(mouse.merge_request_url || "") |> or_none(mouse),
+         tool when is_binary(tool) <- Forge.CLI.find(ref.forge.tool()) || {:missing, ref} do
+      # A key has no terminal to answer a prompt in.
+      {out, code} =
+        System.cmd(tool, ref.forge.browse_args(ref),
+          stderr_to_stdout: true,
+          env: [{"GH_PROMPT_DISABLED", "1"}, {"GLAB_NO_PROMPT", "1"}]
+        )
+
+      if code == 0,
+        do: say("Opened #{ref.url}."),
+        else: fail("whiska: #{ref.forge.tool()} could not open #{ref.url}:\n#{String.trim(out)}")
+    else
+      :no_mouse ->
+        fail("whiska: #{here} is not in a mouse's worktree.")
+
+      {:none, mouse} ->
+        fail("whiska: #{mouse.branch} has no merge request recorded.")
+
+      {:missing, ref} ->
+        fail("whiska: #{ref.forge.tool()} is not installed, so #{ref.url} was not opened.")
+    end
+  end
+
+  defp holds?(%Mouse{path: path, removed_at: nil}, here) when is_binary(path) do
+    path = Layout.canonical(path)
+    here == path or String.starts_with?(here, path <> "/")
+  end
+
+  defp holds?(_mouse, _here), do: false
+
+  defp or_none({:ok, ref}, _mouse), do: {:ok, ref}
+  defp or_none(:error, mouse), do: {:none, mouse}
 
   # The link is printed on its own line, where the main session reads
   # it, so it is a plain https one or nothing.

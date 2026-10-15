@@ -88,6 +88,14 @@ defmodule Whiska.Shape do
       flag("--autocompact", window(shape, windows))
   end
 
+  @doc """
+  The auto-compact window `model` is measured against: its own, else the
+  default's. A sniff mouse runs without one and is measured against it too, so
+  the sidebar can say how near compaction any mouse is (ADR-0082).
+  """
+  @spec window(String.t() | nil) :: pos_integer()
+  def window(model), do: Map.get(@windows, model) || Map.fetch!(@windows, "default")
+
   defp window(%{mode: "build", model: model}, windows) do
     case Map.get(windows, model) || Map.get(windows, "default") do
       nil -> nil

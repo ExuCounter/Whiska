@@ -32,6 +32,10 @@ absence is said plainly. The cases so far:
   answered but never resolved, and a disagreement with a person goes to the person before
   anything is posted: resolving their thread, and pushing back on them, are the person's
   to do.
+- **Showing one in the browser:** `whiska merge-request open`, from a key the person binds
+  in their own herdr config, runs `gh pr view --web` or `glab mr view --web` on the
+  merge request of the mouse whose worktree holds the focused pane's directory. herdr's
+  sidebar cannot carry a link (ADR-0082), so the key is the way there.
 
 ## What went
 
@@ -156,3 +160,6 @@ diff file now goes with the branch.
 Changed on 2026-10-14: the owl reads a recorded GitLab merge request through `glab`, the
 one call to a forge the person did not ask for each time; opening it is what asked
 (ADR-0060).
+
+Changed on 2026-10-14: `whiska merge-request open` shows a recorded merge request in the
+browser through `gh` or `glab`, on the person's key.

@@ -27,20 +27,16 @@ defmodule Whiska.Watch do
   alias Whiska.Herdr
   alias Whiska.Layout
   alias Whiska.MergeRequests
-  alias Whiska.Question.Marker
   alias Whiska.Questions
-  alias Whiska.Report
   alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
+  alias Whiska.Shape
   alias Whiska.Storage
   alias Whiska.Watch.Text
   alias Whiska.Watch.Transcript
 
   @phrase_max 60
-  # A question's pointer is wrapped onto two sidebar lines and cut there, so it
-  # is kept long enough here for the cut to be the sidebar's.
-  @pointer_max 200
   @branch_max 24
   # How much of an orphan line the names may take; the rest is summed.
   @orphans_max 60
@@ -97,6 +93,7 @@ defmodule Whiska.Watch do
           topic: String.t() | nil,
           doing: String.t() | nil,
           context: non_neg_integer() | nil,
+          window: pos_integer(),
           picked_up_at: DateTime.t() | nil,
           merge_request: merge_request() | nil
         }
@@ -109,13 +106,10 @@ defmodule Whiska.Watch do
 
   @typedoc """
   What a row's question is waiting on: the person, since `sent_at` when it holds
-  the delivery slot, or the question that does, `behind`. `pointer` is the
-  sentence the person is asked, or for a finished report the outcome line of
-  its summary. A finished report waits on nothing, so `finished?` is all it
-  says.
+  the delivery slot, or the question that does, `behind`. A finished report
+  waits on nothing, so `finished?` is all it says.
   """
   @type asked :: %{
-          pointer: String.t(),
           sent_at: DateTime.t() | nil,
           behind: pos_integer() | nil,
           finished?: boolean(),
@@ -316,6 +310,7 @@ defmodule Whiska.Watch do
       topic: nil,
       doing: nil,
       context: nil,
+      window: Shape.window(mouse.model),
       picked_up_at: if(question_id, do: nil, else: picked_up[mouse.mouse_id])
     }
 
@@ -402,7 +397,6 @@ defmodule Whiska.Watch do
   # set aside.
   defp asked(%Question{status: status} = question, context) when status in @waiting do
     %{
-      pointer: Text.plain(Marker.pointer(question.text), @pointer_max),
       sent_at: if(status == "sent", do: question.sent_at),
       behind: Questions.behind(question, context.slot),
       finished?: false,
@@ -410,9 +404,8 @@ defmodule Whiska.Watch do
     }
   end
 
-  defp asked(%Question{kind: "done", status: "closed"} = report, _context) do
+  defp asked(%Question{kind: "done", status: "closed"}, _context) do
     %{
-      pointer: Text.plain(Report.outcome(report.text), @pointer_max),
       sent_at: nil,
       behind: nil,
       finished?: true,

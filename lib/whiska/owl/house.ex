@@ -207,8 +207,8 @@ defmodule Whiska.Owl.House do
   @default_resubscribe_ms 5_000
   @default_round_wait_ms 8_000
   @default_retry_ms [2_000, 5_000]
-  # The sidebar is written every second so a working mouse's spinner turns, but
-  # the board under it is built afresh only every two: what herdr says moves no
+  # The sidebar is checked every second, and a line sent only when its words
+  # change, but the board under it is built afresh only every two: what herdr says moves no
   # faster than that, and asking it, the database and every transcript is what
   # a build costs.
   @default_board_ms 1_000
@@ -280,7 +280,6 @@ defmodule Whiska.Owl.House do
     held_reason: nil,
     held_id: nil,
     subscription: nil,
-    sidebar_frame: 0,
     workspaces: nil,
     shown: %{},
     sent_at: %{},
@@ -606,7 +605,7 @@ defmodule Whiska.Owl.House do
       workspaces ->
         state
         |> show(board, workspaces)
-        |> Map.merge(%{last_board: board, sidebar_frame: state.sidebar_frame + 1})
+        |> Map.put(:last_board, board)
     end
   rescue
     error ->
@@ -652,7 +651,7 @@ defmodule Whiska.Owl.House do
   end
 
   defp show(state, board, workspaces) do
-    lines = Sidebar.mice(board, now: DateTime.utc_now(), frame: state.sidebar_frame)
+    lines = Sidebar.mice(board, now: DateTime.utc_now())
     main = main_workspace(workspaces, state)
     placed = Sidebar.place(board, workspaces, main)
 
@@ -773,8 +772,8 @@ defmodule Whiska.Owl.House do
   defp sent(sent_at, ws, _want, now), do: Map.put(sent_at, ws, now)
 
   # The mice re-sort only when one changes state, starts or stops queueing
-  # behind another, or appears in a state but idle (ADR-0082): a state changes far less often than a tick, and
-  # the spinner is not one, so rows do not jump under the cursor and the
+  # behind another, or appears in a state but idle (ADR-0082): a state changes far less often than a tick,
+  # so rows do not jump under the cursor and the
   # person's own drag order stands otherwise; mice that want the same keep the
   # order they are in. The block lands where its first member sits now.
   defp sort(state, lines, placed, workspaces) do

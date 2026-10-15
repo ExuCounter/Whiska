@@ -93,7 +93,7 @@ defmodule Whiska.CLIWatchTest do
 
       out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
-      assert out =~ "feat-a\n  ◐ Order builder"
+      assert out =~ "feat-a\n  Order builder"
     end
 
     test "a working mouse quiet while a subagent started far back runs is not stuck", %{
@@ -122,10 +122,10 @@ defmodule Whiska.CLIWatchTest do
 
       out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
-      assert out =~ "feat-a\n  ◐ Order builder"
+      assert out =~ "feat-a\n  Order builder"
     end
 
-    test "a mouse waiting on the person shows its question, wrapped", %{main: main} do
+    test "a mouse waiting on the person says so, and nothing of the question", %{main: main} do
       path = seed_mouse(main, "ma", "feat-a")
       q = seed_question(main, "ma", "Body.\n\nwhich db?\n⁣⁣")
       no_workspaces()
@@ -133,7 +133,8 @@ defmodule Whiska.CLIWatchTest do
 
       out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
-      assert out =~ "feat-a\n  ❓ waiting on you\n  which db?"
+      assert out =~ "feat-a\n  ❓ waiting on you\n"
+      refute out =~ "which db?"
     end
 
     test "a dead mouse has no lines, and what it left is counted as orphaned", %{main: main} do
@@ -212,7 +213,7 @@ defmodule Whiska.CLIWatchTest do
 
       out = capture_io(fn -> assert CLI.run(["watch"], main) == 0 end)
 
-      assert out =~ "◐ Order builder"
+      assert out =~ "feat-a\n  Order builder"
     end
 
     test "statusline --here, which an older statusline script runs, prints nothing", %{
@@ -232,7 +233,7 @@ defmodule Whiska.CLIWatchTest do
 
       out = capture_io(fn -> assert CLI.run(["watch"], path) == 0 end)
 
-      assert out =~ "feat-a\n  ◐"
+      assert out =~ "feat-a\n  working"
     end
   end
 end
