@@ -9,7 +9,9 @@ letter, or the person asks.
    permission.
 2. Fix, answer or dispute each open thread. A fix for a bug in this branch's own code is
    squashed into the commit that made it; anything else is a new commit. Test first, run
-   the checks and read the diff back; a fresh reviewer only for more than a small fix.
+   the checks and read the diff back; a fresh reviewer only for more than a small fix. While
+   a reviewer runs, do not end the turn on a finished report or a question: wait for its
+   report, then say it.
 3. Write each reply to a file in `.whiska-replies/`, named for its thread's full id:
    `<thread-id>.md` to reply, `<thread-id>.resolve.md` to reply and resolve. Resolve
    only a thread you fixed; one you answered or disputed stays open.

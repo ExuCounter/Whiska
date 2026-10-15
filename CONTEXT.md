@@ -163,7 +163,8 @@ A message a mouse sends when it finishes a turn. Most are real questions — the
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
 **unmarked** question: delivered like any other, recorded as having arrived unmarked —
 unless the mouse still has work **in flight**, when the turn has not ended and nothing is
-left at all (ADR-0052). A
+left at all (ADR-0052); a marked turn is held the same way while a subagent of the mouse's
+is **in flight**. A
 `done` report is recorded closed and **hooted**, waits on nobody, and its line is typed
 once nothing waits on the person; the person says its **finish** in place of a reply once
 they read it (ADR-0009). A question is **open** while it waits to be told, **sent** once
@@ -799,8 +800,8 @@ Said of background work a mouse started and has not had the report of: a backgro
 subagent, a shell command run in the background, a subagent restarted with `SendMessage`, a
 `Monitor` or a `Workflow`. Claude Code ends the mouse's turn while one is out and wakes the
 session when it reports, so the `Stop` hook fires on a turn that is not over: with anything
-in flight and no marker it writes nothing at all, and the doorstep never hears about it
-(ADR-0052). Read from the mouse's own transcript, and structurally: the result answering
+in flight and no marker, or with a subagent in flight and a marker, it writes nothing at
+all, and the doorstep never hears about it (ADR-0052). Read from the mouse's own transcript, and structurally: the result answering
 the call that started it gives the id, its report or a `TaskStop` clears it, and so does a
 turn the person typed or half an hour passing. Never read from what the mouse said.
 _Avoid_: running, pending, busy, mid-turn (all of them describe the mouse, and it is the

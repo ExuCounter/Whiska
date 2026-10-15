@@ -660,8 +660,37 @@ defmodule Whiska.TranscriptTest do
       assert Transcript.passed_over(read(text), @now) == nil
     end
 
-    test "a marked last word was delivered, whatever is out" do
+    test "a marked last word was delivered beside a background command" do
       text = [stamped(backgrounded("bfz2zzaps"), "2026-10-14T14:50:00Z"), said("Pick one?\n⁣⁣")]
+
+      assert Transcript.passed_over(read(text), @now) == nil
+    end
+
+    test "a marked last word with a subagent out is a stop passed over too (ADR-0052)" do
+      for word <- ["Pick one?\n⁣⁣", "Done.\n⁣⁣⁣"] do
+        text = [stamped(launched("ae96c51"), "2026-10-14T14:50:00Z"), said(word)]
+
+        assert Transcript.passed_over(read(text), @now) == :in_flight
+      end
+    end
+
+    test "a marked last word is abandoned once its subagent is half an hour old" do
+      text = stamped([launched("ae96c51"), said("Done.\n⁣⁣⁣")], "2026-10-14T14:20:00Z")
+
+      assert Transcript.passed_over(read(text), @now) == :abandoned
+    end
+
+    test "a marked last word said once its subagent was half an hour old was delivered" do
+      text = [
+        stamped(launched("ae96c51"), "2026-10-14T14:00:00Z"),
+        stamped([said("Done.\n⁣⁣⁣")], "2026-10-14T14:40:00Z")
+      ]
+
+      assert Transcript.passed_over(read(text), @now) == nil
+    end
+
+    test "a marked last word after the subagent reported was delivered" do
+      text = [launched("ae96c51"), completed("ae96c51"), said("Done.\n⁣⁣⁣")]
 
       assert Transcript.passed_over(read(text), @now) == nil
     end
@@ -696,6 +725,28 @@ defmodule Whiska.TranscriptTest do
       ]
 
       assert Transcript.passed_over(read(text), @now) == nil
+    end
+  end
+
+  describe "holds_stop?/3" do
+    @now ~U[2026-10-14 15:00:00Z]
+
+    test "an unmarked stop is held by any work out, a marked one only by a subagent" do
+      command = read(stamped(backgrounded("bfz2zzaps"), "2026-10-14T14:50:00Z"))
+      subagent = read(stamped(launched("ae96c51"), "2026-10-14T14:50:00Z"))
+
+      assert Transcript.holds_stop?(command, :unmarked, @now)
+      refute Transcript.holds_stop?(command, :marked, @now)
+      assert Transcript.holds_stop?(subagent, :unmarked, @now)
+      assert Transcript.holds_stop?(subagent, :marked, @now)
+    end
+
+    test "a subagent that reported, or is half an hour old, holds nothing" do
+      reported = read([launched("ae96c51"), completed("ae96c51")])
+      old = read(stamped(launched("ae96c51"), "2026-10-14T14:20:00Z"))
+
+      refute Transcript.holds_stop?(reported, :marked, @now)
+      refute Transcript.holds_stop?(old, :marked, @now)
     end
   end
 

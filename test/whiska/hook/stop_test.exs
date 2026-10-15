@@ -257,6 +257,26 @@ defmodule Whiska.Hook.StopTest do
       ]
     end
 
+    defp background_command(task_id) do
+      [
+        JSON.encode!(%{
+          "type" => "assistant",
+          "message" => %{
+            "content" => [%{"type" => "tool_use", "id" => "toolu_b", "name" => "Bash"}]
+          }
+        }),
+        JSON.encode!(%{
+          "type" => "user",
+          "toolUseResult" => %{"stdout" => "", "backgroundTaskId" => task_id},
+          "message" => %{
+            "content" => [
+              %{"type" => "tool_result", "tool_use_id" => "toolu_b", "content" => "x"}
+            ]
+          }
+        })
+      ]
+    end
+
     defp handed_back(agent_id) do
       JSON.encode!(%{
         "type" => "user",
@@ -309,11 +329,34 @@ defmodule Whiska.Hook.StopTest do
       assert Doorstep.waiting(main) == []
     end
 
-    test "a question or a report is left whatever is still out", %{
+    test "a question or a report is held while a subagent is out, as #626 and #627 were",
+         %{main: main, worktree: worktree} do
+      path =
+        transcript(worktree, [launched("ae96c5149391564f6"), launched("a8b36f1846b568361")])
+
+      for message <- [
+            "The reviewer is still running.\n\n\u2063\u2063",
+            "Done, green. Two reviewers are still running.\n\n\u2063\u2063\u2063",
+            "Done, green.\n\u2063\u2063\u2063"
+          ] do
+        :ok =
+          Stop.run(
+            payload(%{
+              "cwd" => worktree,
+              "transcript_path" => path,
+              "last_assistant_message" => message
+            })
+          )
+      end
+
+      assert Doorstep.waiting(main) == []
+    end
+
+    test "a question or a report is left beside work that is no subagent", %{
       main: main,
       worktree: worktree
     } do
-      path = transcript(worktree, [launched("ae96c5149391564f6")])
+      path = transcript(worktree, [background_command("bfz2zzaps")])
 
       for message <- ["Pick A or B?\n\u2063\u2063", "Shipped.\n\u2063\u2063\u2063"] do
         :ok =
@@ -327,6 +370,49 @@ defmodule Whiska.Hook.StopTest do
       end
 
       assert [_question, _report] = Doorstep.waiting(main)
+    end
+
+    test "a report is left when the only subagent out is half an hour old", %{
+      main: main,
+      worktree: worktree
+    } do
+      old = DateTime.utc_now() |> DateTime.add(-31 * 60) |> DateTime.to_iso8601()
+
+      lines =
+        for line <- launched("ae96c5149391564f6"),
+            do: line |> JSON.decode!() |> Map.put("timestamp", old) |> JSON.encode!()
+
+      path = transcript(worktree, [lines])
+
+      :ok =
+        Stop.run(
+          payload(%{
+            "cwd" => worktree,
+            "transcript_path" => path,
+            "last_assistant_message" => "Done, green.\n\u2063\u2063\u2063"
+          })
+        )
+
+      assert [_report] = Doorstep.waiting(main)
+    end
+
+    test "a report is left once the reviewers it waited on have reported", %{
+      main: main,
+      worktree: worktree
+    } do
+      path =
+        transcript(worktree, [launched("ae96c5149391564f6"), handed_back("ae96c5149391564f6")])
+
+      :ok =
+        Stop.run(
+          payload(%{
+            "cwd" => worktree,
+            "transcript_path" => path,
+            "last_assistant_message" => "Done, green.\n\u2063\u2063\u2063"
+          })
+        )
+
+      assert [_report] = Doorstep.waiting(main)
     end
 
     test "a turn whose reviewers have all reported is left alone", %{

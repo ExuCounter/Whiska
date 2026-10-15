@@ -353,16 +353,30 @@ defmodule Whiska.Transcript do
     do: Enum.any?(unreported, fn {tool, at} -> tool in @subagent and not abandoned?(at, now) end)
 
   @doc """
-  Whether the mouse's last stop was passed over (ADR-0052): its last word
-  unmarked, said while background work of its own was in flight. `:in_flight`
-  while that work is inside the half hour, `:abandoned` once all of it is past
-  it.
+  Whether a stop is not the end of the turn (ADR-0052): the mouse's own work is
+  still out and Claude Code will wake the session when it reports.
+
+  An unmarked stop is held by any background work. A marked one — a question, or
+  `done` — is held only by a subagent: the mouse's own reviewers running are the
+  one case where "finished" or "needs a decision" is wrong by construction,
+  while a marked stop beside a dev server or a test watcher has said what it
+  waits on.
+  """
+  @spec holds_stop?(background(), :unmarked | :marked, DateTime.t()) :: boolean()
+  def holds_stop?(background, :unmarked, now), do: in_flight?(background, now)
+  def holds_stop?(background, :marked, now), do: subagent_in_flight?(background, now)
+
+  @doc """
+  Whether the mouse's last stop was passed over (ADR-0052): its last word said
+  while work that holds it (`holds_stop?/3`) was out. `:in_flight` while that
+  work is inside the half hour, `:abandoned` once all of it is past it.
   """
   @spec passed_over(background(), DateTime.t()) :: nil | :in_flight | :abandoned
-  def passed_over(%{last_word: :unmarked, said_at: said_at} = background, now) do
+  def passed_over(%{last_word: word, said_at: said_at} = background, now)
+      when word in [:unmarked, :marked] do
     cond do
-      not in_flight?(background, said_at || now) -> nil
-      in_flight?(background, now) -> :in_flight
+      not holds_stop?(background, word, said_at || now) -> nil
+      holds_stop?(background, word, now) -> :in_flight
       true -> :abandoned
     end
   end

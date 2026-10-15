@@ -19,8 +19,10 @@ defmodule Whiska.Hook.Stop do
   It writes on every turn that ended. A turn that ends with no marker while the
   mouse's own background work is still in flight has not ended — Claude Code
   will wake this session when that work reports — and that one is passed over in
-  silence (ADR-0052). A marked turn is written whatever is out: the mouse said
-  what it is waiting on.
+  silence (ADR-0052). So is a marked turn while a subagent is out: a mouse
+  reporting `done` or asking a question beside its own running reviewers is not
+  finished. A marked turn beside any other work is written: the mouse said what
+  it is waiting on.
 
   That is the only marker it reads. What a marked message means is read by the
   owl on collection (ADR-0009), so a message with no marker and nothing out is
@@ -83,9 +85,11 @@ defmodule Whiska.Hook.Stop do
   end
 
   # Writing here would leave "still waiting on the reviewers" on the doorstep as
-  # an unmarked question that asks nothing (ADR-0052).
+  # a question that asks nothing, or a finished report that is not (ADR-0052).
   defp turn_state(message, tail) do
-    if QuestionMarker.classify(message) == "unmarked" and Transcript.in_flight?(tail),
+    marker = if QuestionMarker.classify(message) == "unmarked", do: :unmarked, else: :marked
+
+    if Transcript.holds_stop?(Transcript.background(tail), marker, DateTime.utc_now()),
       do: :in_flight,
       else: :over
   end

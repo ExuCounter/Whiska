@@ -73,7 +73,9 @@ across lines: the person comments by selecting one line.
 2. Send a fresh reviewer that never saw this session: diff from `whiska base`, the spec or
    research document, decisions as they were at the base, never the plan; `file:line`
    findings, no edits. Add a security reviewer when input, permissions, hooks, prompts or
-   secrets change. Disprove or fix each finding. Two rounds, then ask.
+   secrets change. Disprove or fix each finding. Two rounds, then ask. While a reviewer
+   runs, do not end the turn on a finished report or a question: the hook holds it until
+   the reviewer reports. Wait for the report, then say it.
 3. Commit on the branch. Never push. Never commit a secret or local setup, or delete a
    file this turn did not make.
 4. Report, as under "Report".

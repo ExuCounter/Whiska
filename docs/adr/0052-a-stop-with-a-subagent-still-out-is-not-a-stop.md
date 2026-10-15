@@ -1,4 +1,4 @@
-# An unmarked stop with background work still out is not a stop
+# A stop with background work still out is not a stop
 
 ADR-0049 made finishing a pipeline the mouse runs, and its third step sends reviewers over
 the change as subagents. Claude Code runs a subagent in the background: the `Agent` call
@@ -18,21 +18,39 @@ back than the hook read.
 No instruction can prevent this. The mouse cannot choose not to end that turn; the harness
 ends it. ADR-0049's own wording — "a turn that is neither finished nor asking for a
 decision does not end at all" — described a rule the model was never in a position to
-follow, and is trimmed as part of this decision.
+follow, and is trimmed as part of this decision. (A *marked* stop is different: the mouse
+chose to write the marker, so a brief line is a soft guard there, under the hook's hard one.)
 
 ## Decision
 
 **The `Stop` hook writes nothing when the stop carries no marker and the mouse has
-background work of its own still out.** It exits 0 quietly: nothing on the doorstep, no
+background work of its own still out, or when it carries a marker and a subagent of its
+own is still out.** It exits 0 quietly: nothing on the doorstep, no
 entry, no question. The session will be woken when that work reports, and the turn that
 really does finish writes the marker and the report as always.
 
-**A marked stop is written whatever is out.** A mouse that asks something, or reports done,
-beside a dev server or a test watcher has said what it is waiting on. Replayed over 1,509
-stops of this machine's mice on 2026-10-14: holding every stop with a subagent out, this
-decision's first form, had swallowed 6 marked questions, and holding every stop with any
-work out would have swallowed 31 more marked stops. The 10 unmarked stops the wider reading
-newly passes over were all a mouse waiting on its own work.
+**A marked stop is written beside any work but a subagent.** A mouse that asks something, or
+reports done, beside a dev server or a test watcher has said what it is waiting on. Replayed
+over 1,509 stops of this machine's mice on 2026-10-14: holding every stop with any work out
+would have swallowed 31 marked stops. The 10 unmarked stops the wider reading newly passes
+over were all a mouse waiting on its own work.
+
+**A marked stop is held while a subagent is out** (changed 2026-10-15). On 2026-10-15 #626
+("needs a decision": "The reviewer is still running") and #627 ("finished": "Two reviewers are
+still running, and I haven't committed") were delivered: each mouse said what it was waiting
+on, in a marker that claims the opposite — a finished report or a question, with its own
+reviewers still reading the change. Replaying the guard on both transcripts said in flight
+(one `Agent` and a `Monitor`; two `Agent`); only the marker gate let them through. The
+mouse's own reviewers are the one case where `done` or `needs-decision` is wrong by
+construction, so a subagent out holds a marked stop too. It costs the 6 marked questions
+this decision's first form swallowed: a real question a mouse asks while a reviewer runs
+waits for that reviewer's report. It is delayed, not guaranteed: the session is woken on the
+report, and the mouse's next stop is delivered, but a mouse that does not say it again
+loses it, and a reviewer that never reports leaves it held until the half hour below, when
+the board reads the mouse `✖ stuck` and nothing redelivers it. That is the price of the
+person's decision of 2026-10-15; the build and review briefs tell a mouse to wait for its
+reviewers' reports and then say what it had to say. Every other kind of work still leaves a
+marked stop written.
 
 **What "still out" means is read from the transcript, not guessed.** A launch the mouse
 made and has not had back:
@@ -121,13 +139,13 @@ exactly the heuristic ADR-0009 refuses, and is not what this is.
 
 **Background work that never reports holds its mouse quiet for half an hour.** A lost
 hand-back, an agent that errors out, an interrupted turn: the launch stays unmatched and
-every unmarked stop after it is swallowed. It proved real the day this was written, so the
+every unmarked stop after it, and every marked one while it is a subagent, is swallowed. It proved real the day this was written, so the
 deadline is in: the launch ages out, the person's next prompt still clears the accounting,
 and the launch still scrolls out of the tail. Meanwhile the board shows the mouse working,
 then `✖ stuck` (ADR-0082); nothing is delivered on its behalf, which the person chose on
 2026-10-14 over delivering the swallowed stop. herdr keeps a pane working only while a
 subagent is out, so for any other kind the board reads the passed-over stop from the
-transcript itself: an idle mouse whose last word is unmarked, with work unreported. Its
+transcript itself: an idle mouse whose last word is held by work unreported — unmarked beside any work, marked beside a subagent. Its
 last word is the last message it wrote; an API error Claude Code wrote in its place is a
 turn that died, not one passed over. The cost the other way is one delivered
 progress note from work that genuinely runs longer than that, which is the direction this
@@ -178,8 +196,10 @@ subagent is out, but every pane reads working at the moment its `Stop` fires, so
 cannot ask; the owl would have to hold each entry until the pane settled, inside delivery,
 to learn what the transcript already says.
 
-**Hold every stop with work out, marked or not.** This decision's first form, for
-subagents. Rejected on the replay above: it swallows questions.
+**Hold every stop with work out, marked or not.** Rejected on the replay above: any work,
+not only a subagent, swallows 31 marked stops. For a subagent alone it was this decision's
+first form, rejected then for swallowing 6 questions and taken up on 2026-10-15 for #626 and
+#627.
 
 **Deliver it as a notice rather than a question.** Cheaper, and still wrong: the person does
 not want to be told five times that reviewers are running.
@@ -189,4 +209,5 @@ delivery slot (ADR-0008) — every mid-turn stop holds it until the person clear
 real question from another mouse waits behind a progress note.
 
 Changed on 2026-10-12: the board reads this same tail too, on every rebuild, for a working mouse quiet ten minutes (ADR-0082, changed 2026-10-15).
+Changed on 2026-10-15: a marked stop is held too while a subagent is out; the board and the owl's pickup read it as passed over.
 Changed on 2026-10-14: only an unmarked stop is passed over; every kind of background work counts, not only subagents; the tail is 4 MB; an interim report and a monitor's event are not reports, and `TaskStop` is one; the board and the owl's pickup read a passed-over stop from the transcript.
