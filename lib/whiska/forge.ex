@@ -51,7 +51,8 @@ defmodule Whiska.Forge do
           author_id: pos_integer(),
           author: String.t(),
           system?: boolean(),
-          discussion_id: String.t() | nil
+          discussion_id: String.t() | nil,
+          open?: boolean()
         }
 
   @callback parse(url :: String.t()) :: {:ok, ref()} | :error

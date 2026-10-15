@@ -46,7 +46,8 @@ defmodule Whiska.Storage do
     {20, Whiska.Migrations.V020LetterReply},
     {21, Whiska.Migrations.V021ReportHooted},
     {22, Whiska.Migrations.V022ReviewRounds},
-    {23, Whiska.Migrations.V023ReportTyped}
+    {23, Whiska.Migrations.V023ReportTyped},
+    {24, Whiska.Migrations.V024ThreadsHanded}
   ]
 
   @modes ~w(build sniff)

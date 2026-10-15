@@ -222,14 +222,21 @@ adapter did not recognise what came back.
 
 - **A new comment** is one past the cursor, not a system note, not by the signed-in
   account, and by a member of the project; membership is asked once per author and
-  remembered while the owl runs. Nothing that existed when the owl first reads a request
-  counts.
+  remembered while the owl runs. A comment already there at the owl's first read of a
+  request is not new.
+- **An open thread** counts once, whatever its age, the first time the owl reads it with
+  its newest note by a member other than the signed-in account, and no round has had it.
+  A thread whose last word is the account's was answered, by the person or by a mouse
+  posting as them, so it never counts. Each thread a review names is remembered on the
+  read's row, by id, so one a round left open comes back only through a new comment in
+  it, and never loops. Without this, a thread written before the cursor, or before
+  review was handed over at all, stayed open with nobody told.
 - **A failed pipeline** counts once per pipeline, and only when it ran on the request's
-  head commit.
-- **Either is kept on the read's row**, by id, until a review round takes it, and logged at
+  head commit, one already failed at the first read included.
+- **Each is kept on the read's row**, by id, until a review round takes it, and logged at
   the read that sees it with what became of it: `feat/x: review for !123 — 2 new comments
-  by alice, bob; pipeline failed on 63c47262 — woke its mouse`, `— starting a mouse` or
-  `— kept: <why>`.
+  by alice, bob; 1 open thread by bot; pipeline failed on 63c47262 — woke its mouse`,
+  `— starting a mouse` or `— kept: <why>`.
 - **Merged on the forge fetches the base at once.** The forge's word is not the landing:
   git's checks still prove it (ADR-0061).
 - **Closed on the forge, or gone, asks the person once** whether to drop the worktree:
@@ -381,3 +388,8 @@ mouse stays proposed.
 Changed on 2026-10-14, again: new review is handed to the branch's mouse as a review
 round, woken if it is live and started if not, where it was logged as what would wake it;
 a dead mouse's review starts a fresh mouse rather than asking the person.
+
+Changed on 2026-10-15: an open thread counts once whatever its age, by its newest note,
+and a pipeline already failed at the first read counts, where nothing that existed at the
+first read did; a bot's thread logged only as "would wake" before rounds existed sat open
+with nobody told.

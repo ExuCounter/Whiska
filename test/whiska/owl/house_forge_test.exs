@@ -332,6 +332,38 @@ defmodule Whiska.Owl.HouseForgeTest do
     File.write!(Path.join(dir, "s.jsonl"), Enum.map_join(entries, "\n", &JSON.encode!/1))
   end
 
+  test "an open thread already there at the first read wakes a live mouse that has a transcript",
+       %{repo: repo, path: path, forge: forge} do
+    transcripts = Whiska.Transcript.project_dir(path, Whiska.ServiceManager.user_home())
+    File.mkdir_p!(transcripts)
+    on_exit(fn -> File.rm_rf(transcripts) end)
+
+    File.write!(
+      Path.join(transcripts, "s1.jsonl"),
+      ~s({"type":"assistant","isSidechain":false,"timestamp":"2026-10-14T08:00:00Z",) <>
+        ~s("message":{"role":"assistant","content":[{"type":"text","text":"done"}]}}\n)
+    )
+
+    record_merge_request(repo)
+    FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
+    FakeGlab.answer(forge, "projects/acme%2Fapp/members/all/2", %{"id" => 2})
+    FakeGlab.answer(forge, @mr, merge_request(user_notes_count: 1))
+    FakeGlab.answer(forge, @discussions, [thread(11, {2, "bot"}, "d11")])
+    idle_mouse(path)
+
+    log =
+      capture_io(:stderr, fn ->
+        house = open(repo, forge, [])
+        assert_receive {:typed, "w1:p1", _line}, 5_000
+        House.sync(house)
+      end)
+
+    assert [letter] = Path.wildcard(Path.join(path, ".whiska-letters/*.md"))
+    assert File.read!(letter) =~ "Open thread by bot, thread d11: #{@url}#note_11"
+    assert log =~ ~r/feat-a: review for !7 — 1 open thread by bot — woke its mouse/
+    assert MergeRequestRead.threads_handed(row(repo)) == ["d11"]
+  end
+
   test "review kept for a busy mouse and review read in the same minute are each handed over once",
        %{repo: repo, path: path, forge: forge} do
     record_merge_request(repo)

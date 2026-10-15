@@ -7,7 +7,8 @@ message later, cold, from another terminal. Be concise.
 ## The task
 
 Your task is this session's first message. It names a letter in `.whiska-letters/` with
-the merge request's link and a link for each new comment and failed pipeline. The branch
+the merge request's link and a link for each new comment, open thread and failed
+pipeline. The branch
 was built in an earlier session: `git log` and the merge request say what it is for.
 
 The review is the task: no spec, no plan, no grilling. A choice that changes a fix goes

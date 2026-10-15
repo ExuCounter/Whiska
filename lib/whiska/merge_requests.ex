@@ -30,13 +30,19 @@ defmodule Whiska.MergeRequests do
   @longest_retry_ms 3_600_000
   @longest_wait_ms 900_000
 
-  @type comment :: %{id: pos_integer(), author: String.t(), discussion_id: String.t() | nil}
+  @type comment :: %{
+          required(:id) => pos_integer(),
+          required(:author) => String.t(),
+          required(:discussion_id) => String.t() | nil,
+          optional(:open) => true
+        }
 
   @type seen :: %{
           snapshot: Forge.snapshot(),
           threads_open: non_neg_integer() | nil,
           max_note_id: pos_integer() | nil,
-          new_comments: [comment()]
+          new_comments: [comment()],
+          open_threads: [comment()] | nil
         }
 
   @type result ::
@@ -177,15 +183,27 @@ defmodule Whiska.MergeRequests do
         (prior.threads_open || 0) > 0
 
   defp unread_notes(snapshot),
-    do: %{snapshot: snapshot, threads_open: nil, max_note_id: nil, new_comments: []}
+    do: %{
+      snapshot: snapshot,
+      threads_open: nil,
+      max_note_id: nil,
+      new_comments: [],
+      open_threads: nil
+    }
 
   defp with_notes(ref, run, snapshot, prior, context) do
     with {:ok, %{threads_open: open, notes: notes}} <- ref.forge.notes(ref, run),
-         {:ok, new, context} <- new_comments(ref, run, notes, prior, context) do
+         {:ok, {new, threads}, context} <- review_notes(ref, run, notes, prior, context) do
       max_id = notes |> Enum.map(& &1.id) |> Enum.max(fn -> nil end)
 
-      {{:ok, %{snapshot: snapshot, threads_open: open, max_note_id: max_id, new_comments: new}},
-       context}
+      {{:ok,
+        %{
+          snapshot: snapshot,
+          threads_open: open,
+          max_note_id: max_id,
+          new_comments: new,
+          open_threads: threads
+        }}, context}
     else
       {:unknown, _reason, _retry} = unknown -> {unknown, context}
       {{:unknown, _reason, _retry} = unknown, context} -> {unknown, context}
@@ -193,21 +211,46 @@ defmodule Whiska.MergeRequests do
     end
   end
 
-  defp new_comments(_ref, _run, _notes, prior, context)
-       when is_nil(prior) or is_nil(prior.seen_note_id),
-       do: {:ok, [], context}
+  # The new comments past the cursor, none at the first read; and each open
+  # thread's newest note, whatever its age, when that is someone else's: a
+  # thread whose last word is the account's was answered. Both by members only.
+  # A comment whose author cannot be asked about makes the read unknown, so the
+  # cursor waits for it; an open thread's only waits for the next read, since
+  # it stays open and the read must not fail for as long as it does.
+  defp review_notes(ref, run, notes, prior, context) do
+    new =
+      if is_nil(prior) or is_nil(prior.seen_note_id),
+        do: [],
+        else: Enum.filter(notes, &(&1.id > prior.seen_note_id and not &1.system?))
 
-  defp new_comments(ref, run, notes, prior, context) do
-    case Enum.filter(notes, &(&1.id > prior.seen_note_id and not &1.system?)) do
-      [] ->
-        {:ok, [], context}
+    last =
+      notes
+      |> Enum.filter(&(&1.open? and not &1.system? and is_binary(&1.discussion_id)))
+      |> Enum.group_by(& &1.discussion_id)
+      |> Enum.map(fn {_thread, notes} -> Enum.max_by(notes, & &1.id) end)
+      |> Enum.sort_by(& &1.id)
 
-      candidates ->
-        with {:ok, me, context} <- me(ref, run, context) do
-          candidates
-          |> Enum.reject(&(&1.author_id == me.id))
-          |> members_only(ref, run, context)
+    with {:ok, new, context} <- by_members(new, ref, run, context) do
+      {threads, context} =
+        case by_members(last, ref, run, context) do
+          {:ok, threads, context} -> {Enum.map(threads, &Map.put(&1, :open, true)), context}
+          {_unknown, context} -> {[], context}
         end
+
+      {:ok, {new, threads}, context}
+    end
+  end
+
+  defp by_members([], _ref, _run, context), do: {:ok, [], context}
+
+  defp by_members(notes, ref, run, context) do
+    with {:ok, me, context} <- me(ref, run, context),
+         notes = Enum.reject(notes, &(&1.author_id == me.id)),
+         {:ok, context} <- members(notes, ref, run, context) do
+      kept = Enum.filter(notes, &context.members[{ref.host, ref.project, &1.author_id}])
+
+      {:ok, Enum.map(kept, &%{id: &1.id, author: &1.author, discussion_id: &1.discussion_id}),
+       context}
     end
   end
 
@@ -223,7 +266,8 @@ defmodule Whiska.MergeRequests do
     end
   end
 
-  defp members_only(notes, ref, run, context) do
+  # Whether each author is a member, asked once and remembered in `context`.
+  defp members(notes, ref, run, context) do
     notes
     |> Enum.map(& &1.author_id)
     |> Enum.uniq()
@@ -239,16 +283,6 @@ defmodule Whiska.MergeRequests do
         end
       end
     end)
-    |> case do
-      {:ok, context} ->
-        kept = Enum.filter(notes, &context.members[{ref.host, ref.project, &1.author_id}])
-
-        {:ok, Enum.map(kept, &%{id: &1.id, author: &1.author, discussion_id: &1.discussion_id}),
-         context}
-
-      {unknown, context} ->
-        {unknown, context}
-    end
   end
 
   defp missing(ref, run) do
@@ -296,8 +330,7 @@ defmodule Whiska.MergeRequests do
     {failed_now, seen_failed} =
       cond do
         is_nil(failed) -> {nil, prior && prior.seen_failed_pipeline_id}
-        first? -> {nil, failed.id}
-        failed.id == prior.seen_failed_pipeline_id -> {nil, failed.id}
+        prior && failed.id == prior.seen_failed_pipeline_id -> {nil, failed.id}
         true -> {%{id: failed.id, sha: String.slice(snapshot.head_sha, 0, 8)}, failed.id}
       end
 
@@ -321,6 +354,7 @@ defmodule Whiska.MergeRequests do
 
     {attrs, moved} = moved(attrs, prior && prior.state, state)
     comments = if first?, do: [], else: seen.new_comments
+    {comments, attrs} = open_threads(comments, Map.get(seen, :open_threads), prior, attrs)
 
     if comments != [] or failed_now do
       review = %{comments: comments, pipeline: failed_now}
@@ -354,6 +388,30 @@ defmodule Whiska.MergeRequests do
     since = prior && prior.unread_since
     attrs = Map.merge(base, %{unread_since: since || now, unread_reason: inspect(reason)})
     {attrs, if(since, do: [], else: [{:unreadable, reason}])}
+  end
+
+  # An open thread joins the review once, however old: unless it was counted
+  # before, waits in what is kept, or has a new comment in this read. Every
+  # thread the review names, what was kept included, is then counted, so a thread a round left open
+  # comes back only through a new comment in it.
+  defp open_threads(comments, open, prior, attrs) do
+    handed = MergeRequestRead.threads_handed(prior || %{})
+    kept = ((prior && MergeRequestRead.pending(prior)) || %{comments: []}).comments
+    taken = MapSet.new(handed ++ Enum.map(kept ++ comments, & &1.discussion_id))
+
+    comments =
+      comments ++
+        Enum.reject(open || [], &(is_nil(&1.discussion_id) or &1.discussion_id in taken))
+
+    named = Enum.map(kept ++ comments, & &1.discussion_id)
+
+    case Enum.uniq(handed ++ Enum.reject(named, &is_nil/1)) do
+      ^handed ->
+        {comments, attrs}
+
+      ids ->
+        {comments, Map.put(attrs, :threads_handed, MergeRequestRead.encode_threads_handed(ids))}
+    end
   end
 
   # A review read while the last one still waits to be handed over joins it:
@@ -447,17 +505,23 @@ defmodule Whiska.MergeRequests do
   def line(:readable_again, branch, label), do: "#{branch}: #{label} reads again"
 
   defp review_reasons(%{comments: comments, pipeline: pipeline}) do
+    {threads, comments} = Enum.split_with(comments, & &1[:open])
+    failed = if pipeline, do: "pipeline failed on #{plain(pipeline.sha)}"
+
+    [counted(comments, "new comment"), counted(threads, "open thread"), failed]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join("; ")
+  end
+
+  defp counted([], _what), do: nil
+
+  defp counted(comments, what) do
     authors = comments |> Enum.map(&plain(&1.author)) |> Enum.uniq() |> Enum.join(", ")
 
-    comments =
-      case length(comments) do
-        0 -> nil
-        1 -> "1 new comment by #{authors}"
-        n -> "#{n} new comments by #{authors}"
-      end
-
-    failed = if pipeline, do: "pipeline failed on #{plain(pipeline.sha)}"
-    [comments, failed] |> Enum.reject(&is_nil/1) |> Enum.join("; ")
+    case length(comments) do
+      1 -> "1 #{what} by #{authors}"
+      n -> "#{n} #{what}s by #{authors}"
+    end
   end
 
   # A name as the forge sent it, kept to what a username may hold, so the log

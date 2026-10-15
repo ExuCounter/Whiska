@@ -260,7 +260,8 @@ _Avoid_: PR, pull request (GitHub's words; both forges are meant), review (what 
 on it)
 
 **Review round**:
-New review on a **merge request** — a member's comment, or a pipeline failed on its head
+New review on a **merge request** — a member's comment, an open thread whose last word
+is a member's and that no round has had, however old, or a pipeline failed on its head
 — handed to the branch's mouse to fix, answer or dispute, then pushed and posted on the
 person's yes. The owl keeps the review, by id, on its read until a round can take it, and
 then wakes the mouse if it is live: a **letter** in its worktree and one fixed line typed

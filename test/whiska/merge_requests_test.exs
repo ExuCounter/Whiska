@@ -69,13 +69,25 @@ defmodule Whiska.MergeRequestsTest do
   end
 
   describe "the first read" do
-    test "takes everything already there as seen, so none of it counts" do
+    test "takes the comments already there as seen, but not an open thread or a failed pipeline" do
       failed = snapshot(pipeline: %{id: 101, status: :failed, sha: @head})
+      open = [%{id: 40, author: "bot", discussion_id: "d1", open: true}]
 
       {attrs, events} =
-        MergeRequests.next(nil, mouse(), {:ok, seen(snapshot: failed, max_note_id: 44)}, @now)
+        MergeRequests.next(
+          nil,
+          mouse(),
+          {:ok,
+           seen(
+             snapshot: failed,
+             max_note_id: 44,
+             new_comments: [%{id: 44, author: "alice", discussion_id: "d2"}],
+             open_threads: open
+           )},
+          @now
+        )
 
-      assert events == []
+      assert events == [{:review, %{comments: open, pipeline: %{id: 101, sha: "63c47262"}}}]
       assert attrs.mouse_id == "m1"
       assert attrs.url == @url
       assert attrs.state == "open"
@@ -216,6 +228,64 @@ defmodule Whiska.MergeRequestsTest do
                   pipeline: %{id: 101, sha: "63c47262"}
                 }}
              ]
+    end
+
+    test "an open thread no round handed over is review, whatever its age, once" do
+      open = [%{id: 12, author: "bot", discussion_id: "d1", open: true}]
+
+      {attrs, events} =
+        MergeRequests.next(read([]), mouse(), {:ok, seen(open_threads: open)}, @now)
+
+      assert events == [{:review, %{comments: open, pipeline: nil}}]
+      assert MergeRequestRead.pending(attrs) == %{comments: open, pipeline: nil}
+      assert MergeRequestRead.threads_handed(attrs) == ["d1"]
+
+      handed = read(threads_handed: attrs.threads_handed)
+      assert {_, []} = MergeRequests.next(handed, mouse(), {:ok, seen(open_threads: open)}, @now)
+    end
+
+    test "a thread with a new comment, or one still kept, is not handed again as open" do
+      kept = %{comments: [%{id: 20, author: "alice", discussion_id: "d1"}], pipeline: nil}
+      new = [%{id: 31, author: "bob", discussion_id: "d2"}]
+
+      open = [
+        %{id: 20, author: "alice", discussion_id: "d1", open: true},
+        %{id: 31, author: "bob", discussion_id: "d2", open: true}
+      ]
+
+      {attrs, events} =
+        MergeRequests.next(
+          read(pending: MergeRequestRead.encode_pending(kept)),
+          mouse(),
+          {:ok, seen(max_note_id: 31, new_comments: new, open_threads: open)},
+          @now
+        )
+
+      assert events == [{:review, %{comments: new, pipeline: nil}}]
+      assert MergeRequestRead.threads_handed(attrs) == ["d1", "d2"]
+    end
+
+    test "a read that did not need the notes hands no open thread and keeps the ones counted" do
+      prior = read(threads_handed: ~s(["d1"]))
+
+      {attrs, []} =
+        MergeRequests.next(prior, mouse(), {:ok, seen(max_note_id: nil, open_threads: nil)}, @now)
+
+      refute Map.has_key?(attrs, :threads_handed)
+    end
+
+    test "a log line says open threads apart from new comments" do
+      review = %{
+        comments: [
+          %{id: 31, author: "alice", discussion_id: "d1"},
+          %{id: 12, author: "bot", discussion_id: "d2", open: true},
+          %{id: 13, author: "bot", discussion_id: "d3", open: true}
+        ],
+        pipeline: nil
+      }
+
+      assert MergeRequests.line({:review, review}, "feat-a", "!7") ==
+               "feat-a: review for !7 — 1 new comment by alice; 2 open threads by bot"
     end
 
     test "a log line carries only a name's plain characters" do
@@ -544,6 +614,55 @@ defmodule Whiska.MergeRequestsTest do
       assert seen.max_note_id == 35
       assert context.members[{"gitlab.example.com", "acme/app", 9}] == false
       assert context.me["gitlab.example.com"] == %{id: 1, username: "me"}
+    end
+
+    test "an open thread counts by its newest note: someone else's, a member's, and never resolved",
+         ctx do
+      FakeGlab.answer(ctx.fake, @mr, gitlab_mr(9, "t2"))
+
+      discussions(ctx.fake, [
+        Map.put(thread([note(10, 2, "bot"), note(11, 2, "bot")]), "id", "old"),
+        Map.put(thread([note(12, 2, "bot"), note(13, 1, "me")]), "id", "answered"),
+        Map.put(thread([note(14, 9, "drive-by")]), "id", "outsider"),
+        Map.put(thread([note(15, 1, "me")]), "id", "mine"),
+        %{
+          "id" => "resolved",
+          "notes" => [Map.merge(note(16, 2, "bot"), %{"resolvable" => true, "resolved" => true})]
+        }
+      ])
+
+      FakeGlab.answer(ctx.fake, "user", %{"id" => 1, "username" => "me"})
+      FakeGlab.answer(ctx.fake, "projects/acme%2Fapp/members/all/2", %{"id" => 2})
+
+      assert {{:ok, seen}, _} = MergeRequests.read(mouse(), read(seen_note_id: 30), ctx.context)
+      assert seen.open_threads == [%{id: 11, author: "bot", discussion_id: "old", open: true}]
+      assert seen.new_comments == []
+      assert seen.threads_open == 4
+    end
+
+    test "a first read hands open threads too, though none of its comments count", ctx do
+      FakeGlab.answer(ctx.fake, @mr, gitlab_mr(1, "t1"))
+      discussions(ctx.fake, [Map.put(thread([note(5, 2, "bot")]), "id", "d5")])
+      FakeGlab.answer(ctx.fake, "user", %{"id" => 1, "username" => "me"})
+      FakeGlab.answer(ctx.fake, "projects/acme%2Fapp/members/all/2", %{"id" => 2})
+
+      assert {{:ok, seen}, _} = MergeRequests.read(mouse(), nil, ctx.context)
+      assert seen.new_comments == []
+      assert seen.open_threads == [%{id: 5, author: "bot", discussion_id: "d5", open: true}]
+    end
+
+    test "an open thread whose author's membership cannot be read waits, and the read stands",
+         ctx do
+      FakeGlab.answer(ctx.fake, @mr, gitlab_mr(9, "t2"))
+      discussions(ctx.fake, [Map.put(thread([note(10, 2, "bot")]), "id", "old")])
+      FakeGlab.answer(ctx.fake, "user", %{"id" => 1, "username" => "me"})
+      FakeGlab.answer(ctx.fake, "projects/acme%2Fapp/members/all/2", %{}, status: 403)
+
+      assert {{:ok, seen}, context} =
+               MergeRequests.read(mouse(), read(seen_note_id: 30), ctx.context)
+
+      assert seen.open_threads == []
+      refute Map.has_key?(context.members, {"gitlab.example.com", "acme/app", 2})
     end
 
     test "the account and membership are asked once, then remembered", ctx do

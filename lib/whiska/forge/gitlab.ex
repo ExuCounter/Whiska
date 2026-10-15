@@ -187,15 +187,6 @@ defmodule Whiska.Forge.GitLab do
   defp threads(discussions) do
     discussions = Enum.filter(discussions, &is_map/1)
 
-    # GitLab says whether a thread is resolved on each of its notes.
-    open =
-      Enum.count(discussions, fn discussion ->
-        Enum.any?(
-          List.wrap(discussion["notes"]),
-          &(is_map(&1) and &1["resolvable"] == true and &1["resolved"] != true)
-        )
-      end)
-
     notes =
       for discussion <- discussions,
           %{"id" => id, "author" => %{"id" => author_id, "username" => author}} = note <-
@@ -206,10 +197,19 @@ defmodule Whiska.Forge.GitLab do
             author_id: author_id,
             author: author,
             system?: note["system"] == true,
-            discussion_id: discussion_id(discussion["id"])
+            discussion_id: discussion_id(discussion["id"]),
+            open?: open?(discussion)
           }
 
-    {:ok, %{threads_open: open, notes: notes}}
+    {:ok, %{threads_open: Enum.count(discussions, &open?/1), notes: notes}}
+  end
+
+  # GitLab says whether a thread is resolved on each of its notes.
+  defp open?(discussion) do
+    Enum.any?(
+      List.wrap(discussion["notes"]),
+      &(is_map(&1) and &1["resolvable"] == true and &1["resolved"] != true)
+    )
   end
 
   # A thread's id goes into the letter a mouse is woken with, so only an id

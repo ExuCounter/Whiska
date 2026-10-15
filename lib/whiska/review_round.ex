@@ -203,7 +203,8 @@ defmodule Whiska.ReviewRound do
     items =
       Enum.map(review.comments, fn c ->
         thread = if c.discussion_id, do: ", thread #{c.discussion_id}", else: ""
-        "- Comment by #{MergeRequests.plain(c.author)}#{thread}: #{ref.url}#note_#{c.id}"
+        what = if c[:open], do: "Open thread", else: "Comment"
+        "- #{what} by #{MergeRequests.plain(c.author)}#{thread}: #{ref.url}#note_#{c.id}"
       end) ++
         if review.pipeline,
           do: [

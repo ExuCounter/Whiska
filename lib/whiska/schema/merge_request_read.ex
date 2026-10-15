@@ -46,23 +46,32 @@ defmodule Whiska.Schema.MergeRequestRead do
     # died.
     field(:review_asked_at, :utc_datetime)
     field(:review_asked_why, :string)
+    # The open threads counted as review, by id, as JSON (`threads_handed/1`):
+    # one is counted once, and again only through a new comment in it.
+    field(:threads_handed, :string)
   end
 
   @fields ~w(url state head_sha pipeline_id pipeline threads_open notes_count forge_updated_at
              ready seen_note_id seen_failed_pipeline_id missing_reads read_at unread_since
              unread_reason asked_at pending round_at round_by round_ref round_head
-             rounds_unpushed review_asked_at review_asked_why)a
+             rounds_unpushed review_asked_at review_asked_why threads_handed)a
 
   @doc false
   def fields, do: @fields
 
   @typedoc """
   A review: new comments, each with its thread when the forge named one, and
-  a pipeline that failed on the head.
+  a pipeline that failed on the head. A comment marked `open` is the newest
+  note of an open thread no round had, however old.
   """
   @type review :: %{
           comments: [
-            %{id: pos_integer(), author: String.t(), discussion_id: String.t() | nil}
+            %{
+              required(:id) => pos_integer(),
+              required(:author) => String.t(),
+              required(:discussion_id) => String.t() | nil,
+              optional(:open) => true
+            }
           ],
           pipeline: %{id: pos_integer(), sha: String.t()} | nil
         }
@@ -97,20 +106,40 @@ defmodule Whiska.Schema.MergeRequestRead do
 
   def encode_pending(%{comments: comments, pipeline: pipeline}) do
     JSON.encode!(%{
-      "comments" =>
-        Enum.map(
-          comments,
-          &%{"id" => &1.id, "author" => &1.author, "discussion_id" => &1.discussion_id}
-        ),
+      "comments" => Enum.map(comments, &encode_comment/1),
       "pipeline" => pipeline && %{"id" => pipeline.id, "sha" => pipeline.sha}
     })
   end
 
+  @doc "The ids of the open threads `row` has counted as review."
+  @spec threads_handed(map()) :: [String.t()]
+  def threads_handed(%{threads_handed: text}) when is_binary(text) do
+    case JSON.decode(text) do
+      {:ok, ids} when is_list(ids) -> Enum.filter(ids, &is_binary/1)
+      _ -> []
+    end
+  end
+
+  def threads_handed(_none), do: []
+
+  @doc "Thread ids as `threads_handed` stores them; nil for none."
+  @spec encode_threads_handed([String.t()]) :: String.t() | nil
+  def encode_threads_handed([]), do: nil
+  def encode_threads_handed(ids), do: JSON.encode!(ids)
+
+  defp encode_comment(%{open: true} = c),
+    do: Map.put(encode_comment(Map.delete(c, :open)), "open", true)
+
+  defp encode_comment(c),
+    do: %{"id" => c.id, "author" => c.author, "discussion_id" => c.discussion_id}
+
   defp comments(list) do
     Enum.reduce_while(list, {:ok, []}, fn
-      %{"id" => id, "author" => author, "discussion_id" => thread}, {:ok, acc}
+      %{"id" => id, "author" => author, "discussion_id" => thread} = c, {:ok, acc}
       when is_integer(id) and is_binary(author) and (is_binary(thread) or is_nil(thread)) ->
-        {:cont, {:ok, acc ++ [%{id: id, author: author, discussion_id: thread}]}}
+        comment = %{id: id, author: author, discussion_id: thread}
+        comment = if c["open"] == true, do: Map.put(comment, :open, true), else: comment
+        {:cont, {:ok, acc ++ [comment]}}
 
       _other, _acc ->
         {:halt, :error}
