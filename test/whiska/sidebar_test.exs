@@ -783,7 +783,9 @@ defmodule Whiska.SidebarTest do
         merge_requests: reads,
         now: Keyword.get(opts, :now, @now)
       )
-      |> then(&for(key <- ~w(whiska_mr whiska_ci whiska_review), &1[key], do: &1[key]))
+      |> then(
+        &for(key <- ~w(whiska_mr whiska_ci whiska_review whiska_open), &1[key], do: &1[key])
+      )
       |> Enum.join(" | ")
     end
 
@@ -822,23 +824,23 @@ defmodule Whiska.SidebarTest do
       assert mr_row(blocker: "approval") == "⎇ !123 | ✓ | needs approval"
     end
 
-    test "the review is one word: GitLab's one blocker, open threads or not" do
+    test "the blocker word shows beside the open count, never instead of it" do
       for {blocker, word} <- [
             {"approval", "needs approval"},
             {"conflict", "conflict"},
             {"draft", "draft"},
-            {"rebase", "rebase"},
-            {"changes", "changes"},
+            {"rebase", "needs rebase"},
             {"blocked", "blocked"}
           ] do
-        assert mr_row(blocker: blocker, threads_open: 2) == "⎇ !123 | ✓ | #{word}"
+        assert mr_row(blocker: blocker, threads_open: 2) == "⎇ !123 | ✓ | #{word} | 2 open"
+        assert mr_row(blocker: blocker, threads_open: 0) == "⎇ !123 | ✓ | #{word}"
       end
 
       assert mr_row(blocker: "threads", threads_open: 2) == "⎇ !123 | ✓ | 2 open"
       assert mr_row(blocker: "threads", threads_open: 0) == "⎇ !123 | ✓ | threads"
     end
 
-    test "ready is what the review says, open threads or not" do
+    test "ready says only that, open threads or not" do
       assert mr_row(ready: true, threads_open: 2) == "⎇ !123 | ✓ | ready"
     end
 

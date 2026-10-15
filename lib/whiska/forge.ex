@@ -52,7 +52,7 @@ defmodule Whiska.Forge do
   nil when nothing does, or when it is the pipeline, which the pipeline says.
   """
   @type blocker ::
-          :approval | :conflict | :draft | :threads | :rebase | :changes | :blocked | nil
+          :approval | :conflict | :draft | :threads | :rebase | :blocked | nil
 
   @type note :: %{
           id: pos_integer(),

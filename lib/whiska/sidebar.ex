@@ -5,7 +5,7 @@ defmodule Whiska.Sidebar do
   `whiska_ctx`, `whiska_ctx_warn` or `whiska_ctx_full`, by how near its
   auto-compact window it is; `whiska`, its state, for a state herdr's own icon
   does not show; `whiska_topic`, what a working mouse is on; and `whiska_mr`,
-  `whiska_ci`, `whiska_review`, the merge request its branch waits on, on one row
+  `whiska_ci`, `whiska_review`, `whiska_open`, the merge request its branch waits on, on one row
   (ADR-0087). Under the main checkout's workspace, `whiska`, `whiska_q` and
   `whiska_q2` say what is true of the whole repo.
 
@@ -23,12 +23,12 @@ defmodule Whiska.Sidebar do
   @lines ["whiska", "whiska_q", "whiska_q2"]
   @sizes %{ok: "whiska_ctx", warn: "whiska_ctx_warn", full: "whiska_ctx_full"}
   @keys ["whiska_ctx", "whiska_ctx_warn", "whiska_ctx_full", "whiska", "whiska_topic"] ++
-          tl(@lines) ++ ["whiska_mr", "whiska_ci", "whiska_review"]
+          tl(@lines) ++ ["whiska_mr", "whiska_ci", "whiska_review", "whiska_open"]
   @rows [
     ["whiska_ctx", "whiska_ctx_warn", "whiska_ctx_full", "whiska", "whiska_topic"],
     ["whiska_q"],
     ["whiska_q2"],
-    ["whiska_mr", "whiska_ci", "whiska_review"]
+    ["whiska_mr", "whiska_ci", "whiska_review", "whiska_open"]
   ]
 
   # The colour key: the person's herdr config colours a line by its first
@@ -65,13 +65,12 @@ defmodule Whiska.Sidebar do
     {"unread", "#93a1a1"}
   ]
 
-  # The forge's one blocker, in a word; `threads` is said as how many are open.
+  # The forge's one blocker, in a word. Open threads are counted apart, beside it.
   @blockers %{
     "approval" => "needs approval",
     "conflict" => "conflict",
     "draft" => "draft",
-    "rebase" => "rebase",
-    "changes" => "changes",
+    "rebase" => "needs rebase",
     "blocked" => "blocked"
   }
 
@@ -241,26 +240,31 @@ defmodule Whiska.Sidebar do
   defp merge_request(nil, _now), do: %{}
 
   defp merge_request(%{label: label, read: read}, now) do
-    {pipeline, review} = read(read, now)
+    {pipeline, review, open} = read(read, now)
 
-    [{"whiska_mr", "⎇ #{label}"}, {"whiska_ci", pipeline}, {"whiska_review", review}]
+    [
+      {"whiska_mr", "⎇ #{label}"},
+      {"whiska_ci", pipeline},
+      {"whiska_review", review},
+      {"whiska_open", open}
+    ]
     |> Enum.reject(&is_nil(elem(&1, 1)))
     |> Map.new()
   end
 
-  defp read(nil, _now), do: {nil, nil}
-  defp read(%{state: "merged"}, _now), do: {nil, "merged"}
-  defp read(%{state: "closed"}, _now), do: {nil, "closed"}
-  defp read(%{state: "gone"}, _now), do: {nil, "deleted"}
+  defp read(nil, _now), do: {nil, nil, nil}
+  defp read(%{state: "merged"}, _now), do: {nil, "merged", nil}
+  defp read(%{state: "closed"}, _now), do: {nil, "closed", nil}
+  defp read(%{state: "gone"}, _now), do: {nil, "deleted", nil}
 
   defp read(%{unread_since: %DateTime{} = since} = read, now) do
     if MergeRequests.unread?(read, now),
-      do: {nil, "unread #{age(since, now)}"},
+      do: {nil, "unread #{age(since, now)}", nil},
       else: read(%{read | unread_since: nil}, now)
   end
 
-  defp read(%{state: nil}, _now), do: {nil, nil}
-  defp read(read, _now), do: {pipeline(read.pipeline), review(read)}
+  defp read(%{state: nil}, _now), do: {nil, nil, nil}
+  defp read(read, _now), do: {pipeline(read.pipeline), review(read), open(read)}
 
   defp pipeline("failed"), do: "✗"
   defp pipeline("running"), do: "◐"
@@ -269,11 +273,14 @@ defmodule Whiska.Sidebar do
 
   defp review(%{ready: true}), do: "ready"
   defp review(%{blocker: blocker}) when is_map_key(@blockers, blocker), do: @blockers[blocker]
-  defp review(%{threads_open: 1}), do: "1 open"
-  defp review(%{threads_open: open}) when open > 1, do: "#{open} open"
-  # The forge says threads block it, but the count read none: still say so.
-  defp review(%{blocker: "threads"}), do: "threads"
+  # The forge says threads block it but the count read none: still say so.
+  defp review(%{blocker: "threads", threads_open: open}) when open in [nil, 0], do: "threads"
   defp review(_quiet), do: nil
+
+  # How many threads are open, whatever else blocks, unless it is ready.
+  defp open(%{ready: true}), do: nil
+  defp open(%{threads_open: open}) when is_integer(open) and open > 0, do: "#{open} open"
+  defp open(_none), do: nil
 
   # First match wins: a hold is the person's own word on the mouse, a question
   # is what they are asked, and only then does herdr's view of the pane, and
@@ -480,7 +487,7 @@ defmodule Whiska.Sidebar do
     #{rules(@pipeline_colours)}
       ] }, { token = "$whiska_review", fg = "#b58900", rules = [
     #{rules(@review_colours)}
-      ] }],
+      ] }, { token = "$whiska_open", fg = "#b58900" }],
     ]
     """
   end

@@ -155,13 +155,13 @@ defmodule Whiska.Forge.GitLab do
   # GitLab names one blocker at a time
   # ([detailed_merge_status](https://docs.gitlab.com/api/merge_requests/#merge-status)).
   # The pipeline's own say, GitLab still checking, and a request no longer
-  # open are no blocker: the row says those otherwise.
+  # open are no blocker: the row says those otherwise. `requested_changes` is
+  # the generic `:blocked`: the open threads, counted apart, say what is asked.
   defp blocker("not_approved"), do: :approval
   defp blocker("conflict"), do: :conflict
   defp blocker("draft_status"), do: :draft
   defp blocker("discussions_not_resolved"), do: :threads
   defp blocker("need_rebase"), do: :rebase
-  defp blocker("requested_changes"), do: :changes
   defp blocker(status) when status in @no_blocker, do: nil
   defp blocker(status) when is_binary(status), do: :blocked
   defp blocker(_none), do: nil

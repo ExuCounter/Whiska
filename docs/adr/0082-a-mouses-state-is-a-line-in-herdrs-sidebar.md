@@ -72,26 +72,29 @@ free string, a topic or a branch, is stripped to one line with no control charac
 it reaches herdr.
 
 **The merge request the mouse's branch waits on is one more row** (ADR-0087), what the
-owl last read of it (ADR-0060), as three tokens joined by ` · `:
+owl last read of it (ADR-0060), as four tokens joined by ` · `:
 
 - `whiska_mr`: the request named the way its forge names it, `⎇ !123` or `⎇ #12`.
 - `whiska_ci`: its head pipeline, `✓`, `◐` or `✗`.
 - `whiska_review`: one word, the one blocker the forge names: `needs approval`,
-  `conflict`, `draft`, `rebase`, `changes` (changes requested), `2 open` (unresolved
-  threads), `blocked` for any other, `threads` when threads block it but none were counted; or
-`ready`. A pipeline that must pass or still runs,
-  and the forge still checking, add none: the pipeline sign says it. The blocker comes
-  from the read the owl already makes (GitLab's `detailed_merge_status`), so approved or
-  not costs no other read. Once it is no longer open,
-  `merged`, `closed`, `deleted`; `unread 20m` when reads have failed three minutes or
-  more, in place of all of it.
+  `conflict`, `draft`, `needs rebase`, `blocked` for any other (a changes request
+  included), `threads` when threads block it but none were counted; or `ready`. A
+  pipeline that must pass or still runs, and the forge still checking, add none: the
+  pipeline sign says it.
+- `whiska_open`: `2 open`, the unresolved threads, whenever any are open and the request
+  is not `ready`, beside the blocker word, never in its place.
+
+The blocker comes from the read the owl already makes (GitLab's `detailed_merge_status`),
+so approved or not costs no other read. Once it is no longer open, `merged`, `closed`,
+`deleted`; `unread 20m` when reads have failed three minutes or more, in place of all of
+it.
 
 A part with nothing to say is left out, so before the first read, and for a forge the owl
 does not read, the row is `⎇ !123` alone. herdr cuts a row at the sidebar's width. The words are kept short so every fixed
 line fits: 30 columns under a mouse's workspace (`142K · ❓ waiting on you · 12d`), 31
 under the main checkout's (`✖ no main session: whiska start`). herdr takes 12 columns
 from a worktree's rows (divider, scrollbar, its `│` prefix, right margin) and 7 from the
-main checkout's, so the person's herdr config sets the sidebar to 42. A topic, a branch and orphan
+main checkout's, so the person's herdr config sets the sidebar to 46: the widest merge request row, `⎇ !12345 ✓ needs approval 12 open`, is 33 columns. A topic, a branch and orphan
 names have no bound and are cut.
 
 **The line carries the mouse's context size first**, `142K`: the input, cache-read and
@@ -245,3 +248,5 @@ Changed on 2026-10-15 (polish): the merge request is one row, not two: its name,
 Changed on 2026-10-15 (polish): `○ idle` is back, in orange (`212K · ○ idle`), since the person found it useful; a working mouse still has no sign of its own.
 
 Changed on 2026-10-15: the review says the forge's one blocker in a word (`needs approval`, `conflict`, `draft`, …), ages are one unit, and the main checkout's count of requests with no worktree is `⎇ n MR w/o worktree`, so every fixed line fits a 42-column sidebar.
+
+Changed on 2026-10-15: the review word and the open-thread count are two tokens (`whiska_review`, `whiska_open`), so a blocker no longer hides open threads; `rebase` is `needs rebase`, and `changes` is gone (a changes request is `blocked`, its threads counted beside it).

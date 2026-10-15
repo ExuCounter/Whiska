@@ -385,7 +385,7 @@ lost has no gauge). Nothing of a question or report is excerpted under it. Under
 checkout's workspace, what is true of the whole repo: no **main session**, delivery
 **gated**, questions waiting with no line of their own (a finished report is never one),
 orphans, **merge requests** still read with no worktree. A mouse whose branch waits on a
-merge request has one more row, `⎇ !123 · ✓ · needs approval`, each part in its own
+merge request has one more row, `⎇ !123 · ✓ · needs approval · 2 open`, each part in its own
 colour, saying what the owl last read of it (ADR-0082). A state's words start with a
 symbol only Whiska writes, which is how the person's own herdr config colours it. A line
 nobody keeps current goes away by itself, and one herdr has lost is sent again. The mice re-sort only when one changes state, starts or stops queueing behind another, or appears in any state but idle.

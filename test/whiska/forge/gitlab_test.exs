@@ -107,7 +107,7 @@ defmodule Whiska.Forge.GitLabTest do
           {"draft_status", :draft},
           {"discussions_not_resolved", :threads},
           {"need_rebase", :rebase},
-          {"requested_changes", :changes},
+          {"requested_changes", :blocked},
           {"ci_must_pass", nil},
           {"ci_still_running", nil},
           {"checking", nil},
