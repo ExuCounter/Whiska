@@ -226,3 +226,5 @@ Changed on 2026-10-14: `✅ finished` means finished and not landed: it stays un
 Changed on 2026-10-14: an idle mouse whose last stop was passed over while its own background work runs reads as working, and as stuck once that work is half an hour old unreported (ADR-0052).
 
 Changed on 2026-10-15: working and idle lines have no words of their own, since herdr's icon says them, but for `◐ background`, which it cannot; no line carries an excerpt; the size comes first, coloured by its band against the mouse's auto-compact window; the merge request is two rows coloured by part; a finished mouse sorts last; `whiska merge-request open` stands in for a link herdr cannot draw.
+
+Changed on 2026-10-15 (polish): the merge request is one row, not two: its name, pipeline and review joined by ` · `.
