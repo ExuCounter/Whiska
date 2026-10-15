@@ -27,7 +27,7 @@ defmodule Whiska.Forge.GitLab do
   defguardp number?(n) when is_integer(n) and n >= 0 and n <= @largest
 
   @no_blocker ~w(mergeable ci_must_pass ci_still_running checking unchecked
-                 approvals_syncing preparing not_open)
+                 approvals_syncing preparing not_open requested_changes)
 
   @running ~w(created waiting_for_resource preparing pending running scheduled)
 
@@ -156,7 +156,9 @@ defmodule Whiska.Forge.GitLab do
   # ([detailed_merge_status](https://docs.gitlab.com/api/merge_requests/#merge-status)).
   # The pipeline's own say, GitLab still checking, and a request no longer
   # open are no blocker: the row says those otherwise. `requested_changes` is
-  # the generic `:blocked`: the open threads, counted apart, say what is asked.
+  # none too: the open threads, counted apart, say what is asked. Every other
+  # documented status is a rule that stops the merge with no word of its own,
+  # so the generic `:blocked`, and so is one GitLab adds later.
   defp blocker("not_approved"), do: :approval
   defp blocker("conflict"), do: :conflict
   defp blocker("draft_status"), do: :draft

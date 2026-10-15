@@ -107,7 +107,7 @@ defmodule Whiska.Forge.GitLabTest do
           {"draft_status", :draft},
           {"discussions_not_resolved", :threads},
           {"need_rebase", :rebase},
-          {"requested_changes", :blocked},
+          {"requested_changes", nil},
           {"ci_must_pass", nil},
           {"ci_still_running", nil},
           {"checking", nil},
@@ -115,8 +115,17 @@ defmodule Whiska.Forge.GitLabTest do
           {"approvals_syncing", nil},
           {"preparing", nil},
           {"not_open", nil},
+          {"commits_status", :blocked},
           {"merge_request_blocked", :blocked},
+          {"merge_time", :blocked},
           {"jira_association_missing", :blocked},
+          {"security_policy_pipeline_check", :blocked},
+          {"security_policy_violations", :blocked},
+          {"status_checks_must_pass", :blocked},
+          {"locked_paths", :blocked},
+          {"locked_lfs_files", :blocked},
+          {"title_regex", :blocked},
+          {"a_status_gitlab_adds_later", :blocked},
           {nil, nil}
         ] do
       FakeGlab.answer(fake, @mr, merge_request(%{"detailed_merge_status" => gitlab}))
