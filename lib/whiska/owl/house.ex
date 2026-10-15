@@ -1631,7 +1631,7 @@ defmodule Whiska.Owl.House do
   # done (ADR-0052): a line typed now would land in the middle of it.
   defp in_flight?(%Mouse{path: path}) when is_binary(path) do
     case Transcript.newest(Transcript.project_dir(path, ServiceManager.user_home())) do
-      {file, _mtime} -> file |> Transcript.tail() |> Transcript.subagents_in_flight?()
+      {file, _mtime} -> file |> Transcript.tail() |> Transcript.in_flight?()
       nil -> false
     end
   end

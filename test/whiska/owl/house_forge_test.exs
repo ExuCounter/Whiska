@@ -260,6 +260,78 @@ defmodule Whiska.Owl.HouseForgeTest do
     assert %{pending: nil, round_at: %DateTime{}, rounds_unpushed: 0} = row(repo)
   end
 
+  test "review for a mouse with background work still out is kept, not typed into its turn",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    idle_mouse(path)
+    out_in_background(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> match?(%{read_at: %DateTime{}}, row(repo)) end)
+
+      FakeGlab.answer(
+        forge,
+        @mr,
+        merge_request(user_notes_count: 1, updated_at: "2026-10-14T09:01:00Z")
+      )
+
+      FakeGlab.answer(forge, "projects/acme%2Fapp/members/all/2", %{"id" => 2})
+      FakeGlab.answer(forge, @discussions, [thread(11, {2, "alice"}, "d11")])
+      until(fn -> match?(%{pending: pending} when not is_nil(pending), row(repo)) end)
+      House.sync(house)
+    end)
+
+    refute_received {:typed, _, _}
+    assert letters(path) == []
+  end
+
+  # The mouse's own transcript, under the home the suite runs in, showing a
+  # background agent it launched and has not had back.
+  defp out_in_background(path) do
+    dir = Whiska.Transcript.project_dir(path, Whiska.ServiceManager.user_home())
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+
+    use_id = "toolu_01SHanZjQpuF7aGV4pkKsgkr"
+
+    entries = [
+      %{
+        "type" => "assistant",
+        "message" => %{
+          "content" => [
+            %{"type" => "tool_use", "id" => use_id, "name" => "Agent", "input" => %{}}
+          ]
+        }
+      },
+      %{
+        "type" => "user",
+        "toolUseResult" => %{"status" => "async_launched", "agentId" => "ae96c5149391564f6"},
+        "message" => %{
+          "role" => "user",
+          "content" => [
+            %{
+              "tool_use_id" => use_id,
+              "type" => "tool_result",
+              "content" => [
+                %{
+                  "type" => "text",
+                  "text" =>
+                    "Async agent launched successfully.\nagentId: ae96c5149391564f6 (internal ID)\n"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+
+    File.write!(Path.join(dir, "s.jsonl"), Enum.map_join(entries, "\n", &JSON.encode!/1))
+  end
+
   test "review kept for a busy mouse and review read in the same minute are each handed over once",
        %{repo: repo, path: path, forge: forge} do
     record_merge_request(repo)
