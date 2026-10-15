@@ -192,6 +192,85 @@ defmodule Whiska.GitTest do
     end
   end
 
+  describe "a dropped branch's worktree, made again" do
+    test "the branch comes back from origin, checked out where it was and tracking it",
+         %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      {:ok, head} = Git.head(path)
+      GitRepo.git!(repo.checkout, ["worktree", "remove", path])
+      GitRepo.git!(repo.checkout, ["branch", "-D", "feat-a"])
+      GitRepo.git!(repo.checkout, ["update-ref", "-d", "refs/remotes/origin/feat-a"])
+
+      assert {:error, :no_such_branch} = Git.remote_head(repo.checkout, "feat-a")
+      assert :ok = Git.fetch_branch(repo.checkout, "feat-a")
+      assert {:ok, ^head} = Git.remote_head(repo.checkout, "feat-a")
+
+      assert :ok = Git.add_worktree(repo.checkout, path, "feat-a")
+      assert {:ok, ^head} = Git.head(path)
+      assert {:ok, "feat-a"} = Git.head_branch(path)
+      assert GitRepo.git!(path, ["rev-parse", "--abbrev-ref", "@{upstream}"]) =~ "origin/feat-a"
+    end
+
+    test "a branch still here is checked out as it is, commits not pushed included",
+         %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      GitRepo.commit!(path, "more.md", "not pushed")
+      {:ok, head} = Git.head(path)
+      GitRepo.git!(repo.checkout, ["worktree", "remove", path])
+
+      assert :ok = Git.add_worktree(repo.checkout, path, "feat-a")
+      assert {:ok, ^head} = Git.head(path)
+    end
+
+    test "a branch here that origin has moved past is moved up to origin's first",
+         %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      GitRepo.git!(repo.checkout, ["worktree", "remove", path])
+      ahead = Path.join(repo.root, "ahead")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "ahead", ahead, "feat-a"])
+      GitRepo.commit!(ahead, "theirs.md", "a teammate's")
+      GitRepo.git!(ahead, ["push", "origin", "ahead:feat-a"])
+      {:ok, theirs} = Git.head(ahead)
+      assert :ok = Git.fetch_branch(repo.checkout, "feat-a")
+
+      assert :ok = Git.add_worktree(repo.checkout, path, "feat-a")
+      assert {:ok, ^theirs} = Git.head(path)
+    end
+
+    test "a branch checked out anywhere else is neither moved nor checked out again",
+         %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      {:ok, mine} = Git.head(path)
+      ahead = Path.join(repo.root, "ahead")
+      GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "ahead", ahead, "feat-a"])
+      GitRepo.commit!(ahead, "theirs.md", "a teammate's")
+      GitRepo.git!(ahead, ["push", "origin", "ahead:feat-a"])
+      assert :ok = Git.fetch_branch(repo.checkout, "feat-a")
+
+      elsewhere = Path.join(repo.root, "elsewhere")
+      assert {:error, :checked_out} = Git.add_worktree(repo.checkout, elsewhere, "feat-a")
+      assert {:ok, ^mine} = Git.head(path)
+      refute File.exists?(elsewhere)
+    end
+
+    test "a worktree deleted by hand, still known to git, is made again", %{repo: repo} do
+      path = GitRepo.worktree(repo, "feat-a")
+      {:ok, head} = Git.head(path)
+      File.rm_rf!(path)
+
+      assert :ok = Git.add_worktree(repo.checkout, path, "feat-a")
+      assert {:ok, ^head} = Git.head(path)
+    end
+
+    test "a name git would read as an option is never asked about", %{repo: repo} do
+      path = Path.join(repo.root, "x")
+      assert {:error, :unsafe_branch} = Git.add_worktree(repo.checkout, path, "-b")
+      assert {:error, :unsafe_base} = Git.fetch_branch(repo.checkout, "--upload-pack=x")
+      assert {:error, :unsafe_branch} = Git.remote_head(repo.checkout, "-x")
+      refute File.exists?(path)
+    end
+  end
+
   describe "fetch_base/3 and landing_refs/2" do
     test "a merge on the forge reaches the fetched base after a fetch, never the local one",
          %{repo: repo} do

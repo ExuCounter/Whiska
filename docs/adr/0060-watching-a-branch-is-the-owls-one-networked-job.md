@@ -1,12 +1,13 @@
 # Watching a branch is the owl's one networked job, and it only ever reads
 
-Two slices are built. The merge, seen through git
+Three slices are built. The merge, seen through git
 ([ADR-0087](0087-an-opened-merge-request-is-remembered.md)): while a merge request Whiska
 recorded waits, the owl fetches its base branch, and cleanup reads a landing from that
 fetched copy. And the reading of a GitLab merge request every minute, through the forge
 layer below: its state, its head pipeline, its open threads and its new comments, shown
-on the mouse's sidebar row (ADR-0082) and logged as what would wake the mouse. Waking it
-is not built: typing into a mouse's pane is still gated (below). An earlier draft worked
+on the mouse's sidebar row (ADR-0082). And new review handed to the branch's mouse as a
+review round (below): woken in its pane if it is live, started in its worktree if not. An
+earlier draft worked
 the same idea out for GitHub alone, through `gh`, with Whiska running `gh pr merge`
 itself; two things in it did not survive contact: the forge is not always GitHub, and
 Whiska reads but never writes.
@@ -33,7 +34,7 @@ What they share is one question — which branch does this mouse own — and not
 | Answer | deterministic; the fetched copy only as fresh as its last fetch | three-valued, often unavailable |
 | Failure | a fetch that fails leaves the last answer standing | rate limit, outage, expired token |
 | Wants the mouse | gone — it ends the mouse's life | alive — it has work to send it |
-| Blocked on | nothing: built (ADR-0061) | ADR-0044 (what Whiska may type into) |
+| Blocked on | nothing: built (ADR-0061) | nothing: built, through ADR-0044's review exceptions |
 
 The last row but one is the one that settles it. Watching wants a mouse's pane kept open
 so a red build can go back to the session that still has the context; cleanup wants the
@@ -57,9 +58,10 @@ This is the design, and it is a security boundary before it is a convenience.
   they are today and Whiska never acquires one.
 - **The owl only reads status.** It cannot push, merge, comment, close or re-run: the one
   runner it reads through builds a `GET` and nothing else (below).
-- **On red**, the failure goes to the mouse that owns the branch while that mouse is
-  alive, and becomes a question for the person when it is dead. Same ladder as everything
-  else in ADR-0026: cheap fixes before bothering the person.
+- **On new review**, a failed pipeline or a member's comment goes to the mouse that owns
+  the branch while that mouse is alive, and to a mouse the owl starts on the branch when it
+  is not. The person is asked only when that cannot be done (below). Same ladder as
+  everything else in ADR-0026: cheap fixes before bothering the person.
 
 ## Credentials: the person's own login, read through one GET-only runner
 
@@ -224,9 +226,10 @@ adapter did not recognise what came back.
   counts.
 - **A failed pipeline** counts once per pipeline, and only when it ran on the request's
   head commit.
-- **Either is logged at the read that sees it**, as what would wake the mouse: `feat/x:
-  would wake for !123 — 2 new comments by alice, bob; pipeline failed on 63c47262`.
-  Nothing is woken; that waits on ADR-0044 (below).
+- **Either is kept on the read's row**, by id, until a review round takes it, and logged at
+  the read that sees it with what became of it: `feat/x: review for !123 — 2 new comments
+  by alice, bob; pipeline failed on 63c47262 — woke its mouse`, `— starting a mouse` or
+  `— kept: <why>`.
 - **Merged on the forge fetches the base at once.** The forge's word is not the landing:
   git's checks still prove it (ADR-0061).
 - **Closed on the forge, or gone, asks the person once** whether to drop the worktree:
@@ -248,29 +251,47 @@ adapter did not recognise what came back.
 Above. It is the reason the first design read through `curl` and a read-only token, and
 the reason the reading half now has one runner that builds nothing but a `GET`.
 
-## Where it is blocked: typing into a mouse's pane
+## A review round: new review handed to the branch's mouse
 
-Delivery types into one place only — the main session of the question's own house — and
-ADR-0044 lets Whiska type into a mouse's pane only about the mouse's own work, on a short
-list: a pickup, a doorbell, a spawn's task and a send's fixed line. A red build the owl
-found is on none of them.
+Each minute, review kept on a read's row is handed to the branch's mouse, through the
+exceptions ADR-0044 lists for it. The mouse is the opposite case from the nudge that
+ADR-0044 was written against: it exists to be given work, and the work is its own merge
+request coming back.
 
-That rule was written against a nudge into a *person's* session, where the cost was a turn
-the person paid for and a model improvising on a prompt that was not theirs. A mouse is
-the opposite case: it exists to be given work, and the pickup ADR-0067 types into a dead
-turn's own pane is already the same shape. The reasoning may
-well not hold here — but the letter of ADR-0044 does, so this records the gate rather than
-stepping over it. **Building this half means widening ADR-0044 first**, deliberately.
+- **A live mouse is woken** when its one Claude pane is idle or done with an empty prompt
+  box (ADR-0047), the same bounds as the doorbell (ADR-0080). It must not be held, have
+  nothing waiting on the person (an open or sent question, or an answer not yet taken),
+  have no background work out, and not have been picked up this minute. Whiska writes a
+  letter in its worktree and types one fixed line naming it. The round is stamped before the
+  line is typed, and put back, letter and all, if herdr refuses it.
+- **With no live mouse, the owl starts one**: a build mouse on `sonnet` at `medium` effort
+  with the review brief, in the branch's worktree, its first prompt the same line. A
+  dropped worktree is made again only at `worktrees/<branch>`, on its branch brought up to
+  `origin`'s, keeping commits not pushed; one still standing is used only when its marker
+  names the mouse, and never while a session runs in it. herdr opens it without moving the
+  person's view. It runs in a task, one per merge request at a time, keeps the mouse's
+  `mouse_id`, and records the mouse alive only once Claude runs. A branch whose name
+  cannot go in a question is never started for, since a failed start is one.
+- **The round's rules** are in the letter, and in the build and review briefs. The mouse
+  fixes, answers or disputes each thread and writes its replies to files. It then asks
+  "Ready to push", one line per thread. Nothing is pushed, and nothing is posted to a
+  person's thread, without the person's yes. A round on bots' threads alone with nothing
+  to push needs none.
+- **Pushed is read from git and the forge**, never from the mouse's words: the branch's
+  `origin` ref or the request's head moved since the round began. The round after three in
+  a row that pushed nothing is a question to the person instead. So is a mouse that could
+  not be started, and one the owl started that died before saying anything. That question
+  is the owl's, like a close's (below), but about the merge request rather than the
+  worktree: it arrives open, and stays so, whatever became of the worktree.
+  No round runs while it waits; closing it, however, starts the count afresh and hands over
+  what was kept meanwhile. One that never reached the house is asked again after ten
+  minutes.
+- **Woken whatever its context size.** Claude Code compacts a long session, and the
+  person's answer was that a fresh mouse each round was acceptable but not needed.
 
-Two things follow if it is reopened:
-
-- **A question the owl originates exists now**, for a closed or deleted request: two
-  fixed texts, left on the doorstep like a mouse's (ADR-0036), keyed by the mouse's
-  `mouse_id` and recorded with `asked_by: "owl"` only when the text is one of them. A red
-  build would be a third.
-- **A dead mouse escalates to the person**, through the ordinary delivery path — the one
-  case where a red build reaches the person at all, and the same thing ADR-0026 already
-  does with everything a dead mouse leaves behind.
+Owl questions, for a closed or deleted request and for a review round, are left on the
+doorstep like a mouse's (ADR-0036), keyed by the mouse's `mouse_id` and recorded with
+`asked_by: "owl"` only when the text is one the owl wrote and its read says it asked.
 
 ## A forge's output is untrusted text
 
@@ -279,10 +300,12 @@ a mouse's pane is handing arbitrary text to a model as if Whiska had said it —
 class of mistake as a check command arriving with the branch under review, which ADR-0049's
 finishing escalates to the person rather than running.
 
-**So what is typed carries the job's name and URL, never the log body.** The mouse fetches
-the log with its own tools, under its own `PreToolUse` rules, where it is something the
-mouse read rather than something Whiska asserted. Same for a merge request's title and
-description.
+**So what is typed is one fixed line naming a letter, and the letter carries links and
+ids, never a comment's or a log's text.** A comment's author is the one word of the forge's
+in it, cut to the characters a username is made of; a thread's id is checked against a
+closed set before it is kept. The mouse reads comments and logs with its own tools, under
+its own `PreToolUse` rules, where they are something the mouse read rather than something
+Whiska asserted. Same for a merge request's title and description.
 
 ## The `/loop` alternative, weighed
 
@@ -354,3 +377,7 @@ request is closed or deleted, a question that is not its mouse's word. A request
 only for its own source branch. "A branch with an open watch is not cleaned up" is
 dropped: a branch git proves merged is merged, whatever a forge still shows. Waking a
 mouse stays proposed.
+
+Changed on 2026-10-14, again: new review is handed to the branch's mouse as a review
+round, woken if it is live and started if not, where it was logged as what would wake it;
+a dead mouse's review starts a fresh mouse rather than asking the person.

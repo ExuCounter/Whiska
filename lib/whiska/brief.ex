@@ -2,8 +2,13 @@ defmodule Whiska.Brief do
   @moduledoc """
   A session's brief: everything Whiska tells it, in one file Claude Code is
   started with (`--append-system-prompt-file`). The main session's is
-  `priv/briefs/main.md`; a mouse's is its mode's, `build.md` or `sniff.md`. A
+  `priv/briefs/main.md`; a mouse's is its mode's, `build.md` or `sniff.md`, or
+  `review.md` for a build mouse the owl starts for a merge request's review. A
   mouse's task is not in it: the task is the session's first message.
+
+  A review round's rules, `review_rules.md`, are written once and stand in for
+  `{{review rules}}` in the build and review briefs; the letter that hands a
+  round over carries them too.
 
   A mouse's brief is written to `.whiska-brief.md` at its worktree root, which
   git ignores like the spec (`Whiska.Spec`). The main session's is written into
@@ -12,12 +17,19 @@ defmodule Whiska.Brief do
   The briefs are read when Whiska is built, so the escript carries them.
   """
 
-  @paths for name <- ~w(main build sniff),
+  @paths for name <- ~w(main build sniff review review_rules),
              do: {name, Path.join([__DIR__, "..", "..", "priv", "briefs", name <> ".md"])}
 
   for {_name, path} <- @paths, do: @external_resource(path)
 
-  @briefs Map.new(@paths, fn {name, path} -> {name, File.read!(path)} end)
+  @read Map.new(@paths, fn {name, path} -> {name, File.read!(path)} end)
+  @review_rules String.trim_trailing(@read["review_rules"])
+
+  @briefs @read
+          |> Map.delete("review_rules")
+          |> Map.new(fn {name, text} ->
+            {name, String.replace(text, "{{review rules}}", @review_rules)}
+          end)
 
   @filename ".whiska-brief.md"
 
@@ -27,10 +39,13 @@ defmodule Whiska.Brief do
   @spec exclude_line() :: String.t()
   def exclude_line, do: "/" <> @filename
 
-  @doc "The main session's brief, or a mouse's for its mode."
+  @doc "The main session's brief, or a mouse's for its mode, or the review brief."
   @spec render(:main | String.t()) :: String.t()
   def render(:main), do: @briefs["main"]
-  def render(mode) when mode in ["build", "sniff"], do: @briefs[mode]
+  def render(name) when name in ["build", "sniff", "review"], do: @briefs[name]
+
+  @spec review_rules() :: String.t()
+  def review_rules, do: @review_rules
 
   @doc "The flags that start Claude Code with the brief at `path`."
   @spec claude_args(Path.t()) :: [String.t()]
@@ -42,7 +57,7 @@ defmodule Whiska.Brief do
   Anything but a plain file at the path is refused.
   """
   @spec write(Path.t(), Path.t(), String.t()) :: {:ok, [String.t()]} | {:error, term()}
-  def write(main_checkout, worktree, mode) do
+  def write(main_checkout, worktree, name) do
     said =
       case Whiska.Spec.ignore(main_checkout, exclude_line()) do
         :ok ->
@@ -55,7 +70,7 @@ defmodule Whiska.Brief do
     path = Path.join(worktree, @filename)
 
     with :ok <- plain_or_absent(path),
-         :ok <- File.write(path, render(mode)),
+         :ok <- File.write(path, render(name)),
          do: {:ok, said}
   end
 

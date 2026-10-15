@@ -37,6 +37,9 @@ defmodule Whiska.Spawn do
   # task opens the prompt.
   @lead_in "Your task:\n\n"
 
+  @spec lead_in() :: String.t()
+  def lead_in, do: @lead_in
+
   @branch ~r/\A[a-z][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*\z/
   @longest 32
 
@@ -244,20 +247,20 @@ defmodule Whiska.Spawn do
 
   @doc """
   Record a mouse's shape and get its worktree ready (ADR-0069, ADR-0083): its
-  mode's brief written, its mode's deny list beside it (ADR-0090), git ignoring
-  Whiska's files there, and the main checkout's dependencies cloned in. Answers
-  the flags to start Claude with and the lines that say what was done; a failed
-  clone or ignore is said, never a failure.
+  mode's brief written, or the one `brief` names, its mode's deny list beside
+  it (ADR-0090), git ignoring Whiska's files there, and the main checkout's
+  dependencies cloned in. Answers the flags to start Claude with and the lines
+  that say what was done; a failed clone or ignore is said, never a failure.
   """
-  @spec shape(String.t(), Layout.t(), Shape.t()) ::
+  @spec shape(String.t(), Layout.t(), Shape.t(), String.t() | nil) ::
           {:ok, %{flags: [String.t()], said: [String.t()]}} | {:error, term()}
-  def shape(mouse_id, layout, shape) do
+  def shape(mouse_id, layout, shape, brief \\ nil) do
     base = cut_from(layout.main_checkout)
     main = layout.main_checkout
     worktree = layout.worktree_root
 
     # Recorded last, so a mouse is never shaped on record without its deny list.
-    with {:ok, brief_said} <- Brief.write(main, worktree, shape.mode),
+    with {:ok, brief_said} <- Brief.write(main, worktree, brief || shape.mode),
          {:ok, deny_said} <- DenyList.write(main, worktree, shape.mode),
          {:ok, _} <- Storage.shape(mouse_id, shape.mode, shape.model, shape.effort, base) do
       said =
@@ -288,17 +291,22 @@ defmodule Whiska.Spawn do
     for {name, line} <- [
           {Whiska.Spec.filename(), Whiska.Spec.exclude_line()},
           {Whiska.Research.filename(), Whiska.Research.exclude_line()},
-          {Whiska.BuildPlan.filename(), Whiska.BuildPlan.exclude_line()}
+          {Whiska.BuildPlan.filename(), Whiska.BuildPlan.exclude_line()},
+          {Whiska.ReviewRound.replies(), Whiska.ReviewRound.exclude_line()}
         ],
         {:error, reason} <- [Whiska.Spec.ignore(main_checkout, line)] do
       "whiska: could not make git ignore #{name} (#{inspect(reason)})."
     end
   end
 
-  # A worktree holds only committed files, so where the repo never committed
-  # its `.claude/`, a mouse there would have no `Stop` hook and the owl would
-  # never see it finish or ask. The hooks and their settings, nothing else.
-  defp carry_hooks(main_checkout, worktree) do
+  @doc """
+  Copy the main checkout's installed hooks into `worktree`, where its repo
+  never committed them. A worktree holds only committed files, so a mouse
+  there would otherwise have no `Stop` hook and the owl would never see it
+  finish or ask. The hooks and their settings, nothing else.
+  """
+  @spec carry_hooks(Path.t(), Path.t()) :: :ok | {:error, term()}
+  def carry_hooks(main_checkout, worktree) do
     from = Path.join(main_checkout, ".claude")
     to = Path.join(worktree, ".claude")
 
@@ -368,7 +376,9 @@ defmodule Whiska.Spawn do
   # several mice starting at once boot side by side, so the wait allows 15s.
   @kickoff_tries 60
 
-  defp hand_over(via, pane, text, tries \\ @kickoff_tries) do
+  @doc "Type a fresh mouse's first prompt, waiting out the boot herdr answers `agent_not_ready` to."
+  @spec hand_over(map(), String.t(), String.t(), pos_integer()) :: :ok | {:error, term()}
+  def hand_over(via, pane, text, tries \\ @kickoff_tries) do
     case via.herdr.prompt(via.socket, pane, text) do
       {:error, {:herdr, %{"code" => "agent_not_ready"}}} when tries > 1 ->
         Process.sleep(Application.get_env(:whiska, :kickoff_pause, 250))

@@ -175,16 +175,22 @@ defmodule Whiska.Owl.House do
   alias Whiska.Layout
   alias Whiska.Ledger
   alias Whiska.MergeRequests
+  alias Whiska.Letters
+  alias Whiska.MousePane
   alias Whiska.Pickup
   alias Whiska.Question.FromOwl
   alias Whiska.Question.Marker
   alias Whiska.Reminder
+  alias Whiska.ReviewRound
+  alias Whiska.ReviewStart
+  alias Whiska.ServiceManager
   alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.SpecArchive
   alias Whiska.Storage
   alias Whiska.Sidebar
+  alias Whiska.Transcript
   alias Whiska.Watch
   alias Whiska.Research
 
@@ -264,6 +270,8 @@ defmodule Whiska.Owl.House do
     reading: nil,
     read_started_at: nil,
     read_due: %{},
+    starting: %{},
+    picked_now: MapSet.new(),
     fetch_due_at: nil,
     fetch_wait_ms: nil,
     fetch_failing: false,
@@ -511,6 +519,7 @@ defmodule Whiska.Owl.House do
       |> read_forge()
       |> ring()
       |> pick_up()
+      |> review()
 
     Process.send_after(self(), :backstop, state.backstop_ms)
     {:noreply, state}
@@ -533,6 +542,18 @@ defmodule Whiska.Owl.House do
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{reading: %Task{ref: ref}} = state) do
     warn(state, "reading the forge crashed (#{inspect(reason)}) — trying again next minute")
     {:noreply, %{state | reading: nil}}
+  end
+
+  def handle_info({ref, result}, %{starting: starting} = state) when is_map_key(starting, ref) do
+    Process.demonitor(ref, [:flush])
+    {start, starting} = Map.pop(starting, ref)
+    {:noreply, started(%{state | starting: starting}, start, result)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, reason}, %{starting: starting} = state)
+      when is_map_key(starting, ref) do
+    {start, starting} = Map.pop(starting, ref)
+    {:noreply, started(%{state | starting: starting}, start, {:error, {:crashed, reason}})}
   end
 
   def handle_info(:board, state) do
@@ -1195,11 +1216,14 @@ defmodule Whiska.Owl.House do
     end
   end
 
+  # A read is folded into its row as it stands now, not as it stood when the
+  # read began: a review round may have taken what was kept meanwhile.
   defp have_read(state, reads) do
     now = DateTime.utc_now()
+    rows = MergeRequests.reads()
 
     Enum.reduce(reads, state, fn {mouse, row, result}, state ->
-      {attrs, events} = MergeRequests.next(row, mouse, result, now)
+      {attrs, events} = MergeRequests.next(rows[mouse.mouse_id] || row, mouse, result, now)
       wait = MergeRequests.wait_ms(attrs, retry_after(result), state.forge_ms, now)
       state = put_in(state.read_due[mouse.mouse_id], state.read_started_at + wait)
 
@@ -1221,6 +1245,13 @@ defmodule Whiska.Owl.House do
 
   defp retry_after({:unknown, _reason, retry_after_ms}), do: retry_after_ms
   defp retry_after(_read), do: nil
+
+  defp happened({:review, _} = event, mouse, state) do
+    {:ok, ref} = Whiska.Forge.for_url(mouse.merge_request_url)
+    said = MergeRequests.line(event, mouse.branch || mouse.mouse_id, Whiska.Forge.label(ref))
+    panes = if state.socket, do: state.herdr.list_panes(state.socket), else: {:error, :no_socket}
+    round(state, mouse.mouse_id, said, panes)
+  end
 
   defp happened(event, mouse, state) do
     {:ok, ref} = Whiska.Forge.for_url(mouse.merge_request_url)
@@ -1278,6 +1309,349 @@ defmodule Whiska.Owl.House do
       error
     end
   end
+
+  # -- review rounds (ADR-0060) -----------------------------------------------
+
+  # Each review still kept is handed over once its mouse can take it. Only a
+  # handing over is said here: a review the read just found was said with why
+  # it was kept, and saying so again every minute would bury it.
+  defp review(%{socket: nil} = state), do: state
+
+  defp review(state) do
+    rows = MergeRequests.reads()
+
+    state =
+      rows
+      |> Map.values()
+      |> Enum.filter(&(&1.state == "open" and round_due?(&1)))
+      |> Enum.reduce(state, &round(&2, &1.mouse_id, nil, state.last_panes))
+
+    %{state | picked_now: MapSet.new()}
+  end
+
+  defp round_due?(%MergeRequestRead{pending: pending, review_asked_at: asked})
+       when is_binary(pending) or not is_nil(asked),
+       do: true
+
+  defp round_due?(row) do
+    ReviewRound.started?(row) and
+      not match?(%Mouse{died_at: nil, removed_at: nil}, Storage.mouse(row.mouse_id))
+  end
+
+  defp round(state, mouse_id, said, panes) do
+    with %Mouse{} = mouse <- Storage.mouse(mouse_id),
+         %MergeRequestRead{} = row <- MergeRequests.reads()[mouse_id],
+         {:ok, ref} <- Whiska.Forge.for_url(mouse.merge_request_url) do
+      row = settle_review_question(row, mouse, ref)
+      pushed? = ReviewRound.pushed?(row, remote_head(state, mouse))
+
+      facts = %{
+        mouse: mouse,
+        row: row,
+        questions: Storage.questions_of(mouse_id),
+        panes: if(state.socket, do: panes, else: {:error, :no_socket}),
+        main_pane: state.main_pane,
+        in_flight?: in_flight?(mouse),
+        starting?: Enum.any?(state.starting, fn {_ref, start} -> start.mouse_id == mouse_id end),
+        picked_up?: MapSet.member?(state.picked_now, mouse_id),
+        pushed?: pushed?
+      }
+
+      round = %{
+        mouse: mouse,
+        row: row,
+        ref: ref,
+        pushed?: pushed?,
+        fresh?: is_binary(said),
+        said: said || "#{mouse.branch || mouse_id}: review kept for #{Whiska.Forge.label(ref)}"
+      }
+
+      act_on_round(state, ReviewRound.judge(facts), round)
+    else
+      _ -> state
+    end
+  end
+
+  defp act_on_round(state, :nothing, round) do
+    if round.fresh?, do: warn(state, "#{round.said} — nothing to hand over")
+    state
+  end
+
+  defp act_on_round(state, {:keep, why}, round) do
+    if round.fresh?, do: warn(state, "#{round.said} — kept: #{kept(why)}")
+    state
+  end
+
+  defp act_on_round(state, {:wake, pane}, %{mouse: mouse, row: row} = round) do
+    case wake(state, mouse, row, pane, round.pushed?) do
+      :woke ->
+        warn(state, "#{round.said} — woke its mouse")
+
+      {:keep, why} ->
+        if round.fresh?, do: warn(state, "#{round.said} — kept: #{kept(why)}")
+
+      {:error, reason} ->
+        if round.fresh?,
+          do: warn(state, "#{round.said} — could not wake its mouse (#{inspect(reason)}), kept")
+    end
+
+    state
+  end
+
+  defp act_on_round(state, :start, %{mouse: mouse, row: row} = round) do
+    warn(state, "#{round.said} — starting a mouse")
+    handed = MergeRequestRead.pending(row)
+    letter = ReviewRound.letter(mouse, handed)
+
+    {main, via, repo} =
+      {state.main_checkout, %{herdr: state.herdr, socket: state.socket}, state.repo}
+
+    task =
+      Task.async(fn ->
+        Storage.point_at(repo)
+        ReviewStart.run(main, mouse, letter, via)
+      end)
+
+    start = %{mouse_id: mouse.mouse_id, handed: handed, row: row, pushed?: round.pushed?}
+    %{state | starting: Map.put(state.starting, task.ref, start)}
+  end
+
+  defp act_on_round(state, {:ask, why}, round) do
+    warn(state, "#{round.said} — kept: #{kept(why)}; asked you")
+    ask_about_review(state, round.mouse, round.ref, why)
+  end
+
+  # The pane is bounded as the doorbell's is (ADR-0080), and the round is
+  # stamped before the line is typed and put back if herdr refuses it.
+  defp wake(state, mouse, row, pane, pushed?) do
+    house = %{herdr: state.herdr, socket: state.socket, main_checkout: state.main_checkout}
+
+    with {:ok, ours} <- MousePane.our_worktrees(house) |> known(),
+         true <- MousePane.ours?(mouse, ours) || {:keep, :not_our_worktree},
+         :go <- Draft.hold(MousePane.box(pane, house)) |> typing(),
+         {:ok, letter} <-
+           Letters.write(
+             state.main_checkout,
+             mouse.path,
+             ReviewRound.letter(mouse, MergeRequestRead.pending(row))
+           ) do
+      Whiska.Spec.ignore(state.main_checkout, ReviewRound.exclude_line()) |> said_or_ok(state)
+
+      with :ok <- MergeRequests.save(round_attrs(state, mouse, row, "woke", pushed?, nil)),
+           :ok <- press(state, pane.pane_id, ReviewRound.line(letter)) |> or_put_back(row) do
+        :woke
+      else
+        {:error, _} = error ->
+          File.rm(letter)
+          error
+      end
+    end
+  end
+
+  defp or_put_back(:ok, _row), do: :ok
+
+  defp or_put_back(error, row) do
+    MergeRequests.save(
+      Map.take(row, [
+        :mouse_id,
+        :pending,
+        :round_at,
+        :round_by,
+        :round_ref,
+        :round_head,
+        :rounds_unpushed
+      ])
+    )
+
+    error
+  end
+
+  defp known(:unknown), do: {:keep, :no_herdr}
+  defp known(ok), do: ok
+
+  defp typing({:hold, _reading}), do: {:keep, :typing}
+  defp typing(:go), do: :go
+
+  defp said_or_ok({:error, reason}, state),
+    do: warn(state, "could not make git ignore #{ReviewRound.replies()} (#{inspect(reason)})")
+
+  defp said_or_ok(:ok, _state), do: :ok
+
+  defp press(state, pane_id, line) do
+    state.herdr.prompt(state.socket, pane_id, line)
+  catch
+    kind, reason -> {:error, {kind, reason}}
+  end
+
+  defp round_attrs(state, mouse, row, by, pushed?, rest) do
+    %{
+      mouse_id: mouse.mouse_id,
+      pending: MergeRequestRead.encode_pending(rest),
+      round_at: DateTime.truncate(DateTime.utc_now(), :second),
+      round_by: by,
+      round_ref: remote_head(state, mouse),
+      round_head: row.head_sha,
+      rounds_unpushed: ReviewRound.unpushed(row, pushed?)
+    }
+  end
+
+  defp started(state, start, result) do
+    branch = label(start.mouse_id)
+
+    with %Mouse{} = mouse <- Storage.mouse(start.mouse_id),
+         {:ok, ref} <- Whiska.Forge.for_url(mouse.merge_request_url) do
+      case result do
+        {:ok, %{pane: pane}} ->
+          row = MergeRequests.reads()[mouse.mouse_id] || start.row
+          rest = ReviewRound.rest(MergeRequestRead.pending(row), start.handed)
+
+          MergeRequests.save(
+            round_attrs(
+              state,
+              mouse,
+              %{row | head_sha: start.row.head_sha},
+              "started",
+              start.pushed?,
+              rest
+            )
+          )
+
+          warn(
+            state,
+            "#{branch}: started a mouse for #{Whiska.Forge.label(ref)}'s review, in #{pane}"
+          )
+
+          state
+
+        {:error, reason} ->
+          warn(
+            state,
+            "#{branch}: could not start a mouse for #{Whiska.Forge.label(ref)}'s review " <>
+              "(#{inspect(reason)}) — asked you"
+          )
+
+          ask_about_review(state, mouse, ref, :start_failed)
+      end
+    else
+      _ -> state
+    end
+  end
+
+  # Asked once, and stamped before it is left, as the question about a close
+  # is (ADR-0087); the stamp holds every round until the question is closed.
+  defp ask_about_review(state, mouse, ref, why) do
+    now = DateTime.truncate(DateTime.utc_now(), :second)
+    entry = FromOwl.review_entry(mouse, Whiska.Forge.label(ref), why, now)
+
+    with true <- FromOwl.askable?(mouse),
+         :ok <-
+           MergeRequests.save(%{
+             mouse_id: mouse.mouse_id,
+             review_asked_at: now,
+             review_asked_why: Atom.to_string(why)
+           }),
+         {:ok, _file} <- leave_or_unstamp_review(state, mouse, entry) do
+      collect_now(state)
+    else
+      {:error, reason} ->
+        warn(
+          state,
+          "could not ask about #{Whiska.Forge.label(ref)}'s review (#{inspect(reason)})"
+        )
+
+        state
+
+      false ->
+        state
+    end
+  end
+
+  defp leave_or_unstamp_review(state, mouse, entry) do
+    with {:error, _} = error <- Doorstep.leave(state.main_checkout, entry) do
+      MergeRequests.save(%{mouse_id: mouse.mouse_id, review_asked_at: nil, review_asked_why: nil})
+      error
+    end
+  end
+
+  # The person closing the owl's question about a review, however it closed,
+  # is their word to hand review over again: the count starts afresh. A
+  # question that never became one in the house after ten minutes is asked
+  # again, so a lost entry never holds every round.
+  @lost_question_s 600
+
+  defp settle_review_question(
+         %MergeRequestRead{review_asked_at: %DateTime{} = at} = row,
+         mouse,
+         ref
+       ) do
+    why = String.to_existing_atom(row.review_asked_why)
+    text = FromOwl.review_entry(mouse, Whiska.Forge.label(ref), why, at).text
+
+    case Storage.owls_question(mouse.mouse_id, at, text) do
+      %Question{status: status} when status not in ["open", "sent"] ->
+        reset = %{
+          mouse_id: mouse.mouse_id,
+          review_asked_at: nil,
+          review_asked_why: nil,
+          round_at: nil,
+          rounds_unpushed: 0
+        }
+
+        settle(row, reset)
+
+      nil ->
+        if DateTime.diff(DateTime.utc_now(), at) > @lost_question_s,
+          do:
+            settle(row, %{mouse_id: mouse.mouse_id, review_asked_at: nil, review_asked_why: nil}),
+          else: row
+
+      _waiting ->
+        row
+    end
+  end
+
+  defp settle_review_question(row, _mouse, _ref), do: row
+
+  defp settle(row, attrs) do
+    case MergeRequests.save(attrs) do
+      :ok -> Map.merge(row, attrs)
+      {:error, _} -> row
+    end
+  end
+
+  defp remote_head(state, %Mouse{branch: branch}) when is_binary(branch) do
+    case Git.remote_head(state.main_checkout, branch) do
+      {:ok, sha} -> sha
+      {:error, _} -> nil
+    end
+  end
+
+  defp remote_head(_state, _mouse), do: nil
+
+  # A turn waiting on its background work is not over, though its pane reads
+  # done (ADR-0052): a line typed now would land in the middle of it.
+  defp in_flight?(%Mouse{path: path}) when is_binary(path) do
+    case Transcript.newest(Transcript.project_dir(path, ServiceManager.user_home())) do
+      {file, _mtime} -> file |> Transcript.tail() |> Transcript.subagents_in_flight?()
+      nil -> false
+    end
+  end
+
+  defp in_flight?(_mouse), do: false
+
+  defp kept(:asked), do: "you were asked about its review"
+  defp kept(:starting), do: "a mouse is starting for it"
+  defp kept(:held), do: "its mouse is held"
+  defp kept(:waiting_on_you), do: "its mouse is waiting on you"
+  defp kept(:answer_not_taken), do: "its mouse has not taken your answer yet"
+  defp kept(:picked_up), do: "its mouse was just picked up"
+  defp kept(:in_flight), do: "its mouse has background work out"
+  defp kept(:working), do: "its mouse is working"
+  defp kept(:typing), do: "its prompt box has text in it"
+  defp kept(:cap), do: "three rounds in a row pushed nothing"
+  defp kept(:died), do: "the mouse started for it ended without a word"
+  defp kept(:cannot_ask), do: "it needs you, and its branch's name cannot go in a question"
+  defp kept(why), do: "its pane cannot be typed into (#{why})"
 
   # Ringing again for an answer not taken, on the same backstop as cleanup: a
   # swallowed doorbell happens inside the pane, so there is nothing to be told
@@ -1352,6 +1726,8 @@ defmodule Whiska.Owl.House do
       })
 
     state = Enum.reduce(outcomes, state, &said/2)
+    picked = MapSet.new(for {mouse_id, :picked_up} <- outcomes, do: mouse_id)
+    state = %{state | picked_now: picked}
 
     # Stamped when the sweep finished, not when it started: the gap the next
     # sweep measures is the time nobody was watching, and a slow tick is time
@@ -1529,9 +1905,13 @@ defmodule Whiska.Owl.House do
   # (ADR-0009); its hoot is `remind/1`'s. An entry whose
   # worktree has already gone has nowhere to reply to, so it arrives where the
   # rest of that mouse's questions went — settled if its branch landed,
-  # orphaned if it did not (ADR-0064). The mouse is recorded first, so the
-  # question of a mouse nobody had heard of is asked of a row that exists.
-  defp arriving(entry, kind, asked_by) do
+  # orphaned if it did not (ADR-0064). The owl's question about a review is
+  # about the merge request, not the worktree, and waits on the person either
+  # way. The mouse is recorded first, so the question of a mouse nobody had
+  # heard of is asked of a row that exists.
+  defp arriving(_entry, _kind, "owl", true), do: "open"
+
+  defp arriving(entry, kind, asked_by, _review?) do
     cond do
       File.dir?(entry.worktree_root) and kind == "done" -> "closed"
       File.dir?(entry.worktree_root) -> "open"
@@ -1548,13 +1928,9 @@ defmodule Whiska.Owl.House do
     kind = Marker.classify(entry.text)
 
     # Judged on the records as they stood before this entry rewrites the mouse.
-    asked_by =
-      if FromOwl.ours?(
-           entry,
-           Storage.mouse(entry.mouse_id),
-           MergeRequests.reads()[entry.mouse_id]
-         ),
-         do: "owl"
+    {before, read} = {Storage.mouse(entry.mouse_id), MergeRequests.reads()[entry.mouse_id]}
+    asked_by = if FromOwl.ours?(entry, before, read), do: "owl"
+    review? = FromOwl.asked_about_review?(entry, before, read)
 
     with {:ok, mouse} <-
            Storage.record_mouse(%{
@@ -1568,7 +1944,7 @@ defmodule Whiska.Owl.House do
              mouse_id: entry.mouse_id,
              text: entry.text,
              kind: kind,
-             status: arriving(entry, kind, asked_by),
+             status: arriving(entry, kind, asked_by, review?),
              asked_at: DateTime.truncate(entry.stamped_at, :second),
              asked_by: asked_by
            }),
@@ -1954,7 +2330,10 @@ defmodule Whiska.Owl.House do
     state = %{state | nothing_to_land: nothing_to_land}
 
     :ok = Storage.hooted(Enum.map(due.finish, & &1.id), now)
-    Enum.each(due.finish, &hoot(state, &1, branch_of(&1.mouse_id), %{open: 0}))
+
+    due.finish
+    |> Enum.reject(&quiet_round?(state, &1))
+    |> Enum.each(&hoot(state, &1, branch_of(&1.mouse_id), %{open: 0}))
 
     case due.remind do
       [] ->
@@ -1964,6 +2343,23 @@ defmodule Whiska.Owl.House do
         :ok = Storage.hooted(Enum.map(named, & &1.id), now)
         reminder_hoot(state, named, now)
         %{state | reminded_at: now}
+    end
+  end
+
+  # The first report after a review round the owl handed over ends that round,
+  # and one that pushed nothing has nothing for the person to look at: it is
+  # counted as hooted, silently (ADR-0062).
+  defp quiet_round?(state, %Question{mouse_id: mouse_id, id: id}) do
+    with %MergeRequestRead{round_at: %DateTime{} = at, round_by: by} = row
+         when by in ["woke", "started"] <- MergeRequests.reads()[mouse_id],
+         %Mouse{} = mouse <- Storage.mouse(mouse_id),
+         %Question{id: ^id} <-
+           mouse_id
+           |> Storage.questions_of()
+           |> Enum.find(&(&1.kind == "done" and DateTime.compare(&1.asked_at, at) != :lt)) do
+      not ReviewRound.pushed?(row, remote_head(state, mouse))
+    else
+      _ -> false
     end
   end
 

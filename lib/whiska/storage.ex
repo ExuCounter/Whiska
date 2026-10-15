@@ -44,7 +44,8 @@ defmodule Whiska.Storage do
     {18, Whiska.Migrations.V018MergeRequestReads},
     {19, Whiska.Migrations.V019NextKeepsSlot},
     {20, Whiska.Migrations.V020LetterReply},
-    {21, Whiska.Migrations.V021ReportHooted}
+    {21, Whiska.Migrations.V021ReportHooted},
+    {22, Whiska.Migrations.V022ReviewRounds}
   ]
 
   @modes ~w(build sniff)
@@ -407,6 +408,25 @@ defmodule Whiska.Storage do
   end
 
   @doc """
+  Bring a dead or removed mouse back in `pane` at `path`: the owl started a
+  fresh session there for its merge request's review (ADR-0060). It keeps its
+  id, so its merge request, its read and its questions stay its own.
+  """
+  @spec revive(String.t(), Path.t(), String.t()) ::
+          {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def revive(mouse_id, path, pane) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      mouse ->
+        mouse
+        |> Ecto.Changeset.change(%{path: path, pane: pane, died_at: nil, removed_at: nil})
+        |> Repo.update()
+    end
+  end
+
+  @doc """
   Mark a mouse dead: its pane is gone (ADR-0026).
 
   The row stays (ADR-0007). Everything of its that was still waiting on the
@@ -461,8 +481,9 @@ defmodule Whiska.Storage do
   so the slot is judged by what is alive now. Returns what it released.
 
   A `done` report never reaches it: it is closed as it is collected
-  (ADR-0009). A question the owl asked itself is outside it while its worktree stands: the main session answers it with
-  `drop` or `dismiss`, and the mouse has no part in that (ADR-0087).
+  (ADR-0009). A question the owl asked itself is outside it while its worktree stands, and
+  its question about a review always: the main session answers it with
+  `drop` or `dismiss`, and the mouse has no part in that (ADR-0087, ADR-0060).
   """
   @spec release_unanswerable() :: [Question.t()]
   def release_unanswerable do
@@ -479,11 +500,26 @@ defmodule Whiska.Storage do
     current = current_mice()
     alive = current |> Enum.filter(&is_nil(&1.died_at)) |> MapSet.new(& &1.mouse_id)
     worktrees = current |> Enum.filter(&is_nil(&1.removed_at)) |> Map.new(&{&1.mouse_id, &1.path})
+    reviews = review_questions()
 
     Enum.reject(waiting, fn
-      %Question{asked_by: "owl", mouse_id: id} -> stands?(worktrees[id])
-      %Question{mouse_id: id} -> MapSet.member?(alive, id)
+      %Question{asked_by: "owl", mouse_id: id} = q ->
+        stands?(worktrees[id]) or MapSet.member?(reviews, {id, q.asked_at})
+
+      %Question{mouse_id: id} ->
+        MapSet.member?(alive, id)
     end)
+  end
+
+  # The owl's question about a review is about the merge request, not the
+  # worktree, so it waits whatever became of the worktree (ADR-0060).
+  defp review_questions do
+    from(r in MergeRequestRead,
+      where: not is_nil(r.review_asked_at),
+      select: {r.mouse_id, r.review_asked_at}
+    )
+    |> Repo.all()
+    |> MapSet.new()
   end
 
   defp stands?(path), do: is_binary(path) and File.dir?(path)
@@ -535,12 +571,20 @@ defmodule Whiska.Storage do
 
   defp release(%Mouse{mouse_id: mouse_id}, :worktree), do: close_owls_questions(mouse_id)
 
-  @doc "Close what the owl asked of `mouse_id` that still waits: it no longer applies."
+  @doc """
+  Close what the owl asked of `mouse_id` about its worktree that still waits:
+  it no longer applies. Its question about a review stays.
+  """
   @spec close_owls_questions(String.t()) :: {non_neg_integer(), nil}
   def close_owls_questions(mouse_id) do
+    review =
+      for {^mouse_id, at} <- review_questions(), do: at
+
     Repo.update_all(
       from(q in Question,
-        where: q.mouse_id == ^mouse_id and q.status in ^@waiting and q.asked_by == "owl"
+        where:
+          q.mouse_id == ^mouse_id and q.status in ^@waiting and q.asked_by == "owl" and
+            q.asked_at not in ^review
       ),
       set: [status: "closed"]
     )
@@ -914,6 +958,25 @@ defmodule Whiska.Storage do
   """
   @spec orphaned_questions() :: [Question.t()]
   def orphaned_questions, do: questions_with_status(["orphaned"])
+
+  @doc "Every question `mouse_id` asked, or the owl asked about it, oldest first."
+  @spec questions_of(String.t()) :: [Question.t()]
+  def questions_of(mouse_id),
+    do: Repo.all(from(q in Question, where: q.mouse_id == ^mouse_id, order_by: q.id))
+
+  @doc "The question the owl asked about `mouse_id` at `at` in exactly `text`, or nil."
+  @spec owls_question(String.t(), DateTime.t(), String.t()) :: Question.t() | nil
+  def owls_question(mouse_id, at, text) do
+    Repo.one(
+      from(q in Question,
+        where:
+          q.mouse_id == ^mouse_id and q.asked_by == "owl" and
+            q.asked_at == ^DateTime.truncate(at, :second) and q.text == ^text,
+        order_by: [desc: q.id],
+        limit: 1
+      )
+    )
+  end
 
   defp questions_with_status(statuses) do
     Repo.all(from(q in Question, where: q.status in ^statuses, order_by: q.id, preload: [:mouse]))

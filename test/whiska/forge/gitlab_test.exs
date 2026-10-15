@@ -154,13 +154,24 @@ defmodule Whiska.Forge.GitLabTest do
 
     assert {:ok, %{threads_open: 2, notes: notes}} = GitLab.notes(ctx.ref, ctx.run)
 
-    assert Enum.map(notes, &{&1.id, &1.author_id, &1.author, &1.system?}) == [
-             {11, 2, "alice", false},
-             {12, 1, "me", false},
-             {13, 3, "bob", false},
-             {14, 2, "alice", true},
-             {15, 4, "group_1_bot_abc", false}
+    assert Enum.map(notes, &{&1.id, &1.author_id, &1.author, &1.system?, &1.discussion_id}) == [
+             {11, 2, "alice", false, "d1"},
+             {12, 1, "me", false, "d1"},
+             {13, 3, "bob", false, "d2"},
+             {14, 2, "alice", true, "d3"},
+             {15, 4, "group_1_bot_abc", false, "d4"}
            ]
+  end
+
+  test "a thread's id is kept only as letters and digits", %{fake: fake} = ctx do
+    FakeGlab.answer(fake, @mr <> "/discussions?per_page=100&page=1", [
+      discussion("ab12", true, false, [note(11, 2, "alice")]),
+      discussion("x; rm -rf /", true, false, [note(12, 2, "alice")]),
+      %{"notes" => [note(13, 2, "alice")]}
+    ])
+
+    assert {:ok, %{notes: notes}} = GitLab.notes(ctx.ref, ctx.run)
+    assert Enum.map(notes, &{&1.id, &1.discussion_id}) == [{11, "ab12"}, {12, nil}, {13, nil}]
   end
 
   test "a page that cannot be read makes the whole read unknown", %{fake: fake} = ctx do

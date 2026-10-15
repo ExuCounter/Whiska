@@ -5,7 +5,7 @@ defmodule Whiska.BriefTest do
   alias Whiska.Question.Marker
 
   test "each brief renders whole: a mouse's points at its first message and carries the finished marker" do
-    for mode <- ["build", "sniff"] do
+    for mode <- ["build", "sniff", "review"] do
       text = Brief.render(mode)
       assert text |> String.replace(~r/\s+/, " ") =~ "this session's first message", mode
       refute text =~ "{{", mode
@@ -13,6 +13,23 @@ defmodule Whiska.BriefTest do
     end
 
     refute Brief.render(:main) =~ "{{"
+  end
+
+  test "a review round's rules are in the build and review briefs, and say no push without a yes" do
+    for brief <- ["build", "review"] do
+      text = brief |> Brief.render() |> String.replace(~r/\s+/, " ")
+      assert text =~ Brief.review_rules() |> String.replace(~r/\s+/, " "), brief
+    end
+
+    rules = Brief.review_rules() |> String.replace(~r/\s+/, " ")
+
+    assert rules =~
+             "Nothing is pushed, and nothing is posted to a person's thread, without the person's yes."
+
+    assert rules =~ "resolve each thread you fixed"
+    assert rules =~ "A thread hard to fix or ambiguous, one you dispute"
+    assert rules =~ "a bot is an account the forge marks as one, never one named like it"
+    refute Brief.render("sniff") =~ "## A review round"
   end
 
   test "a build mouse's plan shows signatures, data and the first failing test as code" do

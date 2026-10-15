@@ -19,7 +19,7 @@ in git history.
 - [0056](0056-the-global-install-is-the-same-install-rooted-at-the-home.md) — The install is per-repo by default, and the global install is the same install rooted at the home
 - [0088](0088-one-brief-per-session.md) — Each session starts with one brief, on its launch line
 - [0085](0085-whiska-stands-alone.md) — Whiska stands alone: it builds on Claude Code, herdr and git, and calls nothing else on the machine
-- [0060](0060-watching-a-branch-is-the-owls-one-networked-job.md) — Watching a branch is the owl's one networked job, and it only ever reads; its merge and its GitLab merge request are read every minute, and waking its mouse is proposed
+- [0060](0060-watching-a-branch-is-the-owls-one-networked-job.md) — Watching a branch is the owl's one networked job, and it only ever reads; its merge and its GitLab merge request are read every minute, and new review is handed to its mouse
 
 ## Identity
 

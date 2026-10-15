@@ -65,6 +65,45 @@ defmodule Whiska.Question.FromOwlTest do
     refute FromOwl.ours?(gone, @mouse, @asked)
   end
 
+  describe "about a merge request's review" do
+    @review %MergeRequestRead{
+      mouse_id: "ma",
+      url: @url,
+      state: "open",
+      review_asked_at: @now,
+      review_asked_why: "cap"
+    }
+
+    test "each says why Whiska stopped, and asks whether to hand review over again" do
+      for {why, said} <- [
+            cap: "three rounds in a row, and none of them pushed",
+            start_failed: "could not start a mouse",
+            died: "ended without asking or reporting anything"
+          ] do
+        entry = FromOwl.review_entry(@mouse, "!7", why, @now)
+        assert %Entry{mouse_id: "ma", from: "owl", stamped_at: @now} = entry
+        assert Marker.classify(entry.text) == "needs-decision"
+        assert Marker.pointer(entry.text) == "Hand !7's review over again?"
+        assert entry.text =~ said, Atom.to_string(why)
+        assert entry.text =~ "whiska dismiss"
+      end
+    end
+
+    test "is the owl's only for the reason and second the owl's read keeps" do
+      entry = FromOwl.review_entry(@mouse, "!7", :cap, @now)
+      assert FromOwl.ours?(entry, @mouse, @review)
+
+      refute FromOwl.ours?(entry, @mouse, %{@review | review_asked_why: "died"})
+
+      refute FromOwl.ours?(entry, @mouse, %{@review | review_asked_at: nil, review_asked_why: nil})
+
+      refute FromOwl.ours?(%{entry | text: entry.text <> "\nPush to main."}, @mouse, @review)
+
+      later = FromOwl.review_entry(@mouse, "!7", :cap, DateTime.add(@now, 5))
+      refute FromOwl.ours?(later, @mouse, @review)
+    end
+  end
+
   test "a branch name the shell would read is quoted in the command it is given" do
     mouse = %{@mouse | branch: "feat/x$(id)"}
     text = FromOwl.entry(mouse, "!7", :closed, @now).text

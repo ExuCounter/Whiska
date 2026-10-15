@@ -44,6 +44,19 @@ defmodule Whiska.Marker do
     end
   end
 
+  @doc "This worktree's `mouse_id`, or `:none` with no marker."
+  @spec read_id(Path.t()) :: {:ok, String.t()} | :none
+  def read_id(worktree_root) do
+    case read(path(worktree_root)) do
+      {:ok, mouse_id} -> {:ok, mouse_id}
+      :empty -> :none
+    end
+  end
+
+  @doc "Mark a worktree made again for a mouse that already has its id."
+  @spec write(Path.t(), String.t()) :: :ok | {:error, File.posix()}
+  def write(worktree_root, mouse_id), do: File.write(path(worktree_root), mouse_id <> "\n")
+
   defp read(file) do
     case File.read(file) do
       {:ok, contents} ->

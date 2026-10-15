@@ -45,7 +45,7 @@ C4Deployment
   Rel(owl, sock, "Listens, one per open house")
   Rel(owl, globalsock, "Listens, one per machine")
   Rel(owl, hooksock, "Listens, one per machine")
-  Rel(owl, remote, "Fetches the base alone every minute while a merge request waits, never prompting", "git fetch")
+  Rel(owl, remote, "Fetches the base alone every minute while a merge request waits, and a dropped branch for a review mouse, never prompting", "git fetch")
   Rel(owl, forgeapi, "Reads a recorded GitLab merge request every minute, GET only", "glab api")
   Rel(mousepane, globalinstall, "Runs its hooks where the repo wires none")
   Rel(mousepane, hooksock, "Every hook asks the owl first, with nc")

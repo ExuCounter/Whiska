@@ -202,6 +202,37 @@ defmodule Whiska.StorageOwlTest do
       assert Storage.question(asked.id).status == "closed"
     end
 
+    test "the owl's question about a review waits though its worktree is gone or dropped",
+         %{root: root} do
+      path = Path.join(root, "a")
+      File.mkdir_p!(path)
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: path, branch: "a"})
+      at = ~U[2026-10-14 10:00:00Z]
+
+      {:ok, _} =
+        Storage.save_merge_request_read(%{
+          mouse_id: "m1",
+          url: "https://gitlab.example.com/acme/app/-/merge_requests/7",
+          threads_open: 0,
+          ready: false,
+          missing_reads: 0,
+          rounds_unpushed: 0,
+          review_asked_at: at,
+          review_asked_why: "cap"
+        })
+
+      review = ask("m1", %{asked_by: "owl", asked_at: at})
+      drop = ask("m1", %{asked_by: "owl", asked_at: ~U[2026-10-14 10:05:00Z]})
+
+      File.rm_rf!(path)
+      assert [%Question{id: id}] = Storage.release_unanswerable()
+      assert id == drop.id
+      {:ok, _} = Storage.mark_removed("m1")
+
+      assert Storage.question(review.id).status == "open"
+      assert Storage.question(drop.id).status == "closed"
+    end
+
     test "releases a question from a record that no longer stands for a worktree" do
       {:ok, _} =
         Storage.record_mouse(%{

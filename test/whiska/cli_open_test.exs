@@ -82,7 +82,11 @@ defmodule Whiska.CLIOpenTest do
 
   test "a worktree with no workspace is opened in herdr, and says no session runs", ctx do
     expect(Herdr, :list_panes, fn @socket -> {:ok, []} end)
-    expect(Herdr, :open_worktree, fn @socket, path -> assert path == ctx.path && :ok end)
+
+    expect(Herdr, :open_worktree, fn @socket, path, true ->
+      assert path == ctx.path
+      {:ok, %{workspace_id: "w3", pane_id: "w3:p1", already_open?: false}}
+    end)
 
     assert {0, out} = open(ctx.id, ctx.repo)
     assert out =~ "no session is running"

@@ -104,11 +104,11 @@ defmodule Whiska.MergeRequestsTest do
   end
 
   describe "a later read" do
-    test "new comments are a wake, named by their authors, and move the cursor" do
+    test "new comments are a review, kept until handed over, and move the cursor" do
       comments = [
-        %{id: 31, author: "alice"},
-        %{id: 32, author: "bob"},
-        %{id: 33, author: "alice"}
+        %{id: 31, author: "alice", discussion_id: "d1"},
+        %{id: 32, author: "bob", discussion_id: "d2"},
+        %{id: 33, author: "alice", discussion_id: "d1"}
       ]
 
       {attrs, events} =
@@ -119,8 +119,37 @@ defmodule Whiska.MergeRequestsTest do
           @now
         )
 
-      assert events == [{:would_wake, %{comments: 3, authors: ["alice", "bob"], failed_on: nil}}]
+      assert events == [{:review, %{comments: comments, pipeline: nil}}]
       assert attrs.seen_note_id == 33
+      assert MergeRequestRead.pending(attrs) == %{comments: comments, pipeline: nil}
+    end
+
+    test "a review not yet handed over is added to, never replaced" do
+      kept = %{comments: [%{id: 31, author: "alice", discussion_id: "d1"}], pipeline: nil}
+      new = [%{id: 32, author: "bob", discussion_id: "d2"}]
+      failed = snapshot(pipeline: %{id: 101, status: :failed, sha: @head})
+      prior = read(pending: MergeRequestRead.encode_pending(kept))
+
+      {attrs, _events} =
+        MergeRequests.next(
+          prior,
+          mouse(),
+          {:ok, seen(snapshot: failed, new_comments: new, max_note_id: 32)},
+          @now
+        )
+
+      assert MergeRequestRead.pending(attrs) == %{
+               comments: kept.comments ++ new,
+               pipeline: %{id: 101, sha: "63c47262"}
+             }
+    end
+
+    test "a read with nothing new leaves what is kept as it was" do
+      kept = %{comments: [%{id: 31, author: "alice", discussion_id: nil}], pipeline: nil}
+      prior = read(pending: MergeRequestRead.encode_pending(kept))
+      {attrs, []} = MergeRequests.next(prior, mouse(), {:ok, seen()}, @now)
+      refute Map.has_key?(attrs, :pending)
+      assert MergeRequestRead.pending(prior) == kept
     end
 
     test "the cursor never moves back" do
@@ -147,7 +176,7 @@ defmodule Whiska.MergeRequestsTest do
       failed = snapshot(pipeline: %{id: 101, status: :failed, sha: @head})
 
       {attrs, events} = MergeRequests.next(read([]), mouse(), {:ok, seen(snapshot: failed)}, @now)
-      assert events == [{:would_wake, %{comments: 0, authors: [], failed_on: "63c47262"}}]
+      assert events == [{:review, %{comments: [], pipeline: %{id: 101, sha: "63c47262"}}}]
       assert attrs.seen_failed_pipeline_id == 101
 
       assert {_, []} =
@@ -172,18 +201,31 @@ defmodule Whiska.MergeRequestsTest do
           read([]),
           mouse(),
           {:ok,
-           seen(snapshot: failed, new_comments: [%{id: 31, author: "alice"}], max_note_id: 31)},
+           seen(
+             snapshot: failed,
+             new_comments: [%{id: 31, author: "alice", discussion_id: "d1"}],
+             max_note_id: 31
+           )},
           @now
         )
 
-      assert events == [{:would_wake, %{comments: 1, authors: ["alice"], failed_on: "63c47262"}}]
+      assert events == [
+               {:review,
+                %{
+                  comments: [%{id: 31, author: "alice", discussion_id: "d1"}],
+                  pipeline: %{id: 101, sha: "63c47262"}
+                }}
+             ]
     end
 
     test "a log line carries only a name's plain characters" do
-      wake = %{comments: 1, authors: ["al\e[31mice\nfake line"], failed_on: nil}
+      review = %{
+        comments: [%{id: 31, author: "al\e[31mice\nfake line", discussion_id: nil}],
+        pipeline: nil
+      }
 
-      assert MergeRequests.line({:would_wake, wake}, "feat-a", "!7") ==
-               "feat-a: would wake for !7 — 1 new comment by al31micefakeline"
+      assert MergeRequests.line({:review, review}, "feat-a", "!7") ==
+               "feat-a: review for !7 — 1 new comment by al31micefakeline"
     end
 
     test "merged and closed are said once, as the state moves" do
@@ -495,8 +537,8 @@ defmodule Whiska.MergeRequestsTest do
       assert {{:ok, seen}, context} = MergeRequests.read(mouse(), read([]), ctx.context)
 
       assert seen.new_comments == [
-               %{id: 31, author: "alice"},
-               %{id: 35, author: "bob"}
+               %{id: 31, author: "alice", discussion_id: nil},
+               %{id: 35, author: "bob", discussion_id: nil}
              ]
 
       assert seen.max_note_id == 35
@@ -513,7 +555,7 @@ defmodule Whiska.MergeRequestsTest do
       {{:ok, _}, context} = MergeRequests.read(mouse(), read([]), ctx.context)
       {{:ok, seen}, _} = MergeRequests.read(mouse(), read([]), context)
 
-      assert seen.new_comments == [%{id: 31, author: "alice"}]
+      assert seen.new_comments == [%{id: 31, author: "alice", discussion_id: nil}]
       asked = paths(ctx.fake)
       assert Enum.count(asked, &(&1 == "user")) == 1
       assert Enum.count(asked, &String.ends_with?(&1, "members/all/2")) == 1

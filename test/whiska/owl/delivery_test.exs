@@ -11,6 +11,7 @@ defmodule Whiska.Owl.DeliveryTest do
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
   alias Whiska.Herdr.Mock, as: Herdr
+  alias Whiska.MergeRequests
   alias Whiska.Owl.House
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -615,6 +616,38 @@ defmodule Whiska.Owl.DeliveryTest do
 
       assert_receive {:hooted, %{title: "🐱 myrepo · feat-b finished"}}, @arrives
       refute_receive {:hooted, _}, 800
+    end
+
+    test "the report ending a review round the owl handed over hoots only if the round pushed",
+         %{main: main} do
+      round_at = DateTime.add(DateTime.utc_now(), -60) |> DateTime.truncate(:second)
+
+      seed(main, fn ->
+        for {id, branch, head} <- [{"mb", "feat-b", "h1"}, {"mc", "feat-c", "h2"}] do
+          url = "https://gitlab.example.com/acme/app/-/merge_requests/#{branch}"
+          path = Path.join([main, "worktrees", branch])
+          {:ok, _} = Storage.record_mouse(%{mouse_id: id, path: path, branch: branch})
+          {:ok, _} = Storage.record_merge_request(id, url)
+
+          :ok =
+            MergeRequests.save(%{
+              mouse_id: id,
+              url: url,
+              state: "open",
+              head_sha: head,
+              round_at: round_at,
+              round_by: "woke",
+              round_head: "h1"
+            })
+        end
+      end)
+
+      finished_from(main, "mb", "feat-b")
+      finished_from(main, "mc", "feat-c")
+      open(main, backstop_ms: 20, remind_ms: 60_000)
+
+      assert_receive {:hooted, %{title: "🐱 myrepo · feat-c finished"}}, @arrives
+      refute_receive {:hooted, %{title: "🐱 myrepo · feat-b finished"}}, 500
     end
 
     test "a finished report collected into a quiet house starts no round: the question after it waits its own",

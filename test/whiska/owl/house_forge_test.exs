@@ -11,6 +11,7 @@ defmodule Whiska.Owl.HouseForgeTest do
 
   alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.MergeRequests
+  alias Whiska.Schema.MergeRequestRead
   alias Whiska.Owl.House
   alias Whiska.Storage
   alias Whiska.Test.FakeGlab
@@ -106,6 +107,11 @@ defmodule Whiska.Owl.HouseForgeTest do
     row
   end
 
+  defp in_house(house, fun) do
+    Storage.point_at(House.repo(house))
+    fun.()
+  end
+
   defp until(what, tries \\ 1000) do
     cond do
       what.() ->
@@ -134,8 +140,9 @@ defmodule Whiska.Owl.HouseForgeTest do
     )
   end
 
-  defp thread(id, {author_id, username}) do
+  defp thread(id, {author_id, username}, discussion_id \\ "d0") do
     %{
+      "id" => discussion_id,
       "notes" => [
         %{
           "id" => id,
@@ -148,7 +155,7 @@ defmodule Whiska.Owl.HouseForgeTest do
     }
   end
 
-  test "a new comment from a member is said as a wake, once",
+  test "a new comment for a dead mouse that cannot be started is said once, and asked about",
        %{repo: repo, path: path, forge: forge} do
     record_merge_request(repo)
     FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
@@ -169,15 +176,321 @@ defmodule Whiska.Owl.HouseForgeTest do
 
         FakeGlab.answer(forge, "projects/acme%2Fapp/members/all/2", %{"id" => 2})
         FakeGlab.answer(forge, @discussions, [thread(11, {2, "alice"})])
-        until(fn -> match?(%{seen_note_id: 11}, row(repo)) end)
+        until(fn -> match?(%{review_asked_why: "start_failed"}, row(repo)) end)
         Process.sleep(100)
         House.sync(house)
       end)
 
-    assert [_once] = Regex.scan(~r/feat-a: would wake for !7 — 1 new comment by alice/, log)
+    assert [_once] =
+             Regex.scan(
+               ~r/feat-a: review for !7 — 1 new comment by alice — starting a mouse/,
+               log
+             )
+
+    assert [_once] = Regex.scan(~r/feat-a: could not start a mouse for !7's review/, log)
+
+    assert %{pending: pending} = row(repo)
+
+    assert %{comments: [%{id: 11, author: "alice"}]} =
+             MergeRequestRead.pending(%{pending: pending})
+
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    asked = Enum.filter(Storage.questions_of("ma"), &(&1.asked_by == "owl"))
+    Storage.close(handle)
+    assert [%{status: "open", kind: "needs-decision"}] = asked
   end
 
-  test "a pipeline that fails on the head is said as a wake, once",
+  # A live mouse, idle in its own pane, with nothing in its prompt box.
+  defp idle_mouse(path) do
+    test = self()
+    pane = %{pane_id: "w1:p1", cwd: path, agent: "claude", agent_status: "done"}
+
+    stub(Herdr, :list_panes, fn @socket ->
+      {:ok, [Map.merge(pane, %{title: nil, session: nil})]}
+    end)
+
+    stub(Herdr, :subscribe, fn @socket, _subs, _listener -> {:ok, spawn(fn -> :ok end)} end)
+
+    stub(Herdr, :worktrees, fn @socket, _checkout ->
+      {:ok, [%{path: path, branch: "feat-a", workspace_id: "ws-1"}]}
+    end)
+
+    stub(Herdr, :read_screen, fn _, _ -> {:error, :no_screen} end)
+    stub(Herdr, :pane, fn _, _ -> {:error, :no_pane} end)
+
+    stub(Herdr, :prompt, fn @socket, pane, line ->
+      send(test, {:typed, pane, line})
+      :ok
+    end)
+  end
+
+  test "a new comment on a live idle mouse's merge request leaves it a letter and types the review line",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    idle_mouse(path)
+
+    log =
+      capture_io(:stderr, fn ->
+        house = open(repo, forge, [])
+        until(fn -> match?(%{read_at: %DateTime{}}, row(repo)) end)
+
+        FakeGlab.answer(
+          forge,
+          @mr,
+          merge_request(user_notes_count: 1, updated_at: "2026-10-14T09:01:00Z")
+        )
+
+        FakeGlab.answer(forge, "projects/acme%2Fapp/members/all/2", %{"id" => 2})
+        FakeGlab.answer(forge, @discussions, [thread(11, {2, "alice"}, "d11")])
+        assert_receive {:typed, "w1:p1", line}, 5_000
+        send(self(), {:line, line})
+        House.sync(house)
+      end)
+
+    assert_received {:line, line}
+    assert [letter] = Path.wildcard(Path.join(path, ".whiska-letters/*.md"))
+    assert line == Whiska.ReviewRound.line(letter)
+    text = File.read!(letter)
+    assert text =~ @url <> "#note_11"
+    assert text =~ "d11"
+    assert log =~ ~r/feat-a: review for !7 — 1 new comment by alice — woke its mouse/
+    assert %{pending: nil, round_at: %DateTime{}, rounds_unpushed: 0} = row(repo)
+  end
+
+  test "review kept for a busy mouse and review read in the same minute are each handed over once",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    idle_mouse(path)
+    {:ok, status} = Agent.start_link(fn -> "working" end)
+
+    stub(Herdr, :list_panes, fn @socket ->
+      {:ok,
+       [
+         %{
+           pane_id: "w1:p1",
+           cwd: path,
+           agent: "claude",
+           agent_status: Agent.get(status, & &1),
+           title: nil,
+           session: nil
+         }
+       ]}
+    end)
+
+    kept = %{comments: [%{id: 9, author: "alice", discussion_id: "d9"}], pipeline: nil}
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> match?(%{read_at: %DateTime{}}, row(repo)) end)
+
+      in_house(house, fn ->
+        :ok =
+          MergeRequests.save(%{mouse_id: "ma", pending: MergeRequestRead.encode_pending(kept)})
+      end)
+
+      Process.sleep(100)
+
+      FakeGlab.answer(
+        forge,
+        @mr,
+        merge_request(user_notes_count: 1, updated_at: "2026-10-14T09:01:00Z")
+      )
+
+      FakeGlab.answer(forge, "projects/acme%2Fapp/members/all/2", %{"id" => 2})
+      FakeGlab.answer(forge, @discussions, [thread(12, {2, "alice"}, "d12")])
+      Agent.update(status, fn _ -> "done" end)
+
+      until(fn ->
+        path |> letters() |> Enum.join() |> String.contains?("#note_12")
+      end)
+
+      Process.sleep(200)
+      House.sync(house)
+    end)
+
+    handed = path |> letters() |> Enum.join()
+    assert [_once] = Regex.scan(~r/#note_9\b/, handed)
+    assert [_once] = Regex.scan(~r/#note_12\b/, handed)
+  end
+
+  defp letters(path),
+    do: path |> Path.join(".whiska-letters/*.md") |> Path.wildcard() |> Enum.map(&File.read!/1)
+
+  test "a new comment for a dead mouse starts a review mouse in its worktree",
+       %{repo: repo, path: path, forge: forge} do
+    test = self()
+    File.write!(Path.join(path, ".whiska-mouse"), "ma\n")
+    record_merge_request(repo)
+    FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    quiet_herdr(path)
+
+    stub(Herdr, :open_worktree, fn @socket, ^path, false ->
+      {:ok, %{workspace_id: "w9", pane_id: "w9:p1", already_open?: false}}
+    end)
+
+    stub(Herdr, :start_agent, fn @socket, "w9:p1", "feat-a", args -> {:ok, args} end)
+    stub(Herdr, :prompt, fn @socket, "w9:p1", text -> send(test, {:kickoff, text}) && :ok end)
+
+    log =
+      capture_io(:stderr, fn ->
+        house = open(repo, forge, [])
+        until(fn -> match?(%{read_at: %DateTime{}}, row(repo)) end)
+
+        FakeGlab.answer(
+          forge,
+          @mr,
+          merge_request(user_notes_count: 1, updated_at: "2026-10-14T09:01:00Z")
+        )
+
+        FakeGlab.answer(forge, "projects/acme%2Fapp/members/all/2", %{"id" => 2})
+        FakeGlab.answer(forge, @discussions, [thread(11, {2, "alice"}, "d11")])
+        until(fn -> match?(%{round_by: "started"}, row(repo)) end)
+        House.sync(house)
+      end)
+
+    assert_received {:kickoff, "Your task:\n\n" <> line}
+    assert [letter] = Path.wildcard(Path.join(path, ".whiska-letters/*.md"))
+    assert line == Whiska.ReviewRound.line(letter)
+    assert log =~ ~r/feat-a: review for !7 — 1 new comment by alice — starting a mouse/
+    assert log =~ "feat-a: started a mouse for !7's review, in w9:p1"
+    assert %{pending: nil, round_at: %DateTime{}} = row(repo)
+  end
+
+  test "after three rounds in a row that pushed nothing Whiska asks, and closing that lets the next one run",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    idle_mouse(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> match?(%{read_at: %DateTime{}}, row(repo)) end)
+
+      in_house(house, fn ->
+        :ok =
+          MergeRequests.save(%{
+            mouse_id: "ma",
+            round_at: ~U[2026-10-14 08:00:00Z],
+            round_by: "woke",
+            round_head: @head,
+            round_ref:
+              GitRepo.git!(repo.checkout, ["rev-parse", "origin/feat-a"]) |> String.trim(),
+            rounds_unpushed: 2
+          })
+      end)
+
+      FakeGlab.answer(
+        forge,
+        @mr,
+        merge_request(user_notes_count: 1, updated_at: "2026-10-14T09:01:00Z")
+      )
+
+      FakeGlab.answer(forge, "projects/acme%2Fapp/members/all/2", %{"id" => 2})
+      FakeGlab.answer(forge, @discussions, [thread(11, {2, "alice"}, "d11")])
+      until(fn -> match?(%{review_asked_why: "cap"}, row(repo)) end)
+      refute_receive {:typed, _, _}, 200
+
+      [asked] =
+        in_house(house, fn -> Enum.filter(Storage.questions_of("ma"), &(&1.asked_by == "owl")) end)
+
+      assert asked.text =~ "three rounds in a row"
+      in_house(house, fn -> {:ok, _} = Storage.close_question(asked.id) end)
+
+      assert_receive {:typed, "w1:p1", _line}, 5_000
+      House.sync(house)
+    end)
+
+    assert %{review_asked_at: nil, rounds_unpushed: 0, round_by: "woke"} = row(repo)
+  end
+
+  test "a mouse the owl started that died without a word is asked about with no new review in",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> match?(%{read_at: %DateTime{}}, row(repo)) end)
+
+      in_house(house, fn ->
+        :ok =
+          MergeRequests.save(%{
+            mouse_id: "ma",
+            round_at: DateTime.utc_now() |> DateTime.add(5) |> DateTime.truncate(:second),
+            round_by: "started"
+          })
+
+        {:ok, _} = Storage.mark_dead("ma")
+      end)
+
+      until(fn -> match?(%{review_asked_why: "died"}, row(repo)) end)
+      House.sync(house)
+    end)
+
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    asked = Enum.filter(Storage.questions_of("ma"), &(&1.asked_by == "owl"))
+    Storage.close(handle)
+    assert [%{status: "open", text: text}] = asked
+    assert text =~ "ended without asking or reporting anything"
+  end
+
+  test "Whiska's question about a review that never reached the house is asked again",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    quiet_herdr(path)
+    kept = %{comments: [%{id: 9, author: "alice", discussion_id: "d9"}], pipeline: nil}
+    long_ago = DateTime.utc_now() |> DateTime.add(-3600) |> DateTime.truncate(:second)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> match?(%{read_at: %DateTime{}}, row(repo)) end)
+
+      in_house(house, fn ->
+        :ok =
+          MergeRequests.save(%{
+            mouse_id: "ma",
+            pending: MergeRequestRead.encode_pending(kept),
+            round_at: long_ago,
+            round_by: "woke",
+            round_head: @head,
+            round_ref:
+              GitRepo.git!(repo.checkout, ["rev-parse", "origin/feat-a"]) |> String.trim(),
+            rounds_unpushed: 2,
+            review_asked_at: long_ago,
+            review_asked_why: "cap"
+          })
+      end)
+
+      until(fn ->
+        match?(%{review_asked_at: %DateTime{} = at} when at != long_ago, row(repo))
+      end)
+
+      House.sync(house)
+    end)
+
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    asked = Enum.filter(Storage.questions_of("ma"), &(&1.asked_by == "owl"))
+    Storage.close(handle)
+    assert [%{status: "open"}] = asked
+  end
+
+  test "a pipeline that fails on the head is said once",
        %{repo: repo, path: path, forge: forge} do
     record_merge_request(repo)
     FakeGlab.answer(forge, @mr, merge_request([]))
@@ -203,7 +516,8 @@ defmodule Whiska.Owl.HouseForgeTest do
         House.sync(house)
       end)
 
-    assert [_once] = Regex.scan(~r/feat-a: would wake for !7 — pipeline failed on 63c47262/, log)
+    assert [_once] =
+             Regex.scan(~r/feat-a: review for !7 — pipeline failed on 63c47262 — /, log)
   end
 
   test "merged on the forge fetches the base at once, and the worktree comes down",

@@ -538,6 +538,36 @@ defmodule Whiska.Herdr.SocketTest do
     end
   end
 
+  describe "open_worktree/3" do
+    test "asks worktree.open by path, taking focus only when told, and answers the workspace and its pane" do
+      for focus? <- [false, true] do
+        {path, fake} = start_fake()
+
+        send(
+          fake,
+          {:fake_reply,
+           %{
+             "type" => "worktree_opened",
+             "workspace" => %{"workspace_id" => "w9"},
+             "tab" => %{"tab_id" => "w9:t1"},
+             "root_pane" => %{"pane_id" => "w9:p1"},
+             "worktree" => %{"path" => "/main/worktrees/feat/a"},
+             "already_open" => false
+           }}
+        )
+
+        assert {:ok, %{workspace_id: "w9", pane_id: "w9:p1", already_open?: false}} =
+                 Socket.open_worktree(path, "/main/worktrees/feat/a", focus?)
+
+        assert_received {:fake_got,
+                         %{
+                           "method" => "worktree.open",
+                           "params" => %{"path" => "/main/worktrees/feat/a", "focus" => ^focus?}
+                         }}
+      end
+    end
+  end
+
   describe "start_agent/4" do
     test "asks agent.start for a claude in that pane with the flags, and answers its argv" do
       {path, fake} = start_fake()

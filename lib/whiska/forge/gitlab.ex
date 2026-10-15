@@ -197,8 +197,22 @@ defmodule Whiska.Forge.GitLab do
           %{"id" => id, "author" => %{"id" => author_id, "username" => author}} = note <-
             List.wrap(discussion["notes"]),
           number?(id) and number?(author_id) and is_binary(author),
-          do: %{id: id, author_id: author_id, author: author, system?: note["system"] == true}
+          do: %{
+            id: id,
+            author_id: author_id,
+            author: author,
+            system?: note["system"] == true,
+            discussion_id: discussion_id(discussion["id"])
+          }
 
     {:ok, %{threads_open: open, notes: notes}}
   end
+
+  # A thread's id goes into the letter a mouse is woken with, so only an id
+  # shaped like GitLab's own is kept: anything else is the forge's text.
+  defp discussion_id(id) when is_binary(id) do
+    if id =~ ~r/\A[A-Za-z0-9]{1,64}\z/, do: id
+  end
+
+  defp discussion_id(_none), do: nil
 end

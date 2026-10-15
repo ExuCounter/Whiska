@@ -33,7 +33,7 @@ C4Context
   Rel(whiska, git, "Derives layout from, stores house under .git/, removes a landed worktree")
   Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
   Rel(whiska, nc, "Raises a hoot herdr will not show")
-  Rel(whiska, remote, "Fetches the base every minute while a merge request waits; pr pushes a branch", "git")
+  Rel(whiska, remote, "Fetches the base every minute while a merge request waits, and a dropped branch for a review mouse; pr pushes a branch", "git")
   Rel(whiska, forge, "Reads a recorded GitLab merge request every minute, GET only; pr opens one", "glab or gh, the person's login")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

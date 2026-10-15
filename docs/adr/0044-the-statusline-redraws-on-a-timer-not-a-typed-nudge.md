@@ -10,9 +10,16 @@ in Whiska types into any other session but a mouse, into its own pane, about its
   first prompt;
 - on `whiska send`, one fixed line pointing at the file the person's words were copied to
   in the mouse's worktree;
-- on `whiska resume`, its one fixed carry-on line (ADR-0080).
+- on `whiska resume`, its one fixed carry-on line (ADR-0080);
+- on new review on its merge request, one fixed line pointing at a letter Whiska wrote in
+  its worktree, only under the doorbell's bounds and only when nothing of it waits on the
+  person (ADR-0060);
+- when no mouse on that branch is live, the same line as the first prompt of a mouse the
+  owl starts there, after `Your task:` (ADR-0060).
 
-Spawn and send run on the person's word, from the main session. A send types fixed text; a
+Spawn and send run on the person's word, from the main session; a review round runs on
+the forge's, and its letter holds links, ids and usernames cut to plain characters,
+never a comment's or a log's text. A send types fixed text; a
 spawn types the text of the file the main session wrote the person's task to, after a
 fixed `Your task:` line, refused if it is not UTF-8 text or holds a control character but
 tab or a line break (ADR-0088). Whiska types nothing a mouse or a forge wrote: a task
@@ -38,7 +45,9 @@ The exceptions are the opposite case. The nudge spent a turn on work that sessio
 nothing to do with. A pickup spends the turn on the stalled mouse's own unfinished work,
 which cannot resume without one; a doorbell's turn is the answer arriving; and a spawn or
 a send is the person handing that mouse its task or their words, which it is there to act
-on.
+on. A review round is the mouse's own merge request coming back to it: the work it was
+there for, and nothing it pushes or posts to a person's thread goes without the person's
+yes.
 
 ## Consequences
 
@@ -68,3 +77,6 @@ pane, where the main session typed through herdr before (ADR-0088).
 
 Changed on 2026-10-14: `whiska spawn` types the mouse's task as its first prompt, where it
 typed a fixed line pointing at the brief (ADR-0088).
+
+Changed on 2026-10-14: the owl types one fixed line into a mouse's pane about new review
+on its merge request, and starts a mouse on that line when none is live (ADR-0060).

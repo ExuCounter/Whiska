@@ -134,10 +134,19 @@ defmodule Whiska.Herdr.Socket do
   end
 
   @impl true
-  def open_worktree(socket, path) do
-    with {:ok, %{"result" => _}} <-
-           request(socket, "worktree.open", %{"path" => path, "focus" => true}) do
-      :ok
+  def open_worktree(socket, path, focus?) do
+    with {:ok,
+          %{
+            "result" =>
+              %{
+                "workspace" => %{"workspace_id" => workspace},
+                "root_pane" => %{"pane_id" => pane}
+              } = result
+          }}
+         when is_binary(workspace) and is_binary(pane) <-
+           request(socket, "worktree.open", %{"path" => path, "focus" => focus?}) do
+      {:ok,
+       %{workspace_id: workspace, pane_id: pane, already_open?: result["already_open"] == true}}
     else
       {:ok, other} -> {:error, {:unexpected_reply, other}}
       {:error, _} = error -> error

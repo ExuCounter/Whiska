@@ -245,11 +245,28 @@ kept on the mouse, its **branch line** says so and `whiska pr` pushes to it unti
 lands, and while it waits the owl fetches the base, so its merge on the forge reaches the
 **fetched base** and **cleanup** takes the worktree down. On GitLab the owl also reads it
 every minute through the **forge**: its state, head pipeline, open threads and new
-comments, shown on its own **sidebar line** row; closed or gone, it asks whether to drop
-the worktree. A request still open when its branch is dropped is read until it merges or
+comments, shown on its own **sidebar line** row; new review on it is handed to the
+branch's mouse as a **review round**; closed or gone, it asks whether to drop the
+worktree. A request still open when its branch is dropped is read until it merges or
 closes; one never read is read once to find out. One opened elsewhere is not seen, nor is a GitHub one closed (ADR-0087, ADR-0060).
 _Avoid_: PR, pull request (GitHub's words; both forges are meant), review (what happens
 on it)
+
+**Review round**:
+New review on a **merge request** — a member's comment, or a pipeline failed on its head
+— handed to the branch's mouse to fix, answer or dispute, then pushed and posted on the
+person's yes. The owl keeps the review, by id, on its read until a round can take it, and
+then wakes the mouse if it is live: a **letter** in its worktree and one fixed line typed
+into its idle pane, under the **doorbell**'s bounds and only when nothing of it waits on
+the person. With no live mouse it starts one in the branch's worktree, making a dropped
+one again. The person runs one too, by `whiska send` with a review. Its rules are in the
+letter and the build and review **briefs**: nothing is pushed, and nothing posted to a
+person's thread, without the person's yes; a round on bots' threads alone needs none.
+Pushed is read from git and the forge. The round after three in a row that pushed
+nothing, a mouse that could not be started, and a started one that died without a word
+are the owl's own question instead, and no round runs until it is closed (ADR-0060,
+ADR-0044).
+_Avoid_: wake, wake-up (one way a round starts), review (what happens on the forge)
 
 **Forge**:
 Where a repo's merge requests live, GitLab or GitHub, and Whiska's one layer for talking
@@ -295,7 +312,8 @@ _Avoid_: findings (a reviewer's word), write-up, report (the message's shape)
 **Letter**:
 The person's words for a mouse, copied as a file into its worktree's `.whiska-letters/`,
 which git ignores: what `whiska send` hands a running mouse, and the comments
-`whiska spawn --from <id> --comments <file>` hands a fresh one. Only the copy's path is
+`whiska spawn --from <id> --comments <file>` hands a fresh one. The owl writes one too,
+for a **review round**: links and ids, never the forge's text. Only the file's path is
 typed into the pane, never the words (ADR-0044).
 _Avoid_: inbox (the person's own list of what waits on them), message (a mouse's)
 
@@ -389,8 +407,8 @@ What is typed is a one-line pointer with the id and no command; the full text is
 `whiska show <id>`, which the main session's **brief** has it run when the line lands.
 Delivery only ever types into the main session of the question's own house (ADR-0044);
 the only other text Whiska types goes into a mouse's own pane — a **pickup**, a
-**doorbell**, its **task** on `whiska spawn`, and one fixed line each on `whiska send` and
-`whiska resume`. Every delivery raises a **hoot**.
+**doorbell**, its **task** on `whiska spawn`, one fixed line each on `whiska send` and
+`whiska resume`, and a **review round**'s line. Every delivery raises a **hoot**.
 _Avoid_: notify, ping, relay (the old bash mechanism), push
 
 **Doorbell**:
@@ -420,8 +438,8 @@ worker moves)
 **Hoot**:
 The desktop notification the owl raises as it delivers a question — one per delivered
 question, sent in the same breath as the line so the two can never disagree (ADR-0062) —
-and once for each `done` report, as it is collected, since none is ever delivered; and
-as a **reminder**.
+and once for each `done` report, as it is collected, since none is ever delivered, but
+the one ending a **review round** that pushed nothing; and as a **reminder**.
 It carries the house, the mouse's branch, the verb and the id, in the line's own words,
 because the line only reaches somebody already looking at the main session and the point
 of leaving a question is that they are not. A question that is only collected, or gated,

@@ -52,9 +52,10 @@ options. They say what happens next:
   `whiska pr <id>`; "drop" → `whiska drop <branch>`. Land or pr refusing over files the
   mouse left uncommitted → show the list; on the person's ok, add `--commit <file>`, a
   commit message you write to a file.
-- a question whose facts say `asked by: Whiska` is Whiska's own, about a merge request
-  that closed: "drop" → the `whiska drop` command it gives; "keep" →
-  `whiska dismiss <id>`. Never `reply` to it.
+- a question whose facts say `asked by: Whiska` is Whiska's own, about a merge request.
+  One that closed: "drop" → the `whiska drop` command it gives; "keep" →
+  `whiska dismiss <id>`. One about its review: any answer → `whiska dismiss <id>`, which
+  lets Whiska hand review over again. Never `reply` to either.
 - "build it" after a mouse's "What to change" →
   `whiska spawn build <branch> --from <id> [--comments <file>]`, on a branch name you
   make; nothing the mouse wrote goes on a command line

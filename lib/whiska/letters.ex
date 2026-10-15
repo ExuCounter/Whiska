@@ -21,15 +21,37 @@ defmodule Whiska.Letters do
   """
   @spec put(Path.t(), Path.t(), Path.t()) :: {:ok, Path.t()} | {:error, term()}
   def put(main_checkout, worktree, source) do
-    folder = Path.join(worktree, @folder)
-    stamp = Calendar.strftime(DateTime.utc_now(), "%Y%m%d-%H%M%S")
-    copy = Path.join(folder, "#{stamp}-#{System.unique_integer([:positive])}.md")
-
-    with :ok <- Whiska.Spec.ignore(main_checkout, exclude_line()),
-         :ok <- File.mkdir_p(folder),
+    with {:ok, copy} <- new_path(main_checkout, worktree),
          :ok <- File.cp(source, copy) do
       {:ok, copy}
     end
+  end
+
+  @doc """
+  Write `text` into `worktree`'s letters under a name no earlier letter has,
+  for a letter Whiska writes itself. Answers its absolute path. The folder
+  must be a plain folder and the file new: nothing is written through a link.
+  """
+  @spec write(Path.t(), Path.t(), String.t()) :: {:ok, Path.t()} | {:error, term()}
+  def write(main_checkout, worktree, text) do
+    with {:ok, path} <- new_path(main_checkout, worktree),
+         {:ok, %File.Stat{type: :directory}} <- File.lstat(Path.dirname(path)),
+         :ok <- File.write(path, text, [:exclusive]) do
+      {:ok, path}
+    else
+      {:ok, %File.Stat{}} -> {:error, :not_a_plain_folder}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp new_path(main_checkout, worktree) do
+    folder = Path.join(worktree, @folder)
+    stamp = Calendar.strftime(DateTime.utc_now(), "%Y%m%d-%H%M%S")
+    path = Path.join(folder, "#{stamp}-#{System.unique_integer([:positive])}.md")
+
+    with :ok <- Whiska.Spec.ignore(main_checkout, exclude_line()),
+         :ok <- File.mkdir_p(folder),
+         do: {:ok, path}
   end
 
   @doc """

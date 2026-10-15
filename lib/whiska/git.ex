@@ -334,6 +334,63 @@ defmodule Whiska.Git do
     end
   end
 
+  @doc "Fetch `branch` alone into its remote-tracking branch, as `fetch_base/3` fetches the base."
+  @spec fetch_branch(Path.t(), branch(), timeout()) :: :ok | {:error, term()}
+  def fetch_branch(checkout, branch, timeout \\ 60_000), do: fetch_base(checkout, branch, timeout)
+
+  @doc "The commit `origin`'s copy of `branch` points at, as last fetched or pushed."
+  @spec remote_head(Path.t(), branch()) :: {:ok, String.t()} | {:error, term()}
+  def remote_head(checkout, branch) do
+    with true <- plain_name?(branch) || {:error, :unsafe_branch} do
+      case run(checkout, ["rev-parse", "--verify", "--quiet", "refs/remotes/origin/" <> branch]) do
+        {out, 0} -> {:ok, String.trim(out)}
+        _ -> {:error, :no_such_branch}
+      end
+    end
+  end
+
+  @doc """
+  Check `branch` out in a new worktree at `path`: the branch as it is here,
+  moved up to `origin`'s copy when that is only ahead of it, or else a new one
+  from `origin`'s copy, tracking it. A worktree deleted by hand is first
+  forgotten, so git does not hold its path or its branch; a branch checked
+  out anywhere else is refused before anything moves.
+  """
+  @spec add_worktree(Path.t(), Path.t(), branch()) :: :ok | {:error, term()}
+  def add_worktree(checkout, path, branch) do
+    with true <- plain_name?(branch) || {:error, :unsafe_branch},
+         :ok <- prune_worktrees(checkout),
+         :ok <- if(checked_out?(checkout, branch), do: {:error, :checked_out}, else: :ok) do
+      args =
+        case branch_head(checkout, branch) do
+          {:ok, here} ->
+            catch_up(checkout, branch, here)
+            ["worktree", "add", path, branch]
+
+          {:error, _} ->
+            ["worktree", "add", "--track", "-b", branch, path, "origin/" <> branch]
+        end
+
+      with {:ok, _} <- git(checkout, args), do: :ok
+    end
+  end
+
+  # The main checkout counts: it is the first worktree git lists.
+  defp checked_out?(checkout, branch) do
+    case run(checkout, ["worktree", "list", "--porcelain"]) do
+      {out, 0} -> out |> String.split("\n") |> Enum.member?("branch refs/heads/" <> branch)
+      _ -> true
+    end
+  end
+
+  # Commits here that `origin` lacks keep the branch where it is.
+  defp catch_up(checkout, branch, here) do
+    with {:ok, there} when there != here <- remote_head(checkout, branch),
+         {_, 0} <- run(checkout, ["merge-base", "--is-ancestor", here, there]) do
+      git(checkout, ["update-ref", "refs/heads/" <> branch, there, here])
+    end
+  end
+
   # A port rather than `System.cmd`, for its OS pid.
   defp unattended(checkout, args, timeout) do
     case System.find_executable("git") do

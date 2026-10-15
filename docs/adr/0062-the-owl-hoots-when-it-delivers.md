@@ -18,7 +18,9 @@ it: the branch, `finished`, its id and its pointer, with the `done` sound. Away,
 on another branch or a hold on its own holds that hoot until it lifts. It goes whatever
 became of the branch meanwhile, a merge request or a landing included: the report is news
 either way. Each report stores when it last hooted, so an owl restarted does not hoot it
-again.
+again. The one exception is the first report after a review round the owl handed over
+(ADR-0060) that pushed nothing: it is counted as hooted, silently, since the merge request
+shows nothing new to look at.
 
 **A finished branch is reminded.** At most once per house every two hours, one hoot names
 each finished branch whose last hoot is two hours old or more, with how long ago it
@@ -122,3 +124,6 @@ Folded in on 2026-10-08: 0071 (its text is in git history).
 
 Changed on 2026-10-14: a finished report hoots as it is collected, never on delivery, and
 a finished branch with work to land is reminded every two hours.
+
+Changed on 2026-10-14, again: the report ending a review round that pushed nothing does
+not hoot.

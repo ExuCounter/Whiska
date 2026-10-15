@@ -30,7 +30,7 @@ defmodule Whiska.MergeRequests do
   @longest_retry_ms 3_600_000
   @longest_wait_ms 900_000
 
-  @type comment :: %{id: pos_integer(), author: String.t()}
+  @type comment :: %{id: pos_integer(), author: String.t(), discussion_id: String.t() | nil}
 
   @type seen :: %{
           snapshot: Forge.snapshot(),
@@ -43,8 +43,7 @@ defmodule Whiska.MergeRequests do
           {:ok, seen()} | {:missing, true} | {:unknown, term(), pos_integer() | nil}
 
   @type event ::
-          {:would_wake,
-           %{comments: non_neg_integer(), authors: [String.t()], failed_on: String.t() | nil}}
+          {:review, MergeRequestRead.review()}
           | :merged
           | :closed
           | :gone
@@ -243,7 +242,9 @@ defmodule Whiska.MergeRequests do
     |> case do
       {:ok, context} ->
         kept = Enum.filter(notes, &context.members[{ref.host, ref.project, &1.author_id}])
-        {:ok, Enum.map(kept, &%{id: &1.id, author: &1.author}), context}
+
+        {:ok, Enum.map(kept, &%{id: &1.id, author: &1.author, discussion_id: &1.discussion_id}),
+         context}
 
       {unknown, context} ->
         {unknown, context}
@@ -275,7 +276,14 @@ defmodule Whiska.MergeRequests do
   defp blank(mouse_id, url) do
     MergeRequestRead.fields()
     |> Map.new(&{&1, nil})
-    |> Map.merge(%{mouse_id: mouse_id, url: url, threads_open: 0, ready: false, missing_reads: 0})
+    |> Map.merge(%{
+      mouse_id: mouse_id,
+      url: url,
+      threads_open: 0,
+      ready: false,
+      missing_reads: 0,
+      rounds_unpushed: 0
+    })
   end
 
   defp advance({:ok, seen}, prior, base, now) do
@@ -285,12 +293,12 @@ defmodule Whiska.MergeRequests do
     pipeline = snapshot.pipeline
     failed = failed_on_head(snapshot)
 
-    {failed_on, seen_failed} =
+    {failed_now, seen_failed} =
       cond do
         is_nil(failed) -> {nil, prior && prior.seen_failed_pipeline_id}
         first? -> {nil, failed.id}
         failed.id == prior.seen_failed_pipeline_id -> {nil, failed.id}
-        true -> {String.slice(snapshot.head_sha, 0, 8), failed.id}
+        true -> {%{id: failed.id, sha: String.slice(snapshot.head_sha, 0, 8)}, failed.id}
       end
 
     attrs =
@@ -314,21 +322,13 @@ defmodule Whiska.MergeRequests do
     {attrs, moved} = moved(attrs, prior && prior.state, state)
     comments = if first?, do: [], else: seen.new_comments
 
-    wake =
-      if comments != [] or failed_on do
-        [
-          {:would_wake,
-           %{
-             comments: length(comments),
-             authors: comments |> Enum.map(& &1.author) |> Enum.uniq(),
-             failed_on: failed_on
-           }}
-        ]
-      else
-        []
-      end
-
-    {attrs, readable_again(prior) ++ moved ++ wake}
+    if comments != [] or failed_now do
+      review = %{comments: comments, pipeline: failed_now}
+      attrs = Map.put(attrs, :pending, keep(prior, review))
+      {attrs, readable_again(prior) ++ moved ++ [{:review, review}]}
+    else
+      {attrs, readable_again(prior) ++ moved}
+    end
   end
 
   defp advance({:missing, true}, prior, base, now) do
@@ -354,6 +354,21 @@ defmodule Whiska.MergeRequests do
     since = prior && prior.unread_since
     attrs = Map.merge(base, %{unread_since: since || now, unread_reason: inspect(reason)})
     {attrs, if(since, do: [], else: [{:unreadable, reason}])}
+  end
+
+  # A review read while the last one still waits to be handed over joins it:
+  # the comments in the order read, and the newest failed pipeline.
+  defp keep(prior, review) do
+    case prior && MergeRequestRead.pending(prior) do
+      nil ->
+        MergeRequestRead.encode_pending(review)
+
+      kept ->
+        MergeRequestRead.encode_pending(%{
+          comments: kept.comments ++ review.comments,
+          pipeline: review.pipeline || kept.pipeline
+        })
+    end
   end
 
   defp failed_on_head(%{pipeline: %{status: :failed, sha: sha} = pipeline, head_sha: sha})
@@ -416,8 +431,8 @@ defmodule Whiska.MergeRequests do
 
   @doc "The owl's log line for `event` on `branch`'s merge request `label`."
   @spec line(event(), String.t(), String.t()) :: String.t()
-  def line({:would_wake, wake}, branch, label),
-    do: "#{branch}: would wake for #{label} — #{wake_reasons(wake)}"
+  def line({:review, review}, branch, label),
+    do: "#{branch}: review for #{label} — #{review_reasons(review)}"
 
   def line(:merged, branch, label),
     do: "#{branch}: #{label} merged on the forge — fetching the base now"
@@ -431,21 +446,23 @@ defmodule Whiska.MergeRequests do
 
   def line(:readable_again, branch, label), do: "#{branch}: #{label} reads again"
 
-  defp wake_reasons(%{comments: n, authors: authors, failed_on: sha}) do
-    authors = Enum.map_join(authors, ", ", &plain/1)
+  defp review_reasons(%{comments: comments, pipeline: pipeline}) do
+    authors = comments |> Enum.map(&plain(&1.author)) |> Enum.uniq() |> Enum.join(", ")
 
     comments =
-      case n do
+      case length(comments) do
         0 -> nil
         1 -> "1 new comment by #{authors}"
         n -> "#{n} new comments by #{authors}"
       end
 
-    failed = if sha, do: "pipeline failed on #{plain(sha)}"
+    failed = if pipeline, do: "pipeline failed on #{plain(pipeline.sha)}"
     [comments, failed] |> Enum.reject(&is_nil/1) |> Enum.join("; ")
   end
 
   # A name as the forge sent it, kept to what a username may hold, so the log
   # carries no line or terminal control of the forge's making.
-  defp plain(name), do: String.replace(name, ~r/[^A-Za-z0-9_.-]/, "")
+  @doc "A name from the forge with only the characters a username or sha is made of."
+  @spec plain(String.t()) :: String.t()
+  def plain(name), do: String.replace(name, ~r/[^A-Za-z0-9_.-]/, "")
 end

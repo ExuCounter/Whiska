@@ -99,13 +99,16 @@ C4Container
   Rel(house, db, "Records each collected turn's usage, read from the transcript its entry names")
   Rel(cli, db, "metrics reads usage, waits and spec timing")
   Rel(cli, db, "pr and merge-request record the link the forge's tool printed for a finished branch")
-  Rel(house, remote, "Fetches the base alone every minute while a merge request waits, and at once when the forge says merged, in a task, never prompting", "git fetch")
+  Rel(house, remote, "Fetches the base alone every minute while a merge request waits, and at once when the forge says merged, in a task, never prompting; fetches a dropped branch to make its worktree again for a review mouse", "git fetch")
   Rel(house, forge, "Reads each recorded GitLab merge request every minute, in a task, GET only", "glab api")
-  Rel(house, doorstep, "Leaves its own question when the forge says closed or gone, then collects it")
+  Rel(house, doorstep, "Leaves its own question when the forge says closed or gone, or a review round cannot be handed over, then collects it")
   Rel(house, herdr, "Removes a landed worktree, here or in the fetched base, and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
   Rel(house, herdr, "Rings a mouse's doorbell again, at most three times, while its answer is not taken")
   Rel(house, herdr, "Types a pickup line into a mouse's pane, once, when its turn died")
+  Rel(house, herdr, "Types a review round's one fixed line into a mouse's idle pane, pointing at the letter it wrote in the worktree")
+  Rel(house, herdr, "Starts a review mouse when none is live: opens its worktree without focus, starts Claude with the review brief, types the same line")
+  Rel(house, brief, "Writes a review mouse's")
   Rel(house, herdr, "Hoots: asks herdr to show a notification as it delivers")
   Rel(house, herdr, "Reports each mouse's sidebar line on its workspace; reads them back every 2 s and re-sorts the mice when one changes state, starts or stops queueing behind another, or appears in any state but idle")
 
@@ -171,5 +174,4 @@ The reasoning is in the ADR each line names; this is the map.
 ## Designed only
 
 The per-repo sockets with the peer-process check (ADR-0024); `whiska stop` for one house
-(ADR-0003); push approval (ADR-0011); relaunching a stuck mouse (ADR-0026, ADR-0067);
-waking a mouse about what the owl read of its merge request (ADR-0060).
+(ADR-0003); push approval (ADR-0011); relaunching a stuck mouse (ADR-0026, ADR-0067).

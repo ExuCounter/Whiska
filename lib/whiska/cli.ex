@@ -2035,8 +2035,8 @@ defmodule Whiska.CLI do
   defp open_without_pane(main, socket, branch, path) do
     cond do
       File.dir?(path) ->
-        case Herdr.impl().open_worktree(socket, path) do
-          :ok ->
+        case Herdr.impl().open_worktree(socket, path, true) do
+          {:ok, _opened} ->
             say("Opened #{branch}'s worktree in herdr — no session is running there.")
 
           {:error, reason} ->
