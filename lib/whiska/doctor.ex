@@ -82,7 +82,7 @@ defmodule Whiska.Doctor do
   default), `:linger` (whether the owl outlives a logout, the manager's own
   answer by default), `:owl_started_at`
   (a function giving when a pid started, `ps` by default), `:desktop` (where a
-  hoot herdr will not show is raised, `Whiska.Desktop.impl/0` by default),
+  hoot is raised, `Whiska.Desktop.impl/0` by default),
   `:socket_paths` (the owl's two sockets, `Whiska.Owl.socket_paths/0` by default),
   `:forge_tools` (a tool's path by name, as the owl takes it).
   """
@@ -151,7 +151,7 @@ defmodule Whiska.Doctor do
             File.read(Install.herdr_status_path()) == {:ok, Install.herdr_status_script()}
           ),
           sidebar(read_herdr_config(env)),
-          hoot_probe(herdr, desktop, env),
+          hoot_probe(desktop, main_checkout),
           global(global_state),
           commands(Install.commands_dir(), env)
         ] ++
@@ -988,110 +988,85 @@ defmodule Whiska.Doctor do
   defp herdr_version(_herdr, _env, _no_herdr), do: []
 
   @doc """
-  Whether the hoot the owl raises on every delivery is seen (ADR-0062).
+  Whether the hoot the owl raises is seen (ADR-0062).
 
-  `probe` is what `Whiska.Herdr.notify/2` answered to a notification sent for
-  this check, or `:no_socket` when there was no herdr to send one to; `desktop`
-  is what the desktop did when herdr's answer sent the hoot there
-  (ADR-0062), or `:not_needed`. Both are asked
-  rather than read from config, so the person sees the notification exactly
-  when it works, which is the answer and the demonstration in one (ADR-0038).
+  `desktop` is what the desktop answered to a hoot sent for this check: the
+  notifier that raised it, or why none did. It is asked rather than read from
+  config, so the person sees the notification exactly when it works, which is
+  the answer and the demonstration in one (ADR-0038). herdr is not asked:
+  hoots do not go through it, and its popup setting has no say in them.
 
   A warning, never a failure: the question is delivered either way, the line is
   in the main session, and `whiska questions` still lists it. What is lost is
-  hearing about it while looking at something else. herdr's config is the
-  person's and machine-global, so the fix says what to change in the table they
-  already have and never writes it (ADR-0056).
+  hearing about it while looking at something else. Whether a notification
+  stays on screen until it is acted on is macOS's own per-app setting, in
+  files the owl cannot read, so the check says what to set instead of
+  detecting it.
   """
-  @spec hoot(Herdr.notify_result() | :no_socket, Whiska.Desktop.result() | :not_needed) ::
-          Check.t()
-  def hoot(probe, desktop \\ :not_needed)
-
-  def hoot({:ok, :shown}, _desktop),
-    do: Check.ok("hoot", "a delivered question is shown by herdr")
-
-  def hoot({:ok, {:not_shown, reason}}, {:ok, notifier}),
+  @spec hoot(Whiska.Desktop.result()) :: Check.t()
+  def hoot({:ok, "terminal-notifier"}),
     do:
       Check.ok(
         "hoot",
-        "herdr does not show it (#{reason}), so Whiska raises it with #{notifier} — " <>
-          "if nothing appeared, #{notifications_off(notifier)}"
+        "raised by terminal-notifier; a click jumps to the main session. To keep it on " <>
+          "screen until you act, set terminal-notifier to Alerts in System Settings › " <>
+          "Notifications (Whiska cannot read that). If nothing appeared, macOS has " <>
+          "notifications off for terminal-notifier"
       )
 
-  def hoot({:ok, {:not_shown, reason}}, {:error, :no_notifier}),
+  def hoot({:ok, "osascript"}),
     do:
       Check.warn(
         "hoot",
-        "herdr did not show it (#{reason}), and there is no osascript or notify-send " <>
-          "to raise it instead, so a delivered question is silent",
-        hoot_fix(reason)
+        "raised by osascript, which has no click and does not stay on screen — " <>
+          "if nothing appeared, macOS has notifications off for Script Editor",
+        "brew install terminal-notifier"
       )
 
-  def hoot({:ok, {:not_shown, reason}}, {:error, why}),
+  def hoot({:ok, "notify-send"}),
+    do:
+      Check.ok(
+        "hoot",
+        "raised by notify-send — if nothing appeared, the desktop has notifications " <>
+          "off, or no notification server is running"
+      )
+
+  def hoot({:ok, notifier}),
+    do:
+      Check.ok(
+        "hoot",
+        "raised by #{notifier} — if nothing appeared, check its notification settings"
+      )
+
+  def hoot({:error, :no_notifier}),
     do:
       Check.warn(
         "hoot",
-        "herdr did not show it (#{reason}), and raising it on the desktop failed " <>
-          "(#{inspect(why)}), so a delivered question is silent",
-        hoot_fix(reason)
+        "there is no terminal-notifier, osascript or notify-send to raise one, " <>
+          "so a delivered question is silent"
       )
 
-  def hoot({:ok, {:not_shown, reason}}, :not_needed),
+  def hoot({:error, why}),
     do:
       Check.warn(
         "hoot",
-        "herdr did not show it (#{reason}), so a delivered question is silent",
-        hoot_fix(reason)
+        "raising one on the desktop failed (#{inspect(why)}), so a delivered question is silent"
       )
 
-  def hoot({:error, reason}, _desktop),
-    do: Check.warn("hoot", "could not ask herdr to show one (#{inspect(reason)})")
-
-  def hoot(:no_socket, _desktop),
-    do: Check.warn("hoot", "no herdr to ask — a delivered question is silent")
-
-  # Never a block to paste. `[ui.toast]` and `[ui.sound]` are in herdr's own
-  # stock config, and a second table of either name is a TOML duplicate key,
-  # which herdr refuses — dropping the whole file back to defaults, the tab bar
-  # entry that draws the owl's line (ADR-0048) with it.
-  # The probe (ADR-0038): ask herdr to show one and read what it says it did.
-  # The person sees it exactly when the hoot works, so the check is its own
+  # The probe (ADR-0038): raise one and read what the notifier says it did. The
+  # person sees it exactly when the hoot works, so the check is its own
   # demonstration — and when it does not work there is nothing to see, which is
-  # the finding.
-  # It goes out through `Whiska.Delivery.Hoot.send_out/4`, the owl's own path,
-  # so the desktop fallback is probed exactly as a delivery would take it.
-  defp hoot_probe(herdr, desktop, env) do
-    case Herdr.socket(env) do
-      {:ok, socket} ->
-        {answer, raised} =
-          Whiska.Delivery.Hoot.send_out(herdr, socket, desktop, %{
-            title: "🐱 whiska doctor",
-            body: "this is what a delivered question looks like",
-            sound: :none
-          })
-
-        hoot(answer, raised)
-
-      {:error, {:no_socket, _}} ->
-        hoot(:no_socket)
-    end
-  end
-
-  defp notifications_off("notify-send"),
-    do: "the desktop has notifications off, or no notification server is running"
-
-  # macOS files osascript's notifications under the app that runs AppleScript.
-  defp notifications_off("osascript"), do: "macOS has notifications off for Script Editor"
-  defp notifications_off(notifier), do: "macOS has notifications off for #{notifier}"
-
-  # Only popups switched off are fixed in herdr's config; nobody attached, or
-  # herdr pacing itself, is not.
-  defp hoot_fix("disabled"), do: hoot_fix()
-  defp hoot_fix(_reason), do: nil
-
-  defp hoot_fix do
-    ~s(in #{Herdr.config_path()}, set delivery = "system" under the ) <>
-      ~s([ui.toast] table and enabled = true under [ui.sound])
+  # the finding. It goes out through `Whiska.Delivery.Hoot.send_out/2`, the
+  # owl's own path, click and all.
+  defp hoot_probe(desktop, main_checkout) do
+    desktop
+    |> Whiska.Delivery.Hoot.send_out(%{
+      title: "🐱 whiska doctor",
+      body: "this is what a delivered question looks like",
+      sound: :none,
+      jump: main_checkout
+    })
+    |> hoot()
   end
 
   @doc """

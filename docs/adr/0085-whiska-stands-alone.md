@@ -73,7 +73,9 @@ absence is said plainly. The cases so far:
   the person's `.md` files open.
 
 The one older call, `terminal-notifier` for the owl's desktop notification, was dropped on
-2026-10-11 (ADR-0062): the hoot uses `osascript` on macOS and `notify-send` on Linux.
+2026-10-11 (ADR-0062) and came back on 2026-10-15 as an optional first choice on macOS: a
+public tool, never required, since the hoot falls to `osascript` without it, and to
+`notify-send` on Linux.
 
 ## Why
 

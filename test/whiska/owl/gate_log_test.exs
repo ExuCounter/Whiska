@@ -12,6 +12,7 @@ defmodule Whiska.Owl.GateLogTest do
   import ExUnit.CaptureIO
   import Mox
 
+  alias Whiska.Desktop.Mock, as: Desktop
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
   alias Whiska.Herdr.Mock, as: Herdr
@@ -47,8 +48,6 @@ defmodule Whiska.Owl.GateLogTest do
     stub(Herdr, :subscribe, fn @socket, _subs, _listener ->
       {:ok, spawn(fn -> receive do: (:stop -> :ok) end)}
     end)
-
-    stub(Herdr, :notify, fn @socket, _notification -> :ok end)
 
     test = self()
 

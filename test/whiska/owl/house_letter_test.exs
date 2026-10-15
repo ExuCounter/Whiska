@@ -9,6 +9,7 @@ defmodule Whiska.Owl.HouseLetterTest do
 
   import Mox
 
+  alias Whiska.Desktop.Mock, as: Desktop
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
   alias Whiska.Herdr.Mock, as: Herdr
@@ -46,7 +47,7 @@ defmodule Whiska.Owl.HouseLetterTest do
       {:ok, spawn(fn -> receive do: (:stop -> :ok) end)}
     end)
 
-    stub(Herdr, :notify, fn @socket, _notification -> :ok end)
+    stub(Desktop, :notify, fn _notification -> {:ok, "osascript"} end)
     box_holds("")
     main_is("idle")
     expect_prompts()
@@ -268,7 +269,7 @@ defmodule Whiska.Owl.HouseLetterTest do
 
   test "a letter raises no hoot", %{main: main} do
     test = self()
-    stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+    stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
     leave_letter(main, "platform")
     open(main)
 

@@ -23,18 +23,14 @@ defmodule Whiska.Delivery.Hoot do
   into, and it is on the screen when they look; a notification has room for the
   branch and the verb and nothing more.
 
-  herdr is asked first, and decides from the person's own `[ui.toast]` and
-  `[ui.sound]` settings whether to draw it. When it says it did not because
-  popups are off (`disabled`) or nobody is attached to see one
-  (`no_foreground_client`), the hoot is raised on the desktop instead
-  (ADR-0062): `[ui.toast] delivery` is one
-  switch over two decisions, and turning off herdr's toast for every agent is
-  not asking for Whiska's to go quiet. `rate_limited` and `busy` are herdr
-  pacing itself, and a fallback would defeat the pacing; an error leaves it
-  unknown whether herdr drew one. Neither falls back.
+  It is raised on the desktop and never through herdr (ADR-0062): herdr's
+  `[ui.toast] delivery` is one switch over its own agent toasts, a mouse's
+  included, and every notification sent through its API, and with the switch
+  off it still answers `shown: true`. Whiska is the only source, and only for
+  what waits on the person in a main session.
 
   The sound is the one judgement here. A question that needs a decision is the
-  one that must not be missed, so it takes herdr's `request` sound; a finished
+  one that must not be missed, so it takes the `request` sound; a finished
   branch takes `done`. Both hoot, but they are told apart without looking.
 
   A finished report hoots as it is collected, and its line is typed later,
@@ -44,11 +40,10 @@ defmodule Whiska.Delivery.Hoot do
   """
 
   alias Whiska.Delivery.Text
-  alias Whiska.Herdr
   alias Whiska.Report
   alias Whiska.Schema.Question
 
-  @typedoc "A notification, in herdr's own terms (`Whiska.Herdr.notification/0`)."
+  @typedoc "A notification (`Whiska.Desktop.notification/0`), before the house adds where a click goes."
   @type t :: %{title: String.t(), body: String.t(), sound: :done | :request}
 
   # A branch and a house name are somebody else's text — a branch arrives in
@@ -61,29 +56,13 @@ defmodule Whiska.Delivery.Hoot do
 
   @reminder_names 8
 
-  @falls_back ["disabled", "no_foreground_client"]
-
-  @typedoc "What herdr did with a hoot, and what the desktop did after it."
-  @type outcome :: {Herdr.notify_result(), Whiska.Desktop.result() | :not_needed}
-
   @doc """
-  Raise `hoot` through herdr, and on the desktop when herdr says it will not
-  show it. Never raises: whatever either side does wrong comes back as an
-  answer.
+  Raise `hoot` on the desktop. Never raises: whatever the notifier does wrong
+  comes back as an answer.
   """
-  @spec send_out(module(), Path.t(), module(), t()) :: outcome()
-  def send_out(herdr, socket, desktop, hoot) do
-    case attempt(fn -> herdr.notify(socket, hoot) end) do
-      {:ok, {:not_shown, reason}} = answer when reason in @falls_back ->
-        {answer, attempt(fn -> desktop.notify(hoot) end)}
-
-      answer ->
-        {answer, :not_needed}
-    end
-  end
-
-  defp attempt(call) do
-    call.()
+  @spec send_out(module(), Whiska.Desktop.notification()) :: Whiska.Desktop.result()
+  def send_out(desktop, hoot) do
+    desktop.notify(hoot)
   catch
     kind, reason -> {:error, {kind, reason}}
   end

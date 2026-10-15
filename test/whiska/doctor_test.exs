@@ -327,49 +327,28 @@ defmodule Whiska.DoctorTest do
 
   # -- the hoot ----------------------------------------------------------------
 
-  describe "hoot/2 — whether the owl's notification is seen (ADR-0062)" do
-    test "herdr saying it showed the notification passes" do
-      check = Doctor.hoot({:ok, :shown})
+  describe "hoot/1 — whether the owl's notification is seen (ADR-0062)" do
+    test "terminal-notifier raising it is ok, and says what to set so it stays on screen" do
+      check = Doctor.hoot({:ok, "terminal-notifier"})
 
       assert %Check{status: :ok} = check
-      assert check.detail =~ "shown"
+      assert check.detail =~ "terminal-notifier"
+      assert check.detail =~ "click"
+      assert check.detail =~ "Alerts"
+      assert check.detail =~ "System Settings"
     end
 
-    test "herdr saying it did not, and why, is a warning that repeats herdr's reason" do
-      check = Doctor.hoot({:ok, {:not_shown, "disabled"}})
+    test "osascript on macOS is a warning: it has no click and does not stay" do
+      check = Doctor.hoot({:ok, "osascript"})
 
       assert %Check{status: :warn} = check
-      assert check.detail =~ "disabled"
-      assert check.fix =~ "ui.toast"
-      assert check.fix =~ "system"
-      assert check.fix =~ Whiska.Herdr.config_path()
-    end
-
-    test "herdr unreachable is a warning, and says the probe could not be made" do
-      check = Doctor.hoot({:error, :enoent})
-
-      assert %Check{status: :warn} = check
-      assert check.detail =~ "could not ask herdr"
-    end
-
-    test "no socket to probe is a warning, not a verdict about the setting" do
-      check = Doctor.hoot(:no_socket)
-
-      assert %Check{status: :warn} = check
-      refute check.detail =~ "shown"
-    end
-
-    test "herdr's popups off but the desktop showed it is ok, and names the notifier" do
-      check = Doctor.hoot({:ok, {:not_shown, "disabled"}}, {:ok, "osascript"})
-
-      assert %Check{status: :ok} = check
-      assert check.detail =~ "disabled"
       assert check.detail =~ "osascript"
-      assert check.detail =~ "macOS has notifications off for Script Editor"
+      assert check.detail =~ "Script Editor"
+      assert check.fix =~ "brew install terminal-notifier"
     end
 
     test "raised by notify-send, it points at the desktop's own settings, not macOS's" do
-      check = Doctor.hoot({:ok, {:not_shown, "disabled"}}, {:ok, "notify-send"})
+      check = Doctor.hoot({:ok, "notify-send"})
 
       assert %Check{status: :ok} = check
       assert check.detail =~ "notify-send"
@@ -377,50 +356,40 @@ defmodule Whiska.DoctorTest do
       refute check.detail =~ "macOS"
     end
 
-    test "nobody attached to herdr is not fixed by herdr's popup setting" do
-      for desktop <- [:not_needed, {:error, :no_notifier}] do
-        %Check{fix: fix} = Doctor.hoot({:ok, {:not_shown, "no_foreground_client"}}, desktop)
-        assert fix == nil
-      end
-    end
-
-    test "herdr's popups off and no notifier on this machine says both, as a warning" do
-      check = Doctor.hoot({:ok, {:not_shown, "disabled"}}, {:error, :no_notifier})
+    test "no notifier on this machine is a warning that says a delivered question is silent" do
+      check = Doctor.hoot({:error, :no_notifier})
 
       assert %Check{status: :warn} = check
-      assert check.detail =~ "disabled"
-      refute check.detail =~ "terminal-notifier"
+      assert check.detail =~ "terminal-notifier"
       assert check.detail =~ "osascript"
       assert check.detail =~ "notify-send"
       assert check.detail =~ "silent"
-      assert check.fix =~ "ui.toast"
     end
 
-    test "a desktop notifier that failed says how" do
-      check =
-        Doctor.hoot(
-          {:ok, {:not_shown, "no_foreground_client"}},
-          {:error, {"osascript", {:exit, 1}}}
-        )
+    test "a notifier that failed says how" do
+      check = Doctor.hoot({:error, {"terminal-notifier", {:exit, 1}}})
 
       assert %Check{status: :warn} = check
-      assert check.detail =~ "osascript"
-      assert check.detail =~ "no_foreground_client"
+      assert check.detail =~ "terminal-notifier"
+      assert check.detail =~ "exit"
+    end
+
+    test "herdr's popup setting is not the doctor's business" do
+      for desktop <- [{:ok, "terminal-notifier"}, {:error, :no_notifier}] do
+        refute Doctor.hoot(desktop).detail =~ "herdr"
+        refute (Doctor.hoot(desktop).fix || "") =~ "ui.toast"
+      end
     end
 
     test "never a failure: a silent hoot loses no question (ADR-0038)" do
-      for probe <- [
-            {:ok, :shown},
-            {:ok, {:not_shown, "disabled"}},
-            {:error, :enoent},
-            :no_socket
+      for desktop <- [
+            {:ok, "terminal-notifier"},
+            {:ok, "osascript"},
+            {:ok, "notify-send"},
+            {:error, :no_notifier},
+            {:error, {:error, :boom}}
           ] do
-        assert %Check{status: status} = Doctor.hoot(probe)
-        assert status in [:ok, :warn]
-      end
-
-      for desktop <- [{:ok, "osascript"}, {:error, :no_notifier}, {:error, {:error, :boom}}] do
-        assert %Check{status: status} = Doctor.hoot({:ok, {:not_shown, "disabled"}}, desktop)
+        assert %Check{status: status} = Doctor.hoot(desktop)
         assert status in [:ok, :warn]
       end
     end
@@ -1372,7 +1341,6 @@ defmodule Whiska.DoctorTest do
         "HERDR_SOCKET_PATH" => Path.join(root, "herdr.sock")
       }
 
-      stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
       stub(Herdr, :read_screen, fn _socket, _pane -> {:ok, box("")} end)
 
       stub(Herdr, :processes, fn _socket, _pane ->
@@ -1429,24 +1397,23 @@ defmodule Whiska.DoctorTest do
       assert %Check{status: :warn, fix: "whiska init"} = find(report.checks, "statusline")
     end
 
-    test "herdr's popups off, the probe is raised on the desktop and the check says so", %{
+    test "the probe is raised on the desktop, never through herdr, and the check says so", %{
       main: main,
       env: env
     } do
       test = self()
       stub(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
-      stub(Herdr, :notify, fn _socket, _notification -> {:ok, {:not_shown, "disabled"}} end)
 
       stub(Whiska.Desktop.Mock, :notify, fn notification ->
         send(test, {:desktop, notification})
-        {:ok, "osascript"}
+        {:ok, "terminal-notifier"}
       end)
 
       report = Doctor.run(main, env: env, owl_pids: fn -> [] end, desktop: Whiska.Desktop.Mock)
 
-      assert_received {:desktop, %{title: "🐱 whiska doctor"}}
+      assert_received {:desktop, %{title: "🐱 whiska doctor", jump: ^main}}
       assert %Check{status: :ok, detail: detail} = find(report.checks, "hoot")
-      assert detail =~ "osascript"
+      assert detail =~ "terminal-notifier"
     end
 
     test "a repo init took the statusline out of says it is gone", %{main: main, env: env} do

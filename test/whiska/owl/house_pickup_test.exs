@@ -11,6 +11,7 @@ defmodule Whiska.Owl.HousePickupTest do
   import ExUnit.CaptureIO
   import Mox
 
+  alias Whiska.Desktop.Mock, as: Desktop
   alias Whiska.Herdr.Mock, as: Herdr
   alias Whiska.Owl.House
   alias Whiska.Storage
@@ -49,7 +50,8 @@ defmodule Whiska.Owl.HousePickupTest do
   defp start_house(opts) do
     name = :"house-#{System.unique_integer([:positive])}"
     allow(Herdr, self(), fn -> Process.whereis(name) end)
-    start_supervised!({House, [name: name] ++ opts})
+    allow(Desktop, self(), fn -> Process.whereis(name) end)
+    start_supervised!({House, [name: name, desktop: Desktop] ++ opts})
   end
 
   defp pane(path, status) do
@@ -219,9 +221,9 @@ defmodule Whiska.Owl.HousePickupTest do
 
       test_pid = self()
 
-      stub(Herdr, :notify, fn @socket, hoot ->
+      stub(Desktop, :notify, fn hoot ->
         send(test_pid, {:hoot, hoot})
-        {:ok, :shown}
+        {:ok, "osascript"}
       end)
 
       capture_io(:stderr, fn ->
@@ -250,7 +252,7 @@ defmodule Whiska.Owl.HousePickupTest do
 
       stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(path, "working")]} end)
       test_pid = self()
-      stub(Herdr, :notify, fn _, hoot -> send(test_pid, {:hoot, hoot}) && {:ok, :shown} end)
+      stub(Desktop, :notify, fn hoot -> send(test_pid, {:hoot, hoot}) && {:ok, "osascript"} end)
 
       capture_io(:stderr, fn ->
         house = open(repo, backstop_ms: 20)

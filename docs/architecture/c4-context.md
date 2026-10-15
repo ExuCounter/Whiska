@@ -20,7 +20,7 @@ C4Context
   System_Ext(herdr, "herdr", "Terminal multiplexer - owns panes, starts Claude, reports agent status")
   System_Ext(git, "git worktrees", "One worktree per mouse, laid out under the main checkout")
   System_Ext(launchd, "Service manager", "launchd on macOS, systemd on Linux - keeps the one owl per machine running")
-  System_Ext(nc, "Desktop notifications", "osascript on macOS, notify-send on Linux")
+  System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
   System_Ext(remote, "Git remote", "The forge's copy of the repo, where a merge request is merged")
   System_Ext(forge, "Forge API", "GitLab or GitHub: a merge request's state, pipeline and threads")
 
@@ -32,7 +32,7 @@ C4Context
   Rel(herdr, whiska, "Tab bar asks the owl for its line every five seconds", "nc -U")
   Rel(whiska, git, "Derives layout from, stores house under .git/, removes a landed worktree")
   Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
-  Rel(whiska, nc, "Raises a hoot herdr will not show")
+  Rel(whiska, nc, "Raises every hoot; a click on it jumps to the main session")
   Rel(whiska, remote, "Fetches the base every minute while a merge request waits, and a dropped branch for a review mouse; pr pushes a branch", "git")
   Rel(whiska, forge, "Reads a recorded GitLab merge request every minute, GET only; pr opens one", "glab or gh, the person's login")
 

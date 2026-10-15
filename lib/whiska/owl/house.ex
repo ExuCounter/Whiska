@@ -112,9 +112,8 @@ defmodule Whiska.Owl.House do
   collected or held. It carries the house, the branch, the verb and the id —
   `Whiska.Delivery.Hoot`, which says it in the line's own words. It is a
   courtesy, not the job: a hoot that errors or raises is swallowed, and the
-  question stays delivered. When herdr says it will not draw the hoot because
-  its popups are off or nobody is attached, the same hoot is raised on the
-  desktop instead (ADR-0062).
+  question stays delivered. It is raised on the desktop, never through herdr,
+  and the owl logs what became of each (ADR-0062).
 
   ## Finished branches (ADR-0062)
 
@@ -329,7 +328,7 @@ defmodule Whiska.Owl.House do
   killed), `:forge_tools` (a forge tool's path by its name, where it is not
   the one installed), `:remind_ms` (how far apart reminders about finished
   branches are, ADR-0062), `:desktop` (where a hoot
-  herdr will not show is raised, `Whiska.Desktop.impl/0` by default),
+  is raised, `Whiska.Desktop.impl/0` by default),
   `:away_path` (the file that says the person is away, the real one by
   default), `:name`.
   """
@@ -1748,14 +1747,8 @@ defmodule Whiska.Owl.House do
   defp branch_or_id(%Mouse{branch: branch}, _q) when is_binary(branch), do: branch
   defp branch_or_id(_mouse, q), do: q.mouse_id
 
-  # A courtesy, as every hoot is: whatever herdr or the desktop does here is
-  # swallowed rather than allowed to take the house down.
-  defp not_taken_hoot(state, q, branch) do
-    notification = Hoot.not_taken(q, Path.basename(state.main_checkout), branch)
-    Hoot.send_out(state.herdr, state.socket, state.desktop, notification)
-  catch
-    _kind, _reason -> :ok
-  end
+  defp not_taken_hoot(state, q, branch),
+    do: hoot_out(state, Hoot.not_taken(q, Path.basename(state.main_checkout), branch))
 
   # Picking up a turn that died, on the same backstop and for the same reason
   # cleanup rides it: a turn dies outside Whiska entirely, so there is nothing
@@ -1816,12 +1809,20 @@ defmodule Whiska.Owl.House do
   defp stalled_branch(%Mouse{branch: branch}) when is_binary(branch), do: branch
   defp stalled_branch(%Mouse{mouse_id: mouse_id}), do: mouse_id
 
-  # A courtesy, as every hoot is.
+  # The one place a hoot leaves the owl (ADR-0062). A click on it jumps to this
+  # house's main session. A courtesy, as every hoot is: whatever the notifier
+  # does here is swallowed rather than allowed to take the house down, and
+  # logged, since the notifier's own exit 0 is the only proof there is.
   defp hoot_out(state, notification) do
-    Hoot.send_out(state.herdr, state.socket, state.desktop, notification)
+    notification = Map.put(notification, :jump, state.main_checkout)
+    warn(state, hoot_outcome(notification.title, Hoot.send_out(state.desktop, notification)))
   catch
     _kind, _reason -> :ok
   end
+
+  defp hoot_outcome(title, {:ok, notifier}), do: ~s(hoot "#{title}" raised by #{notifier})
+  defp hoot_outcome(title, {:error, why}), do: ~s(hoot "#{title}" not raised: #{inspect(why)})
+  defp hoot_outcome(title, other), do: ~s(hoot "#{title}" answered #{inspect(other)})
 
   defp said({mouse_id, :picked_up}, state) do
     warn(state, "#{label(mouse_id)}'s turn ended without finishing — picked it up")
@@ -2441,20 +2442,14 @@ defmodule Whiska.Owl.House do
   end
 
   # The hoot (ADR-0062), raised from inside the same branch that typed the
-  # line, so the two can never disagree about what reached the person — and
-  # that holds for the desktop fallback too, since it is decided here, off
-  # herdr's answer to this very hoot (ADR-0062).
+  # line, so the two can never disagree about what reached the person.
   #
   # Delivery is the job and the hoot is a courtesy: the question is already
-  # recorded sent before this runs, and whatever herdr or the desktop does here
-  # is swallowed rather than allowed to fail the delivery or take the house
-  # down. `whiska doctor` is where the outcome is read.
-  defp hoot(state, question, branch, more) do
-    notification = Hoot.compose(question, Path.basename(state.main_checkout), branch, more)
-    Hoot.send_out(state.herdr, state.socket, state.desktop, notification)
-  catch
-    _kind, _reason -> :ok
-  end
+  # recorded sent before this runs, and whatever the desktop does here is
+  # swallowed rather than allowed to fail the delivery or take the house down.
+  # The owl's log and `whiska doctor` are where the outcome is read.
+  defp hoot(state, question, branch, more),
+    do: hoot_out(state, Hoot.compose(question, Path.basename(state.main_checkout), branch, more))
 
   # Finished branches (ADR-0062): each report's finish hoot once nothing the
   # person set aside stands in its way, and a reminder at most every
@@ -2518,13 +2513,8 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  # A courtesy, as every hoot is.
-  defp reminder_hoot(state, reports, now) do
-    notification = Hoot.reminder(reports, Path.basename(state.main_checkout), now)
-    Hoot.send_out(state.herdr, state.socket, state.desktop, notification)
-  catch
-    _kind, _reason -> :ok
-  end
+  defp reminder_hoot(state, reports, now),
+    do: hoot_out(state, Hoot.reminder(reports, Path.basename(state.main_checkout), now))
 
   defp branch_of(mouse_id) do
     case Storage.mouse(mouse_id) do

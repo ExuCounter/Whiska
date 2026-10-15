@@ -37,7 +37,7 @@ JSON from Elixir 1.19's own module.
   nothing checks Claude Code's version.
 - **macOS is no longer required.** Done 2026-10-05: launchd is macOS's half, and a
   systemd user unit is Linux's (ADR-0040).
-  The desktop fallback adds `notify-send`, and a missing `launchctl` or `systemctl` reads as
+  The desktop notifier adds `notify-send`, and a missing `launchctl` or `systemctl` reads as
   "not loaded" rather than raising. `mix test` passes in a Linux container. `stat` and the
   paths already had fallbacks.
 - **git, the shell and SQLite are fine.** git is used through exit codes and fixed
@@ -134,12 +134,12 @@ outside the boundary:
 | Agent name `"claude"` | house, pickup, cli, doctor (6 places) | Held with "not running Claude" in the log and the doctor. Loud |
 | Event names `pane_closed` `pane_exited` `pane_agent_detected` `workspace_closed` `pane.agent_status_changed` | `owl/house.ex` | Unknown events are dropped. The backstop and the two-second sweep cover it, a minute late. Doctor warns |
 | `HERDR_PANE_ID`, `HERDR_SOCKET_PATH`, `HERDR_CONFIG_PATH`, `~/.config/herdr/herdr.sock` | `session.ex`, `cli.ex`, `herdr.ex`, the owl's launchd or systemd job | Main session not recognised: the person's own turns would be filed as mouse messages. Silent |
-| Methods `ping` `pane.list` `pane.get` `pane.read` `pane.process_info` `agent.start` `agent.prompt` `pane.send_text` `pane.focus` `workspace.list` `workspace.move_block` `workspace.report_metadata` `worktree.create` `worktree.list` `worktree.open` `worktree.remove` `notification.show` `events.subscribe` | `herdr/socket.ex` only | herdr returns an error; delivery holds with a logged reason, and `spawn`, `send` or `drop` says what failed. Loud |
+| Methods `ping` `pane.list` `pane.get` `pane.read` `pane.process_info` `agent.start` `agent.prompt` `pane.send_text` `pane.focus` `workspace.list` `workspace.move_block` `workspace.report_metadata` `worktree.create` `worktree.list` `worktree.open` `worktree.remove` `events.subscribe` | `herdr/socket.ex` only | herdr returns an error; delivery holds with a logged reason, and `spawn`, `send` or `drop` says what failed. Loud |
 | `agent.start` with `kind = "claude"` and `args` waits until Claude is ready, then answers its `argv` | `herdr/socket.ex`, `spawn.ex` | A spawned mouse starts without its brief or shape flags, or `spawn` times out after 15 s and says where the worktree is. Loud |
 | `pane.process_info` lists the pane's foreground processes with their `argv` | `brief.ex`, `doctor.ex`, `whiska start` | Renamed: the doctor's `main brief` line says "not checked". `argv` dropped: the doctor and `whiska start` say the main session was started without its brief when it was. Visible, misleading |
 | Wire: one JSON line per request, connection closed after; subscriptions stay open | `herdr/socket.ex` only | Every call errors. Loud |
 | `[ui] tab_bar_right` entry with `type = "command"`, `interval_seconds`, `timeout_seconds` | `install.ex` snippet, `doctor.ex` check | Owl's line disappears from the tab bar. Doctor checks the entry is there, not that herdr still draws it |
-| `[ui.toast]` and `[ui.sound]` | `herdr.ex` docs, `doctor.ex` | Hoot falls back to the desktop (ADR-0062). Fine |
+| `[ui.toast] delivery` is one switch over herdr's own agent toasts, a mouse's included, and every `notification.show`, with no per-pane filter, and answers `shown: true` with it off (checked 2026-10-15, herdr 0.9.3) | nothing: hoots never go through herdr (ADR-0062) | A per-pane filter would let hoots go back through it. Fine |
 | `[ui.sidebar.spaces]` rows with `rules`, and `workspace.report_metadata`, both herdr 0.9 | `sidebar.ex`, `owl/house.ex`, `doctor.ex` | Each mouse's sidebar line disappears. Doctor checks the version and the rows, not that herdr still draws them |
 
 **Version check.** The doctor warns below herdr 0.9. `ping` also returns a protocol
@@ -206,7 +206,7 @@ version warning's job.
 | --- | --- | --- | --- |
 | launchd: plist in `~/Library/LaunchAgents`, `launchctl bootstrap/bootout/kickstart/kill/print`, `gui/<uid>` domain, regex over `launchctl print` text | `launch_agent.ex` | macOS only, by design. On Linux `systemd_unit.ex` does the same job through `systemctl --user`, and a missing program of either kind is "not loaded" | Done |
 | `launchctl print` text format (`pid = N`, `last exit code = N`) | `launch_agent.ex` | macOS-only, and undocumented by Apple | A changed format reads as "loaded, not running". Doctor would mislead. Low risk |
-| `osascript`, then `notify-send` | `desktop/notifier.ex` | Yes. Neither is `{:error, :no_notifier}`, which the doctor reports | Done |
+| `terminal-notifier` (`-title -message -sound -execute -activate`, each value read as a property list, so `(`, `{` or `<` first never returns), then `osascript`, then `notify-send` | `desktop/notifier.ex` | Yes. None is `{:error, :no_notifier}`, which the doctor reports; without `terminal-notifier` a hoot has no click, and the doctor says so | Done |
 | Homebrew paths `/opt/homebrew/bin`, `/usr/local/bin` | shim, doctor | Last-resort lookups for `escript` after `PATH`. Harmless elsewhere | Nothing needed |
 | `stat -f %B` / `-f %m` | `transcript.ex` | Yes: it tries BSD then GNU, and checks the answer | Done |
 | `sort -V` | shim, asdf lookup | GNU and recent macOS. Old macOS fails the step and falls through | Nothing needed |
@@ -241,7 +241,7 @@ version warning's job.
 - **SQLite.** `exqlite` brings its own SQLite, prebuilt or compiled, so the system's
   version does not matter. WAL mode and a 5-second busy timeout are set in `storage.ex`. WAL needs a
   local filesystem; a home directory on NFS would break locking. Unlikely here.
-- **Desktop.** Nothing assumes a GUI apart from the hoot, which already falls back.
+- **Desktop.** Nothing assumes a GUI apart from the hoot, which tries `terminal-notifier`, `osascript` and `notify-send` in turn.
 
 ## Drop, make optional, keep
 

@@ -1,7 +1,8 @@
 defmodule Whiska.Desktop.NotifierTest do
   @moduledoc """
-  The desktop notifier Whiska raises a hoot with when herdr will not show it
-  (ADR-0062): osascript on macOS, notify-send on Linux.
+  The desktop notifier Whiska raises every hoot with (ADR-0062):
+  terminal-notifier on macOS where it is installed, osascript where it is not,
+  notify-send on Linux.
 
   A branch name and a pointer line are somebody else's text — anything in the
   repo can write the doorstep file they come from — and here they reach a
@@ -65,13 +66,105 @@ defmodule Whiska.Desktop.NotifierTest do
       assert "on run argv" in script
     end
 
-    test "osascript raises it even where terminal-notifier is installed" do
+    test "terminal-notifier raises it on macOS where it is installed" do
       find = fn
         "terminal-notifier" -> "/opt/homebrew/bin/terminal-notifier"
         "osascript" -> "/usr/bin/osascript"
       end
 
-      assert {"/usr/bin/osascript", _} = Notifier.command(hoot(), find)
+      assert {"/opt/homebrew/bin/terminal-notifier", args} = Notifier.command(hoot(), find)
+
+      assert args == [
+               "-title",
+               "🐱 whiska · feat-a needs a decision",
+               "-message",
+               "#12",
+               "-sound",
+               "Ping"
+             ]
+    end
+
+    test "terminal-notifier's sound follows the event, and :none asks for none" do
+      tn = only("terminal-notifier", "/tn")
+
+      assert {_, args} = Notifier.command(hoot(sound: :done), tn)
+      assert ["-sound", "Glass"] == Enum.take(args, -2)
+
+      assert {_, args} = Notifier.command(hoot(sound: :none), tn)
+      refute "-sound" in args
+    end
+
+    test "a click jumps to the main session, and brings kitty forward while it runs" do
+      opts = [running: fn "kitty" -> true end, whiska: ["/e/escript", "/w/whiska"]]
+
+      assert {_, args} =
+               Notifier.command(
+                 hoot(jump: "/Users/me/repo"),
+                 only("terminal-notifier", "/tn"),
+                 opts
+               )
+
+      assert ["-activate", "net.kovidgoyal.kitty", "-execute", execute] = Enum.take(args, -4)
+      assert execute == "'/e/escript' '/w/whiska' 'jump' '/Users/me/repo'"
+    end
+
+    test "a click only jumps when kitty is not running" do
+      opts = [running: fn "kitty" -> false end, whiska: ["/w/whiska"]]
+
+      assert {_, args} =
+               Notifier.command(hoot(jump: "/repo"), only("terminal-notifier", "/tn"), opts)
+
+      refute "-activate" in args
+      assert ["-execute", "'/w/whiska' 'jump' '/repo'"] == Enum.take(args, -2)
+    end
+
+    test "a hoot with nowhere to jump has no click" do
+      opts = [running: fn _ -> true end, whiska: ["/w/whiska"]]
+      assert {_, args} = Notifier.command(hoot(), only("terminal-notifier", "/tn"), opts)
+      refute "-execute" in args
+      refute "-activate" in args
+    end
+
+    test "the click's shell string reads a path with quotes as one argument, never as shell",
+         %{dir: dir} do
+      path = "/Users/me/it's here; touch #{dir}/pwned $(id)"
+      opts = [running: fn _ -> false end, whiska: ["/usr/bin/printf", "%s|"]]
+
+      {_, args} =
+        Notifier.command(hoot(jump: path), only("terminal-notifier", "/tn"), opts)
+
+      execute = List.last(args)
+      assert {out, 0} = System.cmd("/bin/sh", ["-c", execute])
+      assert out == "jump|#{path}|"
+      refute File.exists?(Path.join(dir, "pwned"))
+    end
+
+    # terminal-notifier reads each value as a property list: one that starts
+    # with ( { or < is parsed as an array, dictionary or data and the program
+    # never returns (checked against 2.0.0 on macOS). An invisible zero-width
+    # space in front makes it plain text.
+    test "a title or text that a property list would read as structure is made plain" do
+      tn = only("terminal-notifier", "/tn")
+
+      for text <- ["(a, b)", "{x = y;}", "<616263>", " (a)", "\t(a)", "\n{a}"] do
+        assert {_, ["-title", title, "-message", body | _]} =
+                 Notifier.command(hoot(title: text, body: text), tn)
+
+        assert String.starts_with?(title, "​")
+        assert String.starts_with?(body, "​")
+        assert String.ends_with?(body, String.trim_leading(text))
+      end
+
+      assert {_, ["-title", "-e", "-message", "[x]" | _]} =
+               Notifier.command(hoot(title: "-e", body: "[x]"), tn)
+    end
+
+    test "a NUL byte is dropped from terminal-notifier's text too" do
+      assert {_, ["-title", "ab", "-message", "cd" | _]} =
+               Notifier.command(
+                 hoot(title: "a\0b", body: "c\0d"),
+                 only("terminal-notifier", "/tn")
+               )
     end
 
     test "notify-send is the Linux notifier, with the title and text after a --" do
@@ -157,6 +250,46 @@ defmodule Whiska.Desktop.NotifierTest do
       # Nothing ran: no shell ever saw the text, so `rm`, `whoami` and `id` are
       # just characters in an argument.
       refute File.exists?(Path.join(dir, "pwned"))
+    end
+
+    test "the same branch reaches terminal-notifier intact, as the value after its flag",
+         %{dir: dir} do
+      {path, out} = recorder(dir, "terminal-notifier")
+      title = "🐱 whiska · #{@nasty} needs a decision"
+
+      assert {:ok, "terminal-notifier"} =
+               Notifier.notify(hoot(title: title), find: only("terminal-notifier", path))
+
+      assert Enum.take(received(out), 4) == ["-title", title, "-message", "#12"]
+      refute File.exists?(Path.join(dir, "pwned"))
+    end
+
+    test "a terminal-notifier that fails is followed by osascript, so the hoot is not lost",
+         %{dir: dir} do
+      tn = Path.join(dir, "terminal-notifier")
+      File.write!(tn, "#!/bin/sh\nexit 1\n")
+      File.chmod!(tn, 0o755)
+      {osa, out} = recorder(dir, "osascript")
+
+      find = fn
+        "terminal-notifier" -> tn
+        "osascript" -> osa
+        _ -> nil
+      end
+
+      assert {:ok, "osascript"} = Notifier.notify(hoot(), find: find)
+
+      assert Enum.take(received(out), -3) ==
+               ["🐱 whiska · feat-a needs a decision", "#12", "Ping"]
+    end
+
+    test "a failing terminal-notifier with nothing after it is its own error", %{dir: dir} do
+      tn = Path.join(dir, "terminal-notifier")
+      File.write!(tn, "#!/bin/sh\nexit 1\n")
+      File.chmod!(tn, 0o755)
+
+      assert {:error, {"terminal-notifier", {:exit, 1}}} =
+               Notifier.notify(hoot(), find: only("terminal-notifier", tn))
     end
 
     test "the same branch reaches notify-send intact", %{dir: dir} do

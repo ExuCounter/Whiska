@@ -11,7 +11,7 @@ C4Container
   Person(person, "The person", "Answers one question at a time")
   System_Ext(herdr, "herdr", "Panes, sessions, agent status")
   System_Ext(claude, "Claude Code", "The main session and the mice, in herdr's panes")
-  System_Ext(nc, "Desktop notifications", "osascript on macOS, notify-send on Linux")
+  System_Ext(nc, "Desktop notifications", "terminal-notifier or osascript on macOS, notify-send on Linux")
   System_Ext(remote, "Git remote", "The forge's copy of the repo, where a merge request is merged")
   System_Ext(forge, "Forge API", "GitLab or GitHub: a merge request's state, pipeline and threads")
 
@@ -53,7 +53,7 @@ C4Container
   Rel(cli, db, "questions, statusline and waiting read every recorded house")
   Rel(cli, doorstep, "questions, statusline and waiting count what is uncollected")
   Rel(cli, herdr, "mice list panes; doctor reads herdr's config for the tab bar and sidebar rows, and its version")
-  Rel(house, nc, "Raises a hoot herdr will not show; doctor probes the same path")
+  Rel(house, nc, "Raises every hoot, with a click that jumps to the main session; doctor probes the same path")
   Rel(cli, herdr, "start types claude, with the main session's brief, at this pane's shell prompt when nothing runs there")
   Rel(cli, brief, "start writes the main session's; spawn and shape write a mouse's")
   Rel(cli, herdr, "spawn creates the worktree and starts Claude in its pane with the brief, the deny list and the shape flags; spawn then types its task there as the first prompt, and send one fixed line")
@@ -110,7 +110,6 @@ C4Container
   Rel(house, herdr, "Types a review round's one fixed line into a mouse's idle pane, pointing at the letter it wrote in the worktree")
   Rel(house, herdr, "Starts a review mouse when none is live: opens its worktree without focus, starts Claude with the review brief, types the same line")
   Rel(house, brief, "Writes a review mouse's")
-  Rel(house, herdr, "Hoots: asks herdr to show a notification as it delivers")
   Rel(house, herdr, "Reports each mouse's sidebar line on its workspace; reads them back every 2 s and re-sorts the mice when one changes state, starts or stops queueing behind another, or appears in any state but idle")
 
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")

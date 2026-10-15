@@ -8,6 +8,7 @@ defmodule Whiska.Owl.DeliveryTest do
 
   import Mox
 
+  alias Whiska.Desktop.Mock, as: Desktop
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
   alias Whiska.Herdr.Mock, as: Herdr
@@ -50,7 +51,7 @@ defmodule Whiska.Owl.DeliveryTest do
     # Nobody is typing unless a test says so (ADR-0047).
     box_holds("")
 
-    stub(Herdr, :notify, fn @socket, _notification -> :ok end)
+    stub(Desktop, :notify, fn _notification -> {:ok, "osascript"} end)
 
     {:ok, main: main, a: a}
   end
@@ -78,7 +79,8 @@ defmodule Whiska.Owl.DeliveryTest do
   defp start_house(opts) do
     name = :"house-#{System.unique_integer([:positive])}"
     allow(Herdr, self(), fn -> Process.whereis(name) end)
-    start_supervised!({House, [name: name] ++ opts})
+    allow(Desktop, self(), fn -> Process.whereis(name) end)
+    start_supervised!({House, [name: name, desktop: Desktop] ++ opts})
   end
 
   defp in_house(house, fun) do
@@ -469,7 +471,7 @@ defmodule Whiska.Owl.DeliveryTest do
     test "a done report supersedes the mouse's earlier questions, is hooted, and typed with no second hoot (ADR-0009)",
          %{main: main, a: a} do
       test = self()
-      stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+      stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
       main_is("idle")
       expect_prompts()
       house = open(main)
@@ -504,7 +506,7 @@ defmodule Whiska.Owl.DeliveryTest do
       a: a
     } do
       test = self()
-      stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+      stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
       main_is("idle")
       expect_prompts()
       house = open(main)
@@ -536,7 +538,7 @@ defmodule Whiska.Owl.DeliveryTest do
     test "a finished report hoots while the main session is working, and is typed once it is idle",
          %{main: main, a: a} do
       test = self()
-      stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+      stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
       main_is("working")
       expect_prompts()
       house = open(main)
@@ -584,7 +586,7 @@ defmodule Whiska.Owl.DeliveryTest do
       main_is("idle")
       expect_prompts()
       test = self()
-      stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+      stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
       :ok
     end
 
@@ -836,7 +838,7 @@ defmodule Whiska.Owl.DeliveryTest do
 
     test "a finished report from a dead mouse is still hooted and typed", %{main: main, a: a} do
       test = self()
-      stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+      stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
       main_is("idle")
       expect_prompts()
 
@@ -1100,7 +1102,7 @@ defmodule Whiska.Owl.DeliveryTest do
       away: away
     } do
       test = self()
-      stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+      stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
       :ok = Whiska.Delivery.Mode.set_away(away)
       house = open(main, away_path: away, board_ms: 20, panes_ms: 20)
 
@@ -1122,7 +1124,7 @@ defmodule Whiska.Owl.DeliveryTest do
       away: away
     } do
       test = self()
-      stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+      stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
 
       seed(main, fn ->
         {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: b, branch: "feat-b"})
@@ -1274,7 +1276,7 @@ defmodule Whiska.Owl.DeliveryTest do
       away: away
     } do
       test = self()
-      stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
+      stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
       seed(main, fn -> {:ok, _} = Storage.hold("ma") end)
       house = open(main, away_path: away, board_ms: 20, panes_ms: 20)
 

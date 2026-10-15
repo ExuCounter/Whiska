@@ -73,7 +73,6 @@ defmodule Whiska.DoctorHomeTest do
         "HERDR_SOCKET_PATH" => Path.join(root, "herdr.sock")
       }
 
-      stub(Herdr, :notify, fn _socket, _notification -> {:ok, :shown} end)
       stub(Herdr, :list_panes, fn _ -> {:error, :econnrefused} end)
 
       on_exit(fn ->

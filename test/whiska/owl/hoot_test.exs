@@ -1,9 +1,10 @@
 defmodule Whiska.Owl.HootTest do
   @moduledoc """
   When the owl raises a desktop notification, and what happens when it cannot
-  (ADR-0062). One hoot per delivered question, at the moment the line is typed;
-  a question merely collected and held is not on the person's screen yet, so it
-  does not hoot. A hoot that fails never costs the delivery.
+  (ADR-0062). One hoot per delivered question, at the moment the line is typed,
+  raised on the desktop and never through herdr; a question merely collected
+  and held is not on the person's screen yet, so it does not hoot. A hoot that
+  fails never costs the delivery, and the owl logs what became of each.
   """
   use ExUnit.Case, async: true
 
@@ -106,87 +107,75 @@ defmodule Whiska.Owl.HootTest do
       })
   end
 
-  defp expect_hoots(answer \\ :ok) do
+  defp expect_hoots(answer \\ {:ok, "osascript"}) do
     test = self()
 
-    stub(Herdr, :notify, fn @socket, notification ->
+    stub(Desktop, :notify, fn notification ->
       send(test, {:hooted, notification})
       answer
     end)
   end
 
-  defp expect_desktop(answer \\ {:ok, "osascript"}) do
-    test = self()
-
-    stub(Desktop, :notify, fn notification ->
-      send(test, {:desktop, notification})
-      answer
-    end)
-  end
-
-  describe "when herdr will not show it (ADR-0062)" do
-    for reason <- ["disabled", "no_foreground_client"] do
-      test "herdr saying #{reason} raises the same hoot on the desktop", %{main: main, a: a} do
-        main_is("idle")
-        expect_hoots({:ok, {:not_shown, unquote(reason)}})
-        expect_desktop()
-        house = open(main)
-
-        leave(main, a, "[worktree-status: needs-decision] pick one")
-        House.collect(house)
-
-        assert_receive {:hooted, hoot}, @arrives
-        assert_receive {:desktop, ^hoot}, @arrives
-        refute_receive {:desktop, _}, @wait
-      end
-    end
-
-    for answer <- [
-          {:ok, :shown},
-          {:ok, {:not_shown, "rate_limited"}},
-          {:ok, {:not_shown, "busy"}},
-          {:ok, {:not_shown, "a reason herdr adds later"}},
-          {:error, :timeout}
-        ] do
-      test "herdr answering #{inspect(answer)} raises nothing on the desktop", %{
-        main: main,
-        a: a
-      } do
-        main_is("idle")
-        expect_hoots(unquote(Macro.escape(answer)))
-        expect_desktop()
-        house = open(main)
-
-        leave(main, a, "[worktree-status: needs-decision] pick one")
-        House.collect(house)
-
-        assert_receive {:hooted, _}, @arrives
-        refute_receive {:desktop, _}, @wait
-      end
-    end
-
-    test "a question held behind a busy session raises nothing on the desktop either", %{
-      main: main,
-      a: a
-    } do
-      main_is("working")
-      expect_hoots({:ok, {:not_shown, "disabled"}})
-      expect_desktop()
+  describe "a hoot is the desktop's, never herdr's (ADR-0062)" do
+    test "it reaches the desktop with the main checkout to jump to", %{main: main, a: a} do
+      main_is("idle")
+      expect_hoots()
       house = open(main)
 
       leave(main, a, "[worktree-status: needs-decision] pick one")
       House.collect(house)
 
-      refute_receive {:desktop, _}, @wait * 2
+      assert_receive {:hooted, %{jump: ^main}}, @arrives
+      refute_receive {:hooted, _}, @wait
     end
 
-    test "a desktop notifier that raises leaves the delivery exactly as it was", %{
-      main: main,
-      a: a
-    } do
+    test "a question held behind a busy session raises nothing", %{main: main, a: a} do
+      main_is("working")
+      expect_hoots()
+      house = open(main)
+
+      leave(main, a, "[worktree-status: needs-decision] pick one")
+      House.collect(house)
+
+      refute_receive {:hooted, _}, @wait * 2
+    end
+
+    test "the owl logs which notifier raised it", %{main: main, a: a} do
+      main_is("idle")
+      expect_hoots({:ok, "terminal-notifier"})
+      house = open(main)
+
+      log =
+        capture_io(:stderr, fn ->
+          leave(main, a, "[worktree-status: needs-decision] pick one")
+          House.collect(house)
+          assert_receive {:hooted, _}, @arrives
+          House.sync(house)
+        end)
+
+      assert log =~
+               ~s(whiska [myrepo]: hoot "🐱 myrepo · feat-a needs a decision" raised by terminal-notifier)
+    end
+
+    test "the owl logs why nothing was raised", %{main: main, a: a} do
+      main_is("idle")
+      expect_hoots({:error, :no_notifier})
+      house = open(main)
+
+      log =
+        capture_io(:stderr, fn ->
+          leave(main, a, "[worktree-status: needs-decision] pick one")
+          House.collect(house)
+          assert_receive {:hooted, _}, @arrives
+          House.sync(house)
+        end)
+
+      assert log =~ ~s(hoot "🐱 myrepo · feat-a needs a decision" not raised: :no_notifier)
+    end
+
+    test "a notifier that raises leaves the delivery exactly as it was", %{main: main, a: a} do
       test = self()
       main_is("idle")
-      expect_hoots({:ok, {:not_shown, "disabled"}})
 
       stub(Desktop, :notify, fn _notification ->
         send(test, :desktop)
@@ -195,13 +184,15 @@ defmodule Whiska.Owl.HootTest do
 
       house = open(main)
 
-      capture_io(:stderr, fn ->
-        leave(main, a, "[worktree-status: needs-decision] pick one")
-        House.collect(house)
-        assert_receive :desktop, @arrives
-        House.sync(house)
-      end)
+      log =
+        capture_io(:stderr, fn ->
+          leave(main, a, "[worktree-status: needs-decision] pick one")
+          House.collect(house)
+          assert_receive :desktop, @arrives
+          House.sync(house)
+        end)
 
+      assert log =~ ~s(not raised: {:error, %RuntimeError{message: "notifier went away"}})
       assert Process.alive?(house)
       Storage.point_at(House.repo(house))
       assert Storage.question(1).status == "sent"
@@ -285,52 +276,5 @@ defmodule Whiska.Owl.HootTest do
       House.collect(house)
       refute_receive {:hooted, _}, @wait * 3
     end)
-  end
-
-  test "a hoot herdr refuses leaves the delivery exactly as it was", %{main: main, a: a} do
-    test = self()
-    main_is("idle")
-    expect_hoots({:error, :no_such_method})
-
-    stub(Herdr, :prompt, fn @socket, pane, text ->
-      send(test, {:prompted, pane, text})
-      :ok
-    end)
-
-    house = open(main)
-
-    leave(main, a, "[worktree-status: needs-decision] pick one")
-    House.collect(house)
-
-    assert_receive {:prompted, @main_pane, _}, @arrives
-    assert_receive {:hooted, _}, @arrives
-    assert Process.alive?(house)
-
-    House.sync(house)
-    Storage.point_at(House.repo(house))
-    assert Storage.question(1).status == "sent"
-  end
-
-  test "a hoot that raises never takes the house down with it", %{main: main, a: a} do
-    test = self()
-    main_is("idle")
-
-    stub(Herdr, :notify, fn @socket, _notification ->
-      send(test, :hooted)
-      raise "herdr went away mid-call"
-    end)
-
-    house = open(main)
-
-    capture_io(:stderr, fn ->
-      leave(main, a, "[worktree-status: needs-decision] pick one")
-      House.collect(house)
-      assert_receive :hooted, @arrives
-      House.sync(house)
-    end)
-
-    assert Process.alive?(house)
-    Storage.point_at(House.repo(house))
-    assert Storage.question(1).status == "sent"
   end
 end

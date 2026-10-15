@@ -53,12 +53,10 @@ defmodule Whiska.Owl.HouseDoorbellTest do
       :ok
     end)
 
-    stub(Herdr, :notify, fn @socket, hoot ->
+    stub(Desktop, :notify, fn hoot ->
       send(test_pid, {:hoot, hoot})
-      {:ok, :shown}
+      {:ok, "osascript"}
     end)
-
-    stub(Desktop, :notify, fn _hoot -> :ok end)
 
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, repo: repo, path: path}

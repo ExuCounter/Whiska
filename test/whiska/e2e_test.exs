@@ -52,7 +52,10 @@ defmodule Whiska.E2ETest do
     File.mkdir_p!(bin)
     File.ln_s!(@fake_claude, Path.join(bin, "claude"))
     File.ln_s!(@binary, Path.join(bin, "whiska"))
-    for notifier <- ["osascript", "notify-send"], do: fake_notifier(Path.join(bin, notifier))
+
+    for notifier <- ["terminal-notifier", "osascript", "notify-send"],
+        do: fake_notifier(Path.join(bin, notifier))
+
     no_service_manager(Path.join(bin, "launchctl"))
     no_service_manager(Path.join(bin, "systemctl"))
 
@@ -418,9 +421,9 @@ defmodule Whiska.E2ETest do
     )
   end
 
-  # The hoot falls back to the desktop when herdr shows nothing, as a private
-  # session with nobody attached never does (ADR-0062). This takes the
-  # desktop's place on PATH, so a test run raises nothing on the screen.
+  # The hoot is raised on the desktop, never through herdr (ADR-0062). This
+  # takes the desktop's place on PATH, so a test run raises nothing on the
+  # screen.
   defp fake_notifier(path) do
     File.write!(path, """
     #!/bin/sh

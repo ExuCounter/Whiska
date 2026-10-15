@@ -470,15 +470,17 @@ It carries the house, the mouse's branch, the verb and the id, in the line's own
 because the line only reaches somebody already looking at the main session and the point
 of leaving a question is that they are not. A question that is only collected, or gated,
 or set aside by **away**, a **focus** or a **hold**, has not hooted yet; a `done`
-report set aside the same way hoots once that lifts. herdr is asked to show it, from the person's own `[ui.toast]` and
-`[ui.sound]` settings, and says whether it drew anything; `request` is its sound when a
-decision is waiting and `done` when a branch finished. When herdr says its popups are off
-or nobody is attached, the same hoot is raised on the desktop with `osascript` on macOS,
-or `notify-send` on Linux, instead (ADR-0062). A hoot that fails is swallowed —
-delivery is the job and the hoot is a courtesy — so `whiska doctor` is where the person
-asks, by sending a hoot of its own down the same path and reporting what showed it.
-_Avoid_: toast, alert, desktop notification as a term of its own (it is herdr's word for
-how a hoot is shown, not for the thing)
+report set aside the same way hoots once that lifts. It is raised on the desktop, never
+through herdr, right away and on its own: each stays beside the others, with no grouping
+and no hold. `terminal-notifier` raises it on macOS where it is installed, and a click on
+it brings kitty forward and jumps to the house's main session; `osascript` raises it
+without a click where it is not, and `notify-send` on Linux. `request` is its sound when a
+decision is waiting and `done` when a branch finished. A hoot that fails is swallowed —
+delivery is the job and the hoot is a courtesy — and the owl logs what became of each, so
+`whiska doctor` is where the person asks, by sending a hoot of its own down the same path
+and reporting which notifier raised it.
+_Avoid_: toast, alert, desktop notification as a term of its own (they name how a hoot is
+shown, not the thing)
 
 **Reminder**:
 The one **hoot** a house raises at most every two hours naming each finished branch
