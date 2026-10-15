@@ -74,6 +74,8 @@ defmodule Whiska.Sidebar do
     "blocked" => "blocked"
   }
 
+  @open_colours [{"waiting", "#93a1a1"}]
+
   # The order of the brief: what wants the person most comes first, and a
   # finished mouse, which waits on nobody, last.
   @sent 1
@@ -277,9 +279,18 @@ defmodule Whiska.Sidebar do
   defp review(%{blocker: "threads", threads_open: open}) when open in [nil, 0], do: "threads"
   defp review(_quiet), do: nil
 
-  # How many threads are open, whatever else blocks, unless it is ready.
+  # The open threads on the person, whatever else blocks, unless it is ready:
+  # a thread ending on the person's own word waits on the reviewer. All of them
+  # waiting is `waiting`, never both words.
   defp open(%{ready: true}), do: nil
-  defp open(%{threads_open: open}) when is_integer(open) and open > 0, do: "#{open} open"
+
+  defp open(%{threads_open: open} = read) when is_integer(open) and open > 0 do
+    case open - min(read.threads_answered || 0, open) do
+      0 -> "waiting"
+      on_person -> "#{on_person} open"
+    end
+  end
+
   defp open(_none), do: nil
 
   # First match wins: a hold is the person's own word on the mouse, a question
@@ -487,7 +498,9 @@ defmodule Whiska.Sidebar do
     #{rules(@pipeline_colours)}
       ] }, { token = "$whiska_review", fg = "#b58900", rules = [
     #{rules(@review_colours)}
-      ] }, { token = "$whiska_open", fg = "#b58900" }],
+      ] }, { token = "$whiska_open", fg = "#b58900", rules = [
+    #{rules(@open_colours)}
+      ] }],
     ]
     """
   end
@@ -500,5 +513,6 @@ defmodule Whiska.Sidebar do
 
   @doc "Every start of a token's text that `snippet/0` colours by a rule."
   @spec symbols() :: [String.t()]
-  def symbols, do: Enum.map(@colours ++ @pipeline_colours ++ @review_colours, &elem(&1, 0))
+  def symbols,
+    do: Enum.map(@colours ++ @pipeline_colours ++ @review_colours ++ @open_colours, &elem(&1, 0))
 end

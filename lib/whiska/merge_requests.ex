@@ -40,6 +40,7 @@ defmodule Whiska.MergeRequests do
   @type seen :: %{
           snapshot: Forge.snapshot(),
           threads_open: non_neg_integer() | nil,
+          threads_answered: non_neg_integer() | nil,
           max_note_id: pos_integer() | nil,
           new_comments: [comment()],
           open_threads: [comment()] | nil
@@ -186,6 +187,7 @@ defmodule Whiska.MergeRequests do
     do: %{
       snapshot: snapshot,
       threads_open: nil,
+      threads_answered: nil,
       max_note_id: nil,
       new_comments: [],
       open_threads: nil
@@ -194,12 +196,14 @@ defmodule Whiska.MergeRequests do
   defp with_notes(ref, run, snapshot, prior, context) do
     with {:ok, %{threads_open: open, notes: notes}} <- ref.forge.notes(ref, run),
          {:ok, {new, threads}, context} <- review_notes(ref, run, notes, prior, context) do
+      {answered, context} = answered(notes, ref, run, context)
       max_id = notes |> Enum.map(& &1.id) |> Enum.max(fn -> nil end)
 
       {{:ok,
         %{
           snapshot: snapshot,
           threads_open: open,
+          threads_answered: answered,
           max_note_id: max_id,
           new_comments: new,
           open_threads: threads
@@ -223,12 +227,7 @@ defmodule Whiska.MergeRequests do
         do: [],
         else: Enum.filter(notes, &(&1.id > prior.seen_note_id and not &1.system?))
 
-    last =
-      notes
-      |> Enum.filter(&(&1.open? and not &1.system? and is_binary(&1.discussion_id)))
-      |> Enum.group_by(& &1.discussion_id)
-      |> Enum.map(fn {_thread, notes} -> Enum.max_by(notes, & &1.id) end)
-      |> Enum.sort_by(& &1.id)
+    last = last_words(notes)
 
     with {:ok, new, context} <- by_members(new, ref, run, context) do
       {threads, context} =
@@ -238,6 +237,31 @@ defmodule Whiska.MergeRequests do
         end
 
       {:ok, {new, threads}, context}
+    end
+  end
+
+  # Each open thread's newest note, a thread with an id to name it only.
+  defp last_words(notes) do
+    notes
+    |> Enum.filter(&(&1.open? and not &1.system? and is_binary(&1.discussion_id)))
+    |> Enum.group_by(& &1.discussion_id)
+    |> Enum.map(fn {_thread, notes} -> Enum.max_by(notes, & &1.id) end)
+    |> Enum.sort_by(& &1.id)
+  end
+
+  # How many open threads end on the account's own word, from the notes
+  # already read and the account asked for once. Unknown when the account
+  # cannot be, so the row keeps its last count.
+  defp answered(notes, ref, run, context) do
+    case last_words(notes) do
+      [] ->
+        {0, context}
+
+      last ->
+        case me(ref, run, context) do
+          {:ok, me, context} -> {Enum.count(last, &(&1.author_id == me.id)), context}
+          {_unknown, context} -> {nil, context}
+        end
     end
   end
 
@@ -314,6 +338,7 @@ defmodule Whiska.MergeRequests do
       mouse_id: mouse_id,
       url: url,
       threads_open: 0,
+      threads_answered: 0,
       ready: false,
       missing_reads: 0,
       rounds_unpushed: 0
@@ -341,6 +366,8 @@ defmodule Whiska.MergeRequests do
         pipeline_id: pipeline && pipeline.id,
         pipeline: pipeline && Atom.to_string(pipeline.status),
         threads_open: seen.threads_open || (prior && prior.threads_open) || 0,
+        threads_answered:
+          Map.get(seen, :threads_answered) || (prior && prior.threads_answered) || 0,
         notes_count: snapshot.notes_count,
         forge_updated_at: snapshot.updated_at,
         ready: snapshot.ready?,

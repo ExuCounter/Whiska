@@ -78,11 +78,14 @@ owl last read of it (ADR-0060), as four tokens joined by ` · `:
 - `whiska_ci`: its head pipeline, `✓`, `◐` or `✗`.
 - `whiska_review`: one word, the one blocker the forge names: `needs approval`,
   `conflict`, `draft`, `needs rebase`, `blocked` for any other (a changes request
-  included), `threads` when threads block it but none were counted; or `ready`. A
+  is none: its threads say it), `threads` when threads block it but none were counted; or `ready`. A
   pipeline that must pass or still runs, and the forge still checking, add none: the
   pipeline sign says it.
-- `whiska_open`: `2 open`, the unresolved threads, whenever any are open and the request
-  is not `ready`, beside the blocker word, never in its place.
+- `whiska_open`: `2 open`, the unresolved threads on the person (the newest note is not
+  the account's own), whenever any are and the request is not `ready`, beside the blocker
+  word, never in its place; `waiting` (grey) instead when every open thread ends on the
+  account's own word and waits on the reviewer; never both. Counted from the notes the
+  owl already reads.
 
 The blocker comes from the read the owl already makes (GitLab's `detailed_merge_status`),
 so approved or not costs no other read. Once it is no longer open, `merged`, `closed`,
@@ -250,3 +253,5 @@ Changed on 2026-10-15 (polish): `○ idle` is back, in orange (`212K · ○ idle
 Changed on 2026-10-15: the review says the forge's one blocker in a word (`needs approval`, `conflict`, `draft`, …), ages are one unit, and the main checkout's count of requests with no worktree is `⎇ n MR w/o worktree`, so every fixed line fits a 42-column sidebar.
 
 Changed on 2026-10-15: the review word and the open-thread count are two tokens (`whiska_review`, `whiska_open`), so a blocker no longer hides open threads; `rebase` is `needs rebase`, and `changes` is gone (a changes request is `blocked`, its threads counted beside it).
+
+Changed on 2026-10-15: a changes request is no blocker word, and `whiska_open` counts only the threads on the person, `waiting` (grey) when every open thread waits on the reviewer.

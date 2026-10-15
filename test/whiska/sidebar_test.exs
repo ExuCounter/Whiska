@@ -763,6 +763,7 @@ defmodule Whiska.SidebarTest do
           state: "open",
           pipeline: "passed",
           threads_open: 0,
+          threads_answered: 0,
           ready: false,
           read_at: @now
         },
@@ -818,6 +819,26 @@ defmodule Whiska.SidebarTest do
       assert mr_row(pipeline: "running", threads_open: 1) == "⎇ !123 | ◐ | 1 open"
       assert mr_row(pipeline: "passed", ready: true) == "⎇ !123 | ✓ | ready"
       assert mr_row(pipeline: nil, threads_open: 3) == "⎇ !123 | 3 open"
+    end
+
+    test "open counts only the threads on the person; all answered says waiting, never both" do
+      assert mr_row(threads_open: 3, threads_answered: 2) == "⎇ !123 | ✓ | 1 open"
+      assert mr_row(threads_open: 2, threads_answered: 2) == "⎇ !123 | ✓ | waiting"
+      assert mr_row(threads_open: 0, threads_answered: 0) == "⎇ !123 | ✓"
+
+      assert mr_row(blocker: "threads", threads_open: 2, threads_answered: 2) ==
+               "⎇ !123 | ✓ | waiting"
+
+      assert mr_row(blocker: "approval", threads_open: 1, threads_answered: 1) ==
+               "⎇ !123 | ✓ | needs approval | waiting"
+
+      assert mr_row(ready: true, threads_open: 2, threads_answered: 2) == "⎇ !123 | ✓ | ready"
+    end
+
+    test "waiting is grey, open yellow, in the config the doctor prints" do
+      snippet = Whiska.Sidebar.snippet()
+      assert snippet =~ ~s({ token = "$whiska_open", fg = "#b58900", rules = [)
+      assert snippet =~ ~s({ starts_with = "waiting", fg = "#93a1a1" })
     end
 
     test "a merge request awaiting approval says needs approval" do

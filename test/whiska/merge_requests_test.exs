@@ -186,6 +186,23 @@ defmodule Whiska.MergeRequestsTest do
       assert attrs.threads_open == 5
     end
 
+    test "the threads waiting on the reviewer are kept, and kept when a read did not count them" do
+      {attrs, []} =
+        MergeRequests.next(read([]), mouse(), {:ok, seen(threads_answered: 1)}, @now)
+
+      assert attrs.threads_answered == 1
+
+      {attrs, []} =
+        MergeRequests.next(
+          read(threads_answered: 4),
+          mouse(),
+          {:ok, seen(max_note_id: nil, threads_open: nil, threads_answered: nil)},
+          @now
+        )
+
+      assert attrs.threads_answered == 4
+    end
+
     test "a pipeline failed on the head is a wake once" do
       failed = snapshot(pipeline: %{id: 101, status: :failed, sha: @head})
 
@@ -640,6 +657,8 @@ defmodule Whiska.MergeRequestsTest do
       assert seen.open_threads == [%{id: 11, author: "bot", discussion_id: "old", open: true}]
       assert seen.new_comments == []
       assert seen.threads_open == 4
+      # "answered" and "mine" end on the account's own word: they wait on the reviewer.
+      assert seen.threads_answered == 2
     end
 
     test "a first read hands open threads too, though none of its comments count", ctx do

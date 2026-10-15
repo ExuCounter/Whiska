@@ -19,6 +19,9 @@ defmodule Whiska.Schema.MergeRequestRead do
     # running | passed | failed | other, or nil with no pipeline.
     field(:pipeline, :string)
     field(:threads_open, :integer, default: 0)
+    # Of those, the ones whose newest note is the account's own: they wait on
+    # the reviewer.
+    field(:threads_answered, :integer, default: 0)
     field(:notes_count, :integer)
     field(:forge_updated_at, :string)
     field(:ready, :boolean, default: false)
@@ -53,7 +56,7 @@ defmodule Whiska.Schema.MergeRequestRead do
     field(:threads_handed, :string)
   end
 
-  @fields ~w(url state head_sha pipeline_id pipeline threads_open notes_count forge_updated_at
+  @fields ~w(url state head_sha pipeline_id pipeline threads_open threads_answered notes_count forge_updated_at
              ready blocker seen_note_id seen_failed_pipeline_id missing_reads read_at unread_since
              unread_reason asked_at pending round_at round_by round_ref round_head
              rounds_unpushed review_asked_at review_asked_why threads_handed)a
