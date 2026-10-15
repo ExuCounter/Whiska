@@ -22,7 +22,7 @@ defmodule Whiska.CLIInboxTest do
   @socket "/fake/herdr.sock"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-inbox-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-inbox-#{Whiska.Test.Unique.id()}")
     main = house!(root, "myrepo")
     worktree = Path.join(main, "worktrees/feat-a")
     File.mkdir_p!(worktree)

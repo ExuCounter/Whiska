@@ -116,7 +116,7 @@ defmodule Whiska.ReminderTest do
 
   describe "work?/2" do
     setup do
-      root = Path.join(System.tmp_dir!(), "whiska-remind-#{System.unique_integer([:positive])}")
+      root = Path.join(System.tmp_dir!(), "whiska-remind-#{Whiska.Test.Unique.id()}")
       on_exit(fn -> File.rm_rf!(root) end)
       {:ok, repo: GitRepo.create(root)}
     end

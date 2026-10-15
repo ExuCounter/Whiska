@@ -19,7 +19,7 @@ defmodule Whiska.CLIWhereTest do
   @socket "/fake/herdr.sock"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-where-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-where-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     # Resolved, as git resolves it: /var is a symlink to /private/var on macOS.
     repo = GitRepo.create(Layout.canonical(root))

@@ -14,7 +14,7 @@ defmodule Whiska.QuestionsTest do
   alias Whiska.Storage
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-q-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-q-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
     on_exit(fn -> File.rm_rf!(root) end)

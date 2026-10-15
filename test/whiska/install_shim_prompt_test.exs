@@ -13,7 +13,7 @@ defmodule Whiska.InstallShimPromptTest do
   alias Whiska.Install
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-shimp-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-shimp-#{Whiska.Test.Unique.id()}")
     worktree = Path.join(root, "repo/worktrees/feat-a")
     admin = Path.join(root, "repo/.git/worktrees/feat-a")
     File.mkdir_p!(worktree)

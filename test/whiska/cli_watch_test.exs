@@ -15,7 +15,7 @@ defmodule Whiska.CLIWatchTest do
   setup :verify_on_exit!
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-cliwatch-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-cliwatch-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
     # The herdr mock answers for any socket; a herdr pane's shell names one,

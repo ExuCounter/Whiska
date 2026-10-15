@@ -15,7 +15,7 @@ defmodule Whiska.OwlTest do
   setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-owl-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-owl-#{Whiska.Test.Unique.id()}")
     a = Path.join(root, "alpha")
     b = Path.join(root, "beta")
     File.mkdir_p!(Path.join(a, ".git"))

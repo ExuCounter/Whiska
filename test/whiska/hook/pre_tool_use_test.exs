@@ -11,7 +11,7 @@ defmodule Whiska.Hook.PreToolUseTest do
   alias Whiska.Storage
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-hook-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-hook-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))

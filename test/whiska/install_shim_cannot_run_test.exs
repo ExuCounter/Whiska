@@ -19,7 +19,7 @@ defmodule Whiska.InstallShimCannotRunTest do
   alias Whiska.Install
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-shim-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-shim-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "repo")
     worktree = Path.join(main, "worktrees/feat-x")
 

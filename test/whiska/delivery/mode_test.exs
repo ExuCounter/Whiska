@@ -10,7 +10,7 @@ defmodule Whiska.Delivery.ModeTest do
   alias Whiska.Schema.Question
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-mode-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-mode-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, away: Path.join(root, "away")}

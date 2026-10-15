@@ -4,7 +4,7 @@ defmodule Whiska.BundledNIFTest do
   alias Whiska.BundledNIF
 
   setup do
-    cache = Path.join(System.tmp_dir!(), "whiska-nif-#{System.unique_integer([:positive])}")
+    cache = Path.join(System.tmp_dir!(), "whiska-nif-#{Whiska.Test.Unique.id()}")
     on_exit(fn -> File.rm_rf!(cache) end)
     {:ok, cache: cache}
   end

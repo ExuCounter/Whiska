@@ -20,7 +20,7 @@ defmodule Whiska.SpawnTest do
   @socket "/fake/herdr.sock"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-spawn-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-spawn-#{Whiska.Test.Unique.id()}")
     repo = GitRepo.create(root)
     task = Path.join(root, "task.md")
     File.write!(task, "Make the CSV page sortable by date.\n")

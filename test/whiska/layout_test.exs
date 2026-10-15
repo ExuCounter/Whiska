@@ -9,7 +9,7 @@ defmodule Whiska.LayoutTest do
   # ancestor whose parent directory is named "worktrees".
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-layout-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-layout-#{Whiska.Test.Unique.id()}")
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, root: root}
   end

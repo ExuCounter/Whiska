@@ -16,7 +16,7 @@ defmodule Whiska.RetiredReviewLoopTest do
   alias Whiska.Install
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-retired-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-retired-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(Path.join(root, ".git"))
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, root: root}

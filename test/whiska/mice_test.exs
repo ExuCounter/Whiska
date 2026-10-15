@@ -147,7 +147,7 @@ defmodule Whiska.MiceTest do
 
   describe "list/1" do
     setup do
-      root = Path.join(System.tmp_dir!(), "whiska-mice-#{System.unique_integer([:positive])}")
+      root = Path.join(System.tmp_dir!(), "whiska-mice-#{Whiska.Test.Unique.id()}")
       main = Path.join(root, "myrepo")
       File.mkdir_p!(Path.join(main, ".git"))
       on_exit(fn -> File.rm_rf!(root) end)

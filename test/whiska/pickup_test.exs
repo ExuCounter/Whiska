@@ -41,7 +41,7 @@ defmodule Whiska.PickupTest do
   defp at(seconds), do: DateTime.add(@start, seconds, :second)
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-pickup-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-pickup-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     repo = GitRepo.create(root)
     {:ok, handle} = Storage.open(repo.checkout, name: nil)

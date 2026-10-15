@@ -23,7 +23,7 @@ defmodule Whiska.Owl.StartOpensHouseTest do
   @herdr "/fake/herdr.sock"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-sopen-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-sopen-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
 

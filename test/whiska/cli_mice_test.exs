@@ -13,7 +13,7 @@ defmodule Whiska.CLIMiceTest do
   setup :verify_on_exit!
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-climice-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-climice-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))

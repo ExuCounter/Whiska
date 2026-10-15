@@ -17,7 +17,7 @@ defmodule Whiska.Owl.HerdrStatusTest do
   setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-tabbar-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-tabbar-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
     record = Path.join(root, "houses")

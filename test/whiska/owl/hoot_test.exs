@@ -29,7 +29,7 @@ defmodule Whiska.Owl.HootTest do
   @arrives 2_000
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-hoot-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-hoot-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
     on_exit(fn -> File.rm_rf!(root) end)

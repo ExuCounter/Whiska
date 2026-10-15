@@ -13,7 +13,7 @@ defmodule Whiska.CLIShapeCloneTest do
   alias Whiska.Test.GitRepo
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-clone-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-clone-#{Whiska.Test.Unique.id()}")
     on_exit(fn -> File.rm_rf!(root) end)
     repo = GitRepo.create(root)
     # The marker `whiska shape` mints is hidden by the owl when it opens the

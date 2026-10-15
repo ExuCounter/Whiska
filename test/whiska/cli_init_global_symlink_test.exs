@@ -19,7 +19,7 @@ defmodule Whiska.CLIInitGlobalSymlinkTest do
 
   setup do
     previous = Application.get_env(:whiska, :user_home)
-    root = Path.join(System.tmp_dir!(), "whiska-link-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-link-#{Whiska.Test.Unique.id()}")
     home = Path.join(root, "home")
     # Inside the home, as a dotfiles repo usually is: "resolves outside the
     # home" is not the same as "reached through a link".

@@ -11,7 +11,7 @@ defmodule Whiska.SystemdUnitTest do
   alias Whiska.SystemdUnit
 
   setup do
-    home = Path.join(System.tmp_dir!(), "whiska-systemd-#{System.unique_integer([:positive])}")
+    home = Path.join(System.tmp_dir!(), "whiska-systemd-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(home)
     previous = Application.get_env(:whiska, :systemd)
     Application.put_env(:whiska, :uid, 1000)

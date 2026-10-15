@@ -46,7 +46,7 @@ defmodule Whiska.DoctorHomeTest do
       previous = Application.get_env(:whiska, :user_home)
 
       root =
-        Path.join(System.tmp_dir!(), "whiska-doctor-global-#{System.unique_integer([:positive])}")
+        Path.join(System.tmp_dir!(), "whiska-doctor-global-#{Whiska.Test.Unique.id()}")
 
       home = Path.join(root, "home")
       main = Path.join(root, "myrepo")

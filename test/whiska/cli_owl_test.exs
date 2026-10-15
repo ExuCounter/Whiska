@@ -18,7 +18,7 @@ defmodule Whiska.CLIOwlTest do
   setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-cliowl-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-cliowl-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))

@@ -19,7 +19,7 @@ defmodule Whiska.CLIQuestionsTest do
   setup :verify_on_exit!
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-cliq-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-cliq-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))
@@ -160,7 +160,7 @@ defmodule Whiska.CLIQuestionsTest do
 
   describe "whiska show — what a finished question's branch holds" do
     setup do
-      root = Path.join(System.tmp_dir!(), "whiska-onbranch-#{System.unique_integer([:positive])}")
+      root = Path.join(System.tmp_dir!(), "whiska-onbranch-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(root)
       on_exit(fn -> File.rm_rf!(root) end)
       {:ok, repo: GitRepo.create(root)}
@@ -834,7 +834,7 @@ defmodule Whiska.CLIQuestionsTest do
 
   describe "whiska merge-request — the finished report remembers it" do
     setup do
-      root = Path.join(System.tmp_dir!(), "whiska-mr-#{System.unique_integer([:positive])}")
+      root = Path.join(System.tmp_dir!(), "whiska-mr-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(root)
       on_exit(fn -> File.rm_rf!(root) end)
       repo = GitRepo.create(root)
@@ -996,7 +996,7 @@ defmodule Whiska.CLIQuestionsTest do
   # `whiska show` itself as file links (ADR-0085).
   describe "whiska show — the spec and build plan in the mouse's worktree" do
     setup do
-      root = Path.join(System.tmp_dir!(), "whiska-speclink-#{System.unique_integer([:positive])}")
+      root = Path.join(System.tmp_dir!(), "whiska-speclink-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(root)
       on_exit(fn -> File.rm_rf!(root) end)
       repo = GitRepo.create(root)

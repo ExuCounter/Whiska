@@ -6,7 +6,7 @@ defmodule Whiska.SpecArchiveTest do
   alias Whiska.Storage
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-archive-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-archive-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "repo")
     File.mkdir_p!(Path.join(main, ".git/info"))
     on_exit(fn -> File.rm_rf!(root) end)

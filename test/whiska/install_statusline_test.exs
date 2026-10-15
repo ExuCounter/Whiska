@@ -13,7 +13,7 @@ defmodule Whiska.InstallStatuslineTest do
   alias Whiska.Install
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-inst-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-inst-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     home = Path.join(root, "dot-whiska")
     File.mkdir_p!(Path.join(main, ".git"))

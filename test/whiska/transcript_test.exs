@@ -889,7 +889,7 @@ defmodule Whiska.TranscriptTest do
 
   describe "tail/2" do
     setup do
-      path = Path.join(System.tmp_dir!(), "whiska-tail-#{System.unique_integer([:positive])}")
+      path = Path.join(System.tmp_dir!(), "whiska-tail-#{Whiska.Test.Unique.id()}")
       on_exit(fn -> File.rm_rf!(path) end)
       {:ok, path: path}
     end
@@ -929,7 +929,7 @@ defmodule Whiska.TranscriptTest do
 
   describe "started_in/1" do
     setup do
-      path = Path.join(System.tmp_dir!(), "whiska-start-#{System.unique_integer([:positive])}")
+      path = Path.join(System.tmp_dir!(), "whiska-start-#{Whiska.Test.Unique.id()}")
       on_exit(fn -> File.rm_rf!(path) end)
       {:ok, path: path}
     end
@@ -989,7 +989,7 @@ defmodule Whiska.TranscriptTest do
 
   describe "started_at/1 — when the session began (the doctor's staleness check)" do
     setup do
-      dir = Path.join(System.tmp_dir!(), "whiska-startat-#{System.unique_integer([:positive])}")
+      dir = Path.join(System.tmp_dir!(), "whiska-startat-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(dir)
       on_exit(fn -> File.rm_rf!(dir) end)
       {:ok, path: Path.join(dir, "session.jsonl")}

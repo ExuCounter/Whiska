@@ -21,7 +21,7 @@ defmodule Whiska.SendTest do
   @socket "/fake/herdr.sock"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-send-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-send-#{Whiska.Test.Unique.id()}")
     repo = GitRepo.create(root)
     path = GitRepo.worktree(repo, "feat-a")
     note = Path.join(root, "note.md")

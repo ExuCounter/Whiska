@@ -16,7 +16,7 @@ defmodule Whiska.PRTest do
   @message "The CSV page sorts by date.\n\n- Changed: the date column sorts.\n"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-pr-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-pr-#{Whiska.Test.Unique.id()}")
     repo = GitRepo.create(root)
     path = GitRepo.worktree(repo, "feat-a", push: false)
     calls = Path.join(root, "gh-calls")

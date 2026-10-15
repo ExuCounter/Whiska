@@ -27,7 +27,7 @@ defmodule Whiska.Owl.HouseDoorbellTest do
   @screens Path.expand("../../support/screens", __DIR__)
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-hd-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-hd-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     repo = GitRepo.create(root)
     path = GitRepo.worktree(repo, "feat-a")

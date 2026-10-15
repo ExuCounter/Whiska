@@ -17,7 +17,7 @@ defmodule Whiska.InstallShimStopTest do
   @needs_decision "One question.\n\n[worktree-status: needs-decision] which?"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-shim-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-shim-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(Path.join(root, "state"))
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, root: root}

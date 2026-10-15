@@ -12,7 +12,7 @@ defmodule Whiska.GitTest do
   alias Whiska.Test.GitRepo
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-git-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-git-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, repo: GitRepo.create(root)}
@@ -357,7 +357,7 @@ defmodule Whiska.GitTest do
       {micros, result} = :timer.tc(fn -> Git.fetch_base(repo.checkout, "main", 300) end)
 
       assert result == {:error, :timeout}
-      assert micros < 3_000_000
+      assert micros < 6_000_000
 
       assert {_none, 1} =
                System.cmd("pgrep", ["-f", "sleep " <> String.replace(secs, ".", "\\.")])

@@ -15,7 +15,7 @@ defmodule Whiska.LedgerTest do
   alias Whiska.Ledger
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-ledger-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-ledger-#{Whiska.Test.Unique.id()}")
     on_exit(fn -> File.rm_rf!(root) end)
     session = Path.join(root, "s1.jsonl")
     File.mkdir_p!(Path.join(root, "s1/subagents"))

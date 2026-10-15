@@ -20,7 +20,7 @@ defmodule Whiska.DropTest do
   @socket "/fake/herdr.sock"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-drop-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-drop-#{Whiska.Test.Unique.id()}")
     repo = GitRepo.create(root)
 
     was = System.get_env("HERDR_SOCKET_PATH")

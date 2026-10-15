@@ -8,7 +8,7 @@ defmodule Whiska.OpenHousesTest do
   alias Whiska.OpenHouses
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-oh-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-oh-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, path: Path.join(root, "dot-whiska/houses")}

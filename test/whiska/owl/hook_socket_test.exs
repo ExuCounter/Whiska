@@ -26,7 +26,7 @@ defmodule Whiska.Owl.HookSocketTest do
   setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-hooksock-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-hooksock-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git/worktrees/feat-thing"))

@@ -20,7 +20,7 @@ defmodule Whiska.WaitingTest do
   alias Whiska.Waiting
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-waiting-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-waiting-#{Whiska.Test.Unique.id()}")
     record = Path.join(root, "dot-whiska/houses")
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, root: root, record: record}

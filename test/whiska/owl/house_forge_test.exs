@@ -27,7 +27,7 @@ defmodule Whiska.Owl.HouseForgeTest do
   @head "63c4726204434e1c2384eb0e3632940235b51ab4"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-hf-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-hf-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     repo = GitRepo.create(root)
     path = GitRepo.worktree(repo, "feat-a")

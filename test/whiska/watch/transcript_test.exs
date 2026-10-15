@@ -288,7 +288,7 @@ defmodule Whiska.Watch.TranscriptTest do
 
   describe "read/2" do
     setup do
-      tmp = Path.join(System.tmp_dir!(), "whiska-tr-#{System.unique_integer([:positive])}")
+      tmp = Path.join(System.tmp_dir!(), "whiska-tr-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(tmp)
       on_exit(fn -> File.rm_rf!(tmp) end)
       {:ok, tmp: tmp}
@@ -315,7 +315,7 @@ defmodule Whiska.Watch.TranscriptTest do
 
   describe "activity/2" do
     setup do
-      tmp = Path.join(System.tmp_dir!(), "whiska-act-#{System.unique_integer([:positive])}")
+      tmp = Path.join(System.tmp_dir!(), "whiska-act-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(tmp)
       on_exit(fn -> File.rm_rf!(tmp) end)
       {:ok, tmp: tmp}
@@ -370,7 +370,7 @@ defmodule Whiska.Watch.TranscriptTest do
 
   describe "passed_over/2" do
     setup do
-      tmp = Path.join(System.tmp_dir!(), "whiska-passed-#{System.unique_integer([:positive])}")
+      tmp = Path.join(System.tmp_dir!(), "whiska-passed-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(tmp)
       on_exit(fn -> File.rm_rf!(tmp) end)
       {:ok, tmp: tmp}
@@ -410,7 +410,7 @@ defmodule Whiska.Watch.TranscriptTest do
 
   describe "waiting_on/2" do
     setup do
-      tmp = Path.join(System.tmp_dir!(), "whiska-wait-#{System.unique_integer([:positive])}")
+      tmp = Path.join(System.tmp_dir!(), "whiska-wait-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(tmp)
       on_exit(fn -> File.rm_rf!(tmp) end)
       {:ok, tmp: tmp}

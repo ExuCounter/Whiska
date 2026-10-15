@@ -13,7 +13,7 @@ defmodule Whiska.MergeRequestOpenTest do
   alias Whiska.Test.GitRepo
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-mr-open-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-mr-open-#{Whiska.Test.Unique.id()}")
     repo = GitRepo.create(root)
     path = Path.join(repo.checkout, "worktrees/feat-a")
     {_, 0} = System.cmd("git", ["worktree", "add", "-q", "-b", "feat-a", path], cd: repo.checkout)

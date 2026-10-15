@@ -4,7 +4,7 @@ defmodule Whiska.MarkerTest do
   alias Whiska.Marker
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-marker-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-marker-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, worktree: root}

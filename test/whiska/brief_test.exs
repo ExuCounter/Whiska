@@ -127,7 +127,7 @@ defmodule Whiska.BriefTest do
   end
 
   test "write/3 refuses a link at the path, and writes nothing through it" do
-    root = Path.join(System.tmp_dir!(), "whiska-brief-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-brief-#{Whiska.Test.Unique.id()}")
     on_exit(fn -> File.rm_rf!(root) end)
     main = Path.join(root, "main")
     worktree = Path.join(root, "wt")

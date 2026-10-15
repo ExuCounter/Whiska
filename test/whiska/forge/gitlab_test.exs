@@ -13,7 +13,7 @@ defmodule Whiska.Forge.GitLabTest do
   @mr "projects/acme%2Ftools%2Fapp/merge_requests/7"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-gitlab-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-gitlab-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     on_exit(fn -> File.rm_rf!(root) end)
     fake = FakeGlab.create(root)

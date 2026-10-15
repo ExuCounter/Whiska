@@ -21,7 +21,7 @@ defmodule Whiska.CLILaunchAgentTest do
 
   setup do
     home =
-      Path.join(System.tmp_dir!(), "whiska-cli-launchd-#{System.unique_integer([:positive])}")
+      Path.join(System.tmp_dir!(), "whiska-cli-launchd-#{Whiska.Test.Unique.id()}")
 
     main = Path.join(home, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))

@@ -12,7 +12,7 @@ defmodule Whiska.Herdr.SocketTest do
   # canned reply for the method it sees, and — for events.subscribe — keeps the
   # connection open and pushes whatever the test hands it.
   defp start_fake do
-    dir = Path.join(System.tmp_dir!(), "whiska-hs-#{System.unique_integer([:positive])}")
+    dir = Path.join(System.tmp_dir!(), "whiska-hs-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(dir)
     path = Path.join(dir, "h.sock")
     on_exit(fn -> File.rm_rf!(dir) end)

@@ -9,7 +9,7 @@ defmodule Whiska.Forge.CLITest do
   alias Whiska.Test.FakeGlab
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-forge-cli-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-forge-cli-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     on_exit(fn -> File.rm_rf!(root) end)
     fake = FakeGlab.create(root)

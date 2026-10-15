@@ -17,7 +17,7 @@ defmodule Whiska.Owl.OwlSocketTest do
   setup {Whiska.Test.QuietSidebar, :stub_sidebar}
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-owlsock-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-owlsock-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
     record = Path.join(root, "houses")

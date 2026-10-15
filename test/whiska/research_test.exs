@@ -5,7 +5,7 @@ defmodule Whiska.ResearchTest do
   alias Whiska.Schema.Question
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-research-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-research-#{Whiska.Test.Unique.id()}")
     worktree = Path.join(root, "worktrees/research-x")
     File.mkdir_p!(Path.join(worktree, "lib"))
     on_exit(fn -> File.rm_rf!(root) end)

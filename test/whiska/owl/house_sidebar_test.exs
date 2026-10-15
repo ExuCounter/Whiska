@@ -21,7 +21,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
   @socket "/fake/herdr.sock"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-sidebar-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-sidebar-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     worktree = Path.join([main, "worktrees", "feat-a"])
     File.mkdir_p!(Path.join(main, ".git"))

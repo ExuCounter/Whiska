@@ -11,7 +11,7 @@ defmodule Whiska.CLILedgerTest do
   alias Whiska.CLI
 
   setup do
-    home = Path.join(System.tmp_dir!(), "whiska-clil-#{System.unique_integer([:positive])}")
+    home = Path.join(System.tmp_dir!(), "whiska-clil-#{Whiska.Test.Unique.id()}")
     project = Path.join([home, ".claude", "projects", "-w"])
     File.mkdir_p!(project)
 

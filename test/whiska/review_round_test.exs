@@ -15,7 +15,7 @@ defmodule Whiska.ReviewRoundTest do
   @review %{comments: [%{id: 11, author: "alice", discussion_id: "d11"}], pipeline: nil}
 
   setup do
-    path = Path.join(System.tmp_dir!(), "whiska-rr-#{System.unique_integer([:positive])}")
+    path = Path.join(System.tmp_dir!(), "whiska-rr-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(path)
     on_exit(fn -> File.rm_rf!(path) end)
     {:ok, path: path}

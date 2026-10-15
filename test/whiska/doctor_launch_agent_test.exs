@@ -93,7 +93,7 @@ defmodule Whiska.DoctorLaunchAgentTest do
   end
 
   test "run/2 includes the line, after the owl line" do
-    root = Path.join(System.tmp_dir!(), "whiska-doctor-la-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-doctor-la-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))
     on_exit(fn -> File.rm_rf!(root) end)
@@ -142,7 +142,7 @@ defmodule Whiska.DoctorLaunchAgentTest do
 
     test "run/2 puts the logout line right after the unit's" do
       root =
-        Path.join(System.tmp_dir!(), "whiska-doctor-sd-#{System.unique_integer([:positive])}")
+        Path.join(System.tmp_dir!(), "whiska-doctor-sd-#{Whiska.Test.Unique.id()}")
 
       main = Path.join(root, "myrepo")
       File.mkdir_p!(Path.join(main, ".git"))
@@ -168,7 +168,7 @@ defmodule Whiska.DoctorLaunchAgentTest do
 
     test "where this user has no systemd, says so and offers only the fix that works" do
       root =
-        Path.join(System.tmp_dir!(), "whiska-doctor-nosd-#{System.unique_integer([:positive])}")
+        Path.join(System.tmp_dir!(), "whiska-doctor-nosd-#{Whiska.Test.Unique.id()}")
 
       main = Path.join(root, "myrepo")
       File.mkdir_p!(Path.join(main, ".git"))

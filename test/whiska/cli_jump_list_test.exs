@@ -18,7 +18,7 @@ defmodule Whiska.CLIJumpListTest do
   alias Whiska.Storage
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-clijl-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-clijl-#{Whiska.Test.Unique.id()}")
     previous = Application.get_env(:whiska, :home)
     Application.put_env(:whiska, :home, Path.join(root, "dot-whiska"))
 

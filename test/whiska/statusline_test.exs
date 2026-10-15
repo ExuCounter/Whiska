@@ -26,7 +26,7 @@ defmodule Whiska.StatuslineTest do
   alias Whiska.Storage
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-sl-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-sl-#{Whiska.Test.Unique.id()}")
     record = Path.join(root, "dot-whiska/houses")
     main = open!(root, "myrepo", record)
     on_exit(fn -> File.rm_rf!(root) end)

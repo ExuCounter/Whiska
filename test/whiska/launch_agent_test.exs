@@ -11,7 +11,7 @@ defmodule Whiska.LaunchAgentTest do
   alias Whiska.ServiceManager
 
   setup do
-    home = Path.join(System.tmp_dir!(), "whiska-launchd-#{System.unique_integer([:positive])}")
+    home = Path.join(System.tmp_dir!(), "whiska-launchd-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(home)
     on_exit(fn -> File.rm_rf!(home) end)
     {:ok, home: home, paths: LaunchAgent.paths(home, Path.join(home, ".whiska"))}

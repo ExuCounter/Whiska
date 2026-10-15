@@ -18,7 +18,7 @@ defmodule Whiska.PostPushReflectHookTest do
   @hook Path.expand(".claude/hooks/post-push-reflect.sh")
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-reflect-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-reflect-#{Whiska.Test.Unique.id()}")
     on_exit(fn -> File.rm_rf!(root) end)
     {:ok, repo: GitRepo.create(root)}
   end
@@ -152,7 +152,7 @@ defmodule Whiska.PostPushReflectHookTest do
   end
 
   defp without_jq do
-    bin = Path.join(System.tmp_dir!(), "whiska-nojq-#{System.unique_integer([:positive])}")
+    bin = Path.join(System.tmp_dir!(), "whiska-nojq-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(bin)
     on_exit(fn -> File.rm_rf!(bin) end)
 

@@ -4,7 +4,7 @@ defmodule Whiska.ReviewTest do
   alias Whiska.Review
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-review-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-review-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "repo")
     File.mkdir_p!(Path.join(main, ".git/info"))
     on_exit(fn -> File.rm_rf!(root) end)

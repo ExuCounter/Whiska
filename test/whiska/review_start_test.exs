@@ -21,7 +21,7 @@ defmodule Whiska.ReviewStartTest do
   @url "https://gitlab.example.com/acme/app/-/merge_requests/7"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-rs-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-rs-#{Whiska.Test.Unique.id()}")
     repo = GitRepo.create(root)
     path = Path.join([repo.checkout, "worktrees", "feat-a"])
     GitRepo.git!(repo.checkout, ["worktree", "add", "-b", "feat-a", path])

@@ -123,7 +123,7 @@ defmodule Whiska.DoctorTest do
 
   describe "repo_skills/1 — what an older init left in the repo's own skills" do
     test "a retired skill still in the repo is named, with init as the fix" do
-      repo = Path.join(System.tmp_dir!(), "whiska-skills-#{System.unique_integer([:positive])}")
+      repo = Path.join(System.tmp_dir!(), "whiska-skills-#{Whiska.Test.Unique.id()}")
       on_exit(fn -> File.rm_rf!(repo) end)
       assert Doctor.repo_skills(repo) == []
 
@@ -773,7 +773,7 @@ defmodule Whiska.DoctorTest do
   describe "mice/2 — do the records still match the world" do
     setup do
       root =
-        Path.join(System.tmp_dir!(), "whiska-doctor-mice-#{System.unique_integer([:positive])}")
+        Path.join(System.tmp_dir!(), "whiska-doctor-mice-#{Whiska.Test.Unique.id()}")
 
       on_exit(fn -> File.rm_rf!(root) end)
       {:ok, root: root}
@@ -1006,7 +1006,7 @@ defmodule Whiska.DoctorTest do
 
   describe "commands/2 — the one-word commands (ADR-0079)" do
     setup do
-      dir = Path.join(System.tmp_dir!(), "whiska-doc-cmd-#{System.unique_integer([:positive])}")
+      dir = Path.join(System.tmp_dir!(), "whiska-doc-cmd-#{Whiska.Test.Unique.id()}")
       bin = Path.join(dir, "bin")
       File.mkdir_p!(bin)
       on_exit(fn -> File.rm_rf!(dir) end)
@@ -1194,7 +1194,7 @@ defmodule Whiska.DoctorTest do
   describe "probe/3 — running the installed hook for real" do
     setup do
       tmp =
-        Path.join(System.tmp_dir!(), "whiska-doctor-probe-#{System.unique_integer([:positive])}")
+        Path.join(System.tmp_dir!(), "whiska-doctor-probe-#{Whiska.Test.Unique.id()}")
 
       repo = Path.join(tmp, "repo")
       File.mkdir_p!(Path.join(repo, ".claude/hooks"))
@@ -1335,7 +1335,7 @@ defmodule Whiska.DoctorTest do
   describe "run/2 — everything, on one repo" do
     setup do
       root =
-        Path.join(System.tmp_dir!(), "whiska-doctor-run-#{System.unique_integer([:positive])}")
+        Path.join(System.tmp_dir!(), "whiska-doctor-run-#{Whiska.Test.Unique.id()}")
 
       main = Path.join(root, "myrepo")
       File.mkdir_p!(Path.join(main, ".git"))

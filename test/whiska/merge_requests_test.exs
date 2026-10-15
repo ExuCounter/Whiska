@@ -436,7 +436,7 @@ defmodule Whiska.MergeRequestsTest do
 
   describe "which merge requests are read" do
     setup do
-      root = Path.join(System.tmp_dir!(), "whiska-mr-#{System.unique_integer([:positive])}")
+      root = Path.join(System.tmp_dir!(), "whiska-mr-#{Whiska.Test.Unique.id()}")
       main = Path.join(root, "repo")
       File.mkdir_p!(Path.join(main, ".git"))
       on_exit(fn -> File.rm_rf!(root) end)
@@ -490,7 +490,7 @@ defmodule Whiska.MergeRequestsTest do
     @mr "projects/acme%2Fapp/merge_requests/7"
 
     setup do
-      root = Path.join(System.tmp_dir!(), "whiska-mr-read-#{System.unique_integer([:positive])}")
+      root = Path.join(System.tmp_dir!(), "whiska-mr-read-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(root)
       on_exit(fn -> File.rm_rf!(root) end)
       fake = FakeGlab.create(root)

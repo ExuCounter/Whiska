@@ -21,7 +21,7 @@ defmodule Whiska.CLIOpenTest do
   @socket "/fake/herdr.sock"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-open-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-open-#{Whiska.Test.Unique.id()}")
     repo = GitRepo.create(root)
     path = GitRepo.worktree(repo, "feat-a")
 

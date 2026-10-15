@@ -12,7 +12,7 @@ defmodule Whiska.LandTest do
   alias Whiska.Test.GitRepo
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-land-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-land-#{Whiska.Test.Unique.id()}")
     repo = GitRepo.create(root)
     path = GitRepo.worktree(repo, "feat-a")
     GitRepo.commit!(path, "second.md", "more")

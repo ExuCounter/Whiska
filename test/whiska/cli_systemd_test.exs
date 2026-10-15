@@ -21,7 +21,7 @@ defmodule Whiska.CLISystemdTest do
 
   setup do
     home =
-      Path.join(System.tmp_dir!(), "whiska-cli-systemd-#{System.unique_integer([:positive])}")
+      Path.join(System.tmp_dir!(), "whiska-cli-systemd-#{Whiska.Test.Unique.id()}")
 
     main = Path.join(home, "myrepo")
     File.mkdir_p!(Path.join(main, ".git"))

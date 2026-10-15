@@ -23,7 +23,7 @@ defmodule Whiska.CLIWaitingTest do
   setup :verify_on_exit!
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-cliw-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-cliw-#{Whiska.Test.Unique.id()}")
     home = Path.join(root, "dot-whiska")
     previous = Application.get_env(:whiska, :home)
     Application.put_env(:whiska, :home, home)

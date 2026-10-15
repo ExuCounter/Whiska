@@ -17,7 +17,7 @@ defmodule Whiska.Hook.StopTest do
   alias Whiska.Storage
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-stop-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-stop-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
     worktree = Path.join(main, "worktrees/feat-thing")
     File.mkdir_p!(Path.join(main, ".git"))

@@ -17,7 +17,7 @@ defmodule Whiska.Desktop.NotifierTest do
   @nasty ~S|feat/x"; rm -rf ~; echo 'pwned' `whoami` $(id) \" end|
 
   setup do
-    dir = Path.join(System.tmp_dir!(), "whiska-notifier-#{System.unique_integer([:positive])}")
+    dir = Path.join(System.tmp_dir!(), "whiska-notifier-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(dir)
     on_exit(fn -> File.rm_rf!(dir) end)
     {:ok, dir: dir}

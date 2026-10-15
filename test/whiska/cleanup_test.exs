@@ -21,7 +21,7 @@ defmodule Whiska.CleanupTest do
   setup :verify_on_exit!
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-cleanup-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-cleanup-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     repo = GitRepo.create(root)
     {:ok, handle} = Storage.open(repo.checkout, name: nil)
@@ -919,7 +919,7 @@ defmodule Whiska.CleanupTest do
 
       # herdr names the worktree through a symlink the record never went through.
       link =
-        Path.join(System.tmp_dir!(), "whiska-cleanup-link-#{System.unique_integer([:positive])}")
+        Path.join(System.tmp_dir!(), "whiska-cleanup-link-#{Whiska.Test.Unique.id()}")
 
       File.ln_s!(Path.dirname(m.path), link)
       on_exit(fn -> File.rm(link) end)

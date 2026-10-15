@@ -15,7 +15,7 @@ defmodule Whiska.CLIInitGlobalTest do
 
   setup do
     previous = Application.get_env(:whiska, :user_home)
-    root = Path.join(System.tmp_dir!(), "whiska-global-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-global-#{Whiska.Test.Unique.id()}")
     home = Path.join(root, "home")
     repo = Path.join(root, "myrepo")
     File.mkdir_p!(Path.join(repo, ".git"))
@@ -204,7 +204,7 @@ defmodule Whiska.CLIInitGlobalTest do
 
     test "a word that already names another program is skipped and named, never shadowed",
          %{home: _home} do
-      taken = Path.join(System.tmp_dir!(), "whiska-taken-#{System.unique_integer([:positive])}")
+      taken = Path.join(System.tmp_dir!(), "whiska-taken-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(taken)
       other = Path.join(taken, "focus")
       File.write!(other, "#!/bin/sh\necho mine\n")

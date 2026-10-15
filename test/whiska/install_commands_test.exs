@@ -31,7 +31,7 @@ defmodule Whiska.InstallCommandsTest do
     end
 
     test "a script, actually run, hands its word and arguments to whiska" do
-      dir = Path.join(System.tmp_dir!(), "whiska-cmd-#{System.unique_integer([:positive])}")
+      dir = Path.join(System.tmp_dir!(), "whiska-cmd-#{Whiska.Test.Unique.id()}")
       bin = Path.join(dir, "bin")
       File.mkdir_p!(bin)
       on_exit(fn -> File.rm_rf!(dir) end)
@@ -55,7 +55,7 @@ defmodule Whiska.InstallCommandsTest do
 
   describe "write_commands/1 — never through a symlink" do
     test "a link where a word would go is skipped and named, and its target untouched" do
-      dir = Path.join(System.tmp_dir!(), "whiska-cmdlink-#{System.unique_integer([:positive])}")
+      dir = Path.join(System.tmp_dir!(), "whiska-cmdlink-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(dir)
       on_exit(fn -> File.rm_rf!(dir) end)
       target = Path.join(dir, "rc")

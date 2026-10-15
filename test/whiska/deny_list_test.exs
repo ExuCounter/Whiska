@@ -49,7 +49,7 @@ defmodule Whiska.DenyListTest do
 
   describe "write/3" do
     setup do
-      root = Path.join(System.tmp_dir!(), "whiska-deny-#{System.unique_integer([:positive])}")
+      root = Path.join(System.tmp_dir!(), "whiska-deny-#{Whiska.Test.Unique.id()}")
       main = Path.join(root, "main")
       worktree = Path.join(root, "wt")
       File.mkdir_p!(Path.join(main, ".git"))

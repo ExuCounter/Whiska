@@ -22,7 +22,7 @@ defmodule Whiska.Owl.HousePickupTest do
   @socket "/fake/herdr.sock"
 
   setup do
-    root = Path.join(System.tmp_dir!(), "whiska-hp-#{System.unique_integer([:positive])}")
+    root = Path.join(System.tmp_dir!(), "whiska-hp-#{Whiska.Test.Unique.id()}")
     File.mkdir_p!(root)
     repo = GitRepo.create(root)
     path = GitRepo.worktree(repo, "feat-a")

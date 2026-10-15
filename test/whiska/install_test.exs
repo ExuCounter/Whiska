@@ -232,7 +232,7 @@ defmodule Whiska.InstallTest do
     @stripped_path "/usr/bin:/bin"
 
     setup %{} do
-      tmp = Path.join(System.tmp_dir!(), "whiska-shim-#{System.unique_integer([:positive])}")
+      tmp = Path.join(System.tmp_dir!(), "whiska-shim-#{Whiska.Test.Unique.id()}")
       File.mkdir_p!(tmp)
       on_exit(fn -> File.rm_rf(tmp) end)
 
