@@ -63,8 +63,9 @@ defmodule Whiska.Owl.House do
   earlier. Collecting at open does not count; that is the designed "what landed
   while the owl was down" path.
 
-  A `done` report is never delivered: it is recorded closed, and hooted
-  (ADR-0009, ADR-0062); an entry whose worktree is no longer on disk is
+  A `done` report is recorded closed, and hooted (ADR-0009, ADR-0062); its
+  line is typed once nothing waits on the person, and holds nothing
+  (ADR-0008). An entry whose worktree is no longer on disk is
   recorded as orphaned rather than delivered. Whatever a mouse
   leaves supersedes its own earlier open or sent questions: it has moved past
   them, and an answer could no longer land. One that held the slot hands it to
@@ -1900,8 +1901,8 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  # A done report is never delivered, so it arrives closed and waits on nobody
-  # (ADR-0009); its hoot is `remind/1`'s. An entry whose
+  # A done report waits on nobody, so it arrives closed (ADR-0009); its hoot is
+  # `remind/1`'s, and its line goes once nothing waits (ADR-0008). An entry whose
   # worktree has already gone has nowhere to reply to, so it arrives where the
   # rest of that mouse's questions went — settled if its branch landed,
   # orphaned if it did not (ADR-0064). The owl's question about a review is
@@ -2078,13 +2079,13 @@ defmodule Whiska.Owl.House do
   end
 
   defp to_main_session(state, mode) do
-    case next_to_deliver(mode) do
+    case next_to_deliver(mode) || next_report(mode) do
       nil ->
         release_hold(state)
 
       %Question{} = question ->
         case main_session_free?(state) do
-          {:go, notes, state} -> send_question(state, question, notes, mode)
+          {:go, notes, state} -> type_line(state, question, notes, mode)
           {:hold, reason, status, state} -> hold(state, reason, question.id, status)
         end
     end
@@ -2171,6 +2172,14 @@ defmodule Whiska.Owl.House do
   # What goes next, if the main session will have it: judged against what the
   # person set aside first, then the slot (`Whiska.Delivery.Mode`).
   defp next_to_deliver(mode), do: Mode.next(Storage.questions(), mode)
+
+  # A finished report's line goes once nothing waits on the person, oldest
+  # first, and holds nothing once typed (ADR-0008): a question always goes
+  # first, and one collected after it goes as soon as the gate lets it.
+  defp next_report(mode) do
+    if Mode.clear?(Storage.questions(), mode),
+      do: Enum.find(Storage.untyped(), &Mode.deliverable?(&1, mode))
+  end
 
   defp main_session_free?(%{socket: nil} = state) do
     state
@@ -2260,15 +2269,14 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  defp send_question(state, question, notes, mode) do
+  defp type_line(state, question, notes, mode) do
     branch = branch_of(question.mouse_id)
     more = Mode.more(Storage.questions(), mode, question)
     line = Text.compose(question, branch, more, notes)
 
     case state.herdr.prompt(state.socket, state.main_pane, line) do
       :ok ->
-        {:ok, _} = Storage.mark_sent(question.id)
-        hoot(state, question, branch, more)
+        delivered(state, question, branch, more)
         %{release_hold(state) | warned: MapSet.new()}
 
       {:error, reason} ->
@@ -2281,6 +2289,16 @@ defmodule Whiska.Owl.House do
         )
         |> hold(:unreachable, question.id, "herdr refused the prompt")
     end
+  end
+
+  # A finished report was hooted as it was collected (ADR-0062), so its line
+  # goes without one, and stays closed: only its stamp says it was typed.
+  defp delivered(_state, %Question{kind: "done", status: "closed"} = report, _branch, _more),
+    do: :ok = Storage.typed([report.id], DateTime.utc_now())
+
+  defp delivered(state, question, branch, more) do
+    {:ok, _} = Storage.mark_sent(question.id)
+    hoot(state, question, branch, more)
   end
 
   # The hoot (ADR-0062), raised from inside the same branch that typed the
@@ -2329,10 +2347,9 @@ defmodule Whiska.Owl.House do
     state = %{state | nothing_to_land: nothing_to_land}
 
     :ok = Storage.hooted(Enum.map(due.finish, & &1.id), now)
-
-    due.finish
-    |> Enum.reject(&quiet_round?(state, &1))
-    |> Enum.each(&hoot(state, &1, branch_of(&1.mouse_id), %{open: 0}))
+    {quiet, told} = Enum.split_with(due.finish, &quiet_round?(state, &1))
+    :ok = Storage.typed(Enum.map(quiet, & &1.id), now)
+    Enum.each(told, &hoot(state, &1, branch_of(&1.mouse_id), %{open: 0}))
 
     case due.remind do
       [] ->
@@ -2347,7 +2364,7 @@ defmodule Whiska.Owl.House do
 
   # The first report after a review round the owl handed over ends that round,
   # and one that pushed nothing has nothing for the person to look at: it is
-  # counted as hooted, silently (ADR-0062).
+  # counted as hooted and typed, silently (ADR-0062).
   defp quiet_round?(state, %Question{mouse_id: mouse_id, id: id}) do
     with %MergeRequestRead{round_at: %DateTime{} = at, round_by: by} = row
          when by in ["woke", "started"] <- MergeRequests.reads()[mouse_id],

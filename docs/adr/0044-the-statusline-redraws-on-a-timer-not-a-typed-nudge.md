@@ -56,7 +56,8 @@ yes.
   pulled by herdr's server on a timer, and moving the person there is their own move
   (ADR-0043).
 - ADR-0009's one delivery kind has no notice exception, and no notice shares the delivery
-  slot.
+  slot. A finished report's line is a delivery that takes no slot: it is typed only once
+  nothing waits (ADR-0008).
 - `Whiska.Delivery.Text.compose/4` is the one line delivery writes.
 
 ## Considered options

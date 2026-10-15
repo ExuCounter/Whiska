@@ -164,8 +164,9 @@ the delivery queue and wait for an answer. A turn that ends with no marker at al
 **unmarked** question: delivered like any other, recorded as having arrived unmarked —
 unless the mouse still has work **in flight**, when the turn has not ended and nothing is
 left at all (ADR-0052). A
-`done` report is never delivered: it is recorded closed and **hooted**, waits on nobody,
-and the person says its **finish** in place of a reply once they read it (ADR-0009). A question is **open** while it waits to be told, **sent** once
+`done` report is recorded closed and **hooted**, waits on nobody, and its line is typed
+once nothing waits on the person; the person says its **finish** in place of a reply once
+they read it (ADR-0009). A question is **open** while it waits to be told, **sent** once
 delivered and waiting for its answer, then **answered** once `whiska reply` saved the
 answer — which frees the slot whether or not the mouse has **taken** it yet; **superseded** when its own mouse asked a
 newer one, which takes over the slot the superseded one held and goes next, or at once
@@ -410,14 +411,16 @@ aside (ADR-0079): nothing goes while they are
 sent question of a held or unfocused mouse does not hold the slot. Oldest first, always.
 While the gate holds — the session mid-turn, a
 draft in its box, or no box on its screen — the queue is **gated**, and the main checkout's **sidebar line** says so once the hold has lasted
-ten seconds (ADR-0082). A `done` report is never delivered: it never waits for the slot, holds
-it or inherits it (ADR-0008).
+ten seconds (ADR-0082). A `done` report never waits for the slot, holds it or inherits it:
+its line is typed only once no question the person has not set aside is open or sent, and
+a question collected after it goes as soon as the gate lets it (ADR-0008).
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska show <id>`, which the main session's **brief** has it run when the line lands.
 Delivery only ever types into the main session of the question's own house (ADR-0044);
 the only other text Whiska types goes into a mouse's own pane — a **pickup**, a
 **doorbell**, its **task** on `whiska spawn`, one fixed line each on `whiska send` and
-`whiska resume`, and a **review round**'s line. Every delivery raises a **hoot**.
+`whiska resume`, and a **review round**'s line. Every delivery of a question raises a
+**hoot**; a report was hooted as it was collected.
 _Avoid_: notify, ping, relay (the old bash mechanism), push
 
 **Doorbell**:
@@ -447,8 +450,8 @@ worker moves)
 **Hoot**:
 The desktop notification the owl raises as it delivers a question — one per delivered
 question, sent in the same breath as the line so the two can never disagree (ADR-0062) —
-and once for each `done` report, as it is collected, since none is ever delivered, but
-the one ending a **review round** that pushed nothing; and as a **reminder**.
+and once for each `done` report, as it is collected, since its line may wait long or
+never go, and not again when it is typed, but the one ending a **review round** that pushed nothing; and as a **reminder**.
 It carries the house, the mouse's branch, the verb and the id, in the line's own words,
 because the line only reaches somebody already looking at the main session and the point
 of leaving a question is that they are not. A question that is only collected, or gated,

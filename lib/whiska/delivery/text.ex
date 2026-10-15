@@ -17,8 +17,8 @@ defmodule Whiska.Delivery.Text do
   for the owl's own question, `#<id>` after the verb — and runs `whiska show`
   itself. The id stays in the line because
   answers are keyed to it (ADR-0005) and because that read needs it. A `done`
-  report is never typed (ADR-0009); its verb, "finished", is still said by
-  its hoot.
+  report's line is typed only once nothing waits (ADR-0008), with no `more`
+  count, since nothing is open behind it.
 
   One line, no newline anywhere: `agent.prompt` types into a prompt box, and an
   embedded newline would submit half a notification.

@@ -52,6 +52,39 @@ defmodule Whiska.StorageTest do
     end
   end
 
+  describe "the v023 migration" do
+    test "counts every report already kept as typed, and leaves questions alone", %{main: main} do
+      {:ok, handle} = Storage.open(main, name: nil)
+      on_exit(fn -> Storage.close(handle) end)
+      v023 = [{23, Whiska.Migrations.V023ReportTyped}]
+      Ecto.Migrator.run(Whiska.Repo, v023, :down, all: true, log: false)
+
+      {:ok, _} = Storage.record_mouse(%{mouse_id: "m1", path: "/w/a", branch: "a"})
+
+      for {kind, sent_at, hooted_at} <- [
+            {"done", "2026-10-13T09:30:00Z", "2026-10-13T09:40:00Z"},
+            {"done", nil, "2026-10-14T10:00:00Z"},
+            {"done", nil, nil},
+            {"needs-decision", "2026-10-13T09:30:00Z", nil}
+          ] do
+        Whiska.Repo.query!(
+          "INSERT INTO questions (mouse_id, text, kind, status, asked_at, sent_at, hooted_at) " <>
+            "VALUES ('m1', 'x', ?, 'closed', '2026-10-13T09:00:00Z', ?, ?)",
+          [kind, sent_at, hooted_at]
+        )
+      end
+
+      Ecto.Migrator.run(Whiska.Repo, v023, :up, all: true, log: false)
+
+      assert [
+               %{typed_at: ~U[2026-10-13 09:30:00Z]},
+               %{typed_at: ~U[2026-10-14 10:00:00Z]},
+               %{typed_at: ~U[2026-10-13 09:00:00Z]},
+               %{typed_at: nil}
+             ] = Storage.all(Question) |> Enum.sort_by(& &1.id)
+    end
+  end
+
   describe "open/1" do
     test "creates the database and migrates it", %{main: main} do
       {:ok, handle} = Storage.open(main, name: nil)

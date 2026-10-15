@@ -41,7 +41,7 @@ in git history.
 
 - [0005](0005-answers-are-keyed-to-a-question-id.md) — Answers are keyed to a question id, not a branch
 - [0036](0036-questions-are-left-on-the-doorstep.md) — Questions are left on the doorstep, whoever writes them
-- [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is hooted, never delivered
+- [0009](0009-a-missing-marker-means-deliver.md) — A missing marker means deliver; `done` is typed, never waited on
 - [0052](0052-a-stop-with-a-subagent-still-out-is-not-a-stop.md) — An unmarked stop with background work still out is not a stop
 - [0008](0008-delivery-is-a-queue-not-a-batch.md) — Delivery is a queue, not a batch
 - [0047](0047-delivery-holds-while-the-person-is-typing.md) — Delivery holds while the person is typing, read off the prompt box's frame

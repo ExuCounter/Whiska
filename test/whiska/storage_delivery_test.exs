@@ -118,6 +118,38 @@ defmodule Whiska.StorageDeliveryTest do
       assert Storage.unhooted() == []
     end
 
+    test "untyped/0 is each hooted report owed its line: a merge request keeps it, a landing or a typed line does not" do
+      a = finish("f1")
+      b = finish("f2")
+      {:ok, _} = Storage.record_merge_request("f1", "https://gitlab.example/mr/1")
+      assert Storage.untyped() == []
+
+      :ok = Storage.hooted([a.id, b.id], DateTime.utc_now())
+      assert Enum.map(Storage.untyped(), & &1.id) == [a.id, b.id]
+
+      {:ok, _} = Storage.mark_landed("f2")
+      assert Enum.map(Storage.untyped(), & &1.id) == [a.id]
+
+      :ok = Storage.typed([a.id], ~U[2026-10-15 10:00:00.5Z])
+      assert Storage.question(a.id).typed_at == ~U[2026-10-15 10:00:00Z]
+      assert Storage.untyped() == []
+    end
+
+    test "untyped/0 drops a report its mouse asked past or worked after, or whose worktree went",
+         %{root: root} do
+      a = finish("f1")
+      later = finish("f2")
+      ask("f1", "one more thing?")
+      {:ok, _} = Storage.set_working("f2", DateTime.add(later.asked_at, 1))
+
+      {:ok, _} =
+        Storage.record_mouse(%{mouse_id: "f3", path: Path.join(root, "gone"), branch: "c"})
+
+      c = finish("f3")
+      :ok = Storage.hooted([a.id, later.id, c.id], DateTime.utc_now())
+      assert Storage.untyped() == []
+    end
+
     test "hooted/2 stamps each report, to the second" do
       a = finish("f1")
       b = finish("f2")

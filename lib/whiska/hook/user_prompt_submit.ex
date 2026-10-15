@@ -25,8 +25,8 @@ defmodule Whiska.Hook.UserPromptSubmit do
   the same worktree and the same pane, and is handed nothing: an answer taken
   there never reaches the mouse (ADR-0084).
 
-  In the main session it does nothing: a finished report is never typed there,
-  so a prompt has nothing to settle (ADR-0009).
+  In the main session it does nothing: a finished report typed there holds
+  nothing, so a prompt has nothing to settle (ADR-0008).
 
   The hook shim exits before this runs unless the worktree's answer flag is
   set (`Whiska.AnswerFlag`), so a session with nothing waiting never starts the

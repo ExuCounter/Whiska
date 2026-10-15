@@ -52,6 +52,9 @@ defmodule Whiska.Schema.Question do
     # When the owl last hooted about a finished report: its finish hoot, then
     # each reminder (ADR-0062). Nil while the finish hoot is still owed.
     field(:hooted_at, :utc_datetime)
+    # When a finished report's line was typed into the main session, once
+    # nothing waited on the person (ADR-0008). Nil while it is still owed.
+    field(:typed_at, :utc_datetime)
     # `owl` on a question the owl asked itself about a merge request; nil on a
     # mouse's.
     field(:asked_by, :string)

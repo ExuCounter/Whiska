@@ -188,6 +188,21 @@ defmodule Whiska.Delivery.ModeTest do
     end
   end
 
+  describe "clear?/2 — whether a finished report's line may go (ADR-0008)" do
+    test "only when no question that could be delivered is open or sent" do
+      assert Mode.clear?([], mode())
+      refute Mode.clear?([q(1, "ma", "open")], mode())
+      refute Mode.clear?([q(1, "ma", "sent")], mode())
+    end
+
+    test "what the person set aside does not count as waiting on them" do
+      questions = [q(1, "ma", "sent"), q(2, "mb", "open")]
+      assert Mode.clear?(questions, mode(held: MapSet.new(["ma", "mb"])))
+      assert Mode.clear?(questions, mode(focus: "mc"))
+      refute Mode.clear?(questions, mode(focus: "mb"))
+    end
+  end
+
   describe "slot/2" do
     test "the oldest sent question, else an heir waiting to be typed" do
       heir = %{q(3, "ma", "open") | keeps_slot: true}

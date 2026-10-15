@@ -374,7 +374,7 @@ defmodule Whiska.Owl.DeliveryTest do
       end)
     end
 
-    test "a finished report is never typed, and the question collected after it goes at once",
+    test "a finished report is typed, holds nothing, and the question collected after it goes at once",
          %{main: main, a: a} do
       main_is("idle")
       expect_prompts()
@@ -382,13 +382,17 @@ defmodule Whiska.Owl.DeliveryTest do
 
       finished_from(main, "mc", "feat-c")
       House.collect(house)
-      refute_receive {:prompted, _, _}, @wait * 2
+      assert_receive {:prompted, @main_pane, line}, @arrives
+      assert line =~ "🐱 feat-c finished · #1"
 
       leave(main, a, "[worktree-status: needs-decision] pick one")
       House.collect(house)
       assert_receive {:prompted, @main_pane, text}, @arrives
       assert text =~ "feat-a needs a decision"
-      in_house(house, fn -> assert Storage.question(1).status == "closed" end)
+
+      in_house(house, fn ->
+        assert %{status: "closed", typed_at: %DateTime{}} = Storage.question(1)
+      end)
     end
 
     test "a mouse's finished report that replaces its question out frees the slot for another branch's",
@@ -462,7 +466,7 @@ defmodule Whiska.Owl.DeliveryTest do
       assert_receive {:prompted, @main_pane, _}, @arrives
     end
 
-    test "a done report supersedes the mouse's earlier questions, and is hooted rather than typed (ADR-0009)",
+    test "a done report supersedes the mouse's earlier questions, is hooted, and typed with no second hoot (ADR-0009)",
          %{main: main, a: a} do
       test = self()
       stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
@@ -481,17 +485,21 @@ defmodule Whiska.Owl.DeliveryTest do
       assert hoot.title =~ "feat-a finished"
       assert hoot.body =~ "#2"
       assert hoot.sound == :done
-      refute_receive {:prompted, _, _}, @wait * 2
+      assert_receive {:prompted, @main_pane, line}, @arrives
+      assert line =~ "feat-a finished · #2"
+      refute_receive {:hooted, _}, @wait * 2
 
       in_house(house, fn ->
         assert Storage.question(1).status == "superseded"
-        assert %{status: "closed", hooted_at: %DateTime{}} = Storage.question(2)
+
+        assert %{status: "closed", hooted_at: %DateTime{}, typed_at: %DateTime{}} =
+                 Storage.question(2)
       end)
 
       refute File.exists?(Path.join(main, ".git/whiska-finish"))
     end
 
-    test "a finished report hoots while a decision is out, and the decision stays out", %{
+    test "a finished report hoots while a decision is out, and waits untyped behind it", %{
       main: main,
       a: a
     } do
@@ -518,10 +526,15 @@ defmodule Whiska.Owl.DeliveryTest do
       in_house(house, fn ->
         assert Storage.question(1).status == "sent"
         assert Storage.question(2).status == "closed"
+        {:ok, _} = Storage.answer(1, "A")
       end)
+
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, "🐱 feat-b finished · #2" <> _}, @arrives
     end
 
-    test "a finished report hoots while the main session is working", %{main: main, a: a} do
+    test "a finished report hoots while the main session is working, and is typed once it is idle",
+         %{main: main, a: a} do
       test = self()
       stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
       main_is("working")
@@ -531,10 +544,12 @@ defmodule Whiska.Owl.DeliveryTest do
       leave(main, a, "[worktree-status: done]")
       House.collect(house)
       assert_receive {:hooted, %{sound: :done}}, @arrives
+      refute_receive {:prompted, _, _}, @wait * 2
 
       main_is("idle")
       idle(house, @main_pane)
-      refute_receive {:prompted, _, _}, @wait * 2
+      assert_receive {:prompted, @main_pane, line}, @arrives
+      assert line =~ "feat-a finished · #1"
     end
 
     test "once the slot frees, the question queued behind it goes, counting no finished report",
@@ -593,7 +608,8 @@ defmodule Whiska.Owl.DeliveryTest do
       assert_receive {:hooted, second}, @arrives
       assert System.monotonic_time(:millisecond) - reminded >= 300
       assert second.title =~ "2 finished, not landed"
-      refute_received {:prompted, _, _}
+      assert_received {:prompted, @main_pane, "🐱 feat-b finished · #1" <> _}
+      assert_received {:prompted, @main_pane, "🐱 feat-c finished · #2" <> _}
     end
 
     test "a branch with a merge request still hoots its finish, and is never reminded", %{
@@ -618,7 +634,7 @@ defmodule Whiska.Owl.DeliveryTest do
       refute_receive {:hooted, _}, 800
     end
 
-    test "the report ending a review round the owl handed over hoots only if the round pushed",
+    test "the report ending a review round the owl handed over hoots and is typed only if the round pushed",
          %{main: main} do
       round_at = DateTime.add(DateTime.utc_now(), -60) |> DateTime.truncate(:second)
 
@@ -647,16 +663,19 @@ defmodule Whiska.Owl.DeliveryTest do
       open(main, backstop_ms: 20, remind_ms: 60_000)
 
       assert_receive {:hooted, %{title: "🐱 myrepo · feat-c finished"}}, @arrives
+      assert_receive {:prompted, @main_pane, "🐱 feat-c finished" <> _}, @arrives
       refute_receive {:hooted, %{title: "🐱 myrepo · feat-b finished"}}, 500
+      refute_received {:prompted, _, "🐱 feat-b finished" <> _}
     end
 
-    test "a finished report collected into a quiet house starts no round: the question after it waits its own",
+    test "a finished report collected into a quiet house is typed at once: the question after it waits its own round",
          %{main: main, a: a} do
       house = open(main, round_wait_ms: 1_500)
 
       finished_from(main, "mb", "feat-b")
       House.collect(house)
       assert_receive {:hooted, _}, @arrives
+      assert_receive {:prompted, @main_pane, "🐱 feat-b finished" <> _}, @arrives
       Process.sleep(400)
 
       leave(main, a, "[worktree-status: needs-decision] pick one")
@@ -815,7 +834,7 @@ defmodule Whiska.Owl.DeliveryTest do
       end)
     end
 
-    test "a finished report from a dead mouse is still hooted", %{main: main, a: a} do
+    test "a finished report from a dead mouse is still hooted and typed", %{main: main, a: a} do
       test = self()
       stub(Herdr, :notify, fn @socket, hoot -> send(test, {:hooted, hoot}) && :ok end)
       main_is("idle")
@@ -836,7 +855,7 @@ defmodule Whiska.Owl.DeliveryTest do
 
       assert_receive {:hooted, %{sound: :done, title: title}}, @arrives
       assert title =~ "feat-a finished"
-      refute_receive {:prompted, _, _}, @wait * 2
+      assert_receive {:prompted, @main_pane, "🐱 feat-a finished · #1" <> _}, @arrives
     end
 
     test "a record that no longer stands for a worktree lets the slot go",
@@ -1075,7 +1094,7 @@ defmodule Whiska.Owl.DeliveryTest do
       in_house(house, fn -> assert Storage.question(1).status == "open" end)
     end
 
-    test "a finished report collected while away is hooted once the person is back", %{
+    test "a finished report collected while away is hooted and typed once the person is back", %{
       main: main,
       a: a,
       away: away
@@ -1090,9 +1109,11 @@ defmodule Whiska.Owl.DeliveryTest do
       refute_receive {:hooted, _}, @wait * 2
       in_house(house, fn -> assert Storage.question(1).hooted_at == nil end)
 
+      refute_receive {:prompted, _, _}, @wait
+
       :ok = Whiska.Delivery.Mode.clear_away(away)
       assert_receive {:hooted, %{sound: :done}}, @arrives
-      refute_receive {:prompted, _, _}, @wait * 2
+      assert_receive {:prompted, @main_pane, "🐱 feat-a finished · #1" <> _}, @arrives
     end
 
     test "a reminder that came due while away goes out once the person is back", %{
@@ -1247,7 +1268,7 @@ defmodule Whiska.Owl.DeliveryTest do
       end)
     end
 
-    test "a held mouse's finished report is not hooted until the hold lifts", %{
+    test "a held mouse's finished report is not hooted or typed until the hold lifts", %{
       main: main,
       a: a,
       away: away
@@ -1261,9 +1282,11 @@ defmodule Whiska.Owl.DeliveryTest do
       House.collect(house)
       refute_receive {:hooted, _}, @wait * 2
 
+      refute_receive {:prompted, _, _}, @wait
+
       in_house(house, fn -> {:ok, _} = Storage.lift_hold("ma") end)
       assert_receive {:hooted, %{sound: :done}}, @arrives
-      refute_receive {:prompted, _, _}, @wait * 2
+      assert_receive {:prompted, @main_pane, "🐱 feat-a finished · #1" <> _}, @arrives
     end
 
     test "a hold lifted is noticed on the tick too", %{main: main, a: a, away: away} do

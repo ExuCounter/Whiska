@@ -131,7 +131,8 @@ defmodule Whiska.Delivery.Mode do
   that superseded the one holding the slot, which inherits it — then a
   mouse's reply to a letter that superseded what held the slot, else the
   oldest deliverable open question. A finished report is never among them:
-  it is closed as it is collected (ADR-0009). Oldest
+  it is closed as it is collected (ADR-0009), and typed only once `clear?/2`
+  says nothing waits. Oldest
   first otherwise; newest-first was rejected (a newer question from any mouse
   would jump ahead, and old ones could wait forever). Only an heir and a
   letter's reply go out of turn, and an heir first: it holds the slot, which
@@ -148,6 +149,16 @@ defmodule Whiska.Delivery.Mode do
       reply = Enum.find(open, & &1.goes_next) -> reply
       true -> List.first(open)
     end
+  end
+
+  @doc """
+  Does nothing wait on the person: no deliverable question open or sent? Only
+  then is a finished report's line typed (ADR-0008), so a question always
+  goes first and a report never lands while one is out.
+  """
+  @spec clear?([Question.t()], t()) :: boolean()
+  def clear?(questions, mode) do
+    not Enum.any?(questions, &(&1.status in ["open", "sent"] and deliverable?(&1, mode)))
   end
 
   @doc """

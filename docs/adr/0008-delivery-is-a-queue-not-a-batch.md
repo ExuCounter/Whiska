@@ -34,7 +34,7 @@ is reversible, orphaning is not, and un-orphaning on revival would let a questio
 settled status, which is a larger decision.
 
 A finished report never reaches this sweep: it is closed as it is collected (ADR-0009),
-so a dead mouse's finished branch stays finished.
+so a dead mouse's finished branch stays finished, and its line is still typed.
 
 A question the owl asks itself is outside it (ADR-0036), while the mouse's worktree stands: it is
 about the worktree, not the mouse, so a closed pane does not take it from the person. It
@@ -97,22 +97,28 @@ conversation, and the mouse's own follow-up queued behind it. The cost, accepted
 follow-up that adds nothing still gets its own line, on the branch already being
 discussed.
 
-## A finished report never takes the slot
+## A finished report is typed once nothing waits, and holds nothing
 
 A finished report is a report, not a question: nothing in it waits on the person. It is
-closed as it is collected (ADR-0009) and hooted (ADR-0062), never typed, so it never waits
-for the slot, holds it or inherits it, and questions go as if it were not there. The main
-session shows one only when the person asks, from `whiska inbox`.
+closed as it is collected (ADR-0009) and hooted then (ADR-0062), so it never waits for the
+slot, holds it or inherits it. Its line, `🐱 <branch> finished · #<id> · "<pointer>"`, is
+typed into the main session only once nothing waits on the person: no question the mode
+lets through is sent or open, and the gate is open as for a question. Oldest first, one
+line each, stamped `typed_at` and left closed. A question collected after it goes as soon
+as the gate lets it, and a report that is a letter's reply is ranked no differently. A
+report its branch has moved past before its turn, its mouse asking or working again, the
+branch landing or its worktree going, is never typed; a merge request does not stop it.
+The report ending a review round that pushed nothing gets no line, as it gets no hoot.
 
 Seen live: a finished line held the slot until the person next wrote in the main session,
 and a real question from another branch queued behind a report that needed no answer.
-Typed, a finished line also made the main session print the report over whatever the
-person was reading.
+Then, with reports never typed, the person missed finished work they only heard of by a
+hoot. Typed only when nothing waits, the line never prints over a question being read
+nor splits one from its answer, and a bare "land" after two lines is the main session's
+to ask about, as its brief says.
 
-The cost, accepted: nothing about a finished branch is typed into the main session, so a
-person reading only that session hears of it from a recap or `whiska inbox`. The hoot,
-the reminder (ADR-0062) and the sidebar's `✓ finished` line (ADR-0082) are what reach
-them.
+The cost, accepted: a report can wait as long as a question sits unanswered, and a
+question that arrives just after a report is typed below it while the person reads it.
 
 ## When the idle signal is unavailable, deliver anyway
 
@@ -158,6 +164,10 @@ explanation.
   next prompt.** The decision until 2026-10-14. Rejected: a report that needs no answer
   held the slot ahead of real questions, and a flag file and a prompt hook in the main
   session existed only to let it go.
+- **Never type a finished report**, only hoot it. The decision from 2026-10-14 to
+  2026-10-15. Rejected: the person missed finished work they heard of only by a hoot.
+- **Type a report after a gap since the last line, whatever is out.** Rejected by the
+  person: a report waits until nothing does.
 - **Keep reports `open`, and skip them in the queue.** Rejected: every reader that takes
   `open` as waiting would need a kind filter, and cleanup's quiet check would never take a
   landed worktree down.
@@ -183,3 +193,6 @@ that message goes next, behind any heir, when one of them held the slot.
 Changed on 2026-10-14: a finished report never takes, holds or inherits the slot. It is
 closed as it is collected and hooted, never typed; the finish flag and the main session's
 prompt hook went with the line.
+
+Changed on 2026-10-15: a finished report's line is typed again, once nothing waits on the
+person, and holds nothing once typed.

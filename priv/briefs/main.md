@@ -44,9 +44,11 @@ many sessions and read each message cold.
 ## What mice send back
 
 A line starting `🐱`, or `🦉 Whiska asks`, is Whiska's delivery, not the person. Run
-`whiska show <id>`, show it as below, and stop. A finished report is never delivered:
-show one only when the person asks for it. Never answer for the person or offer
-options. They say what happens next:
+`whiska show <id>`, show it as below, and stop. A `finished` line is a report, typed only
+once nothing waited on the person: it needs no answer. An answer goes to the question
+waiting on them, if any; land, pr or drop go to the finished branch, and with more than
+one finished line since the person last wrote, ask which. Never answer for the person or offer options. They say what
+happens next:
 
 - an answer → `whiska reply <id> <their words>`; "land" → `whiska land <id>`; "pr" →
   `whiska pr <id>`; "drop" → `whiska drop <branch>`. Land or pr refusing over files the
@@ -66,7 +68,8 @@ options. They say what happens next:
   wait. Only a question that needs the mouse's own knowledge or work goes on, as below.
   This never covers the mouse's own question: that is the person's to answer.
 - anything else meant for the mouse → `whiska send <branch> <file>`
-- unclear, or another `🐱` arrived meanwhile → ask one line, naming the branch.
+- unclear, or another `🐱` needing an answer arrived meanwhile → ask one line, naming the
+  branch.
 
 Never type into a mouse's pane or read it. Nothing arrives → `whiska doctor`.
 

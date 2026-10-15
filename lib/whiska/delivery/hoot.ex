@@ -37,8 +37,8 @@ defmodule Whiska.Delivery.Hoot do
   one that must not be missed, so it takes herdr's `request` sound; a finished
   branch takes `done`. Both hoot, but they are told apart without looking.
 
-  A finished report is never typed (ADR-0009), so its hoot has no line to
-  match: it says the verb, the id and the pointer, as a delivered line would,
+  A finished report hoots as it is collected, and its line is typed later,
+  once nothing waits (ADR-0008), with no hoot of its own: it says the verb, the id and the pointer, as a delivered line would,
   with nothing waiting behind it. A reminder names every finished branch it is
   about, with how long ago each finished, in one hoot per house.
   """

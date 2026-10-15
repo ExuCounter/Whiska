@@ -2,8 +2,8 @@ defmodule Whiska.Reminder do
   @moduledoc """
   Which finished branches the owl hoots about now (ADR-0062).
 
-  A finished report is never delivered (ADR-0009): nothing in it waits on the
-  person, so it takes no part in the queue. What it still wants is a finish —
+  A finished report waits on nobody (ADR-0009), so it takes no part in the
+  queue; its line is typed once nothing else waits (ADR-0008). What it still wants is a finish —
   land it, open a merge request, drop it — and a branch nobody finished is
   work that sits unlanded. So the owl hoots, twice over:
 

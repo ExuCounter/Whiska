@@ -45,7 +45,8 @@ defmodule Whiska.Storage do
     {19, Whiska.Migrations.V019NextKeepsSlot},
     {20, Whiska.Migrations.V020LetterReply},
     {21, Whiska.Migrations.V021ReportHooted},
-    {22, Whiska.Migrations.V022ReviewRounds}
+    {22, Whiska.Migrations.V022ReviewRounds},
+    {23, Whiska.Migrations.V023ReportTyped}
   ]
 
   @modes ~w(build sniff)
@@ -763,7 +764,7 @@ defmodule Whiska.Storage do
   Record a question the owl collected from the doorstep (ADR-0036).
 
   An entry whose worktree is gone passes `orphaned`; a `done` report passes
-  `closed`, since it is never delivered (ADR-0009); everything else arrives
+  `closed`, since it waits on nobody (ADR-0009); everything else arrives
   `open` and is told in its turn. Kind and
   status are checked against the lists on `Whiska.Schema.Question`, so nothing
   unclassifiable is stored.
@@ -1133,6 +1134,38 @@ defmodule Whiska.Storage do
   @spec unhooted() :: [Question.t()]
   def unhooted do
     Repo.all(from([report: q] in last_words(), where: is_nil(q.hooted_at)))
+  end
+
+  @doc """
+  Every finished report owed its line in the main session, oldest first, with
+  its mouse (ADR-0008): hooted, so the owl has judged it and a quiet review
+  round's report is already stamped typed (ADR-0062), never typed, still its
+  branch's last word, on a branch
+  not landed, whose record still stands for a worktree of this house and
+  whose folder is still there. A merge request does not stop it: a report is
+  news either way.
+  """
+  @spec untyped() :: [Question.t()]
+  def untyped do
+    from([report: q, mouse: m] in last_words(),
+      where:
+        not is_nil(q.hooted_at) and is_nil(q.typed_at) and is_nil(m.removed_at) and
+          is_nil(m.landed_at)
+    )
+    |> Repo.all()
+    |> standing()
+  end
+
+  @doc "Stamp finished reports as typed into the main session, or as owed no line."
+  @spec typed([pos_integer()], DateTime.t()) :: :ok
+  def typed([], _at), do: :ok
+
+  def typed(ids, at) do
+    Repo.update_all(from(q in Question, where: q.id in ^ids),
+      set: [typed_at: DateTime.truncate(at, :second)]
+    )
+
+    :ok
   end
 
   defp last_words do
