@@ -23,7 +23,7 @@ order they sort (which one a mouse is in is decided as the paragraph under the l
 
 1. `❓ waiting on you · 14m` — sent, unanswered.
 2. `❓ waiting on you` — next to go; `❓ answer not taken`.
-3. `✖ stuck 6m` — blocked, or working with no subagent out and silent two minutes in a tool or five waiting on the model, or idle with its last stop passed over and that work unreported past ADR-0052's half hour.
+3. `✖ stuck 6m` — blocked, or working with no subagent out and silent ten minutes, or idle with its last stop passed over and that work unreported past ADR-0052's half hour.
 4. `⏳ queued`.
 5. `↩ picked up 2m ago`.
 6. Working: the topic, else the last action, else `working`, in `whiska_topic`. An idle pane whose last stop was passed over while its own background work runs is working too, and says `◐ background` before its topic, since herdr's icon calls it idle.
@@ -60,13 +60,12 @@ the pane idle (checked in a throwaway pane on 2026-10-14), so an idle mouse with
 say whose last stop was passed over (ADR-0052) reads as working while that work runs, and
 stuck once it is past the half hour unreported; its transcript is read once per change to
 the file, never per rebuild. Once a
-working mouse has been quiet two minutes, and for no other, the transcript is read as far
+working mouse has been quiet ten minutes, and for no other, the transcript is read as far
 back as the `Stop` hook reads it (ADR-0052), since a launch can sit further back than the
-every-tick read reaches. In a tool, Claude Code writes the result as soon as there is one, so two
-minutes is a long call or a stall (shorter would flip on an ordinary test run). Waiting on
-the model, it writes nothing until the answer arrives, and a long think over a large context
-ran past three minutes on 2026-10-11, so that wait reads as working until five; longer
-would hide a hung model call for good. Which line is a question is read from the question's
+every-tick read reaches. In a tool or waiting on the model the transcript stays quiet for
+minutes: an ordinary test run, a long think over a large context (past three minutes on
+2026-10-11). Two and five minutes flipped healthy mice to `✖ stuck`, so both read as working
+until ten; longer would hide a hung model call for good. Which line is a question is read from the question's
 id, never from the words: a topic beginning `waiting on you · #99` must not forge one.
 A dead mouse (ADR-0026) has no line; what it left is counted on the main checkout's. Every
 free string, a topic or a branch, is stripped to one line with no control characters before
@@ -88,7 +87,7 @@ does not read, the row is `⎇ !123` alone. herdr cuts a row at the sidebar's wi
 cache-creation tokens of the last assistant message in its transcript, read the same way
 as the last action (ADR-0050), for every mouse with a line, since a mouse waiting on the
 person is the one whose length matters. That makes one 64 KB tail read per live mouse
-per tick, plus the `Stop` hook's tail (ADR-0052) for a working mouse quiet two minutes, where the last action was read only for a working or blocked one; it is read
+per tick, plus the `Stop` hook's tail (ADR-0052) for a working mouse quiet ten minutes, where the last action was read only for a working or blocked one; it is read
 from the tail alone, so one very large message can leave a mouse without a size for a
 moment. It comes first on every state (`236K · ✓ finished`, `447K · ⏸ held`), so it reads
 as a column. It goes in one of three tokens by how near the mouse's auto-compact window it
@@ -215,6 +214,8 @@ deleted. `whiska doctor` names any leftover as a warning with the init that remo
 
 Changed on 2026-10-11: an idle mouse says `○ idle`, and the mice re-sort on any change of state, and when a new mouse appears in any state but idle.
 Changed on 2026-10-12: a working mouse is stuck after two minutes' silence in a tool or five waiting on the model, where it was two minutes whatever it waited on; and a subagent started further back than the short tail still counts as out.
+
+Changed on 2026-10-15: a working mouse is stuck after ten minutes' silence, in a tool or waiting on the model alike; two and five minutes flipped healthy mice to `✖ stuck 2m` during ordinary test runs and long thinks.
 
 Changed on 2026-10-14: no mouse line carries a question's id; the context gauge follows the symbol on every state; a finished mouse carries its report's summary line, not its last line.
 

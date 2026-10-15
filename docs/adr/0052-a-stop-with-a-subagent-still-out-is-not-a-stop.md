@@ -145,7 +145,7 @@ main session and any repo Whiska is merely installed in read no transcript at al
 furthest 1.54 MB; 34 sat beyond the 512 KB this read began with, which is how #555 was
 delivered. Reading and checking 4 MB costs about 21 ms. `Stop` fires once per turn, not
 every two seconds like the board (ADR-0050), which reads this tail only for a working mouse
-quiet two minutes and an idle one with nothing to say, once per change to the file
+quiet ten minutes and an idle one with nothing to say, once per change to the file
 (ADR-0082). A tail that starts after a launch reads as nothing out, which
 is the safe direction above. Compaction writes `task_status` entries for work still running;
 they are not read, since the tail already reaches past every gap measured.
@@ -188,5 +188,5 @@ not want to be told five times that reviewers are running.
 delivery slot (ADR-0008) — every mid-turn stop holds it until the person clears it, so a
 real question from another mouse waits behind a progress note.
 
-Changed on 2026-10-12: the board reads this same tail too, on every rebuild, for a working mouse quiet two minutes (ADR-0082).
+Changed on 2026-10-12: the board reads this same tail too, on every rebuild, for a working mouse quiet ten minutes (ADR-0082, changed 2026-10-15).
 Changed on 2026-10-14: only an unmarked stop is passed over; every kind of background work counts, not only subagents; the tail is 4 MB; an interim report and a monitor's event are not reports, and `TaskStop` is one; the board and the owl's pickup read a passed-over stop from the transcript.

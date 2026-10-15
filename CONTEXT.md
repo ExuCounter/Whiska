@@ -352,9 +352,9 @@ cache-creation tokens of the last assistant message in the transcript, `142K` â€
 band against the auto-compact window its model gets, which the sidebar colours it by. It
 is read for every live mouse, whatever its line says.
 A mouse is **stuck** when herdr says it is blocked, or it is working with no subagent **in
-flight** and has written nothing to its transcript for two minutes while in a tool, or five
-while waiting on the model (a subagent writes to its own file and the model writes nothing
-until its answer arrives, so a mouse waiting on either is silent and not stuck at once), or
+flight** and has written nothing to its transcript for ten minutes (a subagent writes to its own file
+and the model writes nothing until its answer arrives, so a mouse waiting on either is
+silent and not stuck at once), or
 herdr calls it idle and its last stop was passed over (ADR-0052) for work that has gone
 half an hour unreported. Until then that idle mouse reads as working. A dead mouse has no row; what it left behind
 unanswered is counted apart as orphaned, never as waiting. **Sidebar lines** are written

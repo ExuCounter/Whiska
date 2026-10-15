@@ -41,17 +41,11 @@ defmodule Whiska.Watch do
   # How much of an orphan line the names may take; the rest is summed.
   @orphans_max 60
 
-  # Two minutes of nothing written to a transcript, on a mouse herdr says is
-  # working and in a tool. Claude Code writes a call's result as soon as it has
-  # one, so this is a long tool call or a stall — the one case where a raw tool
-  # call says more than a topic. Short enough to catch a stall, long enough that
-  # an ordinary full test run does not flip the line.
-  @tool_stuck_after 120
-
-  # Five minutes for a mouse waiting on the model. Claude Code writes nothing
-  # until the model's answer arrives, and a long think over a large context ran
-  # past three minutes on feat/rules-in-claude-md on 2026-10-11 (ADR-0082).
-  @model_stuck_after 300
+  # Ten minutes of nothing written to a transcript, on a mouse herdr says is
+  # working and with no subagent out. A long test run, a long tool call or a long
+  # think over a large context all stay quiet for minutes, and a line that read
+  # `✖ stuck 2m` on healthy mice cried wolf (ADR-0082).
+  @stuck_after 600
 
   @waiting ["open", "sent"]
   @orphaned "orphaned"
@@ -432,19 +426,15 @@ defmodule Whiska.Watch do
   defp waits(_sent, _context), do: nil
 
   # What a mouse waits on is read only once it has been quiet long enough to be
-  # stuck in a tool, the shorter bound: it costs a longer read of the transcript.
+  # stuck: it costs a longer read of the transcript.
   defp stuck?("blocked", _silent_for, _waiting_on), do: true
 
   defp stuck?("working", silent_for, waiting_on)
-       when is_integer(silent_for) and silent_for >= @tool_stuck_after do
-    waiting = waiting_on.()
-    not waiting.subagent? and silent_for >= stuck_after(waiting)
+       when is_integer(silent_for) and silent_for >= @stuck_after do
+    not waiting_on.().subagent?
   end
 
   defp stuck?(_quiet, _silent_for, _waiting_on), do: false
-
-  defp stuck_after(%{in_tool?: true}), do: @tool_stuck_after
-  defp stuck_after(%{in_tool?: false}), do: @model_stuck_after
 
   defp doing({:tool, phrase}), do: phrase
   defp doing({:said, sentence}), do: ~s("#{sentence}")
