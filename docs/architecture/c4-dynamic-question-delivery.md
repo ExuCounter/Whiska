@@ -23,7 +23,7 @@ C4Dynamic
   Container_Boundary(owl, "Owl") {
     Component(doorstep, "Doorstep", "directory", "Uncollected entries")
     Component(collection, "Collection", "per house", "Reads and marks, never deletes")
-    Component(delivery, "Delivery", "per house, a queue", "One question at a time, when idle; a done report never enters it, and is typed once nothing waits")
+    Component(delivery, "Delivery", "per house, a queue", "A letter from another house first, then one question at a time, when idle; a done report never enters it, and is typed once nothing waits")
   }
 
   ContainerDb(db, "House database", "SQLite", "questions")
@@ -34,9 +34,9 @@ C4Dynamic
   Rel(collection, doorstep, "Collect what is there")
   Rel(collection, db, "Record as a question, classified by its worktree-status marker; a done report is recorded closed")
   Rel(collection, herdr, "A done report: one hoot now, then a reminder every two hours while its branch has work to land")
-  Rel(delivery, db, "Release what nothing can answer; then, among what the person has not set aside (away, focus, hold), and only if the slot is free: a superseded question's heir, then a letter's reply, otherwise the oldest open question; with none open or sent, the oldest finished report not yet typed")
+  Rel(delivery, db, "Release what nothing can answer; then, unless away, the oldest letter from another house, whatever is sent or in focus; otherwise, among what the person has not set aside (away, focus, hold), and only if the slot is free: a superseded question's heir, then a letter's reply, otherwise the oldest open question; with none open or sent, the oldest finished report not yet typed")
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
-  Rel(delivery, mainpane, "Type one line only if idle, nothing half-typed and nothing sent; a report line holds nothing")
+  Rel(delivery, mainpane, "Type one line only if idle, nothing half-typed and nothing sent; a letter's line needs no free slot, and a report's or a letter's holds nothing")
   Rel(delivery, herdr, "Hoot: one desktop notification, raised in the same breath as a question's line")
   Rel(herdr, person, "Shows it, wherever they are")
   Rel(delivery, person, "If herdr's popups are off or nobody is attached: the same hoot, on the desktop")

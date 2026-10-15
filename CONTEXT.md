@@ -325,7 +325,12 @@ The person's words for a mouse, copied as a file into its worktree's `.whiska-le
 which git ignores: what `whiska send` hands a running mouse, and the comments
 `whiska spawn --from <id> --comments <file>` hands a fresh one. The owl writes one too,
 for a **review round**: links and ids, never the forge's text. Only the file's path is
-typed into the pane, never the words (ADR-0044).
+typed into the pane, never the words (ADR-0044). A letter also carries the person's words
+from one repo's **main session** to another's: `whiska tell <repo> <file>` copies the file
+into that house's `.git/whiska/letters/` and records it, and that house's own **delivery**
+types `📨 platform's Whiska sent you a letter: <path>`, ahead of the queue, holding no slot,
+held by **away** and the gate but not by a **focus** (ADR-0008). The main session there
+shows it to the person and acts on it only on their word.
 _Avoid_: inbox (the person's own list of what waits on them), message (a mouse's)
 
 **Waiting**:
@@ -388,7 +393,8 @@ _Avoid_: row (the board's; a line is what herdr draws), badge, status (the tab b
 the board (the facts a line is written from)
 
 **Main session**:
-The one herdr pane per house that questions are delivered to — the person's own Claude
+The one herdr pane per house that questions, and **letters** from other houses' main
+sessions, are delivered to — the person's own Claude
 Code session in the main checkout, recorded by `whiska start` from the pane it is run in —
 which also starts Claude Code there when nothing is running in that pane yet (ADR-0066).
 A house has at most one; nothing is delivered until one is recorded, and it is also where
@@ -422,7 +428,8 @@ its line is typed only once no question the person has not set aside is open or 
 a question collected after it goes as soon as the gate lets it (ADR-0008).
 What is typed is a one-line pointer with the id and no command; the full text is
 `whiska show <id>`, which the main session's **brief** has it run when the line lands.
-Delivery only ever types into the main session of the question's own house (ADR-0044);
+Delivery only ever types into the main session of the question's own house, and into it
+the line of a **letter** another repo's main session left there (ADR-0044);
 the only other text Whiska types goes into a mouse's own pane — a **pickup**, a
 **doorbell**, its **task** on `whiska spawn`, one fixed line each on `whiska send` and
 `whiska resume`, and a **review round**'s line. Every delivery of a question raises a
@@ -543,9 +550,9 @@ gated (the gate's), on ice
 **Person's command**:
 A `whiska` command only the person runs, never a mouse: `away`, `hold`, `focus`,
 `resume`, `reply`, `dismiss` and `close` — the ones that set or end what reaches them,
-which mouse stops, and what a mouse is told — and `spawn`, `send`, `land`, `pr`,
+which mouse stops, and what a mouse is told — `spawn`, `send`, `land`, `pr`,
 `merge-request` and `drop`, which start, steer, ship, point Whiska at or throw away a
-branch. The main session runs them on the person's word. Every shaped mouse's **deny
+branch, and `tell`, which hands another repo's main session a **letter**. The main session runs them on the person's word. Every shaped mouse's **deny
 list** refuses each, `whiska` in front or bare, as a plain rule that `env` or a full path
 gets round (ADR-0079); a mouse that needs one says so in its report. The reading
 commands — `inbox`, `show`, `questions`, `waiting`, `mice`, `ledger` — are
@@ -694,7 +701,7 @@ carries, not the mode's name)
 The one always-awake presence per machine, kept running by its **service manager**, that
 keeps every project's house standing and is the only thing that can see across all of them
 at once. Seeing is not acting: the owl reads every house, and types into none but the one
-each question belongs to (see **Nudge**, retired) — and, since ADR-0067, into a mouse's
+each question or **letter** belongs to (see **Nudge**, retired) — and, since ADR-0067, into a mouse's
 own pane when that mouse's turn died, once (see **Pickup**). Not per-project: a person has many
 houses and exactly one owl.
 _Avoid_: daemon, server, service

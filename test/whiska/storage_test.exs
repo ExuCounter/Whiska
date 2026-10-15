@@ -135,6 +135,31 @@ defmodule Whiska.StorageTest do
     end
   end
 
+  describe "the v027 migration" do
+    test "keeps a house_letters table an earlier build already made", %{main: main} do
+      {:ok, handle} = Storage.open(main, name: nil)
+      on_exit(fn -> Storage.close(handle) end)
+      v027 = [{27, Whiska.Migrations.V027HouseLetters}]
+      Ecto.Migrator.run(Whiska.Repo, v027, :down, all: true, log: false)
+
+      Whiska.Repo.query!(
+        "CREATE TABLE house_letters (id INTEGER PRIMARY KEY AUTOINCREMENT, " <>
+          "from_repo TEXT NOT NULL, from_checkout TEXT NOT NULL, path TEXT NOT NULL, " <>
+          "left_at TEXT NOT NULL, typed_at TEXT)"
+      )
+
+      Whiska.Repo.query!(
+        "INSERT INTO house_letters (from_repo, from_checkout, path, left_at) " <>
+          "VALUES ('platform', '/p', '/l/1.md', '2026-10-15T12:00:00Z')"
+      )
+
+      Ecto.Migrator.run(Whiska.Repo, v027, :up, all: true, log: false)
+
+      assert [%{from_repo: "platform", typed_at: nil}] = Storage.letters()
+      assert 27 in Ecto.Migrator.migrated_versions(Whiska.Repo)
+    end
+  end
+
   describe "open/1" do
     test "creates the database and migrates it", %{main: main} do
       {:ok, handle} = Storage.open(main, name: nil)

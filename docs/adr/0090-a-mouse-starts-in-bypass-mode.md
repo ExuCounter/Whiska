@@ -7,8 +7,8 @@ git ignores it, and rewrites it on every shape. It holds:
 
 - **For every mouse, the person's commands** (ADR-0079): `away`, `hold`, `focus`,
   `resume`, `reply`, `dismiss` and `close`, with `whiska` in front or bare, and
-  `whiska spawn`, `send`, `land`, `pr`, `merge-request` and `drop`, only with `whiska` in
-  front since `pr` and `send` are other programs too. Each is a plain rule, `Bash(whiska hold *)`, which
+  `whiska spawn`, `send`, `tell`, `land`, `pr`, `merge-request` and `drop`, only with
+  `whiska` in front since `pr` and `send` are other programs too. Each is a plain rule, `Bash(whiska hold *)`, which
   also matches a bare `whiska hold`. Reading commands (`inbox`, `show`, `questions`,
   `waiting`, `mice`, `ledger`) are anyone's.
 - **For a sniff mouse, also `Edit`, `Write` and `NotebookEdit`** by bare name, which takes
@@ -88,3 +88,6 @@ worktree and restarts Claude with the flags it prints.
   checkout's `.git/info/exclude`, as it does the brief (ADR-0088). A failure to add the
   line is said, and the shape goes on.
 - `whiska mice` shows an unshaped mouse as `never shaped`.
+
+Changed on 2026-10-15: `whiska tell` joins the person's commands a mouse is denied
+(ADR-0044).

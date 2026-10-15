@@ -48,6 +48,7 @@ whiska spawn build|sniff <branch> <task-file>     a fresh worktree with a mouse 
 whiska spawn build <branch> --from <id>           build what question <id> proposes under "What to change"
       [--comments <file>]
 whiska send <branch> <file>                       your words in the file, to the mouse at work on that branch
+whiska tell <repo> <file>                         your words in the file, to another open repo's main session
 whiska land <id> [--commit <message-file>]        copy the branch's commits onto this checkout's branch, then run checks:
 whiska pr <id> [--commit <message-file>]          push the branch and open its merge request, or push to the open one
 whiska drop <branch> [--force]                    take down its worktree, herdr workspace and branch

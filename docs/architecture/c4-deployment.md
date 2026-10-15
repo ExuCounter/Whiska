@@ -17,7 +17,8 @@ C4Deployment
       Container(mousepane, "Mouse panes", "Claude Code", "One per worktree")
     }
     Deployment_Node(repo, "Repo on disk", "main checkout + worktrees/") {
-      ContainerDb(housedb, "whiska.db", "SQLite, .git/whiska/", "Mice, questions and each turn's usage")
+      ContainerDb(housedb, "whiska.db", "SQLite, .git/whiska/", "Mice, questions, each turn's usage and letters from other houses")
+      Container(houseletters, "letters/", "directory, .git/whiska/", "Letters another repo's main session left, kept, owner only")
       Container(doorstep, "doorstep/", "directory, .git/whiska/", "Uncollected questions")
       Container(sock, "repo socket - NOT BUILT", "Unix socket, .git/whiska/", "Push approval, mouse identity")
       Container(markerf, ".whiska-mouse", "file, worktree root", "The opaque mouse_id")
@@ -54,6 +55,8 @@ C4Deployment
   Rel(mousepane, housedb, "UserPromptSubmit hook takes a saved answer and stamps it")
   Rel(mousepane, markerf, "Hook reads or mints")
   Rel(mainpane, briefs, "Claude Code starts with its brief, as do the mice")
+  Rel(mainpane, houseletters, "whiska tell, on the person's word, copies a letter into another open repo's folder and records it in that repo's whiska.db")
+  Rel(owl, houseletters, "Types a letter's path into its own main session, under away and the gate")
   Rel(tabbar, globalsock, "Asks for the line every five seconds")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

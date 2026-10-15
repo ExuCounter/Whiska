@@ -4,7 +4,7 @@ defmodule Whiska.DenyListTest do
   alias Whiska.DenyList
 
   @persons ~w(away hold focus resume reply dismiss close)
-  @main_sessions ~w(spawn send land pr merge-request drop)
+  @main_sessions ~w(spawn send tell land pr merge-request drop)
 
   describe "rules/1" do
     test "every mouse is denied the person's commands, whiska in front or bare" do

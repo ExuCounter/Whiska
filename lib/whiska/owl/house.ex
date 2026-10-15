@@ -186,6 +186,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.ReviewRound
   alias Whiska.ReviewStart
   alias Whiska.ServiceManager
+  alias Whiska.Schema.HouseLetter
   alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -278,6 +279,7 @@ defmodule Whiska.Owl.House do
     fetch_wait_ms: nil,
     fetch_failing: false,
     last_mode: nil,
+    last_letter_id: nil,
     held_since: nil,
     held_reason: nil,
     held_id: nil,
@@ -414,7 +416,8 @@ defmodule Whiska.Owl.House do
               end)
             ),
           away_path: Keyword.get_lazy(opts, :away_path, &Mode.away_path/0),
-          main_pane: Storage.main_pane()
+          main_pane: Storage.main_pane(),
+          last_letter_id: Storage.newest_letter_id()
         }
 
         {:ok, state, {:continue, :open}}
@@ -597,7 +600,7 @@ defmodule Whiska.Owl.House do
   end
 
   def handle_info(:board, state) do
-    state = write_board(state)
+    state = state |> notice_letter() |> write_board()
     Process.send_after(self(), :board, state.board_ms)
     {:noreply, state}
   end
@@ -908,6 +911,15 @@ defmodule Whiska.Owl.House do
   end
 
   defp mode(state), do: Mode.read(away_path: state.away_path)
+
+  # `whiska tell` writes a letter from a CLI process in another repo, which
+  # cannot reach this one, so a new letter is noticed on the same tick.
+  defp notice_letter(state) do
+    case Storage.newest_letter_id() do
+      newest when newest == state.last_letter_id -> state
+      newest -> deliver(%{state | last_letter_id: newest})
+    end
+  end
 
   # A fresh board is drawn from herdr's last answer — this one's or the one
   # matching panes fetched, if that was within `panes_ms`.
@@ -2141,11 +2153,11 @@ defmodule Whiska.Owl.House do
   end
 
   defp to_main_session(%{main_pane: nil} = state, _mode) do
-    if Storage.open_count() > 0 do
+    if Storage.open_count() > 0 or Storage.next_letter() != nil do
       state
       |> warn_once(
         :no_main,
-        "questions are waiting but no main session is recorded — " <>
+        "questions or a letter are waiting but no main session is recorded — " <>
           "run `whiska start` in the main session's pane"
       )
       |> hold(:unreachable, nil, "no main pane recorded")
@@ -2155,11 +2167,31 @@ defmodule Whiska.Owl.House do
   end
 
   defp to_main_session(state, mode) do
-    case next_to_deliver(mode) || next_report(mode) do
-      nil ->
+    case {next_letter(mode), next_to_deliver(mode) || next_report(mode)} do
+      {%HouseLetter{} = letter, _question} ->
+        case letter_line(state, letter) do
+          {:ok, line} ->
+            case main_session_free?(state) do
+              {:go, _notes, state} -> type_letter(state, letter, line)
+              {:hold, reason, status, state} -> hold(state, reason, {:letter, letter.id}, status)
+            end
+
+          :error ->
+            {:ok, _} = Storage.mark_letter_typed(letter.id)
+
+            warn(
+              state,
+              "letter ##{letter.id} is not typed: its file is no letter of this house's, " <>
+                "or its path cannot be typed"
+            )
+
+            to_main_session(state, mode)
+        end
+
+      {nil, nil} ->
         release_hold(state)
 
-      %Question{} = question ->
+      {nil, %Question{} = question} ->
         case main_session_free?(state) do
           {:go, notes, state} -> type_line(state, question, notes, mode)
           {:hold, reason, status, state} -> hold(state, reason, question.id, status)
@@ -2203,6 +2235,7 @@ defmodule Whiska.Owl.House do
   end
 
   defp question_label(nil), do: "questions"
+  defp question_label({:letter, id}), do: "letter ##{id}"
   defp question_label(id), do: "##{id}"
 
   defp held_for(%{held_since: since}) do
@@ -2217,7 +2250,7 @@ defmodule Whiska.Owl.House do
   defp held_reason(state, mode) do
     with %DateTime{} = since <- state.held_since,
          true <- DateTime.diff(now(), since, :millisecond) >= state.hold_notice_ms,
-         true <- Mode.open_count(Storage.questions(), mode) > 0 do
+         true <- Mode.open_count(Storage.questions(), mode) > 0 or next_letter(mode) != nil do
       state.held_reason
     else
       _ -> nil
@@ -2256,6 +2289,12 @@ defmodule Whiska.Owl.House do
     if Mode.clear?(Storage.questions(), mode),
       do: Enum.find(Storage.untyped(), &Mode.deliverable?(&1, mode))
   end
+
+  # A letter waits for away and the gate, never for the slot or a focus: it is
+  # no mouse's, and a question the person sits on for a day must not hold the
+  # person's own words back that long (ADR-0008).
+  defp next_letter(%{away?: true}), do: nil
+  defp next_letter(_mode), do: Storage.next_letter()
 
   defp main_session_free?(%{socket: nil} = state) do
     state
@@ -2375,6 +2414,30 @@ defmodule Whiska.Owl.House do
   defp delivered(state, question, branch, more) do
     {:ok, _} = Storage.mark_sent(question.id)
     hoot(state, question, branch, more)
+  end
+
+  # The row is written by another repo's CLI and the folder is reachable by
+  # this repo's mice, so the path is checked here, where it is typed.
+  defp letter_line(state, letter) do
+    if Letters.in_house?(state.main_checkout, letter.path),
+      do: Text.letter(letter.from_repo, letter.path),
+      else: :error
+  end
+
+  defp type_letter(state, letter, line) do
+    case state.herdr.prompt(state.socket, state.main_pane, line) do
+      :ok ->
+        {:ok, _} = Storage.mark_letter_typed(letter.id)
+        %{release_hold(state) | warned: MapSet.new()}
+
+      {:error, reason} ->
+        state
+        |> warn_once(
+          :prompt_failed,
+          "could not type letter ##{letter.id} (#{inspect(reason)}) — will retry"
+        )
+        |> hold(:unreachable, {:letter, letter.id}, "herdr refused the prompt")
+    end
   end
 
   # The hoot (ADR-0062), raised from inside the same branch that typed the

@@ -120,6 +120,17 @@ to ask about, as its brief says.
 The cost, accepted: a report can wait as long as a question sits unanswered, and a
 question that arrives just after a report is typed below it while the person reads it.
 
+## A letter from another house goes first, and holds nothing
+
+A letter another repo's main session left with `whiska tell` (ADR-0044) is not a
+question: nobody answers it. It waits while the person is away, while a round of questions
+is still gathering and while the gate holds, and for nothing else: not for a `sent` question, since one the person sits on for a day
+would hold their own words back a day, and not behind a focus, since it is no mouse's.
+When the gate lets go, the oldest letter is typed ahead of every queued question and report, one per
+opening, and the question goes on the next. It takes no slot, raises no hoot, and while
+the gate holds it the main checkout's sidebar line says `gated`, as for a question. The house
+notices a new one on the board's tick, since the CLI that left it runs in another repo.
+
 ## When the idle signal is unavailable, deliver anyway
 
 herdr reports a pane's agent and its status as separate fields, which makes the broken case
@@ -196,3 +207,6 @@ prompt hook went with the line.
 
 Changed on 2026-10-15: a finished report's line is typed again, once nothing waits on the
 person, and holds nothing once typed.
+
+Changed on 2026-10-15: a letter from another house's main session is typed ahead of the
+queue, under away and the gate only, and takes no slot (ADR-0044).

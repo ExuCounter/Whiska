@@ -1412,7 +1412,10 @@ defmodule Whiska.Doctor do
                     settings_changes(main_checkout, env)
                   ),
                   prompt_box(box, scroll_offset(word)),
-                  questions(open, sent, main_pane != nil, box, now),
+                  questions(open, sent, main_pane != nil, box, now)
+                ] ++
+                letters(Storage.letters_waiting(), mode.away?, box) ++
+                [
                   set_aside(mode, focus_name(mode), held_names(mode))
                 ] ++
                 mice(Storage.all(Mouse), panes, MapSet.new(Storage.chased(), & &1.mouse_id)) ++
@@ -1649,6 +1652,21 @@ defmodule Whiska.Doctor do
         if(open > 0 and is_nil(sent), do: held(draft), else: [])
 
     Check.ok("questions", Enum.join(parts, ", "))
+  end
+
+  @doc """
+  The letters other repos' main sessions left here that are not typed yet
+  (ADR-0044): a line only while one waits, and what it waits for.
+  """
+  @spec letters(non_neg_integer(), boolean(), reading()) :: [Check.t()]
+  def letters(0, _away?, _draft), do: []
+
+  def letters(waiting, away?, draft) do
+    parts =
+      ["#{waiting} from another repo waiting"] ++
+        if(away?, do: ["away: typed after `resume`"], else: held(draft))
+
+    [Check.ok("letters", Enum.join(parts, ", "))]
   end
 
   defp held(:typing), do: ["gated: person is typing"]

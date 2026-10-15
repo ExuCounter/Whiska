@@ -242,6 +242,12 @@ defmodule Whiska.CLI do
                          pane pointing there. A mouse mid-turn reads it once
                          its turn ends. An answer to a question is `reply`.
 
+    tell <repo> <file>   Your words in <file> to another repo's main session:
+                         copied into that repo's house, and one line pointing
+                         there typed into its main session once it is free and
+                         you are not away. <repo> as `jump --list` names it, or
+                         its main checkout. Refused for this repo.
+
     land <id> [--commit <message-file>]
                          Copy the commits of question <id>'s branch onto the
                          branch this checkout is on, oldest first, then run
@@ -554,6 +560,17 @@ defmodule Whiska.CLI do
 
   def run(["send", branch, file], cwd),
     do: with_herdr(cwd, "send to a mouse", &Whiska.Send.run(&1, branch, file, &2))
+
+  def run(["tell", repo, file], cwd) do
+    with_house(cwd, fn ->
+      {:ok, main} = main_checkout(cwd || File.cwd!())
+
+      case Whiska.Tell.run(main, repo, file) do
+        {:ok, report} -> say(report)
+        {:error, message} -> fail("whiska: #{message}")
+      end
+    end)
+  end
 
   def run(["drop", branch], cwd),
     do: with_herdr(cwd, "drop a worktree in", &Whiska.Drop.run(&1, branch, false, &2))

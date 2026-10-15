@@ -18,6 +18,7 @@ defmodule Whiska.Storage do
   alias Whiska.Layout
   alias Whiska.Repo
   alias Whiska.Schema.House
+  alias Whiska.Schema.HouseLetter
   alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -49,7 +50,8 @@ defmodule Whiska.Storage do
     {23, Whiska.Migrations.V023ReportTyped},
     {24, Whiska.Migrations.V024ThreadsHanded},
     {25, Whiska.Migrations.V025PickupRetries},
-    {26, Whiska.Migrations.V026MergeRequestBlocker}
+    {26, Whiska.Migrations.V026MergeRequestBlocker},
+    {27, Whiska.Migrations.V027HouseLetters}
   ]
 
   @modes ~w(build sniff)
@@ -1039,6 +1041,51 @@ defmodule Whiska.Storage do
 
     :ok
   end
+
+  # -- letters from other houses (ADR-0044) -------------------------------------
+
+  @doc """
+  Record a letter another repo's main session left here with `whiska tell`,
+  its file already copied to `path`. Its line is typed by this house's own
+  delivery.
+  """
+  @spec leave_letter(%{from_repo: String.t(), from_checkout: Path.t(), path: Path.t()}) ::
+          {:ok, HouseLetter.t()} | {:error, Ecto.Changeset.t()}
+  def leave_letter(attrs) do
+    %HouseLetter{}
+    |> Ecto.Changeset.cast(attrs, [:from_repo, :from_checkout, :path])
+    |> Ecto.Changeset.put_change(:left_at, now())
+    |> Ecto.Changeset.validate_required([:from_repo, :from_checkout, :path])
+    |> Repo.insert()
+  end
+
+  @doc "The oldest letter whose line is not typed yet, or nil."
+  @spec next_letter() :: HouseLetter.t() | nil
+  def next_letter do
+    Repo.one(from(l in HouseLetter, where: is_nil(l.typed_at), order_by: l.id, limit: 1))
+  end
+
+  @doc "A letter's line has been typed into the main session."
+  @spec mark_letter_typed(pos_integer()) :: {:ok, HouseLetter.t()}
+  def mark_letter_typed(id) do
+    HouseLetter
+    |> Repo.get!(id)
+    |> Ecto.Changeset.change(%{typed_at: now()})
+    |> Repo.update()
+  end
+
+  @doc "How many letters are not typed yet."
+  @spec letters_waiting() :: non_neg_integer()
+  def letters_waiting,
+    do: Repo.aggregate(from(l in HouseLetter, where: is_nil(l.typed_at)), :count)
+
+  @doc "The newest letter's id, typed or not, or nil when none was ever left."
+  @spec newest_letter_id() :: pos_integer() | nil
+  def newest_letter_id, do: Repo.one(from(l in HouseLetter, select: max(l.id)))
+
+  @doc "Every letter left here, oldest first."
+  @spec letters() :: [HouseLetter.t()]
+  def letters, do: Repo.all(from(l in HouseLetter, order_by: l.id))
 
   # -- the delivery queue (ADR-0008) -------------------------------------------
 

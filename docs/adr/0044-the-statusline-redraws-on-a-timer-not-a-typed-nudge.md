@@ -1,7 +1,9 @@
 # Whiska types only into its own house's main session, and into a mouse's pane only about its own work
 
-Delivery (ADR-0008) types into the main session of the question's own house, and nothing
-in Whiska types into any other session but a mouse, into its own pane, about its own work:
+Delivery (ADR-0008) types into the main session of the question's own house, and into
+it, a letter another repo's main session left there with `whiska tell`: one fixed line
+naming that repo and the file's path in this house. Nothing in Whiska types into any other
+session but a mouse, into its own pane, about its own work:
 
 - a pickup of its dead turn, once (ADR-0067);
 - the doorbell for an answer it has not taken, at most three times, only into an idle pane
@@ -17,15 +19,16 @@ in Whiska types into any other session but a mouse, into its own pane, about its
 - when no mouse on that branch is live, the same line as the first prompt of a mouse the
   owl starts there, after `Your task:` (ADR-0060).
 
-Spawn and send run on the person's word, from the main session; a review round runs on
+Spawn, send and tell run on the person's word, from the main session; a review round runs on
 the forge's, and its letter holds links, ids and usernames cut to plain characters,
 never a comment's or a log's text. A send types fixed text; a
 spawn types the text of the file the main session wrote the person's task to, after a
 fixed `Your task:` line, refused if it is not UTF-8 text or holds a control character but
 tab or a line break (ADR-0088). Whiska types nothing a mouse or a forge wrote: a task
 built from a finished investigation is fixed text naming its question, and comments
-travel in a file. What the main session writes into a task file is the person's to
-check. No other exception.
+travel in a file. A letter's words travel in a file too, and the main session that reads
+it shows them to the person and acts only on the person's word there. What the main
+session writes into a task file is the person's to check. No other exception.
 
 ## Why
 
@@ -45,20 +48,26 @@ The exceptions are the opposite case. The nudge spent a turn on work that sessio
 nothing to do with. A pickup spends the turn on the stalled mouse's own unfinished work,
 which cannot resume without one; a doorbell's turn is the answer arriving; and a spawn or
 a send is the person handing that mouse its task or their words, which it is there to act
-on. A review round is the mouse's own merge request coming back to it: the work it was
+on. A letter is the person's own words, which they asked one repo's main session to pass
+to another's. A review round is the mouse's own merge request coming back to it: the work it was
 there for, and nothing it pushes or posts to a person's thread goes without the person's
 yes.
 
 ## Consequences
 
-- Houses never call each other, and the owl supervises houses and nothing else. Nothing
-  acts across houses: what is waiting in another repo is the tab bar's to say (ADR-0048),
-  pulled by herdr's server on a timer, and moving the person there is their own move
-  (ADR-0043).
+- Houses call each other only by a letter, on the person's word: `whiska tell` leaves it
+  in the other house, and that house's own delivery types its line, under away and its
+  gate (ADR-0008, ADR-0047). The owl supervises houses and nothing else, and acts across
+  houses in no other way: what is waiting in another repo is the tab bar's to say
+  (ADR-0048), pulled by herdr's server on a timer, and moving the person there is their own
+  move (ADR-0043).
 - ADR-0009's one delivery kind has no notice exception, and no notice shares the delivery
   slot. A finished report's line is a delivery that takes no slot: it is typed only once
-  nothing waits (ADR-0008).
-- `Whiska.Delivery.Text.compose/4` is the one line delivery writes.
+  nothing waits (ADR-0008). A letter neither waits for the slot nor takes it.
+- `Whiska.Delivery.Text.compose/4` is the line delivery writes for a question or a report,
+  and `letter/2` the one for a letter. Another repo's CLI writes a letter's row, so the
+  house types its line only for a plain file named as `whiska tell` names one, directly in
+  its own letters folder, which is no link.
 
 ## Considered options
 
@@ -81,3 +90,8 @@ typed a fixed line pointing at the brief (ADR-0088).
 
 Changed on 2026-10-14: the owl types one fixed line into a mouse's pane about new review
 on its merge request, and starts a mouse on that line when none is live (ADR-0060).
+
+Changed on 2026-10-15: a main session leaves a letter in another open house with `whiska
+tell`, on the person's word, and that house's delivery types one fixed line pointing at
+it, where houses never called each other before. A main session told to pass something to
+another repo's had no way to, short of guessing that session's name.

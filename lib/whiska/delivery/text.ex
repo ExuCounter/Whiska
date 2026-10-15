@@ -85,6 +85,31 @@ defmodule Whiska.Delivery.Text do
   def more(%{open: 0}), do: nil
   def more(%{open: n}), do: "#{n} more open"
 
+  @doc """
+  The line for a letter another repo's main session left here (ADR-0044): the
+  sending repo's name, cut to letters, digits, `.`, `_` and `-`, and the path of
+  the file. The
+  letter's own words are never typed. `:error` for a path that is not UTF-8 or
+  holds a control character, which would end the line early.
+  """
+  @spec letter(String.t(), Path.t()) :: {:ok, String.t()} | :error
+  def letter(from_repo, path) do
+    if String.valid?(path) and not String.match?(path, ~r/[[:cntrl:]]/u) do
+      {:ok, "📨 #{repo_name(from_repo)}'s Whiska sent you a letter: #{path}"}
+    else
+      :error
+    end
+  end
+
+  defp repo_name(from_repo) do
+    name =
+      if String.valid?(from_repo),
+        do: String.replace(from_repo, ~r/[^\p{L}\p{N}._-]/u, ""),
+        else: ""
+
+    if name == "", do: "another repo", else: name
+  end
+
   defp note(:status_unknown),
     do: "delivered blind: herdr cannot tell whether you are idle, so this may interrupt"
 end

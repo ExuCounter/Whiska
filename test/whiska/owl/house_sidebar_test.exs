@@ -613,6 +613,31 @@ defmodule Whiska.Owl.HouseSidebarTest do
       assert_receive {:reported, "w1", %{"whiska" => "⏳ gated: main is mid-turn"}},
                      1_000
     end
+
+    test "says delivery is gated while only a letter from another house waits", %{
+      main: main,
+      worktree: worktree
+    } do
+      {:ok, handle} = Storage.open(main, name: nil)
+      :ok = Storage.set_main_pane("w1:p2")
+      source = Path.join(Path.dirname(main), "letter.md")
+      File.write!(source, "From platform.\n")
+      {:ok, path} = Whiska.Letters.put_house(main, source)
+
+      {:ok, _} = Storage.leave_letter(%{from_repo: "platform", from_checkout: "/p", path: path})
+
+      Storage.close(handle)
+
+      stub(Herdr, :pane, fn @socket, "w1:p2" ->
+        {:ok, %{pane_id: "w1:p2", cwd: main, agent: "claude", agent_status: "working"}}
+      end)
+
+      fake_herdr([main_ws(main), mouse_ws("w2", worktree)])
+      open(main, hold_notice_ms: 0)
+
+      assert_receive {:reported, "w1", %{"whiska" => "⏳ gated: main is mid-turn"}},
+                     1_000
+    end
   end
 
   describe "a herdr that went away" do

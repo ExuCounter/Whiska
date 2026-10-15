@@ -9,7 +9,8 @@ reads all three before the delivery gate does (ADR-0008).
   `resume` ends it from anywhere. No owl is needed to set or clear it.
 - **A focus is one repo's.** The focused mouse's id on the house's own row. Only its
   questions reach that repo's main session; the rest wait, still listed and still counted.
-  A branch lives in a repo, so the setting does too.
+  A branch lives in a repo, so the setting does too. A letter from another repo's main
+  session is no mouse's, so a focus does not hold it; away does (ADR-0008).
 - **A hold is one mouse's, and a stored status.** `held_at` on the mouse record, not a
   line of text, so it survives an owl restart and shows wherever the mouse is listed. The
   mouse is stopped through the hook, which refuses its next write or shell command with a
@@ -68,8 +69,8 @@ in words, and its brief names the command each runs (ADR-0088).
 
 **The person's commands are refused to a mouse.** Every shaped mouse starts with a deny
 rule for each: `away`, `hold`, `focus`, `resume`, `reply`, `dismiss` and `close`, with
-`whiska` in front or bare, and `whiska spawn`, `send`, `land`, `pr`, `merge-request` and
-`drop`, only with `whiska` in front since `pr` and `send` are other programs too. Prose in
+`whiska` in front or bare, and `whiska spawn`, `send`, `tell`, `land`, `pr`,
+`merge-request` and `drop`, only with `whiska` in front since `pr` and `send` are other programs too. Prose in
 a brief would be the only other thing stopping a mouse from putting the machine away,
 holding a sibling, or starting, landing or throwing away a branch; what must hold is a
 rule Claude Code enforces (ADR-0011, ADR-0090). A plain rule matches the command as
@@ -135,3 +136,6 @@ rule in the hook (ADR-0090).
 Changed on 2026-10-14: `merge-request` is the person's too. The owl reads the link it
 records every minute and asks about the branch when it closes (ADR-0060), so recording one,
 for any branch, is the person's to do, as opening one with `pr` already was.
+
+Changed on 2026-10-15: `tell` is the person's too, and a letter from another house waits
+for away but not for a focus (ADR-0044).

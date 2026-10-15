@@ -70,7 +70,7 @@ Code enforces it; nothing else asks before a tool call.
 
 - **A mouse may not run your commands**: `away`, `focus`, `hold`, `resume`, `reply`,
   `dismiss` and `close`, as a word or as `whiska <word>`, nor the main session's `whiska
-  spawn`, `send`, `land`, `pr` and `drop` (ADR-0079).
+  spawn`, `send`, `tell`, `land`, `pr`, `merge-request` and `drop` (ADR-0079).
 - **A sniff mouse has no `Edit`, `Write` or `NotebookEdit`.** Its research document is
   its final message, which Whiska keeps (ADR-0069, ADR-0089).
 - **A held mouse may do nothing** the `PreToolUse` hook sees, until `resume <branch>`

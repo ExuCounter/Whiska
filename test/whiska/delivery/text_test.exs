@@ -92,4 +92,28 @@ defmodule Whiska.Delivery.TextTest do
     line = Text.compose(q, "b", @none, [:status_unknown])
     assert line =~ "herdr cannot tell whether you are idle"
   end
+
+  describe "a letter from another house's main session (ADR-0044)" do
+    test "names the sending repo and the file, and nothing it wrote" do
+      assert Text.letter("platform", "/r/.git/whiska/letters/1.md") ==
+               {:ok, "📨 platform's Whiska sent you a letter: /r/.git/whiska/letters/1.md"}
+    end
+
+    test "cuts the repo name to plain characters" do
+      assert {:ok, "📨 evil-repo.x's Whiska" <> _} = Text.letter("evil\n-repo`$(.x)`", "/r/1.md")
+    end
+
+    test "refuses a path that holds a control character" do
+      assert Text.letter("platform", "/r/a\nb.md") == :error
+    end
+
+    test "keeps a repo name in any script, and names one cut to nothing another repo" do
+      assert {:ok, "📨 café-app's Whiska" <> _} = Text.letter("café-app", "/r/a.md")
+      assert {:ok, "📨 another repo's Whiska" <> _} = Text.letter("$( )", "/r/a.md")
+    end
+
+    test "refuses a path that is not UTF-8" do
+      assert Text.letter("platform", "/r/\xFF.md") == :error
+    end
+  end
 end

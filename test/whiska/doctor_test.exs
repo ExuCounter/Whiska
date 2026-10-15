@@ -1111,6 +1111,26 @@ defmodule Whiska.DoctorTest do
     end
   end
 
+  describe "letters/3" do
+    test "says nothing while no letter from another repo waits" do
+      assert Doctor.letters(0, false, :empty) == []
+    end
+
+    test "a waiting letter gets a line, gated as a question is (ADR-0047)" do
+      assert [%Check{status: :ok, name: "letters", detail: detail}] =
+               Doctor.letters(1, false, :typing)
+
+      assert detail =~ "1 from another repo waiting"
+      assert detail =~ "gated: person is typing"
+    end
+
+    test "while away a letter waits for resume" do
+      assert [%Check{status: :ok, detail: detail}] = Doctor.letters(2, true, :empty)
+      assert detail =~ "2 from another repo waiting"
+      assert detail =~ "away"
+    end
+  end
+
   describe "questions/5 — the queue as a diagnosis, not a listing" do
     test "nothing open and nothing sent is ok" do
       assert %Check{status: :ok, detail: "none waiting"} =
