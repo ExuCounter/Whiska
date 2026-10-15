@@ -74,6 +74,7 @@ defmodule Whiska.SidebarTest do
       held: Keyword.get(opts, :held),
       mode: Keyword.get(opts, :mode, Mode.none()),
       picked_up: Keyword.get(opts, :picked_up, %{}),
+      stalls: Keyword.get(opts, :stalls, %{}),
       merge_requests: Keyword.get(opts, :merge_requests, %{}),
       unhoused_merge_requests: Keyword.get(opts, :unhoused_merge_requests, 0)
     )
@@ -333,6 +334,60 @@ defmodule Whiska.SidebarTest do
       assert said([mouse("feat-a")],
                bare_panes: [pane("feat-a", "working", title: "Order builder")],
                picked_up: %{"m-feat-a" => DateTime.add(@now, -150, :second)}
+             ) == "↩ picked up 2m ago"
+    end
+
+    test "waiting out an API error, it says when the next pickup is due" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "done")],
+               picked_up: %{"m-feat-a" => DateTime.add(@now, -60, :second)},
+               stalls: %{
+                 "m-feat-a" => %{kind: "server_error", retry_at: DateTime.add(@now, 240, :second)}
+               }
+             ) == "↻ API error · retry in 4m"
+    end
+
+    test "waiting out an expired login, it says what the person has to do" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "idle")],
+               stalls: %{"m-feat-a" => %{kind: "authentication_failed", retry_at: @now}}
+             ) == "🔑 login expired · run /login"
+    end
+
+    test "waiting out a rate limit, it says when the limit resets" do
+      reset = DateTime.add(@now, 3 * 3600, :second)
+
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "idle")],
+               stalls: %{"m-feat-a" => %{kind: "rate_limit", retry_at: reset}}
+             ) =~ ~r/^⏳ limit · resets \d\d:\d\d$/
+    end
+
+    test "a rate limit resetting another day names the day" do
+      reset = DateTime.add(@now, 5 * 86_400, :second)
+
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "idle")],
+               stalls: %{"m-feat-a" => %{kind: "rate_limit", retry_at: reset}}
+             ) =~ ~r/^⏳ limit · resets Oct \d+ \d\d:\d\d$/
+    end
+
+    test "an API error never picked up says so, and sorts with the stuck" do
+      [first, _] =
+        lines([mouse("feat-a"), mouse("feat-b")],
+          bare_panes: [pane("feat-a", "working", title: "Order builder"), pane("feat-b", "idle")],
+          stalls: %{"m-feat-b" => %{kind: "invalid_request", retry_at: nil}}
+        )
+
+      assert first.branch == "feat-b"
+      assert first.tokens["whiska"] == "✖ API error"
+    end
+
+    test "while the pickup's own turn runs, it says picked up, not the error it waits out" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "working", title: "Order builder")],
+               picked_up: %{"m-feat-a" => DateTime.add(@now, -150, :second)},
+               stalls: %{"m-feat-a" => %{kind: "server_error", retry_at: @now}}
              ) == "↩ picked up 2m ago"
     end
 

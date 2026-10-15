@@ -47,7 +47,8 @@ defmodule Whiska.Storage do
     {21, Whiska.Migrations.V021ReportHooted},
     {22, Whiska.Migrations.V022ReviewRounds},
     {23, Whiska.Migrations.V023ReportTyped},
-    {24, Whiska.Migrations.V024ThreadsHanded}
+    {24, Whiska.Migrations.V024ThreadsHanded},
+    {25, Whiska.Migrations.V025PickupRetries}
   ]
 
   @modes ~w(build sniff)
@@ -726,9 +727,121 @@ defmodule Whiska.Storage do
   `nil` is what a refused line writes back: nothing was typed, so the one
   attempt has not been spent.
   """
-  @spec set_picked_up(String.t(), DateTime.t() | nil) ::
+  @spec set_picked_up(String.t(), DateTime.t() | nil, non_neg_integer() | nil) ::
           {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
-  def set_picked_up(mouse_id, at), do: stamp_mouse(mouse_id, :picked_up_at, at)
+  def set_picked_up(mouse_id, at, pickups) do
+    case Repo.get(Mouse, mouse_id) do
+      nil ->
+        {:error, :no_such_mouse}
+
+      mouse ->
+        mouse
+        |> Ecto.Changeset.change(%{picked_up_at: truncate(at), pickups: pickups || 0})
+        |> Repo.update()
+    end
+  end
+
+  @doc """
+  Record what a mouse whose turn died on an API error is waiting out: the kind
+  and when its next pickup is due (ADR-0067).
+
+  A stall still current — nothing of the mouse's has reached the doorstep since
+  it began — keeps when it began and whether the person was told, unless it
+  turns into an expired login, which only the person can fix and so is told
+  too; any other starts a new run. Written only when something changed, since the sweep judges
+  every minute.
+  """
+  @spec set_stall(String.t(), Whiska.Pickup.Policy.stall(), DateTime.t()) :: :ok
+  def set_stall(mouse_id, %{kind: kind, retry_at: retry_at, failed: failed}, now) do
+    with %Mouse{} = mouse <- Repo.get(Mouse, mouse_id) do
+      retry_at = truncate(retry_at)
+
+      changes =
+        cond do
+          not run_current?(mouse) ->
+            %{
+              stall_failed: failed,
+              stall_kind: kind,
+              retry_at: retry_at,
+              stalled_at: truncate(now),
+              stall_hooted_at: nil
+            }
+
+          kind == "authentication_failed" and mouse.stall_kind != kind and
+              mouse.stall_kind != nil ->
+            %{stall_kind: kind, retry_at: retry_at, stall_failed: failed, stall_hooted_at: nil}
+
+          true ->
+            %{stall_kind: kind, retry_at: retry_at, stall_failed: failed}
+        end
+
+      changeset = Ecto.Changeset.change(mouse, changes)
+      if changeset.changes != %{}, do: Repo.update(changeset)
+    end
+
+    :ok
+  end
+
+  @doc """
+  Record that a mouse waits out no API error any more: its pickup's turn ended
+  some other way, and it is stuck or carrying on (ADR-0067). The run it was
+  in, and whether the person was told of it, are kept.
+  """
+  @spec clear_stall(String.t()) :: :ok
+  def clear_stall(mouse_id) do
+    from(m in Mouse, where: m.mouse_id == ^mouse_id and not is_nil(m.stall_kind))
+    |> Repo.update_all(set: [stall_kind: nil, retry_at: nil])
+
+    :ok
+  end
+
+  defp stall_current?(%Mouse{stall_kind: nil}), do: false
+  defp stall_current?(mouse), do: run_current?(mouse)
+
+  defp run_current?(%Mouse{stalled_at: nil}), do: false
+
+  defp run_current?(%Mouse{mouse_id: id, stalled_at: since}) do
+    not Repo.exists?(
+      from(q in Question,
+        where:
+          q.mouse_id == ^id and q.asked_at >= ^since and
+            (is_nil(q.asked_by) or q.asked_by != "owl")
+      )
+    )
+  end
+
+  @doc """
+  Every mouse whose current stall the person has not been told about yet, with
+  how many pickups it has had in the run (ADR-0067). Whether one is owed is
+  `Whiska.Pickup.Policy.owes_hoot?/1`'s to say.
+  """
+  @spec untold_stalls() :: [Mouse.t()]
+  def untold_stalls do
+    from(m in Mouse,
+      where:
+        not is_nil(m.stalled_at) and is_nil(m.stall_hooted_at) and is_nil(m.removed_at) and
+          is_nil(m.died_at)
+    )
+    |> Repo.all()
+    |> Enum.filter(&stall_current?/1)
+  end
+
+  @doc """
+  The API error each mouse is waiting out, while its stall is current
+  (ADR-0067): the sidebar's to say.
+  """
+  @spec stalls() :: %{String.t() => %{kind: String.t(), retry_at: DateTime.t() | nil}}
+  def stalls do
+    from(m in Mouse, where: not is_nil(m.stalled_at) and is_nil(m.removed_at))
+    |> Repo.all()
+    |> Enum.filter(&stall_current?/1)
+    |> Map.new(&{&1.mouse_id, %{kind: &1.stall_kind, retry_at: &1.retry_at}})
+  end
+
+  @doc "Record that the person was told about a mouse's stall."
+  @spec set_stall_hooted(String.t(), DateTime.t()) ::
+          {:ok, Mouse.t()} | {:error, :no_such_mouse | Ecto.Changeset.t()}
+  def set_stall_hooted(mouse_id, at), do: stamp_mouse(mouse_id, :stall_hooted_at, at)
 
   defp stamp_mouse(mouse_id, field, at) do
     case Repo.get(Mouse, mouse_id) do

@@ -47,6 +47,8 @@ defmodule Whiska.Sidebar do
     {"💤", "#6c71c4"},
     {"⏸", "#6c71c4"},
     {"↩", "#268bd2"},
+    {"↻", "#268bd2"},
+    {"🔑", "#dc322f"},
     {"◐", "#268bd2"},
     {"○", "#e0891f"}
   ]
@@ -273,6 +275,11 @@ defmodule Whiska.Sidebar do
   defp state(%{pane: :unreachable}, _now), do: {@lost, "? herdr can't say", nil}
   defp state(%{status: "unknown"}, _now), do: {@lost, "? herdr can't say", nil}
 
+  # A turn that died on an API error, waiting for its next pickup (ADR-0067).
+  # While the pickup's own turn runs, the line says it was picked up instead.
+  defp state(%{stall: %{} = stall, status: status}, now) when status != "working",
+    do: stalled(stall, now)
+
   defp state(%{stuck?: true} = row, _now), do: {@stuck, stuck(row.silent_for), nil}
 
   defp state(%{picked_up_at: %DateTime{} = at}, now),
@@ -300,6 +307,39 @@ defmodule Whiska.Sidebar do
     do: {@sent, "❓ waiting on you · #{age(at, now)}", nil}
 
   defp asked(_asked, _now), do: {@next, "❓ waiting on you", nil}
+
+  defp stalled(%{kind: "authentication_failed"}, _now),
+    do: {@stuck, "🔑 login expired · run /login", nil}
+
+  defp stalled(%{retry_at: nil}, _now), do: {@stuck, "✖ API error", nil}
+
+  defp stalled(%{kind: "rate_limit", retry_at: at}, now),
+    do: {@picked_up, "⏳ limit · resets #{clock(at, now)}", nil}
+
+  defp stalled(%{retry_at: at}, now) do
+    case DateTime.diff(at, now) do
+      due when due <= 0 -> {@picked_up, "↻ API error · retrying", nil}
+      due -> {@picked_up, "↻ API error · retry in #{minutes(due)}", nil}
+    end
+  end
+
+  # The person's own clock: the hour alone today, the day too when it is not.
+  defp clock(at, now) do
+    at = local(at)
+    time = Calendar.strftime(at, "%H:%M")
+
+    if NaiveDateTime.to_date(at) == NaiveDateTime.to_date(local(now)),
+      do: time,
+      else: Calendar.strftime(at, "%b %-d ") <> time
+  end
+
+  defp local(%DateTime{} = at) do
+    at
+    |> DateTime.to_naive()
+    |> NaiveDateTime.to_erl()
+    |> :calendar.universal_time_to_local_time()
+    |> NaiveDateTime.from_erl!()
+  end
 
   defp stuck(nil), do: "✖ stuck"
   defp stuck(silent_for), do: "✖ stuck #{minutes(silent_for)}"

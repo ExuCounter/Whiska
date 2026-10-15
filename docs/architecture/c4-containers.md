@@ -105,7 +105,7 @@ C4Container
   Rel(house, herdr, "Removes a landed worktree, here or in the fetched base, and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle")
   Rel(house, herdr, "Rings a mouse's doorbell again, at most three times, while its answer is not taken")
-  Rel(house, herdr, "Types a pickup line into a mouse's pane, once, when its turn died")
+  Rel(house, herdr, "Types a pickup line into a mouse's pane when its turn died, again while it dies on an API error")
   Rel(house, herdr, "Types a review round's one fixed line into a mouse's idle pane, pointing at the letter it wrote in the worktree")
   Rel(house, herdr, "Starts a review mouse when none is live: opens its worktree without focus, starts Claude with the review brief, types the same line")
   Rel(house, brief, "Writes a review mouse's")

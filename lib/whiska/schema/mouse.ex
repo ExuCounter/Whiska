@@ -50,6 +50,16 @@ defmodule Whiska.Schema.Mouse do
     # typed a line into it to carry a died turn on (ADR-0067).
     field(:worked_at, :utc_datetime)
     field(:picked_up_at, :utc_datetime)
+    # Pickups since the mouse last finished a turn, and the API error it is
+    # waiting out: its kind, when the next pickup is due (nil: never), how many
+    # pickups of the run failed, when the run began, and when the person was
+    # told (ADR-0067).
+    field(:pickups, :integer, default: 0)
+    field(:stall_kind, :string)
+    field(:retry_at, :utc_datetime)
+    field(:stall_failed, :integer, default: 0)
+    field(:stalled_at, :utc_datetime)
+    field(:stall_hooted_at, :utc_datetime)
     # Set when the sweep first sees this branch merged into the base (ADR-0064).
     # What makes the difference between a question this mouse left that the
     # merge answered and one nobody ever dealt with.

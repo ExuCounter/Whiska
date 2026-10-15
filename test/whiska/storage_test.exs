@@ -85,6 +85,27 @@ defmodule Whiska.StorageTest do
     end
   end
 
+  describe "the v025 migration" do
+    test "adds only the columns a house does not have yet", %{main: main} do
+      {:ok, handle} = Storage.open(main, name: nil)
+      on_exit(fn -> Storage.close(handle) end)
+      v025 = [{25, Whiska.Migrations.V025PickupRetries}]
+      Ecto.Migrator.run(Whiska.Repo, v025, :down, all: true, log: false)
+
+      for column <- ~w(pickups stall_kind retry_at stalled_at stall_hooted_at) do
+        Whiska.Repo.query!("ALTER TABLE mice ADD COLUMN #{column} TEXT")
+      end
+
+      Ecto.Migrator.run(Whiska.Repo, v025, :up, all: true, log: false)
+
+      %{rows: rows} = Whiska.Repo.query!("SELECT name FROM pragma_table_info('mice')")
+      columns = List.flatten(rows)
+
+      for column <- ~w(pickups stall_kind retry_at stall_failed stalled_at stall_hooted_at),
+          do: assert(column in columns)
+    end
+  end
+
   describe "open/1" do
     test "creates the database and migrates it", %{main: main} do
       {:ok, handle} = Storage.open(main, name: nil)

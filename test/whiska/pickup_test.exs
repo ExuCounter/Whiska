@@ -129,16 +129,38 @@ defmodule Whiska.PickupTest do
     |> JSON.encode!()
   end
 
-  defp api_error do
-    JSON.encode!(%{
+  # Claude Code's own entry for a turn that gave up, of `kind`, written at
+  # `:at` seconds when given, with a rate limit's reset `:resets_at` seconds.
+  defp api_error(kind \\ "server_error", opts \\ []) do
+    %{
       "type" => "assistant",
       "isSidechain" => false,
       "isApiErrorMessage" => true,
-      "error" => "server_error",
+      "error" => kind,
       "message" => %{
         "model" => "<synthetic>",
         "content" => [%{"type" => "text", "text" => "API Error: The response stopped arriving."}]
       }
+    }
+    |> stamped(opts[:at])
+    |> then(fn entry ->
+      case opts[:resets_at] do
+        nil -> entry
+        s -> Map.put(entry, "quotaLimits", %{"resetsAt" => s |> at() |> DateTime.to_unix()})
+      end
+    end)
+    |> JSON.encode!()
+  end
+
+  defp stamped(entry, nil), do: entry
+  defp stamped(entry, s), do: Map.put(entry, "timestamp", s |> at() |> DateTime.to_iso8601())
+
+  # The pickup line, as Claude Code records it once the session takes it.
+  defp typed(text, seconds) do
+    JSON.encode!(%{
+      "type" => "user",
+      "timestamp" => seconds |> at() |> DateTime.to_iso8601(),
+      "message" => %{"role" => "user", "content" => text}
     })
   end
 
@@ -443,6 +465,230 @@ defmodule Whiska.PickupTest do
       assert {[{_, :picked_up}], seen} = sweep(repo, @quiet, seen)
 
       assert {[{_, {:left, :already}}], _} = sweep(repo, @between, seen)
+    end
+
+    test "a mouse whose pickup also died on an API error is picked up again once its wait has passed",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error()])
+      expect(Herdr, :prompt, 2, fn _, _, _ -> :ok end)
+      {[{_, :picked_up}], seen} = sweep(repo, @settled, seen)
+
+      {_, seen} = look(repo, @settled + 60, seen, m, "working")
+
+      transcript(m, [
+        said("on it"),
+        api_error(),
+        typed(Pickup.line(), @settled + 5),
+        api_error("server_error", at: @settled + 30)
+      ])
+
+      {_, seen} = look(repo, @settled + 90, seen, m, "done")
+      assert {[{_, {:left, {:retry_at, _}}}], seen} = sweep(repo, @settled + 100, seen)
+
+      assert {[{_, :picked_up}], _} = sweep(repo, @settled + 120, seen)
+    end
+
+    test "an expired login is picked up again every ten minutes", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error("authentication_failed")])
+      expect(Herdr, :prompt, 2, fn _, _, _ -> :ok end)
+      {[{_, :picked_up}], seen} = sweep(repo, @settled, seen)
+
+      transcript(m, [
+        typed(Pickup.line(), @settled + 5),
+        api_error("authentication_failed", at: @settled + 6)
+      ])
+
+      ten = DateTime.add(at(@settled), 600, :second)
+      assert {[{_, {:left, {:retry_at, ^ten}}}], seen} = sweep(repo, @settled + 300, seen)
+      assert {[{_, :picked_up}], _} = sweep(repo, @settled + 600, seen)
+      assert %{stall_kind: "authentication_failed", pickups: 2} = Storage.mouse(m.id)
+    end
+
+    test "a rate limit waits for the reset Claude Code recorded, even the first time",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error("rate_limit", resets_at: @settled + 3600)])
+      reset = DateTime.add(at(@settled), 3600, :second)
+
+      assert {[{_, {:left, {:retry_at, ^reset}}}], seen} = sweep(repo, @settled, seen)
+
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+      assert {[{_, :picked_up}], _} = sweep(repo, @settled + 3600, seen)
+    end
+
+    test "an error that does not clear by itself is never picked up", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error("invalid_request")])
+
+      assert {[{_, {:left, {:api_error, "invalid_request"}}}], _} = sweep(repo, @settled, seen)
+      assert %{stall_kind: "invalid_request", retry_at: nil} = Storage.mouse(m.id)
+    end
+
+    test "a pickup whose line never reached the transcript is not retried", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error("server_error", at: @settled - 30)])
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+      {[{_, :picked_up}], seen} = sweep(repo, @settled, seen)
+
+      assert {[{_, {:left, :already}}], _} = sweep(repo, @settled + 3600, seen)
+    end
+
+    test "a pickup line stamped in the future is no proof the pickup's own turn died",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error()])
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+      {[{_, :picked_up}], seen} = sweep(repo, @settled, seen)
+
+      transcript(m, [typed(Pickup.line(), 10 ** 8), api_error("server_error", at: 10 ** 8 + 1)])
+
+      assert {[{_, {:left, :already}}], _} = sweep(repo, @settled + 3600, seen)
+    end
+
+    test "an error the pickup's line drew within the same second is the pickup's own",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error("authentication_failed")])
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+      {[{_, :picked_up}], seen} = sweep(repo, @settled, seen)
+
+      ms = fn n -> @settled |> at() |> DateTime.add(n, :millisecond) |> DateTime.to_iso8601() end
+
+      transcript(m, [
+        said("on it"),
+        typed(Pickup.line(), @settled)
+        |> JSON.decode!()
+        |> Map.put("timestamp", ms.(250))
+        |> JSON.encode!(),
+        api_error("authentication_failed")
+        |> JSON.decode!()
+        |> Map.put("timestamp", ms.(600))
+        |> JSON.encode!()
+      ])
+
+      ten = DateTime.add(at(@settled), 600, :second)
+      assert {[{_, {:left, {:retry_at, ^ten}}}], _} = sweep(repo, @settled + 60, seen)
+    end
+
+    test "running /login in the mouse's own pane does not end its retries", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error("authentication_failed")])
+      expect(Herdr, :prompt, 2, fn _, _, _ -> :ok end)
+      {[{_, :picked_up}], seen} = sweep(repo, @settled, seen)
+
+      transcript(m, [
+        typed(Pickup.line(), @settled + 1),
+        api_error("authentication_failed", at: @settled + 2),
+        typed(
+          "<command-name>/login</command-name>\n<command-message>login</command-message>",
+          @settled + 100
+        ),
+        typed("<local-command-stdout>Login successful</local-command-stdout>", @settled + 101)
+      ])
+
+      assert {[{_, :picked_up}], _} = sweep(repo, @settled + 600, seen)
+    end
+
+    test "a mouse that stops retrying no longer says it waits out an error", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error()])
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+      {[{_, :picked_up}], seen} = sweep(repo, @settled, seen)
+      assert Map.has_key?(Storage.stalls(), m.id)
+
+      transcript(m, [typed(Pickup.line(), @settled + 5), said("crashed mid-turn")])
+
+      assert {[{_, {:left, :already}}], _} = sweep(repo, @settled + 3600, seen)
+      assert Storage.stalls() == %{}
+    end
+
+    test "the run, and whether the person was told of it, outlast the pickup's own turn",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error("authentication_failed")])
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+      {[{_, :picked_up}], seen} = sweep(repo, @settled, seen)
+      Storage.set_stall_hooted(m.id, at(@settled))
+      began = Storage.mouse(m.id).stalled_at
+
+      transcript(m, [typed(Pickup.line(), @settled + 5)])
+      {_, seen} = look(repo, @settled + 30, seen, m, "working")
+
+      transcript(m, [
+        typed(Pickup.line(), @settled + 5),
+        api_error("authentication_failed", at: @settled + 40)
+      ])
+
+      {_, _} = look(repo, @settled + 60, seen, m, "done")
+      assert %{stalled_at: ^began, stall_hooted_at: %DateTime{}} = Storage.mouse(m.id)
+      assert Storage.untold_stalls() == []
+    end
+
+    test "an expired login partway through a told run is told too: only the person can fix it",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      Storage.set_stall(m.id, %{kind: "server_error", retry_at: at(0), failed: 3}, at(0))
+      Storage.set_stall_hooted(m.id, at(0))
+
+      Storage.set_stall(
+        m.id,
+        %{kind: "authentication_failed", retry_at: at(600), failed: 4},
+        at(60)
+      )
+
+      assert [%{mouse_id: "m-feat-a"}] = Storage.untold_stalls()
+    end
+
+    test "a new run counts no failures from the run before it", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      Storage.set_picked_up(m.id, at(@before), 5)
+      question(m, at: @before + 10)
+      transcript(m, [said("next"), api_error()])
+      stub(Herdr, :read_screen, fn _, _ -> {:ok, screen("box-holds-a-draft")} end)
+
+      assert {[{_, {:left, :typing}}], _} = sweep(repo, @settled, seen)
+      assert %{stall_failed: 0} = Storage.mouse(m.id)
+    end
+
+    test "a finished turn starts the count of pickups over", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error()])
+      expect(Herdr, :prompt, 2, fn _, _, _ -> :ok end)
+      {[{_, :picked_up}], seen} = sweep(repo, @settled, seen)
+      assert %{pickups: 1} = Storage.mouse(m.id)
+
+      {_, seen} = look(repo, @settled + 60, seen, m, "working")
+      question(m, at: @settled + 90)
+      {_, seen} = look(repo, @settled + 120, seen, m, "done")
+      {_, seen} = look(repo, @settled + 180, seen, m, "working")
+      transcript(m, [said("next"), api_error("server_error", at: @settled + 200)])
+
+      assert {[{_, :picked_up}], _} = look(repo, @settled + 240, seen, m, "done")
+      assert %{pickups: 1} = Storage.mouse(m.id)
+    end
+
+    test "a pane the owl may not type into records no stall, so nobody is told it carries on",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, [said("on it"), api_error("authentication_failed")])
+
+      assert {[{_, {:left, :main_session}}], _} = sweep(repo, @settled, seen, main_pane: "w1:p1")
+      assert Storage.untold_stalls() == []
     end
 
     test "keeps every other rule: the main session's pane is never typed into", %{repo: repo} do

@@ -196,4 +196,69 @@ defmodule Whiska.Owl.HousePickupTest do
       assert House.seen(house) == %{}
     end)
   end
+
+  describe "telling the person about a turn that keeps dying on an API error" do
+    setup %{repo: repo} do
+      other = GitRepo.worktree(repo, "feat-b")
+      now = DateTime.utc_now()
+
+      check(repo, fn ->
+        {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: other, branch: "feat-b"})
+        Storage.set_stall("ma", %{kind: "authentication_failed", retry_at: now, failed: 0}, now)
+        Storage.set_stall("mb", %{kind: "authentication_failed", retry_at: now, failed: 0}, now)
+      end)
+
+      {:ok, other: other}
+    end
+
+    test "an expired login is told once, in one hoot naming every branch",
+         %{repo: repo, path: path, other: other} do
+      stub(Herdr, :list_panes, fn @socket ->
+        {:ok, [pane(path, "working"), %{pane(other, "working") | pane_id: "w2:p1"}]}
+      end)
+
+      test_pid = self()
+
+      stub(Herdr, :notify, fn @socket, hoot ->
+        send(test_pid, {:hoot, hoot})
+        {:ok, :shown}
+      end)
+
+      capture_io(:stderr, fn ->
+        house = open(repo, backstop_ms: 20)
+        assert_receive {:hoot, hoot}, 5_000
+        assert hoot.title =~ "login expired"
+        assert hoot.body =~ "feat-a"
+        assert hoot.body =~ "feat-b"
+
+        Process.sleep(200)
+        House.sync(house)
+        refute_received {:hoot, _}
+      end)
+
+      check(repo, fn -> assert %{stall_hooted_at: %DateTime{}} = Storage.mouse("ma") end)
+    end
+
+    test "a stall already told is not told again by an owl that restarts", %{
+      repo: repo,
+      path: path
+    } do
+      check(repo, fn ->
+        Storage.set_stall_hooted("ma", DateTime.utc_now())
+        Storage.set_stall_hooted("mb", DateTime.utc_now())
+      end)
+
+      stub(Herdr, :list_panes, fn @socket -> {:ok, [pane(path, "working")]} end)
+      test_pid = self()
+      stub(Herdr, :notify, fn _, hoot -> send(test_pid, {:hoot, hoot}) && {:ok, :shown} end)
+
+      capture_io(:stderr, fn ->
+        house = open(repo, backstop_ms: 20)
+        Process.sleep(200)
+        House.sync(house)
+      end)
+
+      refute_received {:hoot, _}
+    end
+  end
 end

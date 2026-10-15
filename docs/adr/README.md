@@ -66,7 +66,7 @@ in git history.
 - [0089](0089-the-report-is-a-document.md) — A mouse's report is a document; `whiska show` prints its summary
 - [0026](0026-dead-mice-and-stuck-mice-are-separate-problems.md) — Dead mice and stuck mice are separate problems needing separate mechanisms
 - [0050](0050-a-mouses-last-action-is-read-from-its-transcript.md) — A mouse's last action is read from its Claude Code transcript, never asked for
-- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up, once, by the owl
+- [0067](0067-a-turn-that-died-is-picked-up.md) — A turn that died is picked up by the owl: once, or until its API error clears
 
 ## Interface
 

@@ -95,6 +95,7 @@ defmodule Whiska.Watch do
           context: non_neg_integer() | nil,
           window: pos_integer(),
           picked_up_at: DateTime.t() | nil,
+          stall: %{kind: String.t(), retry_at: DateTime.t() | nil} | nil,
           merge_request: merge_request() | nil
         }
 
@@ -179,6 +180,7 @@ defmodule Whiska.Watch do
       |> Keyword.put(:questions, questions)
       |> Keyword.put_new_lazy(:finished, &Storage.finished/0)
       |> Keyword.put_new_lazy(:picked_up, &Storage.picked_up/0)
+      |> Keyword.put_new_lazy(:stalls, &Storage.stalls/0)
       |> Keyword.put_new_lazy(:merge_requests, &Storage.merge_request_reads/0)
       |> Keyword.put_new_lazy(:unhoused_merge_requests, fn ->
         Enum.count(MergeRequests.watched(), fn {mouse, _read} -> mouse.removed_at != nil end)
@@ -207,7 +209,8 @@ defmodule Whiska.Watch do
   `Whiska.Watch.Transcript.passed_over/1` unless a test pins it; `:held`, why the
   gate is not delivering (ADR-0082); `:mode`, what the person set aside
   (`Whiska.Delivery.Mode.t/0`, nothing by default); `:picked_up`, when each
-  branch the owl picked up was picked up (ADR-0067); `:merge_requests`, the
+  branch the owl picked up was picked up, and `:stalls`, the API error each
+  branch whose turn died on one is waiting out (ADR-0067); `:merge_requests`, the
   owl's last read of each mouse's merge request, and
   `:unhoused_merge_requests`, how many are read with no worktree (ADR-0087).
   """
@@ -222,7 +225,7 @@ defmodule Whiska.Watch do
       passed_over: Keyword.get(opts, :passed_over, &Transcript.passed_over(&1.path))
     }
 
-    picked_up = Keyword.get(opts, :picked_up, %{})
+    picked_up = %{at: Keyword.get(opts, :picked_up, %{}), stalls: Keyword.get(opts, :stalls, %{})}
     reads = Keyword.get(opts, :merge_requests, %{})
     mode = Keyword.get(opts, :mode, Mode.none())
 
@@ -311,7 +314,8 @@ defmodule Whiska.Watch do
       doing: nil,
       context: nil,
       window: Shape.window(mouse.model),
-      picked_up_at: if(question_id, do: nil, else: picked_up[mouse.mouse_id])
+      picked_up_at: if(question_id, do: nil, else: picked_up.at[mouse.mouse_id]),
+      stall: if(question_id, do: nil, else: picked_up.stalls[mouse.mouse_id])
     }
 
     seen = readers.activity.(mouse)

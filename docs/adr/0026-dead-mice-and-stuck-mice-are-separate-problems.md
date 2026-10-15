@@ -22,7 +22,8 @@ not acted on.
 
 Stuck handling is a ladder, cheap fixes before bothering the person: check its own
 unanswered questions first in case delivery was merely delayed; re-state existing
-instructions, never a new decision; one corrective line, one shot; relaunch against the
+instructions, never a new decision; one corrective line, one shot, repeated only while the
+turn it starts dies on an API error that clears by itself (ADR-0067); relaunch against the
 same worktree; escalate to the person only after a second relaunch still fails. The
 pickup is rung three, built for the dead turn, and satisfies the first two rungs by
 construction: a mouse with anything open or sent is never picked up, and the line

@@ -179,6 +179,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Letters
   alias Whiska.MousePane
   alias Whiska.Pickup
+  alias Whiska.Pickup.Policy
   alias Whiska.Question.FromOwl
   alias Whiska.Question.Marker
   alias Whiska.Reminder
@@ -1728,11 +1729,47 @@ defmodule Whiska.Owl.House do
     state = Enum.reduce(outcomes, state, &said/2)
     picked = MapSet.new(for {mouse_id, :picked_up} <- outcomes, do: mouse_id)
     state = %{state | picked_now: picked}
+    tell_stalls(state)
 
     # Stamped when the sweep finished, not when it started: the gap the next
     # sweep measures is the time nobody was watching, and a slow tick is time
     # this one was.
     %{state | seen: seen, last_sweep_at: DateTime.utc_now()}
+  end
+
+  # The one hoot a run of failed pickups owes the person (ADR-0067): expired
+  # logins together, since one `/login` fixes them all, and each other branch
+  # on its own. Stamped before the hoot goes, as a finished report's is: a
+  # hoot that fails is not owed again, and an owl that restarts owes nothing.
+  defp tell_stalls(state) do
+    owed =
+      Enum.filter(Storage.untold_stalls(), fn m ->
+        Policy.owes_hoot?(%{kind: m.stall_kind, retry_at: m.retry_at, failed: m.stall_failed})
+      end)
+
+    now = DateTime.utc_now()
+    Enum.each(owed, &Storage.set_stall_hooted(&1.mouse_id, now))
+    house = Path.basename(state.main_checkout)
+
+    {logins, others} = Enum.split_with(owed, &(&1.stall_kind == "authentication_failed"))
+
+    if logins != [],
+      do: hoot_out(state, Hoot.login_expired(Enum.map(logins, &stalled_branch/1), house))
+
+    for m <- others,
+        do: hoot_out(state, Hoot.stalled(stalled_branch(m), m.stall_kind, m.stall_failed, house))
+
+    :ok
+  end
+
+  defp stalled_branch(%Mouse{branch: branch}) when is_binary(branch), do: branch
+  defp stalled_branch(%Mouse{mouse_id: mouse_id}), do: mouse_id
+
+  # A courtesy, as every hoot is.
+  defp hoot_out(state, notification) do
+    Hoot.send_out(state.herdr, state.socket, state.desktop, notification)
+  catch
+    _kind, _reason -> :ok
   end
 
   defp said({mouse_id, :picked_up}, state) do

@@ -782,6 +782,45 @@ defmodule Whiska.TranscriptTest do
     end
   end
 
+  describe "api_error/1" do
+    test "reads the kind, when it was written and when a rate limit resets" do
+      text =
+        jsonl([
+          said("on it"),
+          api_error(%{
+            "error" => "rate_limit",
+            "timestamp" => "2026-10-13T12:55:33.143Z",
+            "quotaLimits" => %{"status" => "rejected", "resetsAt" => 1_791_986_400}
+          })
+        ])
+
+      assert %{kind: "rate_limit", at: %DateTime{}, resets_at: reset} = Transcript.api_error(text)
+      assert reset == DateTime.from_unix!(1_791_986_400)
+    end
+
+    test "an entry with no kind is unknown, and one with no reset has none" do
+      text = jsonl([api_error(%{"error" => nil})])
+
+      assert %{kind: "unknown", at: nil, resets_at: nil} = Transcript.api_error(text)
+    end
+
+    test "a reset no clock can hold is no reset, never a crash" do
+      text = jsonl([api_error(%{"quotaLimits" => %{"resetsAt" => 10 ** 30}})])
+
+      assert %{resets_at: nil} = Transcript.api_error(text)
+    end
+
+    test "a kind longer than any Claude Code writes is unknown" do
+      text = jsonl([api_error(%{"error" => String.duplicate("x", 65)})])
+
+      assert %{kind: "unknown"} = Transcript.api_error(text)
+    end
+
+    test "is nil when the last real entry is anything else" do
+      assert Transcript.api_error(jsonl([api_error(), typed("try again")])) == nil
+    end
+  end
+
   describe "ran_on/1" do
     # The shape of an assistant entry, read from a real transcript on 2026-10-04.
     defp answered(model, fields \\ %{}) do

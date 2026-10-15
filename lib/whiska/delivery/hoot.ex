@@ -132,6 +132,49 @@ defmodule Whiska.Delivery.Hoot do
     }
   end
 
+  @doc """
+  The one hoot for the branches of a house whose login expired in the same
+  sweep (ADR-0067). Only the person can log in again, and once they have, in
+  any session, every one of them carries on by itself at its next pickup.
+  """
+  @spec login_expired([String.t()], String.t()) :: t()
+  def login_expired(branches, house) do
+    {named, rest} = Enum.split(branches, @reminder_names)
+    more = if rest == [], do: "", else: ", and #{length(rest)} more"
+
+    %{
+      title: "🔑 #{name(house)} · login expired",
+      body:
+        "run /login in any session; " <>
+          Enum.map_join(named, ", ", &name/1) <> more <> carries_on(branches),
+      sound: :request
+    }
+  end
+
+  defp carries_on([_one]), do: " carries on by itself"
+  defp carries_on(_many), do: " carry on by themselves"
+
+  @doc """
+  The one hoot for a branch whose turn keeps dying on an API error, after
+  `pickups` pickups, or whose error never clears by itself (ADR-0067).
+  """
+  @spec stalled(String.t(), String.t(), non_neg_integer(), String.t()) :: t()
+  def stalled(branch, "server_error", pickups, house) do
+    %{
+      title: "✖ #{name(house)} · #{name(branch)} keeps failing on an API error",
+      body: "picked up #{pickups} times, still retrying every 30 minutes at most",
+      sound: :request
+    }
+  end
+
+  def stalled(branch, kind, _pickups, house) do
+    %{
+      title: "✖ #{name(house)} · #{name(branch)} stopped on an API error",
+      body: "#{name(kind)}: not retried, it will not clear by itself — look at its pane",
+      sound: :request
+    }
+  end
+
   defp aged(%Question{mouse: mouse, mouse_id: mouse_id, asked_at: asked_at}, now) do
     branch =
       case mouse do

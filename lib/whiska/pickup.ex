@@ -17,11 +17,15 @@ defmodule Whiska.Pickup do
   Never the original prompt: the session still knows what it did, and re-asking
   risks redoing a file already written or a commit already made.
 
-  **One attempt per died turn.** A pickup that produces no finished turn is
-  never repeated — the branch is ADR-0026's stuck mouse from then on, which is
-  where the rest of that ladder lives. A turn that does finish earns the branch
-  another pickup the next time one dies, which is not a loop: a finished turn
-  stands between every two.
+  **One attempt per died turn, unless it died on an API error.** A pickup that
+  produces no finished turn is not repeated — the branch is ADR-0026's stuck
+  mouse from then on, which is where the rest of that ladder lives. A turn that
+  does finish earns the branch another pickup the next time one dies, which is
+  not a loop: a finished turn stands between every two. The exception is a
+  pickup whose own turn ends on Claude Code's API error, an outage that clears
+  by itself: it is picked up again on `Whiska.Pickup.Policy`'s schedule for
+  that error's kind, and a kind that never clears by itself is never picked up
+  at all.
 
   **Unknown is never permission**, the same rule cleanup runs on (ADR-0061). A
   pane herdr cannot classify, a worktree with no pane or with two, a herdr that
@@ -63,6 +67,7 @@ defmodule Whiska.Pickup do
   alias Whiska.Delivery.Draft
   alias Whiska.Doorstep
   alias Whiska.MousePane
+  alias Whiska.Pickup.Policy
   alias Whiska.ServiceManager
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
@@ -88,6 +93,8 @@ defmodule Whiska.Pickup do
              atom()
              | {:refused, term()}
              | {:uncapped, term()}
+             | {:retry_at, DateTime.t()}
+             | {:api_error, String.t()}
              | {:not_ready, String.t()}}
 
   @doc """
@@ -138,6 +145,7 @@ defmodule Whiska.Pickup do
       end)
 
     ours = ours(judged, house)
+    house = Map.put(house, :local, local)
 
     {Enum.map(judged, fn {mouse, pane, v} ->
        {mouse.mouse_id, act(mouse, pane, v, ours, house)}
@@ -208,11 +216,11 @@ defmodule Whiska.Pickup do
          :ok <- turn_died(mouse, local),
          :ok <- nothing_waiting(mouse, local),
          :ok <- nothing_chased(mouse, local),
-         :ok <- one_attempt(mouse, local),
          :ok <- quiet_long_enough(mouse, look, house),
          :ok <- not_passed_over(mouse, house),
          :ok <- claude?(pane),
-         do: not_the_person(pane, house)
+         :ok <- not_the_person(pane, house),
+         do: attempt_due(mouse, local, house)
   end
 
   defp standing(%Mouse{path: path}) do
@@ -255,15 +263,72 @@ defmodule Whiska.Pickup do
     end
   end
 
-  # The cap. A pickup that was followed by a turn reaching the doorstep did its
-  # job and is spent; one that was not is this branch's one attempt, already
-  # made.
-  defp one_attempt(%Mouse{picked_up_at: nil}, _local), do: :ok
+  # The cap, judged last so a stall is recorded only for a pane the owl would
+  # type into. A pickup that was followed by a turn reaching the doorstep did its
+  # job and is spent, and the next died turn starts a new run. One that was not
+  # is this branch's one attempt, already made — unless the turn it started
+  # died on an API error too, which is retried on that error's schedule. An API
+  # error written before the last pickup is the turn that pickup was for: the
+  # line did not start a turn, and that is no outage to wait out.
+  defp attempt_due(mouse, local, house) do
+    fresh? = fresh_run?(mouse, local)
 
-  defp one_attempt(%Mouse{mouse_id: id, picked_up_at: picked_up_at}, local) do
-    if Enum.any?(questions(local, id), &asked_since?(&1, picked_up_at)),
-      do: :ok,
-      else: {:leave, :already}
+    error = api_error_of(mouse, house)
+
+    cond do
+      error && (fresh? or after_pickup?(error, mouse.picked_up_at, house.now)) ->
+        stall = Policy.next(error, pickups(mouse, fresh?), last_pickup(mouse, fresh?), house.now)
+        due(mouse, stall, house)
+
+      fresh? ->
+        Storage.clear_stall(mouse.mouse_id)
+        :ok
+
+      true ->
+        Storage.clear_stall(mouse.mouse_id)
+        {:leave, :already}
+    end
+  end
+
+  defp fresh_run?(%Mouse{picked_up_at: nil}, _local), do: true
+
+  defp fresh_run?(%Mouse{mouse_id: id, picked_up_at: picked_up_at}, local),
+    do: Enum.any?(questions(local, id), &asked_since?(&1, picked_up_at))
+
+  defp pickups(_mouse, true = _fresh?), do: 0
+  defp pickups(%Mouse{pickups: pickups}, false), do: pickups || 0
+
+  defp last_pickup(_mouse, true = _fresh?), do: nil
+  defp last_pickup(%Mouse{picked_up_at: at}, false), do: at
+
+  # The pickup's own turn died when the prompt that turn began with is the line,
+  # typed no earlier than the pickup (stored to the second) and no later than
+  # now. Read in the transcript's order, so an error drawn within the same
+  # second as the line still counts.
+  defp after_pickup?(
+         %{prompt: %{text: text, at: %DateTime{} = at}},
+         %DateTime{} = picked_up_at,
+         now
+       ) do
+    String.trim(text) == line() and
+      DateTime.compare(DateTime.truncate(at, :second), picked_up_at) != :lt and
+      DateTime.compare(at, now) != :gt
+  end
+
+  defp after_pickup?(_error, _picked_up_at, _now), do: false
+
+  # What the mouse is waiting out is recorded whether or not it is due, so the
+  # sidebar can say it and the house can tell the person once (ADR-0067).
+  defp due(mouse, stall, house) do
+    Storage.set_stall(mouse.mouse_id, stall, house.now)
+
+    case stall do
+      %{retry_at: nil, kind: kind} ->
+        {:leave, {:api_error, kind}}
+
+      %{retry_at: at} ->
+        if DateTime.compare(at, house.now) == :gt, do: {:leave, {:retry_at, at}}, else: :ok
+    end
   end
 
   defp questions(local, mouse_id), do: Map.get(local.questions, mouse_id, [])
@@ -288,7 +353,9 @@ defmodule Whiska.Pickup do
   # the settling window has nothing left to guard against (ADR-0067's
   # amendment of 2026-10-07). Read only for a pane already reported ready and
   # not yet settled; a transcript that is missing or unreadable says nothing.
-  defp api_error?(mouse, house), do: mouse |> tail(house) |> Transcript.ended_on_api_error?()
+  defp api_error?(mouse, house), do: api_error_of(mouse, house) != nil
+
+  defp api_error_of(mouse, house), do: mouse |> tail(house) |> Transcript.api_error()
 
   defp not_passed_over(mouse, house) do
     case mouse |> tail(house) |> Transcript.background() |> Transcript.passed_over(house.now) do
@@ -333,20 +400,23 @@ defmodule Whiska.Pickup do
   # The stamp goes down before the line does, and comes back up if herdr
   # refuses it. A cap that depended on a write landing *after* the owl had
   # already typed would be no cap on the one run where that write failed.
-  defp nudge(%Mouse{mouse_id: id, picked_up_at: was}, pane, house) do
-    case Storage.set_picked_up(id, house.now) do
+  defp nudge(%Mouse{mouse_id: id} = mouse, pane, house) do
+    was = {mouse.picked_up_at, mouse.pickups}
+    pickups = if fresh_run?(mouse, house.local), do: 1, else: (mouse.pickups || 0) + 1
+
+    case Storage.set_picked_up(id, house.now, pickups) do
       {:ok, _} -> typed(id, was, pane, house)
       {:error, reason} -> {:left, {:uncapped, reason}}
     end
   end
 
-  defp typed(id, was, pane, house) do
+  defp typed(id, {at, pickups}, pane, house) do
     case house.herdr.prompt(house.socket, pane.pane_id, line()) do
       :ok ->
         :picked_up
 
       {:error, reason} ->
-        Storage.set_picked_up(id, was)
+        Storage.set_picked_up(id, at, pickups)
         {:left, {:refused, reason}}
     end
   end

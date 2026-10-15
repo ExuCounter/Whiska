@@ -157,4 +157,32 @@ defmodule Whiska.Delivery.HootTest do
     assert String.length(body) < 200
     assert body =~ "…"
   end
+
+  describe "a turn that keeps dying on an API error (ADR-0067)" do
+    test "an expired login names every branch it stopped, in one hoot, and what to do" do
+      hoot = Hoot.login_expired(["feat-a", "fix-b"], "whiska")
+
+      assert hoot.title =~ "whiska"
+      assert hoot.title =~ "login expired"
+      assert hoot.body =~ "/login"
+      assert hoot.body =~ "feat-a, fix-b"
+      assert hoot.sound == :request
+    end
+
+    test "a server error says the branch keeps failing and is still being retried" do
+      hoot = Hoot.stalled("feat-a", "server_error", 3, "whiska")
+
+      assert hoot.title =~ "feat-a"
+      assert hoot.body =~ "3"
+      assert hoot.body =~ "retrying"
+    end
+
+    test "a kind never picked up says it is not retried, and why" do
+      hoot = Hoot.stalled("feat-a", "invalid_request", 0, "whiska")
+
+      assert hoot.title =~ "feat-a"
+      assert hoot.body =~ "invalid_request"
+      assert hoot.body =~ "not retried"
+    end
+  end
 end

@@ -366,7 +366,9 @@ surface; the board is drawn on none, only the **sidebar lines** written from it 
 What herdr's sidebar shows under one workspace, which the owl reports and herdr draws
 (ADR-0082): under each mouse's workspace, its **context gauge** first, coloured by how near
 compaction it is, then its state — `❓ waiting on you · 14m`, `✖ stuck 6m`, `⏳ queued`,
-`🎯`/`💤` waiting behind a **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `✓ finished`
+`🎯`/`💤` waiting behind a **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, a died turn's
+API error waited out (`↻ API error · retry in 4m`, `🔑 login expired · run /login`,
+`⏳ limit · resets 17:00`, `✖ API error`), `✓ finished`
 (its report is still its last word, and the branch has neither landed nor a merge request;
 it sorts last) — or, working, its topic, after `◐ background` when herdr calls the pane
 idle while its own background work runs; idle, `○ idle`, which herdr's own icon does not spell
@@ -452,7 +454,8 @@ worker moves)
 The desktop notification the owl raises as it delivers a question — one per delivered
 question, sent in the same breath as the line so the two can never disagree (ADR-0062) —
 and once for each `done` report, as it is collected, since its line may wait long or
-never go, and not again when it is typed, but the one ending a **review round** that pushed nothing; and as a **reminder**.
+never go, and not again when it is typed, but the one ending a **review round** that pushed nothing; as a **reminder**; and once per run
+of failed **pickups** of a turn dying on an API error (ADR-0067).
 It carries the house, the mouse's branch, the verb and the id, in the line's own words,
 because the line only reaches somebody already looking at the main session and the point
 of leaving a question is that they are not. A question that is only collected, or gated,
@@ -605,7 +608,12 @@ The owl typing one short line into a mouse's own pane to carry a dead turn on �
 the session still knows what it did, and re-asking risks redoing a file already written.
 Waits out a settling window first, except when the mouse's transcript ends on Claude
 Code's own API error, which is picked up at once (ADR-0067). One per dead turn, and a branch whose picked-up turn dies as well is a **stuck** mouse
-from then on (ADR-0026), never nudged again. A mouse with a **chased** answer is never
+from then on (ADR-0026), never nudged again — unless that turn ends on an API error too:
+then it is picked up again on a schedule by the error's kind, an expired login every ten
+minutes, a rate limit once it resets, a server error with a growing wait, and a kind that
+never clears by itself not at all, with one **hoot** per run of failures. The API error a
+mouse waits out between pickups is its **stall**, on its record until a turn of its
+reaches the doorstep. A mouse with a **chased** answer is never
 picked up: its next turn has not begun, and the **doorbell** carries it on. Nor is one
 whose last stop was passed over for work **in flight** (ADR-0052), even once that work is
 half an hour old: it is waiting, not dead, and the board calls it **stuck**. One of the two

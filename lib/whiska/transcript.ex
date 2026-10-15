@@ -383,24 +383,96 @@ defmodule Whiska.Transcript do
   Total, like every reader here: text that will not parse is `false`.
   """
   @spec ended_on_api_error?(String.t()) :: boolean()
-  def ended_on_api_error?(text) do
-    text
-    |> String.split("\n")
-    |> Enum.reverse()
-    |> Enum.find_value(&real_entry/1)
-    |> case do
-      %{"isApiErrorMessage" => true} -> true
-      _otherwise -> false
+  def ended_on_api_error?(text), do: api_error(text) != nil
+
+  @typedoc """
+  The API error a session's last real entry is: its kind, as Claude Code's own
+  `error` field names it, when it was written, and when a rate limit resets.
+  """
+  @type api_error :: %{
+          kind: String.t(),
+          at: DateTime.t() | nil,
+          resets_at: DateTime.t() | nil,
+          prompt: %{text: String.t(), at: DateTime.t() | nil} | nil
+        }
+
+  @doc """
+  The API error the session's last real entry is, or nil when it is anything
+  else (ADR-0067).
+
+  Read only from Claude Code's structured fields, never its wording. Across this
+  machine's transcripts on 2026-10-15 `error` was one of `server_error` (asleep,
+  offline, a cut stream, a timeout), `authentication_failed` (the login
+  expired), `rate_limit` (with `quotaLimits.resetsAt` in Unix seconds),
+  `invalid_request` and `model_not_found`. An entry with no `error` is
+  `"unknown"`, which nothing retries.
+
+  `prompt` is the last prompt typed before the error, the turn it ended. A
+  local command typed after the error (`/login`, `/usage`) starts no turn and is
+  read past, as bookkeeping is.
+  """
+  @spec api_error(String.t()) :: api_error() | nil
+  def api_error(text) do
+    entries =
+      text
+      |> String.split("\n")
+      |> Enum.reverse()
+      |> Stream.map(&real_entry/1)
+      |> Stream.reject(&is_nil/1)
+
+    case Enum.take(entries, 1) do
+      [%{"isApiErrorMessage" => true} = entry] ->
+        %{
+          kind: kind(entry),
+          at: stamp(entry),
+          resets_at: resets_at(entry),
+          prompt: entries |> Stream.drop(1) |> Enum.find_value(&prompt/1)
+        }
+
+      _otherwise ->
+        nil
     end
   end
 
-  defp real_entry(line) do
-    case JSON.decode(line) do
-      {:ok, %{"isSidechain" => true}} -> nil
-      {:ok, %{"type" => type} = entry} when type in ["user", "assistant"] -> entry
-      _bookkeeping_or_unreadable -> nil
+  defp prompt(%{"type" => "user", "message" => %{"content" => text}} = entry)
+       when is_binary(text),
+       do: %{text: text, at: stamp(entry)}
+
+  defp prompt(_not_a_prompt), do: nil
+
+  defp kind(%{"error" => kind}) when is_binary(kind) and kind != "" and byte_size(kind) <= 64,
+    do: kind
+
+  defp kind(_unnamed), do: "unknown"
+
+  defp resets_at(%{"quotaLimits" => %{"resetsAt" => at}}) when is_integer(at) do
+    case DateTime.from_unix(at) do
+      {:ok, reset} -> reset
+      {:error, _out_of_range} -> nil
     end
   end
+
+  defp resets_at(_no_reset), do: nil
+
+  @local_command ["<command-name>", "<local-command-"]
+
+  defp real_entry(line) do
+    case JSON.decode(line) do
+      {:ok, %{"isSidechain" => true}} ->
+        nil
+
+      {:ok, %{"type" => type} = entry} when type in ["user", "assistant"] ->
+        unless local?(entry), do: entry
+
+      _bookkeeping_or_unreadable ->
+        nil
+    end
+  end
+
+  defp local?(%{"type" => "user", "message" => %{"content" => text}}) when is_binary(text),
+    do: String.starts_with?(text, @local_command)
+
+  defp local?(_entry), do: false
 
   @doc """
   The full model id the session's latest answer came from, not the alias the
