@@ -9,10 +9,15 @@ defmodule Whiska.Doorstep do
   nothing about what is left (ADR-0036). Being in the house
   rather than the worktree is what keeps an entry alive through `whiska drop`.
 
-  Two rules shape everything here:
+  Three rules shape everything here:
 
   - **Writes are atomic.** An entry is written to a `.tmp` name and renamed into
     place, so the owl never reads half a file. `waiting/1` ignores `.tmp` files.
+  - **A held entry is not waiting.** A marked stop whose mouse still has a
+    subagent out is written beside the others under `.held`, and nothing that
+    reads the doorstep counts it: `waiting/1` and `count_waiting/1` see `.json`
+    only. The owl releases it — renames it to `.json`, which is one atomic step —
+    once no subagent of the mouse is out (ADR-0052).
   - **Collection removes the entry** (ADR-0007). The question's row in the house
     is the history, so a collected entry is deleted once recorded. That is also
     what lets the statusline count what is waiting straight off disk when the
@@ -25,6 +30,7 @@ defmodule Whiska.Doorstep do
   @ext ".json"
   # What an older owl renamed collected entries to; only ever swept now.
   @legacy ".collected"
+  @held ".held"
 
   @doc "This house's doorstep."
   @spec path(Path.t()) :: Path.t()
@@ -37,9 +43,25 @@ defmodule Whiska.Doorstep do
   entries from one mouse in the same second cannot collide.
   """
   @spec leave(Path.t(), Entry.t()) :: {:ok, Path.t()} | {:error, File.posix()}
-  def leave(main_checkout, %Entry{} = entry) do
+  def leave(main_checkout, %Entry{} = entry), do: write(main_checkout, entry, @ext)
+
+  @doc """
+  Leave an entry held: written, but not waiting (ADR-0052). A mouse has one held
+  entry at a time, so a newer one replaces the older.
+  """
+  @spec hold(Path.t(), Entry.t()) :: {:ok, Path.t()} | {:error, File.posix()}
+  def hold(main_checkout, %Entry{} = entry) do
+    older = Enum.map(held(main_checkout), fn {file, _entry} -> file end)
+
+    with {:ok, _file} = written <- write(main_checkout, entry, @held) do
+      _ = drop_held(main_checkout, entry.mouse_id, older)
+      written
+    end
+  end
+
+  defp write(main_checkout, entry, ext) do
     dir = path(main_checkout)
-    file = Path.join(dir, filename(entry))
+    file = Path.join(dir, filename(entry, ext))
     tmp = file <> ".tmp"
 
     with :ok <- File.mkdir_p(dir),
@@ -49,10 +71,10 @@ defmodule Whiska.Doorstep do
     end
   end
 
-  defp filename(%Entry{} = entry) do
+  defp filename(%Entry{} = entry, ext) do
     stamp = entry.stamped_at |> DateTime.to_unix(:millisecond) |> Integer.to_string()
     tail = 4 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
-    "#{stamp}-#{safe(entry.mouse_id)}-#{tail}#{@ext}"
+    "#{stamp}-#{safe(entry.mouse_id)}-#{tail}#{ext}"
   end
 
   defp safe(id), do: String.replace(id, ~r/[^A-Za-z0-9_-]/, "_")
@@ -64,13 +86,44 @@ defmodule Whiska.Doorstep do
   somebody's evidence, and collection deletes only what it recorded.
   """
   @spec waiting(Path.t()) :: [{Path.t(), Entry.t()}]
-  def waiting(main_checkout) do
+  def waiting(main_checkout), do: entries(main_checkout, @ext)
+
+  @doc """
+  Every held entry, oldest first, as `{file, entry}` (`hold/2`). A file that will
+  not parse is skipped and left where it is, as in `waiting/1`.
+  """
+  @spec held(Path.t()) :: [{Path.t(), Entry.t()}]
+  def held(main_checkout), do: entries(main_checkout, @held)
+
+  @doc """
+  Make a held entry waiting: rename it to `.json`, atomically, keeping its name's
+  stamp so it sorts where it was left.
+  """
+  @spec release(Path.t()) :: {:ok, Path.t()} | {:error, File.posix()}
+  def release(file) do
+    released = Path.rootname(file, @held) <> @ext
+
+    with :ok <- File.rename(file, released), do: {:ok, released}
+  end
+
+  @doc "Remove a mouse's held entry, which a stop of its own has superseded. How many went."
+  @spec drop_held(Path.t(), String.t(), [Path.t()] | :all) :: non_neg_integer()
+  def drop_held(main_checkout, mouse_id, only \\ :all) do
+    main_checkout
+    |> held()
+    |> Enum.filter(fn {file, entry} ->
+      entry.mouse_id == mouse_id and (only == :all or file in only)
+    end)
+    |> Enum.count(fn {file, _entry} -> File.rm(file) == :ok end)
+  end
+
+  defp entries(main_checkout, ext) do
     dir = path(main_checkout)
 
     case File.ls(dir) do
       {:ok, names} ->
         names
-        |> Enum.filter(&String.ends_with?(&1, @ext))
+        |> Enum.filter(&String.ends_with?(&1, ext))
         |> Enum.sort()
         |> Enum.flat_map(fn name ->
           file = Path.join(dir, name)

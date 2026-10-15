@@ -8,8 +8,9 @@ the mouse and to the person, not to the router.
   interrupting for. The question arrives like any other, carrying the whole final message,
   flagged as having arrived unmarked. The one exception is a turn that has not really
   ended, because the mouse's own background work is still out (ADR-0052).
-  A marked turn is held the same way while a subagent of the mouse's is still out: a
-  mouse cannot be finished, or ask a question, beside its own running reviewers.
+  A marked turn is held while a subagent of the mouse's is still out — a mouse cannot be
+  finished, or ask a question, beside its own running reviewers — and is delivered once none
+  is, or after half an hour (ADR-0052).
 - **`done` → recorded closed and hooted, and typed once nothing waits** (ADR-0008,
   ADR-0062). Its line holds no slot and waits on nobody. The sidebar line says
   `✓ finished`, `whiska inbox` lists it apart from what waits, and the owl reminds the

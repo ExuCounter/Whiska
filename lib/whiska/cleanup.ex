@@ -266,9 +266,10 @@ defmodule Whiska.Cleanup do
     end
   end
 
+  # A held stop is a turn the owl has not yet collected, and its mouse's
+  # worktree is no more ready to go than for one on the doorstep (ADR-0052).
   defp doorstep(checkout) do
-    checkout
-    |> Doorstep.waiting()
+    (Doorstep.waiting(checkout) ++ Doorstep.held(checkout))
     |> MapSet.new(fn {_file, entry} -> entry.mouse_id end)
   end
 

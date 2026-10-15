@@ -816,6 +816,26 @@ defmodule Whiska.CleanupTest do
 
       assert [{"m-feat-a", {:left, :uncollected}}] = sweep(repo)
     end
+
+    test "a held stop on the doorstep holds it too: its question has not been asked", %{
+      repo: repo
+    } do
+      m = mouse(repo, "feat-a")
+      GitRepo.land(repo, "feat-a")
+
+      {:ok, _} =
+        Doorstep.hold(repo.checkout, %Whiska.Doorstep.Entry{
+          mouse_id: m.id,
+          branch: "feat-a",
+          worktree_root: m.path,
+          stamped_at: DateTime.utc_now(),
+          text: "Pick A or B?\n⁣⁣"
+        })
+
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :uncollected}}] = sweep(repo)
+    end
   end
 
   describe "the pane herdr sees, not the one the record remembers" do

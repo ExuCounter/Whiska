@@ -58,6 +58,65 @@ defmodule Whiska.DoorstepTest do
     end
   end
 
+  describe "hold/2 — a marked stop whose subagents are still out" do
+    test "is on the doorstep but not waiting, until it is released", %{main: main} do
+      assert {:ok, file} = Doorstep.hold(main, entry())
+
+      assert Path.extname(file) == ".held"
+      assert Doorstep.waiting(main) == []
+      assert Doorstep.count_waiting(main) == 0
+      assert [{^file, %Entry{mouse_id: "m1"}}] = Doorstep.held(main)
+
+      assert {:ok, released} = Doorstep.release(file)
+      assert Path.extname(released) == ".json"
+      assert [{^released, %Entry{mouse_id: "m1"}}] = Doorstep.waiting(main)
+      assert Doorstep.held(main) == []
+    end
+
+    test "keeps one held entry per mouse: a newer stop replaces the older", %{main: main} do
+      {:ok, _} = Doorstep.hold(main, entry(%{text: "first"}))
+      {:ok, _} = Doorstep.hold(main, entry(%{text: "second"}))
+      {:ok, _} = Doorstep.hold(main, entry(%{mouse_id: "m2", text: "other"}))
+
+      assert ["other", "second"] =
+               main |> Doorstep.held() |> Enum.map(fn {_, e} -> e.text end) |> Enum.sort()
+    end
+
+    test "drop_held/2 removes one mouse's held entry and no other's", %{main: main} do
+      {:ok, _} = Doorstep.hold(main, entry())
+      {:ok, _} = Doorstep.hold(main, entry(%{mouse_id: "m2"}))
+
+      assert Doorstep.drop_held(main, "m1") == 1
+      assert [{_, %Entry{mouse_id: "m2"}}] = Doorstep.held(main)
+    end
+
+    test "hold/2 writes the new entry before it drops the old, so a failed write loses nothing",
+         %{main: main} do
+      {:ok, old} = Doorstep.hold(main, entry(%{text: "first"}))
+      File.chmod!(Doorstep.path(main), 0o500)
+      on_exit(fn -> File.chmod!(Doorstep.path(main), 0o700) end)
+
+      assert {:error, _} = Doorstep.hold(main, entry(%{text: "second"}))
+      assert [{^old, %Entry{text: "first"}}] = Doorstep.held(main)
+    end
+
+    test "a held entry still being written is not read", %{main: main} do
+      File.mkdir_p!(Doorstep.path(main))
+      File.write!(Path.join(Doorstep.path(main), "1-m1-x.held.tmp"), Entry.encode(entry()))
+
+      assert Doorstep.held(main) == []
+      assert Doorstep.waiting(main) == []
+    end
+
+    test "a held entry that will not parse is left where it is", %{main: main} do
+      File.mkdir_p!(Doorstep.path(main))
+      File.write!(Path.join(Doorstep.path(main), "1-m1-x.held"), "{nope")
+
+      assert Doorstep.held(main) == []
+      assert File.exists?(Path.join(Doorstep.path(main), "1-m1-x.held"))
+    end
+  end
+
   describe "an entry written before the spec travelled" do
     test "still reads, with no spec" do
       raw =

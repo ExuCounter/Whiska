@@ -787,6 +787,115 @@ defmodule Whiska.Owl.HouseTest do
     end
   end
 
+  describe "a held marked stop (ADR-0052)" do
+    setup %{main: main, a: a} do
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+      {:ok, house: open(main)}
+    end
+
+    defp session(root, lines) do
+      path = Path.join(root, "session.jsonl")
+      File.write!(path, Enum.join(List.flatten(lines), "\n"))
+      path
+    end
+
+    defp agent_launched(agent_id, at) do
+      stamp = DateTime.to_iso8601(at)
+
+      [
+        JSON.encode!(%{
+          "type" => "assistant",
+          "timestamp" => stamp,
+          "message" => %{
+            "content" => [%{"type" => "tool_use", "id" => "toolu_1", "name" => "Agent"}]
+          }
+        }),
+        JSON.encode!(%{
+          "type" => "user",
+          "timestamp" => stamp,
+          "toolUseResult" => %{"status" => "async_launched", "agentId" => agent_id},
+          "message" => %{
+            "content" => [
+              %{
+                "tool_use_id" => "toolu_1",
+                "type" => "tool_result",
+                "content" => [%{"type" => "text", "text" => "agentId: #{agent_id}\n"}]
+              }
+            ]
+          }
+        })
+      ]
+    end
+
+    defp reported(agent_id) do
+      JSON.encode!(%{
+        "type" => "user",
+        "origin" => %{"kind" => "peer", "from" => agent_id, "handback" => true},
+        "message" => %{"content" => "[Subagent hand-back] nothing to change"}
+      })
+    end
+
+    defp hold(main, root, transcript) do
+      {:ok, file} =
+        Doorstep.hold(main, %Entry{
+          mouse_id: "ma",
+          branch: "feat-a",
+          worktree_root: root,
+          stamped_at: DateTime.utc_now(),
+          text: "Done, green. Two reviewers still running.\n⁣⁣⁣",
+          transcript: transcript
+        })
+
+      file
+    end
+
+    test "stays held while its subagent is out", %{main: main, a: a, house: house} do
+      path = session(a, [agent_launched("ae96c51", DateTime.utc_now())])
+      hold(main, a, path)
+
+      House.collect(house)
+
+      assert in_house(house, fn -> Storage.all(Question) end) == []
+      assert [_held] = Doorstep.held(main)
+    end
+
+    test "is delivered once its subagent has reported", %{main: main, a: a, house: house} do
+      path = session(a, [agent_launched("ae96c51", DateTime.utc_now()), reported("ae96c51")])
+      hold(main, a, path)
+
+      House.collect(house)
+
+      assert [%Question{text: "Done, green." <> _}] =
+               in_house(house, fn -> Storage.all(Question) end)
+
+      assert Doorstep.held(main) == []
+      assert Doorstep.waiting(main) == []
+    end
+
+    test "is delivered anyway once its subagent is half an hour old", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      old = DateTime.add(DateTime.utc_now(), -31 * 60)
+      hold(main, a, session(a, [agent_launched("ae96c51", old)]))
+
+      House.collect(house)
+
+      assert [%Question{}] = in_house(house, fn -> Storage.all(Question) end)
+      assert Doorstep.held(main) == []
+    end
+
+    test "is delivered when its transcript cannot be read", %{main: main, a: a, house: house} do
+      hold(main, a, Path.join(a, "gone.jsonl"))
+
+      House.collect(house)
+
+      assert [%Question{}] = in_house(house, fn -> Storage.all(Question) end)
+    end
+  end
+
   # The owl reads each turn's usage from the transcript the entry names, at
   # collection (ADR-0086). The shapes are the
   # ledger's own: one entry per content block repeating its message's usage,
@@ -1114,6 +1223,22 @@ defmodule Whiska.Owl.HouseTest do
       end)
 
       assert %{count: 1, last: %DateTime{}} = Backstop.read(main)
+    end
+
+    test "a held stop the backstop releases is no missed trigger", %{main: main, a: a} do
+      house = open(main, backstop_ms: 60_000, id: :backstop_house)
+      path = session(a, [agent_launched("ae96c51", DateTime.utc_now()), reported("ae96c51")])
+      hold(main, a, path)
+
+      warning =
+        capture_io(:stderr, fn ->
+          send(house, :backstop)
+          House.sync(house)
+        end)
+
+      assert [%Question{}] = in_house(house, fn -> Storage.all(Question) end)
+      refute warning =~ "backstop collected"
+      assert Backstop.read(main) == nil
     end
 
     test "a backstop that finds nothing is silent and leaves no mark", %{main: main} do

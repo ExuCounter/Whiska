@@ -63,6 +63,11 @@ defmodule Whiska.Owl.House do
   earlier. Collecting at open does not count; that is the designed "what landed
   while the owl was down" path.
 
+  A marked stop the hook held because its mouse had a subagent out is released at
+  the start of each collection, by any trigger, once the entry's transcript shows
+  none out — or the launch is half an hour old (ADR-0052). It is then collected as
+  any entry, and is no missed trigger for the backstop's count.
+
   A `done` report is recorded closed, and hooted (ADR-0009, ADR-0062); its
   line is typed once nothing waits on the person, and holds nothing
   (ADR-0008). An entry whose worktree is no longer on disk is
@@ -170,6 +175,7 @@ defmodule Whiska.Owl.House do
   alias Whiska.Delivery.Text
   alias Whiska.Doorbell
   alias Whiska.Doorstep
+  alias Whiska.Doorstep.Entry
   alias Whiska.Git
   alias Whiska.Herdr
   alias Whiska.Layout
@@ -1987,13 +1993,19 @@ defmodule Whiska.Owl.House do
     waiting = Storage.questions()
     fresh_round? = Mode.open_count(waiting, mode) == 0 and Mode.slot(waiting, mode) == nil
 
-    mice =
+    released = release_held(state)
+
+    entries =
       state.main_checkout
       |> Doorstep.waiting()
       |> Enum.filter(fn {file, entry} -> collect_entry(state, file, entry) end)
-      |> Enum.map(fn {_file, entry} -> entry.mouse_id end)
 
+    mice = Enum.map(entries, fn {_file, entry} -> entry.mouse_id end)
+
+    # What the hook held and this pass released is no missed trigger: the
+    # backstop's count is of what the idle trigger should have brought.
     collected = length(mice)
+    found = Enum.count(entries, fn {file, _entry} -> file not in released end)
     state = match_new_mice(state, mice)
 
     state =
@@ -2004,8 +2016,34 @@ defmodule Whiska.Owl.House do
         true -> state |> stop_retries() |> remind() |> deliver()
       end
 
-    {collected, state}
+    {found, state}
   end
+
+  # A marked stop the hook held because its mouse had a subagent out is released
+  # once that is no longer so: the subagent reported, or is half an hour old
+  # (ADR-0052). A transcript that cannot be read says nothing is out, the
+  # direction every reader of it fails in.
+  defp release_held(state) do
+    now = DateTime.utc_now()
+
+    for {file, entry} <- Doorstep.held(state.main_checkout),
+        not subagent_out?(entry, now),
+        {:ok, released} <- [release(state, file)],
+        do: released
+  end
+
+  defp release(state, file) do
+    with {:error, reason} = error <- Doorstep.release(file) do
+      warn(state, "could not release #{Path.basename(file)} (#{inspect(reason)})")
+      error
+    end
+  end
+
+  defp subagent_out?(%Entry{transcript: path}, now) when is_binary(path),
+    do:
+      path |> Transcript.tail() |> Transcript.background() |> Transcript.holds_stop?(:marked, now)
+
+  defp subagent_out?(_entry, _now), do: false
 
   # A finished report is closed as it is collected, so a collection of reports
   # alone opens no round.

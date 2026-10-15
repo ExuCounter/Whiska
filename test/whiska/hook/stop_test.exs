@@ -336,8 +336,7 @@ defmodule Whiska.Hook.StopTest do
 
       for message <- [
             "The reviewer is still running.\n\n\u2063\u2063",
-            "Done, green. Two reviewers are still running.\n\n\u2063\u2063\u2063",
-            "Done, green.\n\u2063\u2063\u2063"
+            "Done, green. Two reviewers are still running.\n\n\u2063\u2063\u2063"
           ] do
         :ok =
           Stop.run(
@@ -349,6 +348,62 @@ defmodule Whiska.Hook.StopTest do
           )
       end
 
+      assert Doorstep.waiting(main) == []
+      assert [{_, %Entry{text: text, transcript: ^path}}] = Doorstep.held(main)
+      assert text =~ "Two reviewers are still running"
+    end
+
+    test "a stop that is not held supersedes the mouse's held one", %{
+      main: main,
+      worktree: worktree
+    } do
+      path = transcript(worktree, [launched("ae96c5149391564f6")])
+
+      :ok =
+        Stop.run(
+          payload(%{
+            "cwd" => worktree,
+            "transcript_path" => path,
+            "last_assistant_message" => "Pick A or B?\n\u2063\u2063"
+          })
+        )
+
+      assert [_held] = Doorstep.held(main)
+
+      done =
+        transcript(worktree, [launched("ae96c5149391564f6"), handed_back("ae96c5149391564f6")])
+
+      :ok =
+        Stop.run(
+          payload(%{
+            "cwd" => worktree,
+            "transcript_path" => done,
+            "last_assistant_message" => "Shipped.\n\u2063\u2063\u2063"
+          })
+        )
+
+      assert Doorstep.held(main) == []
+      assert [{_, %Entry{text: "Shipped." <> _}}] = Doorstep.waiting(main)
+    end
+
+    test "an unmarked stop passed over leaves the held one where it is", %{
+      main: main,
+      worktree: worktree
+    } do
+      path = transcript(worktree, [launched("ae96c5149391564f6")])
+
+      for message <- ["Pick A or B?\n\u2063\u2063", "Still waiting on the reviewer."] do
+        :ok =
+          Stop.run(
+            payload(%{
+              "cwd" => worktree,
+              "transcript_path" => path,
+              "last_assistant_message" => message
+            })
+          )
+      end
+
+      assert [{_, %Entry{text: "Pick A or B?" <> _}}] = Doorstep.held(main)
       assert Doorstep.waiting(main) == []
     end
 

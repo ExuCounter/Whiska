@@ -19,10 +19,12 @@ defmodule Whiska.Hook.Stop do
   It writes on every turn that ended. A turn that ends with no marker while the
   mouse's own background work is still in flight has not ended — Claude Code
   will wake this session when that work reports — and that one is passed over in
-  silence (ADR-0052). So is a marked turn while a subagent is out: a mouse
-  reporting `done` or asking a question beside its own running reviewers is not
-  finished. A marked turn beside any other work is written: the mouse said what
-  it is waiting on.
+  silence (ADR-0052). A marked turn while a subagent is out is held: written
+  beside the doorstep's entries, not counted among them, for the owl to release
+  once no subagent is out — a mouse reporting `done` or asking a question beside
+  its own running reviewers is not finished yet, and is not forgotten either. A
+  marked turn beside any other work is written: the mouse said what it is
+  waiting on.
 
   That is the only marker it reads. What a marked message means is read by the
   owl on collection (ADR-0009), so a message with no marker and nothing out is
@@ -60,13 +62,13 @@ defmodule Whiska.Hook.Stop do
          {:ok, layout} <- Session.worktree(payload, env),
          false <- Session.main_session?(layout.main_checkout, env),
          tail = transcript_tail(payload),
-         :over <- turn_state(message(payload), tail),
+         turn when turn != :passed_over <- turn_state(message(payload), tail),
          false <- Session.nested?(env),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
-         {:ok, _file} <- write(layout, mouse_id, payload, Transcript.ran_on(tail)) do
-      {:left, layout.main_checkout}
+         {:ok, _file} <- write(turn, layout, mouse_id, payload, Transcript.ran_on(tail)) do
+      if turn == :over, do: {:left, layout.main_checkout}, else: :ok
     else
-      :in_flight ->
+      :passed_over ->
         :ok
 
       true ->
@@ -84,14 +86,18 @@ defmodule Whiska.Hook.Stop do
     end
   end
 
-  # Writing here would leave "still waiting on the reviewers" on the doorstep as
-  # a question that asks nothing, or a finished report that is not (ADR-0052).
+  # Writing an unmarked stop here would leave "still waiting on the reviewers" on
+  # the doorstep as a question that asks nothing (ADR-0052). A marked one is
+  # held, not dropped: the owl delivers it once the subagents are done.
   defp turn_state(message, tail) do
     marker = if QuestionMarker.classify(message) == "unmarked", do: :unmarked, else: :marked
+    held? = Transcript.holds_stop?(Transcript.background(tail), marker, DateTime.utc_now())
 
-    if Transcript.holds_stop?(Transcript.background(tail), marker, DateTime.utc_now()),
-      do: :in_flight,
-      else: :over
+    cond do
+      not held? -> :over
+      marker == :marked -> :held
+      true -> :passed_over
+    end
   end
 
   defp transcript_tail(payload) do
@@ -107,8 +113,8 @@ defmodule Whiska.Hook.Stop do
   # The transcript's path travels so the owl can read the turn's usage at
   # collection (ADR-0086); the hook reads only
   # its tail, as before.
-  defp write(layout, mouse_id, payload, ran_on) do
-    Doorstep.leave(layout.main_checkout, %Entry{
+  defp write(turn, layout, mouse_id, payload, ran_on) do
+    entry = %Entry{
       mouse_id: mouse_id,
       branch: layout.branch_label,
       worktree_root: layout.worktree_root,
@@ -119,7 +125,16 @@ defmodule Whiska.Hook.Stop do
       research: carried(layout.worktree_root, Whiska.Research.filename()),
       plan: carried(layout.worktree_root, Whiska.BuildPlan.filename()),
       transcript: transcript_path(payload)
-    })
+    }
+
+    # A stop the mouse makes now supersedes the one held for it: it has moved
+    # past it, as it does past any earlier question (ADR-0007).
+    if turn == :over do
+      _ = Doorstep.drop_held(layout.main_checkout, mouse_id)
+      Doorstep.leave(layout.main_checkout, entry)
+    else
+      Doorstep.hold(layout.main_checkout, entry)
+    end
   end
 
   # The spec, research document or build plan as it stands when the turn ends

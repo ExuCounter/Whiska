@@ -13,9 +13,16 @@ The doorstep is a directory in the house, `<main-checkout>/.git/whiska/doorstep/
 the database. Each entry is stamped with `mouse_id`, branch label and timestamp, written
 to a temporary name and renamed into place so the owl never reads a half-written file.
 A collected entry is deleted once its row, and whatever it carried, are recorded (ADR-0007):
-the row is the history. So the doorstep is exactly what is still waiting, answerable with
-no database and no owl. Older owls renamed entries `.collected` and kept them; an owl
+the row is the history. So the doorstep's `.json` files are exactly what is still waiting
+(a held stop, below, is not), answerable with no database and no owl. Older owls renamed entries `.collected` and kept them; an owl
 removes those when it opens the house.
+
+**A stop can be held.** A marked stop whose mouse still has a subagent out is written as a
+`.held` entry, beside the `.json` ones and in the same format (ADR-0052). It is not waiting:
+`waiting`, the statusline's count and everything else that reads the doorstep see `.json`
+only. The owl renames it to `.json` — atomic, like the write — at the start of a collection
+once no subagent of the mouse is out, and it is collected like any other. A mouse has one,
+and a stop of its own that is not held removes it.
 
 **The owl writes to it too.** When it reads a GitLab merge request closed or gone from the
 forge (ADR-0060), it leaves one entry for the mouse whose branch it is, keyed by that

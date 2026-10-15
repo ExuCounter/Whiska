@@ -21,7 +21,7 @@ C4Container
     Container(cli, "whiska", "Elixir escript", "Hooks, init, start, spawn, send, tell, land, pr, drop, mode, shape - and boots the owl")
     Container(owl, "Owl", "Elixir/OTP supervisor", "One per machine; one supervised house per open project")
     Container(house, "House", "GenServer per project", "Herdr subscription, pane discovery, collection, delivery to the main session")
-    Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, removed once collected")
+    Container(doorstep, "Doorstep", "directory, .git/whiska/doorstep/", "JSON entries a Stop hook left, removed once collected; a stop held for a subagent still out is a .held file the owl releases")
     ContainerDb(db, "House database", "SQLite, .git/whiska/whiska.db", "Mouse records, questions, each collected turn's usage and letters from other houses, one per repo; a letter's file sits beside it in letters/")
     Container(marker, "Mouse marker", ".whiska-mouse file", "The opaque mouse_id at the worktree root")
     Container(flag, "Answer flag", "empty file, whiska-answer in the worktree's git admin directory", "This worktree's mouse has an answer not yet taken; the shim reads it so a prompt with nothing waiting starts nothing")
