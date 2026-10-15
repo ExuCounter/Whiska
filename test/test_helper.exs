@@ -15,6 +15,11 @@ Application.put_env(:whiska, :user_home, test_home)
 System.put_env("WHISKA_HOME", whiska_home)
 File.mkdir_p!(whiska_home)
 
+# A hook payload with no `cwd` falls back to `$PWD`, which is the worktree the
+# suite runs in, and so reached the person's own house (`Whiska.Test.HouseGuard`).
+# A child process inherits it too, so it points at the temp folder instead.
+System.put_env("PWD", test_home)
+
 ExUnit.after_suite(fn _ -> File.rm_rf!(test_home) end)
 
 # A suite run by a `claude` that itself runs under another `claude` — a

@@ -21,3 +21,7 @@ config :whiska, :desktop, Whiska.Test.NoDesktop
 # No forge tool, so no test reads a real forge through the person's own login;
 # a test that reads one hands the house its fake as `:forge_tools`.
 config :whiska, :forge_tools, %{"glab" => nil, "gh" => nil}
+
+# No test opens a house outside the run's temp folder: a mouse's `mix test`
+# once migrated the person's real one. The guard refuses it and fails the run.
+config :whiska, :house_guard, &Whiska.Test.HouseGuard.check/1

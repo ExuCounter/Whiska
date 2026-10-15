@@ -77,13 +77,17 @@ defmodule Whiska.Storage do
   @spec open(Path.t(), keyword()) :: {:ok, pid()} | {:error, term()}
   def open(main_checkout, opts \\ []) do
     path = database_path(main_checkout)
-    File.mkdir_p!(Path.dirname(path))
-    name = Keyword.get(opts, :name, Repo)
 
-    # An escript cannot ship SQLite's native library inside itself; see
-    # Whiska.BundledNIF for the whole story. Has to happen before anything
-    # touches Exqlite, since the NIF loads when its module first loads.
+    with :ok <- guarded(path) do
+      File.mkdir_p!(Path.dirname(path))
+      started(path, Keyword.get(opts, :name, Repo))
+    end
+  end
 
+  # An escript cannot ship SQLite's native library inside itself; see
+  # Whiska.BundledNIF for the whole story. Has to happen before anything
+  # touches Exqlite, since the NIF loads when its module first loads.
+  defp started(path, name) do
     with {:ok, _} <- Whiska.BundledNIF.ensure_loadable(),
          {:ok, _} <- Application.ensure_all_started(:ecto_sql),
          {:ok, _} <- Application.ensure_all_started(:ecto_sqlite3),
@@ -91,6 +95,16 @@ defmodule Whiska.Storage do
          {:ok, pid} <- Repo.start_link([name: name] ++ repo_opts(path)) do
       point_at(name || pid)
       migrated(pid)
+    end
+  end
+
+  # The suite installs a guard (`config/test.exs`) so no test can open a house
+  # outside its own temp folder: a mouse's `mix test` once migrated the person's
+  # real one. The shipped binary has none, and every house is allowed.
+  defp guarded(path) do
+    case Application.get_env(:whiska, :house_guard) do
+      nil -> :ok
+      guard -> guard.(path)
     end
   end
 

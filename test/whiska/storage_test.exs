@@ -19,6 +19,35 @@ defmodule Whiska.StorageTest do
     end
   end
 
+  describe "the suite's house guard" do
+    # A mouse's `mix test` once opened the main checkout's own house and
+    # applied the branch's migrations to it. Under test, a house outside the
+    # run's temp folder is refused before anything is created.
+    test "refuses a house outside the temp folder, and creates nothing there" do
+      main =
+        Path.join(
+          Whiska.Test.RealHome.path(),
+          "whiska-guard-#{System.unique_integer([:positive])}"
+        )
+
+      on_exit(fn -> File.rm_rf!(main) end)
+
+      assert {:error, {:outside_test_area, path}} =
+               Whiska.Test.HouseGuard.expect_refusal(fn -> Storage.open(main, name: nil) end)
+
+      assert path == Storage.database_path(main)
+      refute File.exists?(main)
+    end
+  end
+
+  describe "the suite's house guard, on a resolved path" do
+    test "allows a house under the temp folder as git names it, symlinks resolved", %{main: main} do
+      {resolved, 0} = System.cmd("pwd", ["-P"], cd: main)
+
+      assert :ok = Whiska.Test.HouseGuard.check(Storage.database_path(String.trim(resolved)))
+    end
+  end
+
   describe "the v021 migration" do
     test "closes every report still open or sent, and counts each one hooted", %{main: main} do
       {:ok, handle} = Storage.open(main, name: nil)
