@@ -165,7 +165,8 @@ the delivery queue and wait for an answer. A turn that ends with no marker at al
 unless the mouse still has work **in flight**, when the turn has not ended and nothing is
 left at all (ADR-0052); a marked turn is **held** while a subagent of the mouse's is
 **in flight**: kept on the doorstep, not counted as waiting, and delivered once none is out
-or half an hour has passed (ADR-0052). A
+and the mouse's turn has ended, or half an hour on; the mouse's next stop settles it first
+(ADR-0052). A
 `done` report is recorded closed and **hooted**, waits on nobody, and its line is typed
 once nothing waits on the person; the person says its **finish** in place of a reply once
 they read it (ADR-0009). A question is **open** while it waits to be told, **sent** once

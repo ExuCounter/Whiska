@@ -367,6 +367,21 @@ defmodule Whiska.Transcript do
   def holds_stop?(background, :marked, now), do: subagent_in_flight?(background, now)
 
   @doc """
+  Whether a marked stop the hook held, left at `held_at`, is due to be delivered
+  (ADR-0052): no subagent of the mouse is out, *and* its turn has ended — nothing
+  has come after its last word, which is what a mouse woken by a report and
+  working on it has not got. A woken mouse's own stop settles the held one: the
+  hook drops it for a marked stop and delivers it for an unmarked one. Until
+  then nothing is stale and nothing lost, and half an hour from the stop is the
+  backstop: delivered whatever the mouse is doing.
+  """
+  @spec releases_held?(background(), DateTime.t(), DateTime.t()) :: boolean()
+  def releases_held?(%{last_word: word} = background, held_at, now) do
+    not holds_stop?(background, :marked, now) and
+      (word != nil or DateTime.diff(now, held_at) > @stale_after_seconds)
+  end
+
+  @doc """
   Whether the mouse's last stop was passed over (ADR-0052): its last word said
   while work that holds it (`holds_stop?/3`) was out. `:in_flight` while that
   work is inside the half hour, `:abandoned` once all of it is past it.

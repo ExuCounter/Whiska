@@ -794,9 +794,11 @@ defmodule Whiska.Owl.HouseTest do
       {:ok, house: open(main)}
     end
 
-    defp session(root, lines) do
+    # A session file quiet for ten minutes, unless `quiet_for` says otherwise.
+    defp session(root, lines, quiet_for \\ 600) do
       path = Path.join(root, "session.jsonl")
       File.write!(path, Enum.join(List.flatten(lines), "\n"))
+      File.touch!(path, System.os_time(:second) - quiet_for)
       path
     end
 
@@ -836,13 +838,20 @@ defmodule Whiska.Owl.HouseTest do
       })
     end
 
-    defp hold(main, root, transcript) do
+    defp said_word(text \\ "Done, green. Two reviewers still running.\n⁣⁣⁣") do
+      JSON.encode!(%{
+        "type" => "assistant",
+        "message" => %{"content" => [%{"type" => "text", "text" => text}]}
+      })
+    end
+
+    defp hold(main, root, transcript, stamped_at \\ DateTime.utc_now()) do
       {:ok, file} =
         Doorstep.hold(main, %Entry{
           mouse_id: "ma",
           branch: "feat-a",
           worktree_root: root,
-          stamped_at: DateTime.utc_now(),
+          stamped_at: stamped_at,
           text: "Done, green. Two reviewers still running.\n⁣⁣⁣",
           transcript: transcript
         })
@@ -850,27 +859,70 @@ defmodule Whiska.Owl.HouseTest do
       file
     end
 
+    defp delivered(house), do: in_house(house, fn -> Storage.all(Question) end)
+
     test "stays held while its subagent is out", %{main: main, a: a, house: house} do
-      path = session(a, [agent_launched("ae96c51", DateTime.utc_now())])
-      hold(main, a, path)
+      hold(main, a, session(a, [agent_launched("ae96c51", DateTime.utc_now()), said_word()]))
 
       House.collect(house)
 
-      assert in_house(house, fn -> Storage.all(Question) end) == []
+      assert delivered(house) == []
       assert [_held] = Doorstep.held(main)
     end
 
-    test "is delivered once its subagent has reported", %{main: main, a: a, house: house} do
-      path = session(a, [agent_launched("ae96c51", DateTime.utc_now()), reported("ae96c51")])
+    test "stays held while its mouse works on what the subagent reported", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      now = DateTime.utc_now()
+      path = session(a, [agent_launched("ae96c51", now), said_word(), reported("ae96c51")])
       hold(main, a, path)
 
       House.collect(house)
 
-      assert [%Question{text: "Done, green." <> _}] =
-               in_house(house, fn -> Storage.all(Question) end)
+      assert delivered(house) == []
+      assert [_held] = Doorstep.held(main)
+    end
 
+    test "is delivered once its mouse's turn has ended with nothing out", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      now = DateTime.utc_now()
+
+      lines = [
+        agent_launched("ae96c51", now),
+        said_word(),
+        reported("ae96c51"),
+        said_word("Fixed it.")
+      ]
+
+      hold(main, a, session(a, lines))
+
+      House.collect(house)
+
+      assert [%Question{text: "Done, green." <> _}] = delivered(house)
       assert Doorstep.held(main) == []
       assert Doorstep.waiting(main) == []
+    end
+
+    test "stays held while its mouse's transcript is still being written", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      # The mouse's text and its next tool call are separate entries: between
+      # them it looks done and is not.
+      lines = [agent_launched("ae96c51", DateTime.utc_now()), said_word(), reported("ae96c51")]
+      lines = lines ++ [said_word("Now applying the fix.")]
+      hold(main, a, session(a, lines, 5))
+
+      House.collect(house)
+
+      assert delivered(house) == []
+      assert [_held] = Doorstep.held(main)
     end
 
     test "is delivered anyway once its subagent is half an hour old", %{
@@ -879,12 +931,26 @@ defmodule Whiska.Owl.HouseTest do
       house: house
     } do
       old = DateTime.add(DateTime.utc_now(), -31 * 60)
-      hold(main, a, session(a, [agent_launched("ae96c51", old)]))
+      hold(main, a, session(a, [agent_launched("ae96c51", old), said_word()]))
 
       House.collect(house)
 
-      assert [%Question{}] = in_house(house, fn -> Storage.all(Question) end)
+      assert [%Question{}] = delivered(house)
       assert Doorstep.held(main) == []
+    end
+
+    test "is delivered anyway once it is half an hour old, whatever its mouse is doing", %{
+      main: main,
+      a: a,
+      house: house
+    } do
+      old = DateTime.add(DateTime.utc_now(), -31 * 60)
+      lines = [agent_launched("ae96c51", old), said_word(), reported("ae96c51")]
+      hold(main, a, session(a, lines), old)
+
+      House.collect(house)
+
+      assert [%Question{}] = delivered(house)
     end
 
     test "is delivered when its transcript cannot be read", %{main: main, a: a, house: house} do
@@ -892,7 +958,7 @@ defmodule Whiska.Owl.HouseTest do
 
       House.collect(house)
 
-      assert [%Question{}] = in_house(house, fn -> Storage.all(Question) end)
+      assert [%Question{}] = delivered(house)
     end
   end
 
@@ -1227,8 +1293,8 @@ defmodule Whiska.Owl.HouseTest do
 
     test "a held stop the backstop releases is no missed trigger", %{main: main, a: a} do
       house = open(main, backstop_ms: 60_000, id: :backstop_house)
-      path = session(a, [agent_launched("ae96c51", DateTime.utc_now()), reported("ae96c51")])
-      hold(main, a, path)
+      old = DateTime.add(DateTime.utc_now(), -31 * 60)
+      hold(main, a, session(a, [agent_launched("ae96c51", old), said_word()]))
 
       warning =
         capture_io(:stderr, fn ->

@@ -65,8 +65,10 @@ defmodule Whiska.Owl.House do
 
   A marked stop the hook held because its mouse had a subagent out is released at
   the start of each collection, by any trigger, once the entry's transcript shows
-  none out — or the launch is half an hour old (ADR-0052). It is then collected as
-  any entry, and is no missed trigger for the backstop's count.
+  none out and the mouse idle (its transcript quiet for `settle_ms`) — or half an hour on
+  (ADR-0052). A mouse
+  still working settles it with its own next stop. It is then collected as any
+  entry, and is no missed trigger for the backstop's count.
 
   A `done` report is recorded closed, and hooted (ADR-0009, ADR-0062); its
   line is typed once nothing waits on the person, and holds nothing
@@ -2020,14 +2022,15 @@ defmodule Whiska.Owl.House do
   end
 
   # A marked stop the hook held because its mouse had a subagent out is released
-  # once that is no longer so: the subagent reported, or is half an hour old
-  # (ADR-0052). A transcript that cannot be read says nothing is out, the
-  # direction every reader of it fails in.
+  # once none is out and the mouse's turn has ended, or half an hour after the
+  # stop (ADR-0052). A mouse that is still working settles it itself: its next
+  # stop, read by the hook, drops or delivers it. A transcript that cannot be
+  # read says nothing is out, the direction every reader of it fails in.
   defp release_held(state) do
     now = DateTime.utc_now()
 
     for {file, entry} <- Doorstep.held(state.main_checkout),
-        not subagent_out?(entry, now),
+        releasable?(entry, now, state.settle_ms),
         {:ok, released} <- [release(state, file)],
         do: released
   end
@@ -2039,11 +2042,29 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  defp subagent_out?(%Entry{transcript: path}, now) when is_binary(path),
-    do:
-      path |> Transcript.tail() |> Transcript.background() |> Transcript.holds_stop?(:marked, now)
+  # Idle means the transcript has been quiet for `settle_ms`: a mouse's text and
+  # the tool call that follows it are separate entries, and in between it looks
+  # finished and is not.
+  defp releasable?(%Entry{transcript: path, stamped_at: held_at}, now, settle_ms)
+       when is_binary(path) do
+    case Transcript.tail(path) do
+      "" ->
+        true
 
-  defp subagent_out?(_entry, _now), do: false
+      tail ->
+        quiet?(path, now, settle_ms) and
+          tail |> Transcript.background() |> Transcript.releases_held?(held_at, now)
+    end
+  end
+
+  defp releasable?(_entry, _now, _settle_ms), do: true
+
+  defp quiet?(path, now, settle_ms) do
+    case File.stat(path, time: :posix) do
+      {:ok, %File.Stat{mtime: mtime}} -> DateTime.to_unix(now) - mtime >= div(settle_ms, 1000)
+      {:error, _gone} -> true
+    end
+  end
 
   # A finished report is closed as it is collected, so a collection of reports
   # alone opens no round.

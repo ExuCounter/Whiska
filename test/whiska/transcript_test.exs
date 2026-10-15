@@ -750,6 +750,53 @@ defmodule Whiska.TranscriptTest do
     end
   end
 
+  describe "releases_held?/3 — a held marked stop whose subagents are done and turn has ended" do
+    @held_at ~U[2026-10-14 14:50:00Z]
+    @word "Done.\n⁣⁣⁣"
+
+    defp releases?(lines, stamp, held_at \\ @held_at),
+      do: Transcript.releases_held?(read(stamped(lines, stamp)), held_at, @now)
+
+    test "not while a subagent is still out" do
+      refute releases?([launched("ae96c51"), said(@word)], "2026-10-14T14:50:00Z")
+    end
+
+    test "not while the mouse is mid-turn: the subagent reported and it woke to work" do
+      lines = [launched("ae96c51"), said(@word), completed("ae96c51")]
+
+      refute releases?(lines, "2026-10-14T14:50:00Z")
+    end
+
+    test "once the subagent is half an hour old and the mouse said nothing since" do
+      assert releases?([launched("ae96c51"), said(@word)], "2026-10-14T14:20:00Z")
+    end
+
+    test "once the stop itself is half an hour old, even with the mouse working" do
+      lines = [launched("ae96c51"), said(@word), completed("ae96c51")]
+
+      assert releases?(lines, "2026-10-14T14:50:00Z", ~U[2026-10-14 14:20:00Z])
+    end
+
+    test "once the mouse's turn has ended again with nothing out" do
+      lines = [launched("ae96c51"), said(@word), completed("ae96c51"), said("Fixed it.")]
+
+      assert releases?(lines, "2026-10-14T14:50:00Z")
+    end
+
+    test "a turn that died on an API error has ended" do
+      died =
+        JSON.encode!(%{
+          "type" => "assistant",
+          "isApiErrorMessage" => true,
+          "message" => %{"content" => [%{"type" => "text", "text" => "API Error: gone"}]}
+        })
+
+      lines = [launched("ae96c51"), said(@word), completed("ae96c51"), died]
+
+      assert releases?(lines, "2026-10-14T14:50:00Z")
+    end
+  end
+
   describe "subagent_in_flight?/2" do
     test "a subagent launched or restarted counts, a background command does not" do
       now = DateTime.utc_now()

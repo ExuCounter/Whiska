@@ -16,8 +16,9 @@ defmodule Whiska.Doorstep do
   - **A held entry is not waiting.** A marked stop whose mouse still has a
     subagent out is written beside the others under `.held`, and nothing that
     reads the doorstep counts it: `waiting/1` and `count_waiting/1` see `.json`
-    only. The owl releases it — renames it to `.json`, which is one atomic step —
-    once no subagent of the mouse is out (ADR-0052).
+    only. The mouse's next stop settles it, or the owl releases it — renames it
+    to `.json`, which is one atomic step — once no subagent of the mouse is out and
+    the mouse is idle (ADR-0052).
   - **Collection removes the entry** (ADR-0007). The question's row in the house
     is the history, so a collected entry is deleted once recorded. That is also
     what lets the statusline count what is waiting straight off disk when the

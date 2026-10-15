@@ -29,7 +29,7 @@ C4Dynamic
   ContainerDb(db, "House database", "SQLite", "questions")
 
   Rel(mousepane, jsonl, "End of a turn: the stop hook reads the tail. No marker and background work still out, and it writes nothing")
-  Rel(mousepane, doorstep, "A marked stop with a subagent still out lands held, not waiting; the owl releases it once none is out, or after half an hour")
+  Rel(mousepane, doorstep, "A marked stop with a subagent still out lands held, not waiting; the mouse's next stop settles it, or the owl releases it once none is out and the mouse is idle, or after half an hour")
   Rel(mousepane, doorstep, "Otherwise the turn is over: one entry lands, written by the owl over its hook socket, or by the escript when the owl does not answer")
   Rel(herdr, collection, "Reports that mouse done or idle, unless the owl that wrote the entry has already asked")
   Rel(collection, doorstep, "Collect what is there")

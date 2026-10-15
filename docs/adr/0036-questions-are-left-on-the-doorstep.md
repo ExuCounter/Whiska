@@ -21,8 +21,9 @@ removes those when it opens the house.
 `.held` entry, beside the `.json` ones and in the same format (ADR-0052). It is not waiting:
 `waiting`, the statusline's count and everything else that reads the doorstep see `.json`
 only. The owl renames it to `.json` — atomic, like the write — at the start of a collection
-once no subagent of the mouse is out, and it is collected like any other. A mouse has one,
-and a stop of its own that is not held removes it.
+once no subagent of the mouse is out and it is idle, and it is collected like any
+other. A mouse has one. Its next stop settles it: a marked one removes it, an unmarked one
+renames it in its own place.
 
 **The owl writes to it too.** When it reads a GitLab merge request closed or gone from the
 forge (ADR-0060), it leaves one entry for the mouse whose branch it is, keyed by that

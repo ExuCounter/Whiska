@@ -285,6 +285,17 @@ defmodule Whiska.Hook.StopTest do
       })
     end
 
+    defp held_stop(worktree, path, message) do
+      :ok =
+        Stop.run(
+          payload(%{
+            "cwd" => worktree,
+            "transcript_path" => path,
+            "last_assistant_message" => message
+          })
+        )
+    end
+
     test "leaves nothing on the doorstep — the session will be woken again", %{
       main: main,
       worktree: worktree
@@ -353,37 +364,87 @@ defmodule Whiska.Hook.StopTest do
       assert text =~ "Two reviewers are still running"
     end
 
-    test "a stop that is not held supersedes the mouse's held one", %{
+    test "a later marked stop supersedes the mouse's held one", %{
       main: main,
       worktree: worktree
     } do
       path = transcript(worktree, [launched("ae96c5149391564f6")])
-
-      :ok =
-        Stop.run(
-          payload(%{
-            "cwd" => worktree,
-            "transcript_path" => path,
-            "last_assistant_message" => "Pick A or B?\n\u2063\u2063"
-          })
-        )
-
+      held_stop(worktree, path, "Pick A or B?\n\u2063\u2063")
       assert [_held] = Doorstep.held(main)
 
       done =
         transcript(worktree, [launched("ae96c5149391564f6"), handed_back("ae96c5149391564f6")])
 
-      :ok =
-        Stop.run(
-          payload(%{
-            "cwd" => worktree,
-            "transcript_path" => done,
-            "last_assistant_message" => "Shipped.\n\u2063\u2063\u2063"
-          })
-        )
+      held_stop(worktree, done, "Shipped.\n\u2063\u2063\u2063")
 
       assert Doorstep.held(main) == []
       assert [{_, %Entry{text: "Shipped." <> _}}] = Doorstep.waiting(main)
+    end
+
+    test "a later unmarked stop is the mouse not asking again: the held one is delivered instead",
+         %{main: main, worktree: worktree} do
+      path = transcript(worktree, [launched("ae96c5149391564f6")])
+      held_stop(worktree, path, "Pick A or B?\n\u2063\u2063")
+
+      done =
+        transcript(worktree, [launched("ae96c5149391564f6"), handed_back("ae96c5149391564f6")])
+
+      held_stop(worktree, done, "Applied the reviewer's fixes.")
+
+      assert Doorstep.held(main) == []
+      assert [{_, %Entry{text: "Pick A or B?" <> _}}] = Doorstep.waiting(main)
+    end
+
+    test "the held stop delivered in an unmarked stop's place carries that turn's own facts", %{
+      main: main,
+      worktree: worktree
+    } do
+      path = transcript(worktree, [launched("ae96c5149391564f6")])
+      held_stop(worktree, path, "Pick A or B?\n\u2063\u2063")
+
+      File.write!(Path.join(worktree, Whiska.BuildPlan.filename()), "# Plan\n\nrevised\n")
+
+      done =
+        transcript(worktree, [launched("ae96c5149391564f6"), handed_back("ae96c5149391564f6")])
+
+      held_stop(worktree, done, "Applied the reviewer's fixes.")
+
+      assert [{_, %Entry{text: "Pick A or B?" <> _, plan: "# Plan\n\nrevised\n"}}] =
+               Doorstep.waiting(main)
+    end
+
+    test "an unmarked stop of another mouse leaves a held one alone", %{
+      main: main,
+      worktree: worktree
+    } do
+      {:ok, _} =
+        Doorstep.hold(main, %Entry{
+          mouse_id: "someone-else",
+          branch: "feat-other",
+          worktree_root: "/elsewhere",
+          stamped_at: DateTime.utc_now(),
+          text: "Pick A or B?\n\u2063\u2063"
+        })
+
+      done =
+        transcript(worktree, [launched("ae96c5149391564f6"), handed_back("ae96c5149391564f6")])
+
+      held_stop(worktree, done, "Applied the reviewer's fixes.")
+
+      assert [{_, %Entry{mouse_id: "someone-else"}}] = Doorstep.held(main)
+      assert [{_, %Entry{text: "Applied" <> _}}] = Doorstep.waiting(main)
+    end
+
+    test "an unmarked stop with nothing held is written as ever", %{
+      main: main,
+      worktree: worktree
+    } do
+      done =
+        transcript(worktree, [launched("ae96c5149391564f6"), handed_back("ae96c5149391564f6")])
+
+      held_stop(worktree, done, "Applied the reviewer's fixes.")
+
+      assert [{_, %Entry{text: "Applied" <> _}}] = Doorstep.waiting(main)
     end
 
     test "an unmarked stop passed over leaves the held one where it is", %{

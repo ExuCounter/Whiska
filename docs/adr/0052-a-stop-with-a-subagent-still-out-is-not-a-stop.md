@@ -35,7 +35,7 @@ over 1,509 stops of this machine's mice on 2026-10-14: holding every stop with a
 would have swallowed 31 marked stops. The 10 unmarked stops the wider reading newly passes
 over were all a mouse waiting on its own work.
 
-**A marked stop is held while a subagent is out, and delivered once none is** (changed
+**A marked stop is held while a subagent is out, and delivered when its turn is over** (changed
 2026-10-15). On 2026-10-15 #626 ("needs a decision": "The reviewer is still running") and
 #627 ("finished": "Two reviewers are still running, and I haven't committed") were
 delivered: each mouse said what it was waiting on, in a marker that claims the opposite — a
@@ -48,19 +48,31 @@ them, so a held stop is delayed, never dropped:
 
 - The hook writes it to the doorstep as a **held** entry (`.held`, beside the `.json` ones),
   which nothing that counts or lists what waits reads (ADR-0036).
-- The owl releases it, at the start of every collection — the idle trigger, the backstop,
-  opening the house — as soon as the entry's transcript shows no subagent of the mouse out:
-  the subagent reported, or is half an hour old (the backstop below), or the transcript
-  cannot be read. A released entry is collected like any other and is no missed trigger for
-  the backstop's count. So a reviewer that never reports delays the question half an hour,
-  then it is delivered anyway.
-- A stop the mouse makes later that is not itself held supersedes its held one, as any
-  stop supersedes the mouse's earlier questions (ADR-0007): it has moved past it. A newer
-  held stop replaces the older. A mouse never loses a stop to this without having made a
-  newer one.
+- **It ends when the mouse's next turn does.** A reviewer reporting wakes the mouse, and
+  its next stop settles the held one, read by the hook: a *marked* stop supersedes it, as any
+  stop supersedes the mouse's earlier questions (ADR-0007), and the held one is dropped; an
+  *unmarked* stop is the mouse not asking again, so the held one's words are delivered in its
+  place, with the unmarked turn's own spec, plan, model and time, and the unmarked message
+  is not written; a stop passed over, or held again, changes
+  nothing, the newer held one replacing the older.
+- **Otherwise the owl releases it,** at the start of every collection (the idle trigger,
+  the backstop, opening the house), when no subagent of the mouse is out *and* its turn has
+  ended — the transcript's last entry is still the mouse's own word, which a mouse woken by
+  the report and working on it has not got, and the file has been quiet for the settle
+  window (two minutes, ADR-0067's): a mouse's text and the tool call after it are separate
+  entries, and between them it looks finished and is not. So a held stop is never delivered while its
+  mouse is working on the findings, and never dropped without a newer stop of the mouse's
+  own. A reviewer that never reports, or never wakes the mouse, delays it until the launch
+  is half an hour old; a mouse still working half an hour after the stop gets it delivered
+  anyway. A transcript that cannot be read releases it at once. A released entry is
+  collected like any other and is no missed trigger for the backstop's count.
 
-The price: a question held while a reviewer runs waits for it, up to the half hour. The
-build and review briefs tell a mouse to wait for its reviewers' reports and then say what it
+The price: a question held while a reviewer runs waits for it, and for the mouse's turn, up
+to the half hour. A person who interrupts the woken mouse, or a compaction, leaves the
+transcript's last entry something other than the mouse's word, so the held stop waits out
+the half hour too. And a mouse that forgets the marker on a real question in its next turn
+has the held stop delivered instead of it: the question it asked then is in the pane, not
+on the doorstep. The build and review briefs tell a mouse to wait for its reviewers' reports and then say what it
 had to say, so the held entry is the net, not the plan. Every other kind of work still leaves
 a marked stop written.
 
@@ -221,5 +233,5 @@ delivery slot (ADR-0008) — every mid-turn stop holds it until the person clear
 real question from another mouse waits behind a progress note.
 
 Changed on 2026-10-12: the board reads this same tail too, on every rebuild, for a working mouse quiet ten minutes (ADR-0082, changed 2026-10-15).
-Changed on 2026-10-15: a marked stop is held too while a subagent is out, and the owl delivers it once none is, or after the half hour; the board and the owl's pickup read it as passed over.
+Changed on 2026-10-15: a marked stop is held too while a subagent is out, and it is delivered once none is out and the mouse's turn has ended, settled by the mouse's own next stop, or after the half hour; the board and the owl's pickup read it as passed over.
 Changed on 2026-10-14: only an unmarked stop is passed over; every kind of background work counts, not only subagents; the tail is 4 MB; an interim report and a monitor's event are not reports, and `TaskStop` is one; the board and the owl's pickup read a passed-over stop from the transcript.

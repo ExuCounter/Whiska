@@ -20,10 +20,12 @@ defmodule Whiska.Hook.Stop do
   mouse's own background work is still in flight has not ended — Claude Code
   will wake this session when that work reports — and that one is passed over in
   silence (ADR-0052). A marked turn while a subagent is out is held: written
-  beside the doorstep's entries, not counted among them, for the owl to release
-  once no subagent is out — a mouse reporting `done` or asking a question beside
-  its own running reviewers is not finished yet, and is not forgotten either. A
-  marked turn beside any other work is written: the mouse said what it is
+  beside the doorstep's entries, not counted among them — a mouse reporting
+  `done` or asking a question beside its own running reviewers is not finished
+  yet, and is not forgotten either. It ends when the mouse's next turn does: a
+  marked stop supersedes it, an unmarked one has it delivered in its place, and
+  otherwise the owl releases it once no subagent is out and the mouse is idle.
+  A marked turn beside any other work is written: the mouse said what it is
   waiting on.
 
   That is the only marker it reads. What a marked message means is read by the
@@ -88,7 +90,8 @@ defmodule Whiska.Hook.Stop do
 
   # Writing an unmarked stop here would leave "still waiting on the reviewers" on
   # the doorstep as a question that asks nothing (ADR-0052). A marked one is
-  # held, not dropped: the owl delivers it once the subagents are done.
+  # held, not dropped: the mouse's next stop settles it, or the owl delivers it
+  # once no subagent is out and the mouse is idle.
   defp turn_state(message, tail) do
     marker = if QuestionMarker.classify(message) == "unmarked", do: :unmarked, else: :marked
     held? = Transcript.holds_stop?(Transcript.background(tail), marker, DateTime.utc_now())
@@ -127,14 +130,32 @@ defmodule Whiska.Hook.Stop do
       transcript: transcript_path(payload)
     }
 
-    # A stop the mouse makes now supersedes the one held for it: it has moved
-    # past it, as it does past any earlier question (ADR-0007).
-    if turn == :over do
-      _ = Doorstep.drop_held(layout.main_checkout, mouse_id)
-      Doorstep.leave(layout.main_checkout, entry)
-    else
-      Doorstep.hold(layout.main_checkout, entry)
+    leave_or_hold(turn, layout.main_checkout, entry, QuestionMarker.classify(entry.text))
+  end
+
+  # A mouse's later stop settles the stop held for it (ADR-0052). One that asks or
+  # reports supersedes it: the mouse has moved past, as it does past any earlier
+  # question (ADR-0007). One with no marker is the mouse not asking again, so the
+  # held stop is delivered in its place.
+  defp leave_or_hold(:held, main_checkout, entry, _kind), do: Doorstep.hold(main_checkout, entry)
+
+  # The held one's words, this turn's facts: its spec, plan, model and time.
+  defp leave_or_hold(:over, main_checkout, entry, "unmarked") do
+    case for {_file, held} <- Doorstep.held(main_checkout),
+             held.mouse_id == entry.mouse_id,
+             do: held do
+      [] ->
+        Doorstep.leave(main_checkout, entry)
+
+      held ->
+        _ = Doorstep.drop_held(main_checkout, entry.mouse_id)
+        Doorstep.leave(main_checkout, %{entry | text: List.last(held).text})
     end
+  end
+
+  defp leave_or_hold(:over, main_checkout, entry, _marked) do
+    _ = Doorstep.drop_held(main_checkout, entry.mouse_id)
+    Doorstep.leave(main_checkout, entry)
   end
 
   # The spec, research document or build plan as it stands when the turn ends
