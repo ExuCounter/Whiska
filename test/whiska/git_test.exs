@@ -346,7 +346,10 @@ defmodule Whiska.GitTest do
     test "a fetch that outlives its deadline is killed with what it started, and the person's ssh command is used",
          %{repo: repo} do
       ssh = Path.join(repo.root, "slow-ssh")
-      File.write!(ssh, "#!/bin/sh\nexec sleep 7.317\n")
+      # a sleep length no other process has: pgrep -f takes a regex, so the dot is escaped
+      # and the digits are random
+      secs = "7.#{:rand.uniform(999_999_999)}"
+      File.write!(ssh, "#!/bin/sh\nexec sleep #{secs}\n")
       File.chmod!(ssh, 0o755)
       GitRepo.git!(repo.checkout, ["config", "core.sshCommand", ssh])
       GitRepo.git!(repo.checkout, ["remote", "set-url", "origin", "ssh://example.invalid/r.git"])
@@ -355,7 +358,9 @@ defmodule Whiska.GitTest do
 
       assert result == {:error, :timeout}
       assert micros < 3_000_000
-      assert {_none, 1} = System.cmd("pgrep", ["-f", "7.317"])
+
+      assert {_none, 1} =
+               System.cmd("pgrep", ["-f", "sleep " <> String.replace(secs, ".", "\\.")])
     end
 
     test "a remote that asks for a password fails, and no password program is run",
