@@ -5,7 +5,8 @@ defmodule Whiska.Cleanup do
   One pass over this house's mice, run from the backstop. A worktree goes only
   when all four preconditions hold — the branch has landed in the base, merged
   or as copies of its commits, in the base here or in its copy last fetched
-  from the remote, the worktree is clean, nothing on it is
+  from the remote, or its merge request read merged on the forge on the
+  worktree's own head, into any branch, the worktree is clean, nothing on it is
   unpushed, and the mouse is quiet — and
   the pane goes with it, through the one `worktree.remove` call herdr offers,
   which closes the workspace and removes the worktree together the way
@@ -30,6 +31,7 @@ defmodule Whiska.Cleanup do
   alias Whiska.Git
   alias Whiska.Layout
   alias Whiska.Review
+  alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Schema.Question
   alias Whiska.Storage
@@ -62,7 +64,8 @@ defmodule Whiska.Cleanup do
       questions: questions,
       builds: builds(questions),
       doorstep: doorstep(checkout),
-      bases: bases(checkout, standing)
+      bases: bases(checkout, standing),
+      reads: Storage.merge_request_reads()
     }
 
     standing
@@ -350,9 +353,9 @@ defmodule Whiska.Cleanup do
   end
 
   defp landed_as_branch(%Mouse{path: path} = mouse, %{checkout: checkout} = context) do
-    with {:ok, {_base, places}} <- leave_on_error(base(mouse, context)),
+    with {:ok, places} <- places(mouse, context),
          {:ok, branch} <- leave_on_error(Git.head_branch(path)),
-         {:ok, how} <- merged(checkout, path, places, context[:merged]),
+         {:ok, how} <- merged(mouse, places, context),
          {:ok, landing} <- confirmed(checkout, path, how),
          {:ok, true} <- own_work(checkout, path, branch),
          {:ok, true} <- clean(path),
@@ -365,6 +368,14 @@ defmodule Whiska.Cleanup do
   # only while it is still on the commit found there, so that commit is asked
   # about here, not one remembered from earlier in the sweep.
   defp confirmed(_checkout, _path, {:ancestor, {:local, _ref}}), do: {:ok, :merged}
+
+  defp confirmed(_checkout, path, {:forge, head}) do
+    case leave_on_error(Git.head(path)) do
+      {:ok, ^head} -> {:ok, {:in_base, head}}
+      {:ok, _moved} -> {:leave, :not_merged}
+      leave -> leave
+    end
+  end
 
   defp confirmed(checkout, path, {how, where}) do
     with {:ok, head} <- leave_on_error(Git.head(path)) do
@@ -379,10 +390,42 @@ defmodule Whiska.Cleanup do
   defp still(:ancestor, checkout, head, where), do: Git.ancestor?(checkout, head, where)
   defp still(:in_base, checkout, head, where), do: Git.in_base?(checkout, head, where)
 
-  defp merged(checkout, path, places, asked) do
-    case asked || with({:ok, head} <- Git.head(path), do: reached(checkout, head, places)) do
-      {:ok, false} -> {:leave, :not_merged}
+  # A base that cannot be read leaves the worktree, unless the forge merged
+  # its head, whatever branch that went into.
+  defp places(mouse, context) do
+    case base(mouse, context) do
+      {:ok, {_base, places}} -> {:ok, places}
+      unreadable -> {:ok, {:unreadable, leave_on_error(unreadable)}}
+    end
+  end
+
+  defp merged(mouse, {:unreadable, leave}, context) do
+    with {:leave, _not_merged} <- merged_on_forge(mouse, context), do: leave
+  end
+
+  defp merged(%Mouse{path: path} = mouse, places, context) do
+    asked =
+      context[:merged] ||
+        with({:ok, head} <- Git.head(path), do: reached(context.checkout, head, places))
+
+    case asked do
+      {:ok, false} -> merged_on_forge(mouse, context)
       other -> leave_on_error(other)
+    end
+  end
+
+  # A merge the forge read, into whatever branch, is a landing when it merged
+  # the worktree's own head: the work is on the forge, so nothing here is
+  # unpushed, whether or not the forge kept the source branch. Only the read
+  # of the link recorded now, while it waits (ADR-0061).
+  defp merged_on_forge(%Mouse{mouse_id: id, merge_request_url: url} = mouse, context) do
+    with %MergeRequestRead{url: ^url, state: "merged", head_sha: sha} when is_binary(sha) <-
+           (context[:reads] || %{})[id],
+         true <- Mouse.merge_request_waiting?(mouse),
+         {:ok, ^sha} <- Git.head(mouse.path) do
+      {:ok, {:forge, sha}}
+    else
+      _ -> {:leave, :not_merged}
     end
   end
 

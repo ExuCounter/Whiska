@@ -18,9 +18,16 @@ defmodule Whiska.MergeRequests do
   read, is said once, and backs off up to 15 minutes, never sooner than the
   forge's retry time. A 404 is the merge request gone only after three reads in
   a row, and only while the project itself still reads.
+
+  **A merge request opened by hand is found by its branch.** `find_each/4`
+  looks on the forge for one open from a mouse's branch, into any branch, once
+  that branch is on `origin` and no merge request waits on it; the house
+  records what it finds, and from then on it is read like any other
+  (ADR-0060).
   """
 
   alias Whiska.Forge
+  alias Whiska.Git
   alias Whiska.Schema.MergeRequestRead
   alias Whiska.Schema.Mouse
   alias Whiska.Storage
@@ -57,6 +64,11 @@ defmodule Whiska.MergeRequests do
           | :reopened
           | {:unreadable, term()}
           | :readable_again
+
+  @typedoc "When a branch is next looked up: its `origin` head then, and the wait."
+  @type find_entry :: %{head: String.t(), due: integer(), wait_ms: pos_integer()}
+
+  @type found :: Forge.answer(String.t() | nil)
 
   @type context :: %{
           cwd: Path.t(),
@@ -96,6 +108,87 @@ defmodule Whiska.MergeRequests do
   defp still_open?(nil, _url), do: true
   defp still_open?(%MergeRequestRead{url: url, state: "open"}, url), do: true
   defp still_open?(_not_read_open, _url), do: false
+
+  @doc """
+  Every mouse a merge request is looked for: a current one not dropped, with
+  a branch, and no merge request waiting on it.
+  """
+  @spec unrecorded() :: [Mouse.t()]
+  def unrecorded do
+    for %Mouse{removed_at: nil, branch: branch} = mouse <- Storage.current_mice(),
+        is_binary(branch),
+        not Mouse.merge_request_waiting?(mouse),
+        do: mouse
+  end
+
+  @doc """
+  Look on the forge `origin` names for a merge request open from each of
+  `mice`'s branches, one into its base first: only a branch `origin` has, and only when
+  its `origin` head moved or `due` says it is time, as of `now`, a monotonic
+  time. Nothing is looked up when `origin` is no forge that can be. A forge
+  that says to wait is not called again this round: the rest take its answer.
+  """
+  @spec find_each([Mouse.t()], %{String.t() => find_entry()}, context(), integer()) ::
+          [{Mouse.t(), String.t(), found()}]
+  def find_each(mice, due, context, now) do
+    case Forge.origin_project(context.cwd) do
+      {:ok, project} ->
+        run = run(project, context)
+
+        {found, _told} =
+          Enum.flat_map_reduce(mice, nil, fn mouse, told ->
+            with {:ok, head} <- Git.remote_head(context.cwd, mouse.branch),
+                 true <- find_due?(due[mouse.mouse_id], head, now) do
+              base =
+                case Git.base_of(context.cwd, mouse.base) do
+                  {:ok, base} -> base
+                  {:error, _unreadable} -> nil
+                end
+
+              result = told || project.forge.open_from(project, mouse.branch, base, run)
+              {[{mouse, head, result}], told || told(result)}
+            else
+              _ -> {[], told}
+            end
+          end)
+
+        found
+
+      :error ->
+        []
+    end
+  end
+
+  defp find_due?(nil, _head, _now), do: true
+  defp find_due?(%{head: head, due: due}, head, now), do: now >= due
+  defp find_due?(_moved, _head, _now), do: true
+
+  defp told({:unknown, _reason, ms} = told) when is_integer(ms), do: told
+  defp told(_result), do: nil
+
+  @doc """
+  When a branch looked up at `started` with nothing found is next: after
+  `interval_ms`, then twice as long each time while its `origin` head stays
+  `head`, up to 15 minutes; never sooner than the forge's retry time.
+  """
+  @spec find_next(find_entry() | nil, String.t(), found(), pos_integer(), integer()) ::
+          find_entry()
+  def find_next(entry, head, result, interval_ms, started) do
+    wait =
+      case entry do
+        %{head: ^head, wait_ms: last} -> min(2 * last, @longest_wait_ms)
+        _ -> interval_ms
+      end
+
+    retry_ms =
+      case result do
+        {:unknown, _reason, ms} when is_integer(ms) -> min(ms, @longest_retry_ms)
+        _ -> 0
+      end
+
+    wait = max(wait, retry_ms)
+    %{head: head, due: started + wait, wait_ms: wait}
+  end
 
   @doc "Every row, by mouse."
   @spec reads() :: %{String.t() => MergeRequestRead.t()}

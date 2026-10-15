@@ -257,6 +257,111 @@ defmodule Whiska.Forge.GitLabTest do
     assert Forge.for_url("https://example.com/whatever") == :error
   end
 
+  @project %{forge: GitLab, host: "gitlab.example.com", project: "acme/tools/app"}
+  @lookup "projects/acme%2Ftools%2Fapp/merge_requests"
+
+  test "a merge request open from a branch is found by one GET, one into its base first",
+       %{fake: fake} = ctx do
+    other = "https://gitlab.example.com/acme/tools/app/-/merge_requests/8"
+
+    FakeGlab.answer(fake, @lookup, [
+      opened(other, "fix/a b", "release/x"),
+      opened(@url, "fix/a b", "staging")
+    ])
+
+    assert GitLab.open_from(@project, "fix/a b", "staging", ctx.run) == {:ok, @url}
+
+    assert [
+             [
+               "api",
+               "--method",
+               "GET",
+               "--include",
+               "--hostname",
+               "gitlab.example.com",
+               @lookup <> "?source_branch=fix%2Fa%20b&state=opened"
+             ]
+           ] = FakeGlab.calls(fake)
+
+    FakeGlab.answer(fake, @lookup, [opened(other, "fix/a b", "release/x")])
+
+    assert GitLab.open_from(@project, "fix/a b", "staging", ctx.run) == {:ok, other}
+    assert GitLab.open_from(@project, "fix/a b", nil, ctx.run) == {:ok, other}
+
+    upper = %{@project | host: "GitLab.example.com", project: "Acme/Tools/App"}
+    assert GitLab.open_from(upper, "fix/a b", "staging", ctx.run) == {:ok, other}
+  end
+
+  test "a merge request from another branch, from a fork, or on another project, is none",
+       %{fake: fake} = ctx do
+    for other <- [
+          %{"source_branch" => "feat-b"},
+          %{"source_project_id" => 99},
+          %{"source_project_id" => nil},
+          %{"web_url" => "https://gitlab.example.com/acme/other/-/merge_requests/7"},
+          %{"web_url" => "https://evil.example.com/acme/tools/app/-/merge_requests/7"},
+          %{"web_url" => "javascript:alert(1)"}
+        ] do
+      found =
+        Map.merge(
+          opened(@url, "feat-a", "staging"),
+          other
+        )
+
+      FakeGlab.answer(fake, @lookup, [found])
+      assert GitLab.open_from(@project, "feat-a", "staging", ctx.run) == {:ok, nil}
+    end
+
+    FakeGlab.answer(fake, @lookup, [])
+    assert GitLab.open_from(@project, "feat-a", "staging", ctx.run) == {:ok, nil}
+    FakeGlab.answer(fake, @lookup, %{"message" => "oops"})
+    assert {:unknown, _, _} = GitLab.open_from(@project, "feat-a", "staging", ctx.run)
+    FakeGlab.answer(fake, @lookup, %{"message" => "401"}, status: 401)
+
+    assert {:unknown, {:http, 401}, nil} =
+             GitLab.open_from(@project, "feat-a", "staging", ctx.run)
+  end
+
+  test "a project is read off origin only when it is on GitLab", ctx do
+    checkout = Path.join(ctx.run.cwd, "checkout")
+    File.mkdir_p!(checkout)
+    System.cmd("git", ["init", "--quiet", checkout])
+
+    for {url, expected} <- [
+          {"git@gitlab.com:prosapient/platform/platform/platform-backend.git",
+           {"gitlab.com", "prosapient/platform/platform/platform-backend"}},
+          {"https://gitlab.example.com/acme/app.git", {"gitlab.example.com", "acme/app"}},
+          {"ssh://git@gitlab.example.com:2222/acme/app", {"gitlab.example.com", "acme/app"}},
+          {"https://gitlab.example.com:8443/acme/app.git",
+           {"gitlab.example.com:8443", "acme/app"}},
+          {"git@github.com:acme/app.git", nil},
+          {"git@github.com:acme/gitlab-ci-templates.git", nil},
+          {"/tmp/bare.git", nil}
+        ] do
+      System.cmd("git", ["remote", "remove", "origin"], cd: checkout, stderr_to_stdout: true)
+      System.cmd("git", ["remote", "add", "origin", url], cd: checkout)
+
+      case expected do
+        {host, project} ->
+          assert Forge.origin_project(checkout) ==
+                   {:ok, %{forge: GitLab, host: host, project: project}}
+
+        nil ->
+          assert Forge.origin_project(checkout) == :error
+      end
+    end
+  end
+
+  defp opened(url, branch, base) do
+    %{
+      "web_url" => url,
+      "source_branch" => branch,
+      "target_branch" => base,
+      "source_project_id" => 12,
+      "target_project_id" => 12
+    }
+  end
+
   defp merge_request(overrides \\ %{}) do
     Map.merge(
       %{

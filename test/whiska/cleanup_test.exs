@@ -419,6 +419,92 @@ defmodule Whiska.CleanupTest do
     end
   end
 
+  describe "a merge request the forge read as merged, into another branch" do
+    @url "https://gitlab.example.com/acme/app/-/merge_requests/7"
+
+    defp read_merged(m, opts \\ []) do
+      {:ok, _} = Storage.record_merge_request(m.id, @url)
+      {:ok, head} = Git.head(m.path)
+
+      {:ok, _} =
+        Storage.save_merge_request_read(%{
+          mouse_id: m.id,
+          url: Keyword.get(opts, :url, @url),
+          state: Keyword.get(opts, :state, "merged"),
+          head_sha: Keyword.get(opts, :head_sha, head)
+        })
+
+      head
+    end
+
+    test "goes, branch and all, though git sees nothing in the base, and is not stamped landed",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      read_merged(m)
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+      refute File.dir?(m.path)
+      refute GitRepo.git!(repo.checkout, ["branch", "--list"]) =~ "feat-a"
+      assert %{landed_at: nil, removed_at: %DateTime{}} = Storage.mouse("m-feat-a")
+    end
+
+    test "goes though the branch it was cut from is gone", %{repo: repo} do
+      m = mouse(repo, "feat-a", base: "release-1")
+      read_merged(m)
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+    end
+
+    test "goes though the forge deleted its source branch on merge", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      GitRepo.git!(m.path, ["push", "--quiet", "origin", "--delete", "feat-a"])
+      GitRepo.commit!(m.path, "more.md", "pushed once, then deleted on the forge")
+      read_merged(m)
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", :removed}] = sweep(repo)
+    end
+
+    test "with a commit made since the merge, stays", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      read_merged(m)
+      GitRepo.commit!(m.path, "late.md", "one more")
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :not_merged}}] = sweep(repo)
+      assert File.dir?(m.path)
+    end
+
+    test "with a file not committed, stays", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      read_merged(m)
+      GitRepo.dirty!(m.path)
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :dirty}}] = sweep(repo)
+    end
+
+    test "read open, or a read of another link than the one recorded, stays", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      read_merged(m, state: "open")
+      seen(repo, m, workspace_id: nil)
+      assert [{"m-feat-a", {:left, :not_merged}}] = sweep(repo)
+
+      read_merged(m, url: "https://gitlab.example.com/acme/app/-/merge_requests/6")
+      assert [{"m-feat-a", {:left, :not_merged}}] = sweep(repo)
+    end
+
+    test "not quiet, stays", %{repo: repo} do
+      m = mouse(repo, "feat-a", kind: "needs-decision", status: "sent")
+      read_merged(m)
+      seen(repo, m, workspace_id: nil)
+
+      assert [{"m-feat-a", {:left, :waiting}}] = sweep(repo)
+    end
+  end
+
   describe "a sniff mouse whose build has landed" do
     defp research(repo) do
       sniff = mouse(repo, "research-a", commit: false, mode: "sniff")

@@ -101,9 +101,9 @@ C4Container
   Rel(cli, db, "pr and merge-request record the link the forge's tool printed for a finished branch")
   Rel(cli, db, "tell copies a letter into another open house and records it in that house's database")
   Rel(house, remote, "Fetches the base alone every minute while a merge request waits, and at once when the forge says merged, in a task, never prompting; fetches a dropped branch to make its worktree again for a review mouse", "git fetch")
-  Rel(house, forge, "Reads each recorded GitLab merge request every minute, in a task, GET only", "glab api")
+  Rel(house, forge, "Reads each recorded GitLab merge request every minute, and looks one up by a pushed branch that has none, in a task, GET only", "glab api")
   Rel(house, doorstep, "Leaves its own question when the forge says closed or gone, or a review round cannot be handed over, then collects it")
-  Rel(house, herdr, "Removes a landed worktree, here or in the fetched base, and closes its pane together")
+  Rel(house, herdr, "Removes a landed worktree, here or in the fetched base, or merged on the forge on its head, and closes its pane together")
   Rel(house, herdr, "Types one question at a time into the main session when idle, and ahead of them a letter another house left")
   Rel(house, herdr, "Rings a mouse's doorbell again, at most three times, while its answer is not taken")
   Rel(house, herdr, "Types a pickup line into a mouse's pane when its turn died, again while it dies on an API error")
@@ -165,10 +165,11 @@ The reasoning is in the ADR each line names; this is the map.
 - **One owl, many houses**, each supervised independently (ADR-0001). Delivery lives in the
   house, and nothing types across houses (ADR-0008, ADR-0044).
 - **herdr is the one boundary with a fake behind it** (ADR-0031).
-- **Off the machine, the owl reaches two things, and only while a merge request waits**:
-  the git remote, through git alone, for the base branch alone (ADR-0087); and for a
-  GitLab request the forge's API, through the person's `glab` login and one runner that
-  builds only a `GET` (ADR-0060). `whiska pr` reaches both too, on the person's word: a
+- **Off the machine, the owl reaches two things**: the git remote, through git alone,
+  for the base branch alone while a merge request waits (ADR-0087); and on GitLab the
+  forge's API, through the person's `glab` login and one runner that builds only a `GET`,
+  to read each recorded request and to look one up for a branch on `origin` with none
+  (ADR-0060). `whiska pr` reaches both too, on the person's word: a
   push by the branch's name, and the forge's own `gh` or `glab` to open the merge request
   (ADR-0085). So does `whiska push`, on the person's yes to a review round: a push with a
   lease, then the round's replies posted through `glab api` (ADR-0060).

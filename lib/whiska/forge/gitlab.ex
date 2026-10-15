@@ -88,6 +88,55 @@ defmodule Whiska.Forge.GitLab do
     end
   end
 
+  # One GET for the open merge requests from `branch`, whatever they merge
+  # into; one into `base` first. Only one from this project itself, never a
+  # fork's branch of the same name, and only a link of its own shape on its own
+  # host: it is recorded on the mouse, and read every minute after (ADR-0060).
+  @impl Whiska.Forge
+  def open_from(project, branch, base, run) do
+    query = URI.encode_query([{"source_branch", branch}, {"state", "opened"}], :rfc3986)
+
+    with {:ok, body, _headers} <-
+           CLI.get(run, project.host, "#{project_path(project)}/merge_requests?#{query}") do
+      if is_list(body) do
+        opened =
+          for request <- body, url = opened_from(request, project, branch), do: {request, url}
+
+        case Enum.find(opened, fn {request, _url} -> request["target_branch"] == base end) ||
+               List.first(opened) do
+          {_request, url} -> {:ok, url}
+          nil -> {:ok, nil}
+        end
+      else
+        {:unknown, :unreadable_merge_requests, nil}
+      end
+    end
+  end
+
+  defp opened_from(
+         %{
+           "web_url" => url,
+           "source_branch" => branch,
+           "source_project_id" => id,
+           "target_project_id" => id
+         },
+         project,
+         branch
+       )
+       when is_binary(url) and is_integer(id) do
+    case parse(url) do
+      {:ok, %{host: host, project: name}} ->
+        if String.downcase(host) == String.downcase(project.host) and
+             String.downcase(name) == String.downcase(project.project),
+           do: url
+
+      _ ->
+        nil
+    end
+  end
+
+  defp opened_from(_other, _project, _branch), do: nil
+
   @impl Whiska.Forge.Opener
   def create_args(main_checkout, branch, base, title, file) do
     with {:ok, %{username: username}} <- signed_in(main_checkout) do

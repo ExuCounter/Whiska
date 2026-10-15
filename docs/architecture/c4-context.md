@@ -34,7 +34,7 @@ C4Context
   Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
   Rel(whiska, nc, "Raises every hoot; a click on it jumps to the main session")
   Rel(whiska, remote, "Fetches the base every minute while a merge request waits, and a dropped branch for a review mouse; pr and push push a branch", "git")
-  Rel(whiska, forge, "Reads a recorded GitLab merge request every minute, GET only; pr opens one; push posts a review round's replies", "glab or gh, the person's login")
+  Rel(whiska, forge, "Reads a recorded GitLab merge request every minute and looks one up by a pushed branch, GET only; pr opens one; push posts a review round's replies", "glab or gh, the person's login")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
@@ -48,11 +48,11 @@ C4Context
   mocking is allowed in tests (ADR-0031).
 - **git is asked, and now also answered to.** Whether a branch has landed is a local git
   question, and it is the one that lets the owl take a landed worktree down by itself
-  (ADR-0061). No forge and no credentials of Whiska's are involved in it. While a merge
-  request waits, the owl fetches the base, so a merge on the forge reads as landed
-  (ADR-0087).
-- **The forge is read, never written by the owl.** A recorded GitLab merge request is read
-  every minute through the person's own `glab` login, by one runner that builds only a
+  (ADR-0061). While a merge request waits, the owl fetches the base, so a merge on the
+  forge reads as landed (ADR-0087); a request the owl read merged on the worktree's own
+  head, into any branch, takes it down too, from the read it already stored.
+- **The forge is read, never written by the owl.** A GitLab merge request, recorded or
+  found open by its branch, is read every minute through the person's own `glab` login, by one runner that builds only a
   `GET` (ADR-0060). Whiska holds no token. `whiska pr` opens the request, and `whiska push`
   posts a review round's replies, through the same login, on the person's word (ADR-0085).
 - **The service manager** matters because there is exactly one owl per machine, not one

@@ -165,6 +165,10 @@ defmodule Whiska.Owl.House do
   happened: the log says what would wake a mouse, a merge fetches the base. A
   read that fails backs off and is said once. The tools default to the
   application's `:forge_tools`, else the ones installed.
+
+  A mouse with none waiting whose branch is on `origin` has a merge request
+  looked up by that branch, in a task of its own, backing off while none is
+  found; one found is recorded and read from then on (ADR-0060).
   """
 
   use GenServer
@@ -281,6 +285,10 @@ defmodule Whiska.Owl.House do
     reading: nil,
     read_started_at: nil,
     read_due: %{},
+    finding: nil,
+    find_started_at: nil,
+    find_due: %{},
+    find_held_until: nil,
     starting: %{},
     picked_now: MapSet.new(),
     restarted: MapSet.new(),
@@ -571,6 +579,7 @@ defmodule Whiska.Owl.House do
       |> remind()
       |> fetch_base()
       |> read_forge()
+      |> find_forge()
       |> ring()
       |> pick_up()
       |> review()
@@ -596,6 +605,20 @@ defmodule Whiska.Owl.House do
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{reading: %Task{ref: ref}} = state) do
     warn(state, "reading the forge crashed (#{inspect(reason)}) — trying again next minute")
     {:noreply, %{state | reading: nil}}
+  end
+
+  def handle_info({ref, found}, %{finding: %Task{ref: ref}} = state) do
+    Process.demonitor(ref, [:flush])
+    {:noreply, have_found(%{state | finding: nil}, found)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, reason}, %{finding: %Task{ref: ref}} = state) do
+    warn(
+      state,
+      "looking for merge requests crashed (#{inspect(reason)}) — trying again next minute"
+    )
+
+    {:noreply, %{state | finding: nil}}
   end
 
   def handle_info({ref, result}, %{starting: starting} = state) when is_map_key(starting, ref) do
@@ -1282,6 +1305,7 @@ defmodule Whiska.Owl.House do
   # A read is folded into its row as it stands now, not as it stood when the
   # read began: a review round may have taken what was kept meanwhile.
   defp have_read(state, reads) do
+    state = hold_finding(state, Enum.map(reads, &elem(&1, 2)), state.read_started_at)
     now = DateTime.utc_now()
     rows = MergeRequests.reads()
 
@@ -1304,6 +1328,83 @@ defmodule Whiska.Owl.House do
           state
       end
     end)
+  end
+
+  # A merge request opened by hand is looked for by its branch, in a task of
+  # its own: the git and the forge there, the records here (ADR-0060).
+  defp find_forge(%{finding: %Task{}} = state), do: state
+
+  defp find_forge(state) do
+    now = System.monotonic_time(:millisecond)
+
+    case MergeRequests.unrecorded() do
+      [] ->
+        %{state | find_due: %{}}
+
+      _mice when is_integer(state.find_held_until) and now < state.find_held_until ->
+        state
+
+      mice ->
+        due = Map.take(state.find_due, Enum.map(mice, & &1.mouse_id))
+        context = state.forge_context
+
+        %{
+          state
+          | finding: Task.async(fn -> MergeRequests.find_each(mice, due, context, now) end),
+            find_started_at: now,
+            find_due: due
+        }
+    end
+  end
+
+  # A forge's retry time, told to a lookup or a read, holds every lookup.
+  defp hold_finding(state, results, started) do
+    case results |> Enum.map(&retry_after/1) |> Enum.filter(&is_integer/1) do
+      [] ->
+        state
+
+      waits ->
+        until = started + min(Enum.max(waits), 3_600_000)
+        %{state | find_held_until: max(until, state.find_held_until || until)}
+    end
+  end
+
+  defp have_found(state, found) do
+    state = hold_finding(state, Enum.map(found, &elem(&1, 2)), state.find_started_at)
+
+    Enum.reduce(found, state, fn
+      {mouse, _head, {:ok, url}}, state when is_binary(url) ->
+        record_found(%{state | find_due: Map.delete(state.find_due, mouse.mouse_id)}, mouse, url)
+
+      {mouse, head, result}, state ->
+        entry = state.find_due[mouse.mouse_id]
+        next = MergeRequests.find_next(entry, head, result, state.forge_ms, state.find_started_at)
+        put_in(state.find_due[mouse.mouse_id], next)
+    end)
+  end
+
+  # Recorded only while the mouse still has none waiting: `whiska pr` may
+  # have recorded one while the forge was asked.
+  defp record_found(state, mouse, url) do
+    with %Mouse{removed_at: nil} = now <- Storage.mouse(mouse.mouse_id),
+         false <- Mouse.merge_request_waiting?(now),
+         {:ok, _mouse} <- Storage.record_merge_request(mouse.mouse_id, url) do
+      {:ok, ref} = Whiska.Forge.for_url(url)
+
+      warn(
+        state,
+        "#{mouse.branch}: found #{Whiska.Forge.label(ref)} open on the forge — reading it"
+      )
+
+      state
+    else
+      {:error, reason} ->
+        warn(state, "could not record #{url} for #{mouse.branch} (#{inspect(reason)})")
+        state
+
+      _taken_or_gone ->
+        state
+    end
   end
 
   defp retry_after({:unknown, _reason, retry_after_ms}), do: retry_after_ms

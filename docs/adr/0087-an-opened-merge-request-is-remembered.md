@@ -2,10 +2,11 @@
 
 When the person says "pr" after a finished report, `whiska pr` opens the merge request and
 records its link on the mouse record; `whiska merge-request <id> <url>` records one opened
-by hand. From then on
+by hand, and the owl records one it finds open on GitLab from a mouse's branch
+(ADR-0060). From then on
 that branch's finished reports are a merge request's, and while it waits the owl fetches the
-branch it was opened against, so a merge on the forge lands it for cleanup with nobody
-pulling.
+mouse's base, so a merge on the forge lands it for cleanup with nobody pulling; one merged
+into another branch is taken from the owl's read of it (ADR-0061).
 
 ## The problem, from the ordinary flow
 
@@ -24,12 +25,18 @@ pane and branch stayed until the person pulled.
 mouse's (ADR-0079). A second record replaces the first: a new
 request after a closed one. Only a plain `https://` link with a host is taken, with no
 space, quote, bracket or control character in it: it is printed under the branch line,
-where the main session reads it and hands it to the person. A merge request opened any
-other way and never recorded is not known, and its branch reads as an ordinary one.
+where the main session reads it and hands it to the person.
+
+**Or found on the forge.** The owl looks on GitLab for an open request from the branch of
+each mouse not dropped with none waiting, once that branch is on `origin`, and records
+what it finds as `whiska merge-request` would (ADR-0060). A request is never inferred from
+git: a branch pushed with no request open is never recorded. One opened on GitHub and
+never recorded is not known, and its branch reads as an ordinary one.
 
 **The request targets the mouse's base**, the branch its finished report names, not the
 forge's default branch. The owl watches that base for the merge, so a request into any
-other branch would never be seen landed and its worktree would stay. A line that names no
+other branch is never seen landed by git; only the owl's read of it merged on the
+worktree's own head takes its worktree down (ADR-0061). A line that names no
 base leaves the target to the forge.
 
 **Its finished reports read as an open request's.** The branch line reads `merge request
@@ -72,15 +79,16 @@ main checkout has out, never the fetched base where the landing was found.
 
 The record is what makes landing and pushing right. Inferring "in review" from git was
 weighed and rejected: a branch pushed as a backup looks the same as one under review, and
-could no longer be landed. Asking the forge was rejected as the way to see the merge
-(below), so the only thing the forge decides that Whiska needs — merged or not — is read
-from what a fetch brings back, by the git checks cleanup already trusts.
+could no longer be landed. Asking the forge was rejected as the way to see a merge into the base
+(below), so that is read from what a fetch brings back, by the git checks cleanup already
+trusts; a merge into another branch, which no fetch of the base shows, is taken from the
+owl's read of the forge (ADR-0061).
 
 ## Consequences
 
-- **The owl calls out only while a request waits**: git's fetch, with git's own
-  credentials, and for a GitLab request a read through the person's `glab` login
-  (ADR-0060).
+- **The owl calls out while a request waits**: git's fetch, with git's own credentials,
+  and for a GitLab request a read through the person's `glab` login; and on GitLab, to
+  look a request up for a pushed branch with none (ADR-0060).
 - **A merge request merged on the forge is taken down within about a minute**, by
   ADR-0061's preconditions, read against the fetched base.
 - **`origin/<base>` moves in the main checkout by itself** while a request waits. The
@@ -96,8 +104,8 @@ from what a fetch brings back, by the git checks cleanup already trusts.
 
 - **Ask the forge with `gh` or `glab` whether it merged**, as other tools do. Rejected as
   the proof: the forge's word does not move the base here, and cleanup trusts git
-  (ADR-0061). The owl reads the forge since 2026-10-14 (ADR-0060), and a "merged" it reads
-  only fetches the base at once.
+  (ADR-0061). The owl reads the forge since 2026-10-14 (ADR-0060): a "merged" it reads fetches the
+  base at once, and on the worktree's own head lands it for teardown (ADR-0061).
 - **Opt in per repo.** Rejected: there is no settings place to switch it in (ADR-0085), and
   the fetch cannot prompt, so on is safe everywhere.
 - **Offer Drop it on a merge request's lines, last.** Rejected by the task: Drop beside an
@@ -114,3 +122,8 @@ Changed on 2026-10-14: the base is fetched every 60 s from the fetch's start, wh
 every 5 minutes from its end, and at once on a merge the owl reads; a closed GitLab
 request is seen and asked about; and a dropped branch's open request stays read
 (ADR-0060).
+
+Changed on 2026-10-15: the owl records a GitLab request it finds open from a mouse's
+pushed branch, where only one `whiska pr` opened or `whiska merge-request` recorded was
+known; a request opened by hand in a GitLab repo went unwatched, with no row, no reads and
+no review rounds (ADR-0060).

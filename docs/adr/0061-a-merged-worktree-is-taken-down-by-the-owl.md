@@ -50,7 +50,8 @@ skips them.
 
 1. **The branch is merged into the base branch.** Mechanically: the worktree's head commit
    is an ancestor of the base. This is the one that makes everything else recoverable, and
-   it is a local git question — no forge, no credentials.
+   it is a local git question — no forge, no credentials — or, for a merge request merged
+   into another branch, the owl's stored read of it (below).
 
    **The base is read in two places**: the branch here, then its copy last fetched from
    the remote it tracks (`origin/main`), where a merge request merged on the forge shows
@@ -88,6 +89,17 @@ skips them.
    work. And git trims old reflog entries after 90 days by default, so a branch that
    committed once, sat idle past that and then landed can read as never moved and stays
    until dropped by hand.
+
+   **Or the forge merged its head.** A merge request recorded on the mouse
+   ([ADR-0087](0087-an-opened-merge-request-is-remembered.md)) that the owl last read as
+   merged (ADR-0060), into any branch, lands the branch when the head that read names is
+   the worktree's own head. The work is on the forge, in whatever branch it merged into,
+   which is as recoverable as the base. Git is asked first; the read is the one the owl
+   already stored, so this asks no forge either. A commit made after the merge keeps the
+   worktree, and the branch is deleted with `update-ref -d` only while it still points at
+   the commit that merged. It is not stamped landed (ADR-0064): a merge into another
+   branch is not one into the base. Without this, a request merged into a release branch
+   left its worktree standing until `whiska drop`.
 2. **The worktree is clean.** `git status --porcelain` says nothing, untracked files
    included. An untracked file is work nobody has saved anywhere.
 
@@ -108,7 +120,9 @@ skips them.
    lands locally, which is the point of it — so the check would hold every such worktree
    forever. Its work is as safe as the base it was copied onto, the same exposure a
    person takes on by landing locally at all. So is a branch found only in the fetched
-   base: the remote already holds its work.
+   base: the remote already holds its work. And so is one whose merge request the forge
+   merged on its head (above): the forge holds that commit, whether or not it kept the
+   source branch.
 4. **The mouse is quiet** — see below.
 
 **Never force.** `git worktree remove` without `--force`, `git branch -d` and not `-D`,
@@ -247,10 +261,10 @@ record. Anything able to write that file already runs as the person.
 - **This is the first thing in Whiska that deletes anything.** ADR-0007's title is no longer
   true as written, which is why it is superseded here rather than quietly amended.
 - **Nothing here asks a forge.** Merged is answered by git, from the base here or its copy
-  last fetched; the one network call is git's fetch of the base while a merge request
-  waits. The rest of following a branch after its last message — a closed request, its
-  checks — is ADR-0060, which is proposed, separate, and chains onto this one rather than
-  being part of it.
+  last fetched, or by the owl's stored read of the mouse's merge request; the one network
+  call is git's fetch of the base while a merge request waits. The rest of following a
+  branch after its last message — a closed request, its checks — is ADR-0060, separate,
+  which chains onto this one rather than being part of it.
 
 ## Considered options
 
@@ -299,3 +313,7 @@ Changed on 2026-10-14: a sniff mouse is taken down once its build lands (ADR-007
 
 Changed on 2026-10-14: a question the owl asks itself is not the mouse's last word, and does
 not hold the worktree.
+
+Changed on 2026-10-15: a merge request the owl read as merged on the worktree's own head,
+into any branch, lands it for teardown, where only git's answer against the base did; a
+request merged into another branch left its worktree standing (ADR-0060).

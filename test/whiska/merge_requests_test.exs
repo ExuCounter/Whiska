@@ -719,4 +719,20 @@ defmodule Whiska.MergeRequestsTest do
       assert {{:missing, true}, _} = MergeRequests.read(mouse(), read([]), ctx.context)
     end
   end
+
+  test "a branch with nothing found waits twice as long each time, until its origin head moves" do
+    first = MergeRequests.find_next(nil, "a1", {:ok, nil}, 60_000, 0)
+    assert first == %{head: "a1", due: 60_000, wait_ms: 60_000}
+
+    second = MergeRequests.find_next(first, "a1", {:ok, nil}, 60_000, 60_000)
+    assert second == %{head: "a1", due: 180_000, wait_ms: 120_000}
+
+    long = Enum.reduce(1..10, second, &MergeRequests.find_next(&2, "a1", {:ok, nil}, 60_000, &1))
+    assert long.wait_ms == 900_000
+
+    assert %{wait_ms: 60_000} = MergeRequests.find_next(long, "b2", {:ok, nil}, 60_000, 0)
+
+    assert %{wait_ms: 1_800_000} =
+             MergeRequests.find_next(nil, "a1", {:unknown, {:http, 429}, 1_800_000}, 60_000, 0)
+  end
 end

@@ -252,8 +252,10 @@ about (ADR-0063); and the **report**, `Full report` (ADR-0089).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Merge request**:
-A branch's request, on its forge, to merge into the base. Whiska knows of one only when
-`whiska pr` opened it, or `whiska merge-request` recorded one opened by hand: the link is
+A branch's request, on its forge, to merge into the base, or for a request found on the
+forge, into whatever branch it names. Whiska knows of one when
+`whiska pr` opened it, `whiska merge-request` recorded one opened by hand, or the owl
+found one open on GitLab from a mouse's branch on `origin` that had none: the link is
 kept on the mouse, its **branch line** says so and `whiska pr` pushes to it until it
 lands, and while it waits the owl fetches the base, so its merge on the forge reaches the
 **fetched base** and **cleanup** takes the worktree down. On GitLab the owl also reads it
@@ -261,7 +263,9 @@ every minute through the **forge**: its state, head pipeline, open threads, new
 comments and the one thing keeping it from merging, shown on its own **sidebar line** row; new review on it is handed to the
 branch's mouse as a **review round**; closed or gone, it asks whether to drop the
 worktree. A request still open when its branch is dropped is read until it merges or
-closes; one never read is read once to find out. One opened elsewhere is not seen, nor is a GitHub one closed (ADR-0087, ADR-0060).
+closes; one never read is read once to find out. Read merged on the worktree's own head,
+into any branch, it lets **cleanup** take the worktree down. A GitHub one opened elsewhere
+is not seen, nor is a GitHub one closed (ADR-0087, ADR-0060).
 _Avoid_: PR, pull request (GitHub's words; both forges are meant), review (what happens
 on it)
 
@@ -288,7 +292,7 @@ to it (ADR-0060): an adapter per forge, picked by a link's host, reads through t
 person's own `glab` or `gh` login with `GET` requests only, through one runner, and
 `whiska pr` opens and `whiska push` posts a **review round**'s replies through the same
 adapter. The owl reads only a **merge request** Whiska
-recorded, and only on GitLab so far.
+recorded, and looks one up by branch for a mouse with none, only on GitLab so far.
 _Avoid_: host (the forge's address, one part of a link), provider, remote (git's word for
 where a branch is pushed)
 
@@ -813,8 +817,9 @@ work that is out)
 Taking a landed worktree down: the worktree removed, the mouse's pane closed with it, the
 branch deleted, and the mouse record stamped removed — unattended, by the owl, on its
 backstop (ADR-0061). It happens only to a **quiet** mouse whose branch has landed: the
-branch merged into the base, here or in the **fetched base**, and moved off the commit it
-was cut at (a sniff mouse's
+branch merged into the base, here or in the **fetched base**, or its **merge request**
+read merged on the forge on the worktree's own head, into any branch, and moved off the
+commit it was cut at (a sniff mouse's
 branch has nothing to merge: it goes, never moved, once a build `whiska spawn --from`
 made of one of its questions has landed and every such build is gone, and its kept research
 document stays), the worktree clean, nothing on it unpushed.

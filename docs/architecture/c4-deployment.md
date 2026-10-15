@@ -1,8 +1,9 @@
 # Deployment — one machine
 
 Everything runs on the person's own laptop as one OS user. There is no server. The owl
-leaves the machine only while a merge request waits: it fetches a base branch from its
-remote (ADR-0087), and reads a GitLab request through the person's `glab` (ADR-0060). Every endpoint Whiska
+leaves the machine for two things: while a merge request waits it fetches a base branch
+from its remote (ADR-0087), and on GitLab it reads a request, or looks one up for a
+pushed branch, through the person's `glab` (ADR-0060). Every endpoint Whiska
 serves is a Unix socket or a file.
 
 ```mermaid
@@ -47,7 +48,7 @@ C4Deployment
   Rel(owl, globalsock, "Listens, one per machine")
   Rel(owl, hooksock, "Listens, one per machine")
   Rel(owl, remote, "Fetches the base alone every minute while a merge request waits, and a dropped branch for a review mouse, never prompting", "git fetch")
-  Rel(owl, forgeapi, "Reads a recorded GitLab merge request every minute, GET only", "glab api")
+  Rel(owl, forgeapi, "Reads a recorded GitLab merge request every minute, and looks one up by a pushed branch, GET only", "glab api")
   Rel(mousepane, globalinstall, "Runs its hooks where the repo wires none")
   Rel(mousepane, hooksock, "Every hook asks the owl first, with nc")
   Rel(mousepane, doorstep, "Stop hook writes an entry when the owl does not answer")

@@ -28,6 +28,9 @@ defmodule Whiska.Forge do
           url: String.t()
         }
 
+  @typedoc "A project on a forge, before any merge request of it is known."
+  @type project :: %{forge: module(), host: String.t(), project: String.t()}
+
   @type run :: %{tool: Path.t() | nil, cwd: Path.t(), timeout_ms: pos_integer()}
 
   @type answer(t) :: {:ok, t} | :missing | {:unknown, term(), pos_integer() | nil}
@@ -74,7 +77,19 @@ defmodule Whiska.Forge do
   @callback me(ref(), run()) :: answer(%{id: pos_integer(), username: String.t()})
   @callback project_readable?(ref(), run()) :: answer(boolean())
 
-  @optional_callbacks merge_request: 2, notes: 2, member?: 3, me: 2, project_readable?: 2
+  @doc """
+  The link of a merge request open from `branch` on `project`, into any
+  branch, one into `base` first, or nil when there is none.
+  """
+  @callback open_from(project(), branch :: String.t(), base :: String.t() | nil, run()) ::
+              answer(String.t() | nil)
+
+  @optional_callbacks merge_request: 2,
+                      notes: 2,
+                      member?: 3,
+                      me: 2,
+                      project_readable?: 2,
+                      open_from: 4
 
   @forges [GitLab, GitHub]
 
@@ -127,6 +142,30 @@ defmodule Whiska.Forge do
       host
     else
       _ -> nil
+    end
+  end
+
+  @doc """
+  The project `main_checkout`'s `origin` remote names, on a forge that can
+  look a merge request up by its branch: GitLab, when `origin`'s host says so.
+  A merge request is looked for nowhere else (ADR-0060).
+  """
+  @spec origin_project(Path.t()) :: {:ok, project()} | :error
+  def origin_project(main_checkout) do
+    with url when is_binary(url) <- origin(main_checkout),
+         url = url |> String.trim_trailing("/") |> String.replace_suffix(".git", ""),
+         [scheme, host, port, project] <-
+           Regex.run(
+             ~r{\A([a-z+]+://)?(?:[^@/]+@)?([A-Za-z0-9.-]+)(:[0-9]+)?[:/]/?([A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+)\z},
+             url,
+             capture: :all_but_first
+           ),
+         true <- String.contains?(host, "gitlab") do
+      # Only an https remote's port is the web's; an ssh one's is not.
+      host = if scheme == "https://", do: host <> port, else: host
+      {:ok, %{forge: GitLab, host: host, project: project}}
+    else
+      _ -> :error
     end
   end
 

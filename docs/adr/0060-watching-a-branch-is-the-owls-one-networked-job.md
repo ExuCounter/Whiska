@@ -146,6 +146,7 @@ stored and makes no call to the forge. Missing or failing is a `warn`, never a `
 
 `Whiska.Forge` is the behaviour, and an adapter per forge knows everything about it:
 parsing its links, naming a request (`!7`, `#12`), and the reads. The reads are
+`open_from` (the link of a merge request open from a branch, one into its base first),
 `merge_request` (its state, head commit, head pipeline, ready to merge or its one blocker, notes count and
 last update), `notes` (the open threads and the comments past a cursor, a page of 100 at a
 time, at most 20 pages, following `X-Next-Page`), `member?`, `me` and `project_readable?`.
@@ -159,10 +160,32 @@ through the same GET-only runner.
   GraphQL, which is always a `POST`, so reading it is a decision for when it is built.
 - **Which adapter is picked by the recorded link's host**, and for opening by the `origin`
   remote's. There is no `dispatch.yml` and no opt-in: ADR-0085 has no settings place, and a
-  repo with no recorded GitLab link makes no forge call at all.
+  repo whose `origin` is not on GitLab, with no recorded GitLab link, makes no forge call
+  at all.
 - **Tests fake the tool, not the module**: a `glab` script on disk, handed to the house as
   its `:forge_tools`, and `config/test.exs` names no tool, so no test reaches a real forge
   (ADR-0031).
+
+## A merge request opened by hand is found by its branch
+
+A request opened outside `whiska pr`, by the person or the main session, was never
+recorded, so nothing of it was watched. On GitLab the owl looks for one.
+
+- **Who is looked for**: each mouse not dropped, with no merge request waiting, whose
+  branch `origin` has as last pushed or fetched here. That is read from the local
+  `refs/remotes/origin/<branch>`, which costs no call.
+- **One `GET`** of the project's open merge requests from that branch, through the same
+  runner. A request into any branch is taken, one into the mouse's base first; only one
+  from the project itself, never from a fork's branch of the same name, and only a link
+  of the project's own shape on `origin`'s host. The house records it as `whiska
+  merge-request` would, unless one was recorded meanwhile, and logs `found !N open on the
+  forge — reading it`. From then on it is read like any other.
+- **Back-off**: a branch with nothing found waits a minute, then twice as long each time
+  up to 15 minutes, and is looked up at once when its `origin` head moves. A forge's
+  retry time, told to a lookup or a read, holds every lookup until it passes. A lookup that fails says nothing. The
+  waits live in the owl's memory; a restart looks each branch up once more.
+- **GitHub is not looked up**: its pull requests are not read, so one found and later
+  closed would never be seen, and its branch could not be landed.
 
 ## Polling is the cheap part
 
@@ -181,7 +204,8 @@ The three real costs are below, in the order they bite.
 ### Cost 1: the owl gains a dependency it has never had
 
 The owl touches its own files, herdr's socket, the process table, one git remote for the
-fetch of a base branch, and the forge for each GitLab request recorded. Everything here
+fetch of a base branch, and the forge for each GitLab request recorded and each lookup of
+one by a pushed branch. Everything here
 exists to keep that from spreading.
 
 - **Every forge call is a short-lived `Task` under the house, never the house's own
@@ -242,8 +266,9 @@ adapter did not recognise what came back.
   the read that sees it with what became of it: `feat/x: review for !123 — 2 new comments
   by alice, bob; 1 open thread by bot; pipeline failed on 63c47262 — woke its mouse`,
   `— starting a mouse` or `— kept: <why>`.
-- **Merged on the forge fetches the base at once.** The forge's word is not the landing:
-  git's checks still prove it (ADR-0061).
+- **Merged on the forge fetches the base at once.** Git's checks prove a landing in the
+  base; a merge the forge read on the worktree's own head, into any branch, is a landing
+  for teardown too, and for nothing else (ADR-0061).
 - **Closed on the forge, or gone, asks the person once** whether to drop the worktree:
   once per close, so a request reopened and closed again is asked about again, and a
   reopening takes back a question still waiting. The ask is made from the stored read,
@@ -367,7 +392,8 @@ sleeping laptop, are the whole reason the feature exists.
 - *Which branch does this mouse own, and is it merged* is asked by both and written once.
 - **A merge ends every watch on that branch**: merged is a git fact, read from the base
   here or its fetched copy, and git's answer wins whenever both are available. The forge's
-  "merged" only brings the next fetch forward.
+  "merged" brings the next fetch forward, and on the worktree's own head lets cleanup
+  take it down whatever branch it merged into (ADR-0061).
 - Cleanup is the owl's and unattended (ADR-0061); a watch that ends merged simply hands
   the branch to it.
 
@@ -423,3 +449,8 @@ pushes a round's branch and posts its replies, where the mouse did both and a ro
 bots' threads alone posted with no yes. A mouse that fell back to Claude Code's auto mode
 was refused the write and handed the person a raw `glab` command; now no mouse needs
 write access to the forge. The owl still only reads.
+
+Changed on 2026-10-15: on GitLab the owl looks up an open merge request by a mouse's
+pushed branch and records it, where it watched only one Whiska was told about; and a
+merge the forge read on the worktree's own head lands it for teardown (ADR-0061,
+ADR-0087).

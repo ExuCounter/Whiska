@@ -879,6 +879,178 @@ defmodule Whiska.Owl.HouseForgeTest do
     end)
   end
 
+  @lookup "projects/acme%2Fapp/merge_requests"
+
+  # The fake forge's project as `origin`, once the branch is pushed to the
+  # real one: a fetch then fails, and nothing here needs one.
+  defp origin_on_gitlab(repo),
+    do: GitRepo.git!(repo.checkout, ~w(remote set-url origin git@gitlab.example.com:acme/app.git))
+
+  defp opened_by_hand(fields \\ []) do
+    Map.merge(
+      %{
+        "iid" => 7,
+        "web_url" => @url,
+        "source_branch" => "feat-a",
+        "target_branch" => "main",
+        "source_project_id" => 12,
+        "target_project_id" => 12,
+        "state" => "opened"
+      },
+      Map.new(fields)
+    )
+  end
+
+  defp mouse(repo) do
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    mouse = Storage.mouse("ma")
+    Storage.close(handle)
+    mouse
+  end
+
+  test "an open merge request opened by hand is found by its branch, recorded and read",
+       %{repo: repo, path: path, forge: forge} do
+    origin_on_gitlab(repo)
+    FakeGlab.answer(forge, @lookup, [opened_by_hand()])
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    quiet_herdr(path)
+
+    log =
+      capture_io(:stderr, fn ->
+        house = open(repo, forge, [])
+        until(fn -> match?(%{read_at: %DateTime{}}, row(repo)) end)
+        House.sync(house)
+      end)
+
+    assert %{merge_request_url: @url, merge_request_at: %DateTime{}} = mouse(repo)
+    assert [_once] = Regex.scan(~r/feat-a: found !7 open on the forge — reading it/, log)
+
+    assert [
+             "api",
+             "--method",
+             "GET",
+             "--include",
+             "--hostname",
+             "gitlab.example.com",
+             @lookup <> "?source_branch=feat-a&state=opened"
+           ] in FakeGlab.calls(forge)
+  end
+
+  test "a branch with no open merge request is looked up again less often",
+       %{repo: repo, path: path, forge: forge} do
+    origin_on_gitlab(repo)
+    FakeGlab.answer(forge, @lookup, [])
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, forge_ms: 100)
+      until(fn -> length(FakeGlab.calls(forge)) == 1 end)
+      Process.sleep(350)
+      House.sync(house)
+    end)
+
+    # Lookups 100 ms, then 200 ms apart, where every 20 ms backstop would be 18.
+    assert length(FakeGlab.calls(forge)) in 2..3
+    assert %{merge_request_url: nil} = mouse(repo)
+  end
+
+  test "a branch is looked up again at once when its origin head moves",
+       %{repo: repo, path: path, forge: forge} do
+    origin_on_gitlab(repo)
+    FakeGlab.answer(forge, @lookup, [])
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, forge_ms: 60_000)
+      until(fn -> length(FakeGlab.calls(forge)) == 1 end)
+      Process.sleep(100)
+      House.sync(house)
+      assert length(FakeGlab.calls(forge)) == 1
+
+      GitRepo.commit!(path, "pushed.md", "pushed")
+      head = String.trim(GitRepo.git!(path, ~w(rev-parse HEAD)))
+      GitRepo.git!(repo.checkout, ["update-ref", "refs/remotes/origin/feat-a", head])
+      until(fn -> length(FakeGlab.calls(forge)) == 2 end)
+      House.sync(house)
+    end)
+  end
+
+  test "a forge's retry time holds every lookup until it passes",
+       %{repo: repo, path: path, forge: forge} do
+    origin_on_gitlab(repo)
+
+    FakeGlab.answer(forge, @lookup, %{"message" => "slow down"},
+      status: 429,
+      headers: %{"Retry-After" => "3600"}
+    )
+
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> length(FakeGlab.calls(forge)) == 1 end)
+      GitRepo.commit!(path, "pushed.md", "pushed")
+      head = String.trim(GitRepo.git!(path, ~w(rev-parse HEAD)))
+      GitRepo.git!(repo.checkout, ["update-ref", "refs/remotes/origin/feat-a", head])
+      Process.sleep(200)
+      House.sync(house)
+    end)
+
+    assert length(FakeGlab.calls(forge)) == 1
+  end
+
+  test "a mouse whose base is gone is looked up all the same",
+       %{repo: repo, path: path, forge: forge} do
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    Whiska.Repo.update!(Ecto.Changeset.change(Storage.mouse("ma"), %{base: "release-gone"}))
+    Storage.close(handle)
+    origin_on_gitlab(repo)
+    FakeGlab.answer(forge, @lookup, [opened_by_hand(target_branch: "release-gone")])
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> match?(%{merge_request_url: @url}, mouse(repo)) end)
+      House.sync(house)
+    end)
+  end
+
+  test "a branch never pushed is not looked up", %{repo: repo, path: path, forge: forge} do
+    origin_on_gitlab(repo)
+    FakeGlab.answer(forge, @lookup, [])
+    path_b = GitRepo.worktree(repo, "feat-b", push: false)
+
+    {:ok, handle} = Storage.open(repo.checkout, name: nil)
+    {:ok, _} = Storage.record_mouse(%{mouse_id: "mb", path: path_b, branch: "feat-b"})
+    Storage.close(handle)
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> length(FakeGlab.calls(forge)) >= 2 end)
+      House.sync(house)
+    end)
+
+    refute Enum.any?(FakeGlab.calls(forge), &(List.last(&1) =~ "feat-b"))
+  end
+
+  test "a repo whose origin is not GitLab makes no lookup", %{
+    repo: repo,
+    path: path,
+    forge: forge
+  } do
+    quiet_herdr(path)
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      Process.sleep(200)
+      House.sync(house)
+    end)
+
+    assert FakeGlab.calls(forge) == []
+  end
+
   test "a GitHub pull request is not read", %{repo: repo, path: path, forge: forge} do
     record_merge_request(repo, "https://github.com/acme/app/pull/3")
     quiet_herdr(path)
