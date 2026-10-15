@@ -154,6 +154,22 @@ defmodule Whiska.Delivery.Hoot do
     }
   end
 
+  @doc """
+  The one hoot for a mouse herdr restored without its launch flags and Whiska
+  could not start again with them (ADR-0044).
+  """
+  @spec not_restarted(String.t(), String.t()) :: t()
+  def not_restarted(branch, house) do
+    %{
+      title: "✖ #{name(house)} · #{name(branch)} runs without its launch flags",
+      body:
+        "herdr restored it without them and Whiska could not restart it — look at its " <>
+          "pane: if Claude is gone, start it again with `claude --resume` and the flags " <>
+          "`whiska shape` prints",
+      sound: :request
+    }
+  end
+
   defp aged(%Question{mouse: mouse, mouse_id: mouse_id, asked_at: asked_at}, now) do
     branch =
       case mouse do

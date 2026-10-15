@@ -185,4 +185,16 @@ defmodule Whiska.Delivery.HootTest do
       assert hoot.body =~ "not retried"
     end
   end
+
+  describe "a mouse herdr restored without its launch flags" do
+    test "the hoot names the branch and says how to put the flags back" do
+      hoot = Hoot.not_restarted("feat-a", "whiska")
+
+      assert hoot.title =~ "whiska"
+      assert hoot.title =~ "feat-a"
+      assert hoot.title =~ "launch flags"
+      assert hoot.body =~ "whiska shape"
+      assert hoot.sound == :request
+    end
+  end
 end

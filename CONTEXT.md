@@ -465,7 +465,8 @@ The desktop notification the owl raises as it delivers a question — one per de
 question, sent in the same breath as the line so the two can never disagree (ADR-0062) —
 and once for each `done` report, as it is collected, since its line may wait long or
 never go, and not again when it is typed, but the one ending a **review round** that pushed nothing; as a **reminder**; and once per run
-of failed **pickups** of a turn dying on an API error (ADR-0067).
+of failed **pickups** of a turn dying on an API error (ADR-0067); and once for each failed
+**restart** of a mouse herdr restored without its launch flags (ADR-0044).
 It carries the house, the mouse's branch, the verb and the id, in the line's own words,
 because the line only reaches somebody already looking at the main session and the point
 of leaving a question is that they are not. A question that is only collected, or gated,
@@ -630,7 +631,19 @@ picked up: its next turn has not begun, and the **doorbell** carries it on. Nor 
 whose last stop was passed over for work **in flight** (ADR-0052), even once that work is
 half an hour old: it is waiting, not dead, and the board calls it **stuck**. One of the two
 lines the owl types anywhere but its own house's main session (ADR-0044).
-_Avoid_: retry, resend, restart, relaunch (ADR-0026's rung four, a different act)
+_Avoid_: retry, resend, relaunch (ADR-0026's rung four, a different act); a **restart** is the act that puts a restored mouse's launch flags back
+
+**Restart**:
+The owl starting a mouse's Claude again, in its own pane, because herdr's session restore
+resumed it as a bare `claude --resume <id>` and dropped the launch flags: bypass mode, deny
+list, model, effort, auto-compact window and brief. `/exit` is typed into an idle pane with
+an empty prompt box, then Claude starts as `claude --resume <its session>` with the flags
+spawn built (ADR-0069), from the mouse's record and the brief and deny list already in its
+worktree. One attempt per mouse until it is seen with its flags again, at most three a
+sweep; a failure is hooted once. A
+mouse nobody shaped and the main session are never restarted (ADR-0044).
+_Avoid_: relaunch (ADR-0026's rung four, a mouse that died), revive (a review mouse started
+on a branch with none live, ADR-0060), pickup (types a line, ends nothing)
 
 **Nudge** (retired):
 A line the owl used to type into *another* house's idle main session, to force that
