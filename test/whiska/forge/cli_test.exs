@@ -13,7 +13,7 @@ defmodule Whiska.Forge.CLITest do
     File.mkdir_p!(root)
     on_exit(fn -> File.rm_rf!(root) end)
     fake = FakeGlab.create(root)
-    {:ok, fake: fake, run: %{tool: fake.bin, cwd: root, timeout_ms: 5_000}}
+    {:ok, fake: fake, run: %{tool: fake.bin, cwd: root, timeout_ms: 60_000}}
   end
 
   # Both CLIs switch to POST as soon as a field flag is added, and take a

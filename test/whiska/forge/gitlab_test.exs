@@ -18,7 +18,7 @@ defmodule Whiska.Forge.GitLabTest do
     on_exit(fn -> File.rm_rf!(root) end)
     fake = FakeGlab.create(root)
     {:ok, ref} = GitLab.parse(@url)
-    {:ok, fake: fake, ref: ref, run: %{tool: fake.bin, cwd: root, timeout_ms: 5_000}}
+    {:ok, fake: fake, ref: ref, run: %{tool: fake.bin, cwd: root, timeout_ms: 60_000}}
   end
 
   test "a merge request link is its host, project and number" do

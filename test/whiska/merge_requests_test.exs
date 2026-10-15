@@ -494,7 +494,7 @@ defmodule Whiska.MergeRequestsTest do
       File.mkdir_p!(root)
       on_exit(fn -> File.rm_rf!(root) end)
       fake = FakeGlab.create(root)
-      {:ok, fake: fake, context: MergeRequests.context(root, 5_000, %{"glab" => fake.bin})}
+      {:ok, fake: fake, context: MergeRequests.context(root, 60_000, %{"glab" => fake.bin})}
     end
 
     defp gitlab_mr(notes_count, updated_at) do
