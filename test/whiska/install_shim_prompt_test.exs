@@ -10,6 +10,7 @@ defmodule Whiska.InstallShimPromptTest do
   use ExUnit.Case, async: true
 
   alias Whiska.AnswerFlag
+  alias Whiska.Delivery.Text
   alias Whiska.Install
 
   setup do
@@ -56,6 +57,36 @@ defmodule Whiska.InstallShimPromptTest do
         assert %{status: 0, called: []} = run(sandbox(root, unquote(scope)), main)
       end
 
+      test "a delivered line reaches Whiska from a main checkout, payload intact", %{root: root} do
+        line = Text.line(644)
+
+        assert %{status: 0, called: [call]} =
+                 run(sandbox(root, unquote(scope)), Path.join(root, "repo"), prompt: line)
+
+        assert call.args == ["hook", "user-prompt-submit"]
+        assert JSON.decode!(call.stdin)["prompt"] == line
+      end
+
+      test "a delivered line reaches Whiska from a worktree with no answer waiting", %{
+        root: root,
+        worktree: worktree
+      } do
+        assert %{called: [_call]} =
+                 run(sandbox(root, unquote(scope)), worktree, prompt: Text.line(7))
+      end
+
+      test "a pasted prompt too long to be a delivered line never reaches Whiska", %{root: root} do
+        long = String.duplicate("🐱", 5000) <> Text.line(7)
+
+        assert %{called: []} =
+                 run(sandbox(root, unquote(scope)), Path.join(root, "repo"), prompt: long)
+      end
+
+      test "a prompt that only mentions the cat never reaches Whiska", %{root: root} do
+        assert %{called: []} =
+                 run(sandbox(root, unquote(scope)), Path.join(root, "repo"), prompt: "🐱 hi")
+      end
+
       test "a worktree with no answer waiting never reaches Whiska", %{
         root: root,
         worktree: worktree
@@ -91,7 +122,7 @@ defmodule Whiska.InstallShimPromptTest do
         sandbox = sandbox(root, unquote(scope))
 
         for project <- [worktree, Path.join(root, "repo")] do
-          assert %{called: [%{args: ["hook", "stop"]}]} = run(sandbox, project, "stop")
+          assert %{called: [%{args: ["hook", "stop"]}]} = run(sandbox, project, hook: "stop")
         end
       end
 
@@ -126,9 +157,11 @@ defmodule Whiska.InstallShimPromptTest do
     %{dir: dir, shim: shim, whiska: whiska, escript: escript, log: log}
   end
 
-  defp run(sandbox, project_dir, hook \\ "user-prompt-submit") do
+  defp run(sandbox, project_dir, opts \\ []) do
+    hook = Keyword.get(opts, :hook, "user-prompt-submit")
+    prompt = Keyword.get(opts, :prompt, "hello")
     payload_file = Path.join(sandbox.dir, "payload.json")
-    File.write!(payload_file, JSON.encode!(%{"prompt" => "hello", "cwd" => project_dir}))
+    File.write!(payload_file, JSON.encode!(%{"prompt" => prompt, "cwd" => project_dir}))
     File.rm(sandbox.log)
 
     env = [

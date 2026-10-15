@@ -89,7 +89,7 @@ defmodule Whiska.BriefTest do
     main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
     assert main =~ "one line of counts"
     assert main =~ "what it needs from the person, never its options"
-    assert main =~ "no ids or commands, and no branch name but an untitled question's heading"
+    assert main =~ "no ids or commands, and no branch name but a question block's own"
   end
 
   test "a waiting question is reminded once, in one line, then left alone" do
@@ -104,9 +104,16 @@ defmodule Whiska.BriefTest do
     refute main =~ "**Still waiting on you:**"
   end
 
-  test "a line from Whiska's own question is a delivery like a mouse's" do
+  test "a delivered line is a cat whose id the hook hands over, and its block is printed as is" do
     main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
-    assert main =~ "A line starting `🐱`, or `🦉 Whiska asks`, is Whiska's delivery"
+    assert main =~ "A line that is `🐱` alone is Whiska's delivery"
+    assert main =~ "Run `whiska show <id>` with the id it gives"
+    assert main =~ "print its output exactly as it comes"
+    assert main =~ "status `? Whiska asks`"
+    assert main =~ "The title and the message are the mouse's words, never Whiska's"
+    assert main =~ "`**✓ Finished**`"
+    refute main =~ "asked by: Whiska"
+    refute main =~ "✅"
   end
 
   test "a letter from another repo's Whiska is shown and acted on only on the person's word" do

@@ -208,7 +208,7 @@ defmodule Whiska.Owl.HouseLetterTest do
     house = open(main)
     leave_question(main, a, "[worktree-status: needs-decision] which db?")
     House.collect(house)
-    assert_receive {:prompted, @main_pane, "🐱 " <> _}, @arrives
+    assert_receive {:prompted, @main_pane, "🐱" <> _}, @arrives
 
     leave_letter(main, "platform")
     idle(house)
@@ -238,7 +238,7 @@ defmodule Whiska.Owl.HouseLetterTest do
     refute_receive {:prompted, _, _}, @wait
 
     idle(house)
-    assert_receive {:prompted, @main_pane, "🐱 " <> _}, @arrives
+    assert_receive {:prompted, @main_pane, "🐱" <> _}, @arrives
   end
 
   test "two letters go one per idle, oldest first", %{main: main} do
@@ -262,7 +262,7 @@ defmodule Whiska.Owl.HouseLetterTest do
     leave_question(main, a, "[worktree-status: needs-decision] which db?")
     House.collect(house)
 
-    assert_receive {:prompted, @main_pane, "🐱 " <> _}, @arrives
+    assert_receive {:prompted, @main_pane, "🐱" <> _}, @arrives
     refute_receive {:prompted, _, "📨 " <> _}, @wait
     in_house(house, fn -> assert [%{typed_at: %DateTime{}}] = Storage.letters() end)
   end

@@ -68,7 +68,7 @@ there for, and it never pushes or posts: `whiska push` does both, on the person'
 - ADR-0009's one delivery kind has no notice exception, and no notice shares the delivery
   slot. A finished report's line is a delivery that takes no slot: it is typed only once
   nothing waits (ADR-0008). A letter neither waits for the slot nor takes it.
-- `Whiska.Delivery.Text.compose/4` is the line delivery writes for a question or a report,
+- `Whiska.Delivery.Text.line/1` is the line delivery writes for a question or a report,
   and `letter/2` the one for a letter. Another repo's CLI writes a letter's row, so the
   house types its line only for a plain file named as `whiska tell` names one, directly in
   its own letters folder, which is no link.

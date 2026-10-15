@@ -25,12 +25,14 @@ defmodule Whiska.Hook.UserPromptSubmit do
   the same worktree and the same pane, and is handed nothing: an answer taken
   there never reaches the mouse (ADR-0084).
 
-  In the main session it does nothing: a finished report typed there holds
-  nothing, so a prompt has nothing to settle (ADR-0008).
+  In the main session it settles nothing: a finished report typed there holds
+  nothing (ADR-0008). A delivered line typed there carries its question's id
+  in blanks the person does not read (`Whiska.Delivery.Text`), and the model
+  is handed that id, so it can show the question (ADR-0009).
 
   The hook shim exits before this runs unless the worktree's answer flag is
-  set (`Whiska.AnswerFlag`), so a session with nothing waiting never starts the
-  escript.
+  set (`Whiska.AnswerFlag`) or the prompt may be a delivered line, so a session
+  with nothing waiting never starts the escript.
   """
 
   alias Whiska.AnswerFlag
@@ -70,9 +72,11 @@ defmodule Whiska.Hook.UserPromptSubmit do
   @spec handover(String.t(), map()) :: {String.t(), (-> :ok)} | :none | {:error, term()}
   def handover(raw_payload, env) do
     with {:ok, payload} <- decode(raw_payload) do
+      delivered = delivered(payload)
+
       case Session.worktree(payload, env) do
-        {:ok, layout} -> if Session.nested?(env), do: :none, else: mouse(layout, env)
-        {:error, :not_a_mouse} -> :none
+        {:ok, layout} -> if Session.nested?(env), do: :none, else: mouse(layout, env, delivered)
+        {:error, :not_a_mouse} -> delivery(delivered)
       end
     else
       {:error, reason} = error ->
@@ -81,8 +85,11 @@ defmodule Whiska.Hook.UserPromptSubmit do
     end
   end
 
-  defp mouse(layout, env) do
+  defp mouse(layout, env, delivered) do
     case Isolated.run(fn -> in_house(layout, &waiting(&1, env)) end) do
+      {:ok, :main_session} ->
+        delivery(delivered)
+
       {:ok, waiting} ->
         hand_over(layout, waiting)
 
@@ -94,7 +101,7 @@ defmodule Whiska.Hook.UserPromptSubmit do
 
   defp waiting(layout, env) do
     if Session.main_pane?(Storage.main_pane(), env),
-      do: {:ok, :not_a_mouse},
+      do: {:ok, :main_session},
       else: ours(layout)
   end
 
@@ -146,11 +153,21 @@ defmodule Whiska.Hook.UserPromptSubmit do
     Storage.within(layout.main_checkout, fn -> work.(layout) end)
   end
 
-  defp encode(answers) do
+  defp delivered(%{"prompt" => prompt}) when is_binary(prompt), do: Text.id_in(prompt)
+  defp delivered(_payload), do: nil
+
+  defp delivery(nil), do: :none
+
+  defp delivery(id),
+    do: {additional("Whiska delivered question ##{id}: run `whiska show #{id}`."), fn -> :ok end}
+
+  defp encode(answers), do: additional(Enum.map_join(answers, "\n\n", &context/1))
+
+  defp additional(context) do
     JSON.encode!(%{
       "hookSpecificOutput" => %{
         "hookEventName" => "UserPromptSubmit",
-        "additionalContext" => Enum.map_join(answers, "\n\n", &context/1)
+        "additionalContext" => context
       }
     })
   end

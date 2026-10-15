@@ -31,8 +31,8 @@ mouse's `mouse_id`, asking whether to drop the worktree, and collects it at once
 is one of two fixed texts, and the entry says it is from the owl; collection records
 `asked_by: "owl"` only when both hold and the owl's own stored read of that mouse's
 request says it asked, so a mouse cannot pass its own message off as Whiska's, even word
-for word. `whiska show` prints `asked by: Whiska` among its facts, the main session heads
-it `🦉 Whiska asks`, first, and it cannot be replied to: "drop" is `whiska drop <branch>`,
+for word. `whiska show` says `? Whiska asks` where it stands (ADR-0089), and it
+cannot be replied to: "drop" is `whiska drop <branch>`,
 "keep" is `whiska dismiss <id>`. It is asked once per close,
 even across restarts; a reopening takes it back, and the request is asked about again if
 it closes again.

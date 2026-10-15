@@ -120,8 +120,8 @@ defmodule Whiska.CLI do
                          what is still on the doorstep. With an id, that
                          question in full; with --full, every open one in
                          full, oldest first, so there is no id to type: its
-                         facts, one labelled line each, then the message; a
-                         report's message is only its Summary.
+                         title, branch and where it stands, links, then the
+                         message; a report's message is only its Summary.
 
     waiting [--json]     What is waiting on you anywhere on this machine: one
                          line per question, across every house the owl has
@@ -183,8 +183,8 @@ defmodule Whiska.CLI do
                          behind #<id>) and a first line when you are away.
                          `--all`, or outside any repo, lists every repo.
     show [<id>]          The question delivered to you, or any one by id: its
-                         facts, one labelled line each, then the message; a
-                         report's message is only its Summary.
+                         title, branch and where it stands, links, then the
+                         message; a report's message is only its Summary.
                          Queued ones wait their turn: `inbox` lists them.
     reply <id> <text>    Answer it; no quotes needed around the text.
     dismiss <id>         Close it without answering (`close`).
@@ -2161,12 +2161,11 @@ defmodule Whiska.CLI do
     mode = Mode.read()
     slot = Mode.slot(Storage.questions(), mode)
     focus = if mode.focus, do: Questions.who(Storage.mouse(mode.focus), mode.focus)
-    named = Questions.named(Storage.mouse(q.mouse_id), q.mouse_id)
 
     say(
       Questions.full(
         q,
-        named,
+        Storage.mouse(q.mouse_id),
         slot,
         mode,
         focus,
@@ -2193,7 +2192,7 @@ defmodule Whiska.CLI do
          from when is_binary(from) <- ref || head,
          {:ok, diff} when diff != "" <- Git.round_diff(main, branch, from),
          {:ok, path} <- Review.write_round(main, branch, diff) do
-      [{"Round diff", Review.file_link(path), nil}]
+      [{"round diff", Review.file_link(path), nil}]
     else
       _no_round_or_no_change ->
         Review.remove_round(main, branch)
@@ -2215,8 +2214,8 @@ defmodule Whiska.CLI do
   defp in_worktree(%Mouse{path: path, branch: branch})
        when is_binary(path) and is_binary(branch) do
     for {label, name} <- [
-          {"Spec", Whiska.Spec.filename()},
-          {"Build plan", Whiska.BuildPlan.filename()}
+          {"spec", Whiska.Spec.filename()},
+          {"plan", Whiska.BuildPlan.filename()}
         ],
         {file, title} <- [Whiska.Research.document(Path.join(path, name), nil)],
         do: {label, Review.file_link(file), title}
@@ -2229,7 +2228,7 @@ defmodule Whiska.CLI do
   defp report(main, %Mouse{} = mouse) do
     with file when is_binary(file) <- Whiska.SpecArchive.report(main, mouse),
          {file, title} <- Whiska.Research.document(file, nil) do
-      [{"Full report", Review.file_link(file), title}]
+      [{"report", Review.file_link(file), title}]
     else
       _ -> []
     end

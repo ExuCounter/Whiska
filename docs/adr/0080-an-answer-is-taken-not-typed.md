@@ -10,8 +10,8 @@ and the turn is the point.
   `answered` and the delivery slot is free (ADR-0008). Anything after the save failing is
   the owl's to retry, not a failed reply, so `reply` exits 0 and says so.
 - Into the pane goes only the **doorbell**: one fixed line carrying the question id. It
-  starts with 🔔, never the 🐱 of a delivered line: a 🐱 line with an id in it is the main
-  session's cue to run `whiska show`, which has no place in a mouse.
+  starts with 🔔, never the 🐱 of a delivered line: a 🐱 line is the main session's cue to
+  run `whiska show`, which has no place in a mouse.
 - A **`UserPromptSubmit` hook**, Whiska's third, runs inside the session the line was
   submitted to. It reads the saved answer from the house database, gives it to the model
   as `additionalContext`, and stamps it **taken** (`taken_at`). Claude Code ran the hook in
@@ -32,6 +32,12 @@ and the turn is the point.
   works in that worktree; a copied marker takes nothing (ADR-0005). The answer is read,
   then stamped in a second opening of the house, so a stamp that fails or is cut off
   still prints and leaves the flag up: an answer may arrive twice, never not at all.
+- **In the main session the hook hands over a delivered line's id.** The line is `🐱`
+  and the question's id in blank characters the person does not read (ADR-0009); the
+  hook reads it from the prompt and gives the model
+  ``Whiska delivered question #<id>: run `whiska show <id>`.`` as `additionalContext`.
+  It settles nothing and stamps nothing. In a mouse's session a delivered line is handed
+  nothing.
 - **What is chased is derived, never stored**: answered, not taken, and the newest
   question its mouse has asked. A mouse that asked again has moved past the answer, so it
   is never handed over; death, landing and superseding need no new write path.
@@ -55,8 +61,10 @@ The hook fires on every prompt in every session on the machine, and almost none 
 answer waiting. An escript start costs about 140 ms, and the rule for a hook that fires
 this often is that not running at all beats running fast (ADR-0033). So the shim answers
 the common case in shell builtins: unless the session's project directory is a worktree
-whose git admin directory holds the flag file `whiska-answer`, it exits 0 before the
-binary or the runtime is looked for.
+whose git admin directory holds the flag file `whiska-answer`, it reads the payload and
+exits 0 before the binary or the runtime is looked for, unless the prompt holds the cat
+and the braille blank that close a delivered line. The payload read is handed on, so it
+is read once.
 
 The flag is a hint, never a record. `reply` raises it, the owl raises it again before a
 ring, and the hook lowers it once nothing is chased. One left behind costs that mouse an
@@ -76,6 +84,10 @@ removes it.
   fixed one-liners, not the person's words. The carry-on line answers the held mouse's
   stop, so it is stamped taken as it is saved; otherwise the owl would chase Whiska's own
   line as though the person had written it.
+- A machine whose global install predates the main session's part of the hook gives
+  that session no id: it runs bare `whiska show`, which misses a finished report, until
+  `whiska init --global` is run again, or, in a repo with an install of its own,
+  `whiska init` there. `whiska doctor` flags the old shim.
 - The flag's place comes from the worktree's `.git` file, which the mouse there can
   rewrite, and the owl and `reply` act on it. So `.git` is read only when it is a plain
   file, since a named pipe would hang the owl, and the flag is created exclusively, never
@@ -98,3 +110,6 @@ removes it.
 - **Keep typing the answer, and verify it from the transcript.** Still keystrokes for a
   multi-line answer, and the check would depend on Claude Code's transcript wording
   (ADR-0050) for something the hook states directly.
+
+Changed on 2026-10-15: in the main session the hook hands over a delivered line's id
+(ADR-0009).

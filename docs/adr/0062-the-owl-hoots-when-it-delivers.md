@@ -39,9 +39,9 @@ elsewhere or a hold leaves that branch out, to be named in the house's next remi
 lifting a hold already says the branch had finished. The house's reminder clock starts
 when the owl does, so a restart never reminds at once.
 
-**It says what the line says**, sharing `Whiska.Delivery.Text`'s verb, pointer and count
-rather than copying them, plus the house: the line is read inside a house, a notification
-arrives with no context. `needs a decision` and `stopped without saying why` take herdr's
+**It says what the question is**, with `Whiska.Delivery.Text`'s verb, pointer and count,
+plus the house: the line is only a cat (ADR-0009), and a notification arrives with no
+context. `needs a decision` and `stopped without saying why` take herdr's
 `request` sound; `finished` takes `done`. Both arrive, one must not be missed, and they
 are told apart without looking.
 

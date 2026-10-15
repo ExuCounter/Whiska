@@ -11,6 +11,7 @@ defmodule Whiska.Hook.UserPromptSubmitTest do
   import ExUnit.CaptureIO
 
   alias Whiska.AnswerFlag
+  alias Whiska.Delivery.Text
   alias Whiska.Hook.UserPromptSubmit
   alias Whiska.Marker
   alias Whiska.Storage
@@ -265,6 +266,35 @@ defmodule Whiska.Hook.UserPromptSubmitTest do
     payload = JSON.encode!(%{"cwd" => main, "prompt" => "A"})
     assert UserPromptSubmit.run(payload) == :none
     in_house(main, fn -> assert Storage.question(1).status == "sent" end)
+  end
+
+  test "a delivered line in the main session hands the model the question's id", %{main: main} do
+    payload = JSON.encode!(%{"cwd" => main, "prompt" => Text.line(644)})
+
+    assert context(UserPromptSubmit.run(payload)) ==
+             "Whiska delivered question #644: run `whiska show 644`."
+  end
+
+  test "a delivered line reaches the main session's pane wherever it started", %{
+    main: main,
+    worktree: worktree,
+    mouse_id: mouse_id
+  } do
+    seed(main, worktree, mouse_id, fn -> Storage.set_main_pane("w1:p7") end)
+    payload = JSON.encode!(%{"cwd" => worktree, "prompt" => Text.line(7) <> "\n"})
+
+    assert context(UserPromptSubmit.run(payload)) =~ "`whiska show 7`"
+  end
+
+  test "a mouse's own session is handed no delivered line", %{
+    main: main,
+    worktree: worktree,
+    mouse_id: mouse_id
+  } do
+    seed(main, worktree, mouse_id, fn -> :ok end)
+    payload = JSON.encode!(%{"cwd" => worktree, "prompt" => Text.line(7)})
+
+    assert UserPromptSubmit.run(payload) == :none
   end
 
   test "a malformed payload is a no-op, never a crash" do

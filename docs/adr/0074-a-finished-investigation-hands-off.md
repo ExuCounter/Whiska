@@ -47,8 +47,8 @@ the text, would be Whiska reading prose to decide something, which ADR-0009 refu
 the proposal is content, read by the person and the main session. `whiska show` prints its
 first line under the research document's summary, and the turn is still what its marker
 says (ADR-0089). `whiska questions <id>`
-names a sniff mouse's question `mouse: feat/x (sniff)` and prints what any finished
-question's branch holds on its `branch:` line.
+names a sniff mouse's question `Branch: feat/x (sniff)` and prints what any finished
+question's branch holds on that line.
 
 No character a mouse wrote goes on the main session's command line: `--from` carries only
 the id, `--comments` a path the main session chose, and the branch is a name it makes out
@@ -75,7 +75,7 @@ in the build brief, which a bug fix is approved from before any code (ADR-0063).
   as ADR-0063 keeps a spec: one file per branch, overwritten each round. It is not a
   spec: it never marks the question `spec_sent`, so the spec figures (ADR-0086) count
   only specs.
-- **`whiska show` links it** on a line of its own, as `Research`, as it links
+- **`whiska show` links it** among its links, as `research`, as it links
   the diff (ADR-0085). The link is Whiska's, not the mouse's:
   the mouse cannot know its question id. It names the kept copy, so it works from a
   mouse's worktree too, and after the investigation's worktree is gone. Every question

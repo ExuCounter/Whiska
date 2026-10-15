@@ -22,8 +22,8 @@ the main checkout.
    trip, so a round never asks one question at a time. Answers can open another round,
    and every round ends on the status marker. A round with nothing in it is not sent.
 3. Write the spec and the build plan and ask "ok to build?", whether or not a round went
-   first, with no text of either and no link: `whiska show` adds `Spec` and
-   `Build plan` links on a line of its own, one per document the mouse's worktree
+   first, with no text of either and no link: `whiska show` adds `spec` and
+   `plan` links to its line of links, one per document the mouse's worktree
    holds, as it adds the diff's and the research document's (ADR-0074), and only while
    the question is not finished (ADR-0089). Each link names the worktree's own file as `file://…`,
    so it works for the review, before the build, and opens wherever the person's `.md`
@@ -235,7 +235,7 @@ house strips a header it finds when it opens, naming the file on its mouse's rec
   is read, and they are the mouse's to choose.
 - **A link command the mouse runs**, `whiska spec-link`, pasting its lines into the
   question: a step a mouse can forget, and links made one way for the spec and plan and
-  another for the diff and research document. `whiska show` adds a line per document
+  another for the diff and research document. `whiska show` adds a link per document
   present.
 - **A spec for a bug, as for a feature**: user stories about a fix restate the bug, and
   nothing asks for the evidence of the cause.

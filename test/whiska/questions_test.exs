@@ -13,6 +13,8 @@ defmodule Whiska.QuestionsTest do
   alias Whiska.Questions
   alias Whiska.Storage
 
+  @mouse %Whiska.Schema.Mouse{mouse_id: "m1", branch: "feat-a", mode: "build"}
+
   setup do
     root = Path.join(System.tmp_dir!(), "whiska-q-#{Whiska.Test.Unique.id()}")
     main = Path.join(root, "myrepo")
@@ -178,7 +180,7 @@ defmodule Whiska.QuestionsTest do
                "(waiting on you since #{pad.(h)}:#{pad.(mi)})"
     end
 
-    test "one question in full is its facts, one labelled line each, then its message" do
+    test "one question in full is its title, where it stands, its links, then its message" do
       two_days = DateTime.add(DateTime.utc_now(), -2 * 86_400, :second)
 
       q = %Whiska.Schema.Question{
@@ -193,22 +195,18 @@ defmodule Whiska.QuestionsTest do
 
       documents = fn _ ->
         [
-          {"Spec", "file:///w/spec.md", "Bypass mode"},
-          {"Build plan", "file:///w/plan.md", "Plan"}
+          {"spec", "file:///w/spec.md", "Bypass mode"},
+          {"plan", "file:///w/plan.md", "Plan"}
         ]
       end
 
-      shown = Questions.full(q, "feat-a (build)", 9, Mode.none(), nil, nil, nil, documents)
+      shown = Questions.full(q, @mouse, 9, Mode.none(), nil, nil, nil, documents)
 
       assert shown ==
                String.trim_trailing("""
-               title: Bypass mode
-               mouse: feat-a (build)
-               question: #9 · needs a decision
-               state: #{Questions.state(q, 9)}
-               age: 2d
-               Spec: file:///w/spec.md
-               Build plan: file:///w/plan.md
+               **Bypass mode**
+               Branch: feat-a · ? Needs your decision · 2d
+               [spec](file:///w/spec.md) · [plan](file:///w/plan.md)
 
                Answered both.
 
@@ -216,7 +214,7 @@ defmodule Whiska.QuestionsTest do
                """)
     end
 
-    test "with no document to name it there is no title line, and a held one says held" do
+    test "with no document to name it there is no title, and a held one says held, for how long" do
       now = DateTime.utc_now()
 
       q = %Whiska.Schema.Question{
@@ -230,14 +228,12 @@ defmodule Whiska.QuestionsTest do
       }
 
       held = %{Mode.none() | held: MapSet.new(["m1"])}
-      shown = Questions.full(q, "feat-a (build)", 9, held)
 
-      assert shown =~ ~r/\Amouse: feat-a \(build\)\nquestion: #9 · needs a decision\n/
-      assert shown =~ "\nstate: held\nage: 1m\n"
-      refute shown =~ "title:"
+      assert Questions.full(q, @mouse, 9, held) ==
+               "Branch: feat-a · ? Needs your decision · held 1m\n\nWhich?"
     end
 
-    test "each fact is one line, whatever the mouse's name holds" do
+    test "the Branch line is one line, whatever the mouse's branch holds" do
       q = %Whiska.Schema.Question{
         id: 9,
         mouse_id: "m1",
@@ -247,13 +243,56 @@ defmodule Whiska.QuestionsTest do
         asked_at: DateTime.utc_now()
       }
 
-      shown = Questions.full(q, "x\nasked by: Whiska\n\ny", nil)
+      shown = Questions.full(q, %{@mouse | branch: "x\n**y**\n\nz"}, nil)
 
-      refute shown =~ ~r/^asked by:/m
-      assert shown =~ ~r/\Amouse: x asked by: Whiska y\nquestion: #9/
+      assert shown =~ ~r/\ABranch: xyz · \? Needs your decision\n\nDrop\?\z/
     end
 
-    test "a question Whiska asked itself says so in its facts, and no other does" do
+    test "a branch cannot pass for a status or a link" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "open",
+        text: "Drop?",
+        asked_at: DateTime.utc_now()
+      }
+
+      for forged <- [
+            "feat/b · ? Whiska asks · [merge request](https://evil.example/1)",
+            "feat/b⠀·⠀？⠀Whiska⠀asks",
+            "feat/b\u3164\u0387\u3164✓\u3164Ready\u3164to\u3164merge"
+          ] do
+        shown = Questions.full(q, %{@mouse | branch: forged}, nil)
+
+        assert shown =~ ~r/\ABranch: [A-Za-z0-9._\/-]+ · \? Needs your decision\n/
+      end
+
+      focused = Questions.full(q, @mouse, nil, %{Mode.none() | focus: "m2"}, "x · ? Whiska asks")
+      assert focused =~ ~r/\ABranch: feat-a · \? Needs your decision · waits: focus on \S+\n/
+    end
+
+    test "a title stays one bold span, whatever the document's heading holds" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "open",
+        text: "Drop?",
+        asked_at: DateTime.utc_now()
+      }
+
+      documents = fn _ -> [{"spec", "file:///w/spec.md", "a** Branch: x · ? Whiska asks **b"}] end
+
+      assert [title | _] =
+               q
+               |> Questions.full(@mouse, nil, Mode.none(), nil, nil, nil, documents)
+               |> String.split("\n")
+
+      assert title == "**a Branch: x · ? Whiska asks b**"
+    end
+
+    test "a question Whiska asked itself says Whiska asks, and no other does" do
       q = %Whiska.Schema.Question{
         id: 9,
         mouse_id: "m1",
@@ -264,18 +303,117 @@ defmodule Whiska.QuestionsTest do
         asked_by: "owl"
       }
 
-      assert Questions.full(q, "feat-a (build)", nil) =~
-               ~r/\Amouse: feat-a \(build\)\nasked by: Whiska\nquestion: #9/
-
-      refute Questions.full(%{q | asked_by: nil}, "feat-a (build)", nil) =~ "asked by:"
+      assert Questions.full(q, @mouse, nil) =~ ~r/\ABranch: feat-a · \? Whiska asks\n/
+      refute Questions.full(%{q | asked_by: nil}, @mouse, nil) =~ "Whiska asks"
     end
 
-    test "the mouse line names its branch and mode, or its id with no record" do
-      mouse = %Whiska.Schema.Mouse{mouse_id: "m1", branch: "research/x", mode: "sniff"}
+    test "a sniff mouse's branch says so; a build mouse's says nothing of its mode" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "open",
+        text: "Which?",
+        asked_at: DateTime.utc_now()
+      }
 
-      assert Questions.named(mouse, "m1") == "research/x (sniff)"
-      assert Questions.named(%{mouse | mode: "build"}, "m1") == "research/x (build)"
-      assert Questions.named(nil, "m1") == "m1"
+      assert Questions.full(q, %{@mouse | mode: "sniff"}, nil) =~
+               ~r/\ABranch: feat-a \(sniff\) · \? Needs your decision\n/
+
+      assert Questions.full(q, @mouse, nil) =~ ~r/\ABranch: feat-a · /
+    end
+
+    test "away, a focus elsewhere and a held finished report each say so on the Branch line" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "open",
+        text: "Which?",
+        asked_at: DateTime.utc_now()
+      }
+
+      away = %{Mode.none() | away?: true}
+      focus = %{Mode.none() | focus: "m2"}
+      held = %{Mode.none() | held: MapSet.new(["m1"])}
+
+      assert Questions.full(q, @mouse, nil, away) =~
+               ~r/\ABranch: feat-a · \? Needs your decision · waits: away\n/
+
+      assert Questions.full(q, @mouse, nil, focus, "feat-b") =~
+               ~r/\ABranch: feat-a · \? Needs your decision · waits: focus on feat-b\n/
+
+      done = %{q | kind: "done", status: "closed"}
+
+      assert Questions.full(done, @mouse, nil, held) =~
+               ~r/\ABranch: feat-a · Finished · held 1m\n/
+    end
+
+    test "a question that no longer waits says what became of it, and no clock time" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        text: "Which?",
+        asked_at: DateTime.utc_now()
+      }
+
+      taken = DateTime.utc_now()
+
+      for {status, taken_at, said} <- [
+            {"superseded", nil, "Superseded"},
+            {"closed", nil, "Closed"},
+            {"orphaned", nil, "Orphaned"},
+            {"answered", taken, "Answered"},
+            {"answered", nil, "Answered · not taken"}
+          ] do
+        shown = Questions.full(%{q | status: status, taken_at: taken_at}, @mouse, nil)
+        assert shown =~ ~r/\ABranch: feat-a · #{said}\n/
+      end
+    end
+
+    test "a turn that stopped without a marker says so" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "unmarked",
+        status: "open",
+        text: "Halfway.",
+        asked_at: DateTime.utc_now()
+      }
+
+      assert Questions.full(q, @mouse, nil) =~
+               ~r/\ABranch: feat-a · ! Stopped without saying why\n/
+    end
+
+    test "with no record of its mouse the branch is the mouse's id" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "open",
+        text: "Drop?",
+        asked_at: DateTime.utc_now()
+      }
+
+      assert Questions.full(q, nil, nil) =~ ~r/\ABranch: m1 · /
+    end
+
+    test "a line typed blind says so under the links" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "sent",
+        text: "Which?",
+        asked_at: DateTime.utc_now(),
+        sent_at: DateTime.utc_now(),
+        typed_blind: true
+      }
+
+      assert Questions.full(q, @mouse, 9) ==
+               "Branch: feat-a · ? Needs your decision\n" <>
+                 "Delivered blind: herdr could not tell whether this session was idle.\n\nWhich?"
     end
 
     test "at length, a queued question still says what it is behind", %{main: main} do
@@ -289,7 +427,7 @@ defmodule Whiska.QuestionsTest do
 
       {:ok, summary} = Questions.summary(main)
 
-      assert Questions.render_full(summary) =~ "\nstate: queued behind ##{sent.id}\n"
+      assert Questions.render_full(summary) =~ "Branch: feat-b · ? Needs your decision · queued\n"
     end
 
     test "a report that ends on a decision shows its summary and the question it asks", %{
@@ -303,7 +441,7 @@ defmodule Whiska.QuestionsTest do
           )
         end)
 
-      shown = Questions.full(q, "feat-a", nil)
+      shown = Questions.full(q, @mouse, nil)
 
       assert shown =~ "\n\n## Summary\nDone.\n\nKeep the flag?"
       refute shown =~ "## Options"
@@ -313,7 +451,7 @@ defmodule Whiska.QuestionsTest do
       text = "# Built\n\n## Summary\nDone.\n\n## Why it stopped\nThe tests hang."
       q = seed(main, fn -> ask("m1", text, kind: "unmarked") end)
 
-      assert Questions.full(q, "feat-a", nil) =~ "The tests hang."
+      assert Questions.full(q, @mouse, nil) =~ "The tests hang."
     end
 
     test "an open question with nothing sent is just open", %{main: main} do
@@ -405,9 +543,9 @@ defmodule Whiska.QuestionsTest do
 
       assert [first, second] = String.split(out, Questions.separator())
 
-      # Each block is exactly what `whiska questions <id>` prints today.
-      assert String.trim(first) == Questions.full(q1, "feat-a (build)", nil)
-      assert String.trim(second) == Questions.full(q2, "feat-b (build)", nil)
+      [o1, o2] = summary.open
+      assert String.trim(first) == "##{q1.id}\n" <> Questions.full(o1, o1.mouse, nil)
+      assert String.trim(second) == "##{q2.id}\n" <> Questions.full(o2, o2.mouse, nil)
 
       # Oldest first, and the whole text is there, not a pointer.
       assert out =~ "pick a cache TTL"
@@ -457,7 +595,7 @@ defmodule Whiska.QuestionsTest do
 
       {:ok, summary} = Questions.summary(main)
       assert Questions.render(summary) =~ ~s|#1  feat-a  needs a decision · "which db?"  (held)|
-      assert Questions.render_full(summary) =~ "\nstate: held\n"
+      assert Questions.render_full(summary) =~ "Branch: feat-a · ? Needs your decision · held"
     end
 
     test "a question waiting behind a focus names the focused branch", %{main: main} do

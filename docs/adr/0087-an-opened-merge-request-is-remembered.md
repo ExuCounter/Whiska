@@ -39,8 +39,8 @@ other branch is never seen landed by git; only the owl's read of it merged on th
 worktree's own head takes its worktree down (ADR-0061). A line that names no
 base leaves the target to the forge.
 
-**Its finished reports read as an open request's.** The branch line reads `merge request
-opened, <N> commits not pushed, …`, with `Merge request: <link>` under it. Not pushed
+**Its finished reports read as an open request's.** The branch line reads `✓ Merge request
+open · <N> commits not pushed · …`, with a `merge request` link (ADR-0089). Not pushed
 counts the branch's commits that no remote and no base holds. On "pr" again, `whiska pr`
 pushes the new commits to the open request, never forced, refusing files not committed
 until `--commit <file>` as it does for any branch. `whiska land` refuses a branch with a

@@ -3,7 +3,8 @@
 All of this is built. The doorstep and collection are ADR-0036, classification ADR-0009,
 the hook's reading of the transcript before it writes ADR-0052, the queue and its hold
 while the person is typing ADR-0008 and ADR-0047, the hoot and the reminder ADR-0062,
-the reply keyed to a question id ADR-0005, and the answer taken by the mouse's own hook
+the delivered line and the id hidden in it ADR-0009, the block `whiska show` prints
+ADR-0089, the reply keyed to a question id ADR-0005, and the answer taken by the mouse's own hook
 ADR-0080. Shown as a dynamic diagram because the ordering is the design. Nothing here
 crosses into another repo (ADR-0044).
 
@@ -39,6 +40,7 @@ C4Dynamic
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
   Rel(delivery, mainpane, "Type one line only if idle, nothing half-typed and nothing sent; a letter's line needs no free slot, and a report's or a letter's holds nothing")
   Rel(delivery, person, "Hoot: one desktop notification, raised in the same breath as a question's line, never through herdr; a click jumps to the main session")
+  Rel(mainpane, db, "Its UserPromptSubmit hook hands over the question id hidden in the line; the session runs whiska show with it, which reads the question and prints the block the person reads")
   Rel(person, db, "whiska reply, keyed to the question id, saves the answer first")
   Rel(person, mousepane, "Then rings its doorbell through herdr: one fixed line, never the answer")
   Rel(mousepane, db, "Its UserPromptSubmit hook reads the answer, hands it over as context, stamps it taken")
@@ -53,6 +55,6 @@ finishing steps, reading the change back, a fresh reviewer, a commit on its bran
 only then writes the marker (ADR-0049). Nothing sits in front of the stop hook, and
 nothing in Whiska knows whether those steps ran.
 
-After a delivered line, the main session runs `whiska show`, renders the question by its brief's rule and stops;
+After a delivered line, the main session runs `whiska show <id>` with the id its hook handed over, prints the block as is and stops;
 the person says what happens next, and the main session runs `whiska reply`, `land`, `pr`,
 `push`, `drop` or `send` for it (ADR-0088, ADR-0060).

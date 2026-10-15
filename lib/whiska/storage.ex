@@ -53,7 +53,8 @@ defmodule Whiska.Storage do
     {26, Whiska.Migrations.V026MergeRequestBlocker},
     {27, Whiska.Migrations.V027HouseLetters},
     {28, Whiska.Migrations.V028ThreadsAnswered},
-    {29, Whiska.Migrations.V029MergeRequestMerging}
+    {29, Whiska.Migrations.V029MergeRequestMerging},
+    {30, Whiska.Migrations.V030QuestionTypedBlind}
   ]
 
   @modes ~w(build sniff)
@@ -1343,6 +1344,13 @@ defmodule Whiska.Storage do
       set: [typed_at: DateTime.truncate(at, :second)]
     )
 
+    :ok
+  end
+
+  @doc "Mark a question's line as typed while herdr could not say whether the person was typing (ADR-0008)."
+  @spec typed_blind(pos_integer()) :: :ok
+  def typed_blind(id) do
+    Repo.update_all(from(q in Question, where: q.id == ^id), set: [typed_blind: true])
     :ok
   end
 

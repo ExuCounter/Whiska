@@ -64,7 +64,7 @@ C4Container
   Rel(cli, hooksock, "start asks the owl running to open this repo", "open 1 <main checkout>")
   Rel(claude, brief, "Reads it once, at start, as part of its system prompt")
   Rel(claude, denylist, "Reads it once, at start, and denies what it lists")
-  Rel(claude, shim, "PreToolUse, Stop and UserPromptSubmit fire in every session; the shim leaves a main checkout's UserPromptSubmit at once")
+  Rel(claude, shim, "PreToolUse, Stop and UserPromptSubmit fire in every session; the shim leaves a main checkout's UserPromptSubmit at once unless the prompt may be a delivered line")
   Rel(shim, flag, "user-prompt-submit in a mouse exits at once unless it is there")
   Rel(shim, hooksock, "Asks first, with nc", "hook name, environment, payload")
   Rel(owl, hooksock, "Runs the same hook modules, with the hook's environment")

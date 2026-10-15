@@ -138,8 +138,9 @@ defmodule Whiska.Questions do
 
   The same reading as `render/1`, told at length: nobody should have to read a
   line, pick an id out of it and type it back to see what a mouse actually
-  said. Each block is exactly what `whiska questions <id>` prints for that one,
-  so the two can never drift apart — given the same `on_branch`.
+  said. Each block is its `#<id>` line, then exactly what `whiska questions
+  <id>` prints for that one, so the two can never drift apart — given the
+  same `on_branch`.
   """
   @spec render_full(summary(), on_branch() | nil, research() | nil, documents() | nil) ::
           String.t()
@@ -155,16 +156,17 @@ defmodule Whiska.Questions do
           Enum.map_join(
             open,
             separator(),
-            &full(
-              &1,
-              named(&1.mouse, &1.mouse_id),
-              slot,
-              summary.mode,
-              summary.focus,
-              on_branch,
-              research,
-              documents
-            )
+            &("##{&1.id}\n" <>
+                full(
+                  &1,
+                  &1.mouse,
+                  slot,
+                  summary.mode,
+                  summary.focus,
+                  on_branch,
+                  research,
+                  documents
+                ))
           )
       end
 
@@ -217,12 +219,15 @@ defmodule Whiska.Questions do
   end
 
   @doc """
-  One question in full: its facts, one labelled line each, then the mouse's
-  message as a person reads it — the marker token stripped (`Marker.strip/1`)
-  and no `answer:` trailer. Facts only: the main brief writes the heading and
-  links the person sees from them (ADR-0089).
+  One question in full, as the person reads it: a bold title when a document
+  names the work, the `Branch:` line saying where it stands, one line of
+  Markdown links, then the mouse's message — the marker token stripped
+  (`Marker.strip/1`) and no `answer:` trailer. The main session prints it as
+  is (ADR-0089), so no id is in it: the person names work by its title or
+  branch, and the main session already holds the id it ran this with.
 
-  What `whiska questions <id>` prints, and one block of `render_full/1`.
+  What `whiska show <id>` prints, and one block of `render_full/1`. `mouse` is
+  the question's mouse, or nil when Whiska has no record of it.
   `slot` is the id of the question holding the delivery slot, or nil; it is
   not optional, because a caller that forgot it would print a queued question
   as merely open, and the two would read differently. `mode` is what the
@@ -230,7 +235,7 @@ defmodule Whiska.Questions do
   """
   @spec full(
           Question.t(),
-          String.t(),
+          Mouse.t() | nil,
           pos_integer() | nil,
           Mode.t(),
           String.t() | nil,
@@ -252,32 +257,112 @@ defmodule Whiska.Questions do
     found = research_of(q, research)
     more = if is_function(documents, 1), do: documents.(q), else: []
 
-    facts =
-      labelled("title", title(more, found)) ++
-        ["mouse: #{mouse}"] ++
-        labelled("asked by", asker(q)) ++
-        ["question: ##{q.id} · #{verb(q.kind)}"] ++
-        ["state: #{state(q, slot, mode, focus)}"] ++
-        labelled("age", aged(q)) ++
-        labelled("branch", branch_state(held)) ++
-        labelled("Merge request", merge_request(held)) ++
-        Enum.map(
-          Enum.reject([diff_link(held), research_link(found)], &is_nil/1) ++ more,
-          fn link -> "#{elem(link, 0)}: #{elem(link, 1)}" end
-        )
+    {rounds, documents} = Enum.split_with(more, &(elem(&1, 0) == "round diff"))
+
+    links =
+      ([diff_link(held)] ++ rounds ++ [research_link(found)] ++ documents)
+      |> Enum.concat([merge_request_link(held)])
+      |> Enum.reject(&is_nil/1)
+
+    head =
+      Enum.reject(
+        [
+          bold(title(more, found)),
+          "Branch: #{branch_name(mouse, q)} · #{status(q, mouse, held, slot, mode, focus)}",
+          links != [] && Enum.map_join(links, " · ", &"[#{elem(&1, 0)}](#{elem(&1, 1)})"),
+          q.typed_blind && "Delivered blind: herdr could not tell whether this session was idle."
+        ],
+        &(&1 in [nil, false])
+      )
 
     text = q.text |> Marker.strip() |> String.trim_trailing()
 
     """
-    #{Enum.map_join(facts, "\n", &String.replace(&1, ~r/\s+/, " "))}
+    #{Enum.map_join(head, "\n", &String.replace(&1, ~r/\s+/, " "))}
 
     #{shown(q, text)}
     """
     |> String.trim_trailing()
   end
 
-  defp labelled(_label, nil), do: []
-  defp labelled(label, value), do: ["#{label}: #{value}"]
+  # A title, a branch and a file name are the mouse's to write, and the head
+  # around them is Whiska's: the title stays inside its bold, and a branch or a
+  # file name keeps only plain name characters, so none passes for a status or
+  # a link.
+  defp bold(nil), do: nil
+  defp bold(title), do: "**#{String.replace(title, "*", "")}**"
+
+  # A sniff mouse is named one, as ADR-0074 has it.
+  defp branch_name(%Mouse{branch: branch, mode: "sniff"}, _q) when is_binary(branch),
+    do: plain(branch) <> " (sniff)"
+
+  defp branch_name(%Mouse{branch: branch}, _q) when is_binary(branch), do: plain(branch)
+  defp branch_name(_mouse, %Question{mouse_id: mouse_id}), do: plain(mouse_id)
+
+  defp plain(name), do: name |> printable() |> String.replace(~r/[^A-Za-z0-9._\/-]/u, "")
+
+  defp plain_file(name), do: name |> printable() |> String.replace(~r/[^A-Za-z0-9._\/-]/u, "?")
+
+  # Where the work stands, read from the question's kind and, for a finished
+  # one, from what its branch holds; then what keeps it from the person.
+  defp status(q, mouse, held, slot, mode, focus) do
+    [standing(q, mouse, held) | waiting(q, slot, mode, focus)]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" · ")
+  end
+
+  defp standing(%Question{kind: "done"}, mouse, held), do: finished(mouse, held)
+
+  defp standing(%Question{status: "answered", taken_at: nil}, _mouse, _held),
+    do: "Answered · not taken"
+
+  defp standing(%Question{status: status}, _mouse, _held)
+       when status in ~w(answered settled orphaned closed superseded),
+       do: String.capitalize(status)
+
+  defp standing(%Question{asked_by: "owl"}, _mouse, _held), do: "? Whiska asks"
+  defp standing(%Question{kind: "unmarked"}, _mouse, _held), do: "! Stopped without saying why"
+  defp standing(_question, _mouse, _held), do: "? Needs your decision"
+
+  defp finished(_mouse, {:ok, %{merge_request: _, not_pushed: n, uncommitted: files}}),
+    do: join(["✓ Merge request open", not_pushed(n), uncommitted(files)])
+
+  defp finished(%Mouse{mode: "sniff"}, {:ok, %{ahead: 0, uncommitted: files}}),
+    do: join(["✓ Research done", uncommitted(files)])
+
+  defp finished(_mouse, {:ok, %{ahead: 0, base: base, uncommitted: files}}),
+    do: join(["Finished", "nothing committed#{beyond(base)}", uncommitted(files)])
+
+  defp finished(_mouse, {:ok, %{ahead: ahead, base: base, uncommitted: files}}),
+    do: join(["✓ Ready to merge", commits(ahead) <> beyond(base), uncommitted(files)])
+
+  defp finished(_mouse, {:error, reason}), do: "Finished · branch unknown — #{unknown(reason)}"
+  defp finished(_mouse, nil), do: "Finished"
+
+  defp join(parts), do: parts |> Enum.reject(&is_nil/1) |> Enum.join(" · ")
+
+  defp waiting(q, slot, mode, focus) do
+    case state(q, slot, mode, focus) do
+      "held" -> ["held" <> held_for(q)]
+      "queued behind " <> _ -> ["queued", days(q)]
+      "waits: " <> _ = waits -> [waits, days(q)]
+      _sent_open_or_closed -> [days(q)]
+    end
+  end
+
+  defp held_for(q) do
+    case aged(q) do
+      nil -> ""
+      age -> " " <> age
+    end
+  end
+
+  defp days(q) do
+    case aged(q) do
+      age when is_binary(age) -> if String.ends_with?(age, "d"), do: age
+      nil -> nil
+    end
+  end
 
   # The work is named by what the person would review: the spec, else the
   # report, else the research, each by its own `# ` title.
@@ -288,9 +373,6 @@ defmodule Whiska.Questions do
       _ -> nil
     end)
   end
-
-  defp asker(%Question{asked_by: "owl"}), do: "Whiska"
-  defp asker(_q), do: nil
 
   defp aged(%Question{asked_at: %DateTime{} = at}),
     do: age(DateTime.diff(DateTime.utc_now(), at))
@@ -347,10 +429,10 @@ defmodule Whiska.Questions do
 
   defp finished_branch(_question, _on_branch), do: nil
 
-  defp merge_request({:ok, %{merge_request: url}}), do: printable(url)
-  defp merge_request(_held), do: nil
+  defp merge_request_link({:ok, %{merge_request: url}}), do: {"merge request", printable(url)}
+  defp merge_request_link(_held), do: nil
 
-  defp diff_link({:ok, %{review: link}}), do: {"Diff", link}
+  defp diff_link({:ok, %{review: link}}), do: {"diff", link}
   defp diff_link(_held), do: nil
 
   defp research_of(q, research) when is_function(research, 1), do: research.(q)
@@ -358,31 +440,21 @@ defmodule Whiska.Questions do
 
   # Read from Whiska's own copy, so it links wherever the question is read
   # from, and after its worktree is gone.
-  defp research_link({path, _title}), do: {"Research", Review.file_link(path)}
+  defp research_link({path, _title}), do: {"research", Review.file_link(path)}
   defp research_link(nil), do: nil
 
-  defp branch_state({:ok, %{merge_request: _, not_pushed: n, uncommitted: uncommitted}}),
-    do: "merge request opened, #{pushed(n)}, #{uncommitted(uncommitted)}"
-
-  defp branch_state({:ok, %{base: base, ahead: ahead, uncommitted: uncommitted}}),
-    do: "#{committed(ahead, base)}, #{uncommitted(uncommitted)}"
-
-  defp branch_state({:error, reason}), do: "branch unknown — #{unknown(reason)}"
-  defp branch_state(nil), do: nil
-
-  defp committed(0, base), do: "nothing committed#{beyond(base)}"
-  defp committed(1, base), do: "1 commit#{beyond(base)}"
-  defp committed(n, base), do: "#{n} commits#{beyond(base)}"
+  defp commits(1), do: "1 commit"
+  defp commits(n), do: "#{n} commits"
 
   # The usual base goes unsaid; a mouse cut from another one names it.
   defp beyond(base) when base in ["main", "master"], do: ""
   defp beyond(base), do: " beyond #{base}"
 
-  defp pushed(0), do: "everything pushed"
-  defp pushed(1), do: "1 commit not pushed"
-  defp pushed(n), do: "#{n} commits not pushed"
+  defp not_pushed(0), do: nil
+  defp not_pushed(1), do: "1 commit not pushed"
+  defp not_pushed(n), do: "#{n} commits not pushed"
 
-  defp uncommitted([]), do: "clean"
+  defp uncommitted([]), do: nil
 
   defp uncommitted(paths) do
     {named, rest} = Enum.split(paths, @named)
@@ -390,7 +462,7 @@ defmodule Whiska.Questions do
     more = if rest == [], do: "", else: " and #{length(rest)} more"
 
     "#{length(paths)} #{files} not committed: " <>
-      Enum.map_join(named, ", ", &printable/1) <> more
+      Enum.map_join(named, ", ", &plain_file/1) <> more
   end
 
   # A path is the mouse's to name. Invalid bytes, controls, format characters
@@ -458,7 +530,7 @@ defmodule Whiska.Questions do
       {:held, _} -> "held"
       {_, _} when status != "open" -> status
       {:away, _} -> "waits: away"
-      {{:focus, mouse_id}, _} -> "waits: focus on #{focus || mouse_id}"
+      {{:focus, mouse_id}, _} -> "waits: focus on #{plain(focus || mouse_id)}"
       {nil, nil} -> status
       {nil, behind} -> "queued behind ##{behind}"
     end
@@ -497,15 +569,6 @@ defmodule Whiska.Questions do
 
   defp branch(%Question{mouse: %Mouse{branch: branch}}) when is_binary(branch), do: branch
   defp branch(%Question{mouse_id: mouse_id}), do: mouse_id
-
-  @doc """
-  The `mouse:` line of `full/8`: the branch and its mode, always both.
-  Whiska's record rather than the mouse's word about itself, so the finish
-  options can tell a branch with nothing on it to merge (ADR-0074).
-  """
-  @spec named(Mouse.t() | nil, String.t()) :: String.t()
-  def named(%Mouse{branch: branch, mode: mode}, mouse_id), do: "#{branch || mouse_id} (#{mode})"
-  def named(_no_mouse, mouse_id), do: mouse_id
 
   @doc "A focused mouse by name: the branch, with `(sniff)` after it for a sniff mouse."
   @spec who(Mouse.t() | nil, String.t()) :: String.t()

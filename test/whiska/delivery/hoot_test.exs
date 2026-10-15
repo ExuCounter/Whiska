@@ -51,14 +51,12 @@ defmodule Whiska.Delivery.HootTest do
     end
   end
 
-  test "the verb is the delivered line's verb, never a second phrasing for it" do
+  test "the title ends on the question's verb" do
     for kind <- ["needs-decision", "done", "unmarked"] do
       q = question(kind: kind, text: "[worktree-status: needs-decision] pick one")
       %{title: title} = Hoot.compose(q, "whiska", "feat-a", @none)
-      line = Text.compose(q, "feat-a", @none, [])
 
       assert String.ends_with?(title, Text.verb(kind))
-      assert line =~ Text.verb(kind)
     end
   end
 

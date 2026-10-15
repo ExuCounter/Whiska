@@ -55,7 +55,7 @@ absence is said plainly. The cases so far:
   branch's file), with its last review round's change beside it as `.round.diff`
   (ADR-0089),
   ignored like the kept specs (ADR-0063), and prints a link to
-  it on a line of its own, as a spec goes to the person as a link. It writes the file
+  it among its links (ADR-0089), as a spec goes to the person as a link. It writes the file
   wherever it runs, a mouse's worktree included: the main session's shell can stand in a
   worktree, and a read that wrote nothing from there dropped the link without a word. The
   folder is Whiska's own and ignored, so a write from a mouse costs nothing. No diff
@@ -66,7 +66,7 @@ absence is said plainly. The cases so far:
   own, points that file type at it in their terminal's open actions or their OS, as they
   point `.md` at their document reviewer. Whiska still names no viewer.
 - **The spec and build plan links are file links too.** `whiska show` prints them itself,
-  on a line of its own, for the spec and the build plan the mouse's worktree
+  among its links, for the spec and the build plan the mouse's worktree
   holds, as it does the diff's; the mouse pastes no link (ADR-0063). They open wherever
   the person's `.md` files open.
 

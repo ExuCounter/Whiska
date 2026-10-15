@@ -101,7 +101,7 @@ discussed.
 
 A finished report is a report, not a question: nothing in it waits on the person. It is
 closed as it is collected (ADR-0009) and hooted then (ADR-0062), so it never waits for the
-slot, holds it or inherits it. Its line, `🐱 <branch> finished · #<id> · "<pointer>"`, is
+slot, holds it or inherits it. Its line, the cat and its id (ADR-0009), is
 typed into the main session only once nothing waits on the person: no question the mode
 lets through is sent or open, and the gate is open as for a question. Oldest first, one
 line each, stamped `typed_at` and left closed. A question collected after it goes as soon
@@ -145,7 +145,9 @@ unambiguous:
 
 Holding on `unknown` would be choosing silence: the person would never learn why the mice
 went quiet. Delivering interrupts at a slightly rude moment and carries its own
-explanation.
+explanation: the typed line is only the cat (ADR-0009), so the question records it was
+typed blind, and the block `whiska show` prints says
+`Delivered blind: herdr could not tell whether this session was idle.` (ADR-0089).
 
 ## Considered options
 
@@ -187,9 +189,9 @@ explanation.
 
 - The slot's occupant is always something alive. `whiska doctor`'s line about a dead mouse
   holding the slot reports something that no longer persists.
-- The main session's prompt hook has nothing to do, so the hook shim leaves a main
-  checkout at once. `whiska doctor` fails a shim from before that, and `whiska init
-  --global` rewrites it.
+- The main session's prompt hook settles nothing: it only hands over a delivered line's
+  id (ADR-0080), so the hook shim leaves a main checkout at once on any other prompt.
+  `whiska doctor` fails a shim from before that, and `whiska init --global` rewrites it.
 
 Folded in on 2026-10-08: 0037, 0057 (their text is in git history).
 

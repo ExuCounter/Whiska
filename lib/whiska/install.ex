@@ -75,27 +75,42 @@ defmodule Whiska.Install do
   """
 
   # Every prompt in every session runs the user-prompt-submit hook, and almost
-  # none has an answer waiting, so that case leaves here before the binary or
-  # the runtime is looked for (ADR-0080). Shell
-  # builtins only: the worktree's `.git` file names its git admin directory,
-  # and the answer flag sits there. A main checkout never goes on: nothing
-  # there waits on a prompt (ADR-0009). With no project directory to decide on, Whiska decides - an
-  # answer not handed over is worse than a prompt slowed.
+  # none has an answer waiting or is a delivered line, so that case leaves here
+  # before the binary or the runtime is looked for (ADR-0080). An answer waits
+  # only in a worktree: its `.git` file names its git admin directory, and the
+  # answer flag sits there. A delivered line is a cat and a braille blank
+  # (`Whiska.Delivery.Text`), looked for only when no answer waits, since it
+  # costs reading the payload, and only in a payload short enough to hold one:
+  # bash 3.2 takes seconds to match a pasted page of cats. The payload read is
+  # handed on (ADR-0009). With no
+  # project directory to decide on, Whiska decides - an answer not handed over
+  # is worse than a prompt slowed.
   @prompt_fast_path """
-  if [ "${1:-}" = "user-prompt-submit" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+  whiska_answer_waits() {
+    local gitdir=""
     case "$CLAUDE_PROJECT_DIR" in
       */worktrees/*) ;;
+      *) return 1 ;;
+    esac
+    [ -f "$CLAUDE_PROJECT_DIR/.git" ] || return 1
+    IFS= read -r gitdir < "$CLAUDE_PROJECT_DIR/.git" || [ -n "$gitdir" ] || return 1
+    gitdir="${gitdir#gitdir: }"
+    case "$gitdir" in
+      /*) ;;
+      *) gitdir="$CLAUDE_PROJECT_DIR/$gitdir" ;;
+    esac
+    [ -e "$gitdir/whiska-answer" ]
+  }
+
+  if [ "${1:-}" = "user-prompt-submit" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ] &&
+    ! whiska_answer_waits; then
+    whiska_payload="$(cat)"
+    whiska_payload_read=1
+    [ "${#whiska_payload}" -le 2048 ] || exit 0
+    case "$whiska_payload" in
+      *"🐱"*"⠀"*) ;;
       *) exit 0 ;;
     esac
-    [ -f "$CLAUDE_PROJECT_DIR/.git" ] || exit 0
-    whiska_gitdir=""
-    IFS= read -r whiska_gitdir < "$CLAUDE_PROJECT_DIR/.git" || [ -n "$whiska_gitdir" ] || exit 0
-    whiska_gitdir="${whiska_gitdir#gitdir: }"
-    case "$whiska_gitdir" in
-      /*) ;;
-      *) whiska_gitdir="$CLAUDE_PROJECT_DIR/$whiska_gitdir" ;;
-    esac
-    [ -e "$whiska_gitdir/whiska-answer" ] || exit 0
   fi
 
   """
@@ -128,8 +143,10 @@ defmodule Whiska.Install do
   # bound first - under a WHISKA_HOME in a shared folder - would decide every hook.
   if [ -S "$whiska_hook_socket" ] && [ -O "$whiska_hook_socket" ] &&
     command -v nc >/dev/null 2>&1; then
-    whiska_payload="$(cat)"
-    whiska_payload_read=1
+    if [ -z "${whiska_payload_read:-}" ]; then
+      whiska_payload="$(cat)"
+      whiska_payload_read=1
+    fi
     whiska_lc_all="${LC_ALL-}"
     whiska_lc_set="${LC_ALL+set}"
     LC_ALL=C

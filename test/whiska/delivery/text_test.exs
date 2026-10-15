@@ -1,96 +1,57 @@
 defmodule Whiska.Delivery.TextTest do
   @moduledoc """
-  The one line typed into the main session. A pointer, not the message: the
-  full text is one command away (`whiska questions <id>`), and the line must
-  never contain a newline, since the prompt box would submit early.
+  The one line typed into the main session: a cat, and the question's id in
+  blank space characters the person does not read, for the main session's
+  hook to read back.
   """
   use ExUnit.Case, async: true
 
   alias Whiska.Delivery.Text
-  alias Whiska.Schema.Question
 
-  @none %{open: 0}
+  test "the person sees a cat and nothing else they can read" do
+    line = Text.line(644)
 
-  defp question(attrs) do
-    struct(
-      %Question{id: 12, mouse_id: "m1", kind: "needs-decision", status: "open", text: ""},
-      attrs
-    )
-  end
-
-  test "a done report says the mouse finished, and offers no reply (ADR-0009)" do
-    q = question(kind: "done", text: "Merged and pushed.\n[worktree-status: done]")
-    assert Text.compose(q, "feat-a", @none, []) == "🐱 feat-a finished · #12"
-  end
-
-  test "names the branch, that it needs a decision, the id, and the mouse's pointer" do
-    q =
-      question(text: "Which db?\n[worktree-status: needs-decision] 3 questions ready, see above")
-
-    line = Text.compose(q, "feat-delivery", @none, [])
-
-    assert line == ~s(🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above")
+    assert String.starts_with?(line, "🐱")
+    assert String.trim(String.replace(line, "⠀", ""), "🐱") |> String.trim() == ""
+    refute line =~ "644"
     refute line =~ "\n"
   end
 
-  test "carries no command and never names whiska: the id is the whole pointer (ADR-0005)" do
-    q = question(text: "[worktree-status: needs-decision] pick one")
-
-    for line <- [
-          Text.compose(q, "b", %{open: 3}, [:status_unknown]),
-          Text.compose(question(kind: "done"), "b", @none, [])
-        ] do
-      refute line =~ "whiska"
-      refute line =~ "read:"
-      refute line =~ "answer:"
-      assert String.starts_with?(line, "🐱 ")
-      assert line =~ " · #12"
+  test "the hook reads the id back from the line, with or without its trailing newline" do
+    for id <- [1, 9, 10, 644, 90_210] do
+      assert Text.id_in(Text.line(id)) == id
+      assert Text.id_in(Text.line(id) <> "\n") == id
     end
   end
 
-  test "the owl's own question says it is Whiska's, not its mouse's" do
-    q = question(asked_by: "owl", text: "# !7 was closed\n\nDrop the worktree of feat-a?\n⁣⁣")
-
-    assert Text.compose(q, "feat-a", @none, []) =~
-             ~r/\A🦉 Whiska asks · feat-a needs a decision · #12 · /
+  test "anything else the person types carries no id" do
+    for prompt <- [
+          "🐱",
+          "🐱 #644",
+          "land 644",
+          "",
+          Text.line(644) <> " and land it",
+          "x" <> Text.line(7)
+        ] do
+      assert Text.id_in(prompt) == nil
+    end
   end
 
-  test "the order is branch and verb, then id, then pointer, then more open, then notes" do
-    q = question(text: "[worktree-status: needs-decision] pick one")
-    line = Text.compose(q, "b", %{open: 2}, [:status_unknown])
-
-    assert line ==
-             ~s(🐱 b needs a decision · #12 · "pick one" · 2 more open · ) <>
-               "delivered blind: herdr cannot tell whether you are idle, so this may interrupt"
+  test "a run of blanks longer than any id is read as none" do
+    assert Text.id_in(Text.line(999_999_999_999)) == 999_999_999_999
+    assert Text.id_in(Text.line(1_000_000_000_000)) == nil
   end
 
-  test "says how many more are open, and nothing when there are none" do
-    q = question(text: "[worktree-status: needs-decision] pick one")
-    assert Text.compose(q, "b", %{open: 2}, []) =~ "2 more open"
-    assert Text.compose(q, "b", %{open: 1}, []) =~ "1 more open"
-    refute Text.compose(q, "b", @none, []) =~ "more open"
-  end
-
-  test "an unmarked question says the mouse stopped without saying why (ADR-0009)" do
-    q = question(kind: "unmarked", text: "I ran out of things to do.")
-    line = Text.compose(q, "b", @none, [])
-    assert line =~ "stopped without saying why"
-    assert line =~ ~s("I ran out of things to do.")
+  test "the blanks survive Claude Code trimming the prompt: a non-space blank closes them" do
+    assert String.trim(Text.line(644)) == Text.line(644)
   end
 
   test "a pointer that runs long is cut, and never carries a newline" do
     long = String.duplicate("word ", 60)
-    q = question(kind: "unmarked", text: "\n" <> long <> "\nline two")
-    line = Text.compose(q, "b", @none, [])
-    refute line =~ "\n"
-    assert String.length(line) < 400
-    assert line =~ "…"
-  end
-
-  test "the unknown-status note is appended when delivery went ahead blind (ADR-0008)" do
-    q = question(text: "[worktree-status: needs-decision] x")
-    line = Text.compose(q, "b", @none, [:status_unknown])
-    assert line =~ "herdr cannot tell whether you are idle"
+    pointer = Text.pointer("\n" <> long <> "\nline two")
+    refute pointer =~ "\n"
+    assert String.length(pointer) < 200
+    assert pointer =~ "…"
   end
 
   describe "a letter from another house's main session (ADR-0044)" do

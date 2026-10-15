@@ -11,17 +11,15 @@ defmodule Whiska.Delivery.Hoot do
   typed, from the same place in the code, so the two can never disagree about
   what happened (ADR-0062).
 
-  It says what the line says, in the line's own words — `Text.verb/1`,
-  `Text.pointer/1` and `Text.more/1` are shared rather than copied, because a
-  second phrasing of one event is a second event as far as the person reading
-  it is concerned. The one thing it adds is the house: the line is read inside
-  a house and needs no name for it, while a notification arrives with no
-  context at all, and the person has several repos going at once.
+  The line is only a cat (ADR-0009), so the hoot says what the question is:
+  the house, the branch and the verb, then the id, the pointer and how many
+  more are open — `Text.verb/1`, `Text.pointer/1` and `Text.more/1`. A
+  notification arrives with no context at all, and the person has several
+  repos going at once.
 
-  What it leaves out is ADR-0008's `status_unknown` caveat. That note exists to
-  explain an interruption to the person whose terminal has just been typed
-  into, and it is on the screen when they look; a notification has room for the
-  branch and the verb and nothing more.
+  What it leaves out is ADR-0008's `status_unknown` caveat: the block
+  `whiska show` prints says it, on the screen that was typed into; a
+  notification has room for the branch and the verb and nothing more.
 
   It is raised on the desktop and never through herdr (ADR-0062): herdr's
   `[ui.toast] delivery` is one switch over its own agent toasts, a mouse's
@@ -34,8 +32,8 @@ defmodule Whiska.Delivery.Hoot do
   branch takes `done`. Both hoot, but they are told apart without looking.
 
   A finished report hoots as it is collected, and its line is typed later,
-  once nothing waits (ADR-0008), with no hoot of its own: it says the verb, the id and the pointer, as a delivered line would,
-  with nothing waiting behind it. A reminder names every finished branch it is
+  once nothing waits (ADR-0008), with no hoot of its own: it says the verb, the
+  id and the pointer, with nothing waiting behind it. A reminder names every finished branch it is
   about, with how long ago each finished, in one hoot per house.
   """
 
@@ -48,8 +46,7 @@ defmodule Whiska.Delivery.Hoot do
 
   # A branch and a house name are somebody else's text — a branch arrives in
   # the doorstep entry a mouse's own hook wrote — so each is made one plain
-  # line and cut rather than trusted to be one short line. `Whiska.Delivery.Text` does
-  # the same to the line it composes, for the same reason.
+  # line and cut rather than trusted to be one short line.
   @name_max 40
 
   @pointer_max 120

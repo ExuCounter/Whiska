@@ -59,8 +59,8 @@ with it uncommitted, ended on `done`, and the finish options recommended landing
 whose test would have broken CI. The two markers and the owl's reading of them do not
 move; their meaning sharpens.
 
-`whiska show` prints a branch line for a finished question, read from git and
-never from the message: commits beyond the base, files not committed, or `unknown`. The
+`whiska show` says where a finished question's branch stands, read from git and
+never from the message: commits beyond the base, files not committed, or unknown. The
 person says land, pr or drop, and `whiska land` and `whiska pr` refuse files not committed
 and name them, so the person sees each before it is offered a commit: measured across this
 machine's mice, 29 of 126 finished turns that changed files ended with changes not
@@ -73,10 +73,19 @@ marker rule is the only guard there.
 
 ## What the line carries
 
-The delivered line is `🐱 <branch> <verb> · #<id> · "<pointer>" · <n> more open` and
-carries no command: a line that reads like code gets acted on. The main session knows it
-from its brief and runs `whiska show` (ADR-0088). The id stays
-because answers are keyed to it (ADR-0005).
+The delivered line is `🐱` and the question's id, one blank space character per digit
+(U+2002 to U+200A for 0 to 8, U+202F for 9), closed by a U+2800 braille blank. The person
+sees a cat. What the question is, its branch and where it stands are the block
+`whiska show` prints (ADR-0089); a line that said them too showed each twice. The main
+session's `UserPromptSubmit` hook reads the id back and hands it to the model
+(ADR-0080), which runs `whiska show <id>`; answers stay keyed to it (ADR-0005). The line
+carries no command: a line that reads like code gets acted on (ADR-0088).
+
+Blank characters, not zero-width ones: typed through herdr into Claude Code, every
+zero-width character tried (U+200B to U+200D, U+2060 to U+2064, U+FEFF, U+180E, U+034F,
+variation selectors, tag characters) was gone before the hook saw the prompt, and these
+blanks arrived. A blank at the end of a prompt is trimmed, so a character that is not
+whitespace closes the run.
 
 A turn with no marker and the mouse's own background work still out is not a stop: the
 hook writes nothing (ADR-0052). Everything the hook cannot read counts as ended, so that rule fails in the
@@ -96,6 +105,12 @@ same direction as this one.
   `whiska questions <id>`.
 - **Record `done` closed and hooted, never typed.** The decision from 2026-10-14 to
   2026-10-15. Rejected: the person missed finished work they heard of only by a hoot.
+- **`🐱 <branch> <verb> · #<id> · "<pointer>" · <n> more open`.** The line until
+  2026-10-15. Rejected: the block printed under it said the branch, the verb and the id
+  again.
+- **A bare `🐱`, with `whiska show` recording which question it showed last.** Rejected:
+  a finished report holds no slot, so knowing which line was typed last is bookkeeping
+  of its own, where the hook carries the id for nothing.
 - **A third marker for "stopped short".** Rejected: it changes the parser, the line, the
   hoot and the sidebar, and still needs a way to say "carry on".
 - **Recording the branch in the `Stop` hook.** Rejected: landing needs the branch as it
@@ -121,3 +136,6 @@ ADR-0062).
 
 Changed on 2026-10-15: `done` is typed once nothing waits on the person, and holds
 nothing (ADR-0008).
+
+Changed on 2026-10-15: the delivered line is `🐱` and the question's id in blank
+characters (ADR-0080, ADR-0089).

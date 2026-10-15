@@ -279,8 +279,9 @@ adapter did not recognise what came back.
   goes with the worktree, but nothing that reads a mouse's questions as its words counts
   it: it supersedes none of the mouse's questions and none supersede it, it is not the
   mouse's last word for cleanup (ADR-0061) or pickup, and it does not stop an answer being
-  handed over, chosen as the stop a hold caused, or counted in metrics. Its line and hoot
-  open with `🦉 Whiska asks`, as the heading the main session writes for it does. Collection takes it as the owl's only
+  handed over, chosen as the stop a hold caused, or counted in metrics. Its hoot
+  opens with `🦉 Whiska asks`, and the block `whiska show` prints for it says
+  `? Whiska asks` (ADR-0089). Collection takes it as the owl's only
   when it is stamped the second the owl's stored read says it asked.
 
 ### Cost 3: credentials

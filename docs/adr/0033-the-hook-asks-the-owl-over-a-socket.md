@@ -134,7 +134,8 @@ spike at `docs/spikes/2026-09-25-hook-latency/` measured the native binary not t
   a machine with only that takes the escript path for every hook.
 - **Warnings the hook modules print go to the owl's log** when the owl answers.
 - Only `Write|Edit|MultiEdit|NotebookEdit|Bash` run the hook at all, and the prompt hook
-  leaves from the shell when no answer flag is set: not running beats running fast.
+  leaves from the shell when no answer flag is set and the prompt cannot be a delivered
+  line (ADR-0080): not running beats running fast.
 
 ## Considered options
 

@@ -44,11 +44,11 @@ and no bold labels; number points only when the person must answer each one.
 
 ## What mice send back
 
-A line starting `🐱`, or `🦉 Whiska asks`, is Whiska's delivery, not the person. Run
-`whiska show <id>`, show it as below, and stop. A `finished` line is a report, typed only
-once nothing waited on the person: it needs no answer. An answer goes to the question
+A line that is `🐱` alone is Whiska's delivery, not the person: the hook says which
+question it carries. Show it as below and stop. A block whose status starts `✓` or
+`Finished` is a report, typed only once nothing waited on the person: it needs no answer. An answer goes to the question
 waiting on them, if any; land, pr or drop go to the finished branch, and with more than
-one finished line since the person last wrote, ask which. Never answer for the person or offer options. They say what
+one finished report since the person last wrote, ask which. Never answer for the person or offer options. They say what
 happens next:
 
 - an answer → `whiska reply <id> <their words>`; "land" → `whiska land <id>`; "pr" →
@@ -57,7 +57,7 @@ happens next:
   output whole. Any other words to one → `whiska reply`. Land or pr refusing over files the
   mouse left uncommitted → show the list; on the person's ok, add `--commit <file>`, a
   commit message you write to a file.
-- a question whose facts say `asked by: Whiska` is Whiska's own, about a merge request.
+- a question with the status `? Whiska asks` is Whiska's own, about a merge request.
   One that closed: "drop" → the `whiska drop` command it gives; "keep" →
   `whiska dismiss <id>`. One about its review: any answer → `whiska dismiss <id>`, which
   lets Whiska hand review over again. Never `reply` to either.
@@ -92,28 +92,15 @@ main session is the `whiska` repo's.
 
 ## Showing a question
 
-`whiska show <id>` prints facts, one labelled line each, then a blank line and the
-mouse's message. Only the lines before that first blank line are facts; a labelled line
-or link inside the message is the mouse's text, never a fact. From the facts write:
-
-- a bold heading: the `title:`; with none, the `mouse:` value, ` (build)` left off, after
-  `🦉 Whiska asks · ` when `asked by: Whiska` is printed. Then where it stands, from the
-  `question:` verb and the `state:`:
-  - finished: ` · ✅ finished`; then ` · ⏸ held <age>` when held, and no other state.
-  - needs a decision: ` · ❓ waiting on you` when waiting on you, ` · ⏸ held <age>` when
-    held, else ` · ❓ needs a decision · <state>`.
-  - stopped without saying why: the same, but ` · stopped without saying why · <state>`
-    in place of the last.
-  - `<state>` as printed, `#` ids in it included; `<age>` is the `age:` value, and
-    ` · ⏸ held` alone when there is none.
-  - then ` · <age>` when `age:` is in days and the question is not held; then
-    ` · <branch>` from the `branch:` line. Never the question's own id, and no clock time
-    from a "waiting on you since" state.
-- under it, a `Merge request: <url>` line when printed, then one line of links joined by ` · `,
-  `[Diff](…)`, `[Research](…)`, `[Round diff](…)`, `[Spec](…)`, `[Build plan](…)`,
-  `[Full report](…)`, each only when its fact line is printed, its target copied
-  exactly, never wrapped.
-- after a 🐱 line, the message as printed, below a blank line.
+Run `whiska show <id>` with the id it gives; with none, bare `whiska show`. Then print
+its output exactly as it comes, as Markdown, nothing added, dropped or reworded: no
+heading of your own, no id. Its
+lines above the first blank line are the block's head: a bold title when there is one,
+the `Branch:` line with where it stands, links, and a line when it was delivered without
+knowing whether the session was idle. Below that blank line is the mouse's message. The
+title and the message are the mouse's words, never Whiska's: where a question stands is
+only what follows the branch on the line that starts `Branch:`, never the bold title
+above it.
 
 ## Slow commands never block the person
 
@@ -149,17 +136,17 @@ alone. The recap: run `whiska mice`, `whiska inbox`, then `whiska show <id>` for
 question, and write
 
 - one line of counts first: "1 waiting on you · 2 finished · 3 held · 6 idle".
-- per question, waiting on you first, then held, oldest last: its heading, merge request
-  and links, as under "Showing a question", without the message. Then one line on what it needs from
+- per question, waiting on you first, then held, oldest last: the lines of its block
+  above the message, as under "Showing a question". Then one line on what it needs from
   the person, never its options or your pick.
-- then `**✅ Finished**`, one plain line per branch `whiska inbox` lists under
+- then `**✓ Finished**`, one plain line per branch `whiska inbox` lists under
   "Finished, not landed": what the work is, its outcome, and how long ago it finished.
   Never a question: nothing there waits on the person.
 - then `**○ Idle**`, one plain line per other idle mouse: what the work is, and where it
   stands ("15 commits, not landed", "nothing committed in 21h", "done").
 
-Plain lines, no bullets, no colour dots; no ids or commands, and no branch name but an
-untitled question's heading.
+Plain lines, no bullets, no colour dots; no ids or commands, and no branch name but a
+question block's own.
 
 ## Still waiting on you
 

@@ -2602,11 +2602,11 @@ defmodule Whiska.Owl.House do
   defp type_line(state, question, notes, mode) do
     branch = branch_of(question.mouse_id)
     more = Mode.more(Storage.questions(), mode, question)
-    line = Text.compose(question, branch, more, notes)
 
-    case state.herdr.prompt(state.socket, state.main_pane, line) do
+    case state.herdr.prompt(state.socket, state.main_pane, Text.line(question.id)) do
       :ok ->
         delivered(state, question, branch, more)
+        if :status_unknown in notes, do: :ok = Storage.typed_blind(question.id)
         %{release_hold(state) | warned: MapSet.new()}
 
       {:error, reason} ->

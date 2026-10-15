@@ -58,6 +58,7 @@ defmodule Whiska.Schema.Question do
     # `owl` on a question the owl asked itself about a merge request; nil on a
     # mouse's.
     field(:asked_by, :string)
+    field(:typed_blind, :boolean, default: false)
   end
 
   @doc "The statuses a question moves through."

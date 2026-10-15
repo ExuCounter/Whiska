@@ -110,14 +110,9 @@ What this is not:
    pane is Claude and idle, nothing else is out waiting, and you are not typing
    (ADR-0047). The first of a new round waits 8 seconds so the count is right. The rest
    queue. `away`, `focus` and `hold` decide what may reach you (ADR-0079). What is typed is
-   one line, not the message:
-
-   ```
-   🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above" · 2 more open
-   ```
-
-   The main session's brief tells it to run `whiska show` on that line, write the question's
-   heading and links from the facts it prints, show its message, and stop. You say what happens next: an answer, "land", "pr", "drop", or a
+   `🐱` and the question's id in blank characters you do not read (ADR-0009). The main
+   session's hook hands it the id, and its brief tells it to run `whiska show <id>`, print
+   what it prints as is, and stop (ADR-0089). You say what happens next: an answer, "land", "pr", "drop", or a
    note for the mouse, and it runs the command for it.
 6. **You answer by id**: `whiska reply 12 "go with A"` (ADR-0005). The answer is saved,
    the question is answered and the delivery slot is free. Then a short 🔔 doorbell line is

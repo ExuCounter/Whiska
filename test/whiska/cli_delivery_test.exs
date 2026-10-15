@@ -318,7 +318,7 @@ defmodule Whiska.CLIDeliveryTest do
       end)
 
       {0, out, _} = run(["questions", "2"], main)
-      assert out =~ "\nstate: queued behind #1\n"
+      assert out =~ "Branch: feat-a · ? Needs your decision · queued\n"
     end
 
     test "with an id prints that question in full", %{main: main} do
@@ -327,7 +327,7 @@ defmodule Whiska.CLIDeliveryTest do
       end)
 
       {0, out, _} = run(["questions", "1"], main)
-      assert out =~ "mouse: feat-a (build)\n"
+      assert out =~ "Branch: feat-a · ? Needs your decision\n"
       assert out =~ "Which db?\nPostgres or SQLite?\npick"
       # The marker token and the `answer:` trailer are plumbing, not shown.
       refute out =~ "[worktree-status"

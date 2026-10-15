@@ -1,11 +1,15 @@
 # Whiska
 
 Run several Claude Code sessions at once, each in its own git worktree. Whiska keeps them
-out of each other's files, and when one needs a decision it types a single line into *your*
-session, with an id you answer by.
+out of each other's files, and when one needs a decision it types a 🐱 into *your*
+session, which then shows you what it asks:
 
 ```
-🐱 feat-delivery needs a decision · #12 · "3 questions ready, see above" · 2 more open
+**Pick the cache TTL**
+Branch: feat-delivery · ? Needs your decision
+[spec](file:///…) · [plan](file:///…)
+
+3 questions ready, see above.
 ```
 
 ```bash
