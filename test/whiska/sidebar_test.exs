@@ -991,7 +991,7 @@ defmodule Whiska.SidebarTest do
         )
 
       assert Sidebar.render(%{}, Sidebar.mice(board, now: @now)) ==
-               "feat-a\n  Orders\n  ⎇ !123 · ✗\n  2 threads open"
+               "feat-a\n  Orders\n  ⎇ !123 · ✗ · 2 threads open"
     end
 
     test "a quiet repo prints nothing at all" do
@@ -1032,7 +1032,16 @@ defmodule Whiska.SidebarTest do
       assert snippet =~
                ~r/\$whiska_ctx".*\$whiska_ctx_warn".*\$whiska_ctx_full".*\$whiska".*\$whiska_topic"/s
 
-      assert snippet =~ ~r/\$whiska_mr".*\$whiska_ci"/
+      assert snippet =~ ~r/\$whiska_mr".*\$whiska_ci".*\$whiska_review"/s
+    end
+
+    test "colour alone: nothing is bold, and the greens are green, not Solarized's olive" do
+      snippet = Sidebar.snippet()
+
+      refute snippet =~ "bold"
+      refute snippet =~ "#859900"
+      assert snippet =~ ~s(starts_with = "✓", fg = "#3fb950")
+      assert snippet =~ "row_gap = 0"
     end
   end
 end

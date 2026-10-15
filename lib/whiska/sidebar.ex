@@ -5,7 +5,7 @@ defmodule Whiska.Sidebar do
   `whiska_ctx`, `whiska_ctx_warn` or `whiska_ctx_full`, by how near its
   auto-compact window it is; `whiska`, its state, for a state herdr's own icon
   does not show; `whiska_topic`, what a working mouse is on; and `whiska_mr`,
-  `whiska_ci`, `whiska_review`, the merge request its branch waits on
+  `whiska_ci`, `whiska_review`, the merge request its branch waits on, on one row
   (ADR-0087). Under the main checkout's workspace, `whiska`, `whiska_q` and
   `whiska_q2` say what is true of the whole repo.
 
@@ -29,8 +29,7 @@ defmodule Whiska.Sidebar do
     ["whiska_ctx", "whiska_ctx_warn", "whiska_ctx_full", "whiska", "whiska_topic"],
     ["whiska_q"],
     ["whiska_q2"],
-    ["whiska_mr", "whiska_ci"],
-    ["whiska_review"]
+    ["whiska_mr", "whiska_ci", "whiska_review"]
   ]
 
   # The colour key: the person's herdr config colours a line by its first
@@ -42,7 +41,7 @@ defmodule Whiska.Sidebar do
     {"⚠", "#dc322f"},
     {"✖", "#dc322f"},
     {"?", "#dc322f"},
-    {"✅", "#859900"},
+    {"✅", "#3fb950"},
     {"⏳", "#b58900"},
     {"🎯", "#6c71c4"},
     {"💤", "#6c71c4"},
@@ -52,10 +51,10 @@ defmodule Whiska.Sidebar do
   ]
 
   # The merge request's pipeline and review, coloured by their own words.
-  @pipeline_colours [{"✓", "#859900"}, {"◐", "#268bd2"}, {"✗", "#dc322f"}]
+  @pipeline_colours [{"✓", "#3fb950"}, {"◐", "#268bd2"}, {"✗", "#dc322f"}]
   @review_colours [
-    {"ready", "#859900"},
-    {"merged", "#859900"},
+    {"ready", "#3fb950"},
+    {"merged", "#3fb950"},
     {"closed", "#dc322f"},
     {"deleted", "#dc322f"},
     {"unread", "#93a1a1"}
@@ -411,18 +410,18 @@ defmodule Whiska.Sidebar do
   def snippet do
     """
     [ui.sidebar.spaces]
+    row_gap = 0
     rows = [
       ["state_icon", { token = "workspace", fg = "#586e75", dim = false }],
       ["branch", "git_status"],
-      [{ token = "$whiska_ctx", fg = "#93a1a1" }, { token = "$whiska_ctx_warn", fg = "#b58900" }, { token = "$whiska_ctx_full", fg = "#dc322f", bold = true }, { token = "$whiska", fg = "#657b83", dim = false, rules = [
+      [{ token = "$whiska_ctx", fg = "#93a1a1" }, { token = "$whiska_ctx_warn", fg = "#b58900" }, { token = "$whiska_ctx_full", fg = "#dc322f" }, { token = "$whiska", fg = "#657b83", dim = false, rules = [
     #{rules(@colours)}
       ] }, { token = "$whiska_topic", fg = "#657b83" }],
       [{ token = "$whiska_q", fg = "#93a1a1" }],
       [{ token = "$whiska_q2", fg = "#93a1a1" }],
       [{ token = "$whiska_mr", fg = "#93a1a1" }, { token = "$whiska_ci", fg = "#93a1a1", rules = [
     #{rules(@pipeline_colours)}
-      ] }],
-      [{ token = "$whiska_review", fg = "#b58900", rules = [
+      ] }, { token = "$whiska_review", fg = "#b58900", rules = [
     #{rules(@review_colours)}
       ] }],
     ]

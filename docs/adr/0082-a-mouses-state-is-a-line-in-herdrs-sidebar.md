@@ -71,17 +71,17 @@ A dead mouse (ADR-0026) has no line; what it left is counted on the main checkou
 free string, a topic or a branch, is stripped to one line with no control characters before
 it reaches herdr.
 
-**The merge request the mouse's branch waits on is two more rows** (ADR-0087), what the
-owl last read of it (ADR-0060):
+**The merge request the mouse's branch waits on is one more row** (ADR-0087), what the
+owl last read of it (ADR-0060), as three tokens joined by ` · `:
 
-- `whiska_mr` and `whiska_ci` on one row: the request named the way its forge names it,
-  `⎇ !123` or `⎇ #12`, then its head pipeline, `✓`, `◐` or `✗`.
-- `whiska_review` on the next: `2 threads open`, `ready to merge`, or, once it is no
-  longer open, `merged`, `closed`, `deleted`; `unread 20m` when reads have failed three
-  minutes or more, in place of all of it.
+- `whiska_mr`: the request named the way its forge names it, `⎇ !123` or `⎇ #12`.
+- `whiska_ci`: its head pipeline, `✓`, `◐` or `✗`.
+- `whiska_review`: `2 threads open`, `ready to merge`, or, once it is no longer open,
+  `merged`, `closed`, `deleted`; `unread 20m` when reads have failed three minutes or
+  more, in place of all of it.
 
 A part with nothing to say is left out, so before the first read, and for a forge the owl
-does not read, the rows are `⎇ !123` alone. herdr cuts a row at the sidebar's width.
+does not read, the row is `⎇ !123` alone. herdr cuts a row at the sidebar's width.
 
 **The line carries the mouse's context size first**, `142K`: the input, cache-read and
 cache-creation tokens of the last assistant message in its transcript, read the same way
