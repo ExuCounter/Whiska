@@ -270,14 +270,10 @@ defmodule Whiska.Spawn do
           deny_said ++
           ["whiska: #{Clone.run(main, worktree)}."]
 
-      {:ok, %{flags: launch_flags(shape), said: said}}
+      flags = Shape.claude_args(shape) ++ DenyList.claude_args() ++ Brief.claude_args()
+      {:ok, %{flags: flags, said: said}}
     end
   end
-
-  @doc "The flags every mouse of `shape` starts Claude with: its shape, bypass mode and deny list, its brief."
-  @spec launch_flags(Shape.t()) :: [String.t()]
-  def launch_flags(shape),
-    do: Shape.claude_args(shape) ++ DenyList.claude_args() ++ Brief.claude_args()
 
   # The branch the main checkout is on is the one the worktree was just cut
   # from, which is what the mouse's branch is measured against. A detached

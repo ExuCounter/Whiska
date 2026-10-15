@@ -17,10 +17,7 @@ session but a mouse, into its own pane, about its own work:
   its worktree, only under the doorbell's bounds and only when nothing of it waits on the
   person (ADR-0060);
 - when no mouse on that branch is live, the same line as the first prompt of a mouse the
-  owl starts there, after `Your task:` (ADR-0060);
-- on a mouse herdr restored without its launch flags, `/exit`, only into an idle pane with
-  an empty prompt box, one attempt per mouse until it is seen with its flags again, before Claude is started in the same
-  pane as `claude --resume <its session>` with the flags it was spawned with (ADR-0069).
+  owl starts there, after `Your task:` (ADR-0060).
 
 Spawn, send and tell run on the person's word, from the main session; a review round runs on
 the forge's, and its letter holds links, ids and usernames cut to plain characters,
@@ -52,8 +49,7 @@ nothing to do with. A pickup spends the turn on the stalled mouse's own unfinish
 which cannot resume without one; a doorbell's turn is the answer arriving; and a spawn or
 a send is the person handing that mouse its task or their words, which it is there to act
 on. A letter is the person's own words, which they asked one repo's main session to pass
-to another's. A restart ends no work: the conversation is resumed, and only the launch flags herdr's own
-restore dropped are put back. A review round is the mouse's own merge request coming back to it: the work it was
+to another's. A review round is the mouse's own merge request coming back to it: the work it was
 there for, and nothing it pushes or posts to a person's thread goes without the person's
 yes.
 
@@ -99,8 +95,3 @@ Changed on 2026-10-15: a main session leaves a letter in another open house with
 tell`, on the person's word, and that house's delivery types one fixed line pointing at
 it, where houses never called each other before. A main session told to pass something to
 another repo's had no way to, short of guessing that session's name.
-
-Changed on 2026-10-15: the owl types `/exit` into a mouse's idle pane and starts Claude there
-again, when herdr's session restore resumed it without its launch flags. A mouse that came
-back as a bare `claude --resume` ran in the person's default mode, where Claude Code's
-classifier blocked work a mouse may do (ADR-0069).

@@ -182,7 +182,6 @@ defmodule Whiska.Owl.House do
   alias Whiska.Question.FromOwl
   alias Whiska.Question.Marker
   alias Whiska.Reminder
-  alias Whiska.Restart
   alias Whiska.ReviewRound
   alias Whiska.ReviewStart
   alias Whiska.ServiceManager
@@ -275,7 +274,6 @@ defmodule Whiska.Owl.House do
     read_due: %{},
     starting: %{},
     picked_now: MapSet.new(),
-    restarted: MapSet.new(),
     fetch_due_at: nil,
     fetch_wait_ms: nil,
     fetch_failing: false,
@@ -456,7 +454,6 @@ defmodule Whiska.Owl.House do
       state
       |> reconcile_panes()
       |> subscribe()
-      |> restart()
       |> collect_now()
       |> deliver()
       |> pick_up()
@@ -556,7 +553,6 @@ defmodule Whiska.Owl.House do
     state =
       state
       |> refresh()
-      |> restart()
       |> collect_on_backstop()
       |> deliver()
       |> clean_up()
@@ -1753,56 +1749,6 @@ defmodule Whiska.Owl.House do
 
   defp not_taken_hoot(state, q, branch),
     do: hoot_out(state, Hoot.not_taken(q, Path.basename(state.main_checkout), branch))
-
-  # A mouse herdr restored without its launch flags is started again with
-  # them, before anything else is typed into it (ADR-0044, ADR-0069). Each
-  # mouse is tried once per owl run, whatever came of it.
-  defp restart(%{socket: nil} = state), do: state
-
-  defp restart(state) do
-    %{
-      main_checkout: state.main_checkout,
-      herdr: state.herdr,
-      socket: state.socket,
-      panes: state.last_panes,
-      main_pane: state.main_pane,
-      restarted: state.restarted
-    }
-    |> Restart.sweep()
-    |> Enum.reduce(state, &restarted/2)
-  end
-
-  defp restarted({mouse_id, :restarted}, state) do
-    warn(state, "#{label(mouse_id)} came back from herdr without its launch flags — restarted it")
-    tried(state, mouse_id)
-  end
-
-  defp restarted({mouse_id, {:left, {:refused, _} = why}}, state),
-    do: failed(state, mouse_id, why)
-
-  defp restarted({mouse_id, {:left, {:start_refused, _} = why}}, state),
-    do: failed(state, mouse_id, why)
-
-  defp restarted({mouse_id, {:left, :exit_timeout = why}}, state),
-    do: failed(state, mouse_id, why)
-
-  defp restarted({mouse_id, {:left, :flagged}}, state),
-    do: %{state | restarted: MapSet.delete(state.restarted, mouse_id)}
-
-  defp restarted(_left, state), do: state
-
-  defp failed(state, mouse_id, why) do
-    warn(
-      state,
-      "#{label(mouse_id)} came back from herdr without its launch flags and could not be " <>
-        "restarted (#{inspect(why)})"
-    )
-
-    hoot_out(state, Hoot.not_restarted(label(mouse_id), Path.basename(state.main_checkout)))
-    tried(state, mouse_id)
-  end
-
-  defp tried(state, mouse_id), do: %{state | restarted: MapSet.put(state.restarted, mouse_id)}
 
   # Picking up a turn that died, on the same backstop and for the same reason
   # cleanup rides it: a turn dies outside Whiska entirely, so there is nothing

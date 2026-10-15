@@ -107,7 +107,6 @@ C4Container
   Rel(house, herdr, "Types one question at a time into the main session when idle, and ahead of them a letter another house left")
   Rel(house, herdr, "Rings a mouse's doorbell again, at most three times, while its answer is not taken")
   Rel(house, herdr, "Types a pickup line into a mouse's pane when its turn died, again while it dies on an API error")
-  Rel(house, herdr, "Restarts a mouse herdr restored without its launch flags: types /exit into its idle pane, starts Claude again with --resume and the flags it was spawned with")
   Rel(house, herdr, "Types a review round's one fixed line into a mouse's idle pane, pointing at the letter it wrote in the worktree")
   Rel(house, herdr, "Starts a review mouse when none is live: opens its worktree without focus, starts Claude with the review brief, types the same line")
   Rel(house, brief, "Writes a review mouse's")
