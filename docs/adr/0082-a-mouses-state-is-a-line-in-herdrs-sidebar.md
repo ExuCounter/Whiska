@@ -77,7 +77,7 @@ owl last read of it (ADR-0060), as three tokens joined by ` · `:
 
 - `whiska_mr`: the request named the way its forge names it, `⎇ !123` or `⎇ #12`.
 - `whiska_ci`: its head pipeline, `✓`, `◐` or `✗`.
-- `whiska_review`: `2 threads open`, `ready to merge`, or, once it is no longer open,
+- `whiska_review`: `2 open`, `ready`, or, once it is no longer open,
   `merged`, `closed`, `deleted`; `unread 20m` when reads have failed three minutes or
   more, in place of all of it.
 

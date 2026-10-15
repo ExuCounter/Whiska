@@ -253,9 +253,9 @@ defmodule Whiska.Sidebar do
   defp pipeline("passed"), do: "✓"
   defp pipeline(_none), do: nil
 
-  defp review(%{ready: true}), do: "ready to merge"
-  defp review(%{threads_open: 1}), do: "1 thread open"
-  defp review(%{threads_open: open}) when open > 1, do: "#{open} threads open"
+  defp review(%{ready: true}), do: "ready"
+  defp review(%{threads_open: 1}), do: "1 open"
+  defp review(%{threads_open: open}) when open > 1, do: "#{open} open"
   defp review(_quiet), do: nil
 
   # First match wins: a hold is the person's own word on the mouse, a question

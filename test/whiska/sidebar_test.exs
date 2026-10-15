@@ -751,14 +751,14 @@ defmodule Whiska.SidebarTest do
     end
 
     test "the pipeline and the review are tokens of their own, each with its own colour" do
-      assert mr_row(pipeline: "failed", threads_open: 2) == "⎇ !123 | ✗ | 2 threads open"
-      assert mr_row(pipeline: "running", threads_open: 1) == "⎇ !123 | ◐ | 1 thread open"
-      assert mr_row(pipeline: "passed", ready: true) == "⎇ !123 | ✓ | ready to merge"
-      assert mr_row(pipeline: nil, threads_open: 3) == "⎇ !123 | 3 threads open"
+      assert mr_row(pipeline: "failed", threads_open: 2) == "⎇ !123 | ✗ | 2 open"
+      assert mr_row(pipeline: "running", threads_open: 1) == "⎇ !123 | ◐ | 1 open"
+      assert mr_row(pipeline: "passed", ready: true) == "⎇ !123 | ✓ | ready"
+      assert mr_row(pipeline: nil, threads_open: 3) == "⎇ !123 | 3 open"
     end
 
-    test "ready to merge is what the review says, open threads or not" do
-      assert mr_row(ready: true, threads_open: 2) == "⎇ !123 | ✓ | ready to merge"
+    test "ready is what the review says, open threads or not" do
+      assert mr_row(ready: true, threads_open: 2) == "⎇ !123 | ✓ | ready"
     end
 
     test "with nothing to say of the review, the row is the name and the pipeline" do
@@ -993,7 +993,7 @@ defmodule Whiska.SidebarTest do
         )
 
       assert Sidebar.render(%{}, Sidebar.mice(board, now: @now)) ==
-               "feat-a\n  Orders\n  ⎇ !123 · ✗ · 2 threads open"
+               "feat-a\n  Orders\n  ⎇ !123 · ✗ · 2 open"
     end
 
     test "a quiet repo prints nothing at all" do
