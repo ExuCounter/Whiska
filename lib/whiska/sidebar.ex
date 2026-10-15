@@ -56,6 +56,8 @@ defmodule Whiska.Sidebar do
   @pipeline_colours [{"✓", "#3fb950"}, {"◐", "#268bd2"}, {"✗", "#dc322f"}]
   @review_colours [
     {"ready", "#3fb950"},
+    {"auto-merge", "#268bd2"},
+    {"merging", "#268bd2"},
     {"conflict", "#dc322f"},
     {"blocked", "#dc322f"},
     {"draft", "#93a1a1"},
@@ -273,6 +275,13 @@ defmodule Whiska.Sidebar do
   defp pipeline("passed"), do: "✓"
   defp pipeline(_none), do: nil
 
+  # Merging, or the forge set to merge it itself, means nothing is left for the
+  # person; but a real blocker stops an auto-merge from firing, so it wins.
+  defp review(%{merging: "now"}), do: "merging"
+
+  defp review(%{merging: "auto", blocker: nil}), do: "auto-merge"
+  defp review(%{merging: "auto"} = read), do: review(%{read | merging: nil, ready: false})
+
   defp review(%{ready: true}), do: "ready"
   defp review(%{blocker: blocker}) when is_map_key(@blockers, blocker), do: @blockers[blocker]
   # The forge says threads block it but the count read none: still say so.
@@ -283,6 +292,7 @@ defmodule Whiska.Sidebar do
   # a thread ending on the person's own word waits on the reviewer. All of them
   # waiting is `waiting`, never both words.
   defp open(%{ready: true}), do: nil
+  defp open(%{merging: "now"}), do: nil
 
   defp open(%{threads_open: open} = read) when is_integer(open) and open > 0 do
     case open - min(read.threads_answered || 0, open) do

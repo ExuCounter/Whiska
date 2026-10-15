@@ -49,8 +49,15 @@ defmodule Whiska.Forge do
           updated_at: String.t() | nil,
           source_branch: String.t() | nil,
           ready?: boolean(),
-          blocker: blocker()
+          blocker: blocker(),
+          merging: merging()
         }
+
+  @typedoc """
+  `:auto` when the forge will merge an open request by itself once its checks
+  pass, `:now` when it is in the middle of merging, nil otherwise.
+  """
+  @type merging :: :auto | :now | nil
 
   @typedoc """
   The one thing the forge names as keeping a merge request from merging, or

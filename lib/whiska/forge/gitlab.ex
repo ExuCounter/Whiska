@@ -229,7 +229,8 @@ defmodule Whiska.Forge.GitLab do
        updated_at: string(body["updated_at"]),
        source_branch: string(body["source_branch"]),
        ready?: body["detailed_merge_status"] == "mergeable",
-       blocker: blocker(body["detailed_merge_status"])
+       blocker: blocker(body["detailed_merge_status"]),
+       merging: merging(state, body)
      }}
   end
 
@@ -250,6 +251,18 @@ defmodule Whiska.Forge.GitLab do
   defp blocker(status) when status in @no_blocker, do: nil
   defp blocker(status) when is_binary(status), do: :blocked
   defp blocker(_none), do: nil
+
+  # `locked` is GitLab's word for a request in the middle of merging; the
+  # auto-merge flags (`merge_when_pipeline_succeeds`, and `auto_merge_enabled`,
+  # which a merge train sets too) matter only while it is still open.
+  defp merging("locked", _body), do: :now
+
+  defp merging("opened", body) do
+    if body["auto_merge_enabled"] == true or body["merge_when_pipeline_succeeds"] == true,
+      do: :auto
+  end
+
+  defp merging(_state, _body), do: nil
 
   # `locked` is GitLab's word for a merge request in the middle of merging.
   defp state("merged"), do: :merged

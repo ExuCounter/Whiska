@@ -36,7 +36,8 @@ defmodule Whiska.MergeRequestsTest do
         notes_count: 3,
         updated_at: "2026-10-14T08:59:00Z",
         ready?: false,
-        blocker: nil
+        blocker: nil,
+        merging: nil
       },
       Map.new(fields)
     )
@@ -71,7 +72,13 @@ defmodule Whiska.MergeRequestsTest do
 
   describe "the first read" do
     test "takes the comments already there as seen, but not an open thread or a failed pipeline" do
-      failed = snapshot(pipeline: %{id: 101, status: :failed, sha: @head}, blocker: :approval)
+      failed =
+        snapshot(
+          pipeline: %{id: 101, status: :failed, sha: @head},
+          blocker: :approval,
+          merging: :auto
+        )
+
       open = [%{id: 40, author: "bot", discussion_id: "d1", open: true}]
 
       {attrs, events} =
@@ -97,6 +104,7 @@ defmodule Whiska.MergeRequestsTest do
       assert attrs.threads_open == 2
       assert attrs.pipeline == "failed"
       assert attrs.blocker == "approval"
+      assert attrs.merging == "auto"
       assert attrs.read_at == @now
     end
 

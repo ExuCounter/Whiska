@@ -63,8 +63,26 @@ defmodule Whiska.Forge.GitLabTest do
              updated_at: "2026-10-13T17:31:14.238Z",
              source_branch: "feat-a",
              ready?: false,
-             blocker: :rebase
+             blocker: :rebase,
+             merging: nil
            }
+  end
+
+  test "GitLab's auto-merge flags and its locked state say the request is merging",
+       %{fake: fake} = ctx do
+    for {fields, merging} <- [
+          {%{}, nil},
+          {%{"merge_when_pipeline_succeeds" => true}, :auto},
+          {%{"auto_merge_enabled" => true}, :auto},
+          {%{"auto_merge_enabled" => false, "merge_when_pipeline_succeeds" => false}, nil},
+          {%{"state" => "locked"}, :now},
+          {%{"state" => "locked", "auto_merge_enabled" => true}, :now},
+          {%{"state" => "merged", "auto_merge_enabled" => true}, nil},
+          {%{"state" => "closed", "merge_when_pipeline_succeeds" => true}, nil}
+        ] do
+      FakeGlab.answer(fake, @mr, merge_request(fields))
+      assert {:ok, %{merging: ^merging}} = GitLab.merge_request(ctx.ref, ctx.run)
+    end
   end
 
   test "GitLab's states and pipeline statuses fold into Whiska's few", %{fake: fake} = ctx do

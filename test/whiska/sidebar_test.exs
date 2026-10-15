@@ -821,6 +821,20 @@ defmodule Whiska.SidebarTest do
       assert mr_row(pipeline: nil, threads_open: 3) == "⎇ !123 | 3 open"
     end
 
+    test "auto-merge and merging say nothing is left for the person; a blocker still wins" do
+      assert mr_row(merging: "auto", pipeline: "running") == "⎇ !123 | ◐ | auto-merge"
+      assert mr_row(merging: "auto", ready: true) == "⎇ !123 | ✓ | auto-merge"
+      assert mr_row(merging: "auto", blocker: "threads", threads_open: 2) == "⎇ !123 | ✓ | 2 open"
+      assert mr_row(merging: "now", ready: true, threads_open: 2) == "⎇ !123 | ✓ | merging"
+      assert mr_row(merging: "auto", blocker: "conflict") == "⎇ !123 | ✓ | conflict"
+
+      assert mr_row(merging: "auto", blocker: "approval", threads_open: 1) ==
+               "⎇ !123 | ✓ | needs approval | 1 open"
+
+      assert mr_row(merging: "now", blocker: "conflict") == "⎇ !123 | ✓ | merging"
+      assert mr_row(state: "merged", merging: "auto") == "⎇ !123 | merged"
+    end
+
     test "open counts only the threads on the person; all answered says waiting, never both" do
       assert mr_row(threads_open: 3, threads_answered: 2) == "⎇ !123 | ✓ | 1 open"
       assert mr_row(threads_open: 2, threads_answered: 2) == "⎇ !123 | ✓ | waiting"

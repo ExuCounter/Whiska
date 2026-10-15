@@ -52,7 +52,8 @@ defmodule Whiska.Storage do
     {25, Whiska.Migrations.V025PickupRetries},
     {26, Whiska.Migrations.V026MergeRequestBlocker},
     {27, Whiska.Migrations.V027HouseLetters},
-    {28, Whiska.Migrations.V028ThreadsAnswered}
+    {28, Whiska.Migrations.V028ThreadsAnswered},
+    {29, Whiska.Migrations.V029MergeRequestMerging}
   ]
 
   @modes ~w(build sniff)

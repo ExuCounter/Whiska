@@ -80,7 +80,10 @@ owl last read of it (ADR-0060), as four tokens joined by ` · `:
   `conflict`, `draft`, `needs rebase`, `blocked` for any other (a changes request
   is none: its threads say it), `threads` when threads block it but none were counted; or `ready`. A
   pipeline that must pass or still runs, and the forge still checking, add none: the
-  pipeline sign says it.
+  pipeline sign says it. `auto-merge` (blue) instead when the forge will merge it by itself
+  once its checks pass, and `merging` (blue) while it merges, GitLab's `locked`: nothing is
+  left for the person. A blocker above wins over `auto-merge`, since it stops the merge from
+  firing; `merging` wins over all. Both come from the same read.
 - `whiska_open`: `2 open`, the unresolved threads on the person (the newest note is not
   the account's own), whenever any are and the request is not `ready`, beside the blocker
   word, never in its place; `waiting` (grey) instead when every open thread ends on the
@@ -255,3 +258,5 @@ Changed on 2026-10-15: the review says the forge's one blocker in a word (`needs
 Changed on 2026-10-15: the review word and the open-thread count are two tokens (`whiska_review`, `whiska_open`), so a blocker no longer hides open threads; `rebase` is `needs rebase`, and `changes` is gone (a changes request is `blocked`, its threads counted beside it).
 
 Changed on 2026-10-15: a changes request is no blocker word, and `whiska_open` counts only the threads on the person, `waiting` (grey) when every open thread waits on the reviewer.
+
+Changed on 2026-10-15: the review word is `auto-merge` while the forge will merge the request itself, and `merging` while it merges; a blocker wins over `auto-merge`.
