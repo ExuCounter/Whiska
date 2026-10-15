@@ -463,11 +463,50 @@ defmodule Whiska.Owl.House do
   end
 
   @impl true
-  def terminate(_reason, state) do
+  def terminate(reason, state) do
     drop_subscription(state)
     Storage.close(state.repo)
-    :ok
+    crashed(state, reason)
+  catch
+    _kind, _reason -> :ok
   end
+
+  # The owl's Logger is off, so this line is the only trace a crash leaves.
+  defp crashed(_state, reason) when reason in [:normal, :shutdown], do: :ok
+  defp crashed(_state, {:shutdown, _}), do: :ok
+  defp crashed(state, reason), do: warn(state, "the house crashed #{crash(reason)}")
+
+  defp crash({error, [{module, _, _, _} | _] = stacktrace}) when is_atom(module) do
+    exception = Exception.normalize(:error, error, stacktrace)
+    message = exception |> Exception.message() |> String.replace(~r/\s+/, " ")
+    "(#{short(inspect(exception.__struct__) <> ": " <> message)})#{at(stacktrace)}"
+  rescue
+    _ -> "(#{short(inspect(error, limit: 5))})"
+  end
+
+  defp crash(reason), do: "(#{short(inspect(reason, limit: 5))})"
+
+  # The first frame with a file: an undefined function's own frame has none.
+  # A frame's arguments can be the whole house state, so only its arity is said.
+  defp at(stacktrace) do
+    case Enum.find(stacktrace, &has_file?/1) do
+      {module, fun, args, location} ->
+        " in " <> short(Exception.format_stacktrace_entry({module, fun, arity(args), location}))
+
+      nil ->
+        ""
+    end
+  end
+
+  defp has_file?({_, _, _, location}) when is_list(location),
+    do: Keyword.has_key?(location, :file)
+
+  defp has_file?(_frame), do: false
+
+  defp arity(args) when is_list(args), do: length(args)
+  defp arity(arity), do: arity
+
+  defp short(text), do: String.slice(text, 0, 300)
 
   # -- calls -------------------------------------------------------------------
 

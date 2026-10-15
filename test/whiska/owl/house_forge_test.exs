@@ -423,6 +423,60 @@ defmodule Whiska.Owl.HouseForgeTest do
     assert [_once] = Regex.scan(~r/#note_12\b/, handed)
   end
 
+  test "review kept for a mouse with a transcript leaves its merge request read every minute",
+       %{repo: repo, path: path, forge: forge} do
+    record_merge_request(repo)
+    FakeGlab.answer(forge, "user", %{"id" => 1, "username" => "me"})
+    FakeGlab.answer(forge, @mr, merge_request([]))
+    FakeGlab.answer(forge, @discussions, [])
+    idle_mouse(path)
+
+    stub(Herdr, :list_panes, fn @socket ->
+      {:ok,
+       [
+         %{
+           pane_id: "w1:p1",
+           cwd: path,
+           agent: "claude",
+           agent_status: "working",
+           title: nil,
+           session: nil
+         }
+       ]}
+    end)
+
+    transcripts = Whiska.Transcript.project_dir(path, Whiska.ServiceManager.user_home())
+    File.mkdir_p!(transcripts)
+    on_exit(fn -> File.rm_rf!(transcripts) end)
+    File.write!(Path.join(transcripts, "session.jsonl"), ~s({"type":"user"}\n))
+    kept = %{comments: [%{id: 9, author: "alice", discussion_id: "d9"}], pipeline: nil}
+    pushed = "e799b60f94e799b60f94e799b60f94e799b60f94"
+
+    capture_io(:stderr, fn ->
+      house = open(repo, forge, [])
+      until(fn -> match?(%{read_at: %DateTime{}}, row(repo)) end)
+
+      in_house(house, fn ->
+        :ok =
+          MergeRequests.save(%{mouse_id: "ma", pending: MergeRequestRead.encode_pending(kept)})
+      end)
+
+      FakeGlab.answer(
+        forge,
+        @mr,
+        merge_request(
+          sha: pushed,
+          head_pipeline: %{"id" => 2, "status" => "running", "sha" => pushed}
+        )
+      )
+
+      until(fn -> match?(%{pipeline: "running"}, row(repo)) end)
+      House.sync(house)
+    end)
+
+    assert %{head_sha: ^pushed, pipeline: "running"} = row(repo)
+  end
+
   defp letters(path),
     do: path |> Path.join(".whiska-letters/*.md") |> Path.wildcard() |> Enum.map(&File.read!/1)
 

@@ -46,7 +46,11 @@ defmodule Whiska.Owl.HouseTest do
   defp start_house(opts, id) do
     name = :"house-#{System.unique_integer([:positive])}"
     allow(Herdr, self(), fn -> Process.whereis(name) end)
-    start_supervised!(Supervisor.child_spec({House, [name: name] ++ opts}, id: id))
+    {restart, opts} = Keyword.pop(opts, :restart, :permanent)
+
+    start_supervised!(
+      Supervisor.child_spec({House, [name: name] ++ opts}, id: id, restart: restart)
+    )
   end
 
   defp worktree(main, branch) do
@@ -1306,6 +1310,64 @@ defmodule Whiska.Owl.HouseTest do
       refute Process.alive?(repo)
       assert_receive {:DOWN, ^ref, :process, ^sub, _}
       assert File.exists?(Storage.database_path(main))
+    end
+
+    test "a house that crashes says so in the log, with where", %{main: main, a: a} do
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+
+      log =
+        capture_io(:stderr, fn ->
+          house = open(main, restart: :temporary)
+          ref = Process.monitor(house)
+          send(house, :nobody_handles_this)
+          assert_receive {:DOWN, ^ref, :process, ^house, _reason}
+        end)
+
+      assert [line] = String.split(log, "\n", trim: true)
+
+      assert line =~
+               ~r/whiska \[myrepo\]: the house crashed \(FunctionClauseError: .*\) in .*lib\/whiska\/owl\/house\.ex:\d+: Whiska\.Owl\.House\.handle_info\/2\z/
+    end
+
+    test "a house that exits with any other reason says it, in one short line", %{
+      main: main,
+      a: a
+    } do
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+
+      log =
+        capture_io(:stderr, fn ->
+          house = open(main, restart: :temporary)
+          ref = Process.monitor(house)
+          GenServer.stop(house, {:odd, [a: String.duplicate("x", 5_000)]})
+          assert_receive {:DOWN, ^ref, :process, ^house, _reason}
+        end)
+
+      assert [line] = String.split(log, "\n", trim: true)
+      assert line =~ ~r/whiska \[myrepo\]: the house crashed \(\{:odd, /
+      assert String.length(line) < 500
+    end
+
+    test "a house shut on purpose says nothing", %{main: main, a: a} do
+      stub(Herdr, :list_panes, fn @socket -> panes([pane("w1:p1", a)]) end)
+      stub(Herdr, :subscribe, fn @socket, _, _ -> fake_subscription() end)
+
+      log =
+        capture_io(:stderr, fn ->
+          for reason <- [:normal, {:shutdown, :closed}] do
+            house = open(main, id: reason, restart: :temporary)
+            ref = Process.monitor(house)
+            GenServer.stop(house, reason)
+            assert_receive {:DOWN, ^ref, :process, ^house, ^reason}
+          end
+
+          open(main, id: :supervised)
+          :ok = stop_supervised!(:supervised)
+        end)
+
+      assert log == ""
     end
   end
 end

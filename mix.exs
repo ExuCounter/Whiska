@@ -17,8 +17,13 @@ defmodule Whiska.MixProject do
   def cli, do: [preferred_envs: ["test.e2e": :test]]
 
   # The end-to-end test is tagged out of `mix test` so the ordinary suite stays
-  # fast; this runs it alone.
-  defp aliases, do: ["test.e2e": ["test --only e2e"]]
+  # fast; this runs it alone. A compile warning fails the suite: a call to a
+  # function that no longer exists is only a warning, and crashes the owl.
+  defp aliases,
+    do: [
+      test: ["compile --warnings-as-errors", "test"],
+      "test.e2e": ["test --only e2e"]
+    ]
 
   # No `mod:` on purpose. The same escript serves the hooks — invoked fresh per
   # event, exiting at once (ADR-0030) — and the owl, which `whiska owl` starts
