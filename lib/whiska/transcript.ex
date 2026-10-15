@@ -1,7 +1,8 @@
 defmodule Whiska.Transcript do
   @moduledoc """
   Claude Code's own JSONL transcript: where a session's file lives, how to read
-  its tail, and whether the mouse has a subagent still out (ADR-0050, ADR-0052).
+  its tail, and whether the mouse has background work still in flight (ADR-0050,
+  ADR-0052).
 
   Two readers sit on top of this. The board asks what a mouse is doing
   (`Whiska.Watch.Transcript`); the `Stop` hook asks whether the turn it was
@@ -49,12 +50,47 @@ defmodule Whiska.Transcript do
   (ADR-0052 named it): an agent that has not reported in that long is not coming
   back, and a reviewer that really is still running costs one delivered progress
   note rather than a mouse nobody hears from.
+
+  ## The rest of the background work
+
+  A subagent is one kind of background work among several, and every other kind
+  is read from the structured result Claude Code records beside the call,
+  `toolUseResult`, on the user entry that answers it — and only for the tool that
+  writes that shape, so another tool's `taskId` launches nothing. Read from real
+  transcripts on 2026-10-14:
+
+    * `Bash` run in the background, or moved there at its timeout:
+      `backgroundTaskId`.
+    * `SendMessage` restarting a subagent that had already reported:
+      `resumedAgentId`. The same id is out again.
+    * `Monitor`: `taskId`, unless `persistent` — a monitor that lasts the
+      session is never waited on.
+    * `Workflow`: `taskId`.
+
+  Each reports with the same `<task-notification>` frame a subagent does, with
+  two that are not reports. A subagent that stopped with work of its own still
+  running reports with a `<note>` saying so, and notifies again when it is truly
+  done. A `Monitor` notifies once per event it sees, and its report is the one
+  carrying a `<status>` when its stream ends, or the event saying it expired. And
+  `TaskStop` ends whatever it names, reported or not: most stopped tasks never
+  notify at all.
   """
 
-  # Enough tail to hold a whole turn, launches included. `Stop` fires once per
-  # turn, and the board reads it on every rebuild only for a working mouse quiet
-  # two minutes, never for every mouse.
-  @tail_bytes 512 * 1024
+  alias Whiska.Question.Marker
+
+  @typedoc "Background work left unreported, and the mouse's last word."
+  @type background :: %{
+          unreported: [{tool :: String.t(), launched_at :: DateTime.t() | nil}],
+          last_word: :unmarked | :marked | :died | nil,
+          said_at: DateTime.t() | nil
+        }
+
+  # Enough tail to reach back to a launch whose report has not come yet. The
+  # furthest any launch on this machine sat from its report, across 871 of them
+  # on 2026-10-14, was 1.54 MB. `Stop` fires once per turn, and the board reads
+  # it on every rebuild only for a working mouse quiet two minutes, never for
+  # every mouse.
+  @tail_bytes 4 * 1024 * 1024
 
   # The session's own header and the start of its first turn; the working
   # directory is named well inside this. Counted in lines rather than bytes,
@@ -82,7 +118,14 @@ defmodule Whiska.Transcript do
   # a report names its own agent in.
   @launched ~r/^agentId: ([A-Za-z0-9_-]+)/m
   @handed_back ~r/<agent-message from="([A-Za-z0-9_-]+)">/
-  @notified ~r|<task-notification>\s*<task-id>([A-Za-z0-9_-]+)</task-id>|
+  @notification "<task-notification>"
+  @notified ~r|\A\s*<task-id>([A-Za-z0-9_-]+)</task-id>|
+  @interim ~r|<note>[^<]*still running|
+
+  @subagent ["Agent", "SendMessage"]
+
+  # Every tool whose call can leave work running after it returns.
+  @backgrounding ["Agent", "Bash", "SendMessage", "Monitor", "Workflow", "TaskStop"]
 
   # What a model id is allowed to look like before `whiska mice` prints it. It
   # also turns away `<synthetic>`, the stamp on a message no model sent.
@@ -264,8 +307,8 @@ defmodule Whiska.Transcript do
   end
 
   @doc """
-  Whether this transcript shows a subagent the mouse launched and has not been
-  handed back. Pure — `now` is passed in — and total: anything it cannot read
+  Whether this transcript shows background work the mouse launched and has not
+  had back. Pure — `now` is passed in — and total: anything it cannot read
   counts as nothing out, which is the direction ADR-0009 already chose — a stop
   that is delivered when it need not have been is noise, and one that is
   swallowed is silence.
@@ -273,15 +316,58 @@ defmodule Whiska.Transcript do
   Only the mouse's own entries count. A subagent's entries are marked
   `isSidechain`, and what it launches is its own business, not the mouse's.
   """
-  @spec subagents_in_flight?(String.t()) :: boolean()
-  @spec subagents_in_flight?(String.t(), DateTime.t()) :: boolean()
-  def subagents_in_flight?(text, now \\ DateTime.utc_now()) do
-    text
-    |> String.split("\n")
-    |> Enum.reduce(%{agent_calls: MapSet.new(), out: %{}}, &account_for/2)
-    |> Map.fetch!(:out)
-    |> Enum.any?(fn {_id, launched_at} -> not abandoned?(launched_at, now) end)
+  @spec in_flight?(String.t() | background()) :: boolean()
+  @spec in_flight?(String.t() | background(), DateTime.t()) :: boolean()
+  def in_flight?(text_or_background, now \\ DateTime.utc_now())
+
+  def in_flight?(text, now) when is_binary(text), do: text |> background() |> in_flight?(now)
+
+  def in_flight?(%{unreported: unreported}, now),
+    do: Enum.any?(unreported, fn {_tool, at} -> not abandoned?(at, now) end)
+
+  @doc """
+  The background work a transcript shows unreported, each by the tool that
+  started it and when, beside the mouse's last word and when it was said:
+  `:unmarked` or `:marked` for the last message it wrote, `:died` for an API
+  error Claude Code wrote in its place, `nil` once anything came after it. Pure;
+  ages are read against a `now` by the functions that take this.
+  """
+  @spec background(String.t()) :: background()
+  def background(text) do
+    %{out: out, last_word: last_word} =
+      text
+      |> String.split("\n")
+      |> Enum.reduce(%{calls: %{}, out: %{}, last_word: nil}, &account_for/2)
+
+    {word, said_at} = last_word || {nil, nil}
+    %{unreported: Map.values(out), last_word: word, said_at: said_at}
   end
+
+  @doc """
+  Whether a subagent the mouse launched or restarted is still out: the one kind
+  of background work herdr keeps a pane working for, by its "Waiting for … background
+  agents" line.
+  """
+  @spec subagent_in_flight?(background(), DateTime.t()) :: boolean()
+  def subagent_in_flight?(%{unreported: unreported}, now),
+    do: Enum.any?(unreported, fn {tool, at} -> tool in @subagent and not abandoned?(at, now) end)
+
+  @doc """
+  Whether the mouse's last stop was passed over (ADR-0052): its last word
+  unmarked, said while background work of its own was in flight. `:in_flight`
+  while that work is inside the half hour, `:abandoned` once all of it is past
+  it.
+  """
+  @spec passed_over(background(), DateTime.t()) :: nil | :in_flight | :abandoned
+  def passed_over(%{last_word: :unmarked, said_at: said_at} = background, now) do
+    cond do
+      not in_flight?(background, said_at || now) -> nil
+      in_flight?(background, now) -> :in_flight
+      true -> :abandoned
+    end
+  end
+
+  def passed_over(_background, _now), do: nil
 
   @doc """
   Whether the session's last real entry is the API error Claude Code writes when
@@ -358,6 +444,8 @@ defmodule Whiska.Transcript do
   end
 
   defp account_for_entry(entry, state) do
+    state = %{state | last_word: last_word(entry, state.last_word)}
+
     case origin(entry) do
       %{"kind" => "human"} ->
         %{state | out: %{}}
@@ -369,6 +457,25 @@ defmodule Whiska.Transcript do
         entry |> account_for_frames(state) |> account_for_blocks(entry)
     end
   end
+
+  defp last_word(%{"type" => "assistant", "isApiErrorMessage" => true} = entry, _was),
+    do: {:died, stamp(entry)}
+
+  defp last_word(%{"type" => "assistant", "message" => %{"content" => content}} = entry, was)
+       when is_list(content) do
+    cond do
+      Enum.any?(content, &match?(%{"type" => "tool_use"}, &1)) -> nil
+      (said = text_of(content)) != "" -> {marked(Marker.classify(said)), stamp(entry)}
+      true -> was
+    end
+  end
+
+  defp last_word(%{"type" => "user"}, _was), do: nil
+  defp last_word(%{"attachment" => %{"type" => "queued_command"}}, _was), do: nil
+  defp last_word(_bookkeeping, was), do: was
+
+  defp marked("unmarked"), do: :unmarked
+  defp marked(_kind), do: :marked
 
   # The `origin` stamp sits on the entry, or — when the report was queued
   # because the mouse was busy — on the attachment that recorded it.
@@ -383,12 +490,34 @@ defmodule Whiska.Transcript do
        when type in ["user", "attachment"] do
     text = Enum.join([prompt_of(entry), said_in(entry)], "\n")
 
-    state
-    |> drop(ids(@notified, text))
+    text
+    |> String.split(@notification)
+    |> tl()
+    |> Enum.reduce(state, &drop_reported/2)
     |> drop_framed_handback(text)
   end
 
   defp account_for_frames(_other, state), do: state
+
+  # Everything from `<result>` or `<event>` on is the work's own output, which can
+  # say anything; Claude Code writes the id, the status and the note before it.
+  defp drop_reported(frame, state) do
+    [frame | _] = String.split(frame, "</task-notification>", parts: 2)
+    [header | output] = String.split(frame, ["<result>", "<event>"], parts: 2)
+
+    with [id] <- Regex.run(@notified, header, capture: :all_but_first),
+         {tool, _launched_at} <- Map.get(state.out, id),
+         true <- reported?(tool, header, Enum.join(output)) do
+      %{state | out: Map.delete(state.out, id)}
+    else
+      _not_a_report -> state
+    end
+  end
+
+  defp reported?("Monitor", header, output),
+    do: header =~ "<status>" or String.starts_with?(output, "[Monitor expired")
+
+  defp reported?(_tool, header, _output), do: not (header =~ @interim)
 
   defp drop_framed_handback(state, text) do
     if String.contains?(text, "[Subagent hand-back]"),
@@ -410,9 +539,9 @@ defmodule Whiska.Transcript do
 
   defp account_for_blocks(state, %{"message" => %{"content" => content}} = entry)
        when is_list(content) do
-    launched_at = stamp(entry)
+    answered = {stamp(entry), entry["toolUseResult"]}
 
-    Enum.reduce(content, state, &account_for_block(&1, &2, launched_at))
+    Enum.reduce(content, state, &account_for_block(&1, &2, answered))
   end
 
   defp account_for_blocks(state, _other), do: state
@@ -426,23 +555,44 @@ defmodule Whiska.Transcript do
 
   defp stamp(_unstamped), do: nil
 
-  defp account_for_block(%{"type" => "tool_use", "name" => "Agent", "id" => id}, state, _at)
-       when is_binary(id) do
-    %{state | agent_calls: MapSet.put(state.agent_calls, id)}
+  defp account_for_block(%{"type" => "tool_use", "name" => tool, "id" => id}, state, _answered)
+       when tool in @backgrounding and is_binary(id) do
+    %{state | calls: Map.put(state.calls, id, tool)}
   end
 
-  defp account_for_block(%{"type" => "tool_result", "tool_use_id" => id} = block, state, at)
+  defp account_for_block(
+         %{"type" => "tool_result", "tool_use_id" => id} = block,
+         state,
+         {launched_at, result}
+       )
        when is_binary(id) do
-    if MapSet.member?(state.agent_calls, id) do
-      launched = @launched |> ids(text_of(block["content"])) |> Map.new(&{&1, at})
+    case Map.get(state.calls, id) do
+      "TaskStop" ->
+        %{state | out: Map.drop(state.out, stopped(result))}
 
-      %{state | out: Map.merge(state.out, launched)}
-    else
-      state
+      nil ->
+        state
+
+      tool ->
+        launched = tool |> launched(block, result) |> Map.new(&{&1, {tool, launched_at}})
+        %{state | out: Map.merge(state.out, launched)}
     end
   end
 
-  defp account_for_block(_other, state, _at), do: state
+  defp account_for_block(_other, state, _answered), do: state
+
+  defp launched("Agent", block, %{"status" => "async_launched"}),
+    do: ids(@launched, text_of(block["content"]))
+
+  defp launched("Bash", _block, %{"backgroundTaskId" => id}) when is_binary(id), do: [id]
+  defp launched("SendMessage", _block, %{"resumedAgentId" => id}) when is_binary(id), do: [id]
+  defp launched("Monitor", _block, %{"persistent" => true}), do: []
+  defp launched("Monitor", _block, %{"taskId" => id}) when is_binary(id), do: [id]
+  defp launched("Workflow", _block, %{"taskId" => id}) when is_binary(id), do: [id]
+  defp launched(_tool, _block, _result), do: []
+
+  defp stopped(%{"task_id" => id}) when is_binary(id), do: [id]
+  defp stopped(_result), do: []
 
   defp text_of(blocks) when is_list(blocks) do
     blocks

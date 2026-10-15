@@ -7,7 +7,11 @@ defmodule Whiska.Pickup do
   seen working, has gone quiet, and has left nothing behind is a mouse whose
   turn ended without finishing — the session is still sitting there with its
   whole context and an error on the screen, and from the outside it is
-  indistinguishable from a branch quietly working.
+  indistinguishable from a branch quietly working. Unless its last stop was
+  passed over while its own background work ran (ADR-0052): Claude Code wakes it
+  when that work reports, so that quiet is a wait, not a death, and once the
+  work is half an hour old the board calls it stuck rather than the owl typing
+  that a turn died.
 
   The owl types one short line into that mouse's own pane and nothing else.
   Never the original prompt: the session still knows what it did, and re-asking
@@ -206,6 +210,7 @@ defmodule Whiska.Pickup do
          :ok <- nothing_chased(mouse, local),
          :ok <- one_attempt(mouse, local),
          :ok <- quiet_long_enough(mouse, look, house),
+         :ok <- not_passed_over(mouse, house),
          :ok <- claude?(pane),
          do: not_the_person(pane, house)
   end
@@ -283,12 +288,22 @@ defmodule Whiska.Pickup do
   # the settling window has nothing left to guard against (ADR-0067's
   # amendment of 2026-10-07). Read only for a pane already reported ready and
   # not yet settled; a transcript that is missing or unreadable says nothing.
-  defp api_error?(%Mouse{path: path}, house) do
+  defp api_error?(mouse, house), do: mouse |> tail(house) |> Transcript.ended_on_api_error?()
+
+  defp not_passed_over(mouse, house) do
+    case mouse |> tail(house) |> Transcript.background() |> Transcript.passed_over(house.now) do
+      :in_flight -> {:leave, :in_flight}
+      :abandoned -> {:leave, :passed_over}
+      nil -> :ok
+    end
+  end
+
+  defp tail(%Mouse{path: path}, house) do
     home = Map.get_lazy(house, :user_home, &ServiceManager.user_home/0)
 
     case Transcript.newest(Transcript.project_dir(path, home)) do
-      {file, _mtime} -> file |> Transcript.tail() |> Transcript.ended_on_api_error?()
-      nil -> false
+      {file, _mtime} -> Transcript.tail(file)
+      nil -> ""
     end
   end
 

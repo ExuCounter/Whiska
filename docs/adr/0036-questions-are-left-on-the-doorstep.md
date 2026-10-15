@@ -81,8 +81,8 @@ mouse (ADR-0026).
 ## What the hook does not write
 
 Two things narrow "every turn", and both are about whose turn it is, never about the
-state of the house. A turn with a background subagent still out has not ended, so nothing
-is written (ADR-0052). A stop firing in the pane `whiska start` recorded as the main
+state of the house. A turn with no marker and the mouse's own background work still out
+has not ended, so nothing is written (ADR-0052). A stop firing in the pane `whiska start` recorded as the main
 session is the person's own, not a mouse's, and writes nothing (ADR-0053); that read runs
 through `Whiska.Isolated`, so a database that will not open cannot take the hook down
 before it writes.

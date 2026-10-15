@@ -16,14 +16,16 @@ defmodule Whiska.Hook.Stop do
   the same worktree and runs in the same pane, and leaves nothing either: it is
   not the mouse (ADR-0084).
 
-  It writes on every turn that ended. A turn with a subagent still out has not
-  ended — Claude Code will wake this session when the subagent reports — and
-  that one is passed over in silence (ADR-0052).
+  It writes on every turn that ended. A turn that ends with no marker while the
+  mouse's own background work is still in flight has not ended — Claude Code
+  will wake this session when that work reports — and that one is passed over in
+  silence (ADR-0052). A marked turn is written whatever is out: the mouse said
+  what it is waiting on.
 
-  It does not classify. The marker is read by the owl on collection (ADR-0009),
-  so a message with no marker is written exactly like one with a `done` in it:
-  forgetting the marker has to make noise, and that decision belongs to the
-  reader, not the writer.
+  That is the only marker it reads. What a marked message means is read by the
+  owl on collection (ADR-0009), so a message with no marker and nothing out is
+  written exactly like one with a `done` in it: forgetting the marker has to
+  make noise.
 
   Outside a worktree — the main session, or any repo Whiska is merely installed
   in — this is a no-op: there is no mouse here to speak for. Which session this
@@ -34,6 +36,7 @@ defmodule Whiska.Hook.Stop do
   alias Whiska.Doorstep
   alias Whiska.Doorstep.Entry
   alias Whiska.Marker
+  alias Whiska.Question.Marker, as: QuestionMarker
   alias Whiska.Session
   alias Whiska.Transcript
 
@@ -55,7 +58,7 @@ defmodule Whiska.Hook.Stop do
          {:ok, layout} <- Session.worktree(payload, env),
          false <- Session.main_session?(layout.main_checkout, env),
          tail = transcript_tail(payload),
-         :over <- turn_state(tail),
+         :over <- turn_state(message(payload), tail),
          false <- Session.nested?(env),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
          {:ok, _file} <- write(layout, mouse_id, payload, Transcript.ran_on(tail)) do
@@ -79,12 +82,12 @@ defmodule Whiska.Hook.Stop do
     end
   end
 
-  # A turn that launched a subagent and has not been handed its report is not
-  # over: Claude Code ends the turn and wakes the session when the subagent
-  # reports (ADR-0052). Writing here would leave "still waiting on the
-  # reviewers" on the doorstep as an unmarked question that asks nothing.
-  defp turn_state(tail) do
-    if Transcript.subagents_in_flight?(tail), do: :in_flight, else: :over
+  # Writing here would leave "still waiting on the reviewers" on the doorstep as
+  # an unmarked question that asks nothing (ADR-0052).
+  defp turn_state(message, tail) do
+    if QuestionMarker.classify(message) == "unmarked" and Transcript.in_flight?(tail),
+      do: :in_flight,
+      else: :over
   end
 
   defp transcript_tail(payload) do

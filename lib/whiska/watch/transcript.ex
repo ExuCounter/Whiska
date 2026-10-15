@@ -18,7 +18,8 @@ defmodule Whiska.Watch.Transcript do
 
   Only the tail is read (`@tail_bytes`). A session's transcript grows all day
   and the board reads every mouse's on every rebuild. What a quiet working mouse
-  waits on (`waiting_on/2`) is read from the longer tail the `Stop` hook reads,
+  waits on (`waiting_on/2`), and whether a quiet idle one's last stop was passed
+  over (`passed_over/2`), are read from the longer tail the `Stop` hook reads,
   and only for that mouse.
   """
 
@@ -42,8 +43,8 @@ defmodule Whiska.Watch.Transcript do
         }
 
   @typedoc """
-  What a silent mouse is waiting on: a subagent still out, or one of its own
-  tool calls with no result written yet. Neither means it waits on the model,
+  What a silent mouse is waiting on: a subagent still in flight, or one of its
+  own tool calls with no result written yet. Neither means it waits on the model,
   which writes nothing until its answer arrives.
   """
   @type waiting :: %{subagent?: boolean(), in_tool?: boolean()}
@@ -112,12 +113,55 @@ defmodule Whiska.Watch.Transcript do
   """
   @spec waiting_on(Path.t(), keyword()) :: waiting()
   def waiting_on(worktree_root, opts \\ []) do
+    %{background: background, pending: pending} = long_read(worktree_root, opts)
+    waiting(background, pending, DateTime.utc_now())
+  end
+
+  @doc """
+  Whether the mouse's last stop was passed over while its own background work
+  runs (`Whiska.Transcript.passed_over/2`), read from the tail the `Stop` hook
+  reads.
+
+  Options: `:user_home`, as `activity/2`; `:now`, the instant ages are read at.
+  """
+  @spec passed_over(Path.t(), keyword()) :: nil | :in_flight | :abandoned
+  def passed_over(worktree_root, opts \\ []) do
+    %{background: background} = long_read(worktree_root, opts)
+    Transcript.passed_over(background, Keyword.get_lazy(opts, :now, &DateTime.utc_now/0))
+  end
+
+  # The long tail is four megabytes, and the board asks for it on every rebuild
+  # for every idle mouse with nothing to say. What was read is kept in the
+  # process building the board, one per worktree, for as long as its newest
+  # transcript stays the same file, size and age.
+  defp long_read(worktree_root, opts) do
     home = Keyword.get_lazy(opts, :user_home, &ServiceManager.user_home/0)
 
-    case newest_transcript(project_dir(worktree_root, home)) do
-      nil -> waiting_on_in("")
-      {file, _mtime} -> file |> Transcript.tail() |> waiting_on_in()
+    with {file, _mtime} <- newest_transcript(project_dir(worktree_root, home)),
+         {:ok, %File.Stat{mtime: mtime, size: size}} <- File.stat(file, time: :posix) do
+      case Process.get({__MODULE__, worktree_root}) do
+        {^file, ^mtime, ^size, read} ->
+          read
+
+        _stale_or_none ->
+          read = file |> Transcript.tail() |> read_long()
+          Process.put({__MODULE__, worktree_root}, {file, mtime, size, read})
+          read
+      end
+    else
+      _no_transcript -> read_long("")
     end
+  end
+
+  defp read_long(text),
+    do: %{background: Transcript.background(text), pending: pending_calls(text)}
+
+  defp waiting(background, pending, now) do
+    %{
+      subagent?:
+        Transcript.subagent_in_flight?(background, now) or "Agent" in Map.values(pending),
+      in_tool?: map_size(pending) > 0
+    }
   end
 
   # A file whose stat failed has no mtime to be silent since, and 1970 would
@@ -133,20 +177,14 @@ defmodule Whiska.Watch.Transcript do
   defdelegate project_dir(worktree_root, user_home), to: Transcript
 
   @doc """
-  What a transcript's text says the mouse is waiting on. A subagent is out while
-  a background one is not yet handed back (`Whiska.Transcript.subagents_in_flight?/1`)
-  or an `Agent` call has no result yet; it writes to its own file, so the
-  mouse's transcript is silent for as long as it runs. Pure, and total.
+  What a transcript's text says the mouse is waiting on. A subagent is in flight
+  while it is not yet reported (`Whiska.Transcript.subagent_in_flight?/2`) or
+  its `Agent` call has no result yet; it writes to its own file, so the mouse's
+  is silent for as long as it runs. Pure, and total.
   """
   @spec waiting_on_in(String.t()) :: waiting()
-  def waiting_on_in(text) do
-    pending = pending_calls(text)
-
-    %{
-      subagent?: Transcript.subagents_in_flight?(text) or "Agent" in Map.values(pending),
-      in_tool?: map_size(pending) > 0
-    }
-  end
+  def waiting_on_in(text),
+    do: waiting(Transcript.background(text), pending_calls(text), DateTime.utc_now())
 
   # Every tool call of the mouse's own with no result written yet, by id, with
   # its tool's name. A background command's receipt is its result, so only a

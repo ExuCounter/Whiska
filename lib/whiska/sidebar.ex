@@ -288,8 +288,9 @@ defmodule Whiska.Sidebar do
   defp state(%{picked_up_at: %DateTime{} = at}, now, _frame),
     do: {@picked_up, "↩ picked up #{age(at, now)} ago", nil}
 
-  defp state(%{status: "working"} = row, _now, frame),
-    do: {@working, "#{spinner(frame)} #{row.topic || row.doing || "working"}", nil}
+  defp state(%{status: status, in_flight?: in_flight?} = row, _now, frame)
+       when status == "working" or in_flight?,
+       do: {@working, "#{spinner(frame)} #{row.topic || row.doing || "working"}", nil}
 
   defp state(_idle, _now, _frame), do: {@idle, "○ idle", nil}
 

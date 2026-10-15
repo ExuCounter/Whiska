@@ -67,6 +67,8 @@ defmodule Whiska.SidebarTest do
       panes: Keyword.get(opts, :panes, {:ok, Keyword.get(opts, :bare_panes, [])}),
       activity: activity(opts),
       waiting_on: waiting_on(opts),
+      passed_over:
+        Keyword.get(opts, :passed_over_reader, fn _mouse -> Keyword.get(opts, :passed_over) end),
       held: Keyword.get(opts, :held),
       mode: Keyword.get(opts, :mode, Mode.none()),
       picked_up: Keyword.get(opts, :picked_up, %{}),
@@ -483,6 +485,42 @@ defmodule Whiska.SidebarTest do
       )
 
       assert_received :looked_back
+    end
+
+    test "an idle pane whose last stop was passed over with work out is working" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "idle", title: "Order builder")],
+               passed_over: :in_flight
+             ) == "◐ Order builder"
+    end
+
+    test "an idle pane whose passed-over work never reported is stuck" do
+      assert said([mouse("feat-a")],
+               bare_panes: [pane("feat-a", "done", title: "Order builder")],
+               silent_for: 40 * 60,
+               passed_over: :abandoned
+             ) == "✖ stuck 40m"
+    end
+
+    test "only an idle mouse with nothing to say is asked about passed-over work" do
+      me = self()
+      asked = fn _mouse -> send(me, :asked) && :abandoned end
+
+      for opts <- [
+            [questions: [question(13, "feat-a", status: "open")]],
+            [finished: [report(14, "feat-a", "## Summary\nShipped.")]],
+            [bare_panes: [pane("feat-a", "working")]]
+          ] do
+        said(
+          [mouse("feat-a")],
+          opts ++ [bare_panes: [pane("feat-a", "idle")], passed_over_reader: asked]
+        )
+
+        refute_received :asked, inspect(opts)
+      end
+
+      said([mouse("feat-a")], bare_panes: [pane("feat-a", "idle")], passed_over_reader: asked)
+      assert_received :asked
     end
 
     test "blocked is stuck even with a subagent out" do

@@ -6,7 +6,8 @@ the mouse and to the person, not to the router.
 
 - **No marker → deliver.** The mouse stopped and did not say why; that is worth
   interrupting for. The question arrives like any other, carrying the whole final message,
-  flagged as having arrived unmarked.
+  flagged as having arrived unmarked. The one exception is a turn that has not really
+  ended, because the mouse's own background work is still out (ADR-0052).
 - **`done` → recorded closed and hooted, never delivered** (ADR-0008, ADR-0062). The
   sidebar line says `✅ finished`, `whiska inbox` lists it apart from what waits, and the
   owl reminds the person while its branch has work to land.
@@ -35,7 +36,8 @@ print is a line made of characters that draw nothing.
 
 The cost: the marker is unreadable to a person debugging it, and a model reproducing
 exact invisible codepoints is less dependable than one typing a word. A garbled marker
-arrives unmarked and is delivered loudly, never swallowed, and the count of unmarked
+arrives unmarked and is delivered loudly, never swallowed (save ADR-0052's turn that has
+not ended), and the count of unmarked
 arrivals is the evidence for whether the marker is worth keeping. The older bracket
 spelling, `[worktree-status: done]`, is still read and never written. Text a mouse merely
 quotes could end in two or three separators; no guard is added, since guessing which lines
@@ -71,8 +73,8 @@ carries no command: a line that reads like code gets acted on. The main session 
 from its brief and runs `whiska show` (ADR-0088). The id stays
 because answers are keyed to it (ADR-0005).
 
-A turn with a background subagent still out is not a stop: the hook writes nothing
-(ADR-0052). Everything the hook cannot read counts as ended, so that rule fails in the
+A turn with no marker and the mouse's own background work still out is not a stop: the
+hook writes nothing (ADR-0052). Everything the hook cannot read counts as ended, so that rule fails in the
 same direction as this one.
 
 ## Considered options

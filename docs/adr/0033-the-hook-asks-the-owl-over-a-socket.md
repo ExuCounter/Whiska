@@ -145,7 +145,7 @@ and the brew formula, for a cost 16 ms already removes almost all of.
 finished turn lost. Rejected.
 
 **Keep `Stop` off the socket**, bash writing the raw payload to the doorstep for the owl to
-parse later. The check for a subagent still out (ADR-0052) would read the transcript
+parse later. The check for background work still out (ADR-0052) would read the transcript
 seconds late. Rejected.
 
 **One socket for both.** Rejected: the hooks write, and the read-only socket's whole value

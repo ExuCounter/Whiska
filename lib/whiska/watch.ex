@@ -75,7 +75,8 @@ defmodule Whiska.Watch do
   last word (`Whiska.Storage.finished/0`), which has no `question_id`: it waits
   on nobody (ADR-0009). `status` is herdr's word for the pane, `done` read as
   `idle`. `topic` and `doing` are read only when nothing about a question or a
-  pane already decides what the row says.
+  pane already decides what the row says. `in_flight?` is an idle pane whose
+  last stop was passed over while its own background work runs (ADR-0052).
   """
   @type row :: %{
           mouse_id: String.t(),
@@ -91,6 +92,7 @@ defmodule Whiska.Watch do
           workspace_id: String.t() | nil,
           status: String.t() | nil,
           stuck?: boolean(),
+          in_flight?: boolean(),
           silent_for: non_neg_integer() | nil,
           topic: String.t() | nil,
           doing: String.t() | nil,
@@ -206,7 +208,9 @@ defmodule Whiska.Watch do
   what a mouse is doing and how long it has been silent,
   `Whiska.Watch.Transcript.activity/1` unless a test pins it; `:waiting_on`, what
   a working mouse quiet for two minutes waits on,
-  `Whiska.Watch.Transcript.waiting_on/1` unless a test pins it; `:held`, why the
+  `Whiska.Watch.Transcript.waiting_on/1` unless a test pins it; `:passed_over`,
+  whether an idle mouse with nothing to say had its last stop passed over,
+  `Whiska.Watch.Transcript.passed_over/1` unless a test pins it; `:held`, why the
   gate is not delivering (ADR-0082); `:mode`, what the person set aside
   (`Whiska.Delivery.Mode.t/0`, nothing by default); `:picked_up`, when each
   branch the owl picked up was picked up (ADR-0067); `:merge_requests`, the
@@ -220,7 +224,8 @@ defmodule Whiska.Watch do
 
     readers = %{
       activity: Keyword.get(opts, :activity, &Transcript.activity(&1.path)),
-      waiting_on: Keyword.get(opts, :waiting_on, &Transcript.waiting_on(&1.path))
+      waiting_on: Keyword.get(opts, :waiting_on, &Transcript.waiting_on(&1.path)),
+      passed_over: Keyword.get(opts, :passed_over, &Transcript.passed_over(&1.path))
     }
 
     picked_up = Keyword.get(opts, :picked_up, %{})
@@ -306,6 +311,7 @@ defmodule Whiska.Watch do
       workspace_id: pane && Map.get(pane, :workspace_id),
       status: status,
       stuck?: false,
+      in_flight?: false,
       silent_for: nil,
       topic: nil,
       doing: nil,
@@ -317,7 +323,32 @@ defmodule Whiska.Watch do
     base = %{base | context: Map.get(seen, :context)}
     waiting_on = fn -> readers.waiting_on.(mouse) end
 
-    if reads_activity?(base), do: with_activity(base, pane, seen, waiting_on), else: base
+    cond do
+      reads_activity?(base) -> with_activity(base, pane, seen, waiting_on)
+      quiet?(base) -> after_stop(base, pane, seen, readers.passed_over.(mouse))
+      true -> base
+    end
+  end
+
+  # An idle pane with nothing to say for itself: no question, report or hold.
+  # Its last stop may have been passed over while its own background work runs,
+  # which herdr cannot see unless that work is a subagent (ADR-0052).
+  defp quiet?(row) do
+    row.status == "idle" and is_nil(row.question_id) and is_nil(row.asked) and not row.held? and
+      row.pane == :one
+  end
+
+  defp after_stop(row, _pane, _seen, nil), do: row
+
+  defp after_stop(row, pane, %{action: action, silent_for: silent_for}, passed_over) do
+    %{
+      row
+      | in_flight?: passed_over == :in_flight,
+        stuck?: passed_over == :abandoned,
+        silent_for: silent_for,
+        topic: topic(pane),
+        doing: doing(action)
+    }
   end
 
   # The transcript is read only for a mouse whose line is about what it is

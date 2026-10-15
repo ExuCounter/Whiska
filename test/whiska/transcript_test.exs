@@ -1,7 +1,7 @@
 defmodule Whiska.TranscriptTest do
   @moduledoc """
   Reading Claude Code's own JSONL: where a session's transcript lives, its tail,
-  and whether the mouse has a subagent still out (ADR-0052).
+  and whether the mouse has background work still in flight (ADR-0052).
 
   The parsing is pure — lines in, one boolean out — so the cases here are a
   handful of JSONL rather than a session. Every shape is copied from a real
@@ -34,6 +34,7 @@ defmodule Whiska.TranscriptTest do
       }),
       JSON.encode!(%{
         "type" => "user",
+        "toolUseResult" => %{"status" => "async_launched", "agentId" => agent_id},
         "message" => %{
           "role" => "user",
           "content" => [
@@ -149,13 +150,102 @@ defmodule Whiska.TranscriptTest do
     end)
   end
 
+  # A call and the result Claude Code records for it, with the structured
+  # `toolUseResult` beside the text the model reads. Shapes copied from real
+  # transcripts read on 2026-10-14.
+  defp called(tool, tool_use_id, result) do
+    [
+      JSON.encode!(%{
+        "type" => "assistant",
+        "message" => %{
+          "content" => [
+            %{"type" => "tool_use", "id" => tool_use_id, "name" => tool, "input" => %{}}
+          ]
+        }
+      }),
+      JSON.encode!(%{
+        "type" => "user",
+        "toolUseResult" => result,
+        "message" => %{
+          "role" => "user",
+          "content" => [
+            %{"tool_use_id" => tool_use_id, "type" => "tool_result", "content" => "launched"}
+          ]
+        }
+      })
+    ]
+  end
+
+  defp backgrounded(task_id, tool_use_id \\ "toolu_01JERQVrCMpUmv3GzdgonfK5") do
+    called("Bash", tool_use_id, %{
+      "stdout" => "",
+      "stderr" => "",
+      "interrupted" => false,
+      "isImage" => false,
+      "noOutputExpected" => false,
+      "backgroundTaskId" => task_id
+    })
+  end
+
+  defp resumed(agent_id, tool_use_id \\ "toolu_01XsrZAQezD5VUPyd9162UxM") do
+    called("SendMessage", tool_use_id, %{
+      "success" => true,
+      "message" => "Resuming agent #{String.slice(agent_id, 0, 7)}",
+      "resumedAgentId" => agent_id
+    })
+  end
+
+  defp monitoring(task_id, persistent \\ false) do
+    called("Monitor", "toolu_01Hbwb3Vsy6nAyoTKs8fzHVz", %{
+      "taskId" => task_id,
+      "timeoutMs" => 300_000,
+      "persistent" => persistent
+    })
+  end
+
+  defp workflow(task_id) do
+    called("Workflow", "toolu_01Wf", %{
+      "status" => "async_launched",
+      "taskId" => task_id,
+      "taskType" => "local_workflow",
+      "runId" => "wf_158826e6-71c"
+    })
+  end
+
+  defp task_stopped(task_id) do
+    called("TaskStop", "toolu_01Stop", %{
+      "message" => "Successfully stopped task: #{task_id} (Full suite)",
+      "task_id" => task_id,
+      "task_type" => "local_bash"
+    })
+  end
+
+  defp reported(task_id, rest) do
+    JSON.encode!(%{
+      "type" => "user",
+      "origin" => %{"kind" => "task-notification", "producer" => "session-task"},
+      "message" => %{
+        "role" => "user",
+        "content" =>
+          "<task-notification>\n<task-id>#{task_id}</task-id>\n#{rest}</task-notification>"
+      }
+    })
+  end
+
+  defp completed(task_id),
+    do:
+      reported(
+        task_id,
+        "<status>completed</status>\n<summary>Background command done</summary>\n"
+      )
+
   defp jsonl(lines), do: lines |> List.flatten() |> Enum.join("\n")
 
-  describe "subagents_in_flight?/2" do
+  describe "in_flight?/2" do
     test "a reviewer launched and not handed back is still out" do
       text = jsonl([launched("ae96c5149391564f6"), said("Waiting on the correctness reviewer.")])
 
-      assert Transcript.subagents_in_flight?(text)
+      assert Transcript.in_flight?(text)
     end
 
     test "every reviewer handed back is a turn that is genuinely over" do
@@ -168,7 +258,7 @@ defmodule Whiska.TranscriptTest do
           said("All the reviewers are back. ⁣⁣⁣")
         ])
 
-      refute Transcript.subagents_in_flight?(text)
+      refute Transcript.in_flight?(text)
     end
 
     test "one of three still out holds the whole turn" do
@@ -181,7 +271,7 @@ defmodule Whiska.TranscriptTest do
           said("Performance reviewer is back. Two still running.")
         ])
 
-      assert Transcript.subagents_in_flight?(text)
+      assert Transcript.in_flight?(text)
     end
 
     test "a transcript carrying no origin is read from the frame in the text" do
@@ -192,11 +282,11 @@ defmodule Whiska.TranscriptTest do
           said("Back. ⁣⁣⁣")
         ])
 
-      refute Transcript.subagents_in_flight?(text)
+      refute Transcript.in_flight?(text)
     end
 
     test "a turn that launched nothing is over" do
-      refute Transcript.subagents_in_flight?(jsonl([said("Done. ⁣⁣⁣")]))
+      refute Transcript.in_flight?(jsonl([said("Done. ⁣⁣⁣")]))
     end
 
     test "a tool result that merely prints an agentId line launched nothing" do
@@ -216,7 +306,7 @@ defmodule Whiska.TranscriptTest do
           }
         })
 
-      refute Transcript.subagents_in_flight?(jsonl([printed, said("Done. ⁣⁣⁣")]))
+      refute Transcript.in_flight?(jsonl([printed, said("Done. ⁣⁣⁣")]))
     end
 
     test "a turn the person started clears whatever was out when they typed" do
@@ -227,7 +317,7 @@ defmodule Whiska.TranscriptTest do
           said("On it. ⁣⁣⁣")
         ])
 
-      refute Transcript.subagents_in_flight?(text)
+      refute Transcript.in_flight?(text)
     end
 
     test "an ordinary message from another session is not a hand-back" do
@@ -241,7 +331,7 @@ defmodule Whiska.TranscriptTest do
           }
         })
 
-      assert Transcript.subagents_in_flight?(jsonl([launched("ae96c5149391564f6"), chat]))
+      assert Transcript.in_flight?(jsonl([launched("ae96c5149391564f6"), chat]))
     end
 
     test "a subagent's own entries never count as the mouse's" do
@@ -250,19 +340,19 @@ defmodule Whiska.TranscriptTest do
           line |> JSON.decode!() |> Map.put("isSidechain", true) |> JSON.encode!()
         end)
 
-      refute Transcript.subagents_in_flight?(jsonl([sidechain, said("Done. ⁣⁣⁣")]))
+      refute Transcript.in_flight?(jsonl([sidechain, said("Done. ⁣⁣⁣")]))
     end
 
     test "a line that will not parse is skipped, never a crash" do
       text = jsonl(["{not json", "", launched("ae96c5149391564f6"), "half a li"])
 
-      assert Transcript.subagents_in_flight?(text)
+      assert Transcript.in_flight?(text)
     end
 
     test "a tail that starts after the launch reads as nothing out, and is delivered" do
       [_call, result] = launched("ae96c5149391564f6")
 
-      refute Transcript.subagents_in_flight?(jsonl([result, said("Waiting on the reviewer.")]))
+      refute Transcript.in_flight?(jsonl([result, said("Waiting on the reviewer.")]))
     end
 
     test "a hand-back queued while the mouse was busy is still a hand-back" do
@@ -273,7 +363,7 @@ defmodule Whiska.TranscriptTest do
           said("Back. ⁣⁣⁣")
         ])
 
-      refute Transcript.subagents_in_flight?(text)
+      refute Transcript.in_flight?(text)
     end
 
     test "a report framed as a task notification is a hand-back too" do
@@ -284,14 +374,14 @@ defmodule Whiska.TranscriptTest do
           said("Back. ⁣⁣⁣")
         ])
 
-      refute Transcript.subagents_in_flight?(text)
+      refute Transcript.in_flight?(text)
     end
 
     test "a task notification read straight from the turn is a hand-back too" do
       text =
         jsonl([launched("aea9354880e2194ec"), notification("aea9354880e2194ec"), said("Back.")])
 
-      refute Transcript.subagents_in_flight?(text)
+      refute Transcript.in_flight?(text)
     end
 
     test "a prompt the person queued clears whatever was out when they typed" do
@@ -302,7 +392,7 @@ defmodule Whiska.TranscriptTest do
           said("On it. ⁣⁣⁣")
         ])
 
-      refute Transcript.subagents_in_flight?(text)
+      refute Transcript.in_flight?(text)
     end
 
     test "a tool result printing a hand-back frame hands nothing back" do
@@ -326,7 +416,7 @@ defmodule Whiska.TranscriptTest do
           }
         })
 
-      assert Transcript.subagents_in_flight?(jsonl([launched("ae96c5149391564f6"), printed]))
+      assert Transcript.in_flight?(jsonl([launched("ae96c5149391564f6"), printed]))
     end
 
     test "an assistant quoting a hand-back frame hands nothing back" do
@@ -345,7 +435,7 @@ defmodule Whiska.TranscriptTest do
           }
         })
 
-      assert Transcript.subagents_in_flight?(jsonl([launched("ae96c5149391564f6"), quoted]))
+      assert Transcript.in_flight?(jsonl([launched("ae96c5149391564f6"), quoted]))
     end
 
     test "a launch old enough to have been abandoned stops holding the mouse silent" do
@@ -357,7 +447,7 @@ defmodule Whiska.TranscriptTest do
           said("Waiting on the correctness reviewer.")
         ])
 
-      refute Transcript.subagents_in_flight?(text, now)
+      refute Transcript.in_flight?(text, now)
     end
 
     test "a launch still inside the bound holds the turn" do
@@ -369,7 +459,7 @@ defmodule Whiska.TranscriptTest do
           said("Waiting on the correctness reviewer.")
         ])
 
-      assert Transcript.subagents_in_flight?(text, now)
+      assert Transcript.in_flight?(text, now)
     end
 
     test "the night the mouse went silent: two reported, the third came back queued" do
@@ -386,12 +476,244 @@ defmodule Whiska.TranscriptTest do
           said("All three are back. ⁣⁣⁣")
         ])
 
-      refute Transcript.subagents_in_flight?(text, now)
+      refute Transcript.in_flight?(text, now)
+    end
+
+    test "a background command not yet reported is still out" do
+      text =
+        jsonl([
+          backgrounded("bfz2zzaps"),
+          said("The full suite is running; I'll commit once it is back.")
+        ])
+
+      assert Transcript.in_flight?(text)
+    end
+
+    test "a background command is back once it reports" do
+      text = jsonl([backgrounded("bfz2zzaps"), completed("bfz2zzaps"), said("Green. ⁣⁣⁣")])
+
+      refute Transcript.in_flight?(text)
+    end
+
+    test "a reviewer restarted after it reported is out again" do
+      text =
+        jsonl([
+          launched("af4b8edd5d3bdba93"),
+          notification("af4b8edd5d3bdba93"),
+          resumed("af4b8edd5d3bdba93"),
+          said("The second review round is running.")
+        ])
+
+      assert Transcript.in_flight?(text)
+    end
+
+    test "a monitor's events are not its report; the end of its stream is" do
+      event =
+        reported("bdtmob3pl", "<summary>Monitor event: \"ci\"</summary>\n<event>one</event>\n")
+
+      ended =
+        reported(
+          "bdtmob3pl",
+          "<status>completed</status>\n<summary>Monitor \"ci\" stream ended</summary>\n"
+        )
+
+      assert Transcript.in_flight?(jsonl([monitoring("bdtmob3pl"), event, said("Watching CI.")]))
+      refute Transcript.in_flight?(jsonl([monitoring("bdtmob3pl"), event, ended, said("Done.")]))
+    end
+
+    test "a monitor that expired is back" do
+      expired =
+        reported(
+          "bojj2q14a",
+          "<summary>Monitor event: \"ci\"</summary>\n<event>[Monitor expired after 25m with " <>
+            "no events delivered. Re-arm it if you still need the watch.]</event>\n"
+        )
+
+      refute Transcript.in_flight?(jsonl([monitoring("bojj2q14a"), expired, said("Done.")]))
+    end
+
+    test "a monitor event whose output prints a status is not the end of the stream" do
+      event =
+        reported(
+          "bdtmob3pl",
+          "<summary>Monitor event: \"ci\"</summary>\n<event><status>completed</status></event>\n"
+        )
+
+      assert Transcript.in_flight?(jsonl([monitoring("bdtmob3pl"), event, said("Watching.")]))
+    end
+
+    test "a persistent monitor runs for the whole session and never holds a turn" do
+      refute Transcript.in_flight?(jsonl([monitoring("bdtmob3pl", true), said("Watching.")]))
+    end
+
+    test "a workflow is out until it reports" do
+      assert Transcript.in_flight?(jsonl([workflow("wi8y8u3am"), said("Fanned out.")]))
+      refute Transcript.in_flight?(jsonl([workflow("wi8y8u3am"), completed("wi8y8u3am")]))
+    end
+
+    test "an agent still running work of its own has not reported, whatever its status says" do
+      interim =
+        reported(
+          "ad65668c4e7729f3a",
+          "<status>completed</status>\n<summary>Agent \"Review\" finished</summary>\n" <>
+            "<note>This agent stopped with background work of its own still running. It may " <>
+            "resume on its own when that work completes or reports, and the same task-id " <>
+            "notifies again if it does; the result below may be interim.</note>\n"
+        )
+
+      text = jsonl([launched("ad65668c4e7729f3a"), interim, said("Reviewer still going.")])
+
+      assert Transcript.in_flight?(text)
+      refute Transcript.in_flight?(jsonl([text, completed("ad65668c4e7729f3a")]))
+    end
+
+    test "a report whose result quotes an interim note is still the report" do
+      quoting =
+        reported(
+          "ad65668c4e7729f3a",
+          "<status>completed</status>\n<summary>Agent \"Review\" finished</summary>\n" <>
+            "<result>The hook reads a <note> about work still running as interim.</result>\n"
+        )
+
+      refute Transcript.in_flight?(jsonl([launched("ad65668c4e7729f3a"), quoting]))
+    end
+
+    test "an Agent call that ran in the foreground launched nothing, whatever its report prints" do
+      foreground =
+        called("Agent", "toolu_01Fg", %{"status" => "completed", "agentId" => "a1b2c3d4e5"})
+        |> List.update_at(1, fn line ->
+          line
+          |> JSON.decode!()
+          |> put_in(["message", "content"], [
+            %{
+              "type" => "tool_result",
+              "tool_use_id" => "toolu_01Fg",
+              "content" => [%{"type" => "text", "text" => "The page said:\nagentId: deadbeef\n"}]
+            }
+          ])
+          |> JSON.encode!()
+        end)
+
+      refute Transcript.in_flight?(jsonl([foreground, said("Done. ⁣⁣⁣")]))
+    end
+
+    test "an Agent result Claude Code did not record as launched in the background launched nothing" do
+      unrecorded =
+        "ae96c51"
+        |> launched()
+        |> List.update_at(
+          1,
+          &(&1 |> JSON.decode!() |> Map.delete("toolUseResult") |> JSON.encode!())
+        )
+
+      refute Transcript.in_flight?(jsonl(unrecorded))
+    end
+
+    test "a task the mouse stopped is back, report or none" do
+      text = jsonl([backgrounded("bfz2zzaps"), task_stopped("bfz2zzaps"), said("Stopped it.")])
+
+      refute Transcript.in_flight?(text)
+    end
+
+    test "a task id in any other tool's result launches nothing" do
+      mcp =
+        called("mcp__tracker__create", "toolu_01Mcp", %{
+          "taskId" => "t1",
+          "backgroundTaskId" => "t2"
+        })
+
+      skill =
+        called("Skill", "toolu_01Sk", %{"status" => "forked", "agentId" => "acf17a66bc47a963b"})
+
+      refute Transcript.in_flight?(jsonl([mcp, skill, said("Done. ⁣⁣⁣")]))
     end
 
     test "nothing readable at all means nothing is out — the safe direction is to deliver" do
-      refute Transcript.subagents_in_flight?("")
-      refute Transcript.subagents_in_flight?("{not json\n{also not")
+      refute Transcript.in_flight?("")
+      refute Transcript.in_flight?("{not json\n{also not")
+    end
+  end
+
+  describe "passed_over/2" do
+    @now ~U[2026-10-14 15:00:00Z]
+
+    defp read(lines), do: lines |> jsonl() |> Transcript.background()
+
+    test "an unmarked last word with work out is a stop passed over, waiting on that work" do
+      text = [stamped(backgrounded("bfz2zzaps"), "2026-10-14T14:50:00Z"), said("Suite running.")]
+
+      assert Transcript.passed_over(read(text), @now) == :in_flight
+    end
+
+    test "past the half hour with nothing reported it is abandoned" do
+      text = stamped([backgrounded("bfz2zzaps"), said("Suite running.")], "2026-10-14T14:20:00Z")
+
+      assert Transcript.passed_over(read(text), @now) == :abandoned
+    end
+
+    test "a stop made once the work was half an hour old was delivered, not passed over" do
+      text = [
+        stamped(backgrounded("bfz2zzaps"), "2026-10-14T14:00:00Z"),
+        stamped([said("Still running?")], "2026-10-14T14:40:00Z")
+      ]
+
+      assert Transcript.passed_over(read(text), @now) == nil
+    end
+
+    test "a marked last word was delivered, whatever is out" do
+      text = [stamped(backgrounded("bfz2zzaps"), "2026-10-14T14:50:00Z"), said("Pick one?\n⁣⁣")]
+
+      assert Transcript.passed_over(read(text), @now) == nil
+    end
+
+    test "a turn that died on an API error was not passed over" do
+      died =
+        JSON.encode!(%{
+          "type" => "assistant",
+          "isApiErrorMessage" => true,
+          "message" => %{"content" => [%{"type" => "text", "text" => "API Error: gone"}]}
+        })
+
+      text = [stamped(backgrounded("bfz2zzaps"), "2026-10-14T14:20:00Z"), said("Running."), died]
+
+      assert Transcript.passed_over(read(text), @now) == nil
+    end
+
+    test "nothing unreported is nothing passed over" do
+      text = [backgrounded("bfz2zzaps"), completed("bfz2zzaps"), said("Green.")]
+
+      assert Transcript.passed_over(read(text), @now) == nil
+    end
+
+    test "a subagent's own words are not the mouse's last word" do
+      theirs =
+        "Waiting." |> said() |> JSON.decode!() |> Map.put("isSidechain", true) |> JSON.encode!()
+
+      text = [
+        stamped(backgrounded("bfz2zzaps"), "2026-10-14T14:50:00Z"),
+        said("Done.\n⁣⁣⁣"),
+        theirs
+      ]
+
+      assert Transcript.passed_over(read(text), @now) == nil
+    end
+  end
+
+  describe "subagent_in_flight?/2" do
+    test "a subagent launched or restarted counts, a background command does not" do
+      now = DateTime.utc_now()
+
+      assert Transcript.subagent_in_flight?(
+               Transcript.background(jsonl(launched("ae96c51"))),
+               now
+             )
+
+      assert Transcript.subagent_in_flight?(Transcript.background(jsonl(resumed("af4b8ed"))), now)
+
+      refute Transcript.subagent_in_flight?(
+               Transcript.background(jsonl(backgrounded("bfz2zzaps"))),
+               now
+             )
     end
   end
 

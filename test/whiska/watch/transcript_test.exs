@@ -57,9 +57,27 @@ defmodule Whiska.Watch.TranscriptTest do
   # The receipt Claude Code writes for a background `Agent` call, copied from a
   # real transcript (`Whiska.TranscriptTest` holds the rest of its shape).
   defp launched(tool_use_id, agent_id) do
-    tool_result(tool_use_id, [
+    tool_use_id
+    |> tool_result([
       %{"type" => "text", "text" => "Async agent launched successfully.\nagentId: #{agent_id}"}
     ])
+    |> JSON.decode!()
+    |> Map.put("toolUseResult", %{"status" => "async_launched", "agentId" => agent_id})
+    |> JSON.encode!()
+  end
+
+  defp passed_over do
+    started =
+      JSON.encode!(%{
+        "type" => "user",
+        "timestamp" => DateTime.to_iso8601(DateTime.utc_now()),
+        "toolUseResult" => %{"stdout" => "", "backgroundTaskId" => "bfz2zzaps"},
+        "message" => %{
+          "content" => [%{"type" => "tool_result", "tool_use_id" => "toolu_b", "content" => "x"}]
+        }
+      })
+
+    [call("toolu_b", "Bash", %{"command" => "mix test"}), started, said("Suite running.")]
   end
 
   defp transcript(tmp, worktree, lines, silent_for) do
@@ -86,6 +104,36 @@ defmodule Whiska.Watch.TranscriptTest do
     test "another tool in flight is not a subagent, but is a tool" do
       assert Transcript.waiting_on_in(call("toolu_b", "Bash", %{"command" => "mix test"})) ==
                %{subagent?: false, in_tool?: true}
+    end
+
+    test "a shell command run in the background explains no silence, a restarted subagent does" do
+      answered = fn tool_use_id, result ->
+        JSON.encode!(%{
+          "type" => "user",
+          "toolUseResult" => result,
+          "message" => %{
+            "content" => [
+              %{"type" => "tool_result", "tool_use_id" => tool_use_id, "content" => "x"}
+            ]
+          }
+        })
+      end
+
+      backgrounded = [
+        call("toolu_b", "Bash", %{"command" => "mix test"}),
+        answered.("toolu_b", %{"stdout" => "", "backgroundTaskId" => "bfz2zzaps"})
+      ]
+
+      resumed = [
+        call("toolu_r", "SendMessage", %{"to" => "af4b8edd5d3bdba93"}),
+        answered.("toolu_r", %{"success" => true, "resumedAgentId" => "af4b8edd5d3bdba93"})
+      ]
+
+      assert Transcript.waiting_on_in(Enum.join(backgrounded, "\n")) ==
+               %{subagent?: false, in_tool?: false}
+
+      assert Transcript.waiting_on_in(Enum.join(resumed, "\n")) ==
+               %{subagent?: true, in_tool?: false}
     end
 
     test "once every call has its result the mouse is waiting on the model" do
@@ -317,6 +365,46 @@ defmodule Whiska.Watch.TranscriptTest do
       File.write!(Path.join(dir, "s.jsonl"), line)
 
       assert %{context: 90_005} = Transcript.activity(worktree, user_home: tmp)
+    end
+  end
+
+  describe "passed_over/2" do
+    setup do
+      tmp = Path.join(System.tmp_dir!(), "whiska-passed-#{System.unique_integer([:positive])}")
+      File.mkdir_p!(tmp)
+      on_exit(fn -> File.rm_rf!(tmp) end)
+      {:ok, tmp: tmp}
+    end
+
+    test "a stop passed over while a background command runs, until it reports", %{tmp: tmp} do
+      worktree = "/repo/worktrees/feat-a"
+      transcript(tmp, worktree, passed_over(), 0)
+
+      assert Transcript.passed_over(worktree, user_home: tmp) == :in_flight
+
+      reported =
+        user("<task-notification>\n<task-id>bfz2zzaps</task-id>\n<status>completed</status>")
+
+      transcript(tmp, worktree, passed_over() ++ [reported, said("Green.\n⁣⁣⁣")], 0)
+
+      assert Transcript.passed_over(worktree, user_home: tmp) == nil
+    end
+
+    test "a transcript the same size and age is not read again", %{tmp: tmp} do
+      worktree = "/repo/worktrees/feat-a"
+      transcript(tmp, worktree, passed_over(), 60)
+
+      assert Transcript.passed_over(worktree, user_home: tmp) == :in_flight
+
+      file = Path.join(Transcript.project_dir(worktree, tmp), "s.jsonl")
+      %File.Stat{mtime: mtime, size: size} = File.stat!(file, time: :posix)
+      File.write!(file, String.duplicate(" ", size))
+      File.touch!(file, mtime)
+
+      assert Transcript.passed_over(worktree, user_home: tmp) == :in_flight
+
+      File.write!(file, " ")
+      assert Transcript.passed_over(worktree, user_home: tmp) == nil
     end
   end
 

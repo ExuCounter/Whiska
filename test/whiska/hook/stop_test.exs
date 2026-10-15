@@ -221,7 +221,7 @@ defmodule Whiska.Hook.StopTest do
     end
   end
 
-  describe "a stop with a subagent still out (ADR-0052)" do
+  describe "an unmarked stop with background work still out (ADR-0052)" do
     defp transcript(worktree, lines) do
       path = Path.join(worktree, "transcript.jsonl")
       File.write!(path, lines |> List.flatten() |> Enum.join("\n"))
@@ -238,6 +238,7 @@ defmodule Whiska.Hook.StopTest do
         }),
         JSON.encode!(%{
           "type" => "user",
+          "toolUseResult" => %{"status" => "async_launched", "agentId" => agent_id},
           "message" => %{
             "content" => [
               %{
@@ -280,6 +281,52 @@ defmodule Whiska.Hook.StopTest do
                )
 
       assert Doorstep.waiting(main) == []
+    end
+
+    test "a launch more than half a megabyte back still holds the turn", %{
+      main: main,
+      worktree: worktree
+    } do
+      read_since =
+        for n <- 1..3 do
+          JSON.encode!(%{
+            "type" => "user",
+            "message" => %{"content" => "file #{n}: " <> String.duplicate("x", 300 * 1024)}
+          })
+        end
+
+      path = transcript(worktree, [launched("add045f13ddf15a65"), read_since])
+
+      :ok =
+        Stop.run(
+          payload(%{
+            "cwd" => worktree,
+            "transcript_path" => path,
+            "last_assistant_message" => "Both reviewers are still running."
+          })
+        )
+
+      assert Doorstep.waiting(main) == []
+    end
+
+    test "a question or a report is left whatever is still out", %{
+      main: main,
+      worktree: worktree
+    } do
+      path = transcript(worktree, [launched("ae96c5149391564f6")])
+
+      for message <- ["Pick A or B?\n\u2063\u2063", "Shipped.\n\u2063\u2063\u2063"] do
+        :ok =
+          Stop.run(
+            payload(%{
+              "cwd" => worktree,
+              "transcript_path" => path,
+              "last_assistant_message" => message
+            })
+          )
+      end
+
+      assert [_question, _report] = Doorstep.waiting(main)
     end
 
     test "a turn whose reviewers have all reported is left alone", %{

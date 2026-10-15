@@ -21,7 +21,7 @@ sort (which one a mouse is in is decided as the paragraph under the table says):
 | 1 | `❓ waiting on you · 14m` — sent, unanswered | the question |
 | 2 | `❓ waiting on you` — next to go; `❓ answer not taken` | the question |
 | 3 | `✅ finished` — its report is still its last word, and its branch has neither landed nor a merge request | the first line of its `## Summary` |
-| 4 | `✖ stuck 6m` — blocked, or working with no subagent out and silent two minutes in a tool or five waiting on the model | its last action |
+| 4 | `✖ stuck 6m` — blocked, or working with no subagent out and silent two minutes in a tool or five waiting on the model, or idle with its last stop passed over and that work unreported past ADR-0052's half hour | its last action |
 | 5 | `⏳ queued` | the question |
 | 6 | `↩ picked up 2m ago` | |
 | 7 | `◐ <topic, else last action>` | |
@@ -49,8 +49,13 @@ last action. The topic is herdr's `terminal_title_stripped`, the short summary C
 keeps of what a session is on, already in the pane list the house asks for. The last action
 is read from the mouse's own transcript, never asked for (ADR-0050), and shown only where
 the topic would mislead: a pane herdr calls blocked, or one working that has written
-nothing for longer than what it waits on explains. A subagent keeps its own file, so a
-mouse waiting on one is working and never stuck, up to ADR-0052's half-hour bound; once a
+nothing for longer than what it waits on explains. A subagent keeps its own file, and
+herdr keeps the pane working while one is out, so a mouse waiting on one is working and
+never stuck, up to ADR-0052's half-hour bound. Other background work leaves herdr calling
+the pane idle (checked in a throwaway pane on 2026-10-14), so an idle mouse with nothing to
+say whose last stop was passed over (ADR-0052) reads as working while that work runs, and
+stuck once it is past the half hour unreported; its transcript is read once per change to
+the file, never per rebuild. Once a
 working mouse has been quiet two minutes, and for no other, the transcript is read as far
 back as the `Stop` hook reads it (ADR-0052), since a launch can sit further back than the
 every-tick read reaches. In a tool, Claude Code writes the result as soon as there is one, so two
@@ -85,7 +90,7 @@ colour rule: its symbol is the same on every row, so there is nothing to key on.
 cache-creation tokens of the last assistant message in its transcript, read the same way
 as the last action (ADR-0050), for every mouse with a line, since a mouse waiting on the
 person is the one whose length matters. That makes one 64 KB tail read per live mouse
-per tick, plus the `Stop` hook's 512 KB tail for a working mouse quiet two minutes, where the last action was read only for a working or blocked one; it is read
+per tick, plus the `Stop` hook's tail (ADR-0052) for a working mouse quiet two minutes, where the last action was read only for a working or blocked one; it is read
 from the tail alone, so one very large message can leave a mouse without a gauge for a
 moment. It sits in the same place on every state (`✅ 236K · finished`, `⏸ 447K · held`), so it
 reads as a column and a long topic cannot cut it off. No line carries a question's id: it
@@ -201,3 +206,5 @@ Changed on 2026-10-14: a fourth token, `whiska_mr`, is a mouse's merge request r
 Folded in on 2026-10-08: 0051, 0058, 0059, 0065 (their text is in git history).
 
 Changed on 2026-10-14: `✅ finished` means finished and not landed: it stays until the branch lands, gets a merge request or is dropped, or its mouse asks or works again, and it waits on nobody, so the main checkout's line never counts it. `✅ finished · queued` is gone, since a finished report never queues (ADR-0008).
+
+Changed on 2026-10-14: an idle mouse whose last stop was passed over while its own background work runs reads as working, and as stuck once that work is half an hour old unreported (ADR-0052).

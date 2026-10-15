@@ -33,6 +33,10 @@ avoid. Two edges come down to one word:
   remembers, the conservative direction.
 - **"Nothing of its collected."** A question whose `asked_at` is at or after `worked_at`
   is that turn arriving; an entry still on the doorstep is the same thing a moment earlier.
+  A mouse whose last stop was passed over for background work of its own (ADR-0052) left
+  nothing on purpose: it is waiting on that work, not dead, and is left alone, even once
+  that work is half an hour old, when the board calls it stuck instead (ADR-0082). A turn
+  that died on an API error is still picked up whatever work is out.
 
 `worked_at` is on the record rather than in memory because a turn can die while the owl
 restarts. Two turns are a miss rather than a wrong pickup: a first turn that dies before
@@ -126,3 +130,5 @@ one turn in a session that was legitimately idle, told to carry on with its own 
   doorstep already says it, and it would depend on Claude Code's error wording.
 - **Fire on the idle event rather than a sweep.** Rejected: the case this exists for is a
   laptop waking, when the events are gone.
+
+Changed on 2026-10-14: a mouse whose last stop was passed over for its own background work is never picked up (ADR-0052).

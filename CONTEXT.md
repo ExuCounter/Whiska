@@ -161,7 +161,9 @@ _Avoid_: child session, subsession (a subagent is neither, and is no session of 
 **Question**:
 A message a mouse sends when it finishes a turn. Most are real questions — they enter
 the delivery queue and wait for an answer. A turn that ends with no marker at all is an
-**unmarked** question: delivered like any other, recorded as having arrived unmarked. A
+**unmarked** question: delivered like any other, recorded as having arrived unmarked —
+unless the mouse still has work **in flight**, when the turn has not ended and nothing is
+left at all (ADR-0052). A
 `done` report is never delivered: it is recorded closed and **hooted**, waits on nobody,
 and the person says its **finish** in place of a reply once they read it (ADR-0009). A question is **open** while it waits to be told, **sent** once
 delivered and waiting for its answer, then **answered** once `whiska reply` saved the
@@ -347,10 +349,12 @@ Its **context gauge** is how full the mouse's context is — the input, cache-re
 cache-creation tokens of the last assistant message in the transcript, `142K` — with a
 five-cell bar against the window when the mouse has an auto-compact window, and the plain
 size when it has none. It is read for every live mouse, whatever its line says.
-A mouse is **stuck** when herdr says it is blocked, or it is working with no subagent out
-and has written nothing to its transcript for two minutes while in a tool, or five while
-waiting on the model (a subagent writes to its own file and the model writes nothing until
-its answer arrives, so a mouse waiting on either is silent and not stuck at once). A dead mouse has no row; what it left behind
+A mouse is **stuck** when herdr says it is blocked, or it is working with no subagent **in
+flight** and has written nothing to its transcript for two minutes while in a tool, or five
+while waiting on the model (a subagent writes to its own file and the model writes nothing
+until its answer arrives, so a mouse waiting on either is silent and not stuck at once), or
+herdr calls it idle and its last stop was passed over (ADR-0052) for work that has gone
+half an hour unreported. Until then that idle mouse reads as working. A dead mouse has no row; what it left behind
 unanswered is counted apart as orphaned, never as waiting. **Sidebar lines** are written
 from it, and `whiska watch` prints those. It reports and never acts (ADR-0082).
 _Avoid_: dashboard, monitor, status (the line the tab bar draws), the statusline (a
@@ -597,7 +601,9 @@ the session still knows what it did, and re-asking risks redoing a file already 
 Waits out a settling window first, except when the mouse's transcript ends on Claude
 Code's own API error, which is picked up at once (ADR-0067). One per dead turn, and a branch whose picked-up turn dies as well is a **stuck** mouse
 from then on (ADR-0026), never nudged again. A mouse with a **chased** answer is never
-picked up: its next turn has not begun, and the **doorbell** carries it on. One of the two
+picked up: its next turn has not begun, and the **doorbell** carries it on. Nor is one
+whose last stop was passed over for work **in flight** (ADR-0052), even once that work is
+half an hour old: it is waiting, not dead, and the board calls it **stuck**. One of the two
 lines the owl types anywhere but its own house's main session (ADR-0044).
 _Avoid_: retry, resend, restart, relaunch (ADR-0026's rung four, a different act)
 
@@ -750,15 +756,16 @@ what a question sits on before it ever reaches that queue), larder, inbox (the p
 listing of everything waiting, which reads this among other things — see **Inbox**)
 
 **In flight**:
-Said of a background subagent a mouse launched and has not been handed the report of.
-Claude Code ends the mouse's turn while one is out and wakes the session when it reports,
-so the `Stop` hook fires on a turn that is not over: with anything in flight it writes
-nothing at all, and the doorstep never hears about it (ADR-0052). Read from the mouse's
-own transcript, and structurally: a `tool_result` answering an `Agent` call gives the id,
-the hand-back that clears it is stamped on the entry, and a turn the person typed clears
-whatever was out. Never read from what the mouse said.
+Said of background work a mouse started and has not had the report of: a background
+subagent, a shell command run in the background, a subagent restarted with `SendMessage`, a
+`Monitor` or a `Workflow`. Claude Code ends the mouse's turn while one is out and wakes the
+session when it reports, so the `Stop` hook fires on a turn that is not over: with anything
+in flight and no marker it writes nothing at all, and the doorstep never hears about it
+(ADR-0052). Read from the mouse's own transcript, and structurally: the result answering
+the call that started it gives the id, its report or a `TaskStop` clears it, and so does a
+turn the person typed or half an hour passing. Never read from what the mouse said.
 _Avoid_: running, pending, busy, mid-turn (all of them describe the mouse, and it is the
-subagent that is out)
+work that is out)
 
 **Cleanup**:
 Taking a landed worktree down: the worktree removed, the mouse's pane closed with it, the

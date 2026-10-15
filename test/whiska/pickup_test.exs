@@ -121,6 +121,14 @@ defmodule Whiska.PickupTest do
     })
   end
 
+  defp said(text, seconds) do
+    text
+    |> said()
+    |> JSON.decode!()
+    |> Map.put("timestamp", seconds |> at() |> DateTime.to_iso8601())
+    |> JSON.encode!()
+  end
+
   defp api_error do
     JSON.encode!(%{
       "type" => "assistant",
@@ -132,6 +140,28 @@ defmodule Whiska.PickupTest do
         "content" => [%{"type" => "text", "text" => "API Error: The response stopped arriving."}]
       }
     })
+  end
+
+  defp backgrounded(task_id, seconds) do
+    stamp = seconds |> at() |> DateTime.to_iso8601()
+
+    [
+      JSON.encode!(%{
+        "type" => "assistant",
+        "timestamp" => stamp,
+        "message" => %{
+          "content" => [%{"type" => "tool_use", "id" => "toolu_1", "name" => "Bash"}]
+        }
+      }),
+      JSON.encode!(%{
+        "type" => "user",
+        "timestamp" => stamp,
+        "toolUseResult" => %{"stdout" => "", "backgroundTaskId" => task_id},
+        "message" => %{
+          "content" => [%{"type" => "tool_result", "tool_use_id" => "toolu_1", "content" => "x"}]
+        }
+      })
+    ]
   end
 
   defp turn_duration, do: ~s({"type":"system","subtype":"turn_duration","durationMs":215204})
@@ -294,6 +324,28 @@ defmodule Whiska.PickupTest do
       assert {[{_, {:left, :never_worked}}], _} = sweep(repo, @settled, seen)
     end
 
+    test "is left alone while work it started in the background is still out", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, backgrounded("bfz2zzaps", @worked) ++ [said("The suite is running.")])
+
+      assert {[{_, {:left, :in_flight}}], _} = sweep(repo, @settled, seen)
+    end
+
+    test "is left alone after its stop was passed over, even once that work is half an hour old",
+         %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+
+      transcript(
+        m,
+        backgrounded("bfz2zzaps", @worked - 3600) ++
+          [said("The suite is running.", @worked - 3600)]
+      )
+
+      assert {[{_, {:left, :passed_over}}], _} = sweep(repo, @settled, seen)
+    end
+
     test "nothing is picked up while an entry nobody can read is waiting", %{repo: repo} do
       m = mouse(repo, "feat-a")
       seen = died(repo, m)
@@ -313,6 +365,15 @@ defmodule Whiska.PickupTest do
   end
 
   describe "a turn that died on an API error" do
+    test "is picked up though work it started in the background is still out", %{repo: repo} do
+      m = mouse(repo, "feat-a")
+      seen = died(repo, m)
+      transcript(m, backgrounded("bfz2zzaps", @worked) ++ [said("on it"), api_error()])
+
+      expect(Herdr, :prompt, fn _, _, _ -> :ok end)
+      assert {[{_, :picked_up}], _} = sweep(repo, @settled, seen)
+    end
+
     test "is picked up the first sweep its pane is quiet, without the settling window",
          %{repo: repo} do
       m = mouse(repo, "feat-a")

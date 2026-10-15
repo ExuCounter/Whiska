@@ -107,7 +107,9 @@ defmodule Whiska.CLIWatchTest do
           call("toolu_b", "Bash"),
           call("toolu_a", "Agent"),
           result("toolu_b", String.duplicate("x", 100 * 1024)),
-          result("toolu_a", "Async agent launched successfully.\nagentId: a628f31a26fa313db")
+          "toolu_a"
+          |> result("Async agent launched successfully.\nagentId: a628f31a26fa313db")
+          |> Map.put("toolUseResult", %{"status" => "async_launched"})
         ],
         400
       )
