@@ -74,8 +74,8 @@ defmodule Whiska.Shape do
   @doc """
   The flags to start Claude with. Unnamed parts are left out, and the fallback
   chain skips the chosen model: retrying the model that just failed is no
-  fallback. A build mouse also gets the auto-compact window `windows` holds for
-  its model, else the default's; a sniff mouse gets none.
+  fallback. Every mouse also gets the auto-compact window `windows` holds for
+  its model, else the default's, whatever its mode (ADR-0069).
   """
   @spec claude_args(t(), [String.t()], %{String.t() => pos_integer()}) :: [String.t()]
   def claude_args(shape, fallback \\ @fallback, windows \\ @windows) do
@@ -90,20 +90,17 @@ defmodule Whiska.Shape do
 
   @doc """
   The auto-compact window `model` is measured against: its own, else the
-  default's. A sniff mouse runs without one and is measured against it too, so
-  the sidebar can say how near compaction any mouse is (ADR-0082).
+  default's. The sidebar measures every mouse against it (ADR-0082).
   """
   @spec window(String.t() | nil) :: pos_integer()
   def window(model), do: Map.get(@windows, model) || Map.fetch!(@windows, "default")
 
-  defp window(%{mode: "build", model: model}, windows) do
+  defp window(%{model: model}, windows) do
     case Map.get(windows, model) || Map.get(windows, "default") do
       nil -> nil
       tokens -> Integer.to_string(tokens)
     end
   end
-
-  defp window(_shape, _windows), do: nil
 
   defp flag(_name, nil), do: []
   defp flag(name, value), do: [name, value]

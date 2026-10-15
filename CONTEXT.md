@@ -656,8 +656,8 @@ highest effort. Given by `whiska spawn`, through `whiska shape`, before Claude s
 its mode's **deny list** holds from its first tool call; shaping also writes the mouse's
 **brief**, and its flags start Claude with both. The spawning session picks the
 model and the effort by the ordered rules in `priv/models.json`; one it leaves unnamed
-is the last rule's. A build mouse also starts with an auto-compact window for its model,
-from the same file; a sniff mouse keeps Claude Code's own. The record also keeps the model the mouse actually ran on, read from
+is the last rule's. A mouse of either mode also starts with an auto-compact window for its model,
+from the same file. The record also keeps the model the mouse actually ran on, read from
 its transcript. Shaping also stocks the worktree: the main checkout's `deps`, `_build` or
 `node_modules`, and any path listed in the house's `clone` file, are cloned in
 copy-on-write, never symlinked. There is no default mode: a mouse **never shaped** starts

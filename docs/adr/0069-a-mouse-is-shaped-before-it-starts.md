@@ -79,14 +79,15 @@ skips the chosen model. Whiska cannot walk a list itself: `herdr agent start` su
 soon as Claude's prompt is ready, before any request is made, so a quota error arrives
 after the spawn has already succeeded.
 
-## A build mouse gets an auto-compact window
+## A mouse gets an auto-compact window
 
 `model.autocompact` in `priv/models.json` maps a model word to a window in tokens, with a
 `default` that every model not named gets: `{"default": 300000, "haiku": 100000}`.
-`whiska shape build` appends `--autocompact <tokens>` for the chosen model; `whiska shape
-sniff` appends nothing, so a sniff mouse keeps Claude Code's own default. The build
+`whiska shape`, either mode, appends `--autocompact <tokens>` for the chosen model, so a
+sniff mouse is held to the same window as a build mouse. The build
 refuses a file with no `default` or a value outside 100000 to 1000000, the range Claude
-Code accepts. Claude Code compacts at about 967K by default. The person chose 300K for the
+Code accepts. Claude Code compacts at about 967K by default, which a sniff mouse
+reached before it got the window. The person chose 300K for the
 1M models and 100K for haiku, a window that is the lowest Claude Code allows. These are
 the person's judgment: Anthropic publishes no per-model quality curve, so no source backs
 the numbers.
@@ -154,3 +155,6 @@ document, and every edit is denied (ADR-0089).
 
 Changed on 2026-10-14: a mode is the deny list a mouse starts with, in bypass mode, and a
 mouse nobody shaped is not limited (ADR-0090).
+
+Changed on 2026-10-15: a sniff mouse gets the auto-compact window too; only a build mouse
+did, and a sniff mouse grew to Claude Code's ~967K default.

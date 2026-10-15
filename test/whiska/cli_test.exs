@@ -181,6 +181,7 @@ defmodule Whiska.CLITest do
 
       assert String.trim(out) ==
                "--model m1 --effort xhigh --fallback-model #{fallback} " <>
+                 "--autocompact #{@rules["model"]["autocompact"]["default"]} " <>
                  Enum.join(@brief_args, " ")
     end
 

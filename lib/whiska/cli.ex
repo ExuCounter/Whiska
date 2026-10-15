@@ -349,8 +349,8 @@ defmodule Whiska.CLI do
                          list to .whiska-settings.json, and print the flags
                          to start Claude with: both files, and
                          --dangerously-skip-permissions, so Claude asks for
-                         nothing the deny list allows. A
-                         build mouse also gets --autocompact, its model's
+                         nothing the deny list allows. Either
+                         mode also gets --autocompact, its model's
                          window from priv/models.json. `spawn` does all this
                          itself; this is for a mouse started by hand.
                          Also makes git ignore the worktree's .whiska-spec.md,
