@@ -548,7 +548,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
 
       :counters.put(status, 1, 1)
 
-      assert_receive {:reported, "w2", %{"whiska" => nil, "whiska_topic" => nil}}, 1_000
+      assert_receive {:reported, "w2", %{"whiska" => "○ idle", "whiska_topic" => nil}}, 1_000
     end
   end
 

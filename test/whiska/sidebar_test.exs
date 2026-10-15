@@ -336,16 +336,18 @@ defmodule Whiska.SidebarTest do
              ) == "↩ picked up 2m ago"
     end
 
-    test "idle, it says nothing but its size: herdr's icon says idle" do
+    test "idle, it says its size and `○ idle`, which herdr's icon alone does not spell out" do
       assert tokens([mouse("feat-a")],
                bare_panes: [pane("feat-a", "idle", title: "Order builder")],
                action: fn _ -> {:said, "31 tests pass."} end,
                context: 212_000
-             ) == %{"whiska_ctx_warn" => "212K"}
+             ) == %{"whiska" => "○ idle", "whiska_ctx_warn" => "212K"}
     end
 
     test "herdr's done is idle too" do
-      assert tokens([mouse("feat-a")], bare_panes: [pane("feat-a", "done")]) == %{}
+      assert tokens([mouse("feat-a")], bare_panes: [pane("feat-a", "done")]) == %{
+               "whiska" => "○ idle"
+             }
     end
   end
 
@@ -483,7 +485,7 @@ defmodule Whiska.SidebarTest do
         assert Map.keys(
                  tokens([mouse("feat-a")], bare_panes: [pane("feat-a", "done")], context: context)
                ) ==
-                 [key]
+                 Enum.sort(["whiska", key])
       end
     end
 
@@ -493,7 +495,7 @@ defmodule Whiska.SidebarTest do
       assert tokens([mouse("feat-a", haiku)],
                bare_panes: [pane("feat-a", "done")],
                context: 90_000
-             ) == %{"whiska_ctx_full" => "90K"}
+             ) == %{"whiska" => "○ idle", "whiska_ctx_full" => "90K"}
     end
 
     test "sits beside every state's own words, which stay as they are" do
@@ -968,7 +970,7 @@ defmodule Whiska.SidebarTest do
                  142K · ❓ waiting on you
 
                feat-idle
-                 142K
+                 142K · ○ idle
                """
                |> String.trim_trailing()
     end
@@ -1012,18 +1014,18 @@ defmodule Whiska.SidebarTest do
       refute snippet =~ "contains"
     end
 
-    test "colours the state by its first symbol, with none for plain working or idle" do
+    test "colours the state by its first symbol, with none for plain working" do
       [state] = Regex.run(~r/token = "\$whiska",.*?\] \}/su, Sidebar.snippet())
       rules = Regex.scan(~r/starts_with = "([^"]+)"/u, state, capture: :all_but_first)
 
       assert length(rules) <= 16
 
-      for symbol <- ~w(❓ ✓ ⚠ ✖ ? ⏳ 🎯 💤 ⏸ ↩ ◐) do
+      for symbol <- ~w(❓ ✓ ⚠ ✖ ? ⏳ 🎯 💤 ⏸ ↩ ◐ ○) do
         assert [symbol] in rules, "no rule for #{symbol}"
       end
 
       assert ["◐"] in rules
-      for symbol <- ~w(○ ◓ ◑ ◒), do: refute([symbol] in rules)
+      for symbol <- ~w(◓ ◑ ◒), do: refute([symbol] in rules)
     end
 
     test "the size, the pipeline and the review sit beside the state and the name" do

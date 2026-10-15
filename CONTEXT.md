@@ -367,8 +367,8 @@ compaction it is, then its state — `❓ waiting on you · 14m`, `✖ stuck 6m`
 `🎯`/`💤` waiting behind a **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `✓ finished`
 (its report is still its last word, and the branch has neither landed nor a merge request;
 it sorts last) — or, working, its topic, after `◐ background` when herdr calls the pane
-idle while its own background work runs; idle, nothing more, since herdr's own icon says
-working and idle (`142K · ❓ waiting on you`, `163K · <topic>`; a line saying the pane is
+idle while its own background work runs; idle, `○ idle`, which herdr's own icon does not spell
+out (`142K · ❓ waiting on you`, `163K · <topic>`, `212K · ○ idle`; a line saying the pane is
 lost has no gauge). Nothing of a question or report is excerpted under it. Under the main
 checkout's workspace, what is true of the whole repo: no **main session**, delivery
 **gated**, questions waiting with no line of their own (a finished report is never one),

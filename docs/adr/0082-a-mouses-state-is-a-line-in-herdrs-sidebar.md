@@ -14,8 +14,9 @@ on herdr 0.9.3.
 
 One row: the context size, then the state, then a working mouse's topic, each a token of
 its own, which herdr joins with ` · ` and leaves out when absent. herdr's own icon beside
-the workspace already says working and idle, so those two states have no words of their
-own: a working mouse's row is `163K · <topic>`, an idle one's `212K`. Nothing is carried
+the workspace already says working, so a working mouse has no word of its own, only its
+topic: `163K · <topic>`. An idle one says `212K · ○ idle`, in orange: the person found the
+word useful, and herdr's icon alone does not spell it out. Nothing is carried
 under the row: no question, report or last action is excerpted, since the sidebar cut each
 at its width, some went stale, and the main session holds them whole. The states, in the
 order they sort (which one a mouse is in is decided as the paragraph under the list says):
@@ -27,7 +28,7 @@ order they sort (which one a mouse is in is decided as the paragraph under the l
 5. `↩ picked up 2m ago`.
 6. Working: the topic, else the last action, else `working`, in `whiska_topic`. An idle pane whose last stop was passed over while its own background work runs is working too, and says `◐ background` before its topic, since herdr's icon calls it idle.
 7. `✖ no pane`, `⚠ many panes`, `? herdr can't say`.
-8. Idle: nothing but the size.
+8. Idle: `○ idle`.
 9. `🎯 waits: focus on <branch>`.
 10. `💤 waits: away`.
 11. `⏸ held`.
@@ -198,8 +199,8 @@ deleted. `whiska doctor` names any leftover as a warning with the init that remo
 - **Deliver anyway after a timeout.** Typing into somebody's draft is what the gate
   prevents.
 - **Re-sort on every tick.** Rows would jump under the cursor every two seconds.
-- **A spinner on a working mouse's line, and `○ idle`.** Both repeated herdr's own icon
-  beside the workspace; the spinner's one use, a still one meaning the owl had stopped,
+- **A spinner on a working mouse's line.** It repeated herdr's own icon
+  beside the workspace; its one use, a still one meaning the owl had stopped,
   is covered by the lines expiring.
 - **The question, report summary or last action under the line.** Cut at the sidebar's
   width, sometimes stale, and the main session has them whole.
@@ -228,3 +229,5 @@ Changed on 2026-10-14: an idle mouse whose last stop was passed over while its o
 Changed on 2026-10-15: working and idle lines have no words of their own, since herdr's icon says them, but for `◐ background`, which it cannot; no line carries an excerpt; the size comes first, coloured by its band against the mouse's auto-compact window; the merge request is two rows coloured by part; a finished mouse sorts last; `whiska merge-request open` stands in for a link herdr cannot draw.
 
 Changed on 2026-10-15 (polish): the merge request is one row, not two: its name, pipeline and review joined by ` · `.
+
+Changed on 2026-10-15 (polish): `○ idle` is back, in orange (`212K · ○ idle`), since the person found it useful; a working mouse still has no sign of its own.

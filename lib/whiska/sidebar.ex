@@ -34,7 +34,7 @@ defmodule Whiska.Sidebar do
 
   # The colour key: the person's herdr config colours a line by its first
   # symbol, so every symbol a line can start with has a rule, in Solarized
-  # shades the person is free to change. Plain working and idle have none:
+  # shades the person is free to change. Plain working has none:
   # herdr's own icon says those.
   @colours [
     {"❓", "#2aa198"},
@@ -47,7 +47,8 @@ defmodule Whiska.Sidebar do
     {"💤", "#6c71c4"},
     {"⏸", "#6c71c4"},
     {"↩", "#268bd2"},
-    {"◐", "#268bd2"}
+    {"◐", "#268bd2"},
+    {"○", "#e0891f"}
   ]
 
   # The merge request's pipeline and review, coloured by their own words.
@@ -284,7 +285,7 @@ defmodule Whiska.Sidebar do
   defp state(%{in_flight?: true} = row, _now),
     do: {@working, "◐ background", row.topic || row.doing}
 
-  defp state(_idle, _now), do: {@idle, nil, nil}
+  defp state(_idle, _now), do: {@idle, "○ idle", nil}
 
   defp asked(%{waits: :away}, _now), do: {@away, "💤 waits: away", nil}
 
