@@ -69,8 +69,8 @@ in words, and its brief names the command each runs (ADR-0088).
 
 **The person's commands are refused to a mouse.** Every shaped mouse starts with a deny
 rule for each: `away`, `hold`, `focus`, `resume`, `reply`, `dismiss` and `close`, with
-`whiska` in front or bare, and `whiska spawn`, `send`, `tell`, `land`, `pr`,
-`merge-request` and `drop`, only with `whiska` in front since `pr` and `send` are other programs too. Prose in
+`whiska` in front or bare, and `whiska spawn`, `send`, `tell`, `land`, `pr`, `push`,
+`merge-request` and `drop`, only with `whiska` in front since `pr`, `push` and `send` are other programs or words too. Prose in
 a brief would be the only other thing stopping a mouse from putting the machine away,
 holding a sibling, or starting, landing or throwing away a branch; what must hold is a
 rule Claude Code enforces (ADR-0011, ADR-0090). A plain rule matches the command as
@@ -139,3 +139,6 @@ for any branch, is the person's to do, as opening one with `pr` already was.
 
 Changed on 2026-10-15: `tell` is the person's too, and a letter from another house waits
 for away but not for a focus (ADR-0044).
+
+Changed on 2026-10-15: `push` is the person's too: it pushes a review round's branch and
+posts its mouse's replies, which no mouse does any more (ADR-0060).

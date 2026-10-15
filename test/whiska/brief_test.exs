@@ -15,7 +15,7 @@ defmodule Whiska.BriefTest do
     refute Brief.render(:main) =~ "{{"
   end
 
-  test "a review round's rules are in the build and review briefs, and say no push without a yes" do
+  test "a review round's rules are in the build and review briefs, and leave push and post to Whiska" do
     for brief <- ["build", "review"] do
       text = brief |> Brief.render() |> String.replace(~r/\s+/, " ")
       assert text =~ Brief.review_rules() |> String.replace(~r/\s+/, " "), brief
@@ -23,12 +23,12 @@ defmodule Whiska.BriefTest do
 
     rules = Brief.review_rules() |> String.replace(~r/\s+/, " ")
 
-    assert rules =~
-             "Nothing is pushed, and nothing is posted to a person's thread, without the person's yes."
-
-    assert rules =~ "resolve each thread you fixed"
+    assert rules =~ "On the person's yes, Whiska pushes the branch, posts each reply"
+    assert rules =~ "Never push, post or resolve yourself, bots' threads included"
+    assert rules =~ "`<thread-id>.md` to reply, `<thread-id>.resolve.md` to reply and resolve"
     assert rules =~ "A thread hard to fix or ambiguous, one you dispute"
-    assert rules =~ "a bot is an account the forge marks as one, never one named like it"
+    assert rules =~ "the reply in full, as its file holds it"
+    assert Brief.render(:main) =~ ~s|A yes to a "Ready to push" →\n  `whiska push <id>`|
     refute Brief.render("sniff") =~ "## A review round"
   end
 

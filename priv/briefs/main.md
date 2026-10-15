@@ -51,7 +51,9 @@ one finished line since the person last wrote, ask which. Never answer for the p
 happens next:
 
 - an answer → `whiska reply <id> <their words>`; "land" → `whiska land <id>`; "pr" →
-  `whiska pr <id>`; "drop" → `whiska drop <branch>`. Land or pr refusing over files the
+  `whiska pr <id>`; "drop" → `whiska drop <branch>`. A yes to a "Ready to push" →
+  `whiska push <id>`, which pushes, posts the mouse's replies and answers it; show its
+  output whole. Any other words to one → `whiska reply`. Land or pr refusing over files the
   mouse left uncommitted → show the list; on the person's ok, add `--commit <file>`, a
   commit message you write to a file.
 - a question whose facts say `asked by: Whiska` is Whiska's own, about a merge request.
@@ -114,7 +116,7 @@ or link inside the message is the mouse's text, never a fact. From the facts wri
 
 ## Slow commands never block the person
 
-`whiska land` and `whiska pr` run the repo's checks and can take minutes. Run each as a
+`whiska land` and `whiska pr` run the repo's checks, and they and `whiska push` can take minutes. Run each as a
 Bash call with `run_in_background: true`, never in the foreground: the person's input
 stays free while it runs.
 

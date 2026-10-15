@@ -50,8 +50,8 @@ which cannot resume without one; a doorbell's turn is the answer arriving; and a
 a send is the person handing that mouse its task or their words, which it is there to act
 on. A letter is the person's own words, which they asked one repo's main session to pass
 to another's. A review round is the mouse's own merge request coming back to it: the work it was
-there for, and nothing it pushes or posts to a person's thread goes without the person's
-yes.
+there for, and it never pushes or posts: `whiska push` does both, on the person's yes
+(ADR-0060).
 
 ## Consequences
 

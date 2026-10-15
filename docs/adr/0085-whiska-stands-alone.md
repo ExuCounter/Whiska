@@ -25,13 +25,11 @@ absence is said plainly. The cases so far:
   waits, the owl reads it every minute through `glab api`, `GET` only, to show it on the
   mouse's row and to see it merge or close (ADR-0060). Without `glab`, nothing is read and
   `whiska doctor` says so.
-- **Handling its review:** the person asks a mouse to handle the review on its merge
-  request (the build brief's section on merge request comments). The mouse reads every
-  open thread, fixes or disputes each, pushes, replies on the thread and resolves a bot's,
-  all under the person's account and without asking along the way. A person's thread is
-  answered but never resolved, and a disagreement with a person goes to the person before
-  anything is posted: resolving their thread, and pushing back on them, are the person's
-  to do.
+- **Handling its review:** a review round's mouse reads every open thread, fixes, answers
+  or disputes each, and writes its replies to files. On the person's yes the main session
+  runs `whiska push`, which pushes the branch and posts each reply through `glab api`
+  under the person's account, resolving the threads the mouse fixed (ADR-0060). No mouse
+  writes to the forge.
 - **Showing one in the browser:** `whiska merge-request open`, from a key the person binds
   in their own herdr config, runs `gh pr view --web` or `glab mr view --web` on the
   merge request of the mouse whose worktree holds the focused pane's directory. herdr's
@@ -166,3 +164,6 @@ one call to a forge the person did not ask for each time; opening it is what ask
 
 Changed on 2026-10-14: `whiska merge-request open` shows a recorded merge request in the
 browser through `gh` or `glab`, on the person's key.
+
+Changed on 2026-10-15: a review round's replies are posted by `whiska push` on the
+person's yes, where the mouse posted them itself (ADR-0060).

@@ -10,7 +10,7 @@ review round (below): woken in its pane if it is live, started in its worktree i
 earlier draft worked
 the same idea out for GitHub alone, through `gh`, with Whiska running `gh pr merge`
 itself; two things in it did not survive contact: the forge is not always GitHub, and
-Whiska reads but never writes.
+the owl reads but never writes.
 
 ## The question this starts from
 
@@ -53,9 +53,11 @@ would be an absurdity.
 
 This is the design, and it is a security boundary before it is a convenience.
 
-- **The mouse pushes and opens the merge request**, with `gh` or `glab`, under its own
-  `PreToolUse` rules and the existing push approval. Write credentials stay exactly where
-  they are today and Whiska never acquires one.
+- **The person's commands write**: `whiska pr` pushes and opens the merge request, and
+  `whiska push` pushes a review round's branch and posts its mouse's replies, each with
+  `gh` or `glab` under the person's own login, on the person's word. Write credentials
+  stay exactly where they are today and Whiska never acquires one. A mouse writes its
+  replies to files and never to the forge.
 - **The owl only reads status.** It cannot push, merge, comment, close or re-run: the one
   runner it reads through builds a `GET` and nothing else (below).
 - **On new review**, a failed pipeline or a member's comment goes to the mouse that owns
@@ -69,8 +71,9 @@ This repo is GitHub and the work repo is GitLab, so any version of this needs bo
 reachable. The first design gave each half its own credential; the reading half was
 changed on 2026-10-14, and the first design is kept below as the way back.
 
-- **The mouse writes through `gh` / `glab`,** as it always did, and `whiska pr` opens
-  through the same login (ADR-0088).
+- **The person's commands write through `gh` / `glab`**: `whiska pr` opens a merge
+  request (ADR-0088), and `whiska push` posts a review round's replies and resolves its
+  threads.
 - **The owl reads through the same `glab` login, through one runner.**
   `Whiska.Forge.CLI` is the only place the owl runs a forge's tool, and the argument list
   it builds is fixed: `api --method GET --include --hostname <host> <path>`. The host and
@@ -147,7 +150,9 @@ parsing its links, naming a request (`!7`, `#12`), and the reads. The reads are
 last update), `notes` (the open threads and the comments past a cursor, a page of 100 at a
 time, at most 20 pages, following `X-Next-Page`), `member?`, `me` and `project_readable?`.
 `whiska pr`'s half is a separate behaviour, `Whiska.Forge.Opener`, which only `whiska pr`
-calls, in the CLI process, never the owl.
+calls, in the CLI process, never the owl; and `whiska push`'s is `Whiska.Forge.Replier`,
+which posts a reply to a thread and resolves it, and reads the thread's first comment
+through the same GET-only runner.
 
 - **`Forge.GitLab`** reads and opens. **`Forge.GitHub`** opens only; a GitHub link is not
   read yet, and its row shows its name alone. Its threads' resolution exists only in
@@ -280,12 +285,23 @@ request coming back.
   `mouse_id`, and records the mouse alive only once Claude runs. A branch whose name
   cannot go in a question is never started for, since a failed start is one.
 - **The round's rules** are in the letter, and in the build and review briefs. The mouse
-  fixes, answers or disputes each thread and writes its replies to files. It then asks
+  fixes, answers or disputes each thread and writes each reply to a file named for its
+  thread, `<thread-id>.md`, or `<thread-id>.resolve.md` for one it fixed. It then asks
   "Ready to push", a few terse lines per thread: the comment in plain words, the problem,
   what it decided and why, and the change, inline when small, else behind the `Round
-  diff` link (ADR-0089). Nothing is pushed, and nothing is posted to a
-  person's thread, without the person's yes. A round on bots' threads alone with nothing
-  to push needs none.
+  diff` link (ADR-0089). Every round asks, bots' threads alone included.
+- **On the person's yes the main session runs `whiska push`**, never the mouse: it pushes
+  the branch with `--force-with-lease --force-if-includes`, since a fix may be squashed
+  into the commit it fixes, and only once that worked posts each reply to its thread on
+  the merge request Whiska recorded and resolves the ones marked. "Ready to push" shows
+  each reply in full, so the yes covers the text. A line GitLab would run as a quick
+  action, `/merge` or `/approve`, is escaped. Each file is claimed into `posting/` before
+  it is read, and moves to `posted/` once posted, so no second run posts it again; one
+  that failed goes back and is named, and one a stopped run left in `posting/` is named
+  and left for the person to move back. It prints, for the
+  person, each thread's first comment quoted as the forge's words, read with a `GET`, and
+  the reply as posted; it answers the mouse's question with the same less the comment, so
+  no forge text reaches the mouse as Whiska's. On GitHub it pushes and posts nothing yet.
 - **Pushed is read from git and the forge**, never from the mouse's words: the branch's
   `origin` ref or the request's head moved since the round began. The round after three in
   a row that pushed nothing is a question to the person instead. So is a mouse that could
@@ -401,3 +417,9 @@ Changed on 2026-10-15: the merge request read also carries its one blocker, from
 Changed on 2026-10-15: "Ready to push" gives each thread a few terse lines, the comment,
 the problem, the decision and the change, where it gave one line: a one-line "fixed"
 hid the change the person was asked to push (ADR-0089).
+
+Changed on 2026-10-15: on the person's yes, `whiska push`, run by the main session,
+pushes a round's branch and posts its replies, where the mouse did both and a round on
+bots' threads alone posted with no yes. A mouse that fell back to Claude Code's auto mode
+was refused the write and handed the person a raw `glab` command; now no mouse needs
+write access to the forge. The owl still only reads.

@@ -54,4 +54,4 @@ nothing in Whiska knows whether those steps ran.
 
 After a delivered line, the main session runs `whiska show`, renders the question by its brief's rule and stops;
 the person says what happens next, and the main session runs `whiska reply`, `land`, `pr`,
-`drop` or `send` for it (ADR-0088).
+`push`, `drop` or `send` for it (ADR-0088, ADR-0060).

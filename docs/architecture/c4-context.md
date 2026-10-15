@@ -33,8 +33,8 @@ C4Context
   Rel(whiska, git, "Derives layout from, stores house under .git/, removes a landed worktree")
   Rel(launchd, whiska, "Starts the owl at login, restarts it on a crash")
   Rel(whiska, nc, "Raises every hoot; a click on it jumps to the main session")
-  Rel(whiska, remote, "Fetches the base every minute while a merge request waits, and a dropped branch for a review mouse; pr pushes a branch", "git")
-  Rel(whiska, forge, "Reads a recorded GitLab merge request every minute, GET only; pr opens one", "glab or gh, the person's login")
+  Rel(whiska, remote, "Fetches the base every minute while a merge request waits, and a dropped branch for a review mouse; pr and push push a branch", "git")
+  Rel(whiska, forge, "Reads a recorded GitLab merge request every minute, GET only; pr opens one; push posts a review round's replies", "glab or gh, the person's login")
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
@@ -53,8 +53,8 @@ C4Context
   (ADR-0087).
 - **The forge is read, never written by the owl.** A recorded GitLab merge request is read
   every minute through the person's own `glab` login, by one runner that builds only a
-  `GET` (ADR-0060). Whiska holds no token. `whiska pr` opens the request through the same
-  login, on the person's word (ADR-0085).
+  `GET` (ADR-0060). Whiska holds no token. `whiska pr` opens the request, and `whiska push`
+  posts a review round's replies, through the same login, on the person's word (ADR-0085).
 - **The service manager** matters because there is exactly one owl per machine, not one
   process per repo (ADR-0001). `whiska owl install` writes the user LaunchAgent
   `com.whiska.owl` on macOS, or the systemd user unit `whiska-owl.service` on Linux, which

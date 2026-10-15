@@ -8,7 +8,9 @@ defmodule Whiska.Forge do
 
   No callback writes. Every read goes through `Whiska.Forge.CLI`, which runs
   only GETs. Opening a merge request is the separate `Whiska.Forge.Opener`
-  behaviour, which `whiska pr` alone calls, on the person's word (ADR-0085).
+  behaviour, which `whiska pr` alone calls, and replying on a thread the
+  separate `Whiska.Forge.Replier`, which `whiska push` alone calls, each on
+  the person's word (ADR-0085).
 
   An answer is `{:ok, value}`, `:missing` for a 404, or unknown with the
   forge's retry time when it sent one. Unknown is never an answer about the
@@ -156,4 +158,20 @@ defmodule Whiska.Forge.Opener do
             ) :: {:ok, [String.t()]} | {:error, String.t()}
   @callback link(output :: String.t()) :: {:ok, String.t()} | {:error, String.t()}
   @callback browse_args(Whiska.Forge.ref()) :: [String.t()]
+end
+
+defmodule Whiska.Forge.Replier do
+  @moduledoc """
+  Replying on a merge request's thread and resolving it: the writes `whiska
+  push` makes, in the person's own command and never the owl's (ADR-0060).
+  The thread id is one `whiska push` checked; the body is a JSON file, so the
+  reply's text is never on a command line.
+  """
+
+  @callback reply_args(Whiska.Forge.ref(), thread_id :: String.t(), json_file :: Path.t()) ::
+              [String.t()]
+  @callback resolve_args(Whiska.Forge.ref(), thread_id :: String.t()) :: [String.t()]
+  @callback thread_id?(String.t()) :: boolean()
+  @callback thread(Whiska.Forge.ref(), thread_id :: String.t(), Whiska.Forge.run()) ::
+              Whiska.Forge.answer(%{author: String.t(), body: String.t(), note_id: pos_integer()})
 end

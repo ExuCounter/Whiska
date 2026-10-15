@@ -1,7 +1,8 @@
 defmodule Whiska.Forge.GitLab do
   @moduledoc """
-  GitLab, through `glab`: reading a merge request with `glab api` GETs, and
-  opening one with `glab mr create`.
+  GitLab, through `glab`: reading a merge request with `glab api` GETs,
+  opening one with `glab mr create`, and replying on and resolving its threads
+  with `glab api` POST and PUT.
 
   The merge request itself is one GET, and carries `user_notes_count` and
   `updated_at`, so the discussions, which can run to pages, are read only when
@@ -10,6 +11,7 @@ defmodule Whiska.Forge.GitLab do
 
   @behaviour Whiska.Forge
   @behaviour Whiska.Forge.Opener
+  @behaviour Whiska.Forge.Replier
 
   alias Whiska.Forge
   alias Whiska.Forge.CLI
@@ -106,6 +108,38 @@ defmodule Whiska.Forge.GitLab do
       nil -> {:error, "glab printed no link:\n\n#{String.trim(out)}"}
     end
   end
+
+  @impl Whiska.Forge.Replier
+  def reply_args(ref, thread_id, json_file) do
+    ~w(api --method POST --hostname) ++
+      [ref.host, "--header", "Content-Type:application/json", "--input", json_file] ++
+      ["#{discussion_path(ref, thread_id)}/notes"]
+  end
+
+  @impl Whiska.Forge.Replier
+  def resolve_args(ref, thread_id),
+    do:
+      ~w(api --method PUT --hostname) ++
+        [ref.host, "#{discussion_path(ref, thread_id)}?resolved=true"]
+
+  @impl Whiska.Forge.Replier
+  def thread_id?(id), do: id =~ ~r/\A[0-9a-f]{40}\z/
+
+  @impl Whiska.Forge.Replier
+  def thread(ref, thread_id, run) do
+    with {:ok, body, _headers} <- CLI.get(run, ref.host, discussion_path(ref, thread_id)) do
+      case body do
+        %{"notes" => [%{"id" => id, "body" => text, "author" => %{"username" => author}} | _]}
+        when number?(id) and is_binary(text) and is_binary(author) ->
+          {:ok, %{author: author, body: text, note_id: id}}
+
+        _ ->
+          {:unknown, :unreadable_discussion, nil}
+      end
+    end
+  end
+
+  defp discussion_path(ref, thread_id), do: "#{merge_request_path(ref)}/discussions/#{thread_id}"
 
   defp signed_in(main_checkout) do
     run = %{tool: CLI.find("glab"), cwd: main_checkout, timeout_ms: 30_000}

@@ -267,6 +267,13 @@ defmodule Whiska.CLI do
                          `merge-request` would. Once one is open, `pr` pushes
                          the branch's new commits to it instead.
 
+    push <id>            On the person's yes to question <id>'s "Ready to
+                         push": push its branch with --force-with-lease, post
+                         each reply its mouse wrote in .whiska-replies/ to its
+                         thread on the recorded merge request, resolve those
+                         named <thread-id>.resolve.md, and answer <id> with
+                         what was done. GitLab only; on GitHub it pushes.
+
     drop <branch> [--force]
                          Take down a branch that is not landing: its worktree,
                          its herdr workspace and the branch. Commits no remote
@@ -581,6 +588,7 @@ defmodule Whiska.CLI do
   def run(["land", id], cwd), do: with_question(cwd, id, &land(&1, cwd, nil))
   def run(["land", id, "--commit", file], cwd), do: with_question(cwd, id, &land(&1, cwd, file))
 
+  def run(["push", id], cwd), do: with_question(cwd, id, &push(&1, cwd))
   def run(["pr", id], cwd), do: with_question(cwd, id, &pr(&1, cwd, nil))
   def run(["pr", id, "--commit", file], cwd), do: with_question(cwd, id, &pr(&1, cwd, file))
 
@@ -2556,16 +2564,52 @@ defmodule Whiska.CLI do
   # (ADR-0080). Once saved the answer is safe, so a
   # doorbell that does not ring is the owl's to ring again, not a failed reply.
   defp reply(%Question{} = q, text) do
-    with {:ok, mouse} <- live_mouse(q),
-         {:ok, _} <- Storage.answer(q.id, text) do
-      notes = [lift_hold_for_answer(mouse), flag(mouse)]
-      say(rang(q, mouse, ring(q, mouse)) <> Enum.join(Enum.reject(notes, &is_nil/1)))
-    else
-      {:error, {:dead, mouse}} ->
-        dead_mouse(q, mouse)
+    case live_mouse(q) do
+      {:ok, mouse} -> answer(q, mouse, text)
+      {:error, {:dead, mouse}} -> dead_mouse(q, mouse)
+      {:error, reason} -> unsaved(q, reason)
+    end
+  end
+
+  defp answer(q, mouse, text) do
+    case Storage.answer(q.id, text) do
+      {:ok, _} ->
+        notes = [lift_hold_for_answer(mouse), flag(mouse)]
+        say(rang(q, mouse, ring(q, mouse)) <> Enum.join(Enum.reject(notes, &is_nil/1)))
 
       {:error, reason} ->
-        fail("whiska: could not save the answer (#{describe(reason)}). ##{q.id} is unchanged.")
+        unsaved(q, reason)
+    end
+  end
+
+  defp unsaved(q, reason),
+    do: fail("whiska: could not save the answer (#{describe(reason)}). ##{q.id} is unchanged.")
+
+  # Whatever stops an answer stops a push before anything moves, since the
+  # push ends in answering the mouse with what was done.
+  defp push(%Question{status: status} = q, _cwd) when status not in ["open", "sent"],
+    do: reply(q, "")
+
+  defp push(%Question{asked_by: "owl"} = q, _cwd), do: reply(q, "")
+
+  defp push(%Question{} = q, cwd) do
+    {:ok, main} = main_checkout(cwd || File.cwd!())
+
+    with {:ok, mouse} <- live_mouse(q),
+         {:ok, %{person: person, answer: text}} <- Whiska.Push.run(main, mouse) do
+      say(person <> "\n")
+
+      case Storage.question(q.id) do
+        %Question{status: status} when status in ["open", "sent"] ->
+          answer(q, mouse, text)
+
+        %Question{status: status} ->
+          say("##{q.id} was #{status} meanwhile, so it is left as it is.")
+      end
+    else
+      {:error, {:dead, mouse}} -> dead_mouse(q, mouse)
+      {:error, message} when is_binary(message) -> fail("whiska: #{message}")
+      {:error, reason} -> unsaved(q, reason)
     end
   end
 

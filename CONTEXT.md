@@ -265,14 +265,14 @@ on it)
 **Review round**:
 New review on a **merge request** — a member's comment, an open thread whose last word
 is a member's and that no round has had, however old, or a pipeline failed on its head
-— handed to the branch's mouse to fix, answer or dispute, then pushed and posted on the
-person's yes. The owl keeps the review, by id, on its read until a round can take it, and
+— handed to the branch's mouse to fix, answer or dispute, its replies written to files,
+then pushed and posted by `whiska push` on the person's yes, never by the mouse. The owl keeps the review, by id, on its read until a round can take it, and
 then wakes the mouse if it is live: a **letter** in its worktree and one fixed line typed
 into its idle pane, under the **doorbell**'s bounds and only when nothing of it waits on
 the person. With no live mouse it starts one in the branch's worktree, making a dropped
 one again. The person runs one too, by `whiska send` with a review. Its rules are in the
-letter and the build and review **briefs**: nothing is pushed, and nothing posted to a
-person's thread, without the person's yes; a round on bots' threads alone needs none.
+letter and the build and review **briefs**: nothing is pushed or posted without the
+person's yes, bots' threads included.
 Pushed is read from git and the forge. The round after three in a row that pushed
 nothing, a mouse that could not be started, and a started one that died without a word
 are the owl's own question instead, and no round runs until it is closed (ADR-0060,
@@ -283,7 +283,8 @@ _Avoid_: wake, wake-up (one way a round starts), review (what happens on the for
 Where a repo's merge requests live, GitLab or GitHub, and Whiska's one layer for talking
 to it (ADR-0060): an adapter per forge, picked by a link's host, reads through the
 person's own `glab` or `gh` login with `GET` requests only, through one runner, and
-`whiska pr` opens through the same adapter. The owl reads only a **merge request** Whiska
+`whiska pr` opens and `whiska push` posts a **review round**'s replies through the same
+adapter. The owl reads only a **merge request** Whiska
 recorded, and only on GitLab so far.
 _Avoid_: host (the forge's address, one part of a link), provider, remote (git's word for
 where a branch is pushed)
@@ -552,7 +553,7 @@ gated (the gate's), on ice
 **Person's command**:
 A `whiska` command only the person runs, never a mouse: `away`, `hold`, `focus`,
 `resume`, `reply`, `dismiss` and `close` — the ones that set or end what reaches them,
-which mouse stops, and what a mouse is told — `spawn`, `send`, `land`, `pr`,
+which mouse stops, and what a mouse is told — `spawn`, `send`, `land`, `pr`, `push`,
 `merge-request` and `drop`, which start, steer, ship, point Whiska at or throw away a
 branch, and `tell`, which hands another repo's main session a **letter**. The main session runs them on the person's word. Every shaped mouse's **deny
 list** refuses each, `whiska` in front or bare, as a plain rule that `env` or a full path
