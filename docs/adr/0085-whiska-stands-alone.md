@@ -54,7 +54,8 @@ absence is said plainly. The cases so far:
   `.whiska/reviews/<branch>-<hash>.diff`, one file per branch (the name made safe for a
   file and cut to 100 characters, and 128 bits of a hash of the whole name, so `feat/x`
   and `feat-x` keep a file each and no mouse can search out a name that shares another
-  branch's file),
+  branch's file), with its last review round's change beside it as `.round.diff`
+  (ADR-0089),
   ignored like the kept specs (ADR-0063), and prints a link to
   it on a line of its own, as a spec goes to the person as a link. It writes the file
   wherever it runs, a mouse's worktree included: the main session's shell can stand in a

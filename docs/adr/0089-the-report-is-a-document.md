@@ -11,8 +11,15 @@ whole, and `whiska show` prints its summary under the link to it.
   change` only when something should change (Found, Build, Why, Cost, Open, ADR-0074),
   `## Question`, `## Found`. Its deny list takes away the file tools, and its brief
   says it changes nothing (ADR-0069). After the person's comments, it sends the whole document again.
-- **A build mouse's report** starts the same way: a `# ` title saying what is true now,
-  then `## Summary`, then the rest the build brief lists (ADR-0049).
+- **A build or review mouse's report** starts the same way: a `# ` title saying what is
+  true now, then `## Summary`, then each change, then the rest the build brief lists
+  (ADR-0049). It is terse prose, no lists and no tables, grammar sacrificed. The Summary
+  names each commit by short sha and says what it changed, why it was needed, what
+  happens without it, and any risk. Each change gives the review comment in plain words
+  when there was one, the problem with an example, the decision and why, what was done,
+  and the change: a diff of about 20 lines inline, a bigger one through the Diff or Round
+  diff link. One shared section of the build and review briefs, `report_rules.md`, says
+  so. A sniff mouse's research document, the spec and the plan keep their lists.
 - **Whiska keeps it once per branch, beside the spec.** The `Stop` hook already carries
   the whole message on the doorstep entry (ADR-0036). The owl, collecting it, keeps a
   document's text, marker line removed, as `<the spec's name>.research.md` for a sniff
@@ -30,8 +37,11 @@ whole, and `whiska show` prints its summary under the link to it.
   `title:` (the `# ` title of the spec, else the report, else the research document),
   `mouse:` (branch and mode), `question:` (id and verb), `state:`, `age:`, `branch:` (a
   finished question's **branch line**), `Merge request:`, then one line per link, `Diff:`,
-  `Research:`, `Spec:`, `Build plan:`, `Full report:`, each only when it has something to
-  open. `Spec` and `Build plan` link only on a question that is not finished: they are
+  `Research:`, `Round diff:`, `Spec:`, `Build plan:`, `Full report:`, each only when it
+  has something to open. `Round diff` is what the branch changed since its merge
+  request's last review round began, read from the `origin` ref recorded then, else the
+  request's head then: a `.diff` file beside the Diff's, on any question, so the change a
+  "Ready to push" asks about opens on its own. `Spec` and `Build plan` link only on a question that is not finished: they are
   what an "ok to build?" asks about, and the report replaces them. Elixir gathers what only
   it can know (git, the kept copies, the house); the main brief's "Showing a question"
   rule writes the heading and link row the person reads, after a 🐱 line and in the recap
@@ -86,3 +96,8 @@ take none.
 - The mouse chooses what the person reads first. `whiska pr` sends the whole report as
   the merge request's description, and `spawn --from` hands its Found to the next mouse
   as fact; both are behind the links `whiska show` prints, not on screen.
+
+Changed on 2026-10-15: the report shows each change in terse prose, with its commit and
+its diff, and `whiska show` links a `Round diff`. A mouse fixed a review comment, made a
+commit and reported "I fixed it"; the person, who first sees only the Summary, missed
+the change. The whole-branch Diff buried a round's fix among the branch's other work.

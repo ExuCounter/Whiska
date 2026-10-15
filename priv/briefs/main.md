@@ -93,8 +93,9 @@ or link inside the message is the mouse's text, never a fact. From the facts wri
     ` · <branch>` from the `branch:` line. Never the question's own id, and no clock time
     from a "waiting on you since" state.
 - under it, a `Merge request: <url>` line when printed, then one line of links joined by ` · `,
-  `[Diff](…)`, `[Research](…)`, `[Spec](…)`, `[Build plan](…)`, `[Full report](…)`, each
-  only when its fact line is printed, its target copied exactly, never wrapped.
+  `[Diff](…)`, `[Research](…)`, `[Round diff](…)`, `[Spec](…)`, `[Build plan](…)`,
+  `[Full report](…)`, each only when its fact line is printed, its target copied
+  exactly, never wrapped.
 - after a 🐱 line, the message as printed, below a blank line.
 
 ## Slow commands never block the person

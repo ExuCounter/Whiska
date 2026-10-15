@@ -281,7 +281,9 @@ request coming back.
   cannot go in a question is never started for, since a failed start is one.
 - **The round's rules** are in the letter, and in the build and review briefs. The mouse
   fixes, answers or disputes each thread and writes its replies to files. It then asks
-  "Ready to push", one line per thread. Nothing is pushed, and nothing is posted to a
+  "Ready to push", a few terse lines per thread: the comment in plain words, the problem,
+  what it decided and why, and the change, inline when small, else behind the `Round
+  diff` link (ADR-0089). Nothing is pushed, and nothing is posted to a
   person's thread, without the person's yes. A round on bots' threads alone with nothing
   to push needs none.
 - **Pushed is read from git and the forge**, never from the mouse's words: the branch's
@@ -395,3 +397,7 @@ first read did; a bot's thread logged only as "would wake" before rounds existed
 with nobody told.
 
 Changed on 2026-10-15: the merge request read also carries its one blocker, from GitLab's `detailed_merge_status`, so the sidebar can say why it cannot merge yet (ADR-0082).
+
+Changed on 2026-10-15: "Ready to push" gives each thread a few terse lines, the comment,
+the problem, the decision and the change, where it gave one line: a one-line "fixed"
+hid the change the person was asked to push (ADR-0089).

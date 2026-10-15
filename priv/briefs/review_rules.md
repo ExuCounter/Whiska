@@ -12,9 +12,13 @@ letter, or the person asks.
    the checks and read the diff back; a fresh reviewer only for more than a small fix.
 3. Write each reply to a file in `.whiska-replies/`, so no comment text lands on a
    command line.
-4. Ask, titled "Ready to push": one line per thread (who, what, and fixed, answered,
-   disputed or needs you), then the commits. A thread hard to fix or ambiguous, one you
-   dispute, and a failed pipeline this branch did not cause go in that same question.
+4. Ask, titled "Ready to push", terse as the report and as clear. Each thread in a few
+   lines of prose: who, and fixed, answered, disputed or needs you; the comment in plain
+   words; the problem, with an example of why the change helps; what you decided and
+   why; the change, inline when about 20 lines or fewer, else its key part, pointing
+   at the Round diff link Whiska prints: paste no link. Then the commits, by short sha.
+   A thread hard to fix or ambiguous, one you dispute, and a failed pipeline this branch
+   did not cause go in that same question.
 5. On the person's yes: push (`--force-with-lease` after a squash, plainly otherwise),
    post each reply from its file, and resolve each thread you fixed. A thread you only
    answered or disputed stays open. Then report.

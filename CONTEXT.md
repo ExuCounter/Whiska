@@ -190,8 +190,9 @@ see **Report**), event (as the table/record name)
 
 **Report**:
 The shape a mouse's final message takes — a `# ` title saying what is true now, its
-**summary**, then what changed with each cheap choice made without asking, what was run
-and what came back, each finding left unfixed, then the agent ledger; a question for the
+**summary**, then each change in terse prose, no lists (its commit, the problem, the
+decision and why, the change itself inline when small), each cheap choice made without
+asking, what was run and what came back, each finding left unfixed, then the agent ledger; a question for the
 person, when only they can decide, sits on the line above the marker. A sniff mouse's
 report is its **research document**. It names how a message reads, never the record it
 becomes: once collected the same message is a **question**. A mouse's **brief** asks for
@@ -239,7 +240,9 @@ when it has something to open: the **diff link**, `Diff`, a link to the branch's
 which `whiska show` writes to one file per branch in `.whiska/reviews/`, named for the
 branch with a hash of its name, as a plain `.diff` patch, so the person reviews it
 from a link as they review a **spec**, in whatever their `.diff` files open in, and which
-goes when Whiska deletes the branch (ADR-0085); the **research document**, `Research` (ADR-0074); the
+goes when Whiska deletes the branch (ADR-0085); the **round diff**, `Round diff`, what
+the branch changed since its merge request's last review round began, a second file
+beside it, on any question (ADR-0089); the **research document**, `Research` (ADR-0074); the
 **spec** and **build plan**, `Spec` and `Build plan`, links to the worktree's files,
 only on a question that is not finished, since they are what an "ok to build?" asks
 about (ADR-0063); and the **report**, `Full report` (ADR-0089).
@@ -890,8 +893,8 @@ What a build mouse does before it is allowed to say `done`: read the change back
 the spec, or a bug's research document, and the repo's written decisions; send the
 **cold review**, and a security **reviewer** when the change touches input, permissions,
 hooks, prompts or secrets; disprove or fix each finding, two rounds at most; commit the
-work on its branch; and only then write the marker, under a **report** that gives one
-line to each finding left unfixed and ends with an agent ledger: one line per agent sent,
+work on its branch; and only then write the marker, under a **report** that names
+each finding left unfixed, in terse prose, and ends with an agent ledger: one line per agent sent,
 with its tokens, then one for the mouse's own session, printed by `whiska ledger` from the
 session's transcripts (ADR-0049). A section of the build **brief**, run by the mouse
 itself: Whiska neither runs it nor knows whether it was run. What green means here is the

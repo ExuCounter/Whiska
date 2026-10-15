@@ -31,7 +31,7 @@ C4Container
     Container(plan, "Build plan", ".whiska-plan.md file", "How a change will be built, beside its spec or a bug's research document; the cold review never reads it, git ignores it")
     Container(kept, "Kept specs", "directory, .whiska/specs/ in the main checkout", "One copy per branch of its spec, build plan, research document and report, each the text alone, named on its mouse's record; overwritten each round, the research and report copies linked from whiska show; git ignores it")
     Container(research, "Research document", ".whiska-research.md file", "What a bug's fix rests on, at the worktree root, git ignores it; an investigation's is its final message instead, and no file")
-    Container(reviews, "Diff files", "directory, .whiska/reviews/ in the main checkout", "A finished branch's diff as a plain .diff patch, one file per branch, rewritten on each show, linked from whiska show and opened wherever the person's .diff files open; git ignores it")
+    Container(reviews, "Diff files", "directory, .whiska/reviews/ in the main checkout", "A finished branch's diff as a plain .diff patch, one file per branch, and its last review round's change beside it, rewritten on each show, linked from whiska show and opened wherever the person's .diff files open; git ignores it")
     Container(backstop, "Backstop mark", "text file, .git/whiska/backstop", "How much the backstop collected that the idle trigger missed, and when")
     Container(clonelist, "Clone list", "text file, .git/whiska/clone", "Per-repo paths to clone into a new worktree beside the marker defaults, or a lone off; the person writes it")
     Container(record, "Open-houses record", "text file, ~/.whiska/houses", "One main checkout per line; which houses the owl has open")

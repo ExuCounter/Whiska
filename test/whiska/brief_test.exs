@@ -32,6 +32,22 @@ defmodule Whiska.BriefTest do
     refute Brief.render("sniff") =~ "## A review round"
   end
 
+  test "a mouse that changed code reports each change in prose, with its commit and diff" do
+    for brief <- ["build", "review"] do
+      text = brief |> Brief.render() |> String.replace(~r/\s+/, " ")
+      assert text =~ "names each commit by short sha", brief
+      assert text =~ "the review comment in plain words", brief
+      assert text =~ "inline in a `diff` block", brief
+      assert text =~ "No lists, no tables", brief
+      assert text =~ "grammar sacrificed", brief
+    end
+
+    rules = Brief.review_rules() |> String.replace(~r/\s+/, " ")
+    refute rules =~ "one line per thread"
+    assert rules =~ "the comment in plain words"
+    assert rules =~ "Round diff"
+  end
+
   test "a build mouse's plan shows signatures, data and the first failing test as code" do
     assert "build" |> Brief.render() |> String.replace(~r/\s+/, " ") =~
              "signatures, data shapes and the first failing test as code blocks"

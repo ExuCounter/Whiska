@@ -673,6 +673,30 @@ defmodule Whiska.Git do
     end
   end
 
+  @doc """
+  What a branch changed since commit `from`, tree to tree, so a commit squashed
+  since still shows as its change. The same flags as `branch_diff/3`; `from`
+  must be a full commit id.
+  """
+  @spec round_diff(Path.t(), branch(), String.t()) :: {:ok, String.t()} | {:error, term()}
+  def round_diff(checkout, branch, from) do
+    args = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--submodule=short"]
+
+    with true <- Regex.match?(~r/\A([0-9a-f]{40}|[0-9a-f]{64})\z/, from) || {:error, :unsafe_ref},
+         true <- plain_name?(branch) || {:error, :unsafe_branch},
+         {diff, 0} <-
+           System.cmd("git", args ++ [from, "refs/heads/#{branch}", "--"],
+             cd: checkout,
+             stderr_to_stdout: false,
+             env: [{"GIT_NO_LAZY_FETCH", "1"}]
+           ) do
+      {:ok, diff}
+    else
+      {out, code} when is_integer(code) -> {:error, {code, String.trim(out)}}
+      {:error, _} = error -> error
+    end
+  end
+
   defp off_branch({:error, :detached}), do: {:error, :off_branch}
   defp off_branch(head), do: head
 

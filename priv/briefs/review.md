@@ -19,11 +19,7 @@ local setup, or delete a file this turn did not make.
 
 {{review rules}}
 
-## Report
-
-A `# ` title saying what is true now, then `## Summary` (3-5 lines: what was pushed,
-posted and resolved, and anything the person must do), then what you ran and saw. No
-tables, use lists. Never wrap a markdown link across lines.
+{{report rules}}
 
 ## Ending a turn
 

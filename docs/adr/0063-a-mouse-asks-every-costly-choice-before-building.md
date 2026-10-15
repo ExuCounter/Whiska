@@ -279,7 +279,7 @@ A task with a costly choice costs two round trips before any code, one on the co
 choices and one on the spec and build plan; any other task costs one, and the four that
 skip it cost none. A bug costs one when its fix is obvious and two when there is a
 choice. A spec's question for an ok carries two links. A crash fix nobody had a choice about now waits on the person. The final report grows by the
-cheap choices made, each a line under what changed, outside the report's size cap. A
+cheap choices made, in its prose beside each change (ADR-0089), outside the report's size cap. A
 doorstep entry carries optional `spec`, `research` and `plan` fields; an entry without
 them still decodes. `.whiska-mouse` had the
 same untracked-file problem, and is hidden the same way, by the owl when it opens the

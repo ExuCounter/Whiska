@@ -8,7 +8,8 @@ defmodule Whiska.Brief do
 
   A review round's rules, `review_rules.md`, are written once and stand in for
   `{{review rules}}` in the build and review briefs; the letter that hands a
-  round over carries them too.
+  round over carries them too. The report's shape, `report_rules.md`, stands in
+  for `{{report rules}}` in the same two briefs.
 
   A mouse's brief is written to `.whiska-brief.md` at its worktree root, which
   git ignores like the spec (`Whiska.Spec`). The main session's is written into
@@ -17,18 +18,22 @@ defmodule Whiska.Brief do
   The briefs are read when Whiska is built, so the escript carries them.
   """
 
-  @paths for name <- ~w(main build sniff review review_rules),
+  @paths for name <- ~w(main build sniff review review_rules report_rules),
              do: {name, Path.join([__DIR__, "..", "..", "priv", "briefs", name <> ".md"])}
 
   for {_name, path} <- @paths, do: @external_resource(path)
 
   @read Map.new(@paths, fn {name, path} -> {name, File.read!(path)} end)
   @review_rules String.trim_trailing(@read["review_rules"])
+  @report_rules String.trim_trailing(@read["report_rules"])
 
   @briefs @read
-          |> Map.delete("review_rules")
+          |> Map.drop(["review_rules", "report_rules"])
           |> Map.new(fn {name, text} ->
-            {name, String.replace(text, "{{review rules}}", @review_rules)}
+            {name,
+             text
+             |> String.replace("{{review rules}}", @review_rules)
+             |> String.replace("{{report rules}}", @report_rules)}
           end)
 
   @filename ".whiska-brief.md"

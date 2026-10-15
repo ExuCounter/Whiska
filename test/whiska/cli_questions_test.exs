@@ -327,6 +327,98 @@ defmodule Whiska.CLIQuestionsTest do
       refute File.exists?(review_file(repo, "feat-n"))
     end
 
+    defp round_began(repo, branch, round_ref) do
+      {:ok, handle} = Storage.open(repo.checkout)
+
+      try do
+        {:ok, _} =
+          Storage.save_merge_request_read(%{
+            mouse_id: "m-#{branch}",
+            url: "https://gitlab.example/g/p/-/merge_requests/1",
+            round_at: ~U[2026-10-15 09:00:00Z],
+            round_by: "woken",
+            round_ref: round_ref
+          })
+      after
+        Storage.close(handle)
+      end
+    end
+
+    defp round_file(repo, branch), do: Whiska.Review.round_file(repo.checkout, branch)
+
+    test "a review round's change since it began is a diff file of its own, on any question",
+         %{repo: repo} do
+      q = finished(repo, "feat-r", push: true, kind: "needs-decision", status: "open")
+      path = Path.join(repo.root, "worktrees/feat-r")
+      began = GitRepo.git!(path, ["rev-parse", "HEAD"]) |> String.trim()
+      round_began(repo, "feat-r", began)
+      GitRepo.commit!(path, "fix.md", "the fix")
+
+      shown = show_one(repo, q)
+      round = round_file(repo, "feat-r")
+
+      assert shown =~ "\nRound diff: file://#{round}\n"
+      assert File.read!(round) =~ "+++ b/fix.md"
+      refute File.read!(round) =~ "feat-r.md"
+    end
+
+    test "a branch with no review round, or none moved since, links no round diff",
+         %{repo: repo} do
+      q = finished(repo, "feat-s", push: true)
+      refute show_one(repo, q) =~ "Round diff"
+
+      head = GitRepo.git!(Path.join(repo.root, "worktrees/feat-s"), ["rev-parse", "HEAD"])
+      round_began(repo, "feat-s", String.trim(head))
+      refute show_one(repo, q) =~ "Round diff"
+      refute File.exists?(round_file(repo, "feat-s"))
+    end
+
+    test "a round's fix reverted leaves no round diff, and no old file", %{repo: repo} do
+      q = finished(repo, "feat-v", push: true)
+      path = Path.join(repo.root, "worktrees/feat-v")
+      round_began(repo, "feat-v", GitRepo.git!(path, ["rev-parse", "HEAD"]) |> String.trim())
+      GitRepo.commit!(path, "fix.md", "the fix")
+      assert show_one(repo, q) =~ "\nRound diff: "
+
+      GitRepo.git!(path, ["revert", "--no-edit", "HEAD"])
+      refute show_one(repo, q) =~ "Round diff"
+      refute File.exists?(round_file(repo, "feat-v"))
+    end
+
+    test "the round diff stays once pushed, and reads the request's head with no origin ref",
+         %{repo: repo} do
+      q = finished(repo, "feat-p", push: true)
+      path = Path.join(repo.root, "worktrees/feat-p")
+      began = GitRepo.git!(path, ["rev-parse", "HEAD"]) |> String.trim()
+
+      {:ok, handle} = Storage.open(repo.checkout)
+
+      {:ok, _} =
+        Storage.save_merge_request_read(%{
+          mouse_id: "m-feat-p",
+          url: "https://gitlab.example/g/p/-/merge_requests/2",
+          round_head: began
+        })
+
+      Storage.close(handle)
+
+      GitRepo.commit!(path, "fix.md", "the fix")
+      GitRepo.git!(path, ["push", "origin", "feat-p"])
+
+      assert show_one(repo, q) =~ "\nRound diff: file://#{round_file(repo, "feat-p")}\n"
+      assert File.read!(round_file(repo, "feat-p")) =~ "+++ b/fix.md"
+    end
+
+    test "the full listing links an open question's round diff", %{repo: repo} do
+      finished(repo, "feat-l", push: true, kind: "needs-decision", status: "open")
+      path = Path.join(repo.root, "worktrees/feat-l")
+      round_began(repo, "feat-l", GitRepo.git!(path, ["rev-parse", "HEAD"]) |> String.trim())
+      GitRepo.commit!(path, "fix.md", "the fix")
+
+      full = capture_io(fn -> assert CLI.run(["questions", "--full"], repo.checkout) == 0 end)
+      assert full =~ "\nRound diff: file://#{round_file(repo, "feat-l")}\n"
+    end
+
     test "read from another mouse's worktree, a finished branch still links its diff",
          %{repo: repo} do
       q = finished(repo, "feat-w")

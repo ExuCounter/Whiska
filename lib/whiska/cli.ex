@@ -1774,14 +1774,30 @@ defmodule Whiska.CLI do
 
   defp render(summary, :listing, _main), do: Questions.render(summary)
 
-  defp render(summary, :full, main),
-    do:
-      Questions.render_full(
-        summary,
-        &on_branch(main, &1),
-        &research(main, &1),
-        &documents(main, &1)
-      )
+  defp render(summary, :full, main) do
+    rounds = rounds(main)
+
+    Questions.render_full(
+      summary,
+      &on_branch(main, &1),
+      &research(main, &1),
+      &documents(main, &1, rounds)
+    )
+  end
+
+  # The listing renders after the house is closed, so its rounds are read first.
+  defp rounds(main) do
+    with true <- File.exists?(Storage.database_path(main)),
+         {:ok, handle} <- Storage.open(main) do
+      try do
+        Storage.merge_request_reads()
+      after
+        Storage.close(handle)
+      end
+    else
+      _ -> %{}
+    end
+  end
 
   # Not repo-scoped: the line is machine-wide and herdr draws one of them for
   # the whole session (ADR-0048). Always 0 and never noisy — this runs every
@@ -2131,17 +2147,36 @@ defmodule Whiska.CLI do
         focus,
         &on_branch(main, &1),
         &research(main, &1),
-        &documents(main, &1)
+        &documents(main, &1, Storage.merge_request_reads())
       )
     )
   end
 
   defp research(main, %Question{} = q), do: Whiska.Research.find(main, q, mouse_of(q))
 
-  defp documents(main, %Question{} = q) do
+  defp documents(main, %Question{} = q, rounds) do
     mouse = mouse_of(q)
-    ahead_of_build(q, mouse) ++ report(main, mouse)
+    round_diff(main, mouse, rounds) ++ ahead_of_build(q, mouse) ++ report(main, mouse)
   end
+
+  # What the branch changed since its last review round began, read from the
+  # `origin` ref then, else the merge request's head then: the change a "Ready
+  # to push" question and the round's report are about.
+  defp round_diff(main, %Mouse{mouse_id: mouse_id, branch: branch}, rounds)
+       when is_binary(branch) do
+    with %{round_ref: ref, round_head: head} <- rounds[mouse_id],
+         from when is_binary(from) <- ref || head,
+         {:ok, diff} when diff != "" <- Git.round_diff(main, branch, from),
+         {:ok, path} <- Review.write_round(main, branch, diff) do
+      [{"Round diff", Review.file_link(path), nil}]
+    else
+      _no_round_or_no_change ->
+        Review.remove_round(main, branch)
+        []
+    end
+  end
+
+  defp round_diff(_main, _mouse, _rounds), do: []
 
   # The spec and build plan are what the person is asked to review before the
   # build, so only a question still open on them links them; a finished
