@@ -42,8 +42,8 @@ mice in question order, whatever the mode of either; one whose holder is not on 
 keeps its own state's place.
 
 A hold is checked first, then the question, then herdr's view of the pane, then stuck,
-picked up and working. Ages are minutes, then `Whiska.Mice.format_uptime/1` from an hour:
-a line is re-sent whenever its words change, and one ticking in seconds would be sent every
+picked up and working. Ages are one unit, `<1m`, `45m`, `23h`, `12d`, never
+`23h 59m`, which keeps a line narrow; a line is re-sent whenever its words change, and one ticking in seconds would be sent every
 second. The person picked ❓ for the lines that wait on them: a question for the person (the plain `?` is taken by `? herdr can't say`).
 
 **The facts behind the line** are the board, `Whiska.Watch.board/2`, which holds facts and
@@ -76,12 +76,23 @@ owl last read of it (ADR-0060), as three tokens joined by ` · `:
 
 - `whiska_mr`: the request named the way its forge names it, `⎇ !123` or `⎇ #12`.
 - `whiska_ci`: its head pipeline, `✓`, `◐` or `✗`.
-- `whiska_review`: `2 open`, `ready`, or, once it is no longer open,
+- `whiska_review`: one word, the one blocker the forge names: `needs approval`,
+  `conflict`, `draft`, `rebase`, `changes` (changes requested), `2 open` (unresolved
+  threads), `blocked` for any other, `threads` when threads block it but none were counted; or
+`ready`. A pipeline that must pass or still runs,
+  and the forge still checking, add none: the pipeline sign says it. The blocker comes
+  from the read the owl already makes (GitLab's `detailed_merge_status`), so approved or
+  not costs no other read. Once it is no longer open,
   `merged`, `closed`, `deleted`; `unread 20m` when reads have failed three minutes or
   more, in place of all of it.
 
 A part with nothing to say is left out, so before the first read, and for a forge the owl
-does not read, the row is `⎇ !123` alone. herdr cuts a row at the sidebar's width.
+does not read, the row is `⎇ !123` alone. herdr cuts a row at the sidebar's width. The words are kept short so every fixed
+line fits: 30 columns under a mouse's workspace (`142K · ❓ waiting on you · 12d`), 31
+under the main checkout's (`✖ no main session: whiska start`). herdr takes 12 columns
+from a worktree's rows (divider, scrollbar, its `│` prefix, right margin) and 7 from the
+main checkout's, so the person's herdr config sets the sidebar to 42. A topic, a branch and orphan
+names have no bound and are cut.
 
 **The line carries the mouse's context size first**, `142K`: the input, cache-read and
 cache-creation tokens of the last assistant message in its transcript, read the same way
@@ -138,7 +149,7 @@ Three tokens, `whiska`, `whiska_q` and `whiska_q2`, most urgent first:
 - `❓ n more: whiska questions`, questions no mouse's line can show.
 - `◌ n orphaned (branches)`, named by branch, since the branch survives on the record
   (ADR-0007) and is what `whiska questions` prints; `#id` when there is none.
-- `⎇ n merge requests, no worktree`, requests the owl still reads for a branch that was
+- `⎇ n MR w/o worktree`, requests the owl still reads for a branch that was
   dropped while they were open (ADR-0087): no mouse line is left to show them.
 
 ## Keeping the lines true
@@ -232,3 +243,5 @@ Changed on 2026-10-15: working and idle lines have no words of their own, since 
 Changed on 2026-10-15 (polish): the merge request is one row, not two: its name, pipeline and review joined by ` · `.
 
 Changed on 2026-10-15 (polish): `○ idle` is back, in orange (`212K · ○ idle`), since the person found it useful; a working mouse still has no sign of its own.
+
+Changed on 2026-10-15: the review says the forge's one blocker in a word (`needs approval`, `conflict`, `draft`, …), ages are one unit, and the main checkout's count of requests with no worktree is `⎇ n MR w/o worktree`, so every fixed line fits a 42-column sidebar.

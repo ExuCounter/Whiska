@@ -251,8 +251,8 @@ A branch's request, on its forge, to merge into the base. Whiska knows of one on
 kept on the mouse, its **branch line** says so and `whiska pr` pushes to it until it
 lands, and while it waits the owl fetches the base, so its merge on the forge reaches the
 **fetched base** and **cleanup** takes the worktree down. On GitLab the owl also reads it
-every minute through the **forge**: its state, head pipeline, open threads and new
-comments, shown on its own **sidebar line** row; new review on it is handed to the
+every minute through the **forge**: its state, head pipeline, open threads, new
+comments and the one thing keeping it from merging, shown on its own **sidebar line** row; new review on it is handed to the
 branch's mouse as a **review round**; closed or gone, it asks whether to drop the
 worktree. A request still open when its branch is dropped is read until it merges or
 closes; one never read is read once to find out. One opened elsewhere is not seen, nor is a GitHub one closed (ADR-0087, ADR-0060).
@@ -377,7 +377,7 @@ lost has no gauge). Nothing of a question or report is excerpted under it. Under
 checkout's workspace, what is true of the whole repo: no **main session**, delivery
 **gated**, questions waiting with no line of their own (a finished report is never one),
 orphans, **merge requests** still read with no worktree. A mouse whose branch waits on a
-merge request has two more rows, `⎇ !123 · ✓` and `2 threads open`, each part in its own
+merge request has one more row, `⎇ !123 · ✓ · needs approval`, each part in its own
 colour, saying what the owl last read of it (ADR-0082). A state's words start with a
 symbol only Whiska writes, which is how the person's own herdr config colours it. A line
 nobody keeps current goes away by itself, and one herdr has lost is sent again. The mice re-sort only when one changes state, starts or stops queueing behind another, or appears in any state but idle.

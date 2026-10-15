@@ -344,6 +344,7 @@ defmodule Whiska.MergeRequests do
         notes_count: snapshot.notes_count,
         forge_updated_at: snapshot.updated_at,
         ready: snapshot.ready?,
+        blocker: snapshot.blocker && Atom.to_string(snapshot.blocker),
         seen_note_id: cursor(prior, seen.max_note_id),
         seen_failed_pipeline_id: seen_failed,
         missing_reads: 0,

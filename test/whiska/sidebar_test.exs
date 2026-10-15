@@ -142,8 +142,13 @@ defmodule Whiska.SidebarTest do
              ) == %{"whiska" => "❓ waiting on you"}
     end
 
-    test "an age under a minute is still an age, and an hour is spelled like `whiska mice`" do
-      for {ago, age} <- [{20, "<1m"}, {59 * 60 + 59, "59m"}, {5580, "1h 33m"}] do
+    test "an age under a minute is still an age, and past an hour it is one unit" do
+      for {ago, age} <- [
+            {20, "<1m"},
+            {59 * 60 + 59, "59m"},
+            {5580, "1h"},
+            {2 * 86_400 + 5 * 3600, "2d"}
+          ] do
         sent_at = DateTime.add(@now, -ago, :second)
 
         assert said([mouse("feat-a")],
@@ -813,6 +818,26 @@ defmodule Whiska.SidebarTest do
       assert mr_row(pipeline: nil, threads_open: 3) == "⎇ !123 | 3 open"
     end
 
+    test "a merge request awaiting approval says needs approval" do
+      assert mr_row(blocker: "approval") == "⎇ !123 | ✓ | needs approval"
+    end
+
+    test "the review is one word: GitLab's one blocker, open threads or not" do
+      for {blocker, word} <- [
+            {"approval", "needs approval"},
+            {"conflict", "conflict"},
+            {"draft", "draft"},
+            {"rebase", "rebase"},
+            {"changes", "changes"},
+            {"blocked", "blocked"}
+          ] do
+        assert mr_row(blocker: blocker, threads_open: 2) == "⎇ !123 | ✓ | #{word}"
+      end
+
+      assert mr_row(blocker: "threads", threads_open: 2) == "⎇ !123 | ✓ | 2 open"
+      assert mr_row(blocker: "threads", threads_open: 0) == "⎇ !123 | ✓ | threads"
+    end
+
     test "ready is what the review says, open threads or not" do
       assert mr_row(ready: true, threads_open: 2) == "⎇ !123 | ✓ | ready"
     end
@@ -838,8 +863,8 @@ defmodule Whiska.SidebarTest do
     end
 
     test "counts merge requests still read for branches whose worktree was dropped" do
-      assert house(unhoused_merge_requests: 1) == %{"whiska" => "⎇ 1 merge request, no worktree"}
-      assert house(unhoused_merge_requests: 2) == %{"whiska" => "⎇ 2 merge requests, no worktree"}
+      assert house(unhoused_merge_requests: 1) == %{"whiska" => "⎇ 1 MR w/o worktree"}
+      assert house(unhoused_merge_requests: 2) == %{"whiska" => "⎇ 2 MR w/o worktree"}
     end
 
     test "says no main session is recorded, first, while anything runs or waits" do

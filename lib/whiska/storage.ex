@@ -48,7 +48,8 @@ defmodule Whiska.Storage do
     {22, Whiska.Migrations.V022ReviewRounds},
     {23, Whiska.Migrations.V023ReportTyped},
     {24, Whiska.Migrations.V024ThreadsHanded},
-    {25, Whiska.Migrations.V025PickupRetries}
+    {25, Whiska.Migrations.V025PickupRetries},
+    {26, Whiska.Migrations.V026MergeRequestBlocker}
   ]
 
   @modes ~w(build sniff)

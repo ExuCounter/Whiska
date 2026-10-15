@@ -26,6 +26,9 @@ defmodule Whiska.Forge.GitLab do
 
   defguardp number?(n) when is_integer(n) and n >= 0 and n <= @largest
 
+  @no_blocker ~w(mergeable ci_must_pass ci_still_running checking unchecked
+                 approvals_syncing preparing not_open)
+
   @running ~w(created waiting_for_resource preparing pending running scheduled)
 
   @impl true
@@ -142,11 +145,26 @@ defmodule Whiska.Forge.GitLab do
        notes_count: count,
        updated_at: string(body["updated_at"]),
        source_branch: string(body["source_branch"]),
-       ready?: body["detailed_merge_status"] == "mergeable"
+       ready?: body["detailed_merge_status"] == "mergeable",
+       blocker: blocker(body["detailed_merge_status"])
      }}
   end
 
   defp snapshot(_body), do: {:unknown, :unreadable_merge_request, nil}
+
+  # GitLab names one blocker at a time
+  # ([detailed_merge_status](https://docs.gitlab.com/api/merge_requests/#merge-status)).
+  # The pipeline's own say, GitLab still checking, and a request no longer
+  # open are no blocker: the row says those otherwise.
+  defp blocker("not_approved"), do: :approval
+  defp blocker("conflict"), do: :conflict
+  defp blocker("draft_status"), do: :draft
+  defp blocker("discussions_not_resolved"), do: :threads
+  defp blocker("need_rebase"), do: :rebase
+  defp blocker("requested_changes"), do: :changes
+  defp blocker(status) when status in @no_blocker, do: nil
+  defp blocker(status) when is_binary(status), do: :blocked
+  defp blocker(_none), do: nil
 
   # `locked` is GitLab's word for a merge request in the middle of merging.
   defp state("merged"), do: :merged

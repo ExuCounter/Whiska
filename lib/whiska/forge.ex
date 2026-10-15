@@ -43,8 +43,16 @@ defmodule Whiska.Forge do
           notes_count: non_neg_integer(),
           updated_at: String.t() | nil,
           source_branch: String.t() | nil,
-          ready?: boolean()
+          ready?: boolean(),
+          blocker: blocker()
         }
+
+  @typedoc """
+  The one thing the forge names as keeping a merge request from merging, or
+  nil when nothing does, or when it is the pipeline, which the pipeline says.
+  """
+  @type blocker ::
+          :approval | :conflict | :draft | :threads | :rebase | :changes | :blocked | nil
 
   @type note :: %{
           id: pos_integer(),

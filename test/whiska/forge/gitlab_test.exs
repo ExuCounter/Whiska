@@ -62,7 +62,8 @@ defmodule Whiska.Forge.GitLabTest do
              notes_count: 11,
              updated_at: "2026-10-13T17:31:14.238Z",
              source_branch: "feat-a",
-             ready?: false
+             ready?: false,
+             blocker: :rebase
            }
   end
 
@@ -95,6 +96,32 @@ defmodule Whiska.Forge.GitLabTest do
 
     FakeGlab.answer(fake, @mr, merge_request(%{"detailed_merge_status" => "mergeable"}))
     assert {:ok, %{ready?: true}} = GitLab.merge_request(ctx.ref, ctx.run)
+  end
+
+  test "why GitLab will not merge folds into one blocker, or none the pipeline already says",
+       %{fake: fake} = ctx do
+    for {gitlab, ours} <- [
+          {"mergeable", nil},
+          {"not_approved", :approval},
+          {"conflict", :conflict},
+          {"draft_status", :draft},
+          {"discussions_not_resolved", :threads},
+          {"need_rebase", :rebase},
+          {"requested_changes", :changes},
+          {"ci_must_pass", nil},
+          {"ci_still_running", nil},
+          {"checking", nil},
+          {"unchecked", nil},
+          {"approvals_syncing", nil},
+          {"preparing", nil},
+          {"not_open", nil},
+          {"merge_request_blocked", :blocked},
+          {"jira_association_missing", :blocked},
+          {nil, nil}
+        ] do
+      FakeGlab.answer(fake, @mr, merge_request(%{"detailed_merge_status" => gitlab}))
+      assert {:ok, %{blocker: ^ours}} = GitLab.merge_request(ctx.ref, ctx.run)
+    end
   end
 
   test "a merge request GitLab does not have is missing, and a refusal unknown",

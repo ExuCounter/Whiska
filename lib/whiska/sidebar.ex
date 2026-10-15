@@ -17,7 +17,6 @@ defmodule Whiska.Sidebar do
 
   alias Whiska.Context
   alias Whiska.MergeRequests
-  alias Whiska.Mice
   alias Whiska.Shape
   alias Whiska.Watch
 
@@ -57,11 +56,24 @@ defmodule Whiska.Sidebar do
   @pipeline_colours [{"✓", "#3fb950"}, {"◐", "#268bd2"}, {"✗", "#dc322f"}]
   @review_colours [
     {"ready", "#3fb950"},
+    {"conflict", "#dc322f"},
+    {"blocked", "#dc322f"},
+    {"draft", "#93a1a1"},
     {"merged", "#3fb950"},
     {"closed", "#dc322f"},
     {"deleted", "#dc322f"},
     {"unread", "#93a1a1"}
   ]
+
+  # The forge's one blocker, in a word; `threads` is said as how many are open.
+  @blockers %{
+    "approval" => "needs approval",
+    "conflict" => "conflict",
+    "draft" => "draft",
+    "rebase" => "rebase",
+    "changes" => "changes",
+    "blocked" => "blocked"
+  }
 
   # The order of the brief: what wants the person most comes first, and a
   # finished mouse, which waits on nobody, last.
@@ -256,8 +268,11 @@ defmodule Whiska.Sidebar do
   defp pipeline(_none), do: nil
 
   defp review(%{ready: true}), do: "ready"
+  defp review(%{blocker: blocker}) when is_map_key(@blockers, blocker), do: @blockers[blocker]
   defp review(%{threads_open: 1}), do: "1 open"
   defp review(%{threads_open: open}) when open > 1, do: "#{open} open"
+  # The forge says threads block it, but the count read none: still say so.
+  defp review(%{blocker: "threads"}), do: "threads"
   defp review(_quiet), do: nil
 
   # First match wins: a hold is the person's own word on the mouse, a question
@@ -347,10 +362,12 @@ defmodule Whiska.Sidebar do
   defp age(at, now), do: minutes(DateTime.diff(now, at))
 
   # A sidebar line is re-sent when its words change, so it counts minutes: a
-  # line that ticked every second would be sent every second.
+  # line that ticked every second would be sent every second. One unit keeps
+  # it narrow: `23h`, never `23h 59m`.
   defp minutes(seconds) when seconds < 60, do: "<1m"
   defp minutes(seconds) when seconds < 3600, do: "#{div(seconds, 60)}m"
-  defp minutes(seconds), do: Mice.format_uptime(seconds)
+  defp minutes(seconds) when seconds < 86_400, do: "#{div(seconds, 3600)}h"
+  defp minutes(seconds), do: "#{div(seconds, 86_400)}d"
 
   defp tokens(lines) do
     lines
@@ -381,8 +398,7 @@ defmodule Whiska.Sidebar do
   end
 
   defp unhoused(0), do: nil
-  defp unhoused(1), do: "⎇ 1 merge request, no worktree"
-  defp unhoused(n), do: "⎇ #{n} merge requests, no worktree"
+  defp unhoused(n), do: "⎇ #{n} MR w/o worktree"
 
   # Said only while something could need delivering: a repo with nothing
   # running and nothing waiting is fine without one.

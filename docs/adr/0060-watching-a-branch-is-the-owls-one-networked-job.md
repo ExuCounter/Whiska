@@ -143,7 +143,7 @@ stored and makes no call to the forge. Missing or failing is a `warn`, never a `
 
 `Whiska.Forge` is the behaviour, and an adapter per forge knows everything about it:
 parsing its links, naming a request (`!7`, `#12`), and the reads. The reads are
-`merge_request` (its state, head commit, head pipeline, ready to merge, notes count and
+`merge_request` (its state, head commit, head pipeline, ready to merge or its one blocker, notes count and
 last update), `notes` (the open threads and the comments past a cursor, a page of 100 at a
 time, at most 20 pages, following `X-Next-Page`), `member?`, `me` and `project_readable?`.
 `whiska pr`'s half is a separate behaviour, `Whiska.Forge.Opener`, which only `whiska pr`
@@ -393,3 +393,5 @@ Changed on 2026-10-15: an open thread counts once whatever its age, by its newes
 and a pipeline already failed at the first read counts, where nothing that existed at the
 first read did; a bot's thread logged only as "would wake" before rounds existed sat open
 with nobody told.
+
+Changed on 2026-10-15: the merge request read also carries its one blocker, from GitLab's `detailed_merge_status`, so the sidebar can say why it cannot merge yet (ADR-0082).

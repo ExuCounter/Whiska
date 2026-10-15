@@ -22,6 +22,8 @@ defmodule Whiska.Schema.MergeRequestRead do
     field(:notes_count, :integer)
     field(:forge_updated_at, :string)
     field(:ready, :boolean, default: false)
+    # Why the forge will not merge it yet (`Whiska.Forge.blocker/0`), or nil.
+    field(:blocker, :string)
     # The cursor: a comment at or below it never counts.
     field(:seen_note_id, :integer)
     field(:seen_failed_pipeline_id, :integer)
@@ -52,7 +54,7 @@ defmodule Whiska.Schema.MergeRequestRead do
   end
 
   @fields ~w(url state head_sha pipeline_id pipeline threads_open notes_count forge_updated_at
-             ready seen_note_id seen_failed_pipeline_id missing_reads read_at unread_since
+             ready blocker seen_note_id seen_failed_pipeline_id missing_reads read_at unread_since
              unread_reason asked_at pending round_at round_by round_ref round_head
              rounds_unpushed review_asked_at review_asked_why threads_handed)a
 
