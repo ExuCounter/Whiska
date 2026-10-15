@@ -38,8 +38,9 @@ _Avoid_: remote base, upstream (git's word for what a branch pushes to and pulls
 Everything Whiska tells a session, in one file Claude Code is started with
 (`--append-system-prompt-file`), so it sits in the system prompt for the whole session.
 The main session's is `main.md`, written into the house by `whiska start`; a mouse's is
-its mode's, `build.md` or `sniff.md`, written by `whiska shape` to `.whiska-brief.md` at
-the worktree root, which git ignores; its **task** is not in it. Nothing else carries
+its mode's, `build.md` or `sniff.md`, or `review.md` for one the owl starts for a **review
+round**, written to `.whiska-brief.md` at the worktree root, which git ignores; its
+**task** is not in it. Nothing else carries
 Whiska's words into a session: no start-up hook, no skill, nothing in a `CLAUDE.md`
 (ADR-0088).
 _Avoid_: rules, skill, system prompt (Claude Code's own, which a brief is appended to),
@@ -172,12 +173,15 @@ mouse's branch landed and there is nothing left to answer to — the merge was t
 (its mouse died, its worktree is gone, its record no longer stands for a worktree of this
 house) with the work still not landed. An open question is **queued behind** the sent one while
 another holds the slot; the **sidebar line**, `whiska questions` and the **inbox** say
-that, and keep "waiting on you" for the one actually sent (ADR-0082). One kind is not a mouse's message: when the owl
-reads a mouse's **merge request** closed or gone from the **forge**, it asks once whether to
-drop the worktree, headed `🦉 Whiska asks`. It is answered with `whiska drop` or
-`whiska dismiss`, never `whiska reply`, and it waits while the worktree stands, whether or
-not the mouse is alive (ADR-0036, ADR-0008). It is not the mouse's word: it supersedes
-none of the mouse's questions and is not its last word for cleanup (ADR-0061).
+that, and keep "waiting on you" for the one actually sent (ADR-0082). Two kinds are not a mouse's message, both headed
+`🦉 Whiska asks`: when the owl reads a mouse's **merge request** closed or gone from the
+**forge**, it asks once whether to drop the worktree, answered with `whiska drop` or
+`whiska dismiss` and waiting while the worktree stands, whether or not the mouse is alive;
+and when a **review round** cannot be handed over, it asks whether to hand review over
+again, answered with `whiska dismiss` and waiting whatever became of the worktree. Neither
+is ever answered with `whiska reply` (ADR-0036, ADR-0008, ADR-0060). Neither is the mouse's
+word: it supersedes none of the mouse's questions and is not its last word for cleanup
+(ADR-0061).
 _Avoid_: report (as the table/record name — the word now names how a message reads,
 see **Report**), event (as the table/record name)
 
