@@ -158,3 +158,8 @@ mouse nobody shaped is not limited (ADR-0090).
 
 Changed on 2026-10-15: a sniff mouse gets the auto-compact window too; only a build mouse
 did, and a sniff mouse grew to Claude Code's ~967K default.
+
+Changed on 2026-10-15: the flags are Claude's launch line only, so a mouse herdr restored
+as a bare `claude --resume` after a server restart lost them. The owl starts such a mouse
+again with `--resume` and the same flags, rebuilt from its record and the brief and deny
+list already in its worktree (ADR-0044).

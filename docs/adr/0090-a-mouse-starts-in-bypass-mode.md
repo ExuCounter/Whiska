@@ -54,7 +54,8 @@ The file sits in the worktree, so a mouse can rewrite it. That takes hold only w
 starts there again, and a file Claude Code cannot parse starts it with no deny list at
 all. `whiska shape` refuses another mode for a mouse already shaped (ADR-0074), so a sniff
 mouse cannot shape itself to build, and refuses a link at the file's path, which would
-write through to whatever it points at.
+write through to whatever it points at. A restart (ADR-0044) reads the file as it then is,
+and refuses a link there too.
 
 ## A mouse nobody shaped
 
@@ -93,3 +94,6 @@ Changed on 2026-10-15: `whiska tell` joins the person's commands a mouse is deni
 (ADR-0044).
 
 Changed on 2026-10-15: `whiska push` joins them too (ADR-0060).
+
+Changed on 2026-10-15: a mouse herdr restored without `--dangerously-skip-permissions` runs
+in the person's default mode, so the owl starts it again with the flags (ADR-0069).
