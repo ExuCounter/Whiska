@@ -9,7 +9,7 @@ the mouse and to the person, not to the router.
   flagged as having arrived unmarked. The one exception is a turn that has not really
   ended, because the mouse's own background work is still out (ADR-0052).
 - **`done` → recorded closed and hooted, never delivered** (ADR-0008, ADR-0062). The
-  sidebar line says `✅ finished`, `whiska inbox` lists it apart from what waits, and the
+  sidebar line says `✓ finished`, `whiska inbox` lists it apart from what waits, and the
   owl reminds the person while its branch has work to land.
 - **`needs-decision` → delivered.** Valid, and redundant, since absence says the same.
 
@@ -87,7 +87,7 @@ same direction as this one.
   that needs no answer took the one delivery slot ahead of real questions (ADR-0008). It
   had replaced recording `done` without delivering it, under which a finished mouse
   vanished, its report readable only by someone who already knew to run
-  `whiska questions <id>`. The sidebar's `✅ finished` line, the inbox's finished block and
+  `whiska questions <id>`. The sidebar's `✓ finished` line, the inbox's finished block and
   the reminder (ADR-0062) are what keep it from vanishing now.
 - **A third marker for "stopped short".** Rejected: it changes the parser, the line, the
   hoot and the sidebar, and still needs a way to say "carry on".

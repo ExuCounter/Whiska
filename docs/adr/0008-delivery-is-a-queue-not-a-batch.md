@@ -111,7 +111,7 @@ person was reading.
 
 The cost, accepted: nothing about a finished branch is typed into the main session, so a
 person reading only that session hears of it from a recap or `whiska inbox`. The hoot,
-the reminder (ADR-0062) and the sidebar's `✅ finished` line (ADR-0082) are what reach
+the reminder (ADR-0062) and the sidebar's `✓ finished` line (ADR-0082) are what reach
 them.
 
 ## When the idle signal is unavailable, deliver anyway

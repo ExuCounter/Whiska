@@ -177,7 +177,7 @@ defmodule Whiska.SidebarTest do
                finished: [report(14, "feat-a", text)],
                bare_panes: [pane("feat-a", "idle")],
                context: 236_000
-             ) == %{"whiska" => "✅ finished", "whiska_ctx_warn" => "236K"}
+             ) == %{"whiska" => "✓ finished", "whiska_ctx_warn" => "236K"}
     end
 
     test "while another branch's question is out, it still says finished, never queued" do
@@ -188,7 +188,7 @@ defmodule Whiska.SidebarTest do
           bare_panes: [pane("feat-a", "idle"), pane("feat-b", "idle")]
         )
 
-      assert tokens == %{"whiska" => "✅ finished"}
+      assert tokens == %{"whiska" => "✓ finished"}
     end
 
     test "a question its mouse asked since stands for the row instead" do
@@ -1018,7 +1018,7 @@ defmodule Whiska.SidebarTest do
 
       assert length(rules) <= 16
 
-      for symbol <- ~w(❓ ✅ ⚠ ✖ ? ⏳ 🎯 💤 ⏸ ↩ ◐) do
+      for symbol <- ~w(❓ ✓ ⚠ ✖ ? ⏳ 🎯 💤 ⏸ ↩ ◐) do
         assert [symbol] in rules, "no rule for #{symbol}"
       end
 

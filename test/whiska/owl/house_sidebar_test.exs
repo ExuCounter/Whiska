@@ -246,7 +246,7 @@ defmodule Whiska.Owl.HouseSidebarTest do
 
       open(main, [])
 
-      assert_receive {:reported, "w2", %{"whiska" => "✅ finished"}}, 1_000
+      assert_receive {:reported, "w2", %{"whiska" => "✓ finished"}}, 1_000
 
       assert_receive {:reported, "w1", main_line}, 1_000
       refute inspect(main_line) =~ "❓"

@@ -1114,7 +1114,7 @@ defmodule Whiska.Storage do
   worktree of this house and whose folder is still there. Dead mice included:
   the work is what has not landed, pane or not.
 
-  What the sidebar line calls `✅ finished`, the inbox lists apart from what
+  What the sidebar line calls `✓ finished`, the inbox lists apart from what
   waits, and the owl reminds the person of (ADR-0062).
   """
   @spec finished() :: [Question.t()]

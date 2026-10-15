@@ -41,7 +41,7 @@ defmodule Whiska.Sidebar do
     {"⚠", "#dc322f"},
     {"✖", "#dc322f"},
     {"?", "#dc322f"},
-    {"✅", "#3fb950"},
+    {"✓", "#3fb950"},
     {"⏳", "#b58900"},
     {"🎯", "#6c71c4"},
     {"💤", "#6c71c4"},
@@ -293,7 +293,7 @@ defmodule Whiska.Sidebar do
 
   defp asked(%{behind: behind}, _now) when is_integer(behind), do: {@queued, "⏳ queued", nil}
 
-  defp asked(%{finished?: true}, _now), do: {@finished, "✅ finished", nil}
+  defp asked(%{finished?: true}, _now), do: {@finished, "✓ finished", nil}
 
   defp asked(%{sent_at: %DateTime{} = at}, now),
     do: {@sent, "❓ waiting on you · #{age(at, now)}", nil}

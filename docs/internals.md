@@ -235,7 +235,7 @@ feat/cache-ttl
   ◐ 61K · Cache TTL per tenant
 ```
 
-The first line is the state, after the mouse's context size; the rest carry the question. `❓` waiting on you, `✅`
+The first line is the state, after the mouse's context size; the rest carry the question. `❓` waiting on you, `✓`
 finished, `✖ stuck`, `⏳` queued behind another question (the one above it), `🎯` and `💤` waiting behind a
 focus or away, `⏸` held, `↩` picked up after its turn died, `◐` working (it spins, so a
 still one means the owl stopped), `○` idle. `✖ no pane`, `⚠ many panes` and

@@ -364,7 +364,7 @@ surface; the board is drawn on none, only the **sidebar lines** written from it 
 What herdr's sidebar shows under one workspace, which the owl reports and herdr draws
 (ADR-0082): under each mouse's workspace, its **context gauge** first, coloured by how near
 compaction it is, then its state — `❓ waiting on you · 14m`, `✖ stuck 6m`, `⏳ queued`,
-`🎯`/`💤` waiting behind a **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `✅ finished`
+`🎯`/`💤` waiting behind a **focus** or **away**, `⏸ held`, `↩ picked up 2m ago`, `✓ finished`
 (its report is still its last word, and the branch has neither landed nor a merge request;
 it sorts last) — or, working, its topic, after `◐ background` when herdr calls the pane
 idle while its own background work runs; idle, nothing more, since herdr's own icon says
@@ -552,7 +552,7 @@ behind #n` for one waiting on the question that is out, or `not taken` for an an
 mouse has not **taken**) and a first
 line when they are away. As text, and never in `--json`, it then lists the finished
 branches apart, under `✅ Finished, not landed:` — the same branches the sidebar calls
-`✅ finished`, none of them waiting on the person. It is a listing, not a place: a question sits in a house, an
+`✓ finished`, none of them waiting on the person. It is a listing, not a place: a question sits in a house, an
 uncollected entry on a doorstep, and the inbox reads both. `show`, `reply` and `dismiss`
 act on this repo's rows only; ids repeat across repos. `show` with no id is not the inbox:
 it prints only the question delivered to the person, so a queued one waits its turn
