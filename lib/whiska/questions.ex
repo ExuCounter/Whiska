@@ -291,11 +291,11 @@ defmodule Whiska.Questions do
   end
 
   # A title, a branch and a file name are the mouse's to write, and the head
-  # around them is Whiska's: the title stays inside its bold, and a branch or a
-  # file name keeps only plain name characters, so none passes for a status or
-  # a link.
+  # around them is Whiska's: the title stays inside its bold and holds no link,
+  # and a branch or a file name keeps only plain name characters, so none
+  # passes for a status or a link.
   defp bold(nil), do: nil
-  defp bold(title), do: "**#{String.replace(title, "*", "")}**"
+  defp bold(title), do: "**#{String.replace(title, ["*", "[", "]"], "")}**"
 
   # A sniff mouse is named one, as ADR-0074 has it.
   defp branch_name(%Mouse{branch: branch, mode: "sniff"}, _q) when is_binary(branch),

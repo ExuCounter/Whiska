@@ -365,6 +365,26 @@ defmodule Whiska.QuestionsTest do
       assert title == "**a Branch: x · ? Whiska asks b**"
     end
 
+    test "a title can hold no link to stand beside the links" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "needs-decision",
+        status: "open",
+        text: "Build?",
+        asked_at: DateTime.utc_now()
+      }
+
+      documents = fn _ -> [{"spec", "file:///w/spec.md", "[Whole diff](file:///w/x.command)"}] end
+
+      assert [title | _] =
+               q
+               |> Questions.full(@mouse, nil, Mode.none(), nil, nil, nil, documents)
+               |> String.split("\n")
+
+      assert title == "**Whole diff(file:///w/x.command)**"
+    end
+
     test "a question Whiska asked itself says Whiska asks, and no other does" do
       q = %Whiska.Schema.Question{
         id: 9,

@@ -40,7 +40,7 @@ whole, and `whiska show` prints its summary under the link to it.
 - **`whiska show` prints the block, a line per link; the main session draws the links.**
   Its head: a bold title (the `# ` title of the spec, else the report, else the research
   document; on a finished question, the report, else the research document) when there is
-  one;
+  one, without its `*`, `[` or `]`, so it holds no link to stand beside the drawn ones;
   `Branch: <branch> · <status>`; one `<name>: <target>` line per link that has something
   to open, on any question: `whole diff`, `round diff`, `research`, `spec`, `plan`,
   `report` (only on a finished question or the one whose message is the report),
