@@ -81,6 +81,12 @@ defmodule Whiska.BriefTest do
     refute sniff =~ "these labels exactly"
   end
 
+  test "a bug's research document shows its before, cause and fix by examples" do
+    build = "build" |> Brief.render() |> String.replace(~r/\s+/, " ")
+    assert build =~ "The research document shows by example"
+    assert build =~ "a real command with its real output"
+  end
+
   test "a mouse's documents keep each link on one line and use lists, not tables" do
     for mode <- ["build", "sniff"] do
       text = mode |> Brief.render() |> String.replace(~r/\s+/, " ")

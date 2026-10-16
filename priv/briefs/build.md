@@ -64,6 +64,10 @@ and plan fit one screen each.
   signatures, data shapes and the first failing test as code blocks, never function
   bodies.
 
+The research document shows by example, not description: a real command with its real
+output (the failing test's run), the line as it is before and after, a small worked case
+with real values; a sentence or so around each says what to notice.
+
 Spec, plan and research document: no tables, use lists. Never wrap a markdown link
 across lines: the person comments by selecting one line.
 
