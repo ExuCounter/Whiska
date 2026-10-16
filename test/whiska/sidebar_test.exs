@@ -71,6 +71,7 @@ defmodule Whiska.SidebarTest do
       waiting_on: waiting_on(opts),
       passed_over:
         Keyword.get(opts, :passed_over_reader, fn _mouse -> Keyword.get(opts, :passed_over) end),
+      running: fn _mouse -> Keyword.get(opts, :running, %{agents: 1, tasks: 0}) end,
       held: Keyword.get(opts, :held),
       mode: Keyword.get(opts, :mode, Mode.none()),
       picked_up: Keyword.get(opts, :picked_up, %{}),
@@ -477,11 +478,27 @@ defmodule Whiska.SidebarTest do
       assert_received :looked_back
     end
 
-    test "an idle pane whose last stop was passed over with work out is working, and says so" do
+    test "an idle pane whose last stop was passed over with work out is working, and says how much" do
       assert tokens([mouse("feat-a")],
                bare_panes: [pane("feat-a", "idle", title: "Order builder")],
-               passed_over: :in_flight
-             ) == %{"whiska" => "◐ background", "whiska_topic" => "Order builder"}
+               passed_over: :in_flight,
+               running: %{agents: 2, tasks: 0}
+             ) == %{"whiska" => "◐ 2 agents running", "whiska_topic" => "Order builder"}
+
+      for {running, said} <- [
+            {%{agents: 1, tasks: 0}, "◐ 1 agent running"},
+            {%{agents: 0, tasks: 1}, "◐ 1 task running"},
+            {%{agents: 0, tasks: 3}, "◐ 3 tasks running"},
+            {%{agents: 2, tasks: 1}, "◐ 2 agents, 1 task running"},
+            {%{agents: 0, tasks: 0}, "◐ background work running"},
+            {nil, "◐ background work running"}
+          ] do
+        assert said([mouse("feat-a")],
+                 bare_panes: [pane("feat-a", "idle")],
+                 passed_over: :in_flight,
+                 running: running
+               ) == said
+      end
     end
 
     test "an idle pane whose passed-over work never reported is stuck" do

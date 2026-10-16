@@ -500,6 +500,141 @@ defmodule Whiska.Owl.DeliveryTest do
       refute File.exists?(Path.join(main, ".git/whiska-finish"))
     end
 
+    test "a mouse's reply to a letter arrives closed, holds nothing, and is typed and hooted as a reply",
+         %{main: main, a: a} do
+      test = self()
+      stub(Desktop, :notify, fn hoot -> send(test, {:hooted, hoot}) && {:ok, "osascript"} end)
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+
+      {:ok, _} =
+        Doorstep.leave(main, %Entry{
+          mouse_id: "ma",
+          branch: "feat-a",
+          worktree_root: a,
+          stamped_at: DateTime.utc_now(),
+          text: "Here is the answer; the reviewers are still running.",
+          reply: true
+        })
+
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, 1}, @arrives
+      assert_receive {:hooted, hoot}, @arrives
+      assert hoot.title =~ "feat-a replied"
+
+      leave(main, a, "[worktree-status: needs-decision] pick one")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, 2}, @arrives
+
+      in_house(house, fn ->
+        assert %{status: "closed", reply: true, kind: "unmarked", typed_at: %DateTime{}} =
+                 Storage.question(1)
+      end)
+    end
+
+    test "a reply waits untyped behind a question out, then goes", %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] from b")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, 1}, @arrives
+
+      {:ok, _} =
+        Doorstep.leave(main, %Entry{
+          mouse_id: "ma",
+          branch: "feat-a",
+          worktree_root: a,
+          stamped_at: DateTime.utc_now(),
+          text: "Answered; reviewers still running.",
+          reply: true
+        })
+
+      House.collect(house)
+      idle(house, @main_pane)
+      House.sync(house)
+      refute_received {:prompted, _, _}
+
+      in_house(house, fn ->
+        assert %{status: "closed", typed_at: nil} = Storage.question(2)
+        {:ok, _} = Storage.answer(1, "A")
+      end)
+
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, 2}, @arrives
+    end
+
+    test "a reply to a letter that took a sent question's place goes ahead of another branch's",
+         %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      leave(main, a, "[worktree-status: needs-decision] from a")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, 1}, @arrives
+
+      leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] from b")
+      House.collect(house)
+      in_house(house, fn -> {:ok, [1]} = Storage.supersede_for_letter("ma", [1]) end)
+
+      {:ok, _} =
+        Doorstep.leave(main, %Entry{
+          mouse_id: "ma",
+          branch: "feat-a",
+          worktree_root: a,
+          stamped_at: DateTime.utc_now(),
+          text: "Answered; reviewers still running.",
+          reply: true
+        })
+
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, 3}, @arrives
+
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, 2}, @arrives
+    end
+
+    test "a reply is typed even once its mouse has said more since", %{main: main, a: a} do
+      main_is("idle")
+      expect_prompts()
+      house = open(main)
+      b = Path.join([main, "worktrees", "feat-b"])
+      File.mkdir_p!(b)
+
+      leave_from(main, "mb", "feat-b", b, "[worktree-status: needs-decision] from b")
+      House.collect(house)
+      assert_receive {:prompted, @main_pane, 1}, @arrives
+
+      {:ok, _} =
+        Doorstep.leave(main, %Entry{
+          mouse_id: "ma",
+          branch: "feat-a",
+          worktree_root: a,
+          stamped_at: DateTime.utc_now(),
+          text: "Answered; reviewers still running.",
+          reply: true
+        })
+
+      House.collect(house)
+      leave(main, a, "[worktree-status: needs-decision] then this")
+      House.collect(house)
+
+      in_house(house, fn -> {:ok, _} = Storage.answer(1, "A") end)
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, 3}, @arrives
+
+      in_house(house, fn -> {:ok, _} = Storage.answer(3, "B") end)
+      idle(house, @main_pane)
+      assert_receive {:prompted, @main_pane, 2}, @arrives
+    end
+
     test "a finished report hoots while a decision is out, and waits untyped behind it", %{
       main: main,
       a: a

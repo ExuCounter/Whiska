@@ -406,6 +406,13 @@ defmodule Whiska.Watch.TranscriptTest do
       File.write!(file, " ")
       assert Transcript.passed_over(worktree, user_home: tmp) == nil
     end
+
+    test "running/2 counts what is out from the same tail", %{tmp: tmp} do
+      worktree = "/repo/worktrees/feat-a"
+      transcript(tmp, worktree, passed_over(), 0)
+
+      assert Transcript.running(worktree, user_home: tmp) == %{agents: 0, tasks: 1}
+    end
   end
 
   describe "waiting_on/2" do

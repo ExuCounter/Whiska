@@ -318,6 +318,9 @@ defmodule Whiska.Questions do
 
   defp standing(%Question{kind: "done"}, mouse, held), do: finished(mouse, held)
 
+  defp standing(%Question{reply: true, status: "closed"}, _mouse, _held),
+    do: "↩ Replied · its background work still running"
+
   defp standing(%Question{status: "answered", taken_at: nil}, _mouse, _held),
     do: "Answered · not taken"
 

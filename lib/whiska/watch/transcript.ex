@@ -130,6 +130,17 @@ defmodule Whiska.Watch.Transcript do
     Transcript.passed_over(background, Keyword.get_lazy(opts, :now, &DateTime.utc_now/0))
   end
 
+  @doc """
+  How many agents and other tasks of the mouse's are out
+  (`Whiska.Transcript.running/2`), read from the same tail. Options as
+  `passed_over/2`.
+  """
+  @spec running(Path.t(), keyword()) :: %{agents: non_neg_integer(), tasks: non_neg_integer()}
+  def running(worktree_root, opts \\ []) do
+    %{background: background} = long_read(worktree_root, opts)
+    Transcript.running(background, Keyword.get_lazy(opts, :now, &DateTime.utc_now/0))
+  end
+
   # The long tail is four megabytes, and the board asks for it on every rebuild
   # for every idle mouse with nothing to say. What was read is kept in the
   # process building the board, one per worktree, for as long as its newest

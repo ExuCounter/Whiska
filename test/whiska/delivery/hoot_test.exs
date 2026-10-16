@@ -51,6 +51,13 @@ defmodule Whiska.Delivery.HootTest do
     end
   end
 
+  test "a reply needs no answer: it is the mouse's, replied, with the quieter sound" do
+    q = question(kind: "unmarked", reply: true, text: "Here is the answer.")
+
+    assert %{title: "🐱 whiska · feat-a replied", sound: :done} =
+             Hoot.compose(q, "whiska", "feat-a", @none)
+  end
+
   test "the title ends on the question's verb" do
     for kind <- ["needs-decision", "done", "unmarked"] do
       q = question(kind: kind, text: "[worktree-status: needs-decision] pick one")

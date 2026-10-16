@@ -190,6 +190,15 @@ defmodule Whiska.BriefTest do
     assert main =~ "A branch holding a quote, `$` or a backtick → skip the command"
   end
 
+  test "a mouse's reply while its work runs needs no answer; words back are a letter" do
+    main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
+
+    assert main =~
+             "A block whose status starts `↩ Replied` is the mouse's reply to the person's letter or answer"
+
+    assert main =~ "words back go by `whiska send`"
+  end
+
   test "write/3 refuses a link at the path, and writes nothing through it" do
     root = Path.join(System.tmp_dir!(), "whiska-brief-#{Whiska.Test.Unique.id()}")
     on_exit(fn -> File.rm_rf!(root) end)

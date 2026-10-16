@@ -797,6 +797,275 @@ defmodule Whiska.TranscriptTest do
     end
   end
 
+  describe "Whiska's own lines (ADR-0052)" do
+    @letter_copy "/Users/p/whiska/worktrees/feat/composed-question-links/.whiska-letters/20261016-093700-b6aa0e31.md"
+
+    # #657, from the mouse's own transcript on 2026-10-16: two reviewers launched
+    # at 09:34, the mouse's unmarked note while they ran, then at 09:37:01 the
+    # letter `whiska send` typed, stamped as though the person typed it, and the
+    # mouse's answer to it.
+    defp letter_while_reviewing do
+      stamped(
+        [
+          launched("a19dd46ea60e1d4f5", "toolu_015jYKc7W3YoDosGsSVZD23H"),
+          launched("adff5a697a18db578", "toolu_01KFzXWwV5Dtqso2CsbSJ3vD"),
+          said("Both reviewers (general and security) are still running."),
+          typed(Whiska.Send.line(@letter_copy, false)),
+          called("Bash", "toolu_01Hu8LCpThGCFwLvQgERGkLd", %{"stdout" => "The person agreed"}),
+          said("The letter conflicts with ADR-0089's rule for the Summary.")
+        ],
+        "2026-10-16T09:37:22.587Z"
+      )
+    end
+
+    test "the letter Whiska typed keeps the two reviewers #657 had out, and its answer is a reply" do
+      background = read(letter_while_reviewing())
+
+      assert [{"Agent", _}, {"Agent", _}] = background.unreported
+      assert background.reply?
+    end
+
+    test "the doorbell keeps the count, and the answer after it is a reply" do
+      background =
+        read([launched("ae96c5149391564f6"), typed(Whiska.Doorbell.line(656)), said("Building.")])
+
+      assert [{"Agent", _}] = background.unreported
+      assert background.reply?
+    end
+
+    test "a letter queued while the mouse was busy keeps the count and makes a reply too" do
+      background =
+        read([
+          launched("ae96c5149391564f6"),
+          queued_prompt(Whiska.Send.line(@letter_copy, true)),
+          said("Answered.")
+        ])
+
+      assert [{"Agent", _}] = background.unreported
+      assert background.reply?
+    end
+
+    test "the pickup, lifted-hold and review-round lines keep the count, and make no reply" do
+      for line <- [
+            Whiska.Pickup.line(),
+            Whiska.Delivery.Mode.resume_line(),
+            Whiska.ReviewRound.line(@letter_copy)
+          ] do
+        background = read([launched("ae96c5149391564f6"), typed(line), said("Carrying on.")])
+
+        assert [{"Agent", _}] = background.unreported, line
+        refute background.reply?, line
+      end
+    end
+
+    test "what the person types into the pane still clears the count, and makes no reply" do
+      for words <- [
+            "stop that, do this instead",
+            Whiska.Send.line(@letter_copy, false) <> " and hurry",
+            Whiska.Send.line("/tmp/notes.md", false),
+            String.replace(Whiska.Doorbell.line(656), "656", "#656")
+          ] do
+        background = read([launched("ae96c5149391564f6"), typed(words), said("On it.")])
+
+        assert background.unreported == [], words
+        refute background.reply?, words
+      end
+    end
+
+    test "a note after the mouse launched new work on the letter is no reply" do
+      background =
+        read([
+          launched("ae96c5149391564f6"),
+          typed(Whiska.Send.line(@letter_copy, false)),
+          launched("a5b0bb7bb6e23e2d6", "toolu_01New"),
+          said("Reviewing the new piece.")
+        ])
+
+      assert length(background.unreported) == 2
+      refute background.reply?
+    end
+
+    test "a report that wakes the mouse after its reply ends the reply" do
+      background =
+        read([
+          launched("ae96c5149391564f6", "toolu_01A"),
+          launched("a5b0bb7bb6e23e2d6", "toolu_01B"),
+          typed(Whiska.Send.line(@letter_copy, false)),
+          said("Answered."),
+          reported("ae96c5149391564f6", "<status>completed</status>\n"),
+          said("One reviewer is back; waiting on the other.")
+        ])
+
+      assert [{"Agent", _}] = background.unreported
+      refute background.reply?
+    end
+
+    test "a report queued while the mouse answers the letter leaves it a reply" do
+      background =
+        read([
+          launched("ae96c5149391564f6", "toolu_01A"),
+          launched("a5b0bb7bb6e23e2d6", "toolu_01B"),
+          typed(Whiska.Send.line(@letter_copy, false)),
+          queued_notification("ae96c5149391564f6"),
+          said("Answered.")
+        ])
+
+      assert [{"Agent", _}] = background.unreported
+      assert background.reply?
+    end
+
+    test "a pickup after the reply's turn died carries the reply on" do
+      died =
+        JSON.encode!(%{
+          "type" => "assistant",
+          "isApiErrorMessage" => true,
+          "message" => %{"content" => [%{"type" => "text", "text" => "API Error: gone"}]}
+        })
+
+      for line <- [Whiska.Pickup.line(), Whiska.Delivery.Mode.resume_line()] do
+        background =
+          read([
+            launched("ae96c5149391564f6"),
+            typed(Whiska.Send.line(@letter_copy, false)),
+            died,
+            typed(line),
+            said("Answered.")
+          ])
+
+        assert background.reply?, line
+      end
+    end
+
+    test "the lifted-hold line after a reply was written begins no second reply" do
+      background =
+        read([
+          launched("ae96c5149391564f6"),
+          typed(Whiska.Send.line(@letter_copy, false)),
+          said("Answered."),
+          typed(Whiska.Delivery.Mode.resume_line()),
+          said("Carrying on.")
+        ])
+
+      refute background.reply?
+    end
+
+    test "a report with no stamp that wakes the mouse ends the reply too" do
+      background =
+        read([
+          launched("ae96c5149391564f6", "toolu_01A"),
+          launched("a5b0bb7bb6e23e2d6", "toolu_01B"),
+          typed(Whiska.Send.line(@letter_copy, false)),
+          said("Answered."),
+          notification("ae96c5149391564f6"),
+          said("One reviewer is back; waiting on the other.")
+        ])
+
+      assert [{"Agent", _}] = background.unreported
+      refute background.reply?
+    end
+
+    test "a reply was written: beside its work it is in flight, and never abandoned" do
+      reply = [launched("ae96c5149391564f6"), typed(Whiska.Doorbell.line(656)), said("Answered.")]
+
+      assert Transcript.passed_over(read(stamped(reply, "2026-10-14T14:50:00Z")), @now) ==
+               :in_flight
+
+      assert Transcript.passed_over(read(stamped(reply, "2026-10-14T14:20:00Z")), @now) == nil
+    end
+
+    test "a letter with nothing out is no reply: nothing holds its stop" do
+      background = read([typed(Whiska.Send.line(@letter_copy, false)), said("Answered.")])
+
+      assert background.unreported == []
+      refute background.reply?
+    end
+  end
+
+  describe "stopped work" do
+    test "an agent the person stopped is back" do
+      killed =
+        reported(
+          "ac4593a54547b3f61",
+          "<status>killed</status>\n<summary>Agent \"Review\" was stopped by user</summary>\n" <>
+            "<note>A task-notification fires each time this agent stops with no live " <>
+            "background children of its own.</note>\n"
+        )
+
+      refute Transcript.in_flight?(jsonl([launched("ac4593a54547b3f61"), killed]))
+    end
+
+    # Copied from a mouse restarted on 2026-10-15 with two reviewers out: one
+    # notice names both, a `<task-id>` line each.
+    test "every agent a restarted session says it lost is back, not only the first" do
+      lost =
+        JSON.encode!(%{
+          "type" => "user",
+          "origin" => %{"kind" => "task-notification"},
+          "promptSource" => "system",
+          "message" => %{
+            "role" => "user",
+            "content" =>
+              "<task-notification>\n<task-id>abd0e5ca6ddc6be54</task-id>\n" <>
+                "<task-id>a1d793af384a74209</task-id>\n<status>stopped</status>\n" <>
+                "<summary>2 background agents didn't finish before the previous session " <>
+                "ended: \"Fresh code review of branch\" (abd0e5ca6ddc6be54), \"Security " <>
+                "review of branch\" (a1d793af384a74209).</summary>\n</task-notification>"
+          }
+        })
+
+      text =
+        jsonl([
+          launched("abd0e5ca6ddc6be54", "toolu_01A"),
+          launched("a1d793af384a74209", "toolu_01B"),
+          lost
+        ])
+
+      refute Transcript.in_flight?(text)
+    end
+
+    test "a task id in the work's own output is not the notice's" do
+      quoting =
+        reported(
+          "ae96c5149391564f6",
+          "<status>completed</status>\n<result>see <task-id>a5b0bb7bb6e23e2d6</task-id></result>\n"
+        )
+
+      text =
+        jsonl([
+          launched("ae96c5149391564f6", "toolu_01A"),
+          launched("a5b0bb7bb6e23e2d6", "toolu_01B"),
+          quoting
+        ])
+
+      assert [{"Agent", _}] = Transcript.background(text).unreported
+    end
+  end
+
+  describe "running/2" do
+    test "counts the agents and the other tasks still out" do
+      background =
+        Transcript.background(
+          jsonl([
+            launched("ae96c5149391564f6", "toolu_01A"),
+            resumed("af4b8ed0000000000"),
+            backgrounded("bfz2zzaps")
+          ])
+        )
+
+      assert Transcript.running(background, DateTime.utc_now()) == %{agents: 2, tasks: 1}
+    end
+
+    test "work half an hour old is not counted" do
+      background =
+        [launched("ae96c5149391564f6")]
+        |> stamped("2026-10-16T09:00:00Z")
+        |> jsonl()
+        |> Transcript.background()
+
+      assert Transcript.running(background, ~U[2026-10-16 09:31:00Z]) == %{agents: 0, tasks: 0}
+    end
+  end
+
   describe "subagent_in_flight?/2" do
     test "a subagent launched or restarted counts, a background command does not" do
       now = DateTime.utc_now()

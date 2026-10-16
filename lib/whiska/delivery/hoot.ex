@@ -29,11 +29,13 @@ defmodule Whiska.Delivery.Hoot do
 
   The sound is the one judgement here. A question that needs a decision is the
   one that must not be missed, so it takes the `request` sound; a finished
-  branch takes `done`. Both hoot, but they are told apart without looking.
+  branch takes `done`, and so does a mouse's reply, which needs no answer.
+  Both hoot, but they are told apart without looking.
 
   A finished report hoots as it is collected, and its line is typed later,
   once nothing waits (ADR-0008), with no hoot of its own: it says the verb, the
-  id and the pointer, with nothing waiting behind it. A reminder names every finished branch it is
+  id and the pointer, with nothing waiting behind it. A reply hoots once, as
+  its line is typed. A reminder names every finished branch it is
   about, with how long ago each finished, in one hoot per house.
   """
 
@@ -73,7 +75,7 @@ defmodule Whiska.Delivery.Hoot do
     %{
       title: title(q, name(house), name(branch)),
       body: body(q, more),
-      sound: sound(q.kind)
+      sound: sound(q)
     }
   end
 
@@ -182,9 +184,11 @@ defmodule Whiska.Delivery.Hoot do
   defp age(seconds), do: "#{div(seconds, 86_400)}d"
 
   defp title(q, house, branch) do
-    if Question.owls?(q),
-      do: "🦉 #{house} · Whiska asks about #{branch}",
-      else: "🐱 #{house} · #{branch} #{Text.verb(q.kind)}"
+    cond do
+      Question.owls?(q) -> "🦉 #{house} · Whiska asks about #{branch}"
+      q.reply -> "🐱 #{house} · #{branch} replied"
+      true -> "🐱 #{house} · #{branch} #{Text.verb(q.kind)}"
+    end
   end
 
   defp name(text), do: Whiska.Watch.Text.plain(text, @name_max)
@@ -204,6 +208,7 @@ defmodule Whiska.Delivery.Hoot do
 
   defp pointer(%Question{text: text}), do: Text.pointer(text)
 
-  defp sound("done"), do: :done
-  defp sound(_), do: :request
+  defp sound(%Question{kind: "done"}), do: :done
+  defp sound(%Question{reply: true}), do: :done
+  defp sound(_question), do: :request
 end

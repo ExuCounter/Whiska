@@ -54,7 +54,10 @@ and no bold labels; number points only when the person must answer each one.
 
 A line that is `🐱` alone is Whiska's delivery, not the person: the hook says which
 question it carries. Show it as below and stop. A block whose status starts `✓` or
-`Finished` is a report, typed only once nothing waited on the person: it needs no answer. An answer goes to the question
+`Finished` is a report, typed only once nothing waited on the person: it needs no answer.
+A block whose status starts `↩ Replied` is the mouse's reply to the person's letter or
+answer, sent while its own work still runs: it needs no answer either, and words back go
+by `whiska send`. An answer goes to the question
 waiting on them, if any; land, pr or drop go to the finished branch, and with more than
 one finished report since the person last wrote, ask which. Never answer for the person or offer options. They say what
 happens next:

@@ -41,11 +41,27 @@ defmodule Whiska.Doorbell do
 
   # Not the 🐱 a delivered line starts with: the main session's brief tells it
   # to run `whiska show` on a 🐱 line, and a mouse is no place for that.
+  @lead "🔔 The person answered your question #"
+
   @spec line(integer()) :: String.t()
   def line(question_id) do
-    "🔔 The person answered your question ##{question_id}; the answer is attached to this message. " <>
+    "#{@lead}#{question_id}; the answer is attached to this message. " <>
       "If it is not, and you were not given it earlier in this session, say so and end the turn."
   end
+
+  @doc """
+  Whether `text` is exactly a line `line/1` types: the transcript reads the
+  mouse's turn by it (ADR-0052).
+  """
+  @spec line?(String.t()) :: boolean()
+  def line?(@lead <> rest = text) do
+    case Integer.parse(rest) do
+      {id, _rest} when id > 0 -> text == line(id)
+      _not_an_id -> false
+    end
+  end
+
+  def line?(_text), do: false
 
   @doc """
   Type the doorbell for `question_id` into `pane`. Whatever herdr's client does

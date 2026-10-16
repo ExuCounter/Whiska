@@ -333,9 +333,19 @@ defmodule Whiska.Sidebar do
 
   # herdr's icon calls this pane idle, so the line says what it cannot.
   defp state(%{in_flight?: true} = row, _now),
-    do: {@working, "◐ background", row.topic || row.doing}
+    do: {@working, "◐ #{running(row.running)} running", row.topic || row.doing}
 
   defp state(_idle, _now), do: {@idle, "○ idle", nil}
+
+  # Read a moment after `passed_over`, so the half hour can fall between them.
+  defp running(nil), do: "background work"
+  defp running(%{agents: 0, tasks: 0}), do: "background work"
+
+  defp running(%{agents: agents, tasks: tasks}) do
+    [{agents, "agent"}, {tasks, "task"}]
+    |> Enum.reject(fn {n, _kind} -> n == 0 end)
+    |> Enum.map_join(", ", fn {n, kind} -> "#{n} #{kind}#{if n == 1, do: "", else: "s"}" end)
+  end
 
   defp asked(%{waits: :away}, _now), do: {@away, "💤 waits: away", nil}
 

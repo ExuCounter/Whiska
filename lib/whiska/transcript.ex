@@ -44,7 +44,13 @@ defmodule Whiska.Transcript do
   A turn the person started clears the accounting: `origin: %{"kind" => "human"}`,
   on the entry or on its attachment. Whatever was out when they typed is theirs
   to have interrupted, and a mouse held silent by an agent that will never
-  report is the one direction this must not fail in.
+  report is the one direction this must not fail in. Claude Code stamps a line
+  Whiska typed into the pane the same way, so Whiska's own lines are told apart
+  by their text, matched exactly, and interrupt nothing. The mouse's turn after
+  a letter or an answer is its reply to the person, while the work out is only
+  what was out when the line came: work launched since and still out, or a
+  report waking the mouse, ends that; a pickup carries it on only where the
+  reply's own turn died.
 
   A launch older than half an hour is the backstop under that
   (ADR-0052 named it): an agent that has not reported in that long is not coming
@@ -78,11 +84,15 @@ defmodule Whiska.Transcript do
 
   alias Whiska.Question.Marker
 
-  @typedoc "Background work left unreported, and the mouse's last word."
+  @typedoc """
+  Background work left unreported, the mouse's last word, and whether its turn
+  is its reply to a letter or an answer with only earlier work out.
+  """
   @type background :: %{
           unreported: [{tool :: String.t(), launched_at :: DateTime.t() | nil}],
           last_word: :unmarked | :marked | :died | nil,
-          said_at: DateTime.t() | nil
+          said_at: DateTime.t() | nil,
+          reply?: boolean()
         }
 
   # Enough tail to reach back to a launch whose report has not come yet. The
@@ -119,7 +129,8 @@ defmodule Whiska.Transcript do
   @launched ~r/^agentId: ([A-Za-z0-9_-]+)/m
   @handed_back ~r/<agent-message from="([A-Za-z0-9_-]+)">/
   @notification "<task-notification>"
-  @notified ~r|\A\s*<task-id>([A-Za-z0-9_-]+)</task-id>|
+  @notified ~r|\A(?:\s*<task-id>[^<\s]+</task-id>)+|
+  @task_id ~r|<task-id>([A-Za-z0-9_-]+)</task-id>|
   @interim ~r|<note>[^<]*still running|
 
   @subagent ["Agent", "SendMessage"]
@@ -334,13 +345,30 @@ defmodule Whiska.Transcript do
   """
   @spec background(String.t()) :: background()
   def background(text) do
-    %{out: out, last_word: last_word} =
+    %{out: out, last_word: last_word, reply: reply} =
       text
       |> String.split("\n")
-      |> Enum.reduce(%{calls: %{}, out: %{}, last_word: nil}, &account_for/2)
+      |> Enum.reduce(%{calls: %{}, out: %{}, last_word: nil, reply: nil}, &account_for/2)
 
     {word, said_at} = last_word || {nil, nil}
-    %{unreported: Map.values(out), last_word: word, said_at: said_at}
+
+    %{
+      unreported: Map.values(out),
+      last_word: word,
+      said_at: said_at,
+      reply?: reply != nil and out != %{} and Enum.all?(Map.keys(out), &MapSet.member?(reply, &1))
+    }
+  end
+
+  @doc "The background work still out and inside the half hour: subagents, and every other kind."
+  @spec running(background(), DateTime.t()) :: %{
+          agents: non_neg_integer(),
+          tasks: non_neg_integer()
+        }
+  def running(%{unreported: unreported}, now) do
+    live = Enum.reject(unreported, fn {_tool, at} -> abandoned?(at, now) end)
+    agents = Enum.count(live, fn {tool, _at} -> tool in @subagent end)
+    %{agents: agents, tasks: length(live) - agents}
   end
 
   @doc """
@@ -384,7 +412,9 @@ defmodule Whiska.Transcript do
   @doc """
   Whether the mouse's last stop was passed over (ADR-0052): its last word said
   while work that holds it (`holds_stop?/3`) was out. `:in_flight` while that
-  work is inside the half hour, `:abandoned` once all of it is past it.
+  work is inside the half hour, `:abandoned` once all of it is past it. An
+  unmarked reply was written, so it is `:in_flight` beside that work and never
+  abandoned.
   """
   @spec passed_over(background(), DateTime.t()) :: nil | :in_flight | :abandoned
   def passed_over(%{last_word: word, said_at: said_at} = background, now)
@@ -392,6 +422,7 @@ defmodule Whiska.Transcript do
     cond do
       not holds_stop?(background, word, said_at || now) -> nil
       holds_stop?(background, word, now) -> :in_flight
+      word == :unmarked and Map.get(background, :reply?, false) -> nil
       true -> :abandoned
     end
   end
@@ -545,19 +576,54 @@ defmodule Whiska.Transcript do
   end
 
   defp account_for_entry(entry, state) do
-    state = %{state | last_word: last_word(entry, state.last_word)}
+    was = state.last_word
+    state = %{state | last_word: last_word(entry, was)}
 
     case origin(entry) do
       %{"kind" => "human"} ->
-        %{state | out: %{}}
+        typed_in(state, prompt_of(entry) <> said_in(entry), was)
 
       %{"handback" => true, "from" => id} when is_binary(id) ->
-        %{state | out: Map.delete(state.out, id)}
+        %{woken(state, entry) | out: Map.delete(state.out, id)}
 
       _no_stamp ->
-        entry |> account_for_frames(state) |> account_for_blocks(entry)
+        entry |> account_for_frames(woken(state, entry)) |> account_for_blocks(entry)
     end
   end
+
+  defp typed_in(state, text, was) do
+    cond do
+      Whiska.Send.line?(text) or Whiska.Doorbell.line?(text) ->
+        %{state | reply: MapSet.new(Map.keys(state.out))}
+
+      text in [Whiska.Pickup.line(), Whiska.Delivery.Mode.resume_line()] ->
+        carried_on(state, was)
+
+      Whiska.ReviewRound.line?(text) ->
+        %{state | reply: nil}
+
+      true ->
+        %{state | out: %{}, reply: nil}
+    end
+  end
+
+  # Picked up where the reply's own turn died, it is still the reply.
+  defp carried_on(state, {:died, _at}), do: state
+  defp carried_on(state, _was), do: %{state | reply: nil}
+
+  # A turn something else began, such as a report waking the mouse. A report
+  # queued while the mouse was busy is an `attachment` and begins nothing.
+  defp woken(state, %{"type" => "user", "origin" => %{} = origin}) when map_size(origin) > 0,
+    do: %{state | reply: nil}
+
+  defp woken(state, %{"type" => "user", "message" => %{"content" => content}})
+       when is_binary(content) do
+    if String.contains?(content, @notification) or Regex.match?(@handed_back, content),
+      do: %{state | reply: nil},
+      else: state
+  end
+
+  defp woken(state, _entry), do: state
 
   defp last_word(%{"type" => "assistant", "isApiErrorMessage" => true} = entry, _was),
     do: {:died, stamp(entry)}
@@ -606,12 +672,24 @@ defmodule Whiska.Transcript do
     [frame | _] = String.split(frame, "</task-notification>", parts: 2)
     [header | output] = String.split(frame, ["<result>", "<event>"], parts: 2)
 
-    with [id] <- Regex.run(@notified, header, capture: :all_but_first),
-         {tool, _launched_at} <- Map.get(state.out, id),
-         true <- reported?(tool, header, Enum.join(output)) do
-      %{state | out: Map.delete(state.out, id)}
-    else
-      _not_a_report -> state
+    header
+    |> notified()
+    |> Enum.reduce(state, fn id, state ->
+      with {tool, _launched_at} <- Map.get(state.out, id),
+           true <- reported?(tool, header, Enum.join(output)) do
+        %{state | out: Map.delete(state.out, id)}
+      else
+        _not_a_report -> state
+      end
+    end)
+  end
+
+  # A restarted session reports every task it lost in one notice, a
+  # `<task-id>` line each, before anything else in the frame.
+  defp notified(header) do
+    case Regex.run(@notified, header) do
+      [run] -> @task_id |> Regex.scan(run, capture: :all_but_first) |> List.flatten()
+      nil -> []
     end
   end
 

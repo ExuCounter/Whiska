@@ -54,7 +54,8 @@ defmodule Whiska.Storage do
     {27, Whiska.Migrations.V027HouseLetters},
     {28, Whiska.Migrations.V028ThreadsAnswered},
     {29, Whiska.Migrations.V029MergeRequestMerging},
-    {30, Whiska.Migrations.V030QuestionTypedBlind}
+    {30, Whiska.Migrations.V030QuestionTypedBlind},
+    {31, Whiska.Migrations.V031QuestionReply}
   ]
 
   @modes ~w(build sniff)
@@ -478,6 +479,13 @@ defmodule Whiska.Storage do
 
           Repo.update_all(from(m in Mouse, where: m.mouse_id == ^mouse_id),
             set: [reply_goes_next: false]
+          )
+
+          Repo.update_all(
+            from(q in Question,
+              where: q.mouse_id == ^mouse_id and q.reply and is_nil(q.typed_at)
+            ),
+            set: [goes_next: false]
           )
 
           mouse
@@ -906,7 +914,7 @@ defmodule Whiska.Storage do
   @spec record_question(map()) :: {:ok, Question.t()} | {:error, Ecto.Changeset.t()}
   def record_question(attrs) do
     %Question{}
-    |> Ecto.Changeset.cast(attrs, [:mouse_id, :text, :kind, :status, :asked_at, :asked_by])
+    |> Ecto.Changeset.cast(attrs, [:mouse_id, :text, :kind, :status, :asked_at, :asked_by, :reply])
     |> Ecto.Changeset.put_change(:asked_at, Map.get(attrs, :asked_at) || now())
     |> Ecto.Changeset.validate_required([:mouse_id, :text, :kind, :status])
     |> Ecto.Changeset.validate_inclusion(:kind, Question.kinds())
@@ -1187,15 +1195,15 @@ defmodule Whiska.Storage do
 
   @doc """
   The answers still to be handed over, oldest first: answered, not taken, and
-  the newest question its mouse has asked. A mouse that asked again has moved
-  past the answer, so handing it over now would be the mismatch ADR-0005
+  the newest question its mouse has asked, a reply aside (ADR-0052). A mouse
+  that asked again has moved past the answer, so handing it over now would be the mismatch ADR-0005
   exists to stop. At most one per mouse.
   """
   @spec chased() :: [Question.t()]
   def chased do
     latest =
       from(q in Question,
-        where: is_nil(q.asked_by) or q.asked_by != "owl",
+        where: (is_nil(q.asked_by) or q.asked_by != "owl") and not q.reply,
         group_by: q.mouse_id,
         select: {q.mouse_id, max(q.id)}
       )
@@ -1335,7 +1343,28 @@ defmodule Whiska.Storage do
     |> standing()
   end
 
-  @doc "Stamp finished reports as typed into the main session, or as owed no line."
+  @doc """
+  Every reply owed its line in the main session, oldest first, with its mouse
+  (ADR-0052): closed as it was collected, never typed, on a branch not landed
+  whose worktree still stands. Unlike a finished report it is typed whatever
+  its mouse said or did since: it answers what the person asked, and its mouse
+  is working by design while its own work runs.
+  """
+  @spec untyped_replies() :: [Question.t()]
+  def untyped_replies do
+    from(q in Question,
+      join: m in assoc(q, :mouse),
+      where:
+        q.reply and q.status == "closed" and is_nil(q.typed_at) and is_nil(m.removed_at) and
+          is_nil(m.landed_at),
+      order_by: q.id,
+      preload: [mouse: m]
+    )
+    |> Repo.all()
+    |> standing()
+  end
+
+  @doc "Stamp finished reports and replies as typed into the main session, or as owed no line."
   @spec typed([pos_integer()], DateTime.t()) :: :ok
   def typed([], _at), do: :ok
 
@@ -1411,7 +1440,9 @@ defmodule Whiska.Storage do
   Otherwise, when one of them was a reply to a letter not yet typed, or this
   is the reply a letter left waiting for (`supersede_for_letter/2`), it is
   marked `goes_next`. A finished report, closed as it is collected, takes no
-  place but still spends the one a letter left waiting.
+  place but still spends the one a letter left waiting; a reply left beside
+  running work takes it, closed, and goes next all the same, and supersedes
+  nothing: what its mouse asked before it still stands (ADR-0052).
   """
   @spec supersede_earlier(Question.t()) :: {:ok, non_neg_integer()}
   def supersede_earlier(%Question{asked_by: "owl"}), do: {:ok, 0}
@@ -1423,17 +1454,30 @@ defmodule Whiska.Storage do
     Repo.transaction(
       fn ->
         # Read again: a letter may have superseded it since it was recorded.
-        case Repo.one(from(q in Question, where: q.id == ^id, select: {q.status, q.kind})) do
-          {"open", _kind} -> mark_place(id, earlier, spend_reply(mouse_id))
-          {"closed", "done"} -> spend_reply(mouse_id)
-          _superseded -> :ok
-        end
+        case Repo.one(from(q in Question, where: q.id == ^id, select: {q.status, q.reply})) do
+          {"closed", true} ->
+            if spend_reply(mouse_id), do: goes_next(id)
+            0
 
-        {n, _} = Repo.update_all(earlier, set: [status: "superseded"])
-        n
+          {"open", _reply} ->
+            mark_place(id, earlier, spend_reply(mouse_id))
+            supersede(earlier)
+
+          {"closed", false} ->
+            spend_reply(mouse_id)
+            supersede(earlier)
+
+          _superseded ->
+            supersede(earlier)
+        end
       end,
       mode: :immediate
     )
+  end
+
+  defp supersede(earlier) do
+    {n, _} = Repo.update_all(earlier, set: [status: "superseded"])
+    n
   end
 
   defp mark_place(id, earlier, replying?) do
@@ -1442,12 +1486,15 @@ defmodule Whiska.Storage do
         Repo.update_all(from(q in Question, where: q.id == ^id), set: [keeps_slot: true])
 
       replying? or Repo.exists?(from(q in earlier, where: q.goes_next)) ->
-        Repo.update_all(from(q in Question, where: q.id == ^id), set: [goes_next: true])
+        goes_next(id)
 
       true ->
         :ok
     end
   end
+
+  defp goes_next(id),
+    do: Repo.update_all(from(q in Question, where: q.id == ^id), set: [goes_next: true])
 
   defp spend_reply(mouse_id) do
     {n, _} =

@@ -468,6 +468,86 @@ defmodule Whiska.Hook.StopTest do
       assert Doorstep.waiting(main) == []
     end
 
+    defp letter(worktree) do
+      copy = Path.join([worktree, ".whiska-letters", "20261016-093700-b6aa0e31.md"])
+
+      JSON.encode!(%{
+        "type" => "user",
+        "origin" => %{"kind" => "human"},
+        "promptSource" => "typed",
+        "message" => %{"content" => Whiska.Send.line(copy, false)}
+      })
+    end
+
+    test "a reply to a letter while the reviewers run is left at once, as a reply (#657)", %{
+      main: main,
+      worktree: worktree
+    } do
+      path = transcript(worktree, [launched("ae96c5149391564f6"), letter(worktree)])
+
+      message = %{
+        "cwd" => worktree,
+        "transcript_path" => path,
+        "last_assistant_message" => "Here is the answer; the reviewers are still running."
+      }
+
+      assert {:left, _house} = Stop.leave(payload(message), System.get_env())
+      assert [{_, %Entry{text: "Here is the answer" <> _, reply: true}}] = Doorstep.waiting(main)
+    end
+
+    test "a reply leaves the held stop where it is, for the turn after the reviewers", %{
+      main: main,
+      worktree: worktree
+    } do
+      path = transcript(worktree, [launched("ae96c5149391564f6")])
+      held_stop(worktree, path, "Pick A or B?\n⁣⁣")
+
+      path = transcript(worktree, [launched("ae96c5149391564f6"), letter(worktree)])
+      held_stop(worktree, path, "Here is the answer.")
+
+      assert [{_, %Entry{text: "Pick A or B?" <> _}}] = Doorstep.held(main)
+      assert [{_, %Entry{text: "Here is the answer." <> _, reply: true}}] = Doorstep.waiting(main)
+    end
+
+    test "a question in reply is held while the reviewers run, as a done is", %{
+      main: main,
+      worktree: worktree
+    } do
+      path = transcript(worktree, [launched("ae96c5149391564f6"), letter(worktree)])
+      held_stop(worktree, path, "Ready to push?\n⁣⁣")
+
+      assert Doorstep.waiting(main) == []
+      assert [{_, %Entry{text: "Ready to push?" <> _, reply: false}}] = Doorstep.held(main)
+    end
+
+    test "a reply that says it is done is held while the reviewers run", %{
+      main: main,
+      worktree: worktree
+    } do
+      path = transcript(worktree, [launched("ae96c5149391564f6"), letter(worktree)])
+      held_stop(worktree, path, "Fixed that too.\n\n⁣⁣⁣")
+
+      assert Doorstep.waiting(main) == []
+      assert [{_, %Entry{text: "Fixed that too." <> _}}] = Doorstep.held(main)
+    end
+
+    test "a stop after the person typed into the pane is no reply", %{
+      main: main,
+      worktree: worktree
+    } do
+      typed =
+        JSON.encode!(%{
+          "type" => "user",
+          "origin" => %{"kind" => "human"},
+          "message" => %{"content" => "how is it going?"}
+        })
+
+      path = transcript(worktree, [launched("ae96c5149391564f6"), typed])
+      held_stop(worktree, path, "Fine.")
+
+      assert [{_, %Entry{text: "Fine.", reply: false}}] = Doorstep.waiting(main)
+    end
+
     test "a question or a report is left beside work that is no subagent", %{
       main: main,
       worktree: worktree

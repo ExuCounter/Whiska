@@ -150,6 +150,28 @@ defmodule Whiska.StorageDeliveryTest do
       assert Storage.untyped() == []
     end
 
+    test "untyped_replies/0 is each reply owed its line, whatever its mouse said or did since, until it lands or its worktree goes",
+         %{root: root} do
+      reply = fn id ->
+        ask(id, "Answered.", %{kind: "unmarked", status: "closed", reply: true})
+      end
+
+      a = reply.("f1")
+      ask("f1", "one more thing?")
+      {:ok, _} = Storage.set_working("f1", DateTime.add(a.asked_at, 1))
+      b = reply.("f2")
+
+      {:ok, _} =
+        Storage.record_mouse(%{mouse_id: "f3", path: Path.join(root, "gone"), branch: "c"})
+
+      reply.("f3")
+      assert Enum.map(Storage.untyped_replies(), & &1.id) == [a.id, b.id]
+
+      {:ok, _} = Storage.mark_landed("f2")
+      :ok = Storage.typed([a.id], DateTime.utc_now())
+      assert Storage.untyped_replies() == []
+    end
+
     test "hooted/2 stamps each report, to the second" do
       a = finish("f1")
       b = finish("f2")
@@ -493,6 +515,50 @@ defmodule Whiska.StorageDeliveryTest do
       later = ask("m1", "a later turn")
       {:ok, 0} = Storage.supersede_earlier(later)
       refute Storage.question(later.id).goes_next
+    end
+
+    test "a reply written beside running work is the letter's reply: it takes the place, and goes next" do
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      {:ok, [_]} = letter("m1")
+
+      reply = ask("m1", "Answered.", %{kind: "unmarked", status: "closed", reply: true})
+      {:ok, 0} = Storage.supersede_earlier(reply)
+      refute Storage.mouse("m1").reply_goes_next
+      assert Storage.question(reply.id).goes_next
+
+      later = ask("m1", "a later turn")
+      {:ok, 0} = Storage.supersede_earlier(later)
+      refute Storage.question(later.id).goes_next
+    end
+
+    test "a reply supersedes nothing: the mouse's questions collected before it still stand" do
+      held = ask("m1", "Ready to push?")
+      {:ok, 0} = Storage.supersede_earlier(held)
+
+      reply = ask("m1", "Answered.", %{kind: "unmarked", status: "closed", reply: true})
+      assert {:ok, 0} = Storage.supersede_earlier(reply)
+      assert Storage.question(held.id).status == "open"
+    end
+
+    test "the mouse's death takes the place its reply took" do
+      sent = ask("m1", "out")
+      {:ok, _} = Storage.mark_sent(sent.id)
+      {:ok, [_]} = letter("m1")
+      reply = ask("m1", "Answered.", %{kind: "unmarked", status: "closed", reply: true})
+      {:ok, 0} = Storage.supersede_earlier(reply)
+
+      {:ok, _} = Storage.mark_dead("m1")
+      refute Storage.question(reply.id).goes_next
+    end
+
+    test "an answer not taken is still chased after its mouse's reply" do
+      q = ask("m1", "pick one")
+      {:ok, _} = Storage.mark_sent(q.id)
+      {:ok, _} = Storage.answer(q.id, "A")
+      ask("m1", "The answer is not attached.", %{kind: "unmarked", status: "closed", reply: true})
+
+      assert Enum.map(Storage.chased(), & &1.id) == [q.id]
     end
 
     test "a letter to a mouse whose question was only queued gives no place" do

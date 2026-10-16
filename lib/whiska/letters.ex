@@ -14,10 +14,17 @@ defmodule Whiska.Letters do
   """
 
   @folder ".whiska-letters"
-  @house_name ~r/\A\d{8}-\d{6}-[0-9a-f]{8}\.md\z/
+  @name ~r/\A\d{8}-\d{6}-[0-9a-f]{8}\.md\z/
 
   @spec exclude_line() :: String.t()
   def exclude_line, do: "/" <> @folder <> "/"
+
+  @doc "Whether `path` is where `put/3` or `write/3` lays a letter in a worktree."
+  @spec copy?(String.t()) :: boolean()
+  def copy?(path) do
+    Path.type(path) == :absolute and Path.basename(Path.dirname(path)) == @folder and
+      Regex.match?(@name, Path.basename(path))
+  end
 
   @doc """
   Copy `source` into `worktree`'s letters under a name no earlier letter has.
@@ -82,7 +89,7 @@ defmodule Whiska.Letters do
   def in_house?(main_checkout, path) do
     folder = house_folder(main_checkout)
 
-    Path.dirname(path) == folder and Path.basename(path) =~ @house_name and
+    Path.dirname(path) == folder and Path.basename(path) =~ @name and
       match?({:ok, %File.Stat{type: :directory}}, File.lstat(folder)) and
       match?({:ok, %File.Stat{type: :regular}}, File.lstat(path))
   end

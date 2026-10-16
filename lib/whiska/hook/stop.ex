@@ -26,7 +26,12 @@ defmodule Whiska.Hook.Stop do
   marked stop supersedes it, an unmarked one has it delivered in its place, and
   otherwise the owl releases it once no subagent is out and the mouse is idle.
   A marked turn beside any other work is written: the mouse said what it is
-  waiting on.
+  waiting on. And the turn after a letter or an answer Whiska typed is the
+  mouse's reply to the person, written whatever runs, as long as the work out
+  is only what was out when that line came. Only an unmarked one: it is left
+  as a reply, which settles no held stop. A marked one is held like any other,
+  since a question or a `done` beside the mouse's own running reviewers is
+  answered, or landed, before they report.
 
   That is the only marker it reads. What a marked message means is read by the
   owl on collection (ADR-0009), so a message with no marker and nothing out is
@@ -68,7 +73,7 @@ defmodule Whiska.Hook.Stop do
          false <- Session.nested?(env),
          {:ok, mouse_id} <- Marker.read_or_mint(layout.worktree_root),
          {:ok, _file} <- write(turn, layout, mouse_id, payload, Transcript.ran_on(tail)) do
-      if turn == :over, do: {:left, layout.main_checkout}, else: :ok
+      if turn in [:over, :reply], do: {:left, layout.main_checkout}, else: :ok
     else
       :passed_over ->
         :ok
@@ -91,13 +96,15 @@ defmodule Whiska.Hook.Stop do
   # Writing an unmarked stop here would leave "still waiting on the reviewers" on
   # the doorstep as a question that asks nothing (ADR-0052). A marked one is
   # held, not dropped: the mouse's next stop settles it, or the owl delivers it
-  # once no subagent is out and the mouse is idle.
+  # once no subagent is out and the mouse is idle. The mouse's reply to a
+  # letter or an answer is the person's to read now, whatever runs.
   defp turn_state(message, tail) do
     marker = if QuestionMarker.classify(message) == "unmarked", do: :unmarked, else: :marked
-    held? = Transcript.holds_stop?(Transcript.background(tail), marker, DateTime.utc_now())
+    background = Transcript.background(tail)
 
     cond do
-      not held? -> :over
+      not Transcript.holds_stop?(background, marker, DateTime.utc_now()) -> :over
+      background.reply? and marker == :unmarked -> :reply
       marker == :marked -> :held
       true -> :passed_over
     end
@@ -127,7 +134,8 @@ defmodule Whiska.Hook.Stop do
       spec: carried(layout.worktree_root, Whiska.Spec.filename()),
       research: carried(layout.worktree_root, Whiska.Research.filename()),
       plan: carried(layout.worktree_root, Whiska.BuildPlan.filename()),
-      transcript: transcript_path(payload)
+      transcript: transcript_path(payload),
+      reply: turn == :reply
     }
 
     leave_or_hold(turn, layout.main_checkout, entry, QuestionMarker.classify(entry.text))
@@ -138,6 +146,10 @@ defmodule Whiska.Hook.Stop do
   # question (ADR-0007). One with no marker is the mouse not asking again, so the
   # held stop is delivered in its place.
   defp leave_or_hold(:held, main_checkout, entry, _kind), do: Doorstep.hold(main_checkout, entry)
+
+  # A reply settles nothing: the held stop waits for the turn after the work.
+  defp leave_or_hold(:reply, main_checkout, entry, _kind),
+    do: Doorstep.leave(main_checkout, entry)
 
   # The held one's words, this turn's facts: its spec, plan, model and time.
   defp leave_or_hold(:over, main_checkout, entry, "unmarked") do

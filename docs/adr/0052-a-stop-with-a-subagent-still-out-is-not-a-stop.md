@@ -129,7 +129,10 @@ Claude Code writes when it expires, "[Monitor expired after …]". Anything from
 interim note is still a report.
 
 **`TaskStop` ends whatever it names, reported or not.** Of 22 tasks stopped on this
-machine, 5 notified afterwards.
+machine, 5 notified afterwards. An agent the person stops notifies with `<status>killed</status>`
+under its own id, which is a report. A session restarted with work out names every task it
+lost in one notice, a `<task-id>` line each before anything else in the frame, and every
+one of them is back (seen 2026-10-15).
 
 **A launch older than half an hour is abandoned, not pending,** whatever its kind. The deadline the
 Consequences below predicted, in its cheapest form: an aged launch stops being counted
@@ -138,11 +141,40 @@ short enough that a lost hand-back costs one quiet stop rather than a night of t
 launch whose entry carries no readable timestamp cannot be aged and holds the turn as
 before.
 
-**A turn the person started clears the accounting.** `origin: {"kind": "human"}` — they
-typed. Whatever was out at that moment they may well have interrupted, and an agent that
-will never report must not be able to hold a mouse silent indefinitely. The cost is that a
-person who types while reviewers really are running gets the next stop delivered; that is
-noise, which is the direction this whole decision fails in on purpose.
+**A turn the person started clears the accounting; a line Whiska typed does not**
+(changed 2026-10-16). `origin: {"kind": "human"}` — they typed. Whatever was out at that
+moment they may well have interrupted, and an agent that will never report must not be able
+to hold a mouse silent indefinitely. The cost is that a person who types while reviewers
+really are running gets the next stop delivered; that is noise, which is the direction this
+whole decision fails in on purpose. But Claude Code stamps the lines Whiska types into the
+pane the same way, and those interrupt nothing: on 2026-10-16 the letter `whiska send`
+typed cleared #657's two running reviewers, and the mouse's next note arrived as a stop
+with no reason, as three others had in three days. So Whiska's own lines keep the
+accounting: the letter line, the doorbell, the review round's line, the pickup and the
+lifted-hold line, each told apart by its text, matched against the code that types it, a
+letter's path by the shape of a letter's name (`Whiska.Send.line?/1`,
+`Whiska.Doorbell.line?/1`, `Whiska.ReviewRound.line?/1`, equality for the two fixed
+ones). Only the person's own typing clears it.
+
+**The mouse's plain reply to a letter or an answer is written whatever runs.** The person
+must be able to ask a mouse something while its reviewers run. The turn after a letter or
+doorbell line, while the work out is only what was out when that line came, is the mouse's
+reply: an unmarked one is left as a **reply**, recorded closed, waiting on nobody, typed
+whatever its mouse said or did since. Its line goes next once the slot is free when the
+letter took a sent question's place, as any letter's reply does (ADR-0008), else once
+nothing waits, like a finished report (ADR-0009). A marked one is held like any other
+while a subagent is out: the build brief tells a mouse the hook holds a finished report or
+a question until its reviewers report, and a "Ready to push?" or a "Ready to merge" beside
+a running security reviewer could be answered, or landed, before it reports (the person
+chose this on 2026-10-16). A reply settles no held stop and supersedes nothing: what the
+mouse asked before it still stands, and a held one waits for the turn after the work.
+Work launched since the line and still out, or a report waking the mouse (a `user` entry
+with an `origin`, or one with none that carries a report; one queued while it is busy
+wakes nothing), ends the reply, and every stop after that follows the rules above. The
+pickup and lifted-hold lines carry a reply on only when the reply's own turn died on an
+API error; otherwise they, and the review round's line, make none: they carry no words of
+the person's. The board shows a written reply beside its work as that work running, and
+never as stuck: the stop was written, not passed over.
 
 **Only the mouse's own entries count.** A subagent's entries are marked `isSidechain`, and
 what it launches is its own business.
@@ -164,7 +196,7 @@ exactly the heuristic ADR-0009 refuses, and is not what this is.
 **Background work that never reports holds its mouse quiet for half an hour.** A lost
 hand-back, an agent that errors out, an interrupted turn: the launch stays unmatched and
 every unmarked stop after it is swallowed, and every marked one while it is a subagent is held. It proved real the day this was written, so the
-deadline is in: the launch ages out, the person's next prompt still clears the accounting,
+deadline is in: the launch ages out, the person's own next prompt still clears the accounting,
 and the launch still scrolls out of the tail. Meanwhile the board shows the mouse working,
 then `✖ stuck` (ADR-0082); nothing is delivered on its behalf, which the person chose on
 2026-10-14 over delivering the swallowed stop. herdr keeps a pane working only while a
@@ -200,7 +232,7 @@ hand-back shape this decision had not seen. A Claude Code release that renames `
 exists today. The shape that fails the other way is a launch Whiska can still see paired
 with a hand-back it no longer recognises, and that is the one that actually happened. Three
 guards against it, in order of how much they are trusted: the hand-back is read in three
-shapes and from both the live and the queued entry, the person's next prompt clears the
+shapes and from both the live and the queued entry, the person's own next prompt clears the
 slate, and a launch old enough stops counting whatever else is missing.
 
 **`Whiska.Transcript` is now the one reader of Claude Code's JSONL.** The folder name, the
@@ -235,3 +267,4 @@ real question from another mouse waits behind a progress note.
 Changed on 2026-10-12: the board reads this same tail too, on every rebuild, for a working mouse quiet ten minutes (ADR-0082, changed 2026-10-15).
 Changed on 2026-10-15: a marked stop is held too while a subagent is out, and it is delivered once none is out and the mouse's turn has ended, settled by the mouse's own next stop, or after the half hour; the board and the owl's pickup read it as passed over.
 Changed on 2026-10-14: only an unmarked stop is passed over; every kind of background work counts, not only subagents; the tail is 4 MB; an interim report and a monitor's event are not reports, and `TaskStop` is one; the board and the owl's pickup read a passed-over stop from the transcript.
+Changed on 2026-10-16: a line Whiska typed keeps the accounting, and the mouse's unmarked reply to a letter or an answer is written as a reply, whatever earlier work still runs; a restart's notice hands back every task it names.

@@ -479,6 +479,36 @@ defmodule Whiska.QuestionsTest do
                ~r/\ABranch: feat-a · ! Stopped without saying why\n/
     end
 
+    test "a reply to a letter while the mouse's work runs says so, and is printed whole" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "unmarked",
+        status: "closed",
+        reply: true,
+        text: "Here is the answer.\n\n## Summary\nnot a report",
+        asked_at: DateTime.utc_now()
+      }
+
+      assert Questions.full(q, @mouse, nil) ==
+               "Branch: feat-a · ↩ Replied · its background work still running\n\n" <>
+                 "Here is the answer.\n\n## Summary\nnot a report"
+    end
+
+    test "a reply whose worktree went before it was collected reads as where it landed" do
+      q = %Whiska.Schema.Question{
+        id: 9,
+        mouse_id: "m1",
+        kind: "unmarked",
+        status: "orphaned",
+        reply: true,
+        text: "Here is the answer.",
+        asked_at: DateTime.utc_now()
+      }
+
+      assert Questions.full(q, @mouse, nil) =~ ~r/\ABranch: feat-a · Orphaned\n/
+    end
+
     test "with no record of its mouse the branch is the mouse's id" do
       q = %Whiska.Schema.Question{
         id: 9,

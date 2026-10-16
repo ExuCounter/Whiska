@@ -81,7 +81,8 @@ for as long as that turn's own question waited. So once the pane takes the lette
 the mouse's open and sent questions are superseded, and the slot is free. A line the pane refuses supersedes nothing. When one of
 them held the slot, the mouse's next collected message goes next once the slot is free,
 ahead of every other branch's question: the mouse record keeps `reply_goes_next` until
-that message spends it, whatever it says (a finished report spends it and goes nowhere), since nothing tells
+that message spends it, whatever it says (a finished report spends it and goes nowhere; a
+reply left beside running work, closed as it is collected, takes it all the same, ADR-0052), since nothing tells
 which message answers the letter, and the message is stored with `goes_next`. It holds
 no slot, so another branch's heir goes first: ranked with the heirs, an older reply
 would be typed into the middle of the conversation about the other branch. It passes its place down as
@@ -212,3 +213,6 @@ person, and holds nothing once typed.
 
 Changed on 2026-10-15: a letter from another house's main session is typed ahead of the
 queue, under away and the gate only, and takes no slot (ADR-0044).
+
+Changed on 2026-10-16: a reply left beside running work, closed as it is collected, takes
+the place a letter left and goes next all the same (ADR-0052).

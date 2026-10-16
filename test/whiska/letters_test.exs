@@ -13,6 +13,20 @@ defmodule Whiska.LettersTest do
     {:ok, root: root, main: main, source: source}
   end
 
+  describe "copy?/1" do
+    test "holds for the copy put/3 and write/3 lay in a worktree, and nothing else",
+         %{root: root, main: main, source: source} do
+      worktree = Path.join(root, "worktree")
+      {:ok, put} = Letters.put(main, worktree, source)
+      {:ok, written} = Letters.write(main, worktree, "review\n")
+
+      assert Letters.copy?(put)
+      assert Letters.copy?(written)
+      refute Letters.copy?(source)
+      refute Letters.copy?(Path.relative_to(put, root))
+    end
+  end
+
   describe "in_house?/2" do
     test "holds for a letter put_house/2 left", %{main: main, source: source} do
       {:ok, path} = Letters.put_house(main, source)

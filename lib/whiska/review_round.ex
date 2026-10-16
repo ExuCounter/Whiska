@@ -224,12 +224,19 @@ defmodule Whiska.ReviewRound do
     """
   end
 
+  @lead "Whiska read new review on your merge request. Read the letter in full, then act on it: "
+
   @doc "The one line typed into the mouse's pane, naming its letter."
   @spec line(Path.t()) :: String.t()
-  def line(letter_path) do
-    "Whiska read new review on your merge request. Read the letter in full, " <>
-      "then act on it: #{letter_path}"
-  end
+  def line(letter_path), do: @lead <> letter_path
+
+  @doc """
+  Whether `text` is exactly a line `line/1` types: the transcript reads the
+  mouse's turn by it (ADR-0052).
+  """
+  @spec line?(String.t()) :: boolean()
+  def line?(@lead <> letter_path), do: Whiska.Letters.copy?(letter_path)
+  def line?(_text), do: false
 
   @doc "What is kept of `pending` once `handed` is handed over: whatever came in since."
   @spec rest(MergeRequestRead.review() | nil, MergeRequestRead.review()) ::

@@ -2204,7 +2204,8 @@ defmodule Whiska.Owl.House do
     end
   end
 
-  # A done report waits on nobody, so it arrives closed (ADR-0009); its hoot is
+  # A done report waits on nobody, so it arrives closed (ADR-0009), and so does
+  # a reply (ADR-0052); a report's hoot is
   # `remind/1`'s, and its line goes once nothing waits (ADR-0008). An entry whose
   # worktree has already gone has nowhere to reply to, so it arrives where the
   # rest of that mouse's questions went — settled if its branch landed,
@@ -2216,12 +2217,17 @@ defmodule Whiska.Owl.House do
 
   defp arriving(entry, kind, asked_by, _review?) do
     cond do
-      File.dir?(entry.worktree_root) and kind == "done" -> "closed"
+      File.dir?(entry.worktree_root) and (kind == "done" or reply?(entry, kind)) -> "closed"
       File.dir?(entry.worktree_root) -> "open"
       asked_by == "owl" -> "closed"
       true -> Storage.terminal_status(entry.mouse_id)
     end
   end
+
+  # Only an unmarked stop is a reply: a marked one is what its marker says
+  # (ADR-0009), and the owl's own entries are never the mouse's.
+  defp reply?(%Entry{reply: true, from: nil}, "unmarked"), do: true
+  defp reply?(_entry, _kind), do: false
 
   defp start_round(state) do
     %{state | round_timer: Process.send_after(self(), :round_over, state.round_wait_ms)}
@@ -2249,7 +2255,8 @@ defmodule Whiska.Owl.House do
              kind: kind,
              status: arriving(entry, kind, asked_by, review?),
              asked_at: DateTime.truncate(entry.stamped_at, :second),
-             asked_by: asked_by
+             asked_by: asked_by,
+             reply: reply?(entry, kind) and is_nil(asked_by)
            }),
          {:ok, _} <- Storage.supersede_earlier(question),
          :ok <- keep_spec(state, entry, question),
@@ -2495,14 +2502,18 @@ defmodule Whiska.Owl.House do
 
   # What goes next, if the main session will have it: judged against what the
   # person set aside first, then the slot (`Whiska.Delivery.Mode`).
-  defp next_to_deliver(mode), do: Mode.next(Storage.questions(), mode)
+  defp next_to_deliver(mode),
+    do: Mode.next(Storage.questions() ++ Storage.untyped_replies(), mode)
 
-  # A finished report's line goes once nothing waits on the person, oldest
-  # first, and holds nothing once typed (ADR-0008): a question always goes
+  # A finished report's or a reply's line goes once nothing waits on the
+  # person, oldest first, and holds nothing once typed (ADR-0008): a question always goes
   # first, and one collected after it goes as soon as the gate lets it.
   defp next_report(mode) do
-    if Mode.clear?(Storage.questions(), mode),
-      do: Enum.find(Storage.untyped(), &Mode.deliverable?(&1, mode))
+    if Mode.clear?(Storage.questions(), mode) do
+      (Storage.untyped() ++ Storage.untyped_replies())
+      |> Enum.sort_by(& &1.id)
+      |> Enum.find(&Mode.deliverable?(&1, mode))
+    end
   end
 
   # A letter waits for away and the gate, never for the slot or a focus: it is
@@ -2625,6 +2636,12 @@ defmodule Whiska.Owl.House do
   # goes without one, and stays closed: only its stamp says it was typed.
   defp delivered(_state, %Question{kind: "done", status: "closed"} = report, _branch, _more),
     do: :ok = Storage.typed([report.id], DateTime.utc_now())
+
+  # A reply holds nothing either, but nothing hooted it as it was collected.
+  defp delivered(state, %Question{reply: true, status: "closed"} = reply, branch, more) do
+    :ok = Storage.typed([reply.id], DateTime.utc_now())
+    hoot(state, reply, branch, more)
+  end
 
   defp delivered(state, question, branch, more) do
     {:ok, _} = Storage.mark_sent(question.id)

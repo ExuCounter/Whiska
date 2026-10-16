@@ -129,7 +129,8 @@ defmodule Whiska.Delivery.Mode do
   waiting questions (`Whiska.Storage.questions/0`): nothing while a
   deliverable question is sent; otherwise an heir — a mouse's newer question
   that superseded the one holding the slot, which inherits it — then a
-  mouse's reply to a letter that superseded what held the slot, else the
+  mouse's reply to a letter that superseded what held the slot, open or, left
+  beside running work, closed (`Whiska.Storage.untyped_replies/0`), else the
   oldest deliverable open question. A finished report is never among them:
   it is closed as it is collected (ADR-0009), and typed only once `clear?/2`
   says nothing waits. Oldest
@@ -146,7 +147,7 @@ defmodule Whiska.Delivery.Mode do
     cond do
       Enum.any?(deliverable, &(&1.status == "sent")) -> nil
       heir = Enum.find(open, & &1.keeps_slot) -> heir
-      reply = Enum.find(open, & &1.goes_next) -> reply
+      reply = Enum.find(deliverable, &(&1.goes_next and &1.status in ["open", "closed"])) -> reply
       true -> List.first(open)
     end
   end

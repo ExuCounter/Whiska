@@ -169,11 +169,17 @@ and the mouse's turn has ended, or half an hour on; the mouse's next stop settle
 (ADR-0052). A
 `done` report is recorded closed and **hooted**, waits on nobody, and its line is typed
 once nothing waits on the person; the person says its **finish** in place of a reply once
-they read it (ADR-0009). A question is **open** while it waits to be told, **sent** once
+they read it (ADR-0009). The mouse's unmarked reply to the person's letter or answer,
+written while work it started before that line still runs, is recorded closed too and
+waits on nobody, shown `↩ Replied · its background work still running`, but is hooted only
+as its line is typed, whatever its mouse said since: next once the slot is free when the
+letter took a sent question's place, as any letter's reply goes (ADR-0008), else once
+nothing waits. It keeps its kind, supersedes nothing and settles no **held** stop; a
+marked reply is held like any other (ADR-0052). A question is **open** while it waits to be told, **sent** once
 delivered and waiting for its answer, then **answered** once `whiska reply` saved the
 answer — which frees the slot whether or not the mouse has **taken** it yet; **superseded** when its own mouse asked a
 newer one, which takes over the slot the superseded one held and goes next, or at once
-when the person sent its mouse a **letter**, whose reply then goes next once the slot is free if the superseded one held it (ADR-0008), **closed** by hand, or as a `done` report from the moment it is collected, **settled** when its
+when the person sent its mouse a **letter**, whose reply then goes next once the slot is free if the superseded one held it (ADR-0008), **closed** by hand, or as a `done` report or such a reply from the moment it is collected, **settled** when its
 mouse's branch landed and there is nothing left to answer to — the merge was the answer
 (ADR-0064) — and **orphaned** when nothing can act on it and nothing ever answered it
 (its mouse died, its worktree is gone, its record no longer stands for a worktree of this
@@ -402,8 +408,8 @@ compaction it is, then its state — `❓ waiting on you · 14m`, `✖ stuck 6m`
 API error waited out (`↻ API error · retry in 4m`, `🔑 login expired · run /login`,
 `⏳ limit · resets 17:00`, `✖ API error`), `✓ finished`
 (its report is still its last word, and the branch has neither landed nor a merge request;
-it sorts last) — or, working, its topic, after `◐ background` when herdr calls the pane
-idle while its own background work runs; idle, `○ idle`, which herdr's own icon does not spell
+it sorts last) — or, working, its topic, after `◐ 2 agents running` (or tasks, or both)
+when herdr calls the pane idle while its own background work runs; idle, `○ idle`, which herdr's own icon does not spell
 out (`142K · ❓ waiting on you`, `163K · <topic>`, `212K · ○ idle`; a line saying the pane is
 lost has no gauge). Nothing of a question or report is excerpted under it. Under the main
 checkout's workspace, what is true of the whole repo: no **main session**, delivery

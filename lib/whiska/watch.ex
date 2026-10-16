@@ -66,7 +66,8 @@ defmodule Whiska.Watch do
   on nobody (ADR-0009). `status` is herdr's word for the pane, `done` read as
   `idle`. `topic` and `doing` are read only when nothing about a question or a
   pane already decides what the row says. `in_flight?` is an idle pane whose
-  last stop was passed over while its own background work runs (ADR-0052).
+  last stop was passed over while its own background work runs (ADR-0052), and
+  `running` how many agents and other tasks of it are out then.
   """
   @type row :: %{
           mouse_id: String.t(),
@@ -83,6 +84,7 @@ defmodule Whiska.Watch do
           status: String.t() | nil,
           stuck?: boolean(),
           in_flight?: boolean(),
+          running: %{agents: non_neg_integer(), tasks: non_neg_integer()} | nil,
           silent_for: non_neg_integer() | nil,
           topic: String.t() | nil,
           doing: String.t() | nil,
@@ -200,7 +202,9 @@ defmodule Whiska.Watch do
   a working mouse quiet for two minutes waits on,
   `Whiska.Watch.Transcript.waiting_on/1` unless a test pins it; `:passed_over`,
   whether an idle mouse with nothing to say had its last stop passed over,
-  `Whiska.Watch.Transcript.passed_over/1` unless a test pins it; `:held`, why the
+  `Whiska.Watch.Transcript.passed_over/1` unless a test pins it; `:running`, how
+  many agents and other tasks such a mouse has out,
+  `Whiska.Watch.Transcript.running/1` unless a test pins it; `:held`, why the
   gate is not delivering (ADR-0082); `:mode`, what the person set aside
   (`Whiska.Delivery.Mode.t/0`, nothing by default); `:picked_up`, when each
   branch the owl picked up was picked up, and `:stalls`, the API error each
@@ -216,7 +220,8 @@ defmodule Whiska.Watch do
     readers = %{
       activity: Keyword.get(opts, :activity, &Transcript.activity(&1.path)),
       waiting_on: Keyword.get(opts, :waiting_on, &Transcript.waiting_on(&1.path)),
-      passed_over: Keyword.get(opts, :passed_over, &Transcript.passed_over(&1.path))
+      passed_over: Keyword.get(opts, :passed_over, &Transcript.passed_over(&1.path)),
+      running: Keyword.get(opts, :running, &Transcript.running(&1.path))
     }
 
     picked_up = %{at: Keyword.get(opts, :picked_up, %{}), stalls: Keyword.get(opts, :stalls, %{})}
@@ -303,6 +308,7 @@ defmodule Whiska.Watch do
       status: status,
       stuck?: false,
       in_flight?: false,
+      running: nil,
       silent_for: nil,
       topic: nil,
       doing: nil,
@@ -318,7 +324,7 @@ defmodule Whiska.Watch do
 
     cond do
       reads_activity?(base) -> with_activity(base, pane, seen, waiting_on)
-      quiet?(base) -> after_stop(base, pane, seen, readers.passed_over.(mouse))
+      quiet?(base) -> after_stop(base, pane, seen, readers, mouse)
       true -> base
     end
   end
@@ -331,14 +337,23 @@ defmodule Whiska.Watch do
       row.pane == :one
   end
 
-  defp after_stop(row, _pane, _seen, nil), do: row
+  defp after_stop(row, pane, seen, readers, mouse) do
+    case readers.passed_over.(mouse) do
+      nil ->
+        row
 
-  defp after_stop(row, pane, %{action: action, silent_for: silent_for}, passed_over) do
+      :in_flight ->
+        passed_over(%{row | in_flight?: true, running: readers.running.(mouse)}, pane, seen)
+
+      :abandoned ->
+        passed_over(%{row | stuck?: true}, pane, seen)
+    end
+  end
+
+  defp passed_over(row, pane, %{action: action, silent_for: silent_for}) do
     %{
       row
-      | in_flight?: passed_over == :in_flight,
-        stuck?: passed_over == :abandoned,
-        silent_for: silent_for,
+      | silent_for: silent_for,
         topic: topic(pane),
         doing: doing(action)
     }

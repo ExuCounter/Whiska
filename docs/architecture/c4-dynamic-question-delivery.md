@@ -24,19 +24,19 @@ C4Dynamic
   Container_Boundary(owl, "Owl") {
     Component(doorstep, "Doorstep", "directory", "Uncollected entries")
     Component(collection, "Collection", "per house", "Reads and marks, never deletes")
-    Component(delivery, "Delivery", "per house, a queue", "A letter from another house first, then one question at a time, when idle; a done report never enters it, and is typed once nothing waits")
+    Component(delivery, "Delivery", "per house, a queue", "A letter from another house first, then one question at a time, when idle; a done report never enters it, and is typed once nothing waits, nor does a reply, typed next when its letter left it a place")
   }
 
   ContainerDb(db, "House database", "SQLite", "questions")
 
-  Rel(mousepane, jsonl, "End of a turn: the stop hook reads the tail. No marker and background work still out, and it writes nothing")
+  Rel(mousepane, jsonl, "End of a turn: the stop hook reads the tail. No marker and background work still out, and it writes nothing, unless the turn replies to the person's letter or answer while only work started before that line runs")
   Rel(mousepane, doorstep, "A marked stop with a subagent still out lands held, not waiting; the mouse's next stop settles it, or the owl releases it once none is out and the mouse is idle, or after half an hour")
   Rel(mousepane, doorstep, "Otherwise the turn is over: one entry lands, written by the owl over its hook socket, or by the escript when the owl does not answer")
   Rel(herdr, collection, "Reports that mouse done or idle, unless the owl that wrote the entry has already asked")
   Rel(collection, doorstep, "Collect what is there")
-  Rel(collection, db, "Record as a question, classified by its worktree-status marker; a done report is recorded closed")
+  Rel(collection, db, "Record as a question, classified by its worktree-status marker; a done report, or such a reply, is recorded closed")
   Rel(collection, person, "A done report: one hoot now, on the desktop, then a reminder every two hours while its branch has work to land")
-  Rel(delivery, db, "Release what nothing can answer; then, unless away, the oldest letter from another house, whatever is sent or in focus; otherwise, among what the person has not set aside (away, focus, hold), and only if the slot is free: a superseded question's heir, then a letter's reply, otherwise the oldest open question; with none open or sent, the oldest finished report not yet typed")
+  Rel(delivery, db, "Release what nothing can answer; then, unless away, the oldest letter from another house, whatever is sent or in focus; otherwise, among what the person has not set aside (away, focus, hold), and only if the slot is free: a superseded question's heir, then a letter's reply, otherwise the oldest open question; with none open or sent, the oldest finished report or reply not yet typed")
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
   Rel(delivery, mainpane, "Type one line only if idle, nothing half-typed and nothing sent; a letter's line needs no free slot, and a report's or a letter's holds nothing")
   Rel(delivery, person, "Hoot: one desktop notification, raised in the same breath as a question's line, never through herdr; a click jumps to the main session")

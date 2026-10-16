@@ -22,6 +22,9 @@ defmodule Whiska.Send do
   alias Whiska.Schema.Mouse
   alias Whiska.Storage
 
+  @lead "The person sent you a message. Read it in full, then act on it: "
+  @asked " If it does not answer the question you were waiting on, say so and ask it again."
+
   @doc """
   Send the words in `file` to the live mouse on `branch`, from `main_checkout`,
   whose house is open. Answers the line for the person, or why nothing went.
@@ -53,13 +56,16 @@ defmodule Whiska.Send do
   on a question of its own, which the letter retires.
   """
   @spec line(Path.t(), boolean()) :: String.t()
-  def line(copy, false),
-    do: "The person sent you a message. Read it in full, then act on it: #{copy}"
+  def line(copy, false), do: @lead <> copy
+  def line(copy, true), do: line(copy, false) <> @asked
 
-  def line(copy, true) do
-    line(copy, false) <>
-      " If it does not answer the question you were waiting on, say so and ask it again."
-  end
+  @doc """
+  Whether `text` is a line `line/2` types for a letter's copy, and nothing more:
+  the transcript reads the mouse's turn by it (ADR-0052).
+  """
+  @spec line?(String.t()) :: boolean()
+  def line?(@lead <> rest), do: rest |> String.replace_suffix(@asked, "") |> Letters.copy?()
+  def line?(_text), do: false
 
   defp live_mouse(branch) do
     case Enum.find(Storage.alive_mice(), &(&1.branch == branch)) do

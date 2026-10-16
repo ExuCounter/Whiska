@@ -15,7 +15,7 @@ defmodule Whiska.Schema.Question do
 
   # `open` waits in the queue; `sent` has been delivered and waits for its
   # answer (ADR-0008). `closed` is a `done` report, closed as it is collected
-  # (ADR-0009), or a question closed by hand. `settled` is one its mouse's branch landed on
+  # (ADR-0009), a reply (below), or a question closed by hand. `settled` is one its mouse's branch landed on
   # with nothing left alive to answer to: the merge was the answer (ADR-0064).
   # `orphaned` is a question nothing can act on any more and nothing answered
   # either — its mouse died (ADR-0026) or its worktree is gone (ADR-0036) with
@@ -59,6 +59,9 @@ defmodule Whiska.Schema.Question do
     # mouse's.
     field(:asked_by, :string)
     field(:typed_blind, :boolean, default: false)
+    # Left unmarked in reply to a letter or an answer while the mouse's own
+    # earlier work still ran: recorded closed, waiting on nobody (ADR-0052).
+    field(:reply, :boolean, default: false)
   end
 
   @doc "The statuses a question moves through."

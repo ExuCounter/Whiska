@@ -48,7 +48,8 @@ whole, and `whiska show` prints its summary under the link to it.
   `Delivered blind: herdr could not tell whether this session was idle.` when it was (ADR-0008). The status
   says where it stands: `✓ Ready to merge · N commits`, `✓ Merge request open`,
   `✓ Research done`, `Finished · nothing committed`, `Finished · branch unknown — <why>`,
-  `? Needs your decision`, `? Whiska asks`, `! Stopped without saying why`, then what
+  `? Needs your decision`, `? Whiska asks`, `! Stopped without saying why`,
+  `↩ Replied · its background work still running` (ADR-0052), then what
   applies of commits not pushed, files not committed, held, queued, why it waits, and its
   age once it is a day. A finished question's **branch line** is that status, read from
   git. `round diff` is what the branch changed since its merge request's last review

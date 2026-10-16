@@ -26,7 +26,7 @@ order they sort (which one a mouse is in is decided as the paragraph under the l
 3. `✖ stuck 6m` — blocked, or working with no subagent out and silent ten minutes, or idle with its last stop passed over and that work unreported past ADR-0052's half hour.
 4. `⏳ queued`.
 5. `↩ picked up 2m ago`.
-6. Working: the topic, else the last action, else `working`, in `whiska_topic`. An idle pane whose last stop was passed over while its own background work runs is working too, and says `◐ background` before its topic, since herdr's icon calls it idle.
+6. Working: the topic, else the last action, else `working`, in `whiska_topic`. An idle pane whose last stop was passed over, or was a reply (ADR-0052), while its own background work runs is working too, and says how much is out before its topic, `◐ 2 agents running`, `◐ 1 task running` or `◐ 2 agents, 1 task running`, since herdr's icon calls it idle.
 7. `✖ no pane`, `⚠ many panes`, `? herdr can't say`.
 8. Idle: `○ idle`.
 9. `🎯 waits: focus on <branch>`.
@@ -260,3 +260,5 @@ Changed on 2026-10-15: the review word and the open-thread count are two tokens 
 Changed on 2026-10-15: a changes request is no blocker word, and `whiska_open` counts only the threads on the person, `waiting` (grey) when every open thread waits on the reviewer.
 
 Changed on 2026-10-15: the review word is `auto-merge` while the forge will merge the request itself, and `merging` while it merges; a blocker wins over `auto-merge`.
+
+Changed on 2026-10-16: `◐ background` became the count of what is out, agents and other tasks apart.

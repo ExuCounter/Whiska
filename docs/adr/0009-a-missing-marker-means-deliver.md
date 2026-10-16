@@ -7,7 +7,12 @@ the mouse and to the person, not to the router.
 - **No marker → deliver.** The mouse stopped and did not say why; that is worth
   interrupting for. The question arrives like any other, carrying the whole final message,
   flagged as having arrived unmarked. The one exception is a turn that has not really
-  ended, because the mouse's own background work is still out (ADR-0052).
+  ended, because the mouse's own background work is still out (ADR-0052). And the
+  mouse's unmarked reply to a letter or an answer, while work it started before that
+  line still runs, is a **reply**: recorded closed and typed without holding a slot, like
+  `done`, under `↩ Replied · its background work still running`. Its reason is known,
+  the mouse answering the person beside its own running reviewers, and the person
+  reaches it again with a letter.
   A marked turn is held while a subagent of the mouse's is still out — a mouse cannot be
   finished, or ask a question, beside its own running reviewers — and is delivered when
   its mouse's turn is over with none out, or after half an hour; the mouse's next stop
@@ -96,7 +101,8 @@ same direction as this one.
 - **Deliver an unmarked stop as a non-blocking notice.** Rejected: a notice says something
   is wrong and leaves the person to find the mouse; a question gives a reply channel
   straight into its pane, which is what a mouse that stopped for an unstated reason needs.
-  It also keeps one code path rather than two delivery kinds.
+  It also keeps one code path rather than two delivery kinds. Taken up on 2026-10-16 for
+  a reply alone (above), whose reason is not unstated.
 - **Deliver `done` as a finished line that holds the slot.** The decision until
   2026-10-14. Rejected: a report that needs no answer took the one delivery slot ahead of
   real questions (ADR-0008). The line came back on 2026-10-15 without the slot. It
@@ -139,3 +145,7 @@ nothing (ADR-0008).
 
 Changed on 2026-10-15: the delivered line is `🐱` and the question's id in blank
 characters (ADR-0080, ADR-0089).
+
+Changed on 2026-10-16: the mouse's unmarked reply to a letter or an answer, with earlier
+work still out, is recorded closed and typed without holding a slot: next when its letter
+left it a place, else once nothing waits (ADR-0008, ADR-0052).
