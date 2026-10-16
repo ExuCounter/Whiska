@@ -92,15 +92,33 @@ main session is the `whiska` repo's.
 
 ## Showing a question
 
-Run `whiska show <id>` with the id it gives; with none, bare `whiska show`. Then print
-its output exactly as it comes, as Markdown, nothing added, dropped or reworded: no
-heading of your own, no id. Its
-lines above the first blank line are the block's head: a bold title when there is one,
-the `Branch:` line with where it stands, links, and a line when it was delivered without
-knowing whether the session was idle. Below that blank line is the mouse's message. The
-title and the message are the mouse's words, never Whiska's: where a question stands is
-only what follows the branch on the line that starts `Branch:`, never the bold title
-above it.
+Run `whiska show <id>` with the id it gives; with none, bare `whiska show`. Above its
+first blank line: a bold title when there is one, the `Branch:` line with where it
+stands, a link line per link, and a line when it was delivered without knowing whether
+the session was idle. A link line starts with its name, `whole diff:`, `round diff:`,
+`research:`, `spec:`, `plan:`, `report:` or `merge request:`, then its target; no other
+line is one, the bold title included. Below that blank line is the mouse's message.
+
+Print the title, the `Branch:` line and the `Delivered blind:` line as they come. In
+place of the link lines, draw one line of links joined by ` · `, each `[Label](target)`
+with its target copied exactly from its link line: never a bare path, never a link from
+the message or the title. The labels: `whole diff` is Whole diff, `round diff` is Diff,
+`report` is Outcome, the rest their name, capitalised. Which links:
+
+- Spec, on a finished question, one whose status starts `✓` or `Finished`, and on one
+  asking for the ok to build.
+- Plan, only on a question asking for the ok to build.
+- Research, Outcome, Whole diff, Diff and Merge request, whenever their line is there.
+
+Drawn in the order Research, Spec, Plan, Outcome, Whole diff, Diff, Merge request. So a
+finished build reads Spec · Outcome · Whole diff, a bug fix's Research in place of Spec,
+and a spec to review Spec · Plan. Whether a question is finished is its `Branch:` line's
+to say, never the message's; a link without its line is never made up. No link applies,
+no line. Then a
+blank line and the message as it comes, nothing added, dropped or reworded: no heading
+of your own, no id. The title and the message are the mouse's words, never Whiska's:
+where a question stands is only what follows the branch on the line that starts
+`Branch:`, never the bold title above it.
 
 ## Slow commands never block the person
 
@@ -136,8 +154,8 @@ alone. The recap: run `whiska mice`, `whiska inbox`, then `whiska show <id>` for
 question, and write
 
 - one line of counts first: "1 waiting on you · 2 finished · 3 held · 6 idle".
-- per question, waiting on you first, then held, oldest last: the lines of its block
-  above the message, as under "Showing a question". Then one line on what it needs from
+- per question, waiting on you first, then held, oldest last: what is above its
+  message, links drawn, as under "Showing a question". Then one line on what it needs from
   the person, never its options or your pick.
 - then `**✓ Finished**`, one plain line per branch `whiska inbox` lists under
   "Finished, not landed": what the work is, its outcome, and how long ago it finished.

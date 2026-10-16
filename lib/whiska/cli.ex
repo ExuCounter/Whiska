@@ -120,8 +120,9 @@ defmodule Whiska.CLI do
                          what is still on the doorstep. With an id, that
                          question in full; with --full, every open one in
                          full, oldest first, so there is no id to type: its
-                         title, branch and where it stands, links, then the
-                         message; a report's message is only its Summary.
+                         title, branch and where it stands, a line per link,
+                         then the message; a report's message is only its
+                         Summary.
 
     waiting [--json]     What is waiting on you anywhere on this machine: one
                          line per question, across every house the owl has
@@ -183,8 +184,9 @@ defmodule Whiska.CLI do
                          behind #<id>) and a first line when you are away.
                          `--all`, or outside any repo, lists every repo.
     show [<id>]          The question delivered to you, or any one by id: its
-                         title, branch and where it stands, links, then the
-                         message; a report's message is only its Summary.
+                         title, branch and where it stands, a line per link,
+                         then the message; a report's message is only its
+                         Summary.
                          Queued ones wait their turn: `inbox` lists them.
     reply <id> <text>    Answer it; no quotes needed around the text.
     dismiss <id>         Close it without answering (`close`).
@@ -2180,7 +2182,7 @@ defmodule Whiska.CLI do
 
   defp documents(main, %Question{} = q, rounds) do
     mouse = mouse_of(q)
-    round_diff(main, mouse, rounds) ++ ahead_of_build(q, mouse) ++ report(main, mouse)
+    round_diff(main, mouse, rounds) ++ in_worktree(mouse) ++ report(main, q, mouse)
   end
 
   # What the branch changed since its last review round began, read from the
@@ -2202,15 +2204,9 @@ defmodule Whiska.CLI do
 
   defp round_diff(_main, _mouse, _rounds), do: []
 
-  # The spec and build plan are what the person is asked to review before the
-  # build, so only a question still open on them links them; a finished
-  # report's own link is the one to read.
-  defp ahead_of_build(%Question{kind: "done"}, _mouse), do: []
-  defp ahead_of_build(_question, mouse), do: in_worktree(mouse)
-
-  # The spec and build plan a mouse asks the person to review, linked where
-  # they stand in its worktree (ADR-0063), as file links that open wherever the
-  # person's `.md` files open (ADR-0085).
+  # The spec and build plan in the mouse's worktree, linked where they stand
+  # (ADR-0063), as file links that open wherever the person's `.md` files open
+  # (ADR-0085).
   defp in_worktree(%Mouse{path: path, branch: branch})
        when is_binary(path) and is_binary(branch) do
     for {label, name} <- [
@@ -2224,9 +2220,11 @@ defmodule Whiska.CLI do
   defp in_worktree(_mouse), do: []
 
   # Whiska's own copy, linked like the research document, so it opens after the
-  # worktree is gone (ADR-0089).
-  defp report(main, %Mouse{} = mouse) do
-    with file when is_binary(file) <- Whiska.SpecArchive.report(main, mouse),
+  # worktree is gone (ADR-0089). Only the question that is the report, or a
+  # finished one, hands it over: a later question is about something else.
+  defp report(main, %Question{} = q, %Mouse{} = mouse) do
+    with true <- q.kind == "done" or Whiska.Report.document?(q.text || ""),
+         file when is_binary(file) <- Whiska.SpecArchive.report(main, mouse),
          {file, title} <- Whiska.Research.document(file, nil) do
       [{"report", Review.file_link(file), title}]
     else
@@ -2234,7 +2232,7 @@ defmodule Whiska.CLI do
     end
   end
 
-  defp report(_main, _mouse), do: []
+  defp report(_main, _question, _mouse), do: []
 
   defp mouse_of(%Question{mouse: %Mouse{} = mouse}), do: mouse
   defp mouse_of(%Question{mouse: nil}), do: nil
@@ -2245,7 +2243,7 @@ defmodule Whiska.CLI do
   defp on_branch(main, %Question{} = q), do: held(main, mouse_of(q))
 
   # The diff file is written wherever the show runs: a main session whose
-  # shell sits in a mouse's worktree reads a finished branch too, and the
+  # shell sits in a mouse's worktree reads a mouse's branch too, and the
   # file is Whiska's own, ignored like the kept specs (ADR-0085).
   defp held(main, %Mouse{path: path, branch: branch, base: base} = mouse)
        when is_binary(path) and is_binary(branch) do
@@ -2266,7 +2264,7 @@ defmodule Whiska.CLI do
     end
   end
 
-  # The diff link is a `.diff` file, opened wherever the person's patch files
+  # The whole diff is a `.diff` file, opened wherever the person's patch files
   # open (ADR-0085). The show stands without it when git prints no diff or
   # the file cannot be written; a branch that changes nothing keeps no file.
   defp review(_main, _branch, _base, %{ahead: 0}), do: %{}

@@ -19,7 +19,7 @@ letter, or the person asks.
    lines of prose: who, and fixed, answered, disputed or needs you; the comment in plain
    words; the problem, with an example of why the change helps; what you decided and
    why; the change, inline when about 20 lines or fewer, else its key part, pointing
-   at the Round diff link Whiska prints: paste no link; and the reply in full, as its
+   at the Diff link Whiska hands over: paste no link; and the reply in full, as its
    file holds it. Then the commits, by short sha.
    A thread hard to fix or ambiguous, one you dispute, and a failed pipeline this branch
    did not cause go in that same question.

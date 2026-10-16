@@ -112,7 +112,7 @@ What this is not:
    queue. `away`, `focus` and `hold` decide what may reach you (ADR-0079). What is typed is
    `🐱` and the question's id in blank characters you do not read (ADR-0009). The main
    session's hook hands it the id, and its brief tells it to run `whiska show <id>`, print
-   what it prints as is, and stop (ADR-0089). You say what happens next: an answer, "land", "pr", "drop", or a
+   what it prints with its links drawn, and stop (ADR-0089). You say what happens next: an answer, "land", "pr", "drop", or a
    note for the mouse, and it runs the command for it.
 6. **You answer by id**: `whiska reply 12 "go with A"` (ADR-0005). The answer is saved,
    the question is answered and the delivery slot is free. Then a short 🔔 doorbell line is

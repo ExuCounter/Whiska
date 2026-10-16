@@ -16,5 +16,5 @@ session`, the lines `whiska ledger` prints, as printed. A question mid-turn has 
 - Each change, a few lines: the review comment in plain words, when there was one; the
   problem, with an example of why the change helps; what you decided and why; what you
   did; the change itself. A diff of about 20 lines or fewer goes inline in a `diff`
-  block; a bigger one gets a line on its key part and points at the Diff link, or the
-  Round diff link after a review round. Whiska links both: paste no link.
+  block; a bigger one gets a line on its key part and points at the Whole diff link, or
+  the Diff link after a review round. Whiska links both: paste no link.

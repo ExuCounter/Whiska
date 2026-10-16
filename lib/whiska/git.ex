@@ -606,7 +606,7 @@ defmodule Whiska.Git do
   end
 
   @doc """
-  What a finished branch holds: its own commits beyond the base, counted as
+  What a branch holds: its own commits beyond the base, counted as
   Land here lists them — merges from the base skipped — and the paths its
   worktree has not committed, untracked ones included, as git lists them. A
   commit in the fetched copy of the base is not beyond it: a merge request
@@ -644,7 +644,7 @@ defmodule Whiska.Git do
   end
 
   @doc """
-  What a finished branch would land, as `git diff <base>...<branch>` prints it:
+  What a branch would land, as `git diff <base>...<branch>` prints it:
   from where it left the base to its tip, the base read as `on_branch/4` reads
   it. No external diff program or text conversion runs, whatever git's config
   names, and no diff is started inside a submodule, where those flags would not

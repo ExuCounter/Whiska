@@ -88,7 +88,7 @@ to include it. Each fact once, no section repeating another, in
 **build plan**, never here.
 The mouse writes it after the last grilling round, or with no round when nothing costly
 was open, asks for the person's ok on it and its build plan as one question, and builds
-only on that ok. `whiska show` links both, `spec` and `plan` (the person opens the
+only on that ok. `whiska show` hands both over, `spec` and `plan` (the person opens the
 files, wherever their `.md` files open, such as annotate; the question holds no spec text
 and no link). What changes for users is never left out: anything hidden, dropped, skipped
 or turned from an error into silence included, or "Nothing." Every task gets one but a bug, which gets a
@@ -200,8 +200,8 @@ person, when only they can decide, sits on the line above the marker. A sniff mo
 report is its **research document**. It names how a message reads, never the record it
 becomes: once collected the same message is a **question**. A mouse's **brief** asks for
 it. Whiska keeps a build mouse's last one beside the kept **spec**, overwritten each
-round, and `whiska show` links it as `report` and prints only its summary
-(ADR-0089). `done` report is the older, narrower use of the word
+round, and `whiska show` hands it over as `report`, linked as Outcome, and prints only
+its summary (ADR-0089). `done` report is the older, narrower use of the word
 — a question whose marker said `done` — and both stay.
 _Avoid_: status, update, hand-off
 
@@ -237,27 +237,30 @@ that committed nothing, `Finished · nothing committed`, or `Finished · branch 
 then its files not committed; for a branch with a recorded **merge request**,
 `✓ Merge request open`, its commits no remote has yet, and its files not committed, with
 a `merge request` link. Whiska's record of the branch, never the mouse's word, and what
-the person reads before saying a **finish** (ADR-0074). `whiska show` prints the **question
-block** the person reads, and the main brief prints it as is (ADR-0089). Under the `Branch:`
-line, one line of short Markdown links, each there only when it has something to open:
-the **diff link**, `diff`, a link to the branch's diff,
-which `whiska show` writes to one file per branch in `.whiska/reviews/`, named for the
-branch with a hash of its name, as a plain `.diff` patch, so the person reviews it
+the person reads before saying a **finish** (ADR-0074). Under the `Branch:` line of the
+**question block**, one **link line** per link that has something to open, on any
+question: the **whole diff**, `whole diff`, drawn as Whole diff, a link to the branch's
+diff, which `whiska show` writes to one file per branch in `.whiska/reviews/`, named for
+the branch with a hash of its name, as a plain `.diff` patch, so the person reviews it
 from a link as they review a **spec**, in whatever their `.diff` files open in, and which
-goes when Whiska deletes the branch (ADR-0085); the **round diff**, `round diff`, what
-the branch changed since its merge request's last review round began, a second file
-beside it, on any question (ADR-0089); the **research document**, `research` (ADR-0074); the
-**spec** and **build plan**, `spec` and `plan`, links to the worktree's files,
-only on a question that is not finished, since they are what an "ok to build?" asks
-about (ADR-0063); and the **report**, `report` (ADR-0089).
+goes when Whiska deletes the branch (ADR-0085); the **round diff**, `round diff`, drawn
+as Diff, what the branch changed since its merge request's last review round began, a
+second file beside it (ADR-0089); the **research document**, `research` (ADR-0074); the
+**spec** and **build plan**, `spec` and `plan`, links to the worktree's files
+(ADR-0063); and the **report**, `report`, drawn as Outcome (ADR-0089).
 _Avoid_: model-and-branch line (the statusline's), branch status, status line
 
 **Question block**:
-What `whiska show` prints for one question, and what the main session prints as is when
-it is delivered: a bold title when the work has one, the `Branch:` line saying where it
-stands (for a finished question, its **branch line**), a line of short links, then the
-mouse's message. The title and the message are the mouse's words; where it stands is
-Whiska's alone, and no question id is in it (ADR-0089).
+What `whiska show` prints for one question, and what the main session shows when it is
+delivered: a bold title when the work has one, the `Branch:` line saying where it stands
+(for a finished question, its **branch line**), its **link lines**, `<name>: <target>`
+each, then the mouse's message. The main session prints the title and the `Branch:` line
+as they come and, in place of the link lines, draws one line of links: the diffs,
+research, **report** and merge request whenever handed over, the spec on a finished
+question, the spec and **build plan** on an "ok to build?". The report is handed over only
+on a finished question or the one that is the report. The title and the message are the
+mouse's words; where it stands and each link's target are Whiska's alone, and no question
+id is in it (ADR-0089).
 _Avoid_: heading, facts, card
 
 **Merge request**:

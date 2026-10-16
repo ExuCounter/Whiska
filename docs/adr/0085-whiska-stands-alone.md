@@ -54,18 +54,18 @@ absence is said plainly. The cases so far:
   and `feat-x` keep a file each and no mouse can search out a name that shares another
   branch's file), with its last review round's change beside it as `.round.diff`
   (ADR-0089),
-  ignored like the kept specs (ADR-0063), and prints a link to
-  it among its links (ADR-0089), as a spec goes to the person as a link. It writes the file
-  wherever it runs, a mouse's worktree included: the main session's shell can stand in a
-  worktree, and a read that wrote nothing from there dropped the link without a word. The
-  folder is Whiska's own and ignored, so a write from a mouse costs nothing. No diff
+  ignored like the kept specs (ADR-0063), and hands a link to it over among its links
+  (ADR-0089), as a spec goes to the person as a link. It writes the file wherever it runs,
+  a mouse's worktree included: the main session's shell can stand in a worktree, and a
+  read that wrote nothing from there dropped the link without a word. The folder is
+  Whiska's own and ignored, so a write from a mouse costs nothing. No diff
   program, text conversion or submodule diff that git's config names runs, and the write
   never follows a link. The file goes when Whiska deletes the branch, on `whiska drop` or
   on cleanup once the branch has landed. The file is a plain patch, so it opens wherever
   the person's `.diff` files open: a person who wants hunk, or any diff viewer of their
   own, points that file type at it in their terminal's open actions or their OS, as they
   point `.md` at their document reviewer. Whiska still names no viewer.
-- **The spec and build plan links are file links too.** `whiska show` prints them itself,
+- **The spec and build plan links are file links too.** `whiska show` hands them over
   among its links, for the spec and the build plan the mouse's worktree
   holds, as it does the diff's; the mouse pastes no link (ADR-0063). They open wherever
   the person's `.md` files open.
@@ -115,13 +115,13 @@ the person's side.
 ## Consequences
 
 - No mouse scouts before a build, and finishing has no tests axis.
-- Showing a finished question with commits writes its diff file, from wherever it runs,
+- Showing any question whose branch has commits writes its diff file, from wherever it runs,
   rewritten on each show, so the file is the branch as it stood when last shown. Whiska
   removes a branch's file when it deletes the branch; a branch deleted by hand, a removal
   that fails (a linked folder is refused), or a show still writing as the branch goes
   leaves its file, and with it any secret the branch once committed. A failed removal
   never fails the drop or the cleanup: the branch is gone either way. A branch whose
-  commits add up to no change shows no diff link and keeps no file, and neither does a
+  commits add up to no change hands over no whole diff and keeps no file, and neither does a
   diff git cannot print, such as one that needs a blob a partial clone left out: Whiska
   never fetches for a show.
 - A person who has pointed `.diff` at nothing reads the patch in whatever their OS opens

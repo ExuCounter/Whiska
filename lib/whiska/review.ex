@@ -1,6 +1,6 @@
 defmodule Whiska.Review do
   @moduledoc """
-  A finished branch's diff as a patch file in the main checkout, so the person
+  A branch's diff as a patch file in the main checkout, so the person
   opens it from a link, in whatever their terminal or OS opens a `.diff` file
   with, as a spec opens in whatever opens a `.md` (ADR-0085). Whiska names no
   viewer: the file type is where the person plugs theirs in.

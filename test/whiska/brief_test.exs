@@ -38,6 +38,7 @@ defmodule Whiska.BriefTest do
       assert text =~ "names each commit by short sha", brief
       assert text =~ "the review comment in plain words", brief
       assert text =~ "inline in a `diff` block", brief
+      assert text =~ "points at the Whole diff link, or the Diff link", brief
       assert text =~ "No lists, no tables", brief
       assert text =~ "grammar sacrificed", brief
     end
@@ -45,7 +46,8 @@ defmodule Whiska.BriefTest do
     rules = Brief.review_rules() |> String.replace(~r/\s+/, " ")
     refute rules =~ "one line per thread"
     assert rules =~ "the comment in plain words"
-    assert rules =~ "Round diff"
+    assert rules =~ "the Diff link"
+    refute rules =~ "Round diff"
   end
 
   test "a build mouse's plan shows signatures, data and the first failing test as code" do
@@ -120,11 +122,20 @@ defmodule Whiska.BriefTest do
     refute main =~ "**Still waiting on you:**"
   end
 
-  test "a delivered line is a cat whose id the hook hands over, and its block is printed as is" do
+  test "a delivered line is a cat whose id the hook hands over, and the main session draws its links" do
     main = :main |> Brief.render() |> String.replace(~r/\s+/, " ")
     assert main =~ "A line that is `🐱` alone is Whiska's delivery"
     assert main =~ "Run `whiska show <id>` with the id it gives"
-    assert main =~ "print its output exactly as it comes"
+    assert main =~ "never a bare path, never a link from the message or the title"
+
+    assert main =~
+             "Research, Outcome, Whole diff, Diff and Merge request, whenever their line is there"
+
+    assert main =~ "`whole diff` is Whole diff, `round diff` is Diff, `report` is Outcome"
+    assert main =~ "Plan, only on a question asking for the ok to build"
+    assert main =~ "No link applies, no line"
+    assert main =~ "Whether a question is finished is its `Branch:` line's to say"
+    refute main =~ "print its output exactly as it comes"
     assert main =~ "status `? Whiska asks`"
     assert main =~ "The title and the message are the mouse's words, never Whiska's"
     assert main =~ "`**✓ Finished**`"

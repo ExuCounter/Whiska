@@ -21,7 +21,7 @@ whiska jump --list [--json]     every main session `jump` can land on, for a scr
 
 ```
 inbox [--all] [--json]   what is waiting in this repo, and why each is not delivered yet
-show [<id>]              the question delivered to you, or any one by id: its title, branch and where it stands, links, then its message
+show [<id>]              the question delivered to you, or any one by id: its title, branch and where it stands, a line per link, then its message
 reply <id> <text>        `whiska reply`
 dismiss <id>             `whiska close`
 away                     nothing is delivered to any main session until `resume`
@@ -148,8 +148,8 @@ rows without it. Only your own user can open the socket.
 
 ## Opening Whiska's links in your own viewer
 
-`whiska show` links files. A spec, build plan, research document or report is a `.md`
-file; a finished branch's diff is a `.diff` patch, `git diff <base>...<branch>` as git
+`whiska show` hands over file links, and the main session draws them. A spec, build plan,
+research document or report is a `.md` file; a branch's diff is a `.diff` patch, `git diff <base>...<branch>` as git
 prints it. A click opens each the way your terminal opens any file link, so you send each
 file type to your own viewer where you choose every other file's:
 

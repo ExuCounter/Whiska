@@ -219,12 +219,14 @@ defmodule Whiska.Questions do
   end
 
   @doc """
-  One question in full, as the person reads it: a bold title when a document
-  names the work, the `Branch:` line saying where it stands, one line of
-  Markdown links, then the mouse's message — the marker token stripped
-  (`Marker.strip/1`) and no `answer:` trailer. The main session prints it as
-  is (ADR-0089), so no id is in it: the person names work by its title or
-  branch, and the main session already holds the id it ran this with.
+  One question in full: a bold title when a document names the work, the
+  `Branch:` line saying where it stands, one `<name>: <target>` line per link
+  that has something to open, then the mouse's message — the marker token
+  stripped (`Marker.strip/1`) and no `answer:` trailer. The main session
+  prints the title and the `Branch:` line as they come and draws the links
+  from the link lines (ADR-0089), so no id is in it: the
+  person names work by its title or branch, and the main session already
+  holds the id it ran this with.
 
   What `whiska show <id>` prints, and one block of `render_full/1`. `mouse` is
   the question's mouse, or nil when Whiska has no record of it.
@@ -253,7 +255,7 @@ defmodule Whiska.Questions do
         research \\ nil,
         documents \\ nil
       ) do
-    held = finished_branch(q, on_branch)
+    held = branch_of(q, on_branch)
     found = research_of(q, research)
     more = if is_function(documents, 1), do: documents.(q), else: []
 
@@ -267,11 +269,14 @@ defmodule Whiska.Questions do
     head =
       Enum.reject(
         [
-          bold(title(more, found)),
-          "Branch: #{branch_name(mouse, q)} · #{status(q, mouse, held, slot, mode, focus)}",
-          links != [] && Enum.map_join(links, " · ", &"[#{elem(&1, 0)}](#{elem(&1, 1)})"),
-          q.typed_blind && "Delivered blind: herdr could not tell whether this session was idle."
-        ],
+          bold(title(q, more, found)),
+          "Branch: #{branch_name(mouse, q)} · #{status(q, mouse, held, slot, mode, focus)}"
+        ] ++
+          Enum.map(links, &"#{elem(&1, 0)}: #{elem(&1, 1)}") ++
+          [
+            q.typed_blind &&
+              "Delivered blind: herdr could not tell whether this session was idle."
+          ],
         &(&1 in [nil, false])
       )
 
@@ -365,7 +370,13 @@ defmodule Whiska.Questions do
   end
 
   # The work is named by what the person would review: the spec, else the
-  # report, else the research, each by its own `# ` title.
+  # report, else the research, each by its own `# ` title. A finished one is
+  # named by its report, which says what is true now.
+  defp title(%Question{kind: "done"}, documents, found),
+    do: title(Enum.reject(documents, &(elem(&1, 0) in ["spec", "plan"])), found)
+
+  defp title(_question, documents, found), do: title(documents, found)
+
   defp title(documents, found) do
     Enum.find_value(documents ++ List.wrap(found), fn
       {_label, _link, title} when is_binary(title) -> title
@@ -405,7 +416,7 @@ defmodule Whiska.Questions do
 
   @typedoc """
   Reads what a question's branch holds, as `Whiska.Git.on_branch/3` answers,
-  with `:review` the diff link's target when there is one, and
+  with `:review` the whole diff's target when there is one, and
   `:merge_request` and `:not_pushed` when one was recorded as opened;
   `{:error, :no_record}` when Whiska has no worktree or branch for its mouse.
   """
@@ -422,17 +433,16 @@ defmodule Whiska.Questions do
 
   @named 3
 
-  # Only a finished question is offered a finish, so only it says what its
-  # branch holds.
-  defp finished_branch(%Question{kind: "done"} = q, on_branch) when is_function(on_branch, 1),
-    do: on_branch.(q)
-
-  defp finished_branch(_question, _on_branch), do: nil
+  # Any question hands over its branch's whole diff and merge request; only a
+  # finished one says on its Branch line what its branch holds, since only it
+  # is offered a finish.
+  defp branch_of(%Question{} = q, on_branch) when is_function(on_branch, 1), do: on_branch.(q)
+  defp branch_of(_question, _on_branch), do: nil
 
   defp merge_request_link({:ok, %{merge_request: url}}), do: {"merge request", printable(url)}
   defp merge_request_link(_held), do: nil
 
-  defp diff_link({:ok, %{review: link}}), do: {"diff", link}
+  defp diff_link({:ok, %{review: link}}), do: {"whole diff", link}
   defp diff_link(_held), do: nil
 
   defp research_of(q, research) when is_function(research, 1), do: research.(q)

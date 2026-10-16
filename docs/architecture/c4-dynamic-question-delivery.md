@@ -40,7 +40,7 @@ C4Dynamic
   Rel(delivery, herdr, "Is the prompt box empty? reads the main pane's screen")
   Rel(delivery, mainpane, "Type one line only if idle, nothing half-typed and nothing sent; a letter's line needs no free slot, and a report's or a letter's holds nothing")
   Rel(delivery, person, "Hoot: one desktop notification, raised in the same breath as a question's line, never through herdr; a click jumps to the main session")
-  Rel(mainpane, db, "Its UserPromptSubmit hook hands over the question id hidden in the line; the session runs whiska show with it, which reads the question and prints the block the person reads")
+  Rel(mainpane, db, "Its UserPromptSubmit hook hands over the question id hidden in the line; the session runs whiska show with it, which reads the question and prints its block, links one per line for the session to draw")
   Rel(person, db, "whiska reply, keyed to the question id, saves the answer first")
   Rel(person, mousepane, "Then rings its doorbell through herdr: one fixed line, never the answer")
   Rel(mousepane, db, "Its UserPromptSubmit hook reads the answer, hands it over as context, stamps it taken")
@@ -55,6 +55,6 @@ finishing steps, reading the change back, a fresh reviewer, a commit on its bran
 only then writes the marker (ADR-0049). Nothing sits in front of the stop hook, and
 nothing in Whiska knows whether those steps ran.
 
-After a delivered line, the main session runs `whiska show <id>` with the id its hook handed over, prints the block as is and stops;
+After a delivered line, the main session runs `whiska show <id>` with the id its hook handed over, prints the block with its links drawn, and stops;
 the person says what happens next, and the main session runs `whiska reply`, `land`, `pr`,
 `push`, `drop` or `send` for it (ADR-0088, ADR-0060).

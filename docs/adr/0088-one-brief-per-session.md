@@ -47,8 +47,8 @@ its brief, a few lines each. The cold review is a fresh reviewer the mouse brief
 from the diff, the spec or research document and the decisions as they stood at the
 base, never the build plan (ADR-0049).
 
-After a mouse's report the main session prints what `whiska show <id>` prints, as is,
-and stops (ADR-0089). The person
+After a mouse's report the main session prints what `whiska show <id>` prints, its
+links drawn, and stops (ADR-0089). The person
 says what happens next — "land", "pr", "drop", an answer, a note for the mouse — in their
 own words, and the main session runs the command that says. No lettered options are
 offered.

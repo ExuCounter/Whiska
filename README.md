@@ -7,9 +7,9 @@ session, which then shows you what it asks:
 ```
 **Pick the cache TTL**
 Branch: feat-delivery · ? Needs your decision
-[spec](file:///…) · [plan](file:///…)
+[Spec](file:///…) · [Plan](file:///…)
 
-3 questions ready, see above.
+Spec and build plan ready. Ok to build?
 ```
 
 ```bash
