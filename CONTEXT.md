@@ -206,10 +206,13 @@ its summary (ADR-0089). `done` report is the older, narrower use of the word
 _Avoid_: status, update, hand-off
 
 **Summary**:
-The `## Summary` section at the top of a **report** or **research document**: a short
-paragraph or three to five lines, written to be read alone. A message with one is a document, and Whiska keeps
-it; `whiska show` prints the summary, and the first line of a **proposal** when there is
-one, under the links, and the rest is behind them. A message with none — a question
+The `## Summary` section at the top of a **report** or **research document**, written to
+be read alone. A build or review report's reads like a pull request description: what
+changed and why, carried by a concrete before/after, a `Worth a look:` line only when
+something is surprising or left for the person, then what was run and what came back; a
+research document's is a short paragraph or three to five lines. A message with one is a
+document, and Whiska keeps it; `whiska show` prints the summary, and the first line of a
+**proposal** when there is one, under the links, and the rest is behind them. A message with none — a question
 mid-way, a mouse started before this — is printed whole (ADR-0089).
 _Avoid_: gist, abstract, TL;DR, pointer (one line standing for a message, beside its marker)
 

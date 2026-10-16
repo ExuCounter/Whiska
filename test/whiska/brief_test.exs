@@ -35,7 +35,12 @@ defmodule Whiska.BriefTest do
   test "a mouse that changed code reports each change in prose, with its commit and diff" do
     for brief <- ["build", "review"] do
       text = brief |> Brief.render() |> String.replace(~r/\s+/, " ")
-      assert text =~ "names each commit by short sha", brief
+      assert text =~ "Each change, a few lines: its commit by short sha", brief
+      assert text =~ "always carried by a concrete before/after", brief
+      assert text =~ "Then `Worth a look:`, only for", brief
+      assert text =~ "a finding or risk left unfixed", brief
+      assert text =~ "Last, what you ran and what came back", brief
+      refute text =~ "what happens without it", brief
       assert text =~ "the review comment in plain words", brief
       assert text =~ "inline in a `diff` block", brief
       assert text =~ "points at the Whole diff link, or the Diff link", brief

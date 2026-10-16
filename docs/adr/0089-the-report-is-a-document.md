@@ -14,8 +14,13 @@ whole, and `whiska show` prints its summary under the link to it.
 - **A build or review mouse's report** starts the same way: a `# ` title saying what is
   true now, then `## Summary`, then each change, then the rest the build brief lists
   (ADR-0049). It is terse prose, no lists and no tables, grammar sacrificed. The Summary
-  names each commit by short sha and says what it changed, why it was needed, what
-  happens without it, and any risk. Each change gives the review comment in plain words
+  reads like a pull request description: what changed and why, always carried by a
+  concrete before/after (after a review round, also what was pushed, posted and
+  resolved); a `Worth a look:` line only for a departure from what was agreed, a call
+  beyond the person's words, something left broken, a finding or risk left unfixed, or
+  something the person must do; then
+  what was run and what came back. A routine build's reads about three lines. Each change
+  names its commit by short sha and gives the review comment in plain words
   when there was one, the problem with an example, the decision and why, what was done,
   and the change: a diff of about 20 lines inline, a bigger one through the Whole diff or
   Diff link. One shared section of the build and review briefs, `report_rules.md`, says
@@ -130,3 +135,8 @@ the change. The whole-branch Diff buried a round's fix among the branch's other 
 Changed on 2026-10-16: `whiska show` hands the links over a line each, on any question, and
 the main session draws them, the diffs, research and merge request whenever handed over.
 A finished build links its spec beside its report, which no longer replaces it.
+
+Changed on 2026-10-16: the Summary is a pull request description, a before/after, a
+`Worth a look:` line only when something is surprising, and the proof; the commits moved
+to each change. Every detail is a click away behind the Outcome, and the before/after
+guards against the "I fixed it" that the per-commit Summary was written for.
