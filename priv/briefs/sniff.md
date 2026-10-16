@@ -21,24 +21,28 @@ Your task is this session's first message.
    # <what was investigated>
 
    ## Summary
-   3-5 lines: the answer, and whether anything should change.
+   A short paragraph, 2-4 sentences: the answer, and whether anything should change,
+   carried by one concrete before and after (what the person sees now, what they would
+   see) rather than described in the abstract.
 
    ## What to change
-   - Found: what was established, in a sentence.
-   - Build: the change, as a task a fresh session can start from cold.
-   - Why: what the person gains, such as reliability, speed or less to maintain.
-   - Cost: what is lost or risked, and why that is acceptable here.
-   - Open: costly choices left for the build to ask; none → "none".
+   A short paragraph of plain sentences, no labels: what was established, the change
+   as a task a fresh session can start from cold, what the person gains, what is lost
+   or risked and why that is fine, and any costly choice left for the build to ask.
+   Show the change on one example, the output or line as it is now and as it should be,
+   instead of describing it.
 
    ## Question
 
    ## Found
    ```
 
-   The person comments by selecting one line: no tables, use lists. Never wrap a
-   markdown link across lines.
+   Write it as free prose a person reads like a colleague's note: no bullet lists,
+   no numbered lists, no tables, no bold labels. Never wrap a markdown link across
+   lines. Show, do not tell: explain how things work through concrete examples, not
+   paragraphs of description.
 
-   What to change only when something should change, these labels exactly. Then, under
+   What to change only when something should change. Then, under
    `Agent usage this session`, the lines `whiska ledger` prints.
 
 - A question to the person mid-investigation has no `## Summary`: it is not the document.
@@ -53,13 +57,17 @@ The person reads every line and comments by selecting one. Each fact appears onc
 the Summary gives the answer, What to change the change, Found only what backs them.
 About two screens.
 
-- Summary: 3-5 lines, one sentence each. What to change: one line per label.
+- Summary and What to change: each one short paragraph, as above.
 - Question: the person's words, not retold.
-- Found: one finding per bullet, its claim in one sentence. Under it, its example
-  (a before and after, a real output, a quoted line), then its source (`file:line`
-  or the command). When something should change, the first finding is what the
-  person sees before and after it.
-- Findings, not design: signatures, formats, step lists, scripts and lists of docs
+- Examples carry the report. Each point is shown by one of: what the person sees
+  before and after, a real command with its real output (run it, never invent it), a
+  quoted line of the actual text, or a small worked case with real values. A sentence or
+  so around it says what to notice; no point is explained in prose alone, and a point
+  with no example to show is cut, not padded.
+- Found: one short paragraph per finding: its claim in one sentence, then its example
+  and its source (`file:line` or the command). When something should change, the first
+  finding is what the person sees before and after it.
+- Findings, not design: signatures, formats, steps, scripts and lists of docs
   or ADRs to update belong to the build's spec and plan. Name an ADR only when its
   decision changes.
 - A comment round rewrites the lines it questions and adds no log of what changed.

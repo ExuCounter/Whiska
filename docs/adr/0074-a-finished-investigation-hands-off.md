@@ -20,16 +20,17 @@ rules in `priv/models.json` price lowest. One mode per mouse removes the flip.
 
 ## The rule
 
-- **The proposal.** The section is the heading `## What to change` and five lines: Found,
-  Build, Why, Cost and Open. The sniff brief carries it, and the build brief reads it
+- **The proposal.** The section is the heading `## What to change` and one short paragraph
+  of plain sentences, no labels: what was found, the change, its gain, its cost and any
+  costly choice left open. The sniff brief carries it, and the build brief reads it
   (ADR-0088).
 - **The person asks for the build.** The main session shows the report with `whiska show`
   and stops. "Build it" is the person's to say, in their words; nothing is offered.
 - **The spawn is fixed text.** `whiska spawn build <branch> --from <id>` types the new
   mouse's task as a fixed line naming the question: in the research document
-  `whiska show <id>` links, its Build line is the task, Found is fact, Open is what to
-  grill. The main session picks the branch, mode, model and effort, judged
-  against the Build line by the ordered rules (ADR-0069), and passes each as an argument.
+  `whiska show <id>` links, its change is the task, what was found is fact, a costly choice left
+  open is what to grill. The main session picks the branch, mode, model and effort, judged
+  against the change by the ordered rules (ADR-0069), and passes each as an argument.
 - **`whiska mode build|sniff` gives no mode.** A mode is the deny list Claude starts
   with (ADR-0090), so a mouse nobody shaped is shaped by
   `whiska shape` in its worktree and restarted. On a mouse that has a shape it refuses,
@@ -147,3 +148,7 @@ comments travel as a file because a mouse wrote what they quote (ADR-0088, ADR-0
 
 Changed on 2026-10-14: the investigation's worktree goes once its build lands, rather
 than waiting for the person to drop it (ADR-0061).
+
+Changed on 2026-10-16: the proposal is a short paragraph with no labels, not five labelled
+lines, and the sniff brief has the report explain by examples: a before and after, a real
+output, a quoted line.

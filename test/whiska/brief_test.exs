@@ -71,6 +71,16 @@ defmodule Whiska.BriefTest do
     refute sniff =~ "in full"
   end
 
+  test "a sniff mouse's report explains by examples, in prose with no labels" do
+    sniff = "sniff" |> Brief.render() |> String.replace(~r/\s+/, " ")
+    assert sniff =~ "Examples carry the report"
+    assert sniff =~ "a real command with its real output"
+    assert sniff =~ "no bullet lists, no numbered lists, no tables, no bold labels"
+    assert sniff =~ "one concrete before and after"
+    refute sniff =~ "- Build:"
+    refute sniff =~ "these labels exactly"
+  end
+
   test "a mouse's documents keep each link on one line and use lists, not tables" do
     for mode <- ["build", "sniff"] do
       text = mode |> Brief.render() |> String.replace(~r/\s+/, " ")

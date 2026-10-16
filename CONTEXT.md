@@ -206,8 +206,8 @@ round, and `whiska show` links it as `report` and prints only its summary
 _Avoid_: status, update, hand-off
 
 **Summary**:
-The `## Summary` section at the top of a **report** or **research document**: three to
-five lines, written to be read alone. A message with one is a document, and Whiska keeps
+The `## Summary` section at the top of a **report** or **research document**: a short
+paragraph or three to five lines, written to be read alone. A message with one is a document, and Whiska keeps
 it; `whiska show` prints the summary, and the first line of a **proposal** when there is
 one, under the links, and the rest is behind them. A message with none — a question
 mid-way, a mouse started before this — is printed whole (ADR-0089).
@@ -307,12 +307,13 @@ where a branch is pushed)
 
 **Proposal**:
 The section of a finished investigation's **research document** when it changed nothing
-and found something that should change: `## What to change`, then a Found, a Build, a Why,
-a Cost and an Open line. Content, never classification — the turn still ends on `done` — so it
+and found something that should change: `## What to change`, a short paragraph in plain
+sentences with no labels: what was found, the change, its gain, its cost, what is left open.
+Content, never classification — the turn still ends on `done` — so it
 travels inside the question's text, where the person reads it. When they say to build
 it, `whiska spawn build <branch> --from <id>` starts a fresh mouse shaped for that work
-rather than flipping the one shaped for the investigation (ADR-0074). Open lists the
-costly choices the investigation left; the build mouse takes Found as fact and grills Open
+rather than flipping the one shaped for the investigation (ADR-0074). What it leaves
+open is the costly choices; the build mouse takes what was found as fact and grills those
 and the design.
 _Avoid_: Proposed build (the block's older label), plan, recommendation, next steps,
 hand-off (a word **Report** already rejected)
